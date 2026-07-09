@@ -2279,10 +2279,9 @@ export function ExamplesPage() {
         example={editing}
         isPending={create.isPending || update.isPending}
         onSubmit={(input) => {
-          const mutation = editing
-            ? update.mutateAsync({ slug: editing.slug, input })
-            : create.mutateAsync(input)
-          mutation.then(() => setFormOpen(false)).catch(() => {})
+          const onSuccess = () => setFormOpen(false)
+          if (editing) update.mutate({ slug: editing.slug, input }, { onSuccess })
+          else create.mutate(input, { onSuccess })
         }}
       />
 
@@ -2290,16 +2289,14 @@ export function ExamplesPage() {
         example={deleting}
         onOpenChange={(open) => !open && setDeleting(null)}
         isPending={remove.isPending}
-        onConfirm={(slug) => {
-          remove.mutateAsync(slug).then(() => setDeleting(null)).catch(() => {})
-        }}
+        onConfirm={(slug) => remove.mutate(slug, { onSuccess: () => setDeleting(null) })}
       />
     </div>
   )
 }
 ```
 
-`.catch(() => {})` là cố ý: `onError` của mutation đã hiện toast rồi. Không nuốt ở đây thì `mutateAsync` reject và React log unhandled rejection.
+Dùng `mutate` với callback `onSuccess`, **không** dùng `mutateAsync`. `mutateAsync` trả về promise reject khi lỗi, buộc ta phải `.catch` — và một `.catch(() => {})` trần là chỗ lỗi đi vào để chết. Ở đây dialog chỉ đóng khi thành công; khi lỗi, `onError` của mutation đã hiện toast và dialog ở nguyên để người dùng sửa rồi thử lại.
 
 - [ ] **Step 9: Chạy, xác nhận XANH**
 
