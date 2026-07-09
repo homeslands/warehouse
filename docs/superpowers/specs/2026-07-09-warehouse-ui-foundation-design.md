@@ -63,7 +63,20 @@ Mọi quyết định dưới đây dựa trên các sự thật này, đã đ�
 | Types | `openapi-typescript` từ `/swagger.json` | |
 | Lint | ESLint 9 flat config + `typescript-eslint` v8 | Default của Vite react-ts hiện nay |
 | Format | Prettier chạy riêng + `eslint-config-prettier` | Lint lo tính đúng, Prettier lo hình thức |
+| Test | Vitest + Testing Library + MSW | Xem mục Chiến lược test |
 | Node | 24 | Khớp `.nvmrc` của api |
+
+### Chiến lược test
+
+Ba lớp có rủi ro thật, và test tập trung vào chúng:
+
+1. **`shared/api/http.ts`** — unwrap `result`, đổi `hasPrevios` → `hasPrevious`, map `size` ↔ `pageSize`. Đúng loại code sai thầm lặng: nút "trang trước" mờ sai thời điểm mà không ai nhận ra. Test bằng MSW.
+2. **`shared/auth/permissions.ts`** — `safeParseScope` phải sống sót với `"[]"`, `""`, `null`, `undefined`, và JSON hỏng. Năm nhánh, một hàm, test rẻ.
+3. **Interceptor 401** — xoá store và điều hướng. Test bằng MSW.
+
+Component test (Testing Library) phủ: guard `RequireRole` ẩn/hiện đúng, và màn hình `examples` ẩn nút write với `CUSTOMER`.
+
+Không test: layout tĩnh, component shadcn nguyên bản.
 
 ### Các phương án đã cân nhắc và loại
 
@@ -252,7 +265,7 @@ Phải quan sát được, không phải "code compile là xong":
 3. Bằng `root` → thấy nút Tạo/Sửa/Xoá; tạo được example mới; bảng tự refresh.
 4. Bằng tài khoản `CUSTOMER` (đăng ký qua `/auth/register`) → không thấy các nút đó; gọi API trực tiếp thì nhận 403 và UI hiện toast đọc từ `message`.
 5. Xoá token trong `localStorage` rồi gọi một API → 401 → tự về `/login`.
-6. `npm run lint` và `tsc --noEmit` sạch.
+6. `npm run lint`, `npm run typecheck`, `npm run test` đều sạch.
 
 ## Nợ backend đã ghi nhận
 
