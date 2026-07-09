@@ -23,5 +23,13 @@ export default tseslint.config(
       'react-refresh/only-export-components': ['warn', { allowConstantExport: true }],
     },
   },
+  {
+    files: ['**/*.test.ts', '**/*.test.tsx'],
+    rules: {
+      // Test data thường ép giá trị hằng số (`false && 'b'`) để mô phỏng
+      // biểu thức falsy có điều kiện — đó là chủ đích, không phải lỗi.
+      'no-constant-binary-expression': 'off',
+    },
+  },
   prettier,
 )
