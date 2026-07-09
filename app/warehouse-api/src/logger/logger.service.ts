@@ -14,7 +14,9 @@ export class LoggerService {
     @InjectMapper() private readonly mapper: Mapper,
   ) {}
 
-  async getAllLogs(query: GetLoggerRequestDto): Promise<AppPaginatedResponseDto<LoggerResponseDto>> {
+  async getAllLogs(
+    query: GetLoggerRequestDto,
+  ): Promise<AppPaginatedResponseDto<LoggerResponseDto>> {
     const [logs, total] = await this.loggerRepository.findAndCount({
       where: query.level ? { level: query.level } : {},
       order: { createdAt: 'DESC' },

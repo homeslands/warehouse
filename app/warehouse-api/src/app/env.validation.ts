@@ -63,21 +63,6 @@ export class EnvironmentVariables {
   MAIL_FROM: string;
 
   @IsNotEmpty()
-  ACB_CLIENT_ID: string;
-
-  @IsNotEmpty()
-  ACB_CLIENT_SECRET: string;
-
-  @IsNotEmpty()
-  ZALO_OA_API_KEY: string;
-
-  @IsNotEmpty()
-  ZALO_OA_SECRET_KEY: string;
-
-  @IsNotEmpty()
-  ZALO_OA_ID: string;
-
-  @IsNotEmpty()
   GOOGLE_MAP_API_URL: string;
 
   @IsNotEmpty()

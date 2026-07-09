@@ -22,7 +22,10 @@ export class LoggerScheduler {
       createdAt: LessThan(dateOfLastWeek),
     });
 
-    this.logger.log(`Deleted ${deleteResult.affected || 0} logs older than ${dateOfLastWeek}`, context);
+    this.logger.log(
+      `Deleted ${deleteResult.affected || 0} logs older than ${dateOfLastWeek}`,
+      context,
+    );
     return deleteResult.affected || 0;
   }
 }

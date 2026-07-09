@@ -3,6 +3,7 @@ import { AuthValidation, TAuthErrorCode } from 'src/auth/auth.validation';
 import { RoleValidation, TRoleErrorCode } from 'src/role/role.validation';
 import { ExampleValidation, TExampleErrorCode } from 'src/example/example.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
+import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
 
 export interface TErrorCodeValue {
   code: number;
@@ -18,11 +19,16 @@ export function createErrorCode(
   return { code, message, statusCode };
 }
 
-export const AppValidation: TAuthErrorCode & TRoleErrorCode & TExampleErrorCode & TDbErrorCode = {
+export const AppValidation: TAuthErrorCode &
+  TRoleErrorCode &
+  TExampleErrorCode &
+  TDbErrorCode &
+  TFileErrorCode = {
   ...AuthValidation,
   ...RoleValidation,
   ...ExampleValidation,
   ...DbValidation,
+  ...FileValidation,
 };
 
 // Guard chống trùng mã lỗi (code) giữa các module — throw lúc khởi động nếu trùng.

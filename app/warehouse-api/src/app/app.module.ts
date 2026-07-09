@@ -32,6 +32,7 @@ import { RoleModule } from 'src/role/role.module';
 import { ExampleModule } from 'src/example/example.module';
 import { DbModule } from 'src/db/db.module';
 import { HealthModule } from 'src/health/health.module';
+import { FileModule } from 'src/file/file.module';
 
 @Module({
   imports: [
@@ -64,6 +65,7 @@ import { HealthModule } from 'src/health/health.module';
     ExampleModule,
     DbModule,
     HealthModule,
+    FileModule,
   ],
   controllers: [AppController],
   providers: [
