@@ -257,7 +257,8 @@ describe('cn', () => {
   })
 
   it('bỏ class falsy', () => {
-    expect(cn('a', false && 'b', undefined, 'c')).toBe('a c')
+    const showB: boolean = false
+    expect(cn('a', showB && 'b', undefined, 'c')).toBe('a c')
   })
 
   it('class tailwind sau ghi đè class trước cùng nhóm', () => {
