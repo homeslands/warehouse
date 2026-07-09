@@ -33,6 +33,7 @@ import { ExampleModule } from 'src/example/example.module';
 import { DbModule } from 'src/db/db.module';
 import { HealthModule } from 'src/health/health.module';
 import { FileModule } from 'src/file/file.module';
+import { NotificationModule } from 'src/notification/notification.module';
 
 @Module({
   imports: [
@@ -66,6 +67,7 @@ import { FileModule } from 'src/file/file.module';
     DbModule,
     HealthModule,
     FileModule,
+    NotificationModule,
   ],
   controllers: [AppController],
   providers: [

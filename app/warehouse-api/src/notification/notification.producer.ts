@@ -1,0 +1,27 @@
+import { InjectQueue } from '@nestjs/bullmq';
+import { Injectable } from '@nestjs/common';
+import { Queue } from 'bullmq';
+import { QueueRegisterKey } from 'src/app/app.constants';
+import { CREATE_NOTIFICATION_JOB } from './notification.constants';
+import { CreateNotificationDto } from './notification.dto';
+
+@Injectable()
+export class NotificationProducer {
+  constructor(
+    @InjectQueue(QueueRegisterKey.NOTIFICATION)
+    private notificationQueue: Queue,
+  ) {}
+
+  async createNotification(data: CreateNotificationDto) {
+    await this.notificationQueue.add(CREATE_NOTIFICATION_JOB, data);
+  }
+
+  async bulkCreateNotification(data: CreateNotificationDto[]) {
+    await this.notificationQueue.addBulk(
+      data.map((item) => ({
+        name: CREATE_NOTIFICATION_JOB,
+        data: item,
+      })),
+    );
+  }
+}

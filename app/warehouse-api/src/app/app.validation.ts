@@ -4,6 +4,10 @@ import { RoleValidation, TRoleErrorCode } from 'src/role/role.validation';
 import { ExampleValidation, TExampleErrorCode } from 'src/example/example.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
+import {
+  NotificationValidation,
+  TNotificationErrorCode,
+} from 'src/notification/notification.validation';
 
 export interface TErrorCodeValue {
   code: number;
@@ -23,12 +27,14 @@ export const AppValidation: TAuthErrorCode &
   TRoleErrorCode &
   TExampleErrorCode &
   TDbErrorCode &
-  TFileErrorCode = {
+  TFileErrorCode &
+  TNotificationErrorCode = {
   ...AuthValidation,
   ...RoleValidation,
   ...ExampleValidation,
   ...DbValidation,
   ...FileValidation,
+  ...NotificationValidation,
 };
 
 // Guard chống trùng mã lỗi (code) giữa các module — throw lúc khởi động nếu trùng.
