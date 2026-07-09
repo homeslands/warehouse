@@ -364,9 +364,9 @@ git commit -m "test: dựng harness vitest + testing library + msw"
 
 **Interfaces:**
 - Consumes: Task 2 (vitest)
-- Produces: `env.apiBaseUrl: string`; `readEnv(raw: Record<string, unknown>): { apiBaseUrl: string }`
+- Produces: `getEnv(): { apiBaseUrl: string }`; `readEnv(raw: Record<string, unknown>): { apiBaseUrl: string }`
 
-Tách `readEnv` (hàm thuần, nhận input) khỏi `env` (giá trị đọc từ `import.meta.env`) để test được mà không phải giả lập `import.meta`.
+Tách `readEnv` (hàm thuần, nhận input) khỏi `getEnv()` (đọc từ `import.meta.env`, memoized, lazy) để test được mà không phải giả lập `import.meta`. Việc đọc `import.meta.env` bị trì hoãn tới lần gọi `getEnv()` đầu tiên thay vì đánh giá ngay lúc module được import — nếu không, import module này để lấy `readEnv` trong test cũng làm `VITE_API_BASE_URL` bị validate ngay lập tức, và thiếu biến này trên một máy không có `.env` (vd. CI) sẽ làm chết cả file test trước khi chạy assertion nào.
 
 - [ ] **Step 1: Viết test đỏ — `src/shared/config/env.test.ts`**
 
@@ -420,7 +420,12 @@ export function readEnv(raw: Record<string, unknown>): Env {
   return { apiBaseUrl: value.trim().replace(/\/+$/, '') }
 }
 
-export const env: Env = readEnv(import.meta.env as unknown as Record<string, unknown>)
+let cached: Env | null = null
+
+export function getEnv(): Env {
+  cached ??= readEnv(import.meta.env as unknown as Record<string, unknown>)
+  return cached
+}
 ```
 
 Ném lỗi nêu đích danh tên biến là cố ý: thiếu nó thì axios sẽ lặng lẽ gọi vào `undefined/auth/login` và lỗi hiện ra ở nơi cách xa nguyên nhân.
@@ -500,7 +505,7 @@ File sinh ra **được commit** một cách có chủ ý. Không hook `gen:api`
 - Create: `src/shared/api/http.ts`, `src/shared/api/http.test.ts`
 
 **Interfaces:**
-- Consumes: Task 3 (`env.apiBaseUrl`), Task 2 (`server` từ `@/test/msw`)
+- Consumes: Task 3 (`getEnv().apiBaseUrl`), Task 2 (`server` từ `@/test/msw`)
 - Produces:
   - `type ApiResponse<T> = { message: string; statusCode: number; timestamp: string; result: T }`
   - `type ApiError = { statusCode: number; code?: number; timestamp: string; path: string; method: string; message: string }`
@@ -743,7 +748,7 @@ Expected: FAIL — không resolve được `@/shared/api/http`.
 
 ```ts
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios'
-import { env } from '@/shared/config/env'
+import { getEnv } from '@/shared/config/env'
 import type { ApiError, ApiResponse, BackendPaginated, Paginated } from './types'
 
 let getAuthToken: () => string | null = () => null
@@ -757,7 +762,7 @@ export function setUnauthorizedHandler(fn: () => void): void {
   onUnauthorized = fn
 }
 
-export const http: AxiosInstance = axios.create({ baseURL: env.apiBaseUrl })
+export const http: AxiosInstance = axios.create({ baseURL: getEnv().apiBaseUrl })
 
 http.interceptors.request.use((config) => {
   const token = getAuthToken()
