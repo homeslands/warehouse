@@ -536,7 +536,15 @@ git commit -m "feat: dựng i18next hai ngôn ngữ, namespace theo domain, kho�
 
 Mã lấy trực tiếp từ các file `*.validation.ts` của `warehouse-api`. Không đoán.
 
+Kiểu `ErrorMessageKey` lấy từ chính file JSON, nên khai một khoá không tồn tại trong `errors.json`
+sẽ bị `tsc` bắt ngay tại đây — không phải đợi người dùng thấy chuỗi thô.
+
 ```ts
+import type viErrors from '@/shared/i18n/locales/vi/errors.json'
+
+/** Tên khoá hợp lệ trong namespace `errors`, suy ra từ chính bản dịch tiếng Việt. */
+export type ErrorMessageKey = keyof typeof viErrors
+
 /**
  * Map mã lỗi số của backend → tên khoá trong namespace i18n `errors`.
  *
@@ -544,7 +552,7 @@ Mã lấy trực tiếp từ các file `*.validation.ts` của `warehouse-api`. 
  * sao thủ công. Thêm mã mới ở backend mà quên khai ở đây thì `resolveApiErrorMessage` sẽ rơi về
  * `message` tiếng Anh của backend và ghi console.warn — hỏng có kiểm soát, không im lặng.
  */
-export const ERROR_CODE_KEYS: Record<number, string> = {
+export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100001: 'invalidCredentials',
   100002: 'userNotActive',
   100005: 'phonenumberDoesExist',
@@ -576,12 +584,16 @@ export const ERROR_CODE_KEYS: Record<number, string> = {
 
 - [ ] **Step 2: Viết test đỏ — `src/shared/lib/api-error-message.test.ts`**
 
+Test khẳng định **hàm tra đúng khoá**, không khẳng định nội dung bản dịch. So sánh với
+`i18n.t('errors:...')` chứ không với câu tiếng Việt nguyên văn — sửa câu chữ trong `errors.json`
+không được phép làm đỏ unit test. Logic đang test là phép ánh xạ `999901 → exampleNotFound`.
+
 ```ts
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@/shared/i18n'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 
-const apiError = (over: Partial<Record<string, unknown>> = {}) => ({
+const apiError = (over: Record<string, unknown> = {}) => ({
   statusCode: 422,
   timestamp: '',
   path: '/examples',
@@ -595,14 +607,20 @@ afterEach(() => {
 })
 
 describe('resolveApiErrorMessage', () => {
-  it('dịch mã lỗi đã biết sang tiếng Việt', () => {
-    expect(resolveApiErrorMessage(apiError({ code: 999901 }))).toBe('Không tìm thấy example')
+  it('ánh xạ mã 999901 sang khoá errors:exampleNotFound', () => {
+    expect(resolveApiErrorMessage(apiError({ code: 999901 }))).toBe(i18n.t('errors:exampleNotFound'))
   })
 
-  it('dịch mã lỗi đã biết sang tiếng Anh khi đổi ngôn ngữ', async () => {
+  it('bám theo ngôn ngữ đang chọn', async () => {
+    const vi_ = resolveApiErrorMessage(apiError({ code: 999901 }))
+
     await i18n.changeLanguage('en')
-    expect(resolveApiErrorMessage(apiError({ code: 999901 }))).toBe('Example not found')
+    const en_ = resolveApiErrorMessage(apiError({ code: 999901 }))
+    expect(en_).toBe(i18n.t('errors:exampleNotFound'))
     await i18n.changeLanguage('vi')
+
+    // Hai ngôn ngữ phải ra hai chuỗi khác nhau, nếu không phép dịch đã không xảy ra.
+    expect(en_).not.toBe(vi_)
   })
 
   it('mã lạ → dùng message của backend và cảnh báo', () => {
@@ -619,10 +637,8 @@ describe('resolveApiErrorMessage', () => {
     expect(warn).toHaveBeenCalledOnce()
   })
 
-  it('không phải ApiError (lỗi mạng) → thông báo mất kết nối', () => {
-    expect(resolveApiErrorMessage(new Error('Network Error'))).toBe(
-      'Không kết nối được máy chủ. Kiểm tra đường truyền rồi thử lại.',
-    )
+  it('không phải ApiError (lỗi mạng) → khoá errors:network', () => {
+    expect(resolveApiErrorMessage(new Error('Network Error'))).toBe(i18n.t('errors:network'))
   })
 })
 ```
@@ -658,9 +674,13 @@ export function resolveApiErrorMessage(error: unknown): string {
     return error.message || i18n.t('errors:unknown')
   }
 
-  return i18n.t(`errors:${key}` as never)
+  return i18n.t(`errors:${key}`)
 }
 ```
+
+**KHÔNG dùng `as never`.** Vì `ERROR_CODE_KEYS` có kiểu `Record<number, ErrorMessageKey>`, template
+literal `` `errors:${key}` `` suy ra thành union các khoá hợp lệ và `i18n.t` chấp nhận nó. Nếu `tsc`
+vẫn kêu, sửa **kiểu**, đừng ép kiểu — `as never` vô hiệu hoá đúng cái type-safety mà Task 2 vừa dựng.
 
 - [ ] **Step 5: Chạy test, xác nhận XANH**
 
@@ -912,19 +932,27 @@ git commit -m "feat: nút đổi theme và nút đổi ngôn ngữ"
 
 Schema là module thuần, không gọi được `t()`. Nó chứa **khoá**; component dịch lúc render.
 
+`react-hook-form` khai `errors.<field>.message` là `string | undefined`, nên `t()` không nhận trực
+tiếp. Cách đúng là khai một union khoá hẹp và ép về **nó**, chứ không ép về `never`.
+
 ```ts
 import { z } from 'zod'
 
 // KHÔNG dùng z.string().email(): backend đăng nhập bằng phonenumber.
 // KHÔNG ép định dạng số: tài khoản seed có phonenumber = "root".
 // Message là KHOÁ i18n, không phải câu hoàn chỉnh. LoginPage dịch qua t().
+export type LoginErrorKey = 'auth:phonenumberRequired' | 'auth:passwordRequired'
+
 export const loginSchema = z.object({
-  phonenumber: z.string().min(1, 'auth:phonenumberRequired'),
-  password: z.string().min(1, 'auth:passwordRequired'),
+  phonenumber: z.string().min(1, 'auth:phonenumberRequired' satisfies LoginErrorKey),
+  password: z.string().min(1, 'auth:passwordRequired' satisfies LoginErrorKey),
 })
 
 export type LoginInput = z.infer<typeof loginSchema>
 ```
+
+`satisfies LoginErrorKey` khiến gõ sai khoá bị bắt ngay tại schema. `LoginErrorKey` phải là khoá có
+thật trong `auth.json` — nếu đổi tên khoá mà quên sửa đây, `t()` ở LoginPage sẽ báo lỗi kiểu.
 
 - [ ] **Step 2: Chạy test schema, xác nhận vẫn XANH**
 
@@ -945,7 +973,7 @@ import { Input } from '@/components/ui/input'
 import { Label } from '@/components/ui/label'
 import { useAuthStore } from '@/shared/auth/auth.store'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
-import { loginSchema, type LoginInput } from './login.schema'
+import { loginSchema, type LoginErrorKey, type LoginInput } from './login.schema'
 import { useLogin } from './useLogin'
 
 export function LoginPage() {
@@ -978,7 +1006,7 @@ export function LoginPage() {
           <Input id="phonenumber" autoComplete="username" {...form.register('phonenumber')} />
           {form.formState.errors.phonenumber && (
             <p className="text-destructive text-sm">
-              {t(form.formState.errors.phonenumber.message as never)}
+              {t(form.formState.errors.phonenumber.message as LoginErrorKey)}
             </p>
           )}
         </div>
@@ -993,7 +1021,7 @@ export function LoginPage() {
           />
           {form.formState.errors.password && (
             <p className="text-destructive text-sm">
-              {t(form.formState.errors.password.message as never)}
+              {t(form.formState.errors.password.message as LoginErrorKey)}
             </p>
           )}
         </div>
@@ -1049,7 +1077,7 @@ export function AppShell() {
                 pathname === item.to && 'bg-muted font-medium',
               )}
             >
-              {t(item.labelKey as never)}
+              {t(item.labelKey)}
             </Link>
           ))}
         </nav>
@@ -1221,11 +1249,14 @@ export function useDeleteExample() {
 
 - [ ] **Step 3: Sửa `src/features/examples/ExampleFormDialog.tsx`**
 
-Schema nội tuyến chứa khoá, component dịch. Thay `import { z }` block và phần JSX:
+Schema nội tuyến chứa khoá, component dịch. Cùng cách khai kiểu như `login.schema.ts` — union khoá
+hẹp, **không** `as never`:
 
 ```tsx
+type ExampleErrorKey = 'examples:nameRequired'
+
 const schema = z.object({
-  name: z.string().min(1, 'examples:nameRequired'),
+  name: z.string().min(1, 'examples:nameRequired' satisfies ExampleErrorKey),
   description: z.string().optional(),
 })
 ```
@@ -1244,7 +1275,9 @@ Thay các chuỗi trong JSX:
 <Label htmlFor="name">{t('examples:columnName')}</Label>
 <Input id="name" {...form.register('name')} />
 {form.formState.errors.name && (
-  <p className="text-destructive text-sm">{t(form.formState.errors.name.message as never)}</p>
+  <p className="text-destructive text-sm">
+    {t(form.formState.errors.name.message as ExampleErrorKey)}
+  </p>
 )}
 ...
 <Label htmlFor="description">{t('examples:columnDescription')}</Label>
