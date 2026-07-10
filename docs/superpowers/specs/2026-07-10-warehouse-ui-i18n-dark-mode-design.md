@@ -2,6 +2,12 @@
 
 Ngày: 2026-07-10
 
+> **Đây là ảnh chụp một quyết định, không phải tài liệu sống.**
+> Phần "Quyết định và lý do" vẫn đúng — đó là lý do file này được giữ lại.
+> Phần "Ngoài phạm vi" mô tả thế giới **tại ngày viết**; một số mục trong đó nay đã làm xong
+> (`errorElement` và route 404, test key-parity vi/en). Muốn biết hiện trạng và nợ kỹ thuật đang treo,
+> đọc `CLAUDE.md` ở gốc repo.
+
 ## Vấn đề
 
 Toast của warehouse-ui đang lẫn hai ngôn ngữ. Thành công thì tiếng Việt hard-code

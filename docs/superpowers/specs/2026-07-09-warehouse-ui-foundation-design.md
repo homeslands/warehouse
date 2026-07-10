@@ -1,7 +1,12 @@
 # Thiết kế: Nền tảng warehouse-ui
 
 Ngày: 2026-07-09
-Trạng thái: đã duyệt, chờ lập kế hoạch triển khai
+Trạng thái: đã triển khai xong
+
+> **Đây là ảnh chụp một quyết định, không phải tài liệu sống.**
+> Phần "Quyết định và lý do" vẫn đúng — đó là lý do file này được giữ lại.
+> Phần "Ngoài phạm vi" và danh sách nợ mô tả thế giới **tại ngày viết**; một số mục nay đã làm xong.
+> Muốn biết hiện trạng và nợ kỹ thuật đang treo, đọc `CLAUDE.md` ở gốc repo.
 
 ## Bối cảnh
 

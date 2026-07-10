@@ -2,6 +2,12 @@
 
 Ngày: 2026-07-10
 
+> **Đây là ảnh chụp một quyết định, không phải tài liệu sống.**
+> Phần "Quyết định và lý do" vẫn đúng — đó là lý do file này được giữ lại. Đặc biệt mục
+> "Một lớp lưới, không phải hai": đọc nó trước khi định thêm `ErrorBoundary` bọc `Providers`.
+> Phần "Ngoài phạm vi" mô tả thế giới **tại ngày viết**. Muốn biết hiện trạng và nợ kỹ thuật đang treo,
+> đọc `CLAUDE.md` ở gốc repo.
+
 ## Vấn đề
 
 Một lỗi render bất kỳ trong cây React cho ra **màn hình trắng**: không thông báo, không log, không lối
