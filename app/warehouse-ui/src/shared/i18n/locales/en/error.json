@@ -1,0 +1,11 @@
+{
+  "title": "Something went wrong",
+  "description": "The application hit an unexpected error. Try reloading the page, or go back home.",
+  "reload": "Reload",
+  "goHome": "Go home",
+  "detailsHeading": "Technical details (development only)",
+  "notFoundTitle": "Page not found",
+  "notFoundDescription": "The address you opened does not exist.",
+  "forbiddenTitle": "Not allowed",
+  "forbiddenDescription": "You do not have permission to view this page."
+}

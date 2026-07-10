@@ -18,7 +18,7 @@ describe('syncHtmlLang', () => {
 })
 
 describe('vi/en key parity', () => {
-  const namespaces = ['common', 'auth', 'examples', 'errors'] as const
+  const namespaces = Object.keys(resources.vi) as (keyof typeof resources.vi)[]
 
   it.each(namespaces)('namespace "%s": khoá tiếng Anh khớp đầy đủ với khoá tiếng Việt', (ns) => {
     const viKeys = Object.keys(resources.vi[ns]).sort()

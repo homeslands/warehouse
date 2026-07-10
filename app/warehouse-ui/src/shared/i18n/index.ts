@@ -6,16 +6,18 @@ import viCommon from './locales/vi/common.json'
 import viAuth from './locales/vi/auth.json'
 import viExamples from './locales/vi/examples.json'
 import viErrors from './locales/vi/errors.json'
+import viError from './locales/vi/error.json'
 import enCommon from './locales/en/common.json'
 import enAuth from './locales/en/auth.json'
 import enExamples from './locales/en/examples.json'
 import enErrors from './locales/en/errors.json'
+import enError from './locales/en/error.json'
 
 export const defaultNS = 'common'
 
 export const resources = {
-  vi: { common: viCommon, auth: viAuth, examples: viExamples, errors: viErrors },
-  en: { common: enCommon, auth: enAuth, examples: enExamples, errors: enErrors },
+  vi: { common: viCommon, auth: viAuth, examples: viExamples, errors: viErrors, error: viError },
+  en: { common: enCommon, auth: enAuth, examples: enExamples, errors: enErrors, error: enError },
 } as const
 
 export const SUPPORTED_LANGUAGES = ['vi', 'en'] as const
@@ -27,7 +29,7 @@ void i18n
   .init({
     resources,
     defaultNS,
-    ns: ['common', 'auth', 'examples', 'errors'],
+    ns: ['common', 'auth', 'examples', 'errors', 'error'],
     fallbackLng: 'vi',
     supportedLngs: SUPPORTED_LANGUAGES,
     detection: {
