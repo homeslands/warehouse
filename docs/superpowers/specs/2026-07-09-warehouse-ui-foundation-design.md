@@ -58,7 +58,7 @@ Mọi quyết định dưới đây dựa trên các sự thật này, đã đ�
 | Server state | TanStack Query | |
 | Client state | Zustand | Chỉ giữ token + user; không cần Redux |
 | Form | React Hook Form + Zod | |
-| Router | React Router v6 (`createBrowserRouter`) | |
+| Router | React Router v7 (`createBrowserRouter`) | |
 | HTTP | Axios + interceptor | |
 | Types | `openapi-typescript` từ `/swagger.json` | |
 | Lint | ESLint 9 flat config + `typescript-eslint` v8 | Default của Vite react-ts hiện nay |

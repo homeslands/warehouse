@@ -6,7 +6,7 @@
 
 **Architecture:** SPA Vite + React + TypeScript, tổ chức theo feature. Server state qua TanStack Query, client state (token + user) qua Zustand. Một file `http.ts` bọc axios, cô lập toàn bộ điểm lệch của backend (envelope `{result}`, typo `hasPrevios`, bất đối xứng `size`/`pageSize`) để phần còn lại của codebase không bao giờ thấy chúng. Phân quyền hai lớp: `hasRole()` gác thật, `can()` dựng sẵn chờ backend.
 
-**Tech Stack:** Vite, React, TypeScript strict, Tailwind, shadcn/ui, TanStack Query, TanStack Table, Zustand, axios, React Router v6, React Hook Form, Zod, openapi-typescript, ESLint 9 flat config, Prettier, Vitest, Testing Library, MSW.
+**Tech Stack:** Vite, React, TypeScript strict, Tailwind, shadcn/ui, TanStack Query, TanStack Table, Zustand, axios, React Router v7, React Hook Form, Zod, openapi-typescript, ESLint 9 flat config, Prettier, Vitest, Testing Library, MSW.
 
 **Spec:** `docs/superpowers/specs/2026-07-09-warehouse-ui-foundation-design.md`
 
