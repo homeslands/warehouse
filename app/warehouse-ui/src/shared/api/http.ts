@@ -1,5 +1,6 @@
 import axios, { AxiosError, type AxiosInstance, type AxiosRequestConfig } from 'axios'
 import { getEnv } from '@/shared/config/env'
+import { LOGIN_PATH } from './routes'
 import type { ApiError, ApiResponse, BackendPaginated, Paginated } from './types'
 
 let getAuthToken: () => string | null = () => null
@@ -24,7 +25,7 @@ http.interceptors.request.use((config) => {
 // Đăng nhập sai mật khẩu cũng trả 401 (INVALID_CREDENTIALS, mã 100001). Nếu để handler
 // toàn cục xử lý, nó sẽ logout + reload cứng trang, và LoginPage không kịp render lỗi.
 function isLoginRequest(url: string | undefined): boolean {
-  return url === '/auth/login'
+  return url === LOGIN_PATH
 }
 
 http.interceptors.response.use(
