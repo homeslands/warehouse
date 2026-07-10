@@ -19,6 +19,8 @@ chưa hoạt động dù `src/index.css` đã có đủ bộ token `.dark`.
 - Gỡ toàn bộ chuỗi UI hard-code của hai màn hình hiện có (Login, Examples) và AppShell sang i18n.
 - Map 26 mã lỗi backend sang khoá i18n.
 - Mount `ThemeProvider`, thêm nút đổi theme và nút đổi ngôn ngữ.
+- Sửa bug 401-khi-đăng-nhập-sai làm reload cứng trang (xem mục cùng tên). Không phải i18n, nhưng
+  nếu không sửa thì thông báo lỗi đăng nhập đã dịch cũng không bao giờ hiện ra.
 
 ## Ngoài phạm vi
 
@@ -122,26 +124,49 @@ bản dịch là chuyện của ngôn ngữ.
 | 999902 | EXAMPLE_NAME_DOES_EXIST | Example name does exist |
 | 999903 | EXAMPLE_NAME_IS_REQUIRED | Example name is required |
 
-### `toastApiError(error)`
+### Bug chặn đường: 401 khi đăng nhập sai làm reload cứng trang
 
-Một helper trong `src/shared/lib/toast-error.ts`, thay cho `toast.error(error.message)` đang lặp
-ba lần trong `src/features/examples/hooks.ts`. Bốn nhánh, theo đúng thứ tự:
+Phát hiện khi đọc code để lập kế hoạch, **không** phải lỗi do đợt này gây ra.
 
-1. **`statusCode === 401`** → không làm gì. 401 đã được xử lý toàn cục ở `src/main.tsx`
-   (logout + chuyển `/login`). Nếu không chặn ở đây, người dùng vừa bị đá ra vừa ăn một toast thừa.
-2. **`isApiError(e)` và `e.code` có trong map** → `t('errors:<key>')`.
-3. **`isApiError(e)` nhưng mã lạ (hoặc `code` vắng mặt)** → hiện `e.message` của backend, kèm
+`INVALID_CREDENTIALS` (mã 100001) được khai với `HttpStatus.UNAUTHORIZED` trong
+`src/auth/auth.validation.ts`. Ở FE, `src/shared/api/http.ts:27` bắt **mọi** 401 rồi gọi
+`onUnauthorized()`, mà `src/main.tsx:11` cài handler đó thành `logout()` +
+`window.location.assign('/login')`.
+
+Hệ quả: người dùng gõ sai mật khẩu → backend trả 401 → trang reload cứng → state React mất sạch →
+dòng `login.isError` ở `LoginPage.tsx:51` **không bao giờ được render**. Người dùng thấy một form
+trắng và không biết vì sao.
+
+Dịch một câu lỗi không bao giờ hiển thị là vô nghĩa, nên đợt này phải sửa: handler 401 toàn cục chỉ
+áp dụng cho request **không phải** đăng nhập. Sửa tại `http.ts`, kiểm tra `error.config?.url`.
+
+### `resolveApiErrorMessage(error)` và `toastApiError(error)`
+
+Tách làm hai, vì lỗi cần hiển thị ở **hai nơi**, không chỉ toast:
+
+- `LoginPage.tsx:51` và `ExamplesPage.tsx:72` hiện lỗi **inline** trong trang.
+- `hooks.ts` hiện lỗi bằng **toast**.
+
+`resolveApiErrorMessage(error: unknown): string` — hàm thuần, trong
+`src/shared/lib/api-error-message.ts`. Ba nhánh:
+
+1. **`isApiError(e)` và `e.code` có trong map** → `t('errors:<key>')`.
+2. **`isApiError(e)` nhưng mã lạ (hoặc `code` vắng mặt)** → trả `e.message` của backend, kèm
    `console.warn` báo thiếu khoá.
 
    Cố ý *không* nuốt thành "Đã có lỗi xảy ra" như project cũ: đây là công cụ nội bộ, một câu tiếng
    Anh cụ thể hữu ích hơn một câu tiếng Việt vô nghĩa. `console.warn` là thứ nhắc lập trình viên bổ
    sung khoá còn thiếu.
-4. **Không phải `ApiError`** (mất mạng, backend chết — `http.ts` reject nguyên `AxiosError` khi
+3. **Không phải `ApiError`** (mất mạng, backend chết — `http.ts` reject nguyên `AxiosError` khi
    không có `response`) → `t('errors:network')`.
 
-Nhánh 4 vá đúng quirk mà order-ui bỏ ngỏ: lỗi network không có toast nào.
+Nhánh 3 vá đúng quirk mà order-ui bỏ ngỏ: lỗi network không có toast nào.
 
-`toastApiError` không phải hook. Đặt tên `show*`/`toast*`, **không** đặt `use*` — order-ui có
+`toastApiError(error: unknown): void` — trong `src/shared/lib/toast-error.ts`. Nếu
+`isApiError(e) && e.statusCode === 401` thì **không làm gì**: 401 (ngoài login) đã dẫn tới logout +
+chuyển trang, một toast nữa chỉ là nhiễu. Ngược lại `toast.error(resolveApiErrorMessage(e))`.
+
+Cả hai **không phải hook**. Đặt tên `resolve*`/`toast*`, **không** đặt `use*` — order-ui có
 `useErrorToast` không chứa hook nào, gây hiểu nhầm và vi phạm `eslint-plugin-react-hooks`.
 
 Vì `t` nằm ngoài React ở đây, dùng `i18next.t` trực tiếp (instance đã init), không dùng `useTranslation`.
@@ -174,24 +199,32 @@ nên cả `LoginPage` lẫn `AppShell` đều nằm trong phạm vi provider.
 
 ### Bẫy: jsdom không có `matchMedia`
 
-`next-themes` với `enableSystem` gọi `window.matchMedia`. jsdom không cài đặt nó, nên **mọi test
-render qua `Providers` sẽ nổ**. Thêm mock vào `src/test/setup.ts`. Bẫy này chỉ lộ ra lúc chạy test.
+`next-themes` với `enableSystem` gọi `window.matchMedia`, mà jsdom không cài đặt nó.
 
-## Zod schema và test
+Hiện tại **không test nào render qua `Providers`** — `ExamplesPage.test.tsx` tự dựng
+`QueryClientProvider` + `MemoryRouter` riêng — nên chưa test nào nổ. Đây là bẫy *tiềm ẩn*, không
+phải lỗi đang có. Vẫn thêm mock vào `src/test/setup.ts`: nó rẻ, và test đầu tiên render `Providers`
+sẽ nổ với một thông báo khó hiểu nếu không có nó.
 
-`src/features/auth/login.schema.ts` hiện nhét thẳng câu tiếng Việt vào `.min(1, ...)`. Schema là
-module thuần, không có `t()`.
+## Zod schema
 
-Schema chứa **khoá** (`'auth:phonenumberRequired'`); `LoginPage` dịch lúc render qua
-`t(errors.phonenumber.message)`. Schema không cần biết ngôn ngữ tồn tại.
+Hai schema đang nhét thẳng câu tiếng Việt vào thông báo lỗi:
 
-Kéo theo hai thay đổi test:
+- `src/features/auth/login.schema.ts` — `.min(1, 'Vui lòng nhập số điện thoại')`
+- `src/features/examples/ExampleFormDialog.tsx:18` — schema nội tuyến, `.min(1, 'Vui lòng nhập tên')`
 
-- `src/features/auth/login.schema.test.ts` đang assert câu tiếng Việt → chuyển sang assert khoá.
-  Đúng đắn: test đó kiểm tra *schema*, không kiểm tra bản dịch.
-- `src/features/examples/ExamplesPage.test.tsx` query bằng chữ tiếng Việt (`/tạo example/i`,
-  `/trang trước/i`) → **giữ nguyên**. `src/test/setup.ts` init i18n với `lng: 'vi'`, nên chúng vẫn
-  xanh. Test nên khẳng định thứ người dùng thấy, không phải thứ lập trình viên gõ.
+Schema là module thuần, không có `t()`. Cách sạch: schema chứa **khoá**
+(`'auth:phonenumberRequired'`); component dịch lúc render qua `t(errors.phonenumber.message)`.
+Schema không cần biết ngôn ngữ tồn tại.
+
+## Test
+
+`src/features/auth/login.schema.test.ts` chỉ assert `.success` (boolean), **không** assert nội dung
+thông báo. Đổi message thành khoá không làm nó đỏ — không cần sửa file này.
+
+`src/features/examples/ExamplesPage.test.tsx` query bằng chữ tiếng Việt (`/tạo example/i`,
+`/trang trước/i`) → **giữ nguyên**. `src/test/setup.ts` init i18n với `lng: 'vi'`, nên chúng vẫn
+xanh. Test nên khẳng định thứ người dùng thấy, không phải thứ lập trình viên gõ.
 
 ## File
 
@@ -202,8 +235,9 @@ src/shared/i18n/index.ts
 src/shared/i18n/locales/vi/{common,auth,examples,errors}.json
 src/shared/i18n/locales/en/{common,auth,examples,errors}.json
 src/shared/api/error-codes.ts
+src/shared/lib/api-error-message.ts
+src/shared/lib/api-error-message.test.ts
 src/shared/lib/toast-error.ts
-src/shared/lib/toast-error.test.ts
 src/components/layout/ModeToggle.tsx
 src/components/layout/LanguageToggle.tsx
 ```
@@ -211,19 +245,24 @@ src/components/layout/LanguageToggle.tsx
 Sửa:
 
 ```
-src/main.tsx                              import '@/shared/i18n'
-src/app/providers.tsx                     ThemeProvider
-src/components/layout/AppShell.tsx        t() + hai nút toggle
-src/features/auth/LoginPage.tsx           t() + hai nút toggle
-src/features/auth/login.schema.ts         message → khoá
-src/features/auth/login.schema.test.ts    assert khoá
-src/features/auth/useLogin.ts             t()
-src/features/examples/*.tsx               t()
-src/features/examples/hooks.ts            toastApiError
-src/features/examples/columns.tsx         t()
-src/test/setup.ts                         init i18n (lng: 'vi') + mock matchMedia
-package.json                              3 dep mới
+src/shared/api/http.ts                       401 toàn cục bỏ qua request đăng nhập
+src/shared/api/http.test.ts                  test cho ngoại lệ 401 nói trên
+src/main.tsx                                 import '@/shared/i18n'
+src/app/providers.tsx                        ThemeProvider
+src/components/layout/AppShell.tsx           t() + hai nút toggle
+src/features/auth/LoginPage.tsx              t() + hai nút toggle + resolveApiErrorMessage
+src/features/auth/login.schema.ts            message → khoá
+src/features/examples/ExamplesPage.tsx       t() + resolveApiErrorMessage
+src/features/examples/ExampleFormDialog.tsx  t() + schema message → khoá
+src/features/examples/DeleteExampleDialog.tsx t()
+src/features/examples/columns.tsx            t()
+src/features/examples/hooks.ts               toastApiError
+src/test/setup.ts                            init i18n (lng: 'vi') + mock matchMedia
+package.json                                 3 dep mới
 ```
+
+`src/features/auth/useLogin.ts` **không** cần sửa: nó chỉ chứa comment tiếng Việt, không có chuỗi UI.
+`src/features/auth/login.schema.test.ts` cũng không, xem mục Test.
 
 Dependency mới: `i18next`, `react-i18next`, `i18next-browser-languagedetector`.
 
