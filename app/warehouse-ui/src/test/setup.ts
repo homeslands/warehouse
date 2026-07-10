@@ -9,12 +9,18 @@ import { server } from './msw'
 await i18n.changeLanguage('vi')
 
 // jsdom không cài đặt matchMedia. next-themes (enableSystem) gọi nó ngay khi mount.
+// next-themes 0.4.6 dùng API MediaQueryList cũ (addListener/removeListener) chứ không
+// phải addEventListener/removeEventListener chuẩn hiện đại. Trình duyệt thật vẫn giữ hai
+// alias đã deprecated này nên không lộ vấn đề ở đó — chỉ lộ trong jsdom, nơi mock này phải
+// tự khai báo đầy đủ cả hai bộ API.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
     addEventListener: () => {},
     removeEventListener: () => {},
     dispatchEvent: () => false,
