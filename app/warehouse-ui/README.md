@@ -1,32 +1,52 @@
-# React + TypeScript + Vite
+# warehouse-ui
 
-This template provides a minimal setup to get React working in Vite with HMR and some Oxlint rules.
+Frontend cho hệ thống quản lý kho. React 19 + Vite 8 + TypeScript.
 
-Currently, two official plugins are available:
+## Yêu cầu
 
-- [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
-- [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
+- Node 24 (`.nvmrc`). Node cũ hơn làm Vitest chết lúc khởi động.
+- `warehouse-api` chạy ở `http://localhost:8085`.
 
-## React Compiler
+## Chạy
 
-The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).
-
-## Expanding the Oxlint configuration
-
-If you are developing a production application, we recommend enabling type-aware lint rules by installing `oxlint-tsgolint` and editing `.oxlintrc.json`:
-
-```json
-{
-  "$schema": "./node_modules/oxlint/configuration_schema.json",
-  "plugins": ["react", "typescript", "oxc"],
-  "options": {
-    "typeAware": true
-  },
-  "rules": {
-    "react/rules-of-hooks": "error",
-    "react/only-export-components": ["warn", { "allowConstantExport": true }]
-  }
-}
+```bash
+nvm use
+npm install
+cp .env.example .env
+npm run dev
 ```
 
-See the [Oxlint rules documentation](https://oxc.rs/docs/guide/usage/linter/rules) for the full list of rules and categories.
+Mở http://localhost:5175
+
+## Lệnh
+
+| Lệnh | Việc |
+|---|---|
+| `npm run dev` | Dev server |
+| `npm test` | Vitest |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint |
+| `npm run build` | Build production |
+| `npm run gen:api` | Sinh type từ `swagger.json` (cần backend chạy) |
+
+## Kiến trúc
+
+- `src/app/` — router, providers
+- `src/features/` — màn hình theo nghiệp vụ
+- `src/shared/` — http, auth, i18n, config dùng chung
+- `src/components/ui/` — shadcn/ui
+
+## Đa ngôn ngữ
+
+Tiếng Việt (mặc định) và tiếng Anh. Bản dịch ở `src/shared/i18n/locales/<lng>/<namespace>.json`.
+Khoá được kiểm tra kiểu lúc biên dịch — gõ sai khoá thì `npm run typecheck` báo lỗi.
+
+Lỗi từ backend trả về mã số; `src/shared/api/error-codes.ts` ánh xạ mã đó sang khoá i18n.
+Thêm mã lỗi mới ở backend thì phải thêm vào file này, nếu không người dùng sẽ thấy
+câu tiếng Anh nguyên bản của backend (và một cảnh báo trong console).
+
+## Giao diện sáng/tối
+
+`next-themes`, điều khiển bằng class trên `<html>`. Token màu ở `src/index.css`.
+Dùng token (`bg-background`, `text-muted-foreground`, ...) thay vì màu cứng (`bg-slate-50`),
+nếu không dark mode sẽ chỉ đúng một nửa.
