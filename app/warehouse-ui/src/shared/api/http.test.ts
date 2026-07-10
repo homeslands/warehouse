@@ -5,6 +5,7 @@ import {
   getData,
   getPaginated,
   isApiError,
+  postData,
   setAuthTokenGetter,
   setUnauthorizedHandler,
 } from '@/shared/api/http'
@@ -163,5 +164,54 @@ describe('xử lý lỗi', () => {
 
     await expect(getData('/examples')).rejects.toBeDefined()
     expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+
+  it('KHÔNG gọi onUnauthorized khi 401 đến từ chính request đăng nhập', async () => {
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+
+    server.use(
+      mswHttp.post(`${BASE}/auth/login`, () =>
+        HttpResponse.json(
+          {
+            statusCode: 401,
+            code: 100001,
+            timestamp: '',
+            path: '/auth/login',
+            method: 'POST',
+            message: 'Invalid phone number or password',
+          },
+          { status: 401 },
+        ),
+      ),
+    )
+
+    await expect(postData('/auth/login', { phonenumber: 'x', password: 'y' })).rejects.toMatchObject({
+      code: 100001,
+    })
+    expect(onUnauthorized).not.toHaveBeenCalled()
+  })
+
+  it('VẪN gọi onUnauthorized khi 401 đến từ request thường', async () => {
+    const onUnauthorized = vi.fn()
+    setUnauthorizedHandler(onUnauthorized)
+
+    server.use(
+      mswHttp.get(`${BASE}/examples`, () =>
+        HttpResponse.json(
+          {
+            statusCode: 401,
+            timestamp: '',
+            path: '/examples',
+            method: 'GET',
+            message: 'Unauthorized',
+          },
+          { status: 401 },
+        ),
+      ),
+    )
+
+    await expect(getData('/examples')).rejects.toBeTruthy()
+    expect(onUnauthorized).toHaveBeenCalledTimes(1)
   })
 })

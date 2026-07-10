@@ -21,10 +21,16 @@ http.interceptors.request.use((config) => {
   return config
 })
 
+// Đăng nhập sai mật khẩu cũng trả 401 (INVALID_CREDENTIALS, mã 100001). Nếu để handler
+// toàn cục xử lý, nó sẽ logout + reload cứng trang, và LoginPage không kịp render lỗi.
+function isLoginRequest(url: string | undefined): boolean {
+  return url === '/auth/login'
+}
+
 http.interceptors.response.use(
   (response) => response,
   (error: AxiosError<ApiError>) => {
-    if (error.response?.status === 401) onUnauthorized()
+    if (error.response?.status === 401 && !isLoginRequest(error.config?.url)) onUnauthorized()
     if (error.response?.data) return Promise.reject(error.response.data)
     return Promise.reject(error)
   },
