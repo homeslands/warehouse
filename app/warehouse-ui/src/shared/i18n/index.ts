@@ -15,6 +15,10 @@ import enError from './locales/en/error.json'
 
 export const defaultNS = 'common'
 
+// Hai namespace `errors` và `error` chỉ khác nhau một chữ `s` — dễ gõ nhầm vì cả hai đều
+// typecheck được. Phân biệt rõ:
+// - `errors` (số nhiều) — bản dịch cho 26 mã lỗi backend, tra qua `src/shared/api/error-codes.ts`.
+// - `error` (số ít) — chuỗi của ba trang lỗi (ErrorPage / NotFoundPage / ForbiddenPage).
 export const resources = {
   vi: { common: viCommon, auth: viAuth, examples: viExamples, errors: viErrors, error: viError },
   en: { common: enCommon, auth: enAuth, examples: enExamples, errors: enErrors, error: enError },

@@ -20,6 +20,8 @@ describe('route catch-all', () => {
 
   it('route gốc mang errorElement, nên lỗi render không cho ra màn hình trắng', () => {
     expect(routes).toHaveLength(1)
-    expect(routes[0].errorElement).toBeDefined()
+    // toBeTruthy(), không phải toBeDefined(): `errorElement: null` vẫn "defined" nhưng khiến
+    // react-router để lỗi render nổ tung không bắt (màn hình trắng quay lại).
+    expect(routes[0].errorElement).toBeTruthy()
   })
 })
