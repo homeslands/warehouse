@@ -1,5 +1,6 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { useMemo, useState } from 'react'
+import { useTranslation } from 'react-i18next'
 import { Button } from '@/components/ui/button'
 import {
   Table,
@@ -11,8 +12,9 @@ import {
 } from '@/components/ui/table'
 import { useAuthStore } from '@/shared/auth/auth.store'
 import { hasRole } from '@/shared/auth/permissions'
+import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import type { Example } from './api'
-import { exampleColumns } from './columns'
+import { buildExampleColumns } from './columns'
 import { DeleteExampleDialog } from './DeleteExampleDialog'
 import { ExampleFormDialog } from './ExampleFormDialog'
 import { useCreateExample, useDeleteExample, useExamples, useUpdateExample } from './hooks'
@@ -21,6 +23,7 @@ const PAGE_SIZE = 10
 
 export function ExamplesPage() {
   const user = useAuthStore((s) => s.user)
+  const { t } = useTranslation(['examples', 'common'])
   // Gác bằng hasRole, KHÔNG bằng can(): backend chặn bằng @HasRoles(Admin, SuperAdmin),
   // và can() luôn trả false vì không authority nào được seed.
   const canWrite = hasRole(user, 'ADMIN', 'SUPER_ADMIN')
@@ -36,11 +39,12 @@ export function ExamplesPage() {
   const remove = useDeleteExample()
 
   const columns = useMemo<ColumnDef<Example>[]>(() => {
-    if (!canWrite) return exampleColumns
+    const base = buildExampleColumns(t)
+    if (!canWrite) return base
 
     const actionsColumn: ColumnDef<Example> = {
       id: 'actions',
-      header: 'Thao tác',
+      header: t('examples:actions'),
       cell: ({ row }) => (
         <div className="flex gap-2">
           <Button
@@ -51,17 +55,17 @@ export function ExamplesPage() {
               setFormOpen(true)
             }}
           >
-            Sửa
+            {t('examples:editAction')}
           </Button>
           <Button variant="destructive" size="sm" onClick={() => setDeleting(row.original)}>
-            Xoá
+            {t('examples:deleteAction')}
           </Button>
         </div>
       ),
     }
 
-    return [...exampleColumns, actionsColumn]
-  }, [canWrite])
+    return [...base, actionsColumn]
+  }, [canWrite, t])
 
   const table = useReactTable({
     data: data?.items ?? [],
@@ -69,12 +73,12 @@ export function ExamplesPage() {
     getCoreRowModel: getCoreRowModel(),
   })
 
-  if (isError) return <p className="text-red-600">{error.message}</p>
+  if (isError) return <p className="text-destructive">{resolveApiErrorMessage(error)}</p>
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
-        <h1 className="text-xl font-semibold">Examples</h1>
+        <h1 className="text-xl font-semibold">{t('examples:title')}</h1>
         {canWrite && (
           <Button
             onClick={() => {
@@ -82,7 +86,7 @@ export function ExamplesPage() {
               setFormOpen(true)
             }}
           >
-            Tạo example
+            {t('examples:create')}
           </Button>
         )}
       </div>
@@ -104,13 +108,13 @@ export function ExamplesPage() {
           <TableBody>
             {isPending && (
               <TableRow>
-                <TableCell colSpan={columns.length}>Đang tải...</TableCell>
+                <TableCell colSpan={columns.length}>{t('common:loading')}</TableCell>
               </TableRow>
             )}
 
             {!isPending && table.getRowModel().rows.length === 0 && (
               <TableRow>
-                <TableCell colSpan={columns.length}>Chưa có dữ liệu.</TableCell>
+                <TableCell colSpan={columns.length}>{t('examples:empty')}</TableCell>
               </TableRow>
             )}
 
@@ -128,8 +132,12 @@ export function ExamplesPage() {
       </div>
 
       <div className="flex items-center justify-end gap-2">
-        <span className="text-sm text-slate-500">
-          Trang {data?.page ?? page} / {data?.totalPages ?? 1} — {data?.total ?? 0} bản ghi
+        <span className="text-muted-foreground text-sm">
+          {t('examples:pageInfo', {
+            page: data?.page ?? page,
+            totalPages: data?.totalPages ?? 1,
+            total: data?.total ?? 0,
+          })}
         </span>
         <Button
           variant="outline"
@@ -137,7 +145,7 @@ export function ExamplesPage() {
           disabled={!data?.hasPrevious}
           onClick={() => setPage((p) => p - 1)}
         >
-          Trang trước
+          {t('examples:prevPage')}
         </Button>
         <Button
           variant="outline"
@@ -145,7 +153,7 @@ export function ExamplesPage() {
           disabled={!data?.hasNext}
           onClick={() => setPage((p) => p + 1)}
         >
-          Trang sau
+          {t('examples:nextPage')}
         </Button>
       </div>
 
