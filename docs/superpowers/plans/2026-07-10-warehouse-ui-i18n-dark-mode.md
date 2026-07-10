@@ -741,18 +741,30 @@ Thêm vào `src/test/setup.ts`, sau các import:
 
 ```ts
 // jsdom không cài đặt matchMedia. next-themes (enableSystem) gọi nó ngay khi mount.
+// next-themes 0.4.6 dùng API CŨ `addListener`/`removeListener` (trình duyệt thật vẫn giữ chúng
+// như alias deprecated), nên thiếu hai method này thì mock ném TypeError — đúng lúc nó cần hoạt động.
 Object.defineProperty(window, 'matchMedia', {
   writable: true,
   value: (query: string) => ({
     matches: false,
     media: query,
     onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
     addEventListener: () => {},
     removeEventListener: () => {},
     dispatchEvent: () => false,
   }),
 })
 ```
+
+Mock này vô dụng nếu không có gì render `Providers` để chứng minh nó hoạt động. Thêm
+`src/app/providers.test.tsx` render `<Providers><div>ok</div></Providers>` và khẳng định nó mount
+được — vừa chứng minh mock đúng, vừa là lưới an toàn cho cả tầng provider về sau.
+
+`SessionGate` gọi `useSession()`, hàm này bắn `GET /auth/me` khi localStorage có token, mà MSW cấu
+hình `onUnhandledRequest: 'error'`. Xoá localStorage trước khi render để `useSession` rẽ thẳng sang
+`unauthenticated`, không phát sinh HTTP nào.
 
 - [ ] **Step 2: Bọc `ThemeProvider` trong `src/app/providers.tsx`**
 
@@ -782,7 +794,7 @@ export function Providers({ children }: { children: ReactNode }) {
 - [ ] **Step 3: Chạy test**
 
 Run: `npm test`
-Expected: PASS, vẫn 50 test. Không test nào đỏ.
+Expected: PASS, 51 test (50 + providers.test.tsx). Không test nào đỏ.
 
 - [ ] **Step 4: Kiểm chứng thật bằng mắt**
 
