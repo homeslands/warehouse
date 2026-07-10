@@ -1,0 +1,11 @@
+{
+  "title": "Đã có lỗi xảy ra",
+  "description": "Ứng dụng gặp sự cố ngoài dự kiến. Thử tải lại trang, hoặc quay về trang chủ.",
+  "reload": "Tải lại",
+  "goHome": "Về trang chủ",
+  "detailsHeading": "Chi tiết kỹ thuật (chỉ hiện khi phát triển)",
+  "notFoundTitle": "Không tìm thấy trang",
+  "notFoundDescription": "Địa chỉ bạn vừa mở không tồn tại.",
+  "forbiddenTitle": "Không đủ quyền",
+  "forbiddenDescription": "Bạn không đủ quyền truy cập trang này."
+}

@@ -1,0 +1,35 @@
+import '@testing-library/jest-dom/vitest'
+import { afterAll, afterEach, beforeAll } from 'vitest'
+import { cleanup } from '@testing-library/react'
+import i18n from '@/shared/i18n'
+import { server } from './msw'
+
+// Test khẳng định thứ người dùng THẤY (chuỗi tiếng Việt), nên ghim ngôn ngữ.
+// Không có dòng này, LanguageDetector đọc navigator.language ('en-US' trong jsdom) và chọn 'en'.
+await i18n.changeLanguage('vi')
+
+// jsdom không cài đặt matchMedia. next-themes (enableSystem) gọi nó ngay khi mount.
+// next-themes 0.4.6 dùng API MediaQueryList cũ (addListener/removeListener) chứ không
+// phải addEventListener/removeEventListener chuẩn hiện đại. Trình duyệt thật vẫn giữ hai
+// alias đã deprecated này nên không lộ vấn đề ở đó — chỉ lộ trong jsdom, nơi mock này phải
+// tự khai báo đầy đủ cả hai bộ API.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addListener: () => {},
+    removeListener: () => {},
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+})
+
+beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
+afterEach(() => {
+  server.resetHandlers()
+  cleanup()
+})
+afterAll(() => server.close())
