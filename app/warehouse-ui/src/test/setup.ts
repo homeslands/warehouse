@@ -8,6 +8,19 @@ import { server } from './msw'
 // Không có dòng này, LanguageDetector đọc navigator.language ('en-US' trong jsdom) và chọn 'en'.
 await i18n.changeLanguage('vi')
 
+// jsdom không cài đặt matchMedia. next-themes (enableSystem) gọi nó ngay khi mount.
+Object.defineProperty(window, 'matchMedia', {
+  writable: true,
+  value: (query: string) => ({
+    matches: false,
+    media: query,
+    onchange: null,
+    addEventListener: () => {},
+    removeEventListener: () => {},
+    dispatchEvent: () => false,
+  }),
+})
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
   server.resetHandlers()

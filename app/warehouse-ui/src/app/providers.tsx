@@ -1,4 +1,5 @@
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
+import { ThemeProvider } from 'next-themes'
 import type { ReactNode } from 'react'
 import { Toaster } from '@/components/ui/sonner'
 import { isApiError } from '@/shared/api/http'
@@ -24,9 +25,11 @@ function SessionGate({ children }: { children: ReactNode }) {
 
 export function Providers({ children }: { children: ReactNode }) {
   return (
-    <QueryClientProvider client={queryClient}>
-      <SessionGate>{children}</SessionGate>
-      <Toaster richColors />
-    </QueryClientProvider>
+    <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
+      <QueryClientProvider client={queryClient}>
+        <SessionGate>{children}</SessionGate>
+        <Toaster richColors />
+      </QueryClientProvider>
+    </ThemeProvider>
   )
 }
