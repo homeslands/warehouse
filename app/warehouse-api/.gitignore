@@ -5,3 +5,4 @@ coverage/
 *.log
 public/uploads/
 public/backup/
+setup.md

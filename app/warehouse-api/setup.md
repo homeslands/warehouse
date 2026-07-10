@@ -2,13 +2,14 @@
 
 Tài liệu này liệt kê các bước setup ban đầu để bắt đầu phát triển **warehouse-api** (NestJS 10 + TypeORM/MySQL). Không đề cập tới UI, chỉ tập trung phần API.
 
-> Hiện tại `src/` mới có: `app/`, `auth/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `health/`, `logger/`, `migrations/`, `role/`, `shared/`, `user/`. Chưa có module nghiệp vụ warehouse thật nào (product/stock/inventory...) — tạo mới theo template `example/`.
+> Hiện tại `src/` mới có: `app/`, `auth/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (upload S3), `health/`, `logger/`, `migrations/`, `notification/` (kèm `firebase/` — FCM push), `role/`, `shared/`, `user/`. Chưa có module nghiệp vụ warehouse thật nào (product/stock/inventory...) — tạo mới theo template `example/`.
 
 ## Yêu cầu hệ thống (Prerequisites)
 
 - **Node.js**: `>=24` (khai báo trong `package.json#engines`, có `.nvmrc`).
 - **MySQL** 8.x (driver `mysql2`, kết nối qua `src/config/database.config.ts`).
-- **Redis**: `BullModule.forRootAsync` được đăng ký global trong `app.module.ts` (prefix `warehouse-bull`), nhưng **hiện chưa có module nghiệp vụ nào dùng BullMQ** — Redis không bắt buộc chạy để app start (kết nối lỗi chỉ log/retry, không throw), chỉ cần thiết khi có module thêm queue.
+- **Redis**: `BullModule.forRootAsync` được đăng ký global trong `app.module.ts` (prefix `warehouse-bull`). **Đã có consumer thật dùng BullMQ**: `NotificationModule` (`src/notification/`) đăng ký queue `notification` (`NotificationProducer`/`NotificationConsumer`, xử lý job `CREATE_NOTIFICATION_JOB`) — Redis vẫn không bắt buộc để app **khởi động** (kết nối lỗi chỉ log/retry, không throw), nhưng cần chạy thật nếu muốn test tính năng tạo/gửi notification qua queue.
+- **AWS S3**: `FileModule` (`src/file/`, `@Global()`) dùng `S3Service` (`src/file/s3/s3.service.ts`, SDK `@aws-sdk/client-s3`) để upload/xoá file — đọc `AWS_REGION`/`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_BUCKET` qua `ConfigService.get(...)`. Các biến này **không nằm trong `env.validation.ts`** (không throw lúc bootstrap nếu thiếu) nhưng cần giá trị thật (hoặc bucket test) để `POST /file/upload` hoạt động.
 - Package manager: `npm` (có `package-lock.json`).
 
 ## Cài đặt dependencies
@@ -29,13 +30,14 @@ Các biến bắt buộc (validate bởi class-validator trong `src/app/env.vali
 | Database (MySQL) | `DATABASE_HOST`, `DATABASE_PORT`, `DATABASE_USERNAME`, `DATABASE_PASSWORD`, `DATABASE_NAME` |
 | Auth/JWT | `SALT_ROUNDS` (10-12), `DURATION`, `REFRESHABLE_DURATION`, `SESSION_SECRET`, `JWT_SECRET` |
 | Mail (SMTP) | `MAIL_HOST`, `MAIL_USER`, `MAIL_PASSWORD`, `MAIL_FROM` |
-| Thanh toán ACB | `ACB_CLIENT_ID`, `ACB_CLIENT_SECRET` |
-| Zalo OA | `ZALO_OA_API_KEY`, `ZALO_OA_SECRET_KEY`, `ZALO_OA_ID` |
 | Google Maps | `GOOGLE_MAP_API_URL`, `GOOGLE_MAPS_API_KEY` |
-| Firebase Admin | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` |
+| Firebase Admin | `FIREBASE_PROJECT_ID`, `FIREBASE_CLIENT_EMAIL`, `FIREBASE_PRIVATE_KEY` — **đã dùng thật** bởi `FirebaseService` (`src/notification/firebase/firebase.service.ts`, push FCM), không còn là biến thừa |
 | `ALLOWED_ORIGINS` | Không nằm trong `env.validation.ts` nhưng bắt buộc — xem cảnh báo dưới |
+| AWS S3 (không validate, xem cảnh báo ở mục Redis/S3 phía trên) | `AWS_REGION`, `AWS_ACCESS_KEY_ID`, `AWS_SECRET_ACCESS_KEY`, `AWS_BUCKET` |
 
-> ⚠️ **Nợ kỹ thuật chưa dọn**: `env.validation.ts` vẫn bắt buộc `MAIL_*`, `ACB_CLIENT_ID/SECRET`, `ZALO_OA_*`, `GOOGLE_MAP_API_URL`, `GOOGLE_MAPS_API_KEY`, `FIREBASE_*` — nhưng warehouse-api **không có module nào dùng các biến này** (không có `mail/`, `acb-connector/`, `zalo-oa-connector/`, `google-map/`, `firebase` trong `src/`). App vẫn **crash lúc bootstrap** nếu thiếu, dù không có tính năng nào thật sự cần. Tạm thời phải điền giá trị dummy hợp lệ format cho các biến này để app start được (xem template bên dưới); khi dọn dẹp, nên xoá các field này khỏi `EnvironmentVariables` một khi chắc chắn không cần.
+> ⚠️ **Nợ kỹ thuật còn lại**: `env.validation.ts` vẫn bắt buộc `MAIL_*`, `GOOGLE_MAP_API_URL`, `GOOGLE_MAPS_API_KEY` — nhưng warehouse-api **không có module nào dùng các biến này** (không có `mail/`, `google-map/` trong `src/`). App vẫn **crash lúc bootstrap** nếu thiếu, dù không có tính năng nào thật sự cần. Tạm thời phải điền giá trị dummy hợp lệ format cho các biến này để app start được (xem template bên dưới); khi dọn dẹp, nên xoá các field này khỏi `EnvironmentVariables` một khi chắc chắn không cần.
+>
+> Đã dọn xong: `ACB_CLIENT_ID`/`ACB_CLIENT_SECRET`, `ZALO_OA_API_KEY`/`ZALO_OA_SECRET_KEY`/`ZALO_OA_ID` — không còn trong `env.validation.ts` (trước đây bắt buộc dù chưa dùng thật, nay đã bỏ hẳn).
 
 > Biến `ROOT_PHONENUMBER`/`ROOT_PASSWORD` không nằm trong `env.validation.ts` (có default `root`/`root` nếu không set) — dùng bởi `RootUserSeeder` (`src/auth/root-user.seeder.ts`), xem mục "Khởi tạo database" bên dưới.
 
@@ -76,28 +78,25 @@ MAIL_USER=<gmail-address>
 MAIL_PASSWORD=<gmail-app-password>
 MAIL_FROM=<gmail-address>
 
-# ACB payment sandbox — bắt buộc bởi env.validation.ts, KHÔNG có module acb-connector nào dùng thật
-ACB_CLIENT_ID=<acb-sandbox-client-id>
-ACB_CLIENT_SECRET=<acb-sandbox-client-secret>
-
-# Zalo OA — bắt buộc bởi env.validation.ts, KHÔNG có module zalo-oa-connector nào dùng thật
-ZALO_OA_API_KEY=<zalo-oa-api-key>
-ZALO_OA_SECRET_KEY=<zalo-oa-secret-key>
-ZALO_OA_ID=<zalo-oa-id>
-
 # Google Maps — bắt buộc bởi env.validation.ts, KHÔNG có module google-map nào dùng thật
 GOOGLE_MAP_API_URL=https://maps.googleapis.com/maps/api
 GOOGLE_MAPS_API_KEY=<google-maps-api-key>
 
-# Firebase Admin — bắt buộc bởi env.validation.ts, KHÔNG có module firebase nào dùng thật
+# Firebase Admin — bắt buộc bởi env.validation.ts, ĐÃ dùng thật (FirebaseService, push FCM qua notification module)
 FIREBASE_PROJECT_ID=<firebase-project-id>
 FIREBASE_CLIENT_EMAIL=<firebase-client-email>
 FIREBASE_PRIVATE_KEY="<firebase-private-key-with-\n-escaped>"
 
-# Redis (BullMQ — tuỳ chọn thật sự, chưa có module nào dùng trong phạm vi hiện tại)
+# Redis (BullMQ) — ĐÃ dùng thật bởi NotificationModule (queue notification), không bắt buộc để app start nhưng cần chạy để test tính năng notification
 REDIS_HOST=localhost
 REDIS_PORT=6379
 REDIS_PASSWORD=<redis-password>
+
+# AWS S3 (file upload) — không nằm trong env.validation.ts, cần giá trị thật/bucket test để POST /file/upload hoạt động
+AWS_REGION=ap-southeast-1
+AWS_ACCESS_KEY_ID=<aws-access-key-id>
+AWS_SECRET_ACCESS_KEY=<aws-secret-access-key>
+AWS_BUCKET=<aws-s3-bucket-name>
 
 # Proxy
 TRUST_PROXY_COUNT=1
@@ -119,6 +118,8 @@ Migration hiện có trong `src/migrations/` (chạy theo thứ tự timestamp):
 4. `create-example-table` — bảng của module mẫu `example/`.
 5. `seed-roles` — **tự insert sẵn 3 role** `CUSTOMER`/`ADMIN`/`SUPER_ADMIN` vào `role_tbl` — không cần seed role thủ công.
 6. `create-logger-table` — bảng log request (Winston `DatabaseTransport`).
+7. `create-notification-table` — bảng `notification` (module `notification/`).
+8. `create-firebase-device-token-table` — bảng device token FCM (`notification/firebase/`).
 
 3. Sau khi migrate xong, **khởi động app một lần** (`npm run dev`) — `RootUserSeeder` (`OnApplicationBootstrap`, đăng ký trong `AuthModule`) sẽ tự tạo 1 user với role `SUPER_ADMIN` nếu chưa tồn tại user có `phonenumber = ROOT_PHONENUMBER` (mặc định `root`/`root` nếu không set trong `.env`). Đây là cách để có tài khoản admin đầu tiên test `@HasRoles` mà không cần thao tác SQL thủ công.
 
@@ -163,16 +164,28 @@ npm run test:cov
 npm run test:e2e    # jest --config ./test/jest-e2e.json (*.e2e-spec.ts)
 ```
 
+## Claude Code scaffolding đã setup sẵn (root `.claude/` + `docs/`)
+
+Không phải bước cài môi trường, nhưng đã cấu hình sẵn để làm feature mới bằng Claude Code — quy trình đầy đủ xem `docs/WORKFLOW.md`, convention xem `../CLAUDE.md`. Ghi lại ở đây để biết các thành phần đã tồn tại:
+
+- **`.claude/settings.json`** (root repo): allowlist permission — các lệnh `npm run dev/start:debug/lint/format/test/test:watch/test:cov/build`, `npm run typeorm:g`/`typeorm:c`/`typeorm:r`, `git status/diff/log` chạy **không cần hỏi xác nhận**; riêng `npm run typeorm:rv` (revert) luôn hỏi trước. `plansDirectory` trỏ vào `app/warehouse-api/docs/plans` (nơi Claude lưu plan sau khi vào Plan mode).
+- **Hook auto-lint** (`.claude/hooks/lint-warehouse-api.js`, đăng ký `PostToolUse` cho `Write|Edit` trong `settings.json`): mỗi lần Claude sửa 1 file `.ts` trong `app/warehouse-api/src/`, hook tự chạy `eslint --fix` ngay trong turn đó — không cần đợi tới lúc verify cuối.
+- **Slash command `/new-feature <tên>`** (`.claude/commands/new-feature.md`): scaffold nhanh 1 module mới — copy `src/example/`, đổi tên theo convention, đăng ký `app.module.ts`/`app.validation.ts`, sinh + hỏi trước khi chạy migration.
+- **Skill `verify-feature`** (`app/warehouse-api/.claude/skills/verify-feature/SKILL.md`): chạy app thật, gọi thử route vừa code để xác nhận đúng `AppResponseDto`, đúng phân quyền, đúng quy tắc nghiệp vụ trong spec — dùng ở bước Verify cuối cùng của `WORKFLOW.md`, không chỉ dựa unit test.
+- **`docs/specs/`, `docs/plans/`** (trong `app/warehouse-api/`): nơi lưu spec (`_TEMPLATE.md` làm mẫu, `product.md` làm ví dụ điền) và plan tương ứng — cả hai commit được vào git để giữ lịch sử quyết định thiết kế.
+
 ## Ghi chú hạ tầng khác
 
 - Không có `Dockerfile`/`docker-compose.yml` trong dự án — MySQL, Redis phải cài/chạy thủ công (hoặc tự thiết lập container).
 - Không phải monorepo (không nx/turborepo/lerna/pnpm-workspace) — `warehouse-api` là app độc lập, sibling với `warehouse-ui` (hiện trống) trong `app/`.
 - `.ncurc.json` (`target: minor`): giới hạn gợi ý update dependency ở mức minor khi dùng `npm-check-updates`.
-- **BullMQ**: `BullModule.forRootAsync` (`app.module.ts`) kết nối Redis qua `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`, `retryStrategy` dừng thử lại sau 10 lần, tất cả queue dùng chung `prefix: 'warehouse-bull'`. Hiện **chưa có module nghiệp vụ nào enqueue job** — Redis không bắt buộc để app khởi động.
+- **BullMQ**: `BullModule.forRootAsync` (`app.module.ts`) kết nối Redis qua `REDIS_HOST`/`REDIS_PORT`/`REDIS_PASSWORD`, `retryStrategy` dừng thử lại sau 10 lần, tất cả queue dùng chung `prefix: 'warehouse-bull'`. `NotificationModule` (`src/notification/`) đăng ký queue `notification` (`NotificationProducer.createNotification()`/`bulkCreateNotification()` enqueue job `CREATE_NOTIFICATION_JOB`, `NotificationConsumer` xử lý qua `NotificationService.create()`) — Redis không bắt buộc để app khởi động nhưng cần chạy thật để test tạo notification qua queue.
+- **Notification & Firebase push** (`src/notification/`, `@Global()`): `GET /notification` (phân trang, `@Public()`), `PATCH /notification/:slug/read`, `POST /notification/firebase/register-device-token` (cần JWT, lưu token vào `FirebaseDeviceToken`), `DELETE /notification/firebase/unregister-device-token/:token`. `FirebaseService` (`src/notification/firebase/firebase.service.ts`) init `firebase-admin` từ `FIREBASE_*` lúc `onModuleInit`, gửi push qua `sendToAllPlatforms`/`sendToDevice` (hỗ trợ web/android/ios payload riêng).
+- **File upload** (`src/file/`, `@Global()`): `POST /file/upload` (`multipart/form-data`, field `file`, hiện `@Public()`) — `FileService` gọi `S3Service` (`src/file/s3/s3.service.ts`, SDK `@aws-sdk/client-s3`) upload lên bucket `AWS_BUCKET`, đặt tên key `<filename>-<timestamp>.<ext>`. Cần set đủ `AWS_REGION`/`AWS_ACCESS_KEY_ID`/`AWS_SECRET_ACCESS_KEY`/`AWS_BUCKET` (không validate ở bootstrap, chỉ lỗi khi thật sự gọi API).
 - **`nestjs-cls`**: `ClsModule.forRoot({ global: true, middleware: { mount: true } })` — context theo từng request, không cần setup thêm gì.
 - **Session** (`src/config/session.config.ts`): dùng `express-session` + `express-mysql-session` — **lưu session vào MySQL** (bảng `session_tbl`, tự tạo lúc app start nhờ `createDatabaseTable: true`, không qua migration TypeORM). Không có code Redis-session dự phòng. Cookie `maxAge` 1 ngày, `secure` bật khi `NODE_ENV=production`.
 - **Root user seeder**: `RootUserSeeder` (`src/auth/root-user.seeder.ts`, `OnApplicationBootstrap`) — tự tạo user `SUPER_ADMIN` đầu tiên từ `ROOT_PHONENUMBER`/`ROOT_PASSWORD` nếu chưa tồn tại. Chạy mỗi lần app bootstrap nhưng no-op nếu user đã tồn tại.
-- **Module chưa tồn tại nhưng được validate bắt buộc trong `.env`**: `mail/`, `acb-connector/`, `zalo-oa-connector/`, `google-map/`, Firebase Admin — xem cảnh báo ở mục "Cấu hình biến môi trường".
+- **Module chưa tồn tại nhưng được validate bắt buộc trong `.env`**: `mail/`, `google-map/` — xem cảnh báo ở mục "Cấu hình biến môi trường". (`ACB_*`/`ZALO_OA_*` đã dọn khỏi `env.validation.ts`; `FIREBASE_*` nay đã dùng thật, không còn trong nhóm này.)
 - **Health check**: `GET /health` (`src/health/`, dùng `@nestjs/terminus` + `@nestjs/axios`, `@Public()`, `@ApiExcludeController` nên không hiện trên Swagger) — dùng `HttpHealthIndicator.pingCheck(...)` gọi HTTP vào chính route `GET /api/${VERSION}/hello` của app (`http://localhost:${PORT}/api/${VERSION}/hello`), không ping DB trực tiếp. Cùng cách làm với `order-api`.
 
 ---

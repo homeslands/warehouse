@@ -1,0 +1,40 @@
+{
+  "permissions": {
+    "allow": [
+      "Bash(npm run dev)",
+      "Bash(npm run start:debug)",
+      "Bash(npm run lint)",
+      "Bash(npm run format)",
+      "Bash(npm run test)",
+      "Bash(npm run test:watch)",
+      "Bash(npm run test:cov)",
+      "Bash(npm run test:e2e)",
+      "Bash(npm run build)",
+      "Bash(npm run typeorm:g*)",
+      "Bash(npm run typeorm:c*)",
+      "Bash(npm run typeorm:r)",
+      "Bash(git status*)",
+      "Bash(git diff*)",
+      "Bash(git log*)"
+    ],
+    "ask": [
+      "Bash(npm run typeorm:rv)"
+    ]
+  },
+  "plansDirectory": "app/warehouse-api/docs/plans",
+  "hooks": {
+    "PostToolUse": [
+      {
+        "matcher": "Write|Edit",
+        "hooks": [
+          {
+            "type": "command",
+            "command": "node .claude/hooks/lint-warehouse-api.js",
+            "timeout": 30,
+            "statusMessage": "Linting warehouse-api file..."
+          }
+        ]
+      }
+    ]
+  }
+}
