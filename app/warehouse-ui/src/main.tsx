@@ -6,6 +6,7 @@ import { router } from '@/app/router'
 import { setUnauthorizedHandler } from '@/shared/api/http'
 import { useAuthStore } from '@/shared/auth/auth.store'
 import './index.css'
+import '@/shared/i18n'
 
 // Tiêm handler 401 ở đây, không trong http.ts: tránh vòng import http → store → http.
 setUnauthorizedHandler(() => {

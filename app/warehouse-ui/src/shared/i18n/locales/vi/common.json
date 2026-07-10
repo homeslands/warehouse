@@ -1,0 +1,15 @@
+{
+  "appName": "Warehouse",
+  "logout": "Đăng xuất",
+  "loading": "Đang tải...",
+  "cancel": "Huỷ",
+  "save": "Lưu",
+  "saving": "Đang lưu...",
+  "theme": "Giao diện",
+  "themeLight": "Sáng",
+  "themeDark": "Tối",
+  "themeSystem": "Theo hệ thống",
+  "language": "Ngôn ngữ",
+  "languageVi": "Tiếng Việt",
+  "languageEn": "English"
+}
