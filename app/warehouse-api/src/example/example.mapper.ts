@@ -8,6 +8,7 @@ import {
 } from './example.dto';
 import { Example } from './example.entity';
 import { baseMapper } from 'src/app/base.mapper';
+import { versionedMapper } from 'src/app/versioned.mapper';
 
 @Injectable()
 export class ExampleProfile extends AutomapperProfile {
@@ -17,7 +18,7 @@ export class ExampleProfile extends AutomapperProfile {
 
   override get profile() {
     return (mapper: Mapper) => {
-      createMap(mapper, Example, ExampleResponseDto, extend(baseMapper(mapper)));
+      createMap(mapper, Example, ExampleResponseDto, extend(baseMapper(mapper)), versionedMapper());
 
       createMap(
         mapper,

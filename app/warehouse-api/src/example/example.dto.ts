@@ -1,7 +1,7 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional } from 'class-validator';
 import { ApiProperty } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
+import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 
 export class CreateExampleRequestDto {
   @AutoMap()
@@ -15,11 +15,16 @@ export class CreateExampleRequestDto {
   description?: string;
 }
 
-export class UpdateExampleRequestDto extends CreateExampleRequestDto {}
+export class UpdateExampleRequestDto extends CreateExampleRequestDto {
+  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @IsNotEmpty()
+  @IsInt()
+  version: number;
+}
 
 export class GetAllExampleRequestDto extends BaseQueryDto {}
 
-export class ExampleResponseDto extends BaseResponseDto {
+export class ExampleResponseDto extends VersionedResponseDto {
   @AutoMap()
   @ApiProperty()
   name: string;

@@ -41,3 +41,10 @@ export class BaseResponseDto {
   @ApiPropertyOptional()
   updatedAt: string;
 }
+
+// Dùng cho entity extends VersionedBase — client phải giữ lại `version` và gửi lại khi update.
+export class VersionedResponseDto extends BaseResponseDto {
+  @AutoMap()
+  @ApiPropertyOptional()
+  version: number;
+}

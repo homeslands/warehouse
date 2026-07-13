@@ -1,9 +1,9 @@
 import { Entity, Column } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
-import { Base } from 'src/app/base.entity';
+import { VersionedBase } from 'src/app/versioned.entity';
 
 @Entity('example_tbl')
-export class Example extends Base {
+export class Example extends VersionedBase {
   @AutoMap()
   @Column({ name: 'name_column' })
   name: string;

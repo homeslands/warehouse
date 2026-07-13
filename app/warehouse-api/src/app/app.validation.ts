@@ -14,6 +14,7 @@ import {
   NotificationValidation,
   TNotificationErrorCode,
 } from 'src/notification/notification.validation';
+import { AppCommonValidation, TAppCommonErrorCode } from './app-common.validation';
 
 export interface TErrorCodeValue {
   code: number;
@@ -37,7 +38,8 @@ export const AppValidation: TAuthErrorCode &
   TUserErrorCode &
   TDbErrorCode &
   TFileErrorCode &
-  TNotificationErrorCode = {
+  TNotificationErrorCode &
+  TAppCommonErrorCode = {
   ...AuthValidation,
   ...RoleValidation,
   ...AuthorityValidation,
@@ -47,6 +49,7 @@ export const AppValidation: TAuthErrorCode &
   ...DbValidation,
   ...FileValidation,
   ...NotificationValidation,
+  ...AppCommonValidation,
 };
 
 // Guard chống trùng mã lỗi (code) giữa các module — throw lúc khởi động nếu trùng.

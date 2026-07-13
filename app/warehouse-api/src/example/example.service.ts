@@ -63,7 +63,10 @@ export class ExampleService {
   }
 
   async updateExample(slug: string, dto: UpdateExampleRequestDto): Promise<ExampleResponseDto> {
-    const example = await this.exampleRepository.findOneBy({ slug });
+    const example = await this.exampleRepository.findOne({
+      where: { slug },
+      lock: { mode: 'optimistic', version: dto.version },
+    });
     if (!example) throw new ExampleException(ExampleValidation.EXAMPLE_NOT_FOUND);
 
     const data = this.mapper.map(dto, UpdateExampleRequestDto, Example);

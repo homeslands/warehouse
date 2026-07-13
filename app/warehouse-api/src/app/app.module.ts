@@ -16,6 +16,7 @@ import { validate } from './env.validation';
 import { AppController } from './app.controller';
 import { AppService } from './app.service';
 import { HttpExceptionFilter } from './http-exception.filter';
+import { OptimisticLockExceptionFilter } from './optimistic-lock.filter';
 import { AppSubscriber } from './app.subscriber';
 
 import { JwtOptionalAuthGuard } from 'src/auth/passport/jwt/jwt-optional-auth.guard';
@@ -82,6 +83,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     AppService,
     AppSubscriber,
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
+    { provide: APP_FILTER, useClass: OptimisticLockExceptionFilter },
     { provide: APP_GUARD, useClass: JwtOptionalAuthGuard },
     { provide: APP_GUARD, useClass: AuthorityGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
