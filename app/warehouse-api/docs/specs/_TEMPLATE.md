@@ -17,6 +17,8 @@ Liệt kê field thật (không phải field mẫu của `example/`):
 
 Quan hệ với entity khác (nếu có): vd `Product belongsTo Category`, `Order hasMany OrderItem`.
 
+Entity kế thừa `Base` hay `VersionedBase` (optimistic locking, `src/app/versioned.entity.ts`)? Dùng `VersionedBase` nếu feature có luồng "load full ra sửa nhiều field qua form rồi lưu lại" (rủi ro 2 người sửa cùng lúc ghi đè nhau) — **không** dùng cho entity chỉ có thao tác atomic tăng/giảm hoặc log append-only. Mặc định `Base` nếu không ghi gì khác.
+
 ## Quy tắc nghiệp vụ
 
 Logic không tự suy ra được từ CRUD thuần — đây là phần quan trọng nhất của spec, viết càng cụ thể càng tốt:

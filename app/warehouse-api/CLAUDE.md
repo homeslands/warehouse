@@ -46,7 +46,7 @@ Sau khi thêm/sửa entity: luôn generate migration tương ứng, không sửa
 ├── <feature>.controller.ts     # route, @ApiTags, ValidationPipe theo từng param
 ├── <feature>.service.ts        # business logic, inject Repository<Entity> trực tiếp
 ├── <feature>.module.ts         # TypeOrmModule.forFeature([Entity]), khai báo controller/service/profile
-├── <feature>.entity.ts         # extends Base, @Entity('<feature>_tbl')
+├── <feature>.entity.ts         # extends Base (hoặc VersionedBase), @Entity('<feature>_tbl')
 ├── <feature>.dto.ts            # Create/Update/Response DTO
 ├── <feature>.mapper.ts         # AutomapperProfile (Entity <-> Dto)
 ├── <feature>.exception.ts      # extends AppException
@@ -61,13 +61,21 @@ Không có `BaseRepository`/generic CRUD service — mỗi service tự `@Inject
 
 Mọi entity kế thừa `Base` (`src/app/base.entity.ts`): `id` (uuid PK), `slug` (unique, **tự sinh** bởi `AppSubscriber` nếu không set thủ công — chỉ cần `repository.create(data)` rồi `save`), `createdAt`/`updatedAt` (`@AutoMap()`), `deletedAt` (soft-delete), `createdBy`.
 
+**`VersionedBase` (`src/app/versioned.entity.ts`, extends `Base`)** — thêm cột `version` (`@VersionColumn()`, TypeORM tự tăng mỗi lần `save()`), dùng cho entity có luồng "load full ra sửa nhiều field qua form rồi lưu lại" (2 người sửa cùng lúc có thể ghi đè nhau) — **không** dùng cho entity chỉ có thao tác atomic tăng/giảm hoặc log append-only. Quyết định `Base` hay `VersionedBase` chốt ngay lúc viết spec (mục "Entity / dữ liệu" trong `docs/specs/_TEMPLATE.md`), không tự thêm sau khi đã code xong.
+
+Khi dùng `VersionedBase`:
+- `Update<X>RequestDto` thêm field `version: number` (`@IsNotEmpty() @IsInt()`) — client phải gửi lại `version` nhận được từ lần `GET` gần nhất.
+- `<X>ResponseDto` kế thừa `VersionedResponseDto` (`src/app/base.dto.ts`) thay vì `BaseResponseDto`.
+- Trong `<module>.service.ts`, `update...()` load entity bằng `repository.findOne({ where: { slug }, lock: { mode: 'optimistic', version: dto.version } })` — TypeORM tự throw `OptimisticLockVersionMismatchError` nếu `version` không khớp bản mới nhất trong DB; lỗi này được `OptimisticLockExceptionFilter` (`src/app/optimistic-lock.filter.ts`, đã đăng ký global qua `APP_FILTER`) bắt và trả `DATA_VERSION_CONFLICT` (409) tự động — **không** tự try/catch trong service. Xem `src/example/example.service.ts` (`updateExample`) làm mẫu.
+- `<module>.mapper.ts`: `createMap(mapper, Entity, ResponseDto, extend(baseMapper(mapper)), versionedMapper())` — `versionedMapper()` (`src/app/versioned.mapper.ts`) map riêng field `version`, dùng kèm chứ không thay thế `extend(baseMapper(mapper))`. Xem `src/example/example.mapper.ts` làm mẫu.
+
 ## Validation (DTO)
 
 **Không có `ValidationPipe` global** — phải khai báo ở từng param:
 ```ts
 async create(@Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CreateXRequestDto) { ... }
 ```
-Đặt tên: `Create<X>RequestDto`, `Update<X>RequestDto`, `<X>ResponseDto` (extends `BaseResponseDto`). Mỗi field: `@AutoMap()` + `@ApiProperty()` + class-validator.
+Đặt tên: `Create<X>RequestDto`, `Update<X>RequestDto`, `<X>ResponseDto` (extends `BaseResponseDto`, hoặc `VersionedResponseDto` nếu entity dùng `VersionedBase` — xem mục "Base entity"). Mỗi field: `@AutoMap()` + `@ApiProperty()` + class-validator.
 
 **Quan trọng — message class-validator phải trùng KEY trong `<module>.validation.ts`** (vd `@IsNotEmpty({ message: 'EXAMPLE_NAME_IS_REQUIRED' })` phải khớp key đã khai báo), không phải câu văn tự do — `HttpExceptionFilter` tra `AppValidation[message]` để map ra `statusCode: 422` + mã lỗi chuẩn. Không khớp → trả nguyên message thô với statusCode 400 mặc định.
 
@@ -127,8 +135,8 @@ export class ExampleController {
 ## Checklist khi tạo feature mới
 
 1. Copy `src/example/`, đổi tên `Example` → `<Feature>`.
-2. Entity kế thừa `Base`; DTO đủ `@AutoMap()` + `@ApiProperty()` + class-validator (message = key trong `*.validation.ts`).
-3. `<module>.mapper.ts`: `createMap(mapper, Entity, ResponseDto, extend(baseMapper(mapper)))` khi map Entity → ResponseDto (xem mục "Automapper" ở trên).
+2. Entity kế thừa `Base` hoặc `VersionedBase` (quyết định theo spec, xem mục "Base entity" ở trên); DTO đủ `@AutoMap()` + `@ApiProperty()` + class-validator (message = key trong `*.validation.ts`).
+3. `<module>.mapper.ts`: `createMap(mapper, Entity, ResponseDto, extend(baseMapper(mapper)))` khi map Entity → ResponseDto, thêm `versionedMapper()` vào cuối nếu entity dùng `VersionedBase` (xem mục "Automapper"/"Base entity" ở trên).
 4. `<module>.exception.ts` (extends `AppException`) + `<module>.validation.ts` (dải mã lỗi chưa dùng — kiểm tra file khác để tránh trùng).
 5. Controller: `ValidationPipe({ transform: true, whitelist: true })` cho từng `@Body`/`@Query`; response theo `AppResponseDto`/`AppPaginatedResponseDto`; `@ApiTags`/`@ApiBearerAuth`/`@ApiResponseWithType`.
 6. Gắn `@Public()`/`@RequireAuthority('SOME_CODE')`/`@Feature()` nếu cần giới hạn truy cập. Nếu dùng `@RequireAuthority(...)` với `code` chưa tồn tại, **bắt buộc** viết kèm migration seed `Authority` row đó (xem mục "Guard & decorator" ở trên và `docs/WORKFLOW.md` bước 6) — không tách làm sau.
