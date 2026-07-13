@@ -1,7 +1,13 @@
 import { HttpStatus } from '@nestjs/common';
 import { AuthValidation, TAuthErrorCode } from 'src/auth/auth.validation';
 import { RoleValidation, TRoleErrorCode } from 'src/role/role.validation';
+import { AuthorityValidation, TAuthorityErrorCode } from 'src/authority/authority.validation';
+import {
+  AuthorityGroupValidation,
+  TAuthorityGroupErrorCode,
+} from 'src/authority-group/authority-group.validation';
 import { ExampleValidation, TExampleErrorCode } from 'src/example/example.validation';
+import { UserValidation, TUserErrorCode } from 'src/user/user.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
 import {
@@ -25,13 +31,19 @@ export function createErrorCode(
 
 export const AppValidation: TAuthErrorCode &
   TRoleErrorCode &
+  TAuthorityErrorCode &
+  TAuthorityGroupErrorCode &
   TExampleErrorCode &
+  TUserErrorCode &
   TDbErrorCode &
   TFileErrorCode &
   TNotificationErrorCode = {
   ...AuthValidation,
   ...RoleValidation,
+  ...AuthorityValidation,
+  ...AuthorityGroupValidation,
   ...ExampleValidation,
+  ...UserValidation,
   ...DbValidation,
   ...FileValidation,
   ...NotificationValidation,

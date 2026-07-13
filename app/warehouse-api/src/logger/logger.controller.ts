@@ -4,8 +4,7 @@ import { LoggerService } from './logger.service';
 import { GetLoggerRequestDto, LoggerResponseDto } from './logger.dto';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 import { ApiPaginatedResponse } from 'src/app/app.decorator';
-import { RoleEnum } from 'src/role/role.enum';
-import { HasRoles } from 'src/role/roles.decorator';
+import { RequireAuthority } from 'src/authority/authority.decorator';
 
 @ApiTags('Logger')
 @ApiBearerAuth()
@@ -14,7 +13,7 @@ export class LoggerController {
   constructor(private readonly loggerService: LoggerService) {}
 
   @Get()
-  @HasRoles(RoleEnum.Admin, RoleEnum.SuperAdmin)
+  @RequireAuthority('LOGGER_READ')
   @ApiOperation({ summary: 'Get all logs (paginated)' })
   @ApiPaginatedResponse(LoggerResponseDto, 'All logs have been retrieved successfully')
   async getAllLogs(

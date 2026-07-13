@@ -5,11 +5,9 @@ import { AuthValidation } from './auth.validation';
 
 @Injectable()
 export class AuthUtils {
-  buildScope(user: User): string {
-    const authorities = (user.role?.permissions ?? []).map(
-      (permission) => permission.authority?.name,
-    );
-    return JSON.stringify(authorities.filter(Boolean));
+  buildScope(user: User): string[] {
+    const codes = (user.role?.permissions ?? []).map((permission) => permission.authority?.code);
+    return codes.filter((code): code is string => Boolean(code));
   }
 }
 

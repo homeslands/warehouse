@@ -1,7 +1,7 @@
 import { Entity, JoinColumn, ManyToOne } from 'typeorm';
 import { Base } from 'src/app/base.entity';
-import { Authority } from './authority.entity';
-import { Role } from './role.entity';
+import { Authority } from 'src/authority/authority.entity';
+import { Role } from 'src/role/role.entity';
 
 @Entity('permission_tbl')
 export class Permission extends Base {

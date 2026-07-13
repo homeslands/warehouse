@@ -31,17 +31,13 @@ export class BaseQueryDto {
 export class BaseResponseDto {
   @AutoMap()
   @ApiPropertyOptional()
-  id: string;
-
-  @AutoMap()
-  @ApiPropertyOptional()
   slug: string;
 
   @AutoMap()
   @ApiPropertyOptional()
-  createdAt: Date;
+  createdAt: string;
 
   @AutoMap()
   @ApiPropertyOptional()
-  updatedAt: Date;
+  updatedAt: string;
 }

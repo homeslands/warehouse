@@ -42,6 +42,8 @@ npm run typeorm:r                                 # chạy (đã allowlist, khô
 
 Review diff migration trước khi chạy. `npm run typeorm:rv` (revert) luôn phải hỏi xác nhận trước — không tự chạy.
 
+**Riêng endpoint có gắn `@RequireAuthority(...)`:** mỗi lần thêm/sửa/xoá decorator này trên bất kỳ endpoint nào, phải viết kèm 1 migration thêm/sửa/xoá `Authority` row tương ứng trong cùng lần đổi code — không tách làm sau, không dựa vào tự phát hiện lúc chạy app (xem `docs/specs/authority-permission.md`). Quên bước này = endpoint đó chỉ `SUPER_ADMIN` gọi được, không role nào khác có quyền cho tới khi migration được viết.
+
 ## 7. Verify trước khi báo xong
 
 Claude tự chạy `npm run lint`, `npm run test` (và `npm run test:e2e` nếu đổi route/hành vi API), sửa lỗi nếu có. Nếu có đổi route/hành vi API, chạy tiếp skill `verify-feature` (`.claude/skills/verify-feature/SKILL.md`) — chạy app thật, gọi thử từng route + từng quy tắc nghiệp vụ trong spec, không chỉ dựa vào unit test. Cuối cùng tóm tắt: đã tạo/sửa file nào, đăng ký ở đâu, migration đã chạy hay chưa, kết quả verify route nào pass/fail.

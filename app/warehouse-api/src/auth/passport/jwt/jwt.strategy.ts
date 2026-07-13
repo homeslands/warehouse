@@ -7,6 +7,7 @@ import { Repository } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
 import { User } from 'src/user/user.entity';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { AuthUtils } from '../../auth.utils';
 import { AuthJwtPayload } from '../../auth.dto';
 
 @Injectable()
@@ -14,6 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     private readonly cls: ClsService,
+    private readonly authUtils: AuthUtils,
     configService: ConfigService,
   ) {
     super({
@@ -41,7 +43,9 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: user.id,
       userName: user.phonenumber,
       roleName: user.role?.name,
-      scope: payload.scope,
+      // Tính lại từ dữ liệu vừa query (đã fetch role.permissions.authority mỗi request) thay vì
+      // đọc từ JWT — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần re-login.
+      scope: this.authUtils.buildScope(user),
     };
   }
 }

@@ -7,8 +7,7 @@ import {
   UpdateDateColumn,
 } from 'typeorm';
 
-export abstract class Base {
-  @AutoMap()
+export class Base {
   @PrimaryGeneratedColumn('uuid', { name: 'id_column' })
   id: string;
 

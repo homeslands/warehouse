@@ -1,8 +1,7 @@
 import { AutomapperProfile, InjectMapper } from '@automapper/nestjs';
-import { createMap, forMember, mapFrom, Mapper } from '@automapper/core';
+import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core';
 import { Injectable } from '@nestjs/common';
 
-import { baseMapper } from 'src/app/base.mapper';
 import { Notification } from './notification.entity';
 import {
   CreateNotificationDto,
@@ -10,6 +9,7 @@ import {
   NotificationResponseDto,
 } from './notification.dto';
 import { FirebaseDeviceToken } from './firebase/firebase-device-token.entity';
+import { baseMapper } from 'src/app/base.mapper';
 
 @Injectable()
 export class NotificationProfile extends AutomapperProfile {
@@ -23,7 +23,7 @@ export class NotificationProfile extends AutomapperProfile {
         mapper,
         Notification,
         NotificationResponseDto,
-        baseMapper(),
+        extend(baseMapper(mapper)),
         forMember(
           (d) => d.metadata,
           mapFrom((s) => s.metadata),
@@ -38,7 +38,12 @@ export class NotificationProfile extends AutomapperProfile {
           mapFrom((s) => JSON.stringify(s.metadata)),
         ),
       );
-      createMap(mapper, FirebaseDeviceToken, FirebaseRegisterDeviceTokenResponseDto, baseMapper());
+      createMap(
+        mapper,
+        FirebaseDeviceToken,
+        FirebaseRegisterDeviceTokenResponseDto,
+        extend(baseMapper(mapper)),
+      );
     };
   }
 }

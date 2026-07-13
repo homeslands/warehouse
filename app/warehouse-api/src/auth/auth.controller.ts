@@ -5,7 +5,7 @@ import { ApiResponseWithType } from 'src/app/app.decorator';
 import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 import { Public } from './decorator/public.decorator';
 import { AuthService } from './auth.service';
-import { LoginAuthRequestDto, LoginAuthResponseDto, RegisterAuthRequestDto } from './auth.dto';
+import { LoginAuthRequestDto, LoginAuthResponseDto } from './auth.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -45,23 +45,5 @@ export class AuthController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<LoginAuthResponseDto>;
-  }
-
-  @Post('register')
-  @Public()
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Register a new customer account (no OTP)' })
-  @ApiResponseWithType({ status: HttpStatus.CREATED, description: 'Registered', type: String })
-  async register(
-    @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    requestData: RegisterAuthRequestDto,
-  ) {
-    await this.authService.register(requestData);
-    return {
-      message: 'Account has been registered successfully',
-      statusCode: HttpStatus.CREATED,
-      timestamp: new Date().toISOString(),
-      result: 'OK',
-    } as AppResponseDto<string>;
   }
 }

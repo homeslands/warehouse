@@ -8,7 +8,7 @@ export class CreateRoleTables1783728000001 implements MigrationInterface {
       CREATE TABLE \`role_tbl\` (
         \`id_column\` VARCHAR(36) NOT NULL,
         \`slug_column\` VARCHAR(255) NOT NULL,
-        \`name_column\` ENUM('CUSTOMER','STAFF','CASHIER','CHEF','MANAGER','ADMIN','SUPER_ADMIN','TELESALE') NOT NULL,
+        \`name_column\` VARCHAR(255) NOT NULL,
         \`description_column\` VARCHAR(255) NULL,
         \`created_at_column\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6),
         \`updated_at_column\` DATETIME(6) NOT NULL DEFAULT CURRENT_TIMESTAMP(6) ON UPDATE CURRENT_TIMESTAMP(6),

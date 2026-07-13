@@ -87,18 +87,21 @@ Danh sách phân trang: `AppPaginatedResponseDto<T>` lồng vào `result` (`{ to
 
 ## Automapper (Entity <-> Dto)
 
-Mỗi module có `<module>.mapper.ts` (1 `AutomapperProfile`, đăng ký làm provider trong module). Khi map Entity → ResponseDto, luôn truyền `baseMapper()` (`src/app/base.mapper.ts`) làm tham số thứ 4 của `createMap` (không bọc qua `extend(...)`).
+Mỗi module có `<module>.mapper.ts` (1 `AutomapperProfile`, đăng ký làm provider trong module). Khi map Entity → ResponseDto, luôn truyền `extend(baseMapper(mapper))` (`src/app/base.mapper.ts`) làm tham số của `createMap` — `baseMapper()` đăng ký 1 lần map chung `Base -> BaseResponseDto` (convert `createdAt`/`updatedAt` từ `Date` sang `string`), mỗi module `extend` lại thay vì tự khai `typeConverter` riêng (theo đúng pattern `order-api` đang dùng, xem `src/app/base.mapper.ts` của `order-api` làm tham chiếu nếu cần đối chiếu). **`BaseResponseDto` (`src/app/base.dto.ts`) chỉ có `slug`/`createdAt`/`updatedAt`, cố tình không có `id`** — response không bao giờ lộ `id` (uuid PK) thật ra ngoài, `slug` là định danh public duy nhất; `id` trên entity (`src/app/base.entity.ts`) vẫn giữ (không còn `@AutoMap()`) để dùng nội bộ (join, FK).
 
 ## Guard & decorator xác thực/phân quyền (global, đã đăng ký sẵn qua `APP_GUARD`)
 
-Thứ tự: `JwtOptionalAuthGuard` → `RolesGuard` → `ThrottlerGuard` → `FeatureGuard`.
+Thứ tự: `JwtOptionalAuthGuard` → `AuthorityGuard` → `ThrottlerGuard` → `FeatureGuard`.
 
-- `@Public()` — bỏ qua yêu cầu JWT/role.
-- `@HasRoles(RoleEnum.Admin, ...)` — giới hạn theo role.
-- `@CurrentUser()` — lấy `CurrentUserDto { userId, userName, roleName, scope }`.
-- `@Feature('group:feature:child')` — bật/tắt theo feature flag.
-- Route mặc định **yêu cầu JWT hợp lệ**, phải tự gắn `@Public()` nếu muốn mở.
-- `RoleBasedSerializationInterceptor` (global): ẩn/hiện field response theo role qua `@Expose({ groups: [RoleEnum.Admin] })` trên Response DTO.
+Phân quyền theo **authority động** (bảng `Role`/`Authority`/`AuthorityGroup`/`Permission` trong `src/role/`), không hardcode role trong code — xem `docs/specs/authority-permission.md`:
+
+- `@Public()` — bỏ qua yêu cầu JWT, không check gì.
+- Không gắn gì — yêu cầu JWT hợp lệ, không check quyền cụ thể (mọi role đã login đều gọi được).
+- `@RequireAuthority('SOME_CODE')` (`src/authority/authority.decorator.ts`) — yêu cầu JWT hợp lệ **và** role của user phải được cấp `SOME_CODE` đó trong `permission_tbl` (admin bật/tắt qua `PUT/DELETE /roles/:roleSlug/authorities/:authorityCode`). `SUPER_ADMIN` bypass toàn bộ check này.
+- **Không có API tạo/xoá `Authority`/`AuthorityGroup`** — cố tình, để buộc đi qua migration (xem mục "Nợ kỹ thuật" và `docs/WORKFLOW.md` bước 6): mỗi lần gắn/đổi/xoá `@RequireAuthority(code)` trên 1 endpoint, phải viết kèm migration thêm/sửa/xoá `Authority` row có `code` tương ứng trong cùng lần đổi code. `Authority.code` là khoá tra cứu ổn định, tách riêng với `slug` (được phép đổi qua `PATCH /authorities/:slug`, chỉ đổi `name`/nhóm hiển thị).
+- `@CurrentUser()` — lấy `CurrentUserDto { userId, userName, roleName, scope }`, `scope: string[]` là danh sách `Authority.code` role hiện có, tính lại từ DB mỗi request (không cache, không nằm trong JWT) — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần user re-login.
+- `@Feature('group:feature:child')` — bật/tắt theo feature flag (khác authority: dùng cho bật/tắt tính năng, không phải phân quyền theo role).
+- `RoleBasedSerializationInterceptor` (global): ẩn/hiện field response theo role qua `@Expose({ groups: [RoleEnum.Admin] })` trên Response DTO — vẫn dựa vào `RoleEnum`/`roleName`, không liên quan tới `@RequireAuthority`.
 
 ## Swagger convention
 
@@ -114,23 +117,23 @@ export class ExampleController {
 
 ## Auth flow hiện có (`src/auth/`)
 
-Chỉ đăng nhập/đăng ký bằng `phonenumber` + `password` (JWT), **chưa có** OTP, quên/đổi mật khẩu, refresh-token endpoint, validate định dạng số điện thoại.
+Đăng nhập bằng `phonenumber` + `password` (JWT), **chưa có** OTP, quên/đổi mật khẩu, refresh-token endpoint, validate định dạng số điện thoại. **Không có đăng ký công khai** (`POST /auth/register` đã bỏ) — tài khoản chỉ được cấp phát cho user mới (chưa có API cấp phát, hiện phải insert thủ công qua migration/DB).
 
-- `POST /api/{VERSION}/auth/login`, `POST /api/{VERSION}/auth/register`, `GET /api/{VERSION}/auth/me` (cần JWT).
+- `POST /api/{VERSION}/auth/login`, `GET /api/{VERSION}/auth/me` (cần JWT).
 - Sai mật khẩu và không tìm thấy user đều trả `INVALID_CREDENTIALS` (không phân biệt).
-- Role được seed sẵn qua migration (`CUSTOMER`/`ADMIN`/`SUPER_ADMIN`); tài khoản admin đầu tiên tự tạo bởi `RootUserSeeder` (`ROOT_PHONENUMBER`/`ROOT_PASSWORD` trong `.env`, mặc định `root`/`root`) — dùng để test route giới hạn bởi `@HasRoles(...)` mà không cần thao tác SQL.
+- Role được seed sẵn qua migration (`SUPERVISOR`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`); tài khoản admin đầu tiên tự tạo bởi `RootUserSeeder` (`ROOT_PHONENUMBER`/`ROOT_PASSWORD` trong `.env`, mặc định `root`/`root`) — dùng để test route giới hạn bởi `@RequireAuthority(...)` mà không cần thao tác SQL.
 - Đổi role user khác: chưa có endpoint, phải update thủ công cột `role_id_column` trong DB.
 
 ## Checklist khi tạo feature mới
 
 1. Copy `src/example/`, đổi tên `Example` → `<Feature>`.
 2. Entity kế thừa `Base`; DTO đủ `@AutoMap()` + `@ApiProperty()` + class-validator (message = key trong `*.validation.ts`).
-3. `<module>.mapper.ts`: `createMap(..., baseMapper())` khi map Entity → ResponseDto.
+3. `<module>.mapper.ts`: `createMap(mapper, Entity, ResponseDto, extend(baseMapper(mapper)))` khi map Entity → ResponseDto (xem mục "Automapper" ở trên).
 4. `<module>.exception.ts` (extends `AppException`) + `<module>.validation.ts` (dải mã lỗi chưa dùng — kiểm tra file khác để tránh trùng).
 5. Controller: `ValidationPipe({ transform: true, whitelist: true })` cho từng `@Body`/`@Query`; response theo `AppResponseDto`/`AppPaginatedResponseDto`; `@ApiTags`/`@ApiBearerAuth`/`@ApiResponseWithType`.
-6. Gắn `@Public()`/`@HasRoles()`/`@Feature()` nếu cần giới hạn truy cập.
+6. Gắn `@Public()`/`@RequireAuthority('SOME_CODE')`/`@Feature()` nếu cần giới hạn truy cập. Nếu dùng `@RequireAuthority(...)` với `code` chưa tồn tại, **bắt buộc** viết kèm migration seed `Authority` row đó (xem mục "Guard & decorator" ở trên và `docs/WORKFLOW.md` bước 6) — không tách làm sau.
 7. Đăng ký trong `<module>.module.ts`, rồi thêm vào `src/app/app.module.ts` (imports) và `src/app/app.validation.ts` (gộp `<Feature>Validation`).
-8. Sinh + chạy migration: `npm run typeorm:g --name=create-<feature>-table` rồi `npm run typeorm:r`.
+8. Sinh + chạy migration: `npm run typeorm:g --name=create-<feature>-table` rồi `npm run typeorm:r` (kèm migration seed `Authority` nếu bước 6 có dùng `@RequireAuthority` với code mới).
 
 ## Common/shared code
 

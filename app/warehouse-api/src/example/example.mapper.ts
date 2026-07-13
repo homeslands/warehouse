@@ -1,5 +1,5 @@
 import { AutomapperProfile, InjectMapper } from '@automapper/nestjs';
-import { createMap, forMember, mapFrom, Mapper } from '@automapper/core';
+import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core';
 import { Injectable } from '@nestjs/common';
 import {
   CreateExampleRequestDto,
@@ -17,7 +17,7 @@ export class ExampleProfile extends AutomapperProfile {
 
   override get profile() {
     return (mapper: Mapper) => {
-      createMap(mapper, Example, ExampleResponseDto, baseMapper());
+      createMap(mapper, Example, ExampleResponseDto, extend(baseMapper(mapper)));
 
       createMap(
         mapper,

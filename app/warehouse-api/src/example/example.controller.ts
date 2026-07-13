@@ -20,8 +20,7 @@ import {
 } from './example.dto';
 import { ExampleService } from './example.service';
 import { Public } from 'src/auth/decorator/public.decorator';
-import { HasRoles } from 'src/role/roles.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
@@ -32,7 +31,7 @@ export class ExampleController {
   constructor(private readonly exampleService: ExampleService) {}
 
   @Post()
-  @HasRoles(RoleEnum.Admin, RoleEnum.SuperAdmin)
+  @RequireAuthority('EXAMPLE_CREATE')
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new example' })
   @ApiResponseWithType({
@@ -91,7 +90,7 @@ export class ExampleController {
   }
 
   @Patch(':slug')
-  @HasRoles(RoleEnum.Admin, RoleEnum.SuperAdmin)
+  @RequireAuthority('EXAMPLE_UPDATE')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update an example' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: ExampleResponseDto })
@@ -111,7 +110,7 @@ export class ExampleController {
   }
 
   @Delete(':slug')
-  @HasRoles(RoleEnum.Admin, RoleEnum.SuperAdmin)
+  @RequireAuthority('EXAMPLE_DELETE')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an example' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })

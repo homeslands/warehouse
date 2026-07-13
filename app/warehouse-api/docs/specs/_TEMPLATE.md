@@ -26,7 +26,7 @@ Logic không tự suy ra được từ CRUD thuần — đây là phần quan tr
 
 ## Quyền truy cập
 
-Role nào được gọi endpoint nào (dùng đúng `RoleEnum` hiện có: `CUSTOMER`/`STAFF`/`CASHIER`/`CHEF`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`/`TELESALE`, hoặc nói rõ nếu cần role mới):
+Role nào được gọi endpoint nào (dùng đúng `RoleEnum` hiện có: `SUPERVISOR`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`, hoặc nói rõ nếu cần role mới):
 
 | Action | Role |
 |---|---|
