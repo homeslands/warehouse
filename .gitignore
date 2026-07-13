@@ -1,4 +1,5 @@
 # Kế hoạch triển khai do quy trình sinh ra: chúng là danh sách việc cho một công việc
 # đã làm xong, kèm mã nguồn chép tay sẽ lệch khỏi code thật. Kiến thức đáng giữ đã được
-# rút sang CLAUDE.md (bẫy, nợ kỹ thuật) và docs/superpowers/specs/ (vì sao quyết định thế).
+# rút sang CLAUDE.md (bẫy, nợ kỹ thuật) và docs/superpowers/specs/ trong từng app (vì sao quyết định thế).
 docs/superpowers/plans/
+app/*/docs/superpowers/plans/
