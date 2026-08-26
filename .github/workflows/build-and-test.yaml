@@ -1,0 +1,52 @@
+name: build-and-test
+
+on:
+  pull_request:
+    branches: [main]
+
+jobs:
+  build-frontend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install FE dependencies
+        working-directory: ./app/order-ui
+        run: npm install
+
+      - name: Build FE
+        working-directory: ./app/order-ui
+        run: npm run build
+
+      - name: Run FE tests
+        working-directory: ./app/order-ui
+        run: npm run test
+
+  build-backend:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v3
+
+      - name: Set up Node.js
+        uses: actions/setup-node@v3
+        with:
+          node-version: "18"
+
+      - name: Install BE dependencies
+        working-directory: ./app/order-api
+        run: npm install
+
+      - name: Build BE
+        working-directory: ./app/order-api
+        run: npm run build
+
+      # - name: Run BE tests
+      #   working-directory: ./app/order-api
+      #   run: npm run test
