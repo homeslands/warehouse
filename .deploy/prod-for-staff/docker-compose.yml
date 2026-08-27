@@ -20,8 +20,8 @@ services:
       restart_policy:
         condition: on-failure
 
-  order-api:
-    image: ghcr.io/homeslands/order-api:prod-for-staff
+  warehouse-api:
+    image: ghcr.io/homeslands/warehouse-api:prod-for-staff
     healthcheck:
       test: [ "CMD", "curl", "-f", "http://localhost:8085/api/${VERSION}/health" ]
       interval: 5s
@@ -101,7 +101,7 @@ services:
       update_config:
         delay: 10s
         parallelism: 1
-        order: start-first
+        warehouse: start-first
         failure_action: rollback
         monitor: 60s
         max_failure_ratio: 0.3
@@ -128,8 +128,8 @@ services:
       restart_policy:
         condition: on-failure
 
-  order-ui:
-    image: ghcr.io/homeslands/order-ui:prod-for-staff
+  warehouse-ui:
+    image: ghcr.io/homeslands/warehouse-ui:prod-for-staff
     healthcheck:
       test: [ "CMD", "nc", "-z", "localhost", "5175" ] # TCP check on port 5173
       interval: 10s # Increase interval between health checks
