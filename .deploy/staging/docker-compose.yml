@@ -1,0 +1,173 @@
+volumes:
+  mysql:
+  redis_data:
+  postgres_data:
+
+services:
+  redis:
+    image: redis:7-alpine
+    command: redis-server --requirepass ${REDIS_PASSWORD}
+    volumes:
+      - redis_data:/data
+    healthcheck:
+      test: ["CMD", "redis-cli", "-a", "${REDIS_PASSWORD}", "ping"]
+      interval: 30s
+      timeout: 10s
+      retries: 5
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  order-api:
+    image: ghcr.io/homeslands/order-api:staging
+    healthcheck:
+      test: ["CMD", "curl", "-f", "http://localhost:8085/api/${VERSION}/health"]
+      interval: 5s
+      timeout: 5s
+      retries: 10
+      start_period: 30s # Give more time for MySQL to become ready
+    environment:
+      # General
+      NODE_ENV: ${NODE_ENV}
+      PORT: ${PORT}
+      VERSION: ${VERSION}
+
+      # Database
+      DATABASE_USERNAME: ${DATABASE_USERNAME}
+      DATABASE_PASSWORD: ${DATABASE_PASSWORD}
+      DATABASE_NAME: ${DATABASE_NAME}
+      DATABASE_HOST: ${DATABASE_HOST}
+      DATABASE_PORT: ${DATABASE_PORT}
+
+      # Token
+      SALT_ROUNDS: ${SALT_ROUNDS}
+      DURATION: ${DURATION}
+      REFRESHABLE_DURATION: ${REFRESHABLE_DURATION}
+
+      # ACB Banking
+      ACB_CLIENT_ID: ${ACB_CLIENT_ID}
+      ACB_CLIENT_SECRET: ${ACB_CLIENT_SECRET}
+
+      # Mail
+      MAIL_HOST: ${MAIL_HOST}
+      MAIL_USER: ${MAIL_USER}
+      MAIL_FROM: ${MAIL_FROM}
+      MAIL_PASSWORD: ${MAIL_PASSWORD}
+
+      # Redis queue
+      REDIS_HOST: ${REDIS_HOST}
+      REDIS_PORT: ${REDIS_PORT}
+      REDIS_PASSWORD: ${REDIS_PASSWORD}
+
+      # Otel lgtm
+      OTEL_LGTM_URL: ${OTEL_LGTM_URL}
+
+      # Session
+      SESSION_SECRET: ${SESSION_SECRET}
+
+      # ZaloOA
+      ZALO_OA_API_KEY: ${ZALO_OA_API_KEY}
+      ZALO_OA_SECRET_KEY: ${ZALO_OA_SECRET_KEY}
+      ZALO_OA_ID: ${ZALO_OA_ID}
+
+      # Google Maps
+      GOOGLE_MAP_API_URL: ${GOOGLE_MAP_API_URL}
+      GOOGLE_MAPS_API_KEY: ${GOOGLE_MAPS_API_KEY}
+
+      ALLOWED_ORIGINS: ${ALLOWED_ORIGINS}
+      CARD_ORDER_PAYMENT_TIMEOUT: ${CARD_ORDER_PAYMENT_TIMEOUT}
+
+      # Firebase
+      FIREBASE_PROJECT_ID: ${FIREBASE_PROJECT_ID}
+      FIREBASE_CLIENT_EMAIL: ${FIREBASE_CLIENT_EMAIL}
+      FIREBASE_PRIVATE_KEY: ${FIREBASE_PRIVATE_KEY}
+
+      # AWS
+      AWS_REGION: ${AWS_REGION}
+      AWS_ACCESS_KEY_ID: ${AWS_ACCESS_KEY_ID}
+      AWS_SECRET_ACCESS_KEY: ${AWS_SECRET_ACCESS_KEY}
+      AWS_BUCKET: ${AWS_BUCKET}
+
+      #Proxy
+      TRUST_PROXY_COUNT: ${TRUST_PROXY_COUNT}
+
+      #QR payment point
+      QR_TOKEN_TTL: ${QR_TOKEN_TTL}
+      QR_ACTIVE_TTL: ${QR_ACTIVE_TTL}
+      QR_IDEMPOTENT_TTL: ${QR_IDEMPOTENT_TTL}
+
+      TZ: Asia/Ho_Chi_Minh
+
+    deploy:
+      replicas: 1
+      restart_policy:
+        condition: on-failure
+      update_config:
+        delay: 10s
+        parallelism: 1
+        order: start-first
+        failure_action: rollback
+        monitor: 60s
+        max_failure_ratio: 0.3
+
+    depends_on:
+      - mysql_db
+    ports:
+      - 8085:8085
+
+  mysql_db:
+    image: mysql:8.2.0
+    volumes:
+      - mysql:/var/lib/mysql
+    environment:
+      MYSQL_ROOT_PASSWORD: ${DATABASE_PASSWORD}
+      MYSQL_DATABASE: ${DATABASE_NAME}
+      TZ: Asia/Ho_Chi_Minh
+    healthcheck:
+      test: ["CMD", "mysqladmin", "ping", "-h", "localhost"]
+      interval: 5s
+      timeout: 60s # Increase timeout to give MySQL more time
+      retries: 5
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  order-ui:
+    image: ghcr.io/homeslands/order-ui:staging
+    healthcheck:
+      test: ["CMD", "nc", "-z", "localhost", "5175"] # TCP check on port 5173
+      interval: 10s # Increase interval between health checks
+      timeout: 10s # Increase timeout for slower responses
+      retries: 5
+    deploy:
+      restart_policy:
+        condition: on-failure
+    ports:
+      - 5175:5175
+
+  postgres:
+    image: postgres:16-alpine
+    environment:
+      POSTGRES_USER: ${POSTGRES_USER}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD}
+      POSTGRES_DB: ${POSTGRES_DB}
+    volumes:
+      - postgres_data:/var/lib/postgresql/data
+    deploy:
+      restart_policy:
+        condition: on-failure
+
+  roboflow:
+    image: tuanvux01/roboflow:dev
+    restart: unless-stopped
+    environment:
+      - ENV=development
+      - PORT=8080
+      - POSTGRES_DSN=postgres://${POSTGRES_USER}:${POSTGRES_PASSWORD}@${POSTGRES_HOST}:${POSTGRES_PORT}/${POSTGRES_DB}?sslmode=disable
+    depends_on:
+      - postgres
+
+networks:
+  default:
+    external: true
+    name: scoobydoo
