@@ -17,15 +17,15 @@ jobs:
           node-version: "18"
 
       - name: Install FE dependencies
-        working-directory: ./app/order-ui
+        working-directory: ./app/warehouse-ui
         run: npm install
 
       - name: Build FE
-        working-directory: ./app/order-ui
+        working-directory: ./app/warehouse-ui
         run: npm run build
 
       - name: Run FE tests
-        working-directory: ./app/order-ui
+        working-directory: ./app/warehouse-ui
         run: npm run test
 
   build-backend:
@@ -40,13 +40,13 @@ jobs:
           node-version: "18"
 
       - name: Install BE dependencies
-        working-directory: ./app/order-api
+        working-directory: ./app/warehouse-api
         run: npm install
 
       - name: Build BE
-        working-directory: ./app/order-api
+        working-directory: ./app/warehouse-api
         run: npm run build
 
       # - name: Run BE tests
-      #   working-directory: ./app/order-api
+      #   working-directory: ./app/warehouse-api
       #   run: npm run test

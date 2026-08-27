@@ -42,7 +42,7 @@ jobs:
           set +o allexport
 
           docker compose -f .deploy/prod-for-staff/docker-compose.yml pull
-          docker stack deploy -c .deploy/prod-for-staff/docker-compose.yml order_stack --detach=true
+          docker stack deploy -c .deploy/prod-for-staff/docker-compose.yml warehouse_stack --detach=true
 
           # Remove exited containers
           docker rm $(docker ps -aq -f status=exited)

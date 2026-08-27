@@ -36,10 +36,10 @@ jobs:
           FE_ENV: ${{ secrets.FE_ENV_PROD_FOR_STAFF }}
           AUTHORITIES: ${{ secrets.AUTHORITIES }}
         run: |
-          mkdir -p app/order-api/public/json
-          echo "$GOOGLE_API_CREDENTIALS" > app/order-api/public/json/credentials.json
-          echo "$AUTHORITIES" > app/order-api/public/json/authorities.json
-          echo "$FE_ENV" > app/order-ui/.env
+          mkdir -p app/warehouse-api/public/json
+          echo "$GOOGLE_API_CREDENTIALS" > app/warehouse-api/public/json/credentials.json
+          echo "$AUTHORITIES" > app/warehouse-api/public/json/authorities.json
+          echo "$FE_ENV" > app/warehouse-ui/.env
 
       # Step 3: Log in to GitHub Container Registry
       - name: Log in to GitHub Container Registry
@@ -49,22 +49,22 @@ jobs:
           username: ${{ github.actor }}
           password: ${{ secrets.GITHUB_TOKEN }}
 
-      - name: Build and push order-api image
+      - name: Build and push warehouse-api image
         uses: docker/build-push-action@v4
         with:
-          context: ./app/order-api
-          file: ./.build/order-api/Dockerfile
+          context: ./app/warehouse-api
+          file: ./.build/warehouse-api/Dockerfile
           tags: |
-            ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/order-api:prod-for-staff
-          labels: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/order-api
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-api:prod-for-staff
+          labels: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-api
           push: true
 
-      - name: Build and push order-ui image
+      - name: Build and push warehouse-ui image
         uses: docker/build-push-action@v4
         with:
-          context: ./app/order-ui
-          file: ./.build/order-ui/Dockerfile
+          context: ./app/warehouse-ui
+          file: ./.build/warehouse-ui/Dockerfile
           tags: |
-            ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/order-ui:prod-for-staff
-          labels: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/order-ui
+            ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-ui:prod-for-staff
+          labels: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-ui
           push: true
