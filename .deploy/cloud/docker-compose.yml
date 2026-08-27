@@ -21,8 +21,8 @@ services:
       restart_policy:
         condition: on-failure
 
-  order-api:
-    image: ghcr.io/homeslands/order-api:latest
+  warehouse-api:
+    image: ghcr.io/homeslands/warehouse-api:latest
     healthcheck:
       test: ["CMD", "curl", "-f", "http://localhost:8080/api/${VERSION}/health"]
       interval: 5s
