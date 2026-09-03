@@ -1,12 +1,9 @@
 import { Inject, Injectable, OnApplicationBootstrap } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Logger } from 'winston';
-import * as bcrypt from 'bcrypt';
-import { User } from 'src/user/user.entity';
-import { Role } from 'src/role/role.entity';
+import { UserService } from 'src/user/user.service';
+import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
 
 @Injectable()
@@ -15,8 +12,8 @@ export class RootUserSeeder implements OnApplicationBootstrap {
   private readonly rootPassword: string;
 
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
-    @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
+    private readonly userService: UserService,
+    private readonly roleService: RoleService,
     private readonly configService: ConfigService,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
   ) {
@@ -25,10 +22,10 @@ export class RootUserSeeder implements OnApplicationBootstrap {
   }
 
   async onApplicationBootstrap(): Promise<void> {
-    const existed = await this.userRepository.findOneBy({ phonenumber: this.rootPhonenumber });
+    const existed = await this.userService.findByPhoneNumber(this.rootPhonenumber);
     if (existed) return;
 
-    const superAdminRole = await this.roleRepository.findOneBy({ name: RoleEnum.SuperAdmin });
+    const superAdminRole = await this.roleService.findByName(RoleEnum.SuperAdmin);
     if (!superAdminRole) {
       this.logger.warn('Skip seeding root user: SUPER_ADMIN role not found', {
         context: 'RootUserSeeder',
@@ -36,15 +33,12 @@ export class RootUserSeeder implements OnApplicationBootstrap {
       return;
     }
 
-    const saltRounds = parseInt(this.configService.get('SALT_ROUNDS'), 10);
-    const hashedPassword = await bcrypt.hash(this.rootPassword, saltRounds);
-
-    const rootUser = this.userRepository.create({
+    // UserService.createUser tự hash password bằng SALT_ROUNDS.
+    await this.userService.createUser({
       phonenumber: this.rootPhonenumber,
-      password: hashedPassword,
-      role: superAdminRole,
+      password: this.rootPassword,
+      roleSlug: superAdminRole.slug,
     });
-    await this.userRepository.save(rootUser);
 
     this.logger.log(`Root user has been seeded (phonenumber: ${this.rootPhonenumber})`, {
       context: 'RootUserSeeder',
