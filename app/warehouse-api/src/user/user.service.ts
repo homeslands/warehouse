@@ -6,13 +6,13 @@ import { Mapper } from '@automapper/core';
 import { ConfigService } from '@nestjs/config';
 import * as bcrypt from 'bcrypt';
 import { User } from './user.entity';
-import { Role } from 'src/role/role.entity';
 import { CreateUserRequestDto, GetAllUserRequestDto, UserResponseDto } from './user.dto';
 import { UserException } from './user.exception';
 import { UserValidation } from './user.validation';
 import { RoleException } from 'src/role/role.exception';
 import { RoleValidation } from 'src/role/role.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { RoleService } from 'src/role/role.service';
 
 @Injectable()
 export class UserService {
@@ -20,9 +20,9 @@ export class UserService {
 
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
-    @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
     @InjectMapper() private readonly mapper: Mapper,
     private readonly configService: ConfigService,
+    private readonly roleService: RoleService,
   ) {
     this.saltRounds = parseInt(this.configService.get('SALT_ROUNDS'), 10);
   }
@@ -31,7 +31,7 @@ export class UserService {
     const existed = await this.userRepository.findOneBy({ phonenumber: dto.phonenumber });
     if (existed) throw new UserException(UserValidation.USER_PHONENUMBER_DOES_EXIST);
 
-    const role = await this.roleRepository.findOneBy({ slug: dto.roleSlug });
+    const role = await this.roleService.findBySlug(dto.roleSlug);
     if (!role) throw new RoleException(RoleValidation.ROLE_NOT_FOUND);
 
     const data = this.mapper.map(dto, CreateUserRequestDto, User);
@@ -65,5 +65,24 @@ export class UserService {
       hasNext: query.page < totalPages,
       hasPrevios: query.page > 1,
     } as AppPaginatedResponseDto<UserResponseDto>;
+  }
+
+  async findByPhoneNumber(phonenumber: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { phonenumber },
+      relations: { role: { permissions: { authority: { authorityGroup: true } } } },
+    });
+  }
+
+  // Nạp kèm role/permissions để JwtStrategy tính lại scope mỗi request.
+  async findByIdWithAuthorities(id: string): Promise<User | null> {
+    return this.userRepository.findOne({
+      where: { id },
+      relations: { role: { permissions: { authority: { authorityGroup: true } } } },
+    });
+  }
+
+  async findBySlug(slug: string): Promise<User | null> {
+    return this.userRepository.findOneBy({ slug });
   }
 }

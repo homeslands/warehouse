@@ -9,6 +9,6 @@ import { AuthorityGroupService } from './authority-group.service';
   imports: [TypeOrmModule.forFeature([AuthorityGroup])],
   controllers: [AuthorityGroupController],
   providers: [AuthorityGroupService, AuthorityGroupProfile],
-  exports: [TypeOrmModule],
+  exports: [AuthorityGroupService],
 })
 export class AuthorityGroupModule {}
