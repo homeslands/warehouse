@@ -1,19 +1,17 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { Repository } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
-import { User } from 'src/user/user.entity';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { UserService } from 'src/user/user.service';
 import { AuthUtils } from '../../auth.utils';
 import { AuthJwtPayload } from '../../auth.dto';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    private readonly userService: UserService,
     private readonly cls: ClsService,
     private readonly authUtils: AuthUtils,
     configService: ConfigService,
@@ -26,10 +24,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: AuthJwtPayload): Promise<CurrentUserDto> {
-    const user = await this.userRepository.findOne({
-      where: { id: payload.sub },
-      relations: { role: { permissions: { authority: { authorityGroup: true } } } },
-    });
+    const user = await this.userService.findByIdWithAuthorities(payload.sub);
     if (!user || !user.isActive) {
       throw new UnauthorizedException();
     }

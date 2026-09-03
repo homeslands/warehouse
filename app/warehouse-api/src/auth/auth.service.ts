@@ -1,8 +1,6 @@
 import { Injectable } from '@nestjs/common';
-import { InjectRepository } from '@nestjs/typeorm';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
-import { Repository } from 'typeorm';
 import * as bcrypt from 'bcrypt';
 import moment from 'moment';
 import { v4 as uuidv4 } from 'uuid';
@@ -11,28 +9,24 @@ import { AuthJwtPayload, LoginAuthRequestDto, LoginAuthResponseDto } from './aut
 import { AuthException } from './auth.exception';
 import { AuthValidation } from './auth.validation';
 import { checkActiveUser } from './auth.utils';
+import { UserService } from 'src/user/user.service';
 
 @Injectable()
 export class AuthService {
-  private readonly saltRounds: number;
   private readonly duration: number;
   private readonly refeshableDuration: number;
 
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
+    private readonly userService: UserService,
   ) {
-    this.saltRounds = parseInt(this.configService.get('SALT_ROUNDS'), 10);
     this.duration = parseInt(this.configService.get('DURATION'), 10);
     this.refeshableDuration = parseInt(this.configService.get('REFRESHABLE_DURATION'), 10);
   }
 
   async validateUser(phonenumber: string, pass: string): Promise<User | null> {
-    const user = await this.userRepository.findOne({
-      where: { phonenumber },
-      relations: { role: { permissions: { authority: { authorityGroup: true } } } },
-    });
+    const user = await this.userService.findByPhoneNumber(phonenumber);
     if (!user) return null;
     if (user.phonenumber === 'default-customer') return null;
 

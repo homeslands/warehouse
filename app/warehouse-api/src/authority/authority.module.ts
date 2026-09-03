@@ -10,6 +10,6 @@ import { AuthorityService } from './authority.service';
   imports: [TypeOrmModule.forFeature([Authority]), AuthorityGroupModule],
   controllers: [AuthorityController],
   providers: [AuthorityService, AuthorityProfile],
-  exports: [TypeOrmModule],
+  exports: [AuthorityService],
 })
 export class AuthorityModule {}
