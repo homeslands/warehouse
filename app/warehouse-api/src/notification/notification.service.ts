@@ -13,7 +13,7 @@ import {
 } from './notification.dto';
 import { Notification } from './notification.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
-import { User } from 'src/user/user.entity';
+import { UserService } from 'src/user/user.service';
 import { NotificationException } from './notification.exception';
 import { NotificationValidation } from './notification.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
@@ -29,14 +29,13 @@ export class NotificationService {
     private readonly mapper: Mapper,
     @InjectRepository(Notification)
     private readonly notificationRepository: Repository<Notification>,
-    @InjectRepository(User)
-    private readonly userRepository: Repository<User>,
     @Inject(WINSTON_MODULE_NEST_PROVIDER)
     private readonly logger: Logger,
     private readonly transactionManagerService: TransactionManagerService,
     @InjectRepository(FirebaseDeviceToken)
     private readonly firebaseDeviceTokenRepository: Repository<FirebaseDeviceToken>,
     private readonly firebaseService: FirebaseService,
+    private readonly userService: UserService,
   ) {}
 
   async readNotification(slug: string): Promise<NotificationResponseDto> {
@@ -184,7 +183,7 @@ export class NotificationService {
       .offset((options.page - 1) * options.size);
 
     if (options.receiver) {
-      const receiver = await this.userRepository.findOne({ where: { slug: options.receiver } });
+      const receiver = await this.userService.findBySlug(options.receiver);
       if (receiver) {
         query.andWhere('notification.receiverId = :receiverId', {
           receiverId: receiver.id,
