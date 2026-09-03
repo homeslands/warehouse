@@ -9,7 +9,7 @@ import { Notification } from './notification.entity';
 import { NotificationConsumer } from './notification.consumer';
 import { DbModule } from 'src/db/db.module';
 import { NotificationProfile } from './notification.mapper';
-import { User } from 'src/user/user.entity';
+import { UserModule } from 'src/user/user.module';
 import { FirebaseService } from './firebase/firebase.service';
 import { FirebaseDeviceToken } from './firebase/firebase-device-token.entity';
 
@@ -19,8 +19,9 @@ import { FirebaseDeviceToken } from './firebase/firebase-device-token.entity';
     BullModule.registerQueue({
       name: QueueRegisterKey.NOTIFICATION,
     }),
-    TypeOrmModule.forFeature([Notification, User, FirebaseDeviceToken]),
+    TypeOrmModule.forFeature([Notification, FirebaseDeviceToken]),
     DbModule,
+    UserModule,
   ],
   controllers: [NotificationController],
   providers: [

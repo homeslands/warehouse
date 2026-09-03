@@ -18,4 +18,8 @@ export class AuthorityGroupService {
     const groups = await this.authorityGroupRepository.find({ order: { createdAt: 'ASC' } });
     return this.mapper.mapArray(groups, AuthorityGroup, AuthorityGroupResponseDto);
   }
+
+  async findBySlug(slug: string): Promise<AuthorityGroup | null> {
+    return this.authorityGroupRepository.findOneBy({ slug });
+  }
 }

@@ -3,9 +3,9 @@ import { InjectRepository } from '@nestjs/typeorm';
 import { FindOptionsWhere, Repository } from 'typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
-import { AuthorityGroup } from 'src/authority-group/authority-group.entity';
 import { AuthorityGroupException } from 'src/authority-group/authority-group.exception';
 import { AuthorityGroupValidation } from 'src/authority-group/authority-group.validation';
+import { AuthorityGroupService } from 'src/authority-group/authority-group.service';
 import { Authority } from './authority.entity';
 import {
   AuthorityResponseDto,
@@ -19,9 +19,8 @@ import { AuthorityValidation } from './authority.validation';
 export class AuthorityService {
   constructor(
     @InjectRepository(Authority) private readonly authorityRepository: Repository<Authority>,
-    @InjectRepository(AuthorityGroup)
-    private readonly authorityGroupRepository: Repository<AuthorityGroup>,
     @InjectMapper() private readonly mapper: Mapper,
+    private readonly authorityGroupService: AuthorityGroupService,
   ) {}
 
   async findAll(query: GetAllAuthorityRequestDto): Promise<AuthorityResponseDto[]> {
@@ -42,9 +41,7 @@ export class AuthorityService {
 
     if (dto.name) authority.name = dto.name;
     if (dto.authorityGroupSlug) {
-      const group = await this.authorityGroupRepository.findOneBy({
-        slug: dto.authorityGroupSlug,
-      });
+      const group = await this.authorityGroupService.findBySlug(dto.authorityGroupSlug);
       if (!group)
         throw new AuthorityGroupException(AuthorityGroupValidation.AUTHORITY_GROUP_NOT_FOUND);
       authority.authorityGroup = group;
@@ -52,5 +49,9 @@ export class AuthorityService {
 
     const updated = await this.authorityRepository.save(authority);
     return this.mapper.map(updated, Authority, AuthorityResponseDto);
+  }
+
+  async findByCode(code: string): Promise<Authority | null> {
+    return this.authorityRepository.findOneBy({ code });
   }
 }
