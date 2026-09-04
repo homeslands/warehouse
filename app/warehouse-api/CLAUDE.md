@@ -2,7 +2,7 @@
 
 NestJS 10 + TypeORM/MySQL. `setup.md` trong thư mục này là ghi chú thủ công về các bước setup ban đầu (env, DB, chạy app lần đầu) — không phải tài liệu convention cho Claude, không cần đọc trừ khi cần setup môi trường từ đầu.
 
-> `src/` hiện có: `app/`, `auth/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `migrations/`, `notification/firebase/`, `role/`, `shared/`, `user/`. Chưa có module nghiệp vụ warehouse thật (product/stock/inventory...) — tạo mới theo template `example/`.
+> `src/` hiện có: `app/`, `auth/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `migrations/`, `notification/firebase/`, `redis/`, `role/`, `shared/`, `user/`. Chưa có module nghiệp vụ warehouse thật (product/stock/inventory...) — tạo mới theo template `example/`.
 
 ## Quy trình làm feature mới
 
@@ -107,7 +107,7 @@ Phân quyền theo **authority động** (bảng `Role`/`Authority`/`AuthorityGr
 - Không gắn gì — yêu cầu JWT hợp lệ, không check quyền cụ thể (mọi role đã login đều gọi được).
 - `@RequireAuthority('SOME_CODE')` (`src/authority/authority.decorator.ts`) — yêu cầu JWT hợp lệ **và** role của user phải được cấp `SOME_CODE` đó trong `permission_tbl` (admin bật/tắt qua `PUT/DELETE /roles/:roleSlug/authorities/:authorityCode`). `SUPER_ADMIN` bypass toàn bộ check này.
 - **Không có API tạo/xoá `Authority`/`AuthorityGroup`** — cố tình, để buộc đi qua migration (xem mục "Nợ kỹ thuật" và `docs/WORKFLOW.md` bước 6): mỗi lần gắn/đổi/xoá `@RequireAuthority(code)` trên 1 endpoint, phải viết kèm migration thêm/sửa/xoá `Authority` row có `code` tương ứng trong cùng lần đổi code. `Authority.code` là khoá tra cứu ổn định, tách riêng với `slug` (được phép đổi qua `PATCH /authorities/:slug`, chỉ đổi `name`/nhóm hiển thị).
-- `@CurrentUser()` — lấy `CurrentUserDto { userId, userName, roleName, scope }`, `scope: string[]` là danh sách `Authority.code` role hiện có, tính lại từ DB mỗi request (không cache, không nằm trong JWT) — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần user re-login.
+- `@CurrentUser()` — lấy `CurrentUserDto { userId, userName, roleName, sessionId, scope }` (`sessionId` = claim `sid`, có thể `undefined` với token phát trước khi có claim này), `scope: string[]` là danh sách `Authority.code` role hiện có, tính lại từ DB mỗi request (không cache, không nằm trong JWT) — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần user re-login.
 - `@Feature('group:feature:child')` — bật/tắt theo feature flag (khác authority: dùng cho bật/tắt tính năng, không phải phân quyền theo role).
 - `RoleBasedSerializationInterceptor` (global): ẩn/hiện field response theo role qua `@Expose({ groups: [RoleEnum.Admin] })` trên Response DTO — vẫn dựa vào `RoleEnum`/`roleName`, không liên quan tới `@RequireAuthority`.
 
@@ -125,12 +125,39 @@ export class ExampleController {
 
 ## Auth flow hiện có (`src/auth/`)
 
-Đăng nhập bằng `phonenumber` + `password` (JWT), **chưa có** OTP, quên/đổi mật khẩu, refresh-token endpoint, validate định dạng số điện thoại. **Không có đăng ký công khai** (`POST /auth/register` đã bỏ) — tài khoản chỉ được cấp phát cho user mới (chưa có API cấp phát, hiện phải insert thủ công qua migration/DB).
+Đăng nhập bằng `phonenumber` + `password` (JWT), **chưa có** OTP, quên/đổi mật khẩu, validate định dạng số điện thoại. **Không có đăng ký công khai** (`POST /auth/register` đã bỏ) — tài khoản chỉ được cấp phát cho user mới (chưa có API cấp phát, hiện phải insert thủ công qua migration/DB).
 
-- `POST /api/{VERSION}/auth/login`, `GET /api/{VERSION}/auth/me` (cần JWT).
+- `POST /auth/login`, `POST /auth/refresh` (cả 2 `@Public()`), `GET /auth/me`, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/sessions` (4 cái sau cần JWT). Prefix đầy đủ: `/api/{VERSION}/...`.
+- Access token và refresh token ký cùng `JWT_SECRET`, phân biệt bằng claim `type` (`TokenType` trong `auth.dto.ts`): `JwtStrategy` từ chối refresh token dùng như access token, `AuthService.refresh()` từ chối access token gửi vào `/auth/refresh`. `jti` của 2 loại **khác nhau**; claim `sid` (session id) thì **giống nhau** và không đổi khi refresh token xoay vòng.
 - Sai mật khẩu và không tìm thấy user đều trả `INVALID_CREDENTIALS` (không phân biệt).
 - Role được seed sẵn qua migration (`SUPERVISOR`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`); tài khoản admin đầu tiên tự tạo bởi `RootUserSeeder` (`ROOT_PHONENUMBER`/`ROOT_PASSWORD` trong `.env`, mặc định `root`/`root`) — dùng để test route giới hạn bởi `@RequireAuthority(...)` mà không cần thao tác SQL.
 - Đổi role user khác: chưa có endpoint, phải update thủ công cột `role_id_column` trong DB.
+
+### Refresh token store — Redis, KHÔNG phải MySQL
+
+`RefreshTokenService` (`src/auth/refresh-token.service.ts`) là nơi duy nhất chạm Redis; `AuthService` chỉ gọi nó và map `RotateOutcome` sang exception. **Không có bảng nào, không có cron dọn rác** — TTL của Redis tự xoá.
+
+3 loại key (DB logic riêng, `REDIS_AUTH_DB`, tách khỏi DB của BullMQ):
+
+| Key | Value | TTL |
+|---|---|---|
+| `REFRESH_TOKEN_{uid}_{jti}` | `ACTIVE:{sid}` hoặc `GRACE:{sid}:{newJti}` | hạn còn lại của refresh token; `REFRESH_TOKEN_GRACE_PERIOD` khi ở GRACE |
+| `REFRESH_SESSION_{uid}_{sid}` | JSON metadata phiên | trượt cùng refresh token |
+| `REFRESH_INDEX_{uid}` | SET các `sid` | `REFRESH_TOKEN_ABSOLUTE_DURATION` |
+
+`jti` có dạng `{epochMs}-{random8}` — mang thời điểm phát hành ngay trên tên key, phần random để 2 phiên sinh cùng mili giây không ghi đè nhau. **Key token tồn tại ⇔ refresh token còn hiệu lực**; xoá key = thu hồi.
+
+Bất biến khi sửa vùng này (phá là hỏng âm thầm, xem `docs/plans/revise-flow-refresh-token-idempotent-snowglobe.md`):
+- Rotation nằm trong **1 Lua script atomic** (`ROTATE_SCRIPT`) — tách thành nhiều lệnh từ Node là mở lại race của refresh song song.
+- Nhánh **GRACE read-only tuyệt đối**: không gia hạn TTL, không ghi `lastUsedAt`. Gia hạn = kẻ tấn công poll liên tục giữ được token cũ vĩnh viễn.
+- `exp` của token ký lại ở nhánh grace lấy từ **TTL còn lại của key**, không phải `REFRESHABLE_DURATION`.
+- TTL luôn bị chặn bởi trần tuyệt đối: `min(REFRESHABLE_DURATION, absoluteExpiresAt - now)`.
+- `checkActiveUser` chạy **trước** khi ghi Redis.
+- Redis phải là `maxmemory-policy noeviction`, nếu không phiên bị evict ngẫu nhiên → user đăng xuất không rõ lý do.
+
+Reuse detection: token key mất mà session key còn ⇒ token đang trình ra là token cũ của phiên đang sống ⇒ thu hồi cả phiên (`REFRESH_TOKEN_REUSED`, 100009). Không giới hạn độ sâu — token cũ bao nhiêu vòng trước cũng bắt được, vì tra theo `sid` lấy từ chính JWT.
+
+Thu hồi **chỉ có hiệu lực ở tầng refresh token**: access token là stateless nên sau `logout`/`logout-all` vẫn dùng được tối đa `DURATION` giây (đang là 900). Đây là đánh đổi có chủ ý.
 
 ## Checklist khi tạo feature mới
 
@@ -145,7 +172,7 @@ export class ExampleController {
 
 ## Common/shared code
 
-Không có `src/common`. `src/app/`: response DTO, exception/error-code base, `base.entity`/`base.dto`/`base.mapper`, `http-exception.filter`, swagger decorator, `env.validation`. `src/shared/`: constants, decorators, interfaces, redis, services dùng chung, utils. Guard/decorator xác thực-phân quyền nằm ngay trong module sở hữu (`src/auth/`, `src/role/`, `src/feature-flag-system/`).
+Không có `src/common`. `src/app/`: response DTO, exception/error-code base, `base.entity`/`base.dto`/`base.mapper`, `http-exception.filter`, swagger decorator, `env.validation`. `src/shared/`: hiện chỉ có `utils/`. `src/redis/`: `RedisModule` (`@Global()`) + `RedisService` bọc `ioredis` — client dùng chung cho mọi module cần Redis trực tiếp (BullMQ tự quản connection riêng của nó). Guard/decorator xác thực-phân quyền nằm ngay trong module sở hữu (`src/auth/`, `src/role/`, `src/feature-flag-system/`).
 
 ## Quy tắc khi tạo skill mới (`.claude/skills/`)
 
@@ -160,6 +187,9 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 
 - `.env` bắt buộc nhiều biến (Mail/ACB/Zalo OA/Google Maps/Firebase) mà **chưa module nào dùng thật** trong code — app vẫn crash lúc bootstrap nếu thiếu, phải điền giá trị dummy hợp lệ format.
 - `ALLOWED_ORIGINS` không nằm trong `env.validation.ts` nhưng **bắt buộc thực tế** — thiếu sẽ crash bootstrap (`corsOptions()`).
-- OTP, quên/đổi mật khẩu, refresh-token endpoint, validate định dạng số điện thoại.
+- OTP, quên/đổi mật khẩu, validate định dạng số điện thoại.
 - Module nghiệp vụ warehouse thật (product/stock/inventory...) — hiện chỉ có `example/` làm template.
 - Không có `Dockerfile`/`docker-compose.yml` — MySQL/Redis phải tự cài/chạy.
+- **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là không ai login/refresh được (request với access token còn hạn vẫn chạy). `/health` đã có indicator Redis.
+- `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.
+- Lua script trong `refresh-token.service.ts` không unit test được (spec chỉ mock giá trị trả về). Đúng/sai của nó phải verify tay — đặc biệt case refresh song song.
