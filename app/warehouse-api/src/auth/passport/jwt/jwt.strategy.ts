@@ -44,6 +44,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: user.id,
       userName: user.phonenumber,
       roleName: user.role?.name,
+      sessionId: payload.sid,
       // Tính lại từ dữ liệu vừa query (đã fetch role.permissions.authority mỗi request) thay vì
       // đọc từ JWT — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần re-login.
       scope: this.authUtils.buildScope(user),
