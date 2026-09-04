@@ -7,6 +7,8 @@ import { AuthService } from './auth.service';
 import { AuthUtils } from './auth.utils';
 import { JwtStrategy } from './passport/jwt/jwt.strategy';
 import { RootUserSeeder } from './root-user.seeder';
+import { RefreshTokenService } from './refresh-token.service';
+import { RedisModule } from 'src/redis/redis.module';
 import { UserModule } from 'src/user/user.module';
 import { RoleModule } from 'src/role/role.module';
 
@@ -22,9 +24,10 @@ import { RoleModule } from 'src/role/role.module';
     }),
     UserModule,
     RoleModule,
+    RedisModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthUtils, JwtStrategy, RootUserSeeder],
+  providers: [AuthService, AuthUtils, JwtStrategy, RootUserSeeder, RefreshTokenService],
   exports: [AuthService],
 })
 export class AuthModule {}
