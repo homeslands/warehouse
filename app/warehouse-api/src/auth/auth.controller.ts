@@ -5,7 +5,7 @@ import { ApiResponseWithType } from 'src/app/app.decorator';
 import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 import { Public } from './decorator/public.decorator';
 import { AuthService } from './auth.service';
-import { LoginAuthRequestDto, LoginAuthResponseDto } from './auth.dto';
+import { LoginAuthRequestDto, LoginAuthResponseDto, RefreshAuthRequestDto } from './auth.dto';
 
 @ApiTags('Auth')
 @Controller('auth')
@@ -41,6 +41,28 @@ export class AuthController {
     const result = await this.authService.login(requestData);
     return {
       message: 'Login successful',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<LoginAuthResponseDto>;
+  }
+
+  @Post('refresh')
+  @Public()
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Refresh access token by refresh token' })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Token has been refreshed successfully',
+    type: LoginAuthResponseDto,
+  })
+  async refresh(
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: RefreshAuthRequestDto,
+  ) {
+    const result = await this.authService.refresh(requestData);
+    return {
+      message: 'Token has been refreshed successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
