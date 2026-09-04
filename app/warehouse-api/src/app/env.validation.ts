@@ -1,5 +1,14 @@
 import { plainToInstance } from 'class-transformer';
-import { IsEnum, IsInt, IsNotEmpty, IsString, Max, Min, validateSync } from 'class-validator';
+import {
+  IsEnum,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  IsString,
+  Max,
+  Min,
+  validateSync,
+} from 'class-validator';
 
 enum Environment {
   Development = 'development',
@@ -43,6 +52,31 @@ export class EnvironmentVariables {
 
   @IsInt()
   REFRESHABLE_DURATION: number;
+
+  // Auth lưu refresh token trên Redis nên thiếu 2 biến này là app không đăng nhập được —
+  // fail ngay lúc boot tốt hơn fail lúc user login.
+  @IsNotEmpty()
+  REDIS_HOST: string;
+
+  @IsInt()
+  REDIS_PORT: number;
+
+  // Có default trong code, để @IsOptional() cho .env đang chạy không phải khai thêm.
+  @IsOptional()
+  @IsInt()
+  REDIS_AUTH_DB?: number;
+
+  @IsOptional()
+  @IsInt()
+  REFRESH_TOKEN_ABSOLUTE_DURATION?: number;
+
+  @IsOptional()
+  @IsInt()
+  REFRESH_TOKEN_GRACE_PERIOD?: number;
+
+  @IsOptional()
+  @IsInt()
+  MAX_ACTIVE_SESSIONS?: number;
 
   @IsNotEmpty()
   SESSION_SECRET: string;
