@@ -53,6 +53,7 @@
     "express-mysql-session": "^3.0.3",
     "express-session": "^1.17.3",
     "firebase-admin": "^13.10.0",
+    "ioredis": "^5.11.1",
     "moment": "^2.30.1",
     "mysql2": "^3.6.5",
     "nest-winston": "^1.9.4",
