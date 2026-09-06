@@ -11,26 +11,27 @@ import {
   LoginAuthResponseDto,
   LogoutAuthResponseDto,
   RefreshAuthRequestDto,
-  SessionResponseDto,
   TokenType,
 } from './auth.dto';
 import { AuthException } from './auth.exception';
 import { AuthValidation } from './auth.validation';
 import { checkActiveUser } from './auth.utils';
 import { UserService } from 'src/user/user.service';
-import { IssuedSession, RefreshTokenService, SessionMeta } from './refresh-token.service';
+import { TokenRevocationService } from './token-revocation.service';
 
 @Injectable()
 export class AuthService {
   private readonly duration: number;
+  private readonly refreshableDuration: number;
 
   constructor(
     private readonly jwtService: JwtService,
     private readonly configService: ConfigService,
     private readonly userService: UserService,
-    private readonly refreshTokenService: RefreshTokenService,
+    private readonly tokenRevocationService: TokenRevocationService,
   ) {
     this.duration = parseInt(this.configService.get('DURATION'), 10);
+    this.refreshableDuration = parseInt(this.configService.get('REFRESHABLE_DURATION'), 10);
   }
 
   async validateUser(phonenumber: string, pass: string): Promise<User | null> {
@@ -43,54 +44,42 @@ export class AuthService {
     return user;
   }
 
-  async login(
-    loginAuthDto: LoginAuthRequestDto,
-    meta: SessionMeta = {},
-  ): Promise<LoginAuthResponseDto> {
+  // Deny-list: login KHÔNG ghi gì vào Redis. `sid` chỉ là định danh phiên ký vào token, chỉ được
+  // dùng tới khi có ai đó thu hồi nó.
+  async login(loginAuthDto: LoginAuthRequestDto): Promise<LoginAuthResponseDto> {
     const user = await this.validateUser(loginAuthDto.phonenumber, loginAuthDto.password);
     if (!user) throw new AuthException(AuthValidation.INVALID_CREDENTIALS);
 
     checkActiveUser(user);
 
-    const session = await this.refreshTokenService.createSession(user.id, meta);
-    return this.buildTokenPair(user.id, session);
+    return this.buildTokenPair(user.id, uuidv4());
   }
 
   /**
-   * Đổi refresh token còn hiệu lực lấy cặp token mới (rotation thật — token cũ chỉ còn sống
-   * trong cửa sổ grace ngắn để phục vụ refresh song song, sau đó dùng lại là bị coi như bị
-   * đánh cắp và cả phiên bị thu hồi).
+   * Ký lại CẢ access lẫn refresh token với `exp` mới, giữ nguyên `sid`. Không xoay vòng, không
+   * ghi Redis: refresh token cũ vẫn sống tới `exp` của chính nó (xem "Đánh đổi đã chấp nhận"
+   * trong `docs/specs/token-revocation.md`).
    */
-  async refresh(
-    refreshAuthDto: RefreshAuthRequestDto,
-    meta: SessionMeta = {},
-  ): Promise<LoginAuthResponseDto> {
+  async refresh(refreshAuthDto: RefreshAuthRequestDto): Promise<LoginAuthResponseDto> {
     const payload = this.verifyRefreshToken(refreshAuthDto.refreshToken);
 
-    // Kiểm tra user TRƯỚC khi ghi Redis: nếu xoay vòng trước rồi mới phát hiện user bị khoá
-    // thì jti cũ đã chết mà token mới không được trả về, phiên thành gạch vụn.
+    // Không có `sid` thì không thể thu hồi được token sẽ phát ra — từ chối thay vì mở một phiên
+    // vĩnh viễn không logout được. Mọi refresh token do code này ký đều có `sid`.
+    if (!payload.sid) throw new AuthException(AuthValidation.INVALID_REFRESH_TOKEN);
+
+    if (await this.tokenRevocationService.isRevoked(payload.sub, payload.sid, payload.iat)) {
+      throw new AuthException(AuthValidation.REFRESH_TOKEN_REVOKED);
+    }
+
     const user = await this.userService.findByIdWithAuthorities(payload.sub);
     if (!user) throw new AuthException(AuthValidation.INVALID_REFRESH_TOKEN);
     if (!user.isActive) {
-      await this.refreshTokenService.revokeAllForUser(user.id);
+      // User bị khoá: giết luôn mọi token khác của họ, không chỉ lần refresh này.
+      await this.tokenRevocationService.revokeAllTokensForUser(user.id);
       checkActiveUser(user);
     }
 
-    const outcome = await this.refreshTokenService.rotate(user.id, payload.jti, payload.sid, meta);
-
-    switch (outcome.status) {
-      case 'rotated':
-      case 'grace':
-        return this.buildTokenPair(user.id, outcome);
-      case 'reused':
-        throw new AuthException(AuthValidation.REFRESH_TOKEN_REUSED);
-      case 'revoked':
-        throw new AuthException(AuthValidation.REFRESH_TOKEN_REVOKED);
-      case 'session_expired':
-        throw new AuthException(AuthValidation.SESSION_EXPIRED);
-      default:
-        throw new AuthException(AuthValidation.INVALID_REFRESH_TOKEN);
-    }
+    return this.buildTokenPair(user.id, payload.sid);
   }
 
   async logout(userId: string, sessionId?: string): Promise<LogoutAuthResponseDto> {
@@ -98,24 +87,21 @@ export class AuthService {
     // để client cũ không vỡ; access token đó cũng chỉ còn sống tối đa `DURATION`.
     if (!sessionId) return { revokedSessions: 0 };
 
-    const revokedSessions = await this.refreshTokenService.revokeSession(userId, sessionId);
-    return { revokedSessions };
+    await this.tokenRevocationService.revokeSession(userId, sessionId);
+    return { revokedSessions: 1 };
   }
 
-  async logoutAll(userId: string): Promise<LogoutAuthResponseDto> {
-    const revokedSessions = await this.refreshTokenService.revokeAllForUser(userId);
-    return { revokedSessions };
-  }
-
-  async listSessions(userId: string, currentSessionId?: string): Promise<SessionResponseDto[]> {
-    const sessions = await this.refreshTokenService.listActiveSessions(userId);
-    return sessions.map((session) => ({
-      createdAt: session.createdAt,
-      lastUsedAt: session.lastUsedAt,
-      ipAddress: session.ipAddress,
-      userAgent: session.userAgent,
-      isCurrent: session.sessionId === currentSessionId,
-    }));
+  /**
+   * Cutoff (`iat`) chỉ có độ phân giải 1 giây nên token ký CÙNG GIÂY với lần gọi này sẽ lọt —
+   * và token lọt đó chính là token đang nằm trong tay người vừa bấm "đăng xuất mọi thiết bị"
+   * (đã verify thật: cả chuỗi login → logout-all chạy trong 1 giây thì `/auth/me` vẫn 200).
+   * Nên chặn thêm phiên hiện tại bằng key blacklist theo `sid` — không phụ thuộc `iat`.
+   * Các thiết bị khác vẫn do cutoff lo, token của chúng phát từ trước nên không dính khe hở này.
+   */
+  async logoutAll(userId: string, sessionId?: string): Promise<LogoutAuthResponseDto> {
+    await this.tokenRevocationService.revokeAllTokensForUser(userId);
+    if (sessionId) await this.tokenRevocationService.revokeSession(userId, sessionId);
+    return { revokedSessions: 1 };
   }
 
   private verifyRefreshToken(refreshToken: string): AuthJwtPayload {
@@ -139,34 +125,33 @@ export class AuthService {
   }
 
   /**
-   * Access token và refresh token mang `jti` KHÁC nhau: `jti` của refresh token là khoá Redis,
-   * còn access token chỉ cần một định danh riêng cho mỗi lần ký (nhánh grace ký lại access token
-   * nhiều lần cho cùng một refresh token).
+   * Access và refresh token mang `jti` khác nhau (mỗi lần ký là một định danh riêng) nhưng CÙNG
+   * `sid` — `sid` mới là thứ `BLACK_LIST_{uid}_{sid}` dùng để giết cả cặp lúc logout.
    */
-  private buildTokenPair(userId: string, session: IssuedSession): LoginAuthResponseDto {
+  private buildTokenPair(userId: string, sessionId: string): LoginAuthResponseDto {
     const now = Math.floor(Date.now() / 1000);
 
     const accessPayload: AuthJwtPayload = {
       sub: userId,
       jti: uuidv4(),
-      sid: session.sessionId,
+      sid: sessionId,
       type: TokenType.Access,
       exp: now + this.duration,
     };
 
     const refreshPayload: AuthJwtPayload = {
       sub: userId,
-      jti: session.jti,
-      sid: session.sessionId,
+      jti: uuidv4(),
+      sid: sessionId,
       type: TokenType.Refresh,
-      exp: now + session.ttlSeconds,
+      exp: now + this.refreshableDuration,
     };
 
     return {
       accessToken: this.jwtService.sign(accessPayload),
       expireTime: moment().add(this.duration, 'seconds').toString(),
       refreshToken: this.jwtService.sign(refreshPayload),
-      expireTimeRefreshToken: moment().add(session.ttlSeconds, 'seconds').toString(),
+      expireTimeRefreshToken: moment().add(this.refreshableDuration, 'seconds').toString(),
     };
   }
 }

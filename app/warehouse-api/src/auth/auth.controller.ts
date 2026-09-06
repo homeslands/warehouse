@@ -1,14 +1,4 @@
-import {
-  Body,
-  Controller,
-  Get,
-  Headers,
-  HttpCode,
-  HttpStatus,
-  Ip,
-  Post,
-  ValidationPipe,
-} from '@nestjs/common';
+import { Body, Controller, Get, HttpCode, HttpStatus, Post, ValidationPipe } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import { ApiBearerAuth, ApiOperation, ApiTags } from '@nestjs/swagger';
 import { AppResponseDto } from 'src/app/app.dto';
@@ -21,7 +11,6 @@ import {
   LoginAuthResponseDto,
   LogoutAuthResponseDto,
   RefreshAuthRequestDto,
-  SessionResponseDto,
 } from './auth.dto';
 
 @ApiTags('Auth')
@@ -55,10 +44,8 @@ export class AuthController {
   async login(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: LoginAuthRequestDto,
-    @Ip() ipAddress: string,
-    @Headers('user-agent') userAgent: string,
   ) {
-    const result = await this.authService.login(requestData, { ipAddress, userAgent });
+    const result = await this.authService.login(requestData);
     return {
       message: 'Login successful',
       statusCode: HttpStatus.OK,
@@ -74,8 +61,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh access token by refresh token',
     description:
-      'Refresh token xoay vòng mỗi lần gọi. Token cũ chỉ còn dùng được trong cửa sổ grace ngắn ' +
-      '(cho refresh song song); dùng lại sau đó bị coi là token bị đánh cắp và cả phiên bị thu hồi.',
+      'Phát lại CẢ access lẫn refresh token với hạn mới, giữ nguyên phiên. Không xoay vòng: ' +
+      'refresh token cũ vẫn dùng được tới khi tự hết hạn, không có phát hiện token bị đánh cắp. ' +
+      'Muốn vô hiệu hoá ngay thì gọi /auth/logout hoặc /auth/logout-all.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -85,10 +73,8 @@ export class AuthController {
   async refresh(
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: RefreshAuthRequestDto,
-    @Ip() ipAddress: string,
-    @Headers('user-agent') userAgent: string,
   ) {
-    const result = await this.authService.refresh(requestData, { ipAddress, userAgent });
+    const result = await this.authService.refresh(requestData);
     return {
       message: 'Token has been refreshed successfully',
       statusCode: HttpStatus.OK,
@@ -103,8 +89,8 @@ export class AuthController {
   @ApiOperation({
     summary: 'Logout the current device',
     description:
-      'Thu hồi refresh token của phiên hiện tại. Access token đã phát vẫn dùng được tới khi hết ' +
-      'hạn (tối đa DURATION giây) vì access token là stateless.',
+      'Thu hồi phiên hiện tại. Có hiệu lực NGAY ở request kế tiếp với cả access lẫn refresh ' +
+      'token, vì cả 2 mang cùng sid và sid đó bị đưa vào deny-list trên Redis.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -127,8 +113,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Logout every device of the current user',
     description:
-      'Thu hồi toàn bộ refresh token của user — dùng khi nghi ngờ token bị đánh cắp. Access token ' +
-      'đã phát vẫn dùng được tới khi hết hạn (tối đa DURATION giây).',
+      'Thu hồi mọi token của user đã phát hành trước thời điểm gọi, trên mọi thiết bị — dùng khi ' +
+      'nghi ngờ token bị đánh cắp. Có hiệu lực ngay ở request kế tiếp. Đăng nhập lại sau đó vẫn ' +
+      'bình thường.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -136,32 +123,12 @@ export class AuthController {
     type: LogoutAuthResponseDto,
   })
   async logoutAll(@CurrentUser() currentUser: CurrentUserDto) {
-    const result = await this.authService.logoutAll(currentUser.userId);
+    const result = await this.authService.logoutAll(currentUser.userId, currentUser.sessionId);
     return {
       message: 'All sessions have been revoked successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<LogoutAuthResponseDto>;
-  }
-
-  @Get('sessions')
-  @ApiBearerAuth()
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'List the active login sessions of the current user' })
-  @ApiResponseWithType({
-    status: HttpStatus.OK,
-    description: 'Sessions have been retrieved successfully',
-    type: SessionResponseDto,
-    isArray: true,
-  })
-  async listSessions(@CurrentUser() currentUser: CurrentUserDto) {
-    const result = await this.authService.listSessions(currentUser.userId, currentUser.sessionId);
-    return {
-      message: 'Sessions have been retrieved successfully',
-      statusCode: HttpStatus.OK,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<SessionResponseDto[]>;
   }
 }

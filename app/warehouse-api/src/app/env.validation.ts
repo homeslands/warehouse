@@ -66,17 +66,10 @@ export class EnvironmentVariables {
   @IsInt()
   REDIS_AUTH_DB?: number;
 
+  // Giây. TTL cache RBAC trên Redis (`RBAC_CACHE_TTL_DEFAULT` = 300 nếu không khai).
   @IsOptional()
   @IsInt()
-  REFRESH_TOKEN_ABSOLUTE_DURATION?: number;
-
-  @IsOptional()
-  @IsInt()
-  REFRESH_TOKEN_GRACE_PERIOD?: number;
-
-  @IsOptional()
-  @IsInt()
-  MAX_ACTIVE_SESSIONS?: number;
+  RBAC_CACHE_TTL?: number;
 
   @IsNotEmpty()
   SESSION_SECRET: string;

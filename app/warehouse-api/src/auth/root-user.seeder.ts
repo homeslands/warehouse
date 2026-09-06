@@ -38,6 +38,8 @@ export class RootUserSeeder implements OnApplicationBootstrap {
       phonenumber: this.rootPhonenumber,
       password: this.rootPassword,
       roleSlug: superAdminRole.slug,
+      firstName: 'Root',
+      lastName: 'Admin',
     });
 
     this.logger.log(`Root user has been seeded (phonenumber: ${this.rootPhonenumber})`, {

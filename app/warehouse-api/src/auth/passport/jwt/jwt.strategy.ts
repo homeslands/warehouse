@@ -7,6 +7,7 @@ import { CurrentUserDto } from 'src/user/user.decorator';
 import { UserService } from 'src/user/user.service';
 import { AuthUtils } from '../../auth.utils';
 import { AuthJwtPayload, TokenType } from '../../auth.dto';
+import { TokenRevocationService } from '../../token-revocation.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
@@ -14,6 +15,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     private readonly userService: UserService,
     private readonly cls: ClsService,
     private readonly authUtils: AuthUtils,
+    private readonly tokenRevocationService: TokenRevocationService,
     configService: ConfigService,
   ) {
     super({
@@ -30,6 +32,12 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       throw new UnauthorizedException();
     }
 
+    // Check thu hồi TRƯỚC khi query MySQL: token đã bị logout/đổi mật khẩu thì không tốn thêm
+    // 1 round-trip DB. Fail-closed khi Redis lỗi (xem `TokenRevocationService.isRevoked`).
+    if (await this.tokenRevocationService.isRevoked(payload.sub, payload.sid, payload.iat)) {
+      throw new UnauthorizedException();
+    }
+
     const user = await this.userService.findByIdWithAuthorities(payload.sub);
     if (!user || !user.isActive) {
       throw new UnauthorizedException();
@@ -43,7 +51,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     return {
       userId: user.id,
       userName: user.phonenumber,
-      roleName: user.role?.name,
+      role: user.role?.name,
       sessionId: payload.sid,
       // Tính lại từ dữ liệu vừa query (đã fetch role.permissions.authority mỗi request) thay vì
       // đọc từ JWT — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần re-login.
