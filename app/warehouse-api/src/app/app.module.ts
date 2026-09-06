@@ -20,10 +20,11 @@ import { OptimisticLockExceptionFilter } from './optimistic-lock.filter';
 import { AppSubscriber } from './app.subscriber';
 
 import { JwtOptionalAuthGuard } from 'src/auth/passport/jwt/jwt-optional-auth.guard';
-import { AuthorityGuard } from 'src/role/role.guard';
+import { RbacGuard } from 'src/rbac/rbac.guard';
 import { RoleBasedSerializationInterceptor } from 'src/role/role.interceptor';
 import { FeatureGuard } from 'src/feature-flag-system/guard/fureture.guard';
 import { FeatureFlagSystemModule } from 'src/feature-flag-system/feature-flag-system.module';
+import { RbacModule } from 'src/rbac/rbac.module';
 
 import { LoggerMiddleware } from 'src/logger/logger.middleware';
 import { LoggerModule } from 'src/logger/logger.module';
@@ -66,6 +67,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     ThrottlerModule.forRoot([{ ttl: 60000, limit: 100000 }]),
     ServeStaticModule.forRoot({ rootPath: join(__dirname, '..', '..', 'public') }),
     FeatureFlagSystemModule,
+    RbacModule,
     RoleModule,
     AuthorityGroupModule,
     AuthorityModule,
@@ -85,7 +87,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     { provide: APP_FILTER, useClass: HttpExceptionFilter },
     { provide: APP_FILTER, useClass: OptimisticLockExceptionFilter },
     { provide: APP_GUARD, useClass: JwtOptionalAuthGuard },
-    { provide: APP_GUARD, useClass: AuthorityGuard },
+    { provide: APP_GUARD, useClass: RbacGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_INTERCEPTOR, useClass: RoleBasedSerializationInterceptor },

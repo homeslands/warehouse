@@ -1,5 +1,11 @@
 # Revise luồng authentication + JWT — refresh token store trên Redis
 
+> **ĐÃ BỊ THAY THẾ.** Mô hình allow-list mô tả trong file này (3 key `REFRESH_TOKEN_*`/
+> `REFRESH_SESSION_*`/`REFRESH_INDEX_*`, rotation + grace, reuse detection, `MAX_ACTIVE_SESSIONS`,
+> `GET /auth/sessions`) **không còn trong code**. Xem `docs/specs/token-revocation.md` và
+> `docs/plans/soi-v-s-a-vectorized-bentley.md` cho thiết kế deny-list hiện hành. Giữ file này làm
+> ghi chép lịch sử — đừng dùng làm tài liệu tham chiếu.
+
 ## Context
 
 Luồng refresh token hiện tại (`src/auth/`) **hoàn toàn stateless**: `/auth/refresh` chỉ verify chữ ký JWT + `exp` + claim `type`, rồi load lại user để check `isActive`. `jti` được sinh mỗi lần nhưng không lưu ở đâu, không đối chiếu với gì.
@@ -39,7 +45,7 @@ Ba loại key. `{uid}` = `user.id`, `{sid}` = session id (uuid, ổn định su�
 | Key | Value | TTL |
 |---|---|---|
 | `REFRESH_TOKEN_{uid}_{jti}` | `ACTIVE:{sid}` hoặc `GRACE:{sid}:{newJti}` | = hạn còn lại của refresh token; **10s** khi ở trạng thái GRACE |
-| `REFRESH_SESSION_{uid}_{sid}` | JSON `{ currentJti, createdAt, lastUsedAt, userAgent, ipAddress, absoluteExpiresAt }` | = TTL của token hiện tại (trượt cùng nhau) |
+| `REFRESH_SESSION_{uid}_{sid}` | JSON `{ currentJti, createdAt, lastUsedAt, ipAddress, absoluteExpiresAt }` (`userAgent` chỉ còn ở phiên tạo trước khi bỏ header, xem dưới) | = TTL của token hiện tại (trượt cùng nhau) |
 | `REFRESH_INDEX_{uid}` | Redis SET các `sid` | = `REFRESH_TOKEN_ABSOLUTE_DURATION`, làm mới mỗi lần ghi |
 
 Ý nghĩa: **key token tồn tại ⇔ refresh token đó còn hiệu lực.** Xoá key = thu hồi. TTL hết hạn = token tự chết, không cần dọn.
@@ -98,7 +104,7 @@ Hiện access và refresh token **dùng chung `jti`** — phải tách. Access t
 ### `logout` / `logout-all` / `sessions`
 - `logout`: từ `sid` trong access token → đọc session key lấy `currentJti` → xoá cả 2 key + `SREM` index (một Lua script). Idempotent. Token cũ không có `sid` → trả 200 `revokedSessions: 0` + log warn, **không throw**.
 - `logout-all`: `SMEMBERS` index → xoá toàn bộ session key + token key tương ứng → `DEL` index.
-- `sessions`: `SMEMBERS` index → `MGET` các session key → bỏ qua (và `SREM`) sid đã hết hạn → trả `SessionResponseDto` gồm `createdAt`, `lastUsedAt`, `ipAddress`, `userAgent`, `isCurrent`. **Không bao giờ trả `sid`/`jti`.**
+- `sessions`: `SMEMBERS` index → `MGET` các session key → bỏ qua (và `SREM`) sid đã hết hạn → trả `SessionResponseDto` gồm `createdAt`, `lastUsedAt`, `ipAddress`, `userAgent`, `isCurrent`. **Không bao giờ trả `sid`/`jti`.** (`userAgent` nay luôn `undefined` với phiên mới — xem "Cập nhật: bỏ `user-agent`" cuối file.)
 
 Cả 3 route **không** gắn `@Public()` (cần JWT), **không** gắn `@RequireAuthority` (user chỉ quản lý phiên của chính mình) → **không cần migration seed `Authority`**.
 
@@ -131,7 +137,7 @@ Cả 3 route **không** gắn `@Public()` (cần JWT), **không** gắn `@Requir
 **Sửa**
 - `src/auth/auth.dto.ts` — `AuthJwtPayload` thêm `sid?`, `iat?`; thêm `SessionResponseDto`, `LogoutResponseDto { revokedSessions: number }`.
 - `src/auth/auth.service.ts` — `login(dto, meta)`, `refresh(dto, meta)`, thêm `logout()`/`logoutAll()`/`listSessions()`; thay `generateToken()` bằng `buildTokenPair(userId, session)` (tách jti, ký `sid`).
-- `src/auth/auth.controller.ts` — 3 route mới; `login`/`refresh` nhận `@Ip()` + `@Headers('user-agent')`; `@Throttle` (login 20/phút, refresh 30/phút — 10 quá chặt, SPA 5 tab cùng 401 là 5 lần refresh).
+- `src/auth/auth.controller.ts` — 3 route mới; `login`/`refresh` nhận `@Ip()` (bản đầu có thêm `@Headers('user-agent')`, đã bỏ — xem cuối file); `@Throttle` (login 20/phút, refresh 30/phút — 10 quá chặt, SPA 5 tab cùng 401 là 5 lần refresh).
 - `src/auth/auth.validation.ts` — `REFRESH_TOKEN_REVOKED` (100005), `REFRESH_TOKEN_REUSED` (100009), `SESSION_EXPIRED` (100010); cập nhật union `TAuthErrorCodeKey`. Guard trùng mã trong `src/app/app.validation.ts` throw lúc boot nếu chọn nhầm.
 - `src/auth/auth.module.ts` — import `RedisModule`, thêm `RefreshTokenService` vào `providers`.
 - `src/auth/passport/jwt/jwt.strategy.ts` — trả thêm `sessionId: payload.sid`.
@@ -225,3 +231,15 @@ Tự động: `npm run lint` && `npm test`.
 Lỗi có sẵn, không do đợt này gây ra, nhưng nó vô hiệu hoá chính khả năng thu hồi mà kế hoạch này xây dựng — thu hồi phiên vô nghĩa nếu request đi lọt mà không cần token.
 
 Sửa: bỏ field instance, đọc reflector ngay trong `handleRequest` qua tham số thứ 4 (`context: ExecutionContext`) mà `AuthGuard` của Passport truyền vào — mọi state đi theo request thay vì theo instance.
+
+## Cập nhật: bỏ `user-agent`
+
+`login`/`refresh` **không còn đọc header `user-agent`**. `SessionMeta` chỉ còn `ipAddress`, `createSession()`/`rotate()` không ghi `userAgent` nữa, và hằng `USER_AGENT_MAX_LENGTH` (truncate 512 ký tự) đã bỏ.
+
+An toàn về hành vi: `userAgent` chưa bao giờ tham gia rotate/reuse-detection/revoke — 3 cơ chế đó chỉ dựa vào state machine của key `sid`/`jti` (mục "Reuse detection" ở trên). Bỏ nó không đổi bất kỳ quyết định bảo mật nào.
+
+Cố ý **giữ lại** 2 chỗ phía đọc:
+- `SessionRecord.userAgent?` — phiên tạo trước thay đổi này còn nằm trong Redis và vẫn mang giá trị cũ tới khi hết TTL; `rotate()` giữ nguyên nó qua spread thay vì xoá, để phiên đang sống không mất thông tin thiết bị giữa chừng.
+- `SessionResponseDto.userAgent?` — bỏ field khỏi response là breaking change với FE, không nằm trong phạm vi thay đổi này.
+
+Hệ quả: `GET /auth/sessions` trả `userAgent` cho phiên cũ, `undefined` cho phiên mới. Sau khi mọi phiên cũ hết hạn (`REFRESH_TOKEN_ABSOLUTE_DURATION`, mặc định 90 ngày) thì field luôn `undefined` và có thể bỏ hẳn cả 2 chỗ trên.
