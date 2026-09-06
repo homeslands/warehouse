@@ -1,4 +1,4 @@
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty } from 'class-validator';
 
 export enum TokenType {
@@ -10,10 +10,10 @@ export interface AuthJwtPayload {
   sub: string;
   jti: string;
   /**
-   * Session id — ổn định suốt vòng đời một thiết bị, không đổi khi refresh token xoay vòng.
-   * Ký vào cả access lẫn refresh token để `/auth/logout` biết cắt phiên nào, và để
-   * reuse detection tra được phiên trong O(1). Optional vì token phát trước khi có claim
-   * này vẫn phải parse được cho tới lúc hết hạn.
+   * Session id — ổn định suốt vòng đời một thiết bị, KHÔNG đổi khi `/auth/refresh` ký lại token.
+   * Ký vào cả access lẫn refresh token, nên `BLACK_LIST_{uid}_{sid}` ghi lúc logout giết được cả
+   * cặp (2 loại token mang `jti` khác nhau nên không key theo `jti` được). Optional vì token phát
+   * trước khi có claim này vẫn phải parse được cho tới lúc hết hạn.
    */
   sid?: string;
   // Phân biệt access/refresh token: 2 loại token dùng chung 1 JWT_SECRET nên nếu không có claim
@@ -21,6 +21,11 @@ export interface AuthJwtPayload {
   // đã phát hành trước khi thêm claim vẫn còn hiệu lực tới khi hết hạn.
   type?: TokenType;
   exp?: number;
+  /**
+   * Không set tay lúc ký — `jsonwebtoken` tự chèn vào mọi token. Khai ở đây để phía verify đọc
+   * được, phục vụ check `TOKEN_IAT_AVAILABLE_{uid}` (xem `docs/specs/token-revocation.md`).
+   */
+  iat?: number;
 }
 
 export class LoginAuthRequestDto {
@@ -40,25 +45,10 @@ export class RefreshAuthRequestDto {
 }
 
 export class LogoutAuthResponseDto {
-  @ApiProperty({ description: 'Số phiên đã bị thu hồi' })
+  // Deny-list không còn đếm được số phiên đang mở: `1` = đã ghi key thu hồi, `0` = không ghi được
+  // (token không có claim `sid`). Giữ nguyên tên field để không phá client.
+  @ApiProperty({ description: 'Đã ghi key thu hồi hay chưa (1|0)' })
   revokedSessions: number;
-}
-
-export class SessionResponseDto {
-  @ApiProperty({ description: 'Thời điểm phiên được tạo (đăng nhập)' })
-  createdAt: string;
-
-  @ApiProperty({ description: 'Lần cuối phiên này refresh token' })
-  lastUsedAt: string;
-
-  @ApiPropertyOptional({ description: 'IP ghi nhận lần gần nhất' })
-  ipAddress?: string;
-
-  @ApiPropertyOptional({ description: 'User-Agent ghi nhận lần gần nhất' })
-  userAgent?: string;
-
-  @ApiProperty({ description: 'Có phải phiên đang gửi request này không' })
-  isCurrent: boolean;
 }
 
 export class LoginAuthResponseDto {
