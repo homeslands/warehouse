@@ -127,37 +127,36 @@ export class ExampleController {
 
 Đăng nhập bằng `phonenumber` + `password` (JWT), **chưa có** OTP, quên/đổi mật khẩu, validate định dạng số điện thoại. **Không có đăng ký công khai** (`POST /auth/register` đã bỏ) — tài khoản chỉ được cấp phát cho user mới (chưa có API cấp phát, hiện phải insert thủ công qua migration/DB).
 
-- `POST /auth/login`, `POST /auth/refresh` (cả 2 `@Public()`), `GET /auth/me`, `POST /auth/logout`, `POST /auth/logout-all`, `GET /auth/sessions` (4 cái sau cần JWT). Prefix đầy đủ: `/api/{VERSION}/...`.
-- Access token và refresh token ký cùng `JWT_SECRET`, phân biệt bằng claim `type` (`TokenType` trong `auth.dto.ts`): `JwtStrategy` từ chối refresh token dùng như access token, `AuthService.refresh()` từ chối access token gửi vào `/auth/refresh`. `jti` của 2 loại **khác nhau**; claim `sid` (session id) thì **giống nhau** và không đổi khi refresh token xoay vòng.
+- `POST /auth/login`, `POST /auth/refresh` (cả 2 `@Public()`), `GET /auth/me`, `POST /auth/logout`, `POST /auth/logout-all` (3 cái sau cần JWT). Prefix đầy đủ: `/api/{VERSION}/...`.
+- Access token và refresh token ký cùng `JWT_SECRET`, phân biệt bằng claim `type` (`TokenType` trong `auth.dto.ts`): `JwtStrategy` từ chối refresh token dùng như access token, `AuthService.refresh()` từ chối access token gửi vào `/auth/refresh`. `jti` của 2 loại **khác nhau**; claim `sid` (session id) thì **giống nhau** và không đổi khi `/auth/refresh` ký lại token — `sid` mới là thứ dùng để thu hồi, không phải `jti`.
 - Sai mật khẩu và không tìm thấy user đều trả `INVALID_CREDENTIALS` (không phân biệt).
 - Role được seed sẵn qua migration (`SUPERVISOR`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`); tài khoản admin đầu tiên tự tạo bởi `RootUserSeeder` (`ROOT_PHONENUMBER`/`ROOT_PASSWORD` trong `.env`, mặc định `root`/`root`) — dùng để test route giới hạn bởi `@RequireAuthority(...)` mà không cần thao tác SQL.
 - Đổi role user khác: chưa có endpoint, phải update thủ công cột `role_id_column` trong DB.
 
-### Refresh token store — Redis, KHÔNG phải MySQL
+### Thu hồi token — deny-list trên Redis
 
-`RefreshTokenService` (`src/auth/refresh-token.service.ts`) là nơi duy nhất chạm Redis; `AuthService` chỉ gọi nó và map `RotateOutcome` sang exception. **Không có bảng nào, không có cron dọn rác** — TTL của Redis tự xoá.
+`TokenRevocationService` (`src/auth/token-revocation.service.ts`) là nơi duy nhất chạm Redis của auth. Mô hình **deny-list**: `login`/`refresh` **không ghi gì**, chỉ khi thu hồi mới ghi. Chi tiết + đánh đổi: `docs/specs/token-revocation.md`.
 
-3 loại key (DB logic riêng, `REDIS_AUTH_DB`, tách khỏi DB của BullMQ):
+2 loại key (DB logic riêng, `REDIS_AUTH_DB`, tách khỏi DB của BullMQ), TTL của cả hai đều là `REFRESHABLE_DURATION`:
 
-| Key | Value | TTL |
+| Key | Value | Ghi khi |
 |---|---|---|
-| `REFRESH_TOKEN_{uid}_{jti}` | `ACTIVE:{sid}` hoặc `GRACE:{sid}:{newJti}` | hạn còn lại của refresh token; `REFRESH_TOKEN_GRACE_PERIOD` khi ở GRACE |
-| `REFRESH_SESSION_{uid}_{sid}` | JSON metadata phiên | trượt cùng refresh token |
-| `REFRESH_INDEX_{uid}` | SET các `sid` | `REFRESH_TOKEN_ABSOLUTE_DURATION` |
+| `BLACK_LIST_{uid}_{sid}` | `"1"` | `POST /auth/logout` |
+| `TOKEN_IAT_AVAILABLE_{uid}` | mốc epoch giây | `POST /auth/logout-all` (sau này: đổi mật khẩu, xoá tài khoản) |
 
-`jti` có dạng `{epochMs}-{random8}` — mang thời điểm phát hành ngay trên tên key, phần random để 2 phiên sinh cùng mili giây không ghi đè nhau. **Key token tồn tại ⇔ refresh token còn hiệu lực**; xoá key = thu hồi.
+`logout-all` ghi **cả 2 key**: cutoff cho mọi thiết bị, cộng `BLACK_LIST` cho chính phiên đang gọi — vì `iat` chỉ có độ phân giải 1 giây nên token ký cùng giây với lần thu hồi sẽ lọt qua cutoff, và token đó chính là token của người vừa bấm nút.
 
-Bất biến khi sửa vùng này (phá là hỏng âm thầm, xem `docs/plans/revise-flow-refresh-token-idempotent-snowglobe.md`):
-- Rotation nằm trong **1 Lua script atomic** (`ROTATE_SCRIPT`) — tách thành nhiều lệnh từ Node là mở lại race của refresh song song.
-- Nhánh **GRACE read-only tuyệt đối**: không gia hạn TTL, không ghi `lastUsedAt`. Gia hạn = kẻ tấn công poll liên tục giữ được token cũ vĩnh viễn.
-- `exp` của token ký lại ở nhánh grace lấy từ **TTL còn lại của key**, không phải `REFRESHABLE_DURATION`.
-- TTL luôn bị chặn bởi trần tuyệt đối: `min(REFRESHABLE_DURATION, absoluteExpiresAt - now)`.
-- `checkActiveUser` chạy **trước** khi ghi Redis.
-- Redis phải là `maxmemory-policy noeviction`, nếu không phiên bị evict ngẫu nhiên → user đăng xuất không rõ lý do.
+Check thu hồi chạy ở **cả 2 đầu** — `JwtStrategy.validate` (access token) và `AuthService.refresh` (refresh token) — bằng **1 round-trip** `MGET`. Từ chối khi key blacklist tồn tại **hoặc** `payload.iat < cutoff`. Vì vậy `logout`/`logout-all` có hiệu lực **ngay ở request kế tiếp**, kể cả với access token còn hạn.
 
-Reuse detection: token key mất mà session key còn ⇒ token đang trình ra là token cũ của phiên đang sống ⇒ thu hồi cả phiên (`REFRESH_TOKEN_REUSED`, 100009). Không giới hạn độ sâu — token cũ bao nhiêu vòng trước cũng bắt được, vì tra theo `sid` lấy từ chính JWT.
+Bất biến khi sửa vùng này:
+- **Fail-closed**: `isRevoked()` không đọc được Redis ⇒ từ chối request. Thu hồi mà bypass được bằng cách làm Redis chết thì không phải cơ chế bảo mật. Ngược với cache RBAC (fail-open, vì còn DB để đọc lại) — đừng copy nhầm hướng xử lý lỗi giữa 2 chỗ.
+- Ghi thu hồi (`revokeSession`/`revokeAllTokensForUser`) **throw khi Redis lỗi**, không nuốt.
+- TTL cả 2 key ≥ `REFRESHABLE_DURATION`, nếu không token cũ **sống lại** khi key hết hạn.
+- `/auth/refresh` **không được ghi Redis** — thêm lệnh ghi vào đây là quay lại mô hình allow-list cũ.
+- `sid` phải **giữ nguyên** qua mỗi lần refresh, nếu không logout bằng `sid` cũ không giết được token mới.
+- Redis phải là `maxmemory-policy noeviction`, nếu không key thu hồi bị evict = user đã logout dùng lại được token.
 
-Thu hồi **chỉ có hiệu lực ở tầng refresh token**: access token là stateless nên sau `logout`/`logout-all` vẫn dùng được tối đa `DURATION` giây (đang là 900). Đây là đánh đổi có chủ ý.
+Đã bỏ có chủ ý (đừng tưởng còn): rotation + cửa sổ grace, reuse detection, `MAX_ACTIVE_SESSIONS`, trần `REFRESH_TOKEN_ABSOLUTE_DURATION`, `GET /auth/sessions`. Refresh token cũ **không** chết khi refresh — nó sống tới `exp` của chính nó.
 
 ## Checklist khi tạo feature mới
 
@@ -190,6 +189,7 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 - OTP, quên/đổi mật khẩu, validate định dạng số điện thoại.
 - Module nghiệp vụ warehouse thật (product/stock/inventory...) — hiện chỉ có `example/` làm template.
 - Không có `Dockerfile`/`docker-compose.yml` — MySQL/Redis phải tự cài/chạy.
-- **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là không ai login/refresh được (request với access token còn hạn vẫn chạy). `/health` đã có indicator Redis.
+- **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là **mọi request có JWT đều 401** (check thu hồi token fail-closed) — nặng hơn trước, xem mục "Thu hồi token". `/health` đã có indicator Redis.
 - `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.
-- Lua script trong `refresh-token.service.ts` không unit test được (spec chỉ mock giá trị trả về). Đúng/sai của nó phải verify tay — đặc biệt case refresh song song.
+- Không còn phát hiện refresh token bị đánh cắp (reuse detection đã bỏ cùng allow-list): token bị lộ dùng được tới khi hết hạn hoặc user logout.
+- Chưa có endpoint đổi mật khẩu / xoá tài khoản, dù primitive `TokenRevocationService.revokeAllTokensForUser()` đã sẵn sàng cho chúng.

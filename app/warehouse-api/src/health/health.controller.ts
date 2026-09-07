@@ -24,8 +24,8 @@ export class HealthController {
     private readonly redisService: RedisService,
   ) {}
 
-  // Refresh token store nằm trên Redis: Redis chết là không ai login/refresh được, nên
-  // healthcheck phải phản ánh điều đó thay vì báo xanh.
+  // Deny-list thu hồi token nằm trên Redis và được check fail-closed ở mọi request có JWT:
+  // Redis chết là toàn bộ API 401. Healthcheck phải phản ánh điều đó thay vì báo xanh.
   private async checkRedis(): Promise<HealthIndicatorResult> {
     try {
       await this.redisService.ping();

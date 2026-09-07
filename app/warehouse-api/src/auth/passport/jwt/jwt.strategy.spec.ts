@@ -52,7 +52,7 @@ describe('JwtStrategy', () => {
     expect(tokenRevocationService.isRevoked).toHaveBeenCalledWith('user-id', 'sid-1', 1000);
     expect(result).toMatchObject({
       userId: 'user-id',
-      role: 'ADMIN',
+      roleName: 'ADMIN',
       sessionId: 'sid-1',
       scope: ['EXAMPLE_CREATE'],
     });
