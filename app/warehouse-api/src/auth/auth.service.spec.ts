@@ -1,0 +1,225 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { JwtService } from '@nestjs/jwt';
+import { ConfigService } from '@nestjs/config';
+import { UserService } from 'src/user/user.service';
+import { User } from 'src/user/user.entity';
+import { AuthService } from './auth.service';
+import { AuthException } from './auth.exception';
+import { AuthValidation } from './auth.validation';
+import { AuthJwtPayload, TokenType } from './auth.dto';
+import { TokenRevocationService } from './token-revocation.service';
+
+describe('AuthService', () => {
+  let service: AuthService;
+
+  const signedPayloads: AuthJwtPayload[] = [];
+  const jwtService = {
+    sign: jest.fn((payload: AuthJwtPayload) => {
+      signedPayloads.push(payload);
+      return `signed:${payload.type}`;
+    }),
+    verify: jest.fn(),
+  };
+  const userService = {
+    findByPhoneNumber: jest.fn(),
+    findByIdWithAuthorities: jest.fn(),
+  };
+  const tokenRevocationService = {
+    isRevoked: jest.fn(),
+    revokeSession: jest.fn(),
+    revokeAllTokensForUser: jest.fn(),
+  };
+  const config: Record<string, string> = { DURATION: '900', REFRESHABLE_DURATION: '2592000' };
+  const configService = { get: (key: string) => config[key] };
+
+  const activeUser = { id: 'user-id', isActive: true } as User;
+
+  const payloadOf = (type: TokenType) => signedPayloads.find((p) => p.type === type);
+
+  const expectAuthError = async (promise: Promise<unknown>, code: number) => {
+    await expect(promise).rejects.toBeInstanceOf(AuthException);
+    await expect(promise).rejects.toMatchObject({ code });
+  };
+
+  beforeEach(async () => {
+    jest.clearAllMocks();
+    signedPayloads.length = 0;
+    tokenRevocationService.isRevoked.mockResolvedValue(false);
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        AuthService,
+        { provide: JwtService, useValue: jwtService },
+        { provide: ConfigService, useValue: configService },
+        { provide: UserService, useValue: userService },
+        { provide: TokenRevocationService, useValue: tokenRevocationService },
+      ],
+    }).compile();
+
+    service = module.get<AuthService>(AuthService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('login', () => {
+    // Deny-list: login không được chạm Redis. Có lệnh ghi ở đây là quay lại mô hình allow-list.
+    it('signs both tokens with the same sid without touching redis', async () => {
+      userService.findByPhoneNumber.mockResolvedValue({
+        ...activeUser,
+        password: 'hashed',
+      } as User);
+      jest.spyOn(service, 'validateUser').mockResolvedValue(activeUser);
+
+      const result = await service.login({ phonenumber: '0376295216', password: 'password' });
+
+      expect(result.accessToken).toBe(`signed:${TokenType.Access}`);
+      expect(payloadOf(TokenType.Access).sid).toBeDefined();
+      expect(payloadOf(TokenType.Refresh).sid).toBe(payloadOf(TokenType.Access).sid);
+      expect(tokenRevocationService.revokeSession).not.toHaveBeenCalled();
+      expect(tokenRevocationService.isRevoked).not.toHaveBeenCalled();
+    });
+
+    it('rejects invalid credentials', async () => {
+      jest.spyOn(service, 'validateUser').mockResolvedValue(null);
+
+      await expectAuthError(
+        service.login({ phonenumber: '0376295216', password: 'wrong' }),
+        AuthValidation.INVALID_CREDENTIALS.code,
+      );
+    });
+  });
+
+  describe('refresh', () => {
+    const validPayload = {
+      sub: 'user-id',
+      jti: 'old-jti',
+      sid: 'sid-1',
+      type: TokenType.Refresh,
+    };
+
+    it('reissues both tokens with the same sid and a full refresh lifetime', async () => {
+      jwtService.verify.mockReturnValue(validPayload);
+      userService.findByIdWithAuthorities.mockResolvedValue(activeUser);
+
+      const result = await service.refresh({ refreshToken: 'valid' });
+      const now = Math.floor(Date.now() / 1000);
+
+      expect(tokenRevocationService.isRevoked).toHaveBeenCalledWith('user-id', 'sid-1', undefined);
+      expect(result.refreshToken).toBe(`signed:${TokenType.Refresh}`);
+      // `sid` phải giữ nguyên, nếu không thì logout bằng sid cũ không giết được token mới.
+      expect(payloadOf(TokenType.Refresh).sid).toBe('sid-1');
+      expect(payloadOf(TokenType.Access).sid).toBe('sid-1');
+      // Bỏ rotation: hạn refresh luôn là REFRESHABLE_DURATION đầy đủ, không kế thừa hạn cũ.
+      expect(payloadOf(TokenType.Refresh).exp).toBeGreaterThan(now + 2592000 - 5);
+    });
+
+    it('rejects a revoked refresh token before hitting the database', async () => {
+      jwtService.verify.mockReturnValue(validPayload);
+      tokenRevocationService.isRevoked.mockResolvedValue(true);
+
+      await expectAuthError(
+        service.refresh({ refreshToken: 'valid' }),
+        AuthValidation.REFRESH_TOKEN_REVOKED.code,
+      );
+      expect(userService.findByIdWithAuthorities).not.toHaveBeenCalled();
+    });
+
+    // Không có `sid` thì token phát ra sẽ không bao giờ logout được — từ chối ngay.
+    it('rejects a refresh token carrying no sid', async () => {
+      jwtService.verify.mockReturnValue({ ...validPayload, sid: undefined });
+
+      await expectAuthError(
+        service.refresh({ refreshToken: 'valid' }),
+        AuthValidation.INVALID_REFRESH_TOKEN.code,
+      );
+      expect(tokenRevocationService.isRevoked).not.toHaveBeenCalled();
+    });
+
+    it('rejects an expired refresh token', async () => {
+      const expiredError = new Error('jwt expired');
+      expiredError.name = 'TokenExpiredError';
+      jwtService.verify.mockImplementation(() => {
+        throw expiredError;
+      });
+
+      await expectAuthError(
+        service.refresh({ refreshToken: 'expired' }),
+        AuthValidation.REFRESH_TOKEN_EXPIRED.code,
+      );
+      expect(tokenRevocationService.isRevoked).not.toHaveBeenCalled();
+    });
+
+    it('rejects a malformed refresh token', async () => {
+      jwtService.verify.mockImplementation(() => {
+        throw new Error('invalid signature');
+      });
+
+      await expectAuthError(
+        service.refresh({ refreshToken: 'garbage' }),
+        AuthValidation.INVALID_REFRESH_TOKEN.code,
+      );
+    });
+
+    it('rejects an access token sent as a refresh token', async () => {
+      jwtService.verify.mockReturnValue({ ...validPayload, type: TokenType.Access });
+
+      await expectAuthError(
+        service.refresh({ refreshToken: 'access-token' }),
+        AuthValidation.INVALID_REFRESH_TOKEN.code,
+      );
+      expect(userService.findByIdWithAuthorities).not.toHaveBeenCalled();
+    });
+
+    it('rejects when the user no longer exists', async () => {
+      jwtService.verify.mockReturnValue(validPayload);
+      userService.findByIdWithAuthorities.mockResolvedValue(null);
+
+      await expectAuthError(
+        service.refresh({ refreshToken: 'valid' }),
+        AuthValidation.INVALID_REFRESH_TOKEN.code,
+      );
+    });
+
+    it('revokes every token and issues nothing when the user is deactivated', async () => {
+      jwtService.verify.mockReturnValue(validPayload);
+      userService.findByIdWithAuthorities.mockResolvedValue({
+        ...activeUser,
+        isActive: false,
+      } as User);
+
+      await expectAuthError(
+        service.refresh({ refreshToken: 'valid' }),
+        AuthValidation.USER_NOT_ACTIVE.code,
+      );
+      expect(tokenRevocationService.revokeAllTokensForUser).toHaveBeenCalledWith('user-id');
+      expect(signedPayloads).toHaveLength(0);
+    });
+  });
+
+  describe('logout', () => {
+    it('is a no-op when the access token predates the sid claim', async () => {
+      expect(await service.logout('user-id', undefined)).toEqual({ revokedSessions: 0 });
+      expect(tokenRevocationService.revokeSession).not.toHaveBeenCalled();
+    });
+
+    it('blacklists the current session on logout', async () => {
+      expect(await service.logout('user-id', 'sid-1')).toEqual({ revokedSessions: 1 });
+      expect(tokenRevocationService.revokeSession).toHaveBeenCalledWith('user-id', 'sid-1');
+    });
+
+    it('writes the account-wide cutoff on logout-all', async () => {
+      expect(await service.logoutAll('user-id')).toEqual({ revokedSessions: 1 });
+      expect(tokenRevocationService.revokeAllTokensForUser).toHaveBeenCalledWith('user-id');
+    });
+
+    // Khe hở 1 giây của cutoff: token ký cùng giây với logout-all sẽ lọt, và đó chính là token
+    // của người vừa bấm nút. Chặn thêm theo `sid` để nó chết chắc chắn.
+    it('also blacklists the caller own session on logout-all', async () => {
+      await service.logoutAll('user-id', 'sid-1');
+
+      expect(tokenRevocationService.revokeSession).toHaveBeenCalledWith('user-id', 'sid-1');
+    });
+  });
+});

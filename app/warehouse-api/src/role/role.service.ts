@@ -32,6 +32,16 @@ export class RoleService {
     return this.mapper.map(role, Role, RoleResponseDto);
   }
 
+  async findBySlug(slug: string): Promise<Role | null> {
+    return this.roleRepository.findOne({
+      where: { slug },
+    });
+  }
+
+  async findByName(name: string): Promise<Role | null> {
+    return this.roleRepository.findOneBy({ name });
+  }
+
   async create(dto: CreateRoleRequestDto): Promise<RoleResponseDto> {
     const existed = await this.roleRepository.findOneBy({ name: dto.name });
     if (existed) throw new RoleException(RoleValidation.ROLE_NAME_ALREADY_EXISTS);
