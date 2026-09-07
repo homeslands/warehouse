@@ -1,5 +1,5 @@
 # Use an official Node.js runtime as a parent image
-FROM node:18-alpine AS build
+FROM node:22-alpine AS build
 
 # Set the working directory in the container
 WORKDIR /app
@@ -17,7 +17,7 @@ COPY . .
 RUN npm run build
 
 # Use a lightweight Node.js image to serve the application
-FROM node:18-alpine
+FROM node:22-alpine
 
 # Set the working directory to /app
 WORKDIR /app
@@ -29,7 +29,7 @@ RUN npm install -g serve
 COPY --from=build /app/dist ./dist
 
 # Expose port
-EXPOSE 5173
+EXPOSE 5175
 
 # Serve the application on port 
 CMD ["serve", "-s", "dist", "-l", "5175"]
