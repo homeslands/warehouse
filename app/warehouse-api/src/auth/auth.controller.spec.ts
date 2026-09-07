@@ -22,7 +22,7 @@ describe('AuthController', () => {
   const currentUser: CurrentUserDto = {
     userId: 'user-id',
     userName: '0376295216',
-    role: 'ADMIN',
+    roleName: 'ADMIN',
     sessionId: 'sid-1',
     scope: [],
   };
