@@ -35,15 +35,15 @@ jobs:
         uses: docker/setup-buildx-action@v2
 
       - name: Copy Environment Configuration
-        env:
-          GOOGLE_API_CREDENTIALS: ${{ secrets.GOOGLE_API_CREDENTIALS }}
-          FE_ENV: ${{ secrets.FE_ENV_CLOUD }}
-          AUTHORITIES: ${{ secrets.AUTHORITIES }}
-        run: |
-          mkdir -p app/order-api/public/json
-          echo "$GOOGLE_API_CREDENTIALS" > app/warehouse-api/public/json/credentials.json
-          echo "$AUTHORITIES" > app/warehouse-api/public/json/authorities.json
-          echo "$FE_ENV" > app/warehouse-ui/.env
+        # env:
+        #   GOOGLE_API_CREDENTIALS: ${{ secrets.GOOGLE_API_CREDENTIALS }}
+        #   FE_ENV: ${{ secrets.FE_ENV_CLOUD }}
+        #   AUTHORITIES: ${{ secrets.AUTHORITIES }}
+        # run: |
+        #   mkdir -p app/order-api/public/json
+        #   echo "$GOOGLE_API_CREDENTIALS" > app/warehouse-api/public/json/credentials.json
+        #   echo "$AUTHORITIES" > app/warehouse-api/public/json/authorities.json
+        #   echo "$FE_ENV" > app/warehouse-ui/.env
 
       # Step 3: Log in to GitHub Container Registry
       - name: Log in to GitHub Container Registry
