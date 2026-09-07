@@ -64,6 +64,7 @@ services:
 
       # Session
       SESSION_SECRET: ${SESSION_SECRET}
+      JWT_SECRET: ${JWT_SECRET}
 
       # ZaloOA
       ZALO_OA_API_KEY: ${ZALO_OA_API_KEY}
