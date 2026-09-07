@@ -1,5 +1,5 @@
 # Use the official Node.js image as the base image
-FROM node:18-bookworm
+FROM node:22-bookworm
 
 RUN apt-get update && apt-get install -y \
     libnss3 \
