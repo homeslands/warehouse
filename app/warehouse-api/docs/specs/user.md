@@ -19,6 +19,7 @@ Quan hệ: `User belongsTo Role` (đã có sẵn, `ManyToOne` eager).
 
 ## Quy tắc nghiệp vụ
 
+- Tạo user: `phonenumber` phải là số di động Việt Nam 10 chữ số (`0` + đầu số 3/5/7/8/9 + 8 chữ số, regex `VN_PHONENUMBER_REGEX` trong `user.dto.ts`) — chuỗi chữ, `"0"`, số bàn, dạng `+84...` đều bị từ chối với `USER_PHONENUMBER_INVALID` (422). Khoảng trắng 2 đầu được trim trước khi validate.
 - Tạo user: nếu `phonenumber` đã tồn tại → lỗi `USER_PHONENUMBER_DOES_EXIST` (422). Không phân biệt user đó đang active hay đã bị vô hiệu hoá — chỉ cần tồn tại row là chặn (đúng hành vi cột unique hiện có).
 - `roleSlug` không tồn tại trong `role_tbl` → lỗi `ROLE_NOT_FOUND` (tái dùng `RoleException`/`RoleValidation` đã có ở `src/role/`, không tạo lỗi riêng cho User vì đây là lỗi thuộc về Role).
 - Password luôn được hash trước khi lưu (bcrypt, `SALT_ROUNDS` từ `.env`, cùng cấu hình `AuthService` đang dùng) — không lưu plaintext, không log ra password ở bất kỳ đâu.
@@ -43,7 +44,7 @@ Quan hệ: `User belongsTo Role` (đã có sẵn, `ManyToOne` eager).
 ## Ngoài phạm vi (Out of scope)
 
 - Sửa/xoá user, đổi role của user đã tồn tại, đổi mật khẩu, khoá/mở khoá (`isActive`) — chưa có endpoint, giữ nguyên nợ kỹ thuật cũ.
-- Validate định dạng số điện thoại, OTP xác thực khi tạo user — chưa làm (đúng tech debt đã ghi trong `CLAUDE.md`).
+- OTP xác thực khi tạo user — chưa làm (đúng tech debt đã ghi trong `CLAUDE.md`). Validate định dạng số điện thoại thì ĐÃ có ở `POST /users` (`USER_PHONENUMBER_INVALID`, chỉ nhận di động VN 10 số) — `POST /auth/login` vẫn không validate format (root user `ROOT_PHONENUMBER` mặc định là `root`).
 - Endpoint xem chi tiết 1 user theo id/slug — chưa cần ở version này (chỉ cần list + create theo yêu cầu).
 - Gửi thông báo/SMS cho user mới được cấp phát tài khoản — chưa làm.
 

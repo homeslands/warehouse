@@ -1,11 +1,19 @@
-import { IsNotEmpty, IsOptional } from 'class-validator';
+import { IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
+import { VN_PHONENUMBER_REGEX } from './user.constants';
 
 export class CreateUserRequestDto {
   @AutoMap()
-  @ApiProperty({ description: 'Phone number', example: '0900000000' })
+  @ApiProperty({
+    description: 'Phone number',
+    example: '0900000000',
+    pattern: VN_PHONENUMBER_REGEX.source,
+  })
+  @Transform(({ value }) => (typeof value === 'string' ? value.trim() : value))
+  @Matches(VN_PHONENUMBER_REGEX, { message: 'USER_PHONENUMBER_INVALID' })
   @IsNotEmpty({ message: 'USER_PHONENUMBER_IS_REQUIRED' })
   phonenumber: string;
 
