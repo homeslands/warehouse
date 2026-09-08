@@ -1,8 +1,13 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { JwtService } from '@nestjs/jwt';
 import { ConfigService } from '@nestjs/config';
+import * as bcrypt from 'bcrypt';
 import { UserService } from 'src/user/user.service';
 import { User } from 'src/user/user.entity';
+import { UserException } from 'src/user/user.exception';
+import { UserValidation } from 'src/user/user.validation';
+import { CurrentUserDto } from 'src/user/user.decorator';
+import { RoleEnum } from 'src/role/role.enum';
 import { AuthService } from './auth.service';
 import { AuthException } from './auth.exception';
 import { AuthValidation } from './auth.validation';
@@ -23,6 +28,9 @@ describe('AuthService', () => {
   const userService = {
     findByPhoneNumber: jest.fn(),
     findByIdWithAuthorities: jest.fn(),
+    findById: jest.fn(),
+    findBySlug: jest.fn(),
+    updatePassword: jest.fn(),
   };
   const tokenRevocationService = {
     isRevoked: jest.fn(),
@@ -35,6 +43,15 @@ describe('AuthService', () => {
   const activeUser = { id: 'user-id', isActive: true } as User;
 
   const payloadOf = (type: TokenType) => signedPayloads.find((p) => p.type === type);
+
+  const caller = (overrides: Partial<CurrentUserDto> = {}): CurrentUserDto => ({
+    userId: 'user-id',
+    userName: '0376295216',
+    roleName: RoleEnum.Manager,
+    sessionId: 'sid-1',
+    scope: [],
+    ...overrides,
+  });
 
   const expectAuthError = async (promise: Promise<unknown>, code: number) => {
     await expect(promise).rejects.toBeInstanceOf(AuthException);
@@ -61,6 +78,75 @@ describe('AuthService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('changeOwnPassword', () => {
+    // Hash thật (cost 4 cho nhanh) thay vì mock bcrypt — luồng này sống chết bằng việc so mật khẩu
+    // hiện tại có đúng không, mock đi thì test không còn chứng minh được gì.
+    const currentPasswordHash = bcrypt.hashSync('old-password', 4);
+
+    const self = {
+      id: 'user-id',
+      slug: 'my-slug',
+      isActive: true,
+      password: currentPasswordHash,
+      role: { name: RoleEnum.Manager },
+    } as unknown as User;
+
+    it('rejects a wrong current password', async () => {
+      userService.findById.mockResolvedValue(self);
+
+      await expectAuthError(
+        service.changeOwnPassword(caller(), {
+          currentPassword: 'wrong-password',
+          newPassword: 'new-password',
+        }),
+        AuthValidation.CURRENT_PASSWORD_INCORRECT.code,
+      );
+      expect(userService.updatePassword).not.toHaveBeenCalled();
+    });
+
+    it('revokes every session and issues a brand new one', async () => {
+      userService.findById.mockResolvedValue(self);
+
+      const result = await service.changeOwnPassword(caller(), {
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      });
+
+      expect(userService.updatePassword).toHaveBeenCalledWith('user-id', 'new-password');
+      expect(tokenRevocationService.revokeAllTokensForUser).toHaveBeenCalledWith('user-id');
+      // Khe hở 1 giây của cutoff: phiên đang gọi ký cùng giây sẽ lọt, phải chặn thêm theo `sid`.
+      expect(tokenRevocationService.revokeSession).toHaveBeenCalledWith('user-id', 'sid-1');
+      expect(result.tokens.accessToken).toBe(`signed:${TokenType.Access}`);
+      // `sid` mới, nếu không thì cặp token vừa trả về dính luôn key blacklist vừa ghi ở trên.
+      expect(payloadOf(TokenType.Access).sid).not.toBe('sid-1');
+      expect(payloadOf(TokenType.Refresh).sid).toBe(payloadOf(TokenType.Access).sid);
+    });
+
+    // Endpoint tự đổi không bao giờ đọc tới user khác — chỉ tra đúng `userId` trong token.
+    it('never looks the caller up by slug', async () => {
+      userService.findById.mockResolvedValue(self);
+
+      await service.changeOwnPassword(caller(), {
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      });
+
+      expect(userService.findBySlug).not.toHaveBeenCalled();
+    });
+
+    it('rejects a caller whose account no longer exists', async () => {
+      userService.findById.mockResolvedValue(null);
+
+      const promise = service.changeOwnPassword(caller(), {
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      });
+
+      await expect(promise).rejects.toBeInstanceOf(UserException);
+      await expect(promise).rejects.toMatchObject({ code: UserValidation.USER_NOT_FOUND.code });
+    });
   });
 
   describe('login', () => {
