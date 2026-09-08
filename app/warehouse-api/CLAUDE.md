@@ -125,13 +125,23 @@ export class ExampleController {
 
 ## Auth flow hiện có (`src/auth/`)
 
-Đăng nhập bằng `phonenumber` + `password` (JWT), **chưa có** OTP, quên/đổi mật khẩu, validate định dạng số điện thoại. **Không có đăng ký công khai** (`POST /auth/register` đã bỏ) — tài khoản chỉ được cấp phát cho user mới (chưa có API cấp phát, hiện phải insert thủ công qua migration/DB).
+Đăng nhập bằng `phonenumber` + `password` (JWT), **chưa có** OTP, quên mật khẩu (reset khi không nhớ mật khẩu cũ), validate định dạng số điện thoại, ràng buộc độ mạnh mật khẩu. Đổi mật khẩu **đã có** (`POST /auth/change-password` cho chính mình, `POST /users/{userSlug}/change-password` cho admin/manager đổi hộ). **Không có đăng ký công khai** (`POST /auth/register` đã bỏ) — tài khoản chỉ được cấp phát cho user mới (chưa có API cấp phát, hiện phải insert thủ công qua migration/DB).
 
-- `POST /auth/login`, `POST /auth/refresh` (cả 2 `@Public()`), `GET /auth/me`, `POST /auth/logout`, `POST /auth/logout-all` (3 cái sau cần JWT). Prefix đầy đủ: `/api/{VERSION}/...`.
+- `POST /auth/login`, `POST /auth/refresh` (cả 2 `@Public()`), `GET /auth/me`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/change-password` (4 cái sau cần JWT). Prefix đầy đủ: `/api/{VERSION}/...`.
+- Đổi mật khẩu tách làm **2 endpoint ở 2 module khác nhau, quyền tĩnh theo đúng convention `@RequireAuthority`** (không còn nhánh phân quyền theo body):
+  - `POST /auth/change-password` (`AuthController` → `AuthService.changeOwnPassword`) — **tự đổi mật khẩu của chính mình**, mọi user đã đăng nhập đều gọi được (không gắn decorator quyền), body bắt buộc `currentPassword` + `newPassword`, trả `result.tokens` là cặp token mới (`sid` mới) để không bị văng khỏi app. Không nhận `userSlug`.
+  - `POST /users/{userSlug}/change-password` (`UserController` → `UserService.changeUserPassword`, xem mục "Đổi mật khẩu hộ user khác" bên dưới) — **đổi hộ user khác**, gắn `@RequireAuthority('USER_CHANGE_PASSWORD')` (seed sẵn cho `ADMIN`/`MANAGER` bởi migration `1783728000011`, `SUPER_ADMIN` bypass), body chỉ có `newPassword`, trả `{ userSlug }`.
 - Access token và refresh token ký cùng `JWT_SECRET`, phân biệt bằng claim `type` (`TokenType` trong `auth.dto.ts`): `JwtStrategy` từ chối refresh token dùng như access token, `AuthService.refresh()` từ chối access token gửi vào `/auth/refresh`. `jti` của 2 loại **khác nhau**; claim `sid` (session id) thì **giống nhau** và không đổi khi `/auth/refresh` ký lại token — `sid` mới là thứ dùng để thu hồi, không phải `jti`.
 - Sai mật khẩu và không tìm thấy user đều trả `INVALID_CREDENTIALS` (không phân biệt).
 - Role được seed sẵn qua migration (`SUPERVISOR`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`); tài khoản admin đầu tiên tự tạo bởi `RootUserSeeder` (`ROOT_PHONENUMBER`/`ROOT_PASSWORD` trong `.env`, mặc định `root`/`root`) — dùng để test route giới hạn bởi `@RequireAuthority(...)` mà không cần thao tác SQL.
 - Đổi role user khác: chưa có endpoint, phải update thủ công cột `role_id_column` trong DB.
+
+### Đổi mật khẩu hộ user khác (`src/user/`)
+
+`POST /users/{userSlug}/change-password` nằm ở **`UserController`/`UserService`** chứ không phải module auth: nó là thao tác quản trị trên tài khoản người khác, mã lỗi dùng dải `UserValidation` (`1004xx`), DTO `ChangeUserPassword*` nằm trong `user.dto.ts`. Chỉ luồng **tự đổi** (`/auth/change-password`) mới ở lại `src/auth/`.
+
+- `UserService` cần `TokenRevocationService` để thu hồi phiên của user bị đổi. Vì `AuthModule` đã import `UserModule`, import ngược lại sẽ thành vòng tròn — nên service này được tách ra **`TokenRevocationModule`** (`src/auth/token-revocation.module.ts`, không import gì vì `RedisModule`/`ConfigModule` đều `@Global()`), cả `AuthModule` lẫn `UserModule` cùng import. Cần Redis ở module khác thì import module này, đừng khai `TokenRevocationService` làm provider riêng (2 instance) và đừng dùng `forwardRef`.
+- `UserService.changeUserPassword` chỉ còn 2 rào **phụ thuộc dữ liệu** mà `AuthorityGuard` không biết được: trỏ `userSlug` vào **chính mình** → `CHANGE_OWN_PASSWORD_NOT_ALLOWED` (endpoint này không hỏi mật khẩu cũ, cho phép là mở đường cho token bị đánh cắp của admin đổi mật khẩu chính tài khoản đó), và người không phải `SUPER_ADMIN` đổi mật khẩu của một `SUPER_ADMIN` → `CHANGE_PASSWORD_FORBIDDEN`. Check `scope` thì đã do decorator lo.
 
 ### Thu hồi token — deny-list trên Redis
 
@@ -142,11 +152,13 @@ export class ExampleController {
 | Key | Value | Ghi khi |
 |---|---|---|
 | `BLACK_LIST_{uid}_{sid}` | `"1"` | `POST /auth/logout` |
-| `TOKEN_IAT_AVAILABLE_{uid}` | mốc epoch giây | `POST /auth/logout-all` (sau này: đổi mật khẩu, xoá tài khoản) |
+| `TOKEN_IAT_AVAILABLE_{uid}` | mốc epoch giây | `POST /auth/logout-all`, cả 2 endpoint đổi mật khẩu (`/auth/change-password`, `/users/{userSlug}/change-password`) (sau này: xoá tài khoản) |
 
 `logout-all` ghi **cả 2 key**: cutoff cho mọi thiết bị, cộng `BLACK_LIST` cho chính phiên đang gọi — vì `iat` chỉ có độ phân giải 1 giây nên token ký cùng giây với lần thu hồi sẽ lọt qua cutoff, và token đó chính là token của người vừa bấm nút.
 
-Check thu hồi chạy ở **cả 2 đầu** — `JwtStrategy.validate` (access token) và `AuthService.refresh` (refresh token) — bằng **1 round-trip** `MGET`. Từ chối khi key blacklist tồn tại **hoặc** `payload.iat < cutoff`. Vì vậy `logout`/`logout-all` có hiệu lực **ngay ở request kế tiếp**, kể cả với access token còn hạn.
+Check thu hồi chạy ở **cả 2 đầu** — `JwtStrategy.validate` (access token) và `AuthService.refresh` (refresh token) — bằng **1 round-trip** `MGET`. Từ chối khi key blacklist tồn tại **hoặc** `payload.iat < cutoff`. Vì vậy `logout`/`logout-all`/`change-password` có hiệu lực **ngay ở request kế tiếp**, kể cả với access token còn hạn.
+
+Đổi mật khẩu thu hồi theo đúng user **bị đổi mật khẩu**, không phải người gọi: `/auth/change-password` (tự đổi) giết mọi thiết bị của chính mình (kèm `BLACK_LIST` cho phiên đang gọi, bịt khe hở 1 giây giống `logout-all`) và trả về cặp token mới mang `sid` mới để không bị văng khỏi app; `/users/{userSlug}/change-password` chỉ thu hồi phiên của user bị đổi, token của người gọi không bị đụng. Thứ tự bắt buộc: **thu hồi trước, ký token mới sau** — ngược lại thì token vừa phát có thể rơi vào giây trước cutoff và chết ngay.
 
 Bất biến khi sửa vùng này:
 - **Fail-closed**: `isRevoked()` không đọc được Redis ⇒ từ chối request. Thu hồi mà bypass được bằng cách làm Redis chết thì không phải cơ chế bảo mật. Ngược với cache RBAC (fail-open, vì còn DB để đọc lại) — đừng copy nhầm hướng xử lý lỗi giữa 2 chỗ.
@@ -186,10 +198,10 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 
 - `.env` bắt buộc nhiều biến (Mail/ACB/Zalo OA/Google Maps/Firebase) mà **chưa module nào dùng thật** trong code — app vẫn crash lúc bootstrap nếu thiếu, phải điền giá trị dummy hợp lệ format.
 - `ALLOWED_ORIGINS` không nằm trong `env.validation.ts` nhưng **bắt buộc thực tế** — thiếu sẽ crash bootstrap (`corsOptions()`).
-- OTP, quên/đổi mật khẩu, validate định dạng số điện thoại.
+- OTP, quên mật khẩu (reset khi không nhớ mật khẩu cũ), validate định dạng số điện thoại. **Không có ràng buộc độ mạnh mật khẩu** ở bất kỳ đâu (`login`/`POST /users`/2 endpoint đổi mật khẩu chỉ `@IsNotEmpty()`) — mật khẩu 1 ký tự vẫn qua.
 - Module nghiệp vụ warehouse thật (product/stock/inventory...) — hiện chỉ có `example/` làm template.
 - Không có `Dockerfile`/`docker-compose.yml` — MySQL/Redis phải tự cài/chạy.
 - **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là **mọi request có JWT đều 401** (check thu hồi token fail-closed) — nặng hơn trước, xem mục "Thu hồi token". `/health` đã có indicator Redis.
 - `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.
 - Không còn phát hiện refresh token bị đánh cắp (reuse detection đã bỏ cùng allow-list): token bị lộ dùng được tới khi hết hạn hoặc user logout.
-- Chưa có endpoint đổi mật khẩu / xoá tài khoản, dù primitive `TokenRevocationService.revokeAllTokensForUser()` đã sẵn sàng cho chúng.
+- Chưa có endpoint xoá tài khoản / khoá-mở khoá (`isActive`) / đổi role user khác, dù primitive `TokenRevocationService.revokeAllTokensForUser()` đã sẵn sàng cho chúng. Đổi mật khẩu thì đã có (2 endpoint, xem mục "Auth flow").

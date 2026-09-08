@@ -64,3 +64,28 @@ export class LoginAuthResponseDto {
   @ApiProperty()
   expireTimeRefreshToken: string;
 }
+
+export class ChangePasswordRequestDto {
+  @ApiProperty({
+    description:
+      'Mật khẩu hiện tại của chính mình. BẮT BUỘC — endpoint này chỉ dùng để tự đổi mật khẩu, ' +
+      'admin/manager đổi hộ người khác thì gọi `POST /users/{userSlug}/change-password`.',
+    example: 'old-password',
+  })
+  @IsNotEmpty({ message: 'CURRENT_PASSWORD_IS_REQUIRED' })
+  currentPassword: string;
+
+  @ApiProperty({ description: 'Mật khẩu mới', example: 'new-password' })
+  @IsNotEmpty({ message: 'NEW_PASSWORD_IS_REQUIRED' })
+  newPassword: string;
+}
+
+export class ChangePasswordResponseDto {
+  @ApiProperty({
+    type: LoginAuthResponseDto,
+    description:
+      'Cặp token mới (mang `sid` mới) — đổi mật khẩu thu hồi mọi phiên của chính mình, cặp token ' +
+      'này để không bị văng ra khỏi app ngay sau khi đổi.',
+  })
+  tokens: LoginAuthResponseDto;
+}

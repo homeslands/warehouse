@@ -7,6 +7,8 @@ import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 import { Public } from './decorator/public.decorator';
 import { AuthService } from './auth.service';
 import {
+  ChangePasswordRequestDto,
+  ChangePasswordResponseDto,
   LoginAuthRequestDto,
   LoginAuthResponseDto,
   LogoutAuthResponseDto,
@@ -130,5 +132,37 @@ export class AuthController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<LogoutAuthResponseDto>;
+  }
+
+  @Post('change-password')
+  @ApiBearerAuth()
+  @Throttle({ default: { limit: 10, ttl: 60000 } })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Change the password of your own account',
+    description:
+      'Chỉ đổi mật khẩu của CHÍNH tài khoản đang đăng nhập, mọi user đã login đều gọi được nhưng ' +
+      'BẮT BUỘC gửi kèm `currentPassword`. Muốn đổi hộ người khác thì gọi ' +
+      '`POST /users/{userSlug}/change-password`.\n\n' +
+      'Đổi xong, MỌI phiên của chính mình bị thu hồi ngay ở request kế tiếp; `result.tokens` là ' +
+      'cặp token mới (`sid` mới) để không phải đăng nhập lại.',
+  })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Password has been changed successfully',
+    type: ChangePasswordResponseDto,
+  })
+  async changePassword(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: ChangePasswordRequestDto,
+  ) {
+    const result = await this.authService.changeOwnPassword(currentUser, requestData);
+    return {
+      message: 'Password has been changed successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<ChangePasswordResponseDto>;
   }
 }
