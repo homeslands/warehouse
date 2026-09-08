@@ -41,3 +41,17 @@ export class UserResponseDto extends BaseResponseDto {
   @ApiProperty()
   roleName: string;
 }
+
+export class ChangeUserPasswordRequestDto {
+  @ApiProperty({ description: 'Mật khẩu mới cấp cho user', example: 'new-password' })
+  @IsNotEmpty({ message: 'USER_NEW_PASSWORD_IS_REQUIRED' })
+  newPassword: string;
+}
+
+export class ChangeUserPasswordResponseDto {
+  @ApiProperty({
+    description: 'Slug của user vừa bị đổi mật khẩu — mọi phiên của user đó đã bị thu hồi.',
+    example: 'x7fk2p9q',
+  })
+  userSlug: string;
+}
