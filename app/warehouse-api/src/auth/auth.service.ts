@@ -7,6 +7,8 @@ import { v4 as uuidv4 } from 'uuid';
 import { User } from 'src/user/user.entity';
 import {
   AuthJwtPayload,
+  ChangePasswordRequestDto,
+  ChangePasswordResponseDto,
   LoginAuthRequestDto,
   LoginAuthResponseDto,
   LogoutAuthResponseDto,
@@ -17,6 +19,9 @@ import { AuthException } from './auth.exception';
 import { AuthValidation } from './auth.validation';
 import { checkActiveUser } from './auth.utils';
 import { UserService } from 'src/user/user.service';
+import { UserException } from 'src/user/user.exception';
+import { UserValidation } from 'src/user/user.validation';
+import { CurrentUserDto } from 'src/user/user.decorator';
 import { TokenRevocationService } from './token-revocation.service';
 
 @Injectable()
@@ -102,6 +107,37 @@ export class AuthService {
     await this.tokenRevocationService.revokeAllTokensForUser(userId);
     if (sessionId) await this.tokenRevocationService.revokeSession(userId, sessionId);
     return { revokedSessions: 1 };
+  }
+
+  /**
+   * Tự đổi mật khẩu của chính mình (`POST /auth/change-password`) — chỉ cần đã đăng nhập, nhưng
+   * BẮT BUỘC nhập đúng mật khẩu hiện tại (`ChangePasswordRequestDto` validate `currentPassword`,
+   * nên tới được đây là đã có giá trị). Không bao giờ chạm tới tài khoản người khác.
+   */
+  async changeOwnPassword(
+    currentUser: CurrentUserDto,
+    dto: ChangePasswordRequestDto,
+  ): Promise<ChangePasswordResponseDto> {
+    const user = await this.userService.findById(currentUser.userId);
+    if (!user) throw new UserException(UserValidation.USER_NOT_FOUND);
+
+    const isMatch = await bcrypt.compare(dto.currentPassword, user.password);
+    if (!isMatch) throw new AuthException(AuthValidation.CURRENT_PASSWORD_INCORRECT);
+
+    await this.userService.updatePassword(user.id, dto.newPassword);
+
+    // Thu hồi TRƯỚC khi ký cặp token mới: cutoff lấy đúng `now`, nên token ký sau đó có
+    // `iat >= cutoff` và sống sót; ký trước rồi mới thu hồi thì token vừa phát có thể rơi vào giây
+    // trước cutoff và chết ngay lập tức.
+    await this.tokenRevocationService.revokeAllTokensForUser(user.id);
+
+    // Khe hở 1 giây của cutoff (xem `logoutAll`): token hiện tại của chính người gọi ký cùng giây
+    // với lần thu hồi này sẽ lọt qua — chặn thêm theo `sid` cũ. Cặp token trả về mang `sid` mới nên
+    // không dính key blacklist này.
+    if (currentUser.sessionId) {
+      await this.tokenRevocationService.revokeSession(user.id, currentUser.sessionId);
+    }
+    return { tokens: this.buildTokenPair(user.id, uuidv4()) };
   }
 
   private verifyRefreshToken(refreshToken: string): AuthJwtPayload {

@@ -2,6 +2,7 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
 
 describe('AuthController', () => {
   let controller: AuthController;
@@ -10,6 +11,7 @@ describe('AuthController', () => {
     refresh: jest.fn(),
     logout: jest.fn(),
     logoutAll: jest.fn(),
+    changeOwnPassword: jest.fn(),
   };
 
   const tokens = {
@@ -82,5 +84,23 @@ describe('AuthController', () => {
 
     expect(authService.logoutAll).toHaveBeenCalledWith('user-id', 'sid-1');
     expect(response.result).toEqual({ revokedSessions: 1 });
+  });
+
+  it('wraps change-password result in AppResponseDto', async () => {
+    authService.changeOwnPassword.mockResolvedValue({ tokens });
+    const requestData = { currentPassword: 'old-password', newPassword: 'new-password' };
+
+    const response = await controller.changePassword(currentUser, requestData);
+
+    // Luồng tự đổi luôn chạy trên `currentUser` của token, không nhận slug từ client.
+    expect(authService.changeOwnPassword).toHaveBeenCalledWith(currentUser, requestData);
+    expect(response.result).toEqual({ tokens });
+    expect(response.statusCode).toBe(200);
+  });
+
+  // Luồng tự đổi phải mở cho mọi user đã đăng nhập — gắn nhầm `@RequireAuthority` vào đây là khoá
+  // mất đường đổi mật khẩu của user thường. Endpoint đổi hộ đã chuyển sang `UserController`.
+  it('leaves the self change-password route open to every logged-in user', () => {
+    expect(Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, controller.changePassword)).toBeUndefined();
   });
 });
