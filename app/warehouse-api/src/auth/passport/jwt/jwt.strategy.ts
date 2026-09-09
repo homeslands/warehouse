@@ -1,21 +1,21 @@
 import { Injectable, UnauthorizedException } from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
-import { InjectRepository } from '@nestjs/typeorm';
 import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
-import { Repository } from 'typeorm';
 import { ClsService } from 'nestjs-cls';
-import { User } from 'src/user/user.entity';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { UserService } from 'src/user/user.service';
 import { AuthUtils } from '../../auth.utils';
-import { AuthJwtPayload } from '../../auth.dto';
+import { AuthJwtPayload, TokenType } from '../../auth.dto';
+import { TokenRevocationService } from '../../token-revocation.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
   constructor(
-    @InjectRepository(User) private readonly userRepository: Repository<User>,
+    private readonly userService: UserService,
     private readonly cls: ClsService,
     private readonly authUtils: AuthUtils,
+    private readonly tokenRevocationService: TokenRevocationService,
     configService: ConfigService,
   ) {
     super({
@@ -26,10 +26,19 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
   }
 
   async validate(payload: AuthJwtPayload): Promise<CurrentUserDto> {
-    const user = await this.userRepository.findOne({
-      where: { id: payload.sub },
-      relations: { role: { permissions: { authority: { authorityGroup: true } } } },
-    });
+    // Refresh token ký cùng JWT_SECRET nên chặn nó được dùng như access token; token phát hành
+    // trước khi có claim `type` không có field này nên vẫn đi qua được tới lúc hết hạn.
+    if (payload.type === TokenType.Refresh) {
+      throw new UnauthorizedException();
+    }
+
+    // Check thu hồi TRƯỚC khi query MySQL: token đã bị logout/đổi mật khẩu thì không tốn thêm
+    // 1 round-trip DB. Fail-closed khi Redis lỗi (xem `TokenRevocationService.isRevoked`).
+    if (await this.tokenRevocationService.isRevoked(payload.sub, payload.sid, payload.iat)) {
+      throw new UnauthorizedException();
+    }
+
+    const user = await this.userService.findByIdWithAuthorities(payload.sub);
     if (!user || !user.isActive) {
       throw new UnauthorizedException();
     }
@@ -43,6 +52,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
       userId: user.id,
       userName: user.phonenumber,
       roleName: user.role?.name,
+      sessionId: payload.sid,
       // Tính lại từ dữ liệu vừa query (đã fetch role.permissions.authority mỗi request) thay vì
       // đọc từ JWT — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần re-login.
       scope: this.authUtils.buildScope(user),

@@ -1,19 +1,19 @@
 import { Module } from '@nestjs/common';
 import { JwtModule } from '@nestjs/jwt';
 import { PassportModule } from '@nestjs/passport';
-import { TypeOrmModule } from '@nestjs/typeorm';
 import { ConfigModule, ConfigService } from '@nestjs/config';
-import { User } from 'src/user/user.entity';
-import { Role } from 'src/role/role.entity';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
 import { AuthUtils } from './auth.utils';
 import { JwtStrategy } from './passport/jwt/jwt.strategy';
 import { RootUserSeeder } from './root-user.seeder';
+import { TokenRevocationModule } from './token-revocation.module';
+import { RedisModule } from 'src/redis/redis.module';
+import { UserModule } from 'src/user/user.module';
+import { RoleModule } from 'src/role/role.module';
 
 @Module({
   imports: [
-    TypeOrmModule.forFeature([User, Role]),
     PassportModule,
     JwtModule.registerAsync({
       imports: [ConfigModule],
@@ -22,6 +22,10 @@ import { RootUserSeeder } from './root-user.seeder';
         secret: configService.get<string>('JWT_SECRET'),
       }),
     }),
+    UserModule,
+    RoleModule,
+    RedisModule,
+    TokenRevocationModule,
   ],
   controllers: [AuthController],
   providers: [AuthService, AuthUtils, JwtStrategy, RootUserSeeder],
