@@ -1,0 +1,9 @@
+
+psql -U postgres
+
+DROP SCHEMA public CASCADE;
+CREATE SCHEMA public;
+
+\q
+
+psql -U postgres postgres < /docker-entrypoint-initdb.d/init-data.sql
