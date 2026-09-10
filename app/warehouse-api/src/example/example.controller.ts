@@ -20,6 +20,7 @@ import {
 } from './example.dto';
 import { ExampleService } from './example.service';
 import { Public } from 'src/auth/decorator/public.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
@@ -31,7 +32,7 @@ export class ExampleController {
   constructor(private readonly exampleService: ExampleService) {}
 
   @Post()
-  @RequireAuthority('EXAMPLE_CREATE')
+  @RequireAuthority(AuthorityCode.ExampleCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new example' })
   @ApiResponseWithType({
@@ -90,7 +91,7 @@ export class ExampleController {
   }
 
   @Patch(':slug')
-  @RequireAuthority('EXAMPLE_UPDATE')
+  @RequireAuthority(AuthorityCode.ExampleUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update an example' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: ExampleResponseDto })
@@ -110,7 +111,7 @@ export class ExampleController {
   }
 
   @Delete(':slug')
-  @RequireAuthority('EXAMPLE_DELETE')
+  @RequireAuthority(AuthorityCode.ExampleDelete)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete an example' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })

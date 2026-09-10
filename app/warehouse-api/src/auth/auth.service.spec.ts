@@ -13,6 +13,7 @@ import { AuthException } from './auth.exception';
 import { AuthValidation } from './auth.validation';
 import { AuthJwtPayload, TokenType } from './auth.dto';
 import { TokenRevocationService } from './token-revocation.service';
+import { RbacService } from 'src/rbac/rbac.service';
 
 describe('AuthService', () => {
   let service: AuthService;
@@ -27,7 +28,6 @@ describe('AuthService', () => {
   };
   const userService = {
     findByPhoneNumber: jest.fn(),
-    findByIdWithAuthorities: jest.fn(),
     findById: jest.fn(),
     findBySlug: jest.fn(),
     updatePassword: jest.fn(),
@@ -37,16 +37,17 @@ describe('AuthService', () => {
     revokeSession: jest.fn(),
     revokeAllTokensForUser: jest.fn(),
   };
+  const rbacService = { refresh: jest.fn() };
   const config: Record<string, string> = { DURATION: '900', REFRESHABLE_DURATION: '2592000' };
   const configService = { get: (key: string) => config[key] };
 
   const activeUser = { id: 'user-id', isActive: true } as User;
+  const activeAdmin = { ...activeUser, role: { name: 'ADMIN' } } as User;
 
   const payloadOf = (type: TokenType) => signedPayloads.find((p) => p.type === type);
 
   const caller = (overrides: Partial<CurrentUserDto> = {}): CurrentUserDto => ({
     userId: 'user-id',
-    userName: '0376295216',
     roleName: RoleEnum.Manager,
     sessionId: 'sid-1',
     scope: [],
@@ -70,6 +71,7 @@ describe('AuthService', () => {
         { provide: ConfigService, useValue: configService },
         { provide: UserService, useValue: userService },
         { provide: TokenRevocationService, useValue: tokenRevocationService },
+        { provide: RbacService, useValue: rbacService },
       ],
     }).compile();
 
@@ -124,6 +126,19 @@ describe('AuthService', () => {
       expect(payloadOf(TokenType.Refresh).sid).toBe(payloadOf(TokenType.Access).sid);
     });
 
+    // Cặp token này THAY THẾ token đang dùng — thiếu claim `role` là user tự đổi mật khẩu xong thì
+    // mất bypass SUPER_ADMIN cho tới lần refresh kế tiếp.
+    it('carries the role claim into the replacement token', async () => {
+      userService.findById.mockResolvedValue(self);
+
+      await service.changeOwnPassword(caller(), {
+        currentPassword: 'old-password',
+        newPassword: 'new-password',
+      });
+
+      expect(payloadOf(TokenType.Access).role).toBe(RoleEnum.Manager);
+    });
+
     // Endpoint tự đổi không bao giờ đọc tới user khác — chỉ tra đúng `userId` trong token.
     it('never looks the caller up by slug', async () => {
       userService.findById.mockResolvedValue(self);
@@ -150,8 +165,9 @@ describe('AuthService', () => {
   });
 
   describe('login', () => {
-    // Deny-list: login không được chạm Redis. Có lệnh ghi ở đây là quay lại mô hình allow-list.
-    it('signs both tokens with the same sid without touching redis', async () => {
+    // Deny-list: login không được ghi KEY THU HỒI nào. Lệnh ghi Redis duy nhất là cache RBAC
+    // (`RbacService.refresh`), và phải ghi sau khi user đã được xác thực.
+    it('signs both tokens with the same sid, writing only the RBAC cache', async () => {
       userService.findByPhoneNumber.mockResolvedValue({
         ...activeUser,
         password: 'hashed',
@@ -165,15 +181,29 @@ describe('AuthService', () => {
       expect(payloadOf(TokenType.Refresh).sid).toBe(payloadOf(TokenType.Access).sid);
       expect(tokenRevocationService.revokeSession).not.toHaveBeenCalled();
       expect(tokenRevocationService.isRevoked).not.toHaveBeenCalled();
+      expect(rbacService.refresh).toHaveBeenCalledWith(activeUser);
     });
 
-    it('rejects invalid credentials', async () => {
+    // `roleName` không còn nằm trong cache Redis nên nó phải đi theo access token — thiếu claim
+    // này là `AuthorityGuard` mất bypass SUPER_ADMIN và interceptor mất `groups`.
+    it('signs the role name into the access token only', async () => {
+      jest.spyOn(service, 'validateUser').mockResolvedValue(activeAdmin);
+
+      await service.login({ phonenumber: '0376295216', password: 'password' });
+
+      expect(payloadOf(TokenType.Access).role).toBe('ADMIN');
+      // Refresh token không cần role: `/auth/refresh` load user từ DB nên luôn có role mới nhất.
+      expect(payloadOf(TokenType.Refresh).role).toBeUndefined();
+    });
+
+    it('rejects invalid credentials without touching the RBAC cache', async () => {
       jest.spyOn(service, 'validateUser').mockResolvedValue(null);
 
       await expectAuthError(
         service.login({ phonenumber: '0376295216', password: 'wrong' }),
         AuthValidation.INVALID_CREDENTIALS.code,
       );
+      expect(rbacService.refresh).not.toHaveBeenCalled();
     });
   });
 
@@ -185,9 +215,20 @@ describe('AuthService', () => {
       type: TokenType.Refresh,
     };
 
+    // Role đọc lại từ DB mỗi lần refresh ⇒ đổi role có hiệu lực chậm nhất sau 1 `DURATION`, dù
+    // claim trong token cũ không thu hồi được.
+    it('re-signs the role claim from the database', async () => {
+      jwtService.verify.mockReturnValue(validPayload);
+      userService.findById.mockResolvedValue(activeAdmin);
+
+      await service.refresh({ refreshToken: 'valid' });
+
+      expect(payloadOf(TokenType.Access).role).toBe('ADMIN');
+    });
+
     it('reissues both tokens with the same sid and a full refresh lifetime', async () => {
       jwtService.verify.mockReturnValue(validPayload);
-      userService.findByIdWithAuthorities.mockResolvedValue(activeUser);
+      userService.findById.mockResolvedValue(activeUser);
 
       const result = await service.refresh({ refreshToken: 'valid' });
       const now = Math.floor(Date.now() / 1000);
@@ -199,6 +240,8 @@ describe('AuthService', () => {
       expect(payloadOf(TokenType.Access).sid).toBe('sid-1');
       // Bỏ rotation: hạn refresh luôn là REFRESHABLE_DURATION đầy đủ, không kế thừa hạn cũ.
       expect(payloadOf(TokenType.Refresh).exp).toBeGreaterThan(now + 2592000 - 5);
+      // Access token mới có hạn mới ⇒ cache RBAC (TTL = DURATION từ lúc login) phải được ghi lại.
+      expect(rbacService.refresh).toHaveBeenCalledWith(activeUser);
     });
 
     it('rejects a revoked refresh token before hitting the database', async () => {
@@ -209,7 +252,7 @@ describe('AuthService', () => {
         service.refresh({ refreshToken: 'valid' }),
         AuthValidation.REFRESH_TOKEN_REVOKED.code,
       );
-      expect(userService.findByIdWithAuthorities).not.toHaveBeenCalled();
+      expect(userService.findById).not.toHaveBeenCalled();
     });
 
     // Không có `sid` thì token phát ra sẽ không bao giờ logout được — từ chối ngay.
@@ -255,12 +298,12 @@ describe('AuthService', () => {
         service.refresh({ refreshToken: 'access-token' }),
         AuthValidation.INVALID_REFRESH_TOKEN.code,
       );
-      expect(userService.findByIdWithAuthorities).not.toHaveBeenCalled();
+      expect(userService.findById).not.toHaveBeenCalled();
     });
 
     it('rejects when the user no longer exists', async () => {
       jwtService.verify.mockReturnValue(validPayload);
-      userService.findByIdWithAuthorities.mockResolvedValue(null);
+      userService.findById.mockResolvedValue(null);
 
       await expectAuthError(
         service.refresh({ refreshToken: 'valid' }),
@@ -270,7 +313,7 @@ describe('AuthService', () => {
 
     it('revokes every token and issues nothing when the user is deactivated', async () => {
       jwtService.verify.mockReturnValue(validPayload);
-      userService.findByIdWithAuthorities.mockResolvedValue({
+      userService.findById.mockResolvedValue({
         ...activeUser,
         isActive: false,
       } as User);
@@ -281,6 +324,31 @@ describe('AuthService', () => {
       );
       expect(tokenRevocationService.revokeAllTokensForUser).toHaveBeenCalledWith('user-id');
       expect(signedPayloads).toHaveLength(0);
+      expect(rbacService.refresh).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('getProfile', () => {
+    // `userName` cố tình không nằm trong cache RBAC (xem docs/specs/rbac.md) nên endpoint này là
+    // chỗ duy nhất phải đọc DB để lấy `phonenumber`.
+    it('merges the phonenumber from the database into the current user', async () => {
+      userService.findById.mockResolvedValue({ ...activeUser, phonenumber: '0376295216' } as User);
+
+      expect(await service.getProfile(caller())).toEqual({
+        userId: 'user-id',
+        userName: '0376295216',
+        roleName: RoleEnum.Manager,
+        sessionId: 'sid-1',
+        scope: [],
+      });
+      expect(userService.findById).toHaveBeenCalledWith('user-id');
+    });
+
+    // Cache hit không load entity, nên token vẫn hợp lệ sau khi user bị xoá khỏi DB.
+    it('rejects when the user no longer exists', async () => {
+      userService.findById.mockResolvedValue(null);
+
+      await expect(service.getProfile(caller())).rejects.toBeInstanceOf(UserException);
     });
   });
 

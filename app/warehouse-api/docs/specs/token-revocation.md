@@ -4,7 +4,7 @@
 
 Thu hồi token có hiệu lực **ngay ở request kế tiếp**, thay cho mô hình allow-list cũ (`REFRESH_TOKEN_*`/`REFRESH_SESSION_*`/`REFRESH_INDEX_*`, xem `docs/plans/revise-flow-refresh-token-idempotent-snowglobe.md`) — nơi `logout` chỉ giết được refresh token còn access token vẫn sống tối đa `DURATION` giây.
 
-Redis chỉ còn **đúng 2 loại key**, và **chỉ ghi khi thu hồi** — login/refresh không ghi gì.
+Redis chỉ còn **đúng 2 loại key thu hồi**, và **chỉ ghi khi thu hồi** — login/refresh không ghi key thu hồi nào (chúng có ghi cache RBAC `rbac:user:*` — key khác, mô hình khác, xem `docs/specs/rbac.md`).
 
 ## Mô hình dữ liệu (cùng `REDIS_AUTH_DB` với cache RBAC)
 
@@ -21,8 +21,8 @@ Redis chỉ còn **đúng 2 loại key**, và **chỉ ghi khi thu hồi** — lo
 
 | Endpoint | Redis |
 |---|---|
-| `POST /auth/login` | **không đọc, không ghi**. Sinh `sid = uuidv4()`, ký cặp token. |
-| `POST /auth/refresh` | **1 lệnh đọc** (check thu hồi), **0 lệnh ghi**. Ký lại **cả 2** token, `exp` mới, **giữ nguyên `sid`**. |
+| `POST /auth/login` | **không đọc, không ghi key thu hồi**. Sinh `sid = uuidv4()`, ký cặp token. (Có 1 lệnh ghi cache RBAC — xem `rbac.md`.) |
+| `POST /auth/refresh` | **1 lệnh đọc** (check thu hồi), **0 lệnh ghi key thu hồi**. Ký lại **cả 2** token, `exp` mới, **giữ nguyên `sid`**. (Có 1 lệnh ghi cache RBAC — xem `rbac.md`.) |
 | `POST /auth/logout` | `SET BLACK_LIST_{uid}_{sid} "1" EX REFRESHABLE_DURATION` |
 | `POST /auth/logout-all` | `SET TOKEN_IAT_AVAILABLE_{uid} <now>` **+** `SET BLACK_LIST_{uid}_{sid}` cho phiên đang gọi (xem khe hở 1 giây bên dưới) |
 | Mọi request có JWT | **1 lệnh đọc** trong `JwtStrategy.validate` |
@@ -38,7 +38,7 @@ Giữ `sid` **ổn định qua mỗi lần refresh** là điều kiện để bl
 - **Fail-closed**: `isRevoked()` không đọc được Redis ⇒ **coi như đã thu hồi**, từ chối request. Cơ chế thu hồi mà chỉ cần làm Redis chết là bypass được thì không phải cơ chế bảo mật. Đánh đổi: Redis chết = mọi request có JWT đều 401. Đây là khác biệt có chủ ý với cache RBAC (`docs/specs/rbac.md`) — cache RBAC hỏng thì đọc DB vẫn ra đúng quyền, còn ở đây không có nguồn nào khác để đối chiếu.
 - Ghi thu hồi (`logout`/`logout-all`) **throw khi Redis lỗi**, không nuốt: logout im lặng không có tác dụng còn tệ hơn 5xx bảo client thử lại.
 - TTL của cả 2 key ≥ `REFRESHABLE_DURATION` (xem trên).
-- `/auth/refresh` **không ghi Redis**. Thêm bất kỳ lệnh ghi nào vào đây là quay lại mô hình allow-list.
+- `/auth/refresh` **không ghi key thu hồi**. Thêm bất kỳ lệnh ghi `BLACK_LIST_*`/`TOKEN_IAT_AVAILABLE_*` nào vào đây là quay lại mô hình allow-list. (Ghi cache RBAC `rbac:user:*` thì được — đó là cache fail-open, không phải trạng thái phiên.)
 
 ## Đánh đổi đã chấp nhận
 
