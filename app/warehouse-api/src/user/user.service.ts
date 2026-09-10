@@ -84,12 +84,14 @@ export class UserService {
     });
   }
 
-  // Nạp kèm role/permissions để JwtStrategy tính lại scope mỗi request.
-  async findByIdWithAuthorities(id: string): Promise<User | null> {
-    return this.userRepository.findOne({
-      where: { id },
-      relations: { role: { permissions: { authority: { authorityGroup: true } } } },
+  // Cho `RbacService.invalidateRole`: id của mọi user thuộc 1 role, để xoá cache quyền của họ khi
+  // admin bật/tắt quyền của role đó. Chỉ select `id`, không load entity.
+  async findIdsByRoleId(roleId: string): Promise<string[]> {
+    const users = await this.userRepository.find({
+      select: { id: true },
+      where: { role: { id: roleId } },
     });
+    return users.map((user) => user.id);
   }
 
   async findBySlug(slug: string): Promise<User | null> {

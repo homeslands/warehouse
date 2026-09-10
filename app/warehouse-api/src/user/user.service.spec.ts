@@ -23,6 +23,7 @@ describe('UserService', () => {
     save: jest.fn(),
     findAndCount: jest.fn(),
     update: jest.fn(),
+    find: jest.fn(),
   };
   const tokenRevocationService = {
     revokeSession: jest.fn(),
@@ -33,7 +34,6 @@ describe('UserService', () => {
 
   const caller = (overrides: Partial<CurrentUserDto> = {}): CurrentUserDto => ({
     userId: 'user-id',
-    userName: '0376295216',
     roleName: RoleEnum.Manager,
     sessionId: 'sid-1',
     scope: [],
@@ -148,6 +148,24 @@ describe('UserService', () => {
         service.changeUserPassword(caller(), 'ghost', { newPassword: 'new-password' }),
         UserValidation.USER_NOT_FOUND.code,
       );
+    });
+  });
+
+  describe('findIdsByRoleId', () => {
+    it('returns only the ids of users in that role', async () => {
+      userRepository.find.mockResolvedValue([{ id: 'u1' }, { id: 'u2' }]);
+
+      expect(await service.findIdsByRoleId('role-id')).toEqual(['u1', 'u2']);
+      expect(userRepository.find).toHaveBeenCalledWith({
+        select: { id: true },
+        where: { role: { id: 'role-id' } },
+      });
+    });
+
+    it('returns an empty list when the role has no users', async () => {
+      userRepository.find.mockResolvedValue([]);
+
+      expect(await service.findIdsByRoleId('role-id')).toEqual([]);
     });
   });
 });
