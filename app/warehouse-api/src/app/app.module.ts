@@ -27,6 +27,7 @@ import { FeatureFlagSystemModule } from 'src/feature-flag-system/feature-flag-sy
 
 import { LoggerMiddleware } from 'src/logger/logger.middleware';
 import { LoggerModule } from 'src/logger/logger.module';
+import { RbacModule } from 'src/rbac/rbac.module';
 
 import { AuthModule } from 'src/auth/auth.module';
 import { RoleModule } from 'src/role/role.module';
@@ -69,6 +70,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     RoleModule,
     AuthorityGroupModule,
     AuthorityModule,
+    RbacModule,
     PermissionModule,
     AuthModule,
     ExampleModule,
