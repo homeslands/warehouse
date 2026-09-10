@@ -1,17 +1,35 @@
 /**
- * Toàn bộ `Authority.code` dùng trong `@RequireAuthority(...)`. Chỉ có `code` nằm ở code — tên hiển
- * thị, nhóm hiển thị và quyền cấp sẵn cho từng role nằm trong migration seed tương ứng
- * (`1783728000012-seed-warehouse-form-authorities.ts`), vì 3 thứ đó là DỮ LIỆU: sau khi migrate,
- * nguồn sự thật là `authority_tbl`/`permission_tbl` (sửa được qua API quản trị permission), còn
- * `code` là khoá tra cứu bất biến mà code phải khớp.
+ * Toàn bộ `Authority.code` dùng trong `@RequireAuthority(...)` — nguồn duy nhất, không endpoint nào
+ * được truyền chuỗi rời (`RequireAuthority` nhận `TAuthorityCode` nên chuỗi lạ là lỗi compile).
+ * Gõ sai chuỗi thì guard im lặng khoá endpoint: không có `code` trong DB ⇒ mọi role trừ
+ * `SUPER_ADMIN` đều bị chặn, không có lỗi nào báo ra.
  *
- * Dùng hằng thay chuỗi rời: gõ sai tên hằng là lỗi compile, còn gõ sai chuỗi thì guard im lặng khoá
- * endpoint (không có `code` trong DB ⇒ mọi role trừ `SUPER_ADMIN` đều bị chặn).
+ * Chỉ `code` nằm ở đây. Tên hiển thị, nhóm hiển thị và quyền cấp sẵn cho từng role nằm trong
+ * migration seed tương ứng, vì 3 thứ đó là DỮ LIỆU: sau khi migrate, nguồn sự thật là
+ * `authority_tbl`/`permission_tbl` (sửa được qua API quản trị permission), còn `code` là khoá tra
+ * cứu bất biến mà code phải khớp.
  *
- * Thêm 1 hằng ở đây thì phải viết KÈM 1 migration seed đúng `code` đó — xem
- * `docs/specs/authority-permission.md`, `Authority` row không bao giờ được tạo lúc runtime.
+ * Nhóm theo migration đã seed chúng, và thêm 1 hằng ở đây thì phải viết KÈM 1 migration seed đúng
+ * `code` đó — xem `docs/specs/authority-permission.md`, `Authority` row không bao giờ được tạo lúc
+ * runtime.
  */
 export const AuthorityCode = {
+  // --- Seed ở migration 1783728000009 ---
+  ExampleCreate: 'EXAMPLE_CREATE',
+  ExampleUpdate: 'EXAMPLE_UPDATE',
+  ExampleDelete: 'EXAMPLE_DELETE',
+  ManagePermissions: 'MANAGE_PERMISSIONS',
+  DbBackup: 'DB_BACKUP',
+  LoggerRead: 'LOGGER_READ',
+
+  // --- Seed ở migration 1783728000010 ---
+  UserCreate: 'USER_CREATE',
+  UserRead: 'USER_READ',
+
+  // --- Seed ở migration 1783728000011 ---
+  UserChangePassword: 'USER_CHANGE_PASSWORD',
+
+  // ===== Seed ở migration 1783728000012 (bảng phân quyền 5.5) =====
   // --- Phiếu nhập kho (ImportForm) ---
   ImportFormCreate: 'IMPORT_FORM_CREATE',
   ImportFormRead: 'IMPORT_FORM_READ',

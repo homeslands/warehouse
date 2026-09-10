@@ -2,6 +2,7 @@ import { Controller, Post, HttpStatus } from '@nestjs/common';
 import { DbService } from './db.service';
 import { ApiBearerAuth, ApiTags } from '@nestjs/swagger';
 import { AppResponseDto } from 'src/app/app.dto';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 
 @Controller('db')
@@ -11,7 +12,7 @@ export class DbController {
   constructor(private readonly dbService: DbService) {}
 
   @Post()
-  @RequireAuthority('DB_BACKUP')
+  @RequireAuthority(AuthorityCode.DbBackup)
   async backup(): Promise<AppResponseDto<string>> {
     const result = await this.dbService.backup();
     return {
