@@ -12,6 +12,7 @@ import {
   LoginAuthRequestDto,
   LoginAuthResponseDto,
   LogoutAuthResponseDto,
+  ProfileResponseDto,
   RefreshAuthRequestDto,
   TokenType,
 } from './auth.dto';
@@ -23,6 +24,7 @@ import { UserException } from 'src/user/user.exception';
 import { UserValidation } from 'src/user/user.validation';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { TokenRevocationService } from './token-revocation.service';
+import { RbacService } from 'src/rbac/rbac.service';
 
 @Injectable()
 export class AuthService {
@@ -34,9 +36,22 @@ export class AuthService {
     private readonly configService: ConfigService,
     private readonly userService: UserService,
     private readonly tokenRevocationService: TokenRevocationService,
+    private readonly rbacService: RbacService,
   ) {
     this.duration = parseInt(this.configService.get('DURATION'), 10);
     this.refreshableDuration = parseInt(this.configService.get('REFRESHABLE_DURATION'), 10);
+  }
+
+  /**
+   * `GET /auth/me`. Đọc DB 1 query để lấy `phonenumber`: `userName` cố tình KHÔNG được cache
+   * (không request nào khác cần, xem `docs/specs/rbac.md`), còn endpoint này thì hiếm khi gọi và
+   * đúng ra phải là nguồn chuẩn về user chứ không phải bản chụp trong token/cache.
+   */
+  async getProfile(currentUser: CurrentUserDto): Promise<ProfileResponseDto> {
+    const user = await this.userService.findById(currentUser.userId);
+    if (!user) throw new UserException(UserValidation.USER_NOT_FOUND);
+
+    return { ...currentUser, userName: user.phonenumber };
   }
 
   async validateUser(phonenumber: string, pass: string): Promise<User | null> {
@@ -49,21 +64,24 @@ export class AuthService {
     return user;
   }
 
-  // Deny-list: login KHÔNG ghi gì vào Redis. `sid` chỉ là định danh phiên ký vào token, chỉ được
-  // dùng tới khi có ai đó thu hồi nó.
+  // Deny-list: login KHÔNG ghi key thu hồi nào vào Redis. `sid` chỉ là định danh phiên ký vào
+  // token, chỉ được dùng tới khi có ai đó thu hồi nó. Lệnh ghi Redis duy nhất ở đây là cache RBAC
+  // (`rbac:user:{uid}`, TTL = DURATION) — ghi SAU khi đã chắc user hợp lệ + active.
   async login(loginAuthDto: LoginAuthRequestDto): Promise<LoginAuthResponseDto> {
     const user = await this.validateUser(loginAuthDto.phonenumber, loginAuthDto.password);
     if (!user) throw new AuthException(AuthValidation.INVALID_CREDENTIALS);
 
     checkActiveUser(user);
 
-    return this.buildTokenPair(user.id, uuidv4());
+    await this.rbacService.refresh(user);
+    return this.buildTokenPair(user.id, uuidv4(), user.role?.name);
   }
 
   /**
    * Ký lại CẢ access lẫn refresh token với `exp` mới, giữ nguyên `sid`. Không xoay vòng, không
-   * ghi Redis: refresh token cũ vẫn sống tới `exp` của chính nó (xem "Đánh đổi đã chấp nhận"
-   * trong `docs/specs/token-revocation.md`).
+   * ghi key thu hồi: refresh token cũ vẫn sống tới `exp` của chính nó (xem "Đánh đổi đã chấp nhận"
+   * trong `docs/specs/token-revocation.md`). Có ghi lại cache RBAC vì access token mới có hạn mới
+   * dài hơn TTL của cache ghi lúc login.
    */
   async refresh(refreshAuthDto: RefreshAuthRequestDto): Promise<LoginAuthResponseDto> {
     const payload = this.verifyRefreshToken(refreshAuthDto.refreshToken);
@@ -76,7 +94,7 @@ export class AuthService {
       throw new AuthException(AuthValidation.REFRESH_TOKEN_REVOKED);
     }
 
-    const user = await this.userService.findByIdWithAuthorities(payload.sub);
+    const user = await this.userService.findById(payload.sub);
     if (!user) throw new AuthException(AuthValidation.INVALID_REFRESH_TOKEN);
     if (!user.isActive) {
       // User bị khoá: giết luôn mọi token khác của họ, không chỉ lần refresh này.
@@ -84,7 +102,8 @@ export class AuthService {
       checkActiveUser(user);
     }
 
-    return this.buildTokenPair(user.id, payload.sid);
+    await this.rbacService.refresh(user);
+    return this.buildTokenPair(user.id, payload.sid, user.role?.name);
   }
 
   async logout(userId: string, sessionId?: string): Promise<LogoutAuthResponseDto> {
@@ -137,7 +156,9 @@ export class AuthService {
     if (currentUser.sessionId) {
       await this.tokenRevocationService.revokeSession(user.id, currentUser.sessionId);
     }
-    return { tokens: this.buildTokenPair(user.id, uuidv4()) };
+    // `user.role` (eager) chứ không phải `currentUser.roleName`: claim phải phản ánh DB, và cặp
+    // token này thay thế token đang dùng nên thiếu `role` là mất bypass SUPER_ADMIN.
+    return { tokens: this.buildTokenPair(user.id, uuidv4(), user.role?.name) };
   }
 
   private verifyRefreshToken(refreshToken: string): AuthJwtPayload {
@@ -164,13 +185,20 @@ export class AuthService {
    * Access và refresh token mang `jti` khác nhau (mỗi lần ký là một định danh riêng) nhưng CÙNG
    * `sid` — `sid` mới là thứ `BLACK_LIST_{uid}_{sid}` dùng để giết cả cặp lúc logout.
    */
-  private buildTokenPair(userId: string, sessionId: string): LoginAuthResponseDto {
+  private buildTokenPair(
+    userId: string,
+    sessionId: string,
+    roleName?: string,
+  ): LoginAuthResponseDto {
     const now = Math.floor(Date.now() / 1000);
 
+    // `role` chỉ ký vào ACCESS token: refresh token chỉ dùng ở `/auth/refresh`, mà chỗ đó load
+    // user từ DB nên luôn lấy được role mới nhất.
     const accessPayload: AuthJwtPayload = {
       sub: userId,
       jti: uuidv4(),
       sid: sessionId,
+      role: roleName,
       type: TokenType.Access,
       exp: now + this.duration,
     };

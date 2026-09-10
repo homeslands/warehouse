@@ -4,13 +4,13 @@ import { PassportModule } from '@nestjs/passport';
 import { ConfigModule, ConfigService } from '@nestjs/config';
 import { AuthController } from './auth.controller';
 import { AuthService } from './auth.service';
-import { AuthUtils } from './auth.utils';
 import { JwtStrategy } from './passport/jwt/jwt.strategy';
 import { RootUserSeeder } from './root-user.seeder';
 import { TokenRevocationModule } from './token-revocation.module';
 import { RedisModule } from 'src/redis/redis.module';
 import { UserModule } from 'src/user/user.module';
 import { RoleModule } from 'src/role/role.module';
+import { RbacModule } from 'src/rbac/rbac.module';
 
 @Module({
   imports: [
@@ -26,9 +26,10 @@ import { RoleModule } from 'src/role/role.module';
     RoleModule,
     RedisModule,
     TokenRevocationModule,
+    RbacModule,
   ],
   controllers: [AuthController],
-  providers: [AuthService, AuthUtils, JwtStrategy, RootUserSeeder],
+  providers: [AuthService, JwtStrategy, RootUserSeeder],
   exports: [AuthService],
 })
 export class AuthModule {}
