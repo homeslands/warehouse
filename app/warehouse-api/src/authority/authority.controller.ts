@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AppResponseDto } from 'src/app/app.dto';
 import { ApiResponseWithType } from 'src/app/app.decorator';
+import { AuthorityCode } from './authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { AuthorityService } from './authority.service';
 import {
@@ -49,7 +50,7 @@ export class AuthorityController {
   }
 
   @Patch(':slug')
-  @RequireAuthority('MANAGE_PERMISSIONS')
+  @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update authority display name/group (code is immutable)' })
   @ApiResponseWithType({

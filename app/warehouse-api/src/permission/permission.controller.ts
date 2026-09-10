@@ -2,6 +2,7 @@ import { Controller, Delete, HttpCode, HttpStatus, Param, Put } from '@nestjs/co
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AppResponseDto } from 'src/app/app.dto';
 import { ApiResponseWithType } from 'src/app/app.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { PermissionService } from './permission.service';
 
@@ -12,7 +13,7 @@ export class PermissionController {
   constructor(private readonly permissionService: PermissionService) {}
 
   @Put(':authorityCode')
-  @RequireAuthority('MANAGE_PERMISSIONS')
+  @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Grant an authority to a role (idempotent)' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Granted', type: String })
@@ -29,7 +30,7 @@ export class PermissionController {
   }
 
   @Delete(':authorityCode')
-  @RequireAuthority('MANAGE_PERMISSIONS')
+  @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Revoke an authority from a role (idempotent)' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Revoked', type: String })
