@@ -12,6 +12,7 @@ import {
 import { ApiBearerAuth, ApiOperation, ApiParam, ApiTags } from '@nestjs/swagger';
 import { AppResponseDto } from 'src/app/app.dto';
 import { ApiResponseWithType } from 'src/app/app.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { RoleService } from './role.service';
 import { CreateRoleRequestDto, RoleResponseDto, UpdateRoleRequestDto } from './role.dto';
@@ -57,7 +58,7 @@ export class RoleController {
   }
 
   @Post()
-  @RequireAuthority('MANAGE_PERMISSIONS')
+  @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a role' })
   @ApiResponseWithType({
@@ -79,7 +80,7 @@ export class RoleController {
   }
 
   @Patch(':slug')
-  @RequireAuthority('MANAGE_PERMISSIONS')
+  @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a role description' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: RoleResponseDto })

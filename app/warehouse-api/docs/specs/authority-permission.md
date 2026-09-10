@@ -26,7 +26,7 @@ Cần migration thêm cột `code_column` (unique) vào `authority_tbl`.
 | Role | `src/role/` | `Role` entity, `RoleEnum`, `AuthorityGuard` (`role.guard.ts`) — guard ở lại đây vì cần `RoleEnum` để check `SUPER_ADMIN` bypass |
 | Authority | `src/authority/` | `Authority` entity, `@RequireAuthority` (`authority.decorator.ts`) — decorator đặt theo đúng tên nó mô tả (authority-key), không phải theo nơi guard tiêu thụ nó; `role.guard.ts` import decorator này bằng import TS thuần (không phải qua NestJS module), không tạo phụ thuộc vòng giữa `RoleModule`/`AuthorityModule` |
 | AuthorityGroup | `src/authority-group/` | `AuthorityGroup` entity |
-| Permission | `src/permission/` | `Permission` entity — service cần đọc `Role`/`Authority` nên `PermissionModule` import `RoleModule`/`AuthorityModule` (cả 2 export `TypeOrmModule`) thay vì tự khai lại `forFeature` cho entity không thuộc sở hữu |
+| Permission | `src/permission/` | `Permission` entity — service cần đọc `Role`/`Authority` nên `PermissionModule` import `RoleModule`/`AuthorityModule` (cả 2 export `RoleService`/`AuthorityService`, không export `TypeOrmModule`) thay vì tự khai lại `forFeature` cho entity không thuộc sở hữu |
 
 Đây là thay đổi thuần cấu trúc (tách file/module), không đổi hành vi API hay quy tắc nghiệp vụ bên dưới.
 
@@ -49,8 +49,25 @@ Cần migration thêm cột `code_column` (unique) vào `authority_tbl`.
 - `Authority.code` không cho sửa qua API update (immutable qua API — migration tay thì vẫn sửa thẳng DB được nếu thật sự cần đổi, nhưng phải tự cập nhật lại `@RequireAuthority(...)` trong code cùng lúc).
 - Không cho xoá `AuthorityGroup` nếu còn `Authority` thuộc group đó.
 - Không cho tạo `Authority` với `code` hoặc `AuthorityGroup` với `slug` đã tồn tại qua API.
-- Quyền thay đổi (do admin bật/tắt qua API) có hiệu lực từ request tiếp theo của user bị ảnh hưởng, không cần đăng nhập lại — vì quyền hiện có (`scope`) của user được đọc lại từ DB ở mỗi request khi xác thực JWT, không lấy từ giá trị cố định lúc đăng nhập.
+- Quyền thay đổi (do admin bật/tắt qua API) có hiệu lực từ request tiếp theo của user bị ảnh hưởng, không cần đăng nhập lại — `scope` của user được cache trên Redis (SET `rbac:user:{userId}`, xem `docs/specs/rbac.md`), và `grant`/`revoke` xoá cache của mọi user thuộc role đó ngay sau khi ghi DB nên request kế tiếp đọc lại từ DB.
 - Migration của chính feature này seed sẵn: `AuthorityGroup` cho `example`; `Authority` gồm `EXAMPLE_CREATE`/`EXAMPLE_UPDATE`/`EXAMPLE_DELETE` (thay cho `@HasRoles(Admin, SuperAdmin)` cũ trên `example.controller.ts`) và `MANAGE_PERMISSIONS` (cho chính API quản trị permission); cấp cả 4 quyền này cho role `ADMIN` để hành vi ngay sau migrate không đổi so với trước.
+
+## Danh mục authority của 4 loại phiếu kho (bảng phân quyền 5.5)
+
+Chia làm 2 chỗ theo vòng đời của từng thứ: **`code`** (khoá tra cứu bất biến, phải khớp `@RequireAuthority(...)`) nằm ở `src/authority/authority.constants.ts` dưới dạng hằng `AuthorityCode`; **tên hiển thị, nhóm hiển thị và quyền cấp sẵn cho từng role** nằm trong chính migration `1783728000012-seed-warehouse-form-authorities.ts`, vì cả 3 là DỮ LIỆU — sau khi migrate, nguồn sự thật là `authority_tbl`/`permission_tbl` và admin sửa được qua API, nên để chúng trong code app chỉ tạo ảo giác code là nguồn sự thật. Migration import `AuthorityCode` nên `code` trong DB không thể lệch với code app ngay từ lần seed đầu.
+
+| Nhóm | Authority |
+|---|---|
+| `Import Form` | `IMPORT_FORM_CREATE`, `IMPORT_FORM_READ`, `IMPORT_FORM_UPDATE_DRAFT`(`_OWN`), `IMPORT_FORM_DELETE_DRAFT`(`_OWN`), `IMPORT_FORM_CONFIRM`, `IMPORT_FORM_EXPORT` |
+| `Export Form` | như trên với tiền tố `EXPORT_FORM_`, thêm `EXPORT_FORM_APPROVE_DISPOSAL` (phê duyệt xuất hủy) |
+| `Balance Form` | `BALANCE_FORM_CREATE`, `BALANCE_FORM_READ`(`_ASSIGNED`), `BALANCE_FORM_RECORD_COUNT`(`_ASSIGNED`), `BALANCE_FORM_COMPLETE`(`_ASSIGNED`), `BALANCE_FORM_APPROVE` |
+| `Warehouse Payment` | `WAREHOUSE_PAYMENT_CREATE`, `WAREHOUSE_PAYMENT_READ`(`_OWN`), `WAREHOUSE_PAYMENT_UPDATE_DRAFT`(`_OWN`), `WAREHOUSE_PAYMENT_APPROVE`, `WAREHOUSE_PAYMENT_EXPORT` |
+
+Ba quy ước dịch từ bảng 5.5 sang authority:
+
+- **Ô "✓ (của mình)" / "✓ (được phân công)" → 1 `code` riêng có hậu tố `_OWN` / `_ASSIGNED`**, song song với bản đầy đủ. `AuthorityGuard` chỉ so khớp chuỗi trong `user.scope`, không nhìn thấy dữ liệu phiếu — tách 2 `code` thì admin mới bật/tắt riêng từng mức qua API; còn việc kiểm "đúng phiếu của mình / đúng người được phân công" vẫn phải làm ở tầng service (row-level).
+- **Ô ✗ với cả 3 role ("Sửa Confirmed", "Xóa Confirmed") KHÔNG có `code`.** Đó là bất biến nghiệp vụ, không phải quyền đang tắt: tạo `code` rồi để 0 role thì admin vẫn bật được qua API và phá luôn bất biến. Chặn ở service/state machine.
+- **"Tạo từ nhập kho (auto)" của phiếu chi KHÔNG có `code`** — phiếu do hệ thống sinh kèm phiếu nhập, không phải endpoint người dùng gọi; quyền quyết định thực chất nằm ở phiếu nhập. Tương tự, ô "✓ (người duyệt)" của `MANAGER` khi duyệt phiếu chi = có `WAREHOUSE_PAYMENT_APPROVE` + check row-level "đúng người được chỉ định duyệt" ở service.
 
 ## Cập nhật quy trình (WORKFLOW.md / CLAUDE.md)
 
@@ -85,7 +102,7 @@ Thêm quy tắc mới, áp dụng cho mọi feature từ nay về sau: **khi che
 - Không có API tạo/xoá `Authority`/`AuthorityGroup` — cố tình, để buộc đi qua migration (xem "Cập nhật quy trình"), tránh lệch code/DB.
 - Không tự phát hiện `@RequireAuthority(...)` lúc runtime.
 - Không làm endpoint đổi role của user khác (nợ kỹ thuật sẵn có, ghi trong `CLAUDE.md`, không thuộc feature này).
-- Không cache `scope`/permission ở Redis — quyền được đọc lại từ DB mỗi request bằng đúng câu query đã có sẵn khi xác thực JWT, không phát sinh chi phí query thêm.
+- Cách cache `scope`/permission trên Redis (key, TTL, invalidation, fail-open) nằm ở spec riêng `docs/specs/rbac.md` — spec này chỉ định nghĩa mô hình quyền, không định nghĩa nơi đọc.
 - Không đổi `RoleBasedSerializationInterceptor` (ẩn/hiện field response theo role) — đó là serialization theo role, khác access-control theo authority, giữ nguyên.
 - Chưa hỗ trợ authority cho action ngoài REST endpoint (cron job, queue consumer...).
 

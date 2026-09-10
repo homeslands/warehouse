@@ -14,7 +14,6 @@ describe('UserController', () => {
 
   const currentUser: CurrentUserDto = {
     userId: 'user-id',
-    userName: '0376295216',
     roleName: 'ADMIN',
     sessionId: 'sid-1',
     scope: ['USER_CHANGE_PASSWORD'],

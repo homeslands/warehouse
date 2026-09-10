@@ -5,6 +5,11 @@ import { CurrentUserDto } from 'src/user/user.decorator';
 import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
 import { RoleEnum } from './role.enum';
 
+/**
+ * Guard KHÔNG tự đọc Redis/DB: `user.scope` đã được `JwtStrategy` nạp từ cache RBAC
+ * (SET `rbac:user:{userId}`, fallback DB khi miss) ngay trước guard này — đúng 1 lần đọc
+ * Redis cho RBAC mỗi request. Xem `docs/specs/rbac.md`.
+ */
 @Injectable()
 export class AuthorityGuard implements CanActivate {
   constructor(private readonly reflector: Reflector) {}
