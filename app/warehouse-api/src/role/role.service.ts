@@ -42,6 +42,16 @@ export class RoleService {
     return this.roleRepository.findOneBy({ name });
   }
 
+  // Nguồn cho `RbacService.authoritiesOfRole()`: 1 role kèm authority code đang được cấp, chỉ được
+  // gọi khi cache Redis của role đó miss. Trả entity (không map DTO) vì caller là hạ tầng, không
+  // phải response API. Tra theo `name` chứ không phải `slug` vì đó là thứ nằm trong JWT/cache.
+  async findByNameWithAuthorities(name: string): Promise<Role | null> {
+    return this.roleRepository.findOne({
+      where: { name },
+      relations: { permissions: { authority: true } },
+    });
+  }
+
   async create(dto: CreateRoleRequestDto): Promise<RoleResponseDto> {
     const existed = await this.roleRepository.findOneBy({ name: dto.name });
     if (existed) throw new RoleException(RoleValidation.ROLE_NAME_ALREADY_EXISTS);
