@@ -12,6 +12,7 @@ import {
   LoginAuthRequestDto,
   LoginAuthResponseDto,
   LogoutAuthResponseDto,
+  ProfileResponseDto,
   RefreshAuthRequestDto,
 } from './auth.dto';
 
@@ -24,13 +25,15 @@ export class AuthController {
   @ApiBearerAuth()
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get current logged-in user' })
-  getProfile(@CurrentUser() currentUser: CurrentUserDto) {
+  async getProfile(@CurrentUser() currentUser: CurrentUserDto) {
+    const result = await this.authService.getProfile(currentUser);
+
     return {
       message: 'Current user has been retrieved successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
-      result: currentUser,
-    } as AppResponseDto<CurrentUserDto>;
+      result,
+    } as AppResponseDto<ProfileResponseDto>;
   }
 
   @Post('login')
