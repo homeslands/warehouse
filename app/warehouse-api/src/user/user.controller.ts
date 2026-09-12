@@ -19,6 +19,7 @@ import {
   UserResponseDto,
 } from './user.dto';
 import { UserService } from './user.service';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { CurrentUser, CurrentUserDto } from './user.decorator';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
@@ -31,7 +32,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @RequireAuthority('USER_CREATE')
+  @RequireAuthority(AuthorityCode.UserCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new user (assign role)' })
   @ApiResponseWithType({
@@ -53,7 +54,7 @@ export class UserController {
   }
 
   @Get()
-  @RequireAuthority('USER_READ')
+  @RequireAuthority(AuthorityCode.UserRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all users (paginated, filter by role)' })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
@@ -70,7 +71,7 @@ export class UserController {
   }
 
   @Post(':userSlug/change-password')
-  @RequireAuthority('USER_CHANGE_PASSWORD')
+  @RequireAuthority(AuthorityCode.UserChangePassword)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({

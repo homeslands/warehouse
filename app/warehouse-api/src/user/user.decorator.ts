@@ -2,8 +2,8 @@ import { createParamDecorator, ExecutionContext } from '@nestjs/common';
 
 export interface CurrentUserDto {
   userId: string;
-  userName: string;
-  roleName: string;
+  /** Claim `role` của access token. `undefined` với token phát trước khi có claim này. */
+  roleName?: string;
   /** Phiên đăng nhập hiện tại (claim `sid`). Vắng mặt với token phát trước khi có claim này. */
   sessionId?: string;
   scope: string[];

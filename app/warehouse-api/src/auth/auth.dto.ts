@@ -1,9 +1,14 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty } from 'class-validator';
+import { CurrentUserDto } from 'src/user/user.decorator';
 
 export enum TokenType {
   Access = 'access',
   Refresh = 'refresh',
+}
+
+export interface ProfileResponseDto extends CurrentUserDto {
+  userName: string;
 }
 
 export interface AuthJwtPayload {
@@ -16,6 +21,12 @@ export interface AuthJwtPayload {
    * trước khi có claim này vẫn phải parse được cho tới lúc hết hạn.
    */
   sid?: string;
+  /**
+   * `Role.name` của user, ký vào ACCESS token lúc login/refresh. `AuthorityGuard` (bypass
+   * `SUPER_ADMIN`) và `RoleBasedSerializationInterceptor` cần nó ở mọi request, mà cache Redis chỉ
+   * còn chứa quyền — xem `docs/specs/rbac.md`.
+   */
+  role?: string;
   // Phân biệt access/refresh token: 2 loại token dùng chung 1 JWT_SECRET nên nếu không có claim
   // này thì refresh token cũng dùng được như access token (và ngược lại). Optional để các token
   // đã phát hành trước khi thêm claim vẫn còn hiệu lực tới khi hết hạn.
