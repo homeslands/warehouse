@@ -8,6 +8,7 @@ import {
 } from 'src/authority-group/authority-group.validation';
 import { ExampleValidation, TExampleErrorCode } from 'src/example/example.validation';
 import { UserValidation, TUserErrorCode } from 'src/user/user.validation';
+import { WarehouseValidation, TWarehouseErrorCode } from 'src/warehouse/warehouse.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
 import {
@@ -36,6 +37,7 @@ export const AppValidation: TAuthErrorCode &
   TAuthorityGroupErrorCode &
   TExampleErrorCode &
   TUserErrorCode &
+  TWarehouseErrorCode &
   TDbErrorCode &
   TFileErrorCode &
   TNotificationErrorCode &
@@ -46,6 +48,7 @@ export const AppValidation: TAuthErrorCode &
   ...AuthorityGroupValidation,
   ...ExampleValidation,
   ...UserValidation,
+  ...WarehouseValidation,
   ...DbValidation,
   ...FileValidation,
   ...NotificationValidation,
