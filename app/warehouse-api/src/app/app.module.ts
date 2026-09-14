@@ -20,7 +20,7 @@ import { OptimisticLockExceptionFilter } from './optimistic-lock.filter';
 import { AppSubscriber } from './app.subscriber';
 
 import { JwtOptionalAuthGuard } from 'src/auth/passport/jwt/jwt-optional-auth.guard';
-import { AuthorityGuard } from 'src/role/role.guard';
+import { AuthorityGuard, HasRoleGuard } from 'src/role/role.guard';
 import { RoleBasedSerializationInterceptor } from 'src/role/role.interceptor';
 import { FeatureGuard } from 'src/feature-flag-system/guard/fureture.guard';
 import { FeatureFlagSystemModule } from 'src/feature-flag-system/feature-flag-system.module';
@@ -90,6 +90,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     { provide: APP_FILTER, useClass: OptimisticLockExceptionFilter },
     { provide: APP_GUARD, useClass: JwtOptionalAuthGuard },
     { provide: APP_GUARD, useClass: AuthorityGuard },
+    { provide: APP_GUARD, useClass: HasRoleGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_INTERCEPTOR, useClass: RoleBasedSerializationInterceptor },
