@@ -29,7 +29,6 @@ export const AuthorityCode = {
   // --- Seed ở migration 1783728000011 ---
   UserChangePassword: 'USER_CHANGE_PASSWORD',
 
-  // ===== Seed ở migration 1783728000012 (bảng phân quyền 5.5) =====
   // --- Phiếu nhập kho (ImportForm) ---
   ImportFormCreate: 'IMPORT_FORM_CREATE',
   ImportFormRead: 'IMPORT_FORM_READ',
@@ -69,5 +68,12 @@ export const AuthorityCode = {
   WarehousePaymentUpdateDraftOwn: 'WAREHOUSE_PAYMENT_UPDATE_DRAFT_OWN',
   WarehousePaymentApprove: 'WAREHOUSE_PAYMENT_APPROVE',
   WarehousePaymentExport: 'WAREHOUSE_PAYMENT_EXPORT',
+
+  // ===== Seed ở migration 1783728000014 (Warehouse master data) =====
+  WarehouseCreate: 'WAREHOUSE_CREATE',
+  WarehouseRead: 'WAREHOUSE_READ',
+  WarehouseUpdate: 'WAREHOUSE_UPDATE',
+  WarehouseDelete: 'WAREHOUSE_DELETE',
+  WarehouseAssignManager: 'WAREHOUSE_ASSIGN_MANAGER',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];

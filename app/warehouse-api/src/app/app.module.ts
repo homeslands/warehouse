@@ -36,6 +36,7 @@ import { AuthorityGroupModule } from 'src/authority-group/authority-group.module
 import { PermissionModule } from 'src/permission/permission.module';
 import { ExampleModule } from 'src/example/example.module';
 import { UserModule } from 'src/user/user.module';
+import { WarehouseModule } from 'src/warehouse/warehouse.module';
 import { DbModule } from 'src/db/db.module';
 import { HealthModule } from 'src/health/health.module';
 import { FileModule } from 'src/file/file.module';
@@ -75,6 +76,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     AuthModule,
     ExampleModule,
     UserModule,
+    WarehouseModule,
     DbModule,
     HealthModule,
     FileModule,
