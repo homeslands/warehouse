@@ -2,7 +2,7 @@
 
 NestJS 10 + TypeORM/MySQL. `setup.md` trong thư mục này là ghi chú thủ công về các bước setup ban đầu (env, DB, chạy app lần đầu) — không phải tài liệu convention cho Claude, không cần đọc trừ khi cần setup môi trường từ đầu.
 
-> `src/` hiện có: `app/`, `auth/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `migrations/`, `notification/firebase/`, `redis/`, `role/`, `shared/`, `user/`. Chưa có module nghiệp vụ warehouse thật (product/stock/inventory...) — tạo mới theo template `example/`.
+> `src/` hiện có: `app/`, `auth/`, `authority/`, `authority-group/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `material/`, `material-type/`, `migrations/`, `notification/firebase/`, `permission/`, `rbac/`, `redis/`, `role/`, `shared/`, `user/`, `warehouse/`, `warehouse-material/`. Module nghiệp vụ đã có: kho (`warehouse`), danh mục vật tư (`material-type`/`material`) và tồn kho theo kho (`warehouse-material`) — xem `docs/specs/material.md`. Chưa có phiếu nhập/xuất/kiểm kho; tạo mới theo template `example/`.
 
 ## Quy trình làm feature mới
 
@@ -103,8 +103,8 @@ Thứ tự: `JwtOptionalAuthGuard` → `AuthorityGuard` → `HasRoleGuard` → `
 
 Có **2 cơ chế phân quyền chạy song song**, độc lập nhau (gắn cả 2 trên 1 endpoint là AND — phải qua cả hai):
 
-1. **Authority động** (mặc định, dùng cho hầu hết endpoint) — bảng `Role`/`Authority`/`AuthorityGroup`/`Permission`, admin bật/tắt lúc chạy, xem `docs/specs/authority-permission.md`.
-2. **RBAC cơ bản theo role tĩnh** (`@HasRole`) — hardcode role trong code, không chạm DB/Redis, không cần migration seed. Hiện đang dùng ở **`src/user/` và `src/warehouse/`** (toàn bộ 2 module, xem bảng map ở mục "RBAC cơ bản" bên dưới); các module còn lại (`example`/`role`/`authority`/`permission`/`logger`/`db`) vẫn dùng `@RequireAuthority`.
+1. **Authority động** — bảng `Role`/`Authority`/`AuthorityGroup`/`Permission`, admin bật/tắt lúc chạy, xem `docs/specs/authority-permission.md`.
+2. **RBAC cơ bản theo role tĩnh** (`@HasRole`) — hardcode role trong code, không chạm DB/Redis, không cần migration seed. Hiện đang dùng ở **`src/user/`, `src/warehouse/`, `src/material-type/`, `src/material/`, `src/warehouse-material/`** (toàn bộ 5 module, xem bảng map ở mục "RBAC cơ bản" bên dưới) — mặc định cho module nghiệp vụ mới; các module hạ tầng còn lại (`example`/`role`/`authority`/`permission`/`logger`/`db`) vẫn dùng `@RequireAuthority`.
 
 Decorator:
 
@@ -132,6 +132,12 @@ Decorator:
 | `PATCH /warehouses/{slug}` | `ADMIN` |
 | `PUT /warehouses/{slug}/manager` | `ADMIN` |
 | `DELETE /warehouses/{slug}` | `ADMIN` |
+| `POST`/`PATCH`/`DELETE /material-types...` | `ADMIN` |
+| `GET /material-types`, `GET /material-types/{slug}` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `POST`/`PATCH`/`DELETE /materials...` | `ADMIN` |
+| `GET /materials`, `GET /materials/{slug}` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `POST`/`PATCH`/`DELETE /warehouses/{slug}/materials...` (kể cả `PATCH .../quantity`) | `ADMIN` |
+| `GET /warehouses/{slug}/materials` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 
 `SUPER_ADMIN` bypass tất cả. Map này chép đúng `defaultRoles` từng seed ở migration `1783728000010`/`1783728000011`/`1783728000014` lúc 2 module còn dùng `@RequireAuthority`. Đổi map = sửa decorator trên controller, không có API/migration nào đổi được lúc chạy. Có test khoá metadata decorator trong `user.controller.spec.ts`/`warehouse.controller.spec.ts` — gỡ nhầm decorator là test đỏ.
 
@@ -225,7 +231,8 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 - `.env` bắt buộc nhiều biến (Mail/ACB/Zalo OA/Google Maps/Firebase) mà **chưa module nào dùng thật** trong code — app vẫn crash lúc bootstrap nếu thiếu, phải điền giá trị dummy hợp lệ format.
 - `ALLOWED_ORIGINS` không nằm trong `env.validation.ts` nhưng **bắt buộc thực tế** — thiếu sẽ crash bootstrap (`corsOptions()`).
 - OTP, quên mật khẩu (reset khi không nhớ mật khẩu cũ), validate định dạng số điện thoại. **Không có ràng buộc độ mạnh mật khẩu** ở bất kỳ đâu (`login`/`POST /users`/2 endpoint đổi mật khẩu chỉ `@IsNotEmpty()`) — mật khẩu 1 ký tự vẫn qua.
-- Module nghiệp vụ warehouse thật (product/stock/inventory...) — hiện chỉ có `example/` làm template.
+- Phiếu nhập/xuất/kiểm kho, phiếu chi kho — `AuthorityCode` đã khai sẵn code cho chúng nhưng **chưa module nào tồn tại**. Tồn kho hiện chỉ sửa được bằng `PATCH /warehouses/{slug}/materials/{materialSlug}/quantity` (cửa TẠM, bỏ khi có phiếu).
+- **`typeorm:g` KHÔNG dùng được trên repo này**: `migration:generate` diff cả schema cũ và đẻ ra lệnh drop/re-add `user_tbl.phonenumber_column`, `warehouse_tbl.code_column` (mất dữ liệu) + hạ cấp `ON DELETE` của loạt FK, vì migration cũ đặt tên index/FK thủ công và dùng VARCHAR hẹp hơn suy diễn từ entity. Viết tay migration (xem `1783728000015-create-material-tables.ts`), hoặc sinh ra rồi xoá sạch lệnh ngoài phạm vi trước khi chạy.
 - Không có `Dockerfile`/`docker-compose.yml` — MySQL/Redis phải tự cài/chạy.
 - **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là **mọi request có JWT đều 401** (check thu hồi token fail-closed) — nặng hơn trước, xem mục "Thu hồi token". `/health` đã có indicator Redis.
 - `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.
