@@ -126,7 +126,7 @@ export class WarehouseService {
     const context = `${WarehouseService.name}.${this.deleteWarehouse.name}`;
     const warehouse = await this.warehouseRepository.findOneBy({ slug });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
-    // Soft delete warehouse: 
+    // Soft delete warehouse:
     if (warehouse.isActive)
       throw new WarehouseException(WarehouseValidation.WAREHOUSE_ACTIVE_CANNOT_BE_DELETED);
 
