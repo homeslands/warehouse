@@ -20,7 +20,7 @@ import { OptimisticLockExceptionFilter } from './optimistic-lock.filter';
 import { AppSubscriber } from './app.subscriber';
 
 import { JwtOptionalAuthGuard } from 'src/auth/passport/jwt/jwt-optional-auth.guard';
-import { AuthorityGuard } from 'src/role/role.guard';
+import { AuthorityGuard, HasRoleGuard } from 'src/role/role.guard';
 import { RoleBasedSerializationInterceptor } from 'src/role/role.interceptor';
 import { FeatureGuard } from 'src/feature-flag-system/guard/fureture.guard';
 import { FeatureFlagSystemModule } from 'src/feature-flag-system/feature-flag-system.module';
@@ -37,6 +37,9 @@ import { PermissionModule } from 'src/permission/permission.module';
 import { ExampleModule } from 'src/example/example.module';
 import { UserModule } from 'src/user/user.module';
 import { WarehouseModule } from 'src/warehouse/warehouse.module';
+import { MaterialTypeModule } from 'src/material-type/material-type.module';
+import { MaterialModule } from 'src/material/material.module';
+import { WarehouseMaterialModule } from 'src/warehouse-material/warehouse-material.module';
 import { DbModule } from 'src/db/db.module';
 import { HealthModule } from 'src/health/health.module';
 import { FileModule } from 'src/file/file.module';
@@ -77,6 +80,9 @@ import { NotificationModule } from 'src/notification/notification.module';
     ExampleModule,
     UserModule,
     WarehouseModule,
+    MaterialTypeModule,
+    MaterialModule,
+    WarehouseMaterialModule,
     DbModule,
     HealthModule,
     FileModule,
@@ -90,6 +96,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     { provide: APP_FILTER, useClass: OptimisticLockExceptionFilter },
     { provide: APP_GUARD, useClass: JwtOptionalAuthGuard },
     { provide: APP_GUARD, useClass: AuthorityGuard },
+    { provide: APP_GUARD, useClass: HasRoleGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },
     { provide: APP_INTERCEPTOR, useClass: RoleBasedSerializationInterceptor },

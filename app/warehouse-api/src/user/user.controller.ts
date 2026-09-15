@@ -19,8 +19,8 @@ import {
   UserResponseDto,
 } from './user.dto';
 import { UserService } from './user.service';
-import { AuthorityCode } from 'src/authority/authority.constants';
-import { RequireAuthority } from 'src/authority/authority.decorator';
+import { HasRole } from 'src/role/role.decorator';
+import { RoleEnum } from 'src/role/role.enum';
 import { CurrentUser, CurrentUserDto } from './user.decorator';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
@@ -32,7 +32,7 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @RequireAuthority(AuthorityCode.UserCreate)
+  @HasRole(RoleEnum.Admin)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new user (assign role)' })
   @ApiResponseWithType({
@@ -54,7 +54,7 @@ export class UserController {
   }
 
   @Get()
-  @RequireAuthority(AuthorityCode.UserRead)
+  @HasRole(RoleEnum.Admin)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all users (paginated, filter by role)' })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
@@ -71,14 +71,14 @@ export class UserController {
   }
 
   @Post(':userSlug/change-password')
-  @RequireAuthority(AuthorityCode.UserChangePassword)
+  @HasRole(RoleEnum.Admin, RoleEnum.Manager)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Change the password of another user (requires USER_CHANGE_PASSWORD)',
+    summary: 'Change the password of another user (ADMIN/MANAGER only)',
     description:
-      'Đổi mật khẩu HỘ user khác — cần authority `USER_CHANGE_PASSWORD` (`ADMIN`/`MANAGER` được cấp ' +
-      'sẵn, `SUPER_ADMIN` bypass), KHÔNG cần `currentPassword`. Riêng tài khoản `SUPER_ADMIN` thì ' +
+      'Đổi mật khẩu HỘ user khác — chỉ `ADMIN`/`MANAGER` (`SUPER_ADMIN` bypass), ' +
+      'KHÔNG cần `currentPassword`. Riêng tài khoản `SUPER_ADMIN` thì ' +
       'chỉ `SUPER_ADMIN` khác mới đổi được, và không được trỏ `userSlug` vào chính mình — tự đổi ' +
       'mật khẩu của mình thì gọi `POST /auth/change-password`.\n\n' +
       'Đổi xong, MỌI phiên của user bị đổi bị thu hồi ngay ở request kế tiếp và họ phải đăng nhập ' +

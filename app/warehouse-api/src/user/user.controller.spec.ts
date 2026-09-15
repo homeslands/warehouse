@@ -1,5 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
+import { HAS_ROLE_KEY } from 'src/role/role.decorator';
+import { RoleEnum } from 'src/role/role.enum';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { CurrentUserDto } from './user.decorator';
@@ -16,7 +17,7 @@ describe('UserController', () => {
     userId: 'user-id',
     roleName: 'ADMIN',
     sessionId: 'sid-1',
-    scope: ['USER_CHANGE_PASSWORD'],
+    scope: [],
   };
 
   beforeEach(async () => {
@@ -49,12 +50,18 @@ describe('UserController', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  // Quyền của luồng đổi hộ nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service
-  // không check `scope` — gỡ decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào
-  // khác phát hiện ra.
-  it('guards the change-user-password route with USER_CHANGE_PASSWORD', () => {
-    expect(Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, controller.changeUserPassword)).toBe(
-      'USER_CHANGE_PASSWORD',
-    );
+  // Quyền của luồng đổi hộ nằm hoàn toàn ở decorator (`HasRoleGuard` đọc metadata này), service
+  // không check role của người gọi — gỡ decorator là mở endpoint cho mọi user đã đăng nhập mà không
+  // test nào khác phát hiện ra.
+  it('guards the change-user-password route with @HasRole(ADMIN, MANAGER)', () => {
+    expect(Reflect.getMetadata(HAS_ROLE_KEY, controller.changeUserPassword)).toEqual([
+      RoleEnum.Admin,
+      RoleEnum.Manager,
+    ]);
+  });
+
+  it('restricts createUser and findAll to ADMIN', () => {
+    expect(Reflect.getMetadata(HAS_ROLE_KEY, controller.createUser)).toEqual([RoleEnum.Admin]);
+    expect(Reflect.getMetadata(HAS_ROLE_KEY, controller.findAll)).toEqual([RoleEnum.Admin]);
   });
 });

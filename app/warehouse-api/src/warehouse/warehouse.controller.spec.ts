@@ -2,6 +2,8 @@ import { Test, TestingModule } from '@nestjs/testing';
 import { WarehouseController } from './warehouse.controller';
 import { WarehouseService } from './warehouse.service';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { HAS_ROLE_KEY } from 'src/role/role.decorator';
+import { RoleEnum } from 'src/role/role.enum';
 
 const currentUser = { userId: 'user-id-1', scope: [] } as CurrentUserDto;
 
@@ -115,5 +117,31 @@ describe('WarehouseController', () => {
 
     expect(response.result).toBe('1 warehouse have been deleted successfully');
     expect(response.statusCode).toBe(200);
+  });
+
+  // Quyền của cả module nằm hoàn toàn ở decorator (`HasRoleGuard` đọc metadata này), service không
+  // check role — gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào
+  // khác phát hiện ra.
+  describe('@HasRole metadata', () => {
+    const roles = (handler: (...args: never[]) => unknown): RoleEnum[] | undefined =>
+      Reflect.getMetadata(HAS_ROLE_KEY, handler);
+
+    it('restricts every write route to ADMIN', () => {
+      expect(roles(controller.createWarehouse)).toEqual([RoleEnum.Admin]);
+      expect(roles(controller.updateWarehouse)).toEqual([RoleEnum.Admin]);
+      expect(roles(controller.assignManager)).toEqual([RoleEnum.Admin]);
+      expect(roles(controller.deleteWarehouse)).toEqual([RoleEnum.Admin]);
+    });
+
+    it('opens the read routes to ADMIN, MANAGER and SUPERVISOR', () => {
+      const readRoles = [RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor];
+      expect(roles(controller.findAll)).toEqual(readRoles);
+      expect(roles(controller.findOne)).toEqual(readRoles);
+    });
+
+    // `mine` cố tình không gắn decorator: service đã giới hạn theo `userId` của chính người gọi.
+    it('leaves /mine open to any authenticated user', () => {
+      expect(roles(controller.findMine)).toBeUndefined();
+    });
   });
 });

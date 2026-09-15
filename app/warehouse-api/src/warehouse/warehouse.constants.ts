@@ -1,4 +1,3 @@
-
 export const WAREHOUSE_PHONENUMBER_REGEX = /^0\d{8,10}$/;
 
 /**
