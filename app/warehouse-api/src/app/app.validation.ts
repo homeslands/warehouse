@@ -9,6 +9,15 @@ import {
 import { ExampleValidation, TExampleErrorCode } from 'src/example/example.validation';
 import { UserValidation, TUserErrorCode } from 'src/user/user.validation';
 import { WarehouseValidation, TWarehouseErrorCode } from 'src/warehouse/warehouse.validation';
+import {
+  MaterialTypeValidation,
+  TMaterialTypeErrorCode,
+} from 'src/material-type/material-type.validation';
+import { MaterialValidation, TMaterialErrorCode } from 'src/material/material.validation';
+import {
+  WarehouseMaterialValidation,
+  TWarehouseMaterialErrorCode,
+} from 'src/warehouse-material/warehouse-material.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
 import {
@@ -38,6 +47,9 @@ export const AppValidation: TAuthErrorCode &
   TExampleErrorCode &
   TUserErrorCode &
   TWarehouseErrorCode &
+  TMaterialTypeErrorCode &
+  TMaterialErrorCode &
+  TWarehouseMaterialErrorCode &
   TDbErrorCode &
   TFileErrorCode &
   TNotificationErrorCode &
@@ -49,6 +61,9 @@ export const AppValidation: TAuthErrorCode &
   ...ExampleValidation,
   ...UserValidation,
   ...WarehouseValidation,
+  ...MaterialTypeValidation,
+  ...MaterialValidation,
+  ...WarehouseMaterialValidation,
   ...DbValidation,
   ...FileValidation,
   ...NotificationValidation,
