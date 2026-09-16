@@ -41,6 +41,7 @@ import { MaterialTypeModule } from 'src/material-type/material-type.module';
 import { MaterialModule } from 'src/material/material.module';
 import { WarehouseMaterialModule } from 'src/warehouse-material/warehouse-material.module';
 import { StoreModule } from 'src/store/store.module';
+import { TaxProfileModule } from 'src/tax-profile/tax-profile.module';
 import { DbModule } from 'src/db/db.module';
 import { HealthModule } from 'src/health/health.module';
 import { FileModule } from 'src/file/file.module';
@@ -85,6 +86,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     MaterialModule,
     WarehouseMaterialModule,
     StoreModule,
+    TaxProfileModule,
     DbModule,
     HealthModule,
     FileModule,
