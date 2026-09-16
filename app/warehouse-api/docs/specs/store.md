@@ -31,6 +31,7 @@ Entity kế thừa **`VersionedBase`**: cửa hàng được sửa theo luồng 
 - `name` unique giữa các store chưa xoá mềm (check ở service, không có index DB).
 - `taxCode` unique giữa các store chưa xoá mềm (check ở service, **không** unique ở DB) — 2 cửa hàng cùng mã số thuế sẽ tạo ra hoá đơn không phân biệt được pháp nhân phát hành. Không unique ở DB vì nếu sau này cho phép nhiều chi nhánh chung 1 MST thì chỉ cần gỡ check ở service, không cần migration.
 - `taxCode` chỉ `trim()`, **không** uppercase (toàn chữ số + dấu gạch ngang, uppercase vô nghĩa).
+- ⚠️ `taxCode` dạng chi nhánh (`0101234567-001`) **vẫn hợp lệ ở `Store`**, nhưng **không tra cứu được** qua module `tax-profile` — nhà cung cấp tra cứu chỉ phục vụ mã 10 chữ số (xem `docs/specs/tax-profile.md`). Store dùng mã chi nhánh sẽ phải nhập `legalName`/`invoiceAddress` tay.
 - Khi update, chỉ check lại trùng `code`/`name`/`taxCode` nếu giá trị **thực sự đổi** — gửi lại đúng giá trị cũ không bị báo trùng với chính nó.
 - **Không xoá được cửa hàng đang `isActive`** — phải `PATCH isActive: false` trước. Rào chống xoá nhầm rẻ nhất khi chưa có bảng sản phẩm/hoá đơn để check tham chiếu.
 - Xoá là **xoá mềm** (`softRemove`).
