@@ -11,8 +11,10 @@ import {
   Param,
   Delete,
   Query,
+  Put,
 } from '@nestjs/common';
 import {
+  AssignStoreWarehouseRequestDto,
   CreateStoreRequestDto,
   GetAllStoreRequestDto,
   StoreResponseDto,
@@ -100,6 +102,28 @@ export class StoreController {
     const result = await this.storeService.updateStore(slug, requestData);
     return {
       message: 'Store has been updated successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<StoreResponseDto>;
+  }
+
+  // `PUT` chứ không `PATCH`/`DELETE`: nó thay thế đúng 1 slot warehouse và idempotent, còn
+  // `warehouseSlug: null` gỡ gắn kết ngay trong cùng code path (giống `PUT /warehouses/:slug/manager`).
+  @Put(':slug/warehouse')
+  @HasRole(RoleEnum.Admin)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Assign (or unassign with null) the warehouse of a store' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Assigned', type: StoreResponseDto })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async assignWarehouse(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: AssignStoreWarehouseRequestDto,
+  ) {
+    const result = await this.storeService.assignWarehouse(slug, requestData);
+    return {
+      message: 'Store warehouse has been assigned successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,

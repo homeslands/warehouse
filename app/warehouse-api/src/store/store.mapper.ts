@@ -57,7 +57,23 @@ export class StoreProfile extends AutomapperProfile {
 
   override get profile() {
     return (mapper: Mapper) => {
-      createMap(mapper, Store, StoreResponseDto, extend(baseMapper(mapper)), versionedMapper());
+      createMap(
+        mapper,
+        Store,
+        StoreResponseDto,
+        extend(baseMapper(mapper)),
+        versionedMapper(),
+        // Flatten quan hệ 1-1 `warehouse` (giống `WarehouseResponseDto.managerSlug`) — chỉ ra
+        // `slug`/`name`, không trả nguyên entity `Warehouse` ra response.
+        forMember(
+          (d) => d.warehouseSlug,
+          mapFrom((s) => s.warehouse?.slug),
+        ),
+        forMember(
+          (d) => d.warehouseName,
+          mapFrom((s) => s.warehouse?.name),
+        ),
+      );
 
       createMap(mapper, CreateStoreRequestDto, Store, ...normalizeStore<CreateStoreRequestDto>());
 

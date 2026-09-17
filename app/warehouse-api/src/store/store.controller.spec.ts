@@ -11,6 +11,7 @@ describe('StoreController', () => {
     findAll: jest.fn(),
     findOne: jest.fn(),
     updateStore: jest.fn(),
+    assignWarehouse: jest.fn(),
     deleteStore: jest.fn(),
   };
 
@@ -76,6 +77,30 @@ describe('StoreController', () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it('passes the slug and body through to assignWarehouse', async () => {
+    const assignDto = { warehouseSlug: 'wh-slug-1', version: 2 };
+    storeService.assignWarehouse.mockResolvedValue({
+      slug: 'st-slug-1',
+      warehouseSlug: 'wh-slug-1',
+      version: 3,
+    });
+
+    const response = await controller.assignWarehouse('st-slug-1', assignDto);
+
+    expect(storeService.assignWarehouse).toHaveBeenCalledWith('st-slug-1', assignDto);
+    expect(response.result).toMatchObject({ warehouseSlug: 'wh-slug-1' });
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('forwards a null warehouseSlug (unassign) untouched', async () => {
+    const assignDto = { warehouseSlug: null, version: 2 };
+    storeService.assignWarehouse.mockResolvedValue({ slug: 'st-slug-1', version: 3 });
+
+    await controller.assignWarehouse('st-slug-1', assignDto);
+
+    expect(storeService.assignWarehouse).toHaveBeenCalledWith('st-slug-1', assignDto);
+  });
+
   it('renders the deleteStore count as a message string', async () => {
     storeService.deleteStore.mockResolvedValue(1);
 
@@ -95,6 +120,7 @@ describe('StoreController', () => {
     it('restricts every write route to ADMIN', () => {
       expect(roles(controller.createStore)).toEqual([RoleEnum.Admin]);
       expect(roles(controller.updateStore)).toEqual([RoleEnum.Admin]);
+      expect(roles(controller.assignWarehouse)).toEqual([RoleEnum.Admin]);
       expect(roles(controller.deleteStore)).toEqual([RoleEnum.Admin]);
     });
 

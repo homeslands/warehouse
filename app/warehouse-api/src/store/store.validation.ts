@@ -17,6 +17,11 @@ export const STORE_EMAIL_INVALID = 'STORE_EMAIL_INVALID';
 export const STORE_IS_ACTIVE_INVALID = 'STORE_IS_ACTIVE_INVALID';
 export const STORE_VERSION_IS_REQUIRED = 'STORE_VERSION_IS_REQUIRED';
 export const STORE_ACTIVE_CANNOT_BE_DELETED = 'STORE_ACTIVE_CANNOT_BE_DELETED';
+export const STORE_WAREHOUSE_SLUG_IS_REQUIRED = 'STORE_WAREHOUSE_SLUG_IS_REQUIRED';
+export const STORE_WAREHOUSE_INACTIVE = 'STORE_WAREHOUSE_INACTIVE';
+export const STORE_WAREHOUSE_ALREADY_ASSIGNED = 'STORE_WAREHOUSE_ALREADY_ASSIGNED';
+export const STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE =
+  'STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE';
 
 export type TStoreErrorCodeKey =
   | typeof STORE_NOT_FOUND
@@ -34,7 +39,11 @@ export type TStoreErrorCodeKey =
   | typeof STORE_EMAIL_INVALID
   | typeof STORE_IS_ACTIVE_INVALID
   | typeof STORE_VERSION_IS_REQUIRED
-  | typeof STORE_ACTIVE_CANNOT_BE_DELETED;
+  | typeof STORE_ACTIVE_CANNOT_BE_DELETED
+  | typeof STORE_WAREHOUSE_SLUG_IS_REQUIRED
+  | typeof STORE_WAREHOUSE_INACTIVE
+  | typeof STORE_WAREHOUSE_ALREADY_ASSIGNED
+  | typeof STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE;
 
 export type TStoreErrorCode = Record<TStoreErrorCodeKey, TErrorCodeValue>;
 
@@ -90,5 +99,22 @@ export const StoreValidation: TStoreErrorCode = {
   STORE_ACTIVE_CANNOT_BE_DELETED: createErrorCode(
     101016,
     'Deactivate the store before deleting it',
+  ),
+  STORE_WAREHOUSE_SLUG_IS_REQUIRED: createErrorCode(
+    101017,
+    'Warehouse slug is required (send null to unassign)',
+    HttpStatus.BAD_REQUEST,
+  ),
+  STORE_WAREHOUSE_INACTIVE: createErrorCode(
+    101018,
+    'The warehouse is inactive and cannot be assigned to a store',
+  ),
+  STORE_WAREHOUSE_ALREADY_ASSIGNED: createErrorCode(
+    101019,
+    'The warehouse is already assigned to another store',
+  ),
+  STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE: createErrorCode(
+    101020,
+    'The warehouse is still held by a deleted store',
   ),
 };
