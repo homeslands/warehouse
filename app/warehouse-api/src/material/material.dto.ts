@@ -46,9 +46,17 @@ export class CreateMaterialRequestDto {
 }
 
 export class UpdateMaterialRequestDto extends CreateMaterialRequestDto {
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'MATERIAL_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'MATERIAL_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'MATERIAL_VERSION_IS_REQUIRED' })
   version: number;
 }
 

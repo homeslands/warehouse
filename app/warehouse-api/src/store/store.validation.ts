@@ -93,7 +93,7 @@ export const StoreValidation: TStoreErrorCode = {
   ),
   STORE_VERSION_IS_REQUIRED: createErrorCode(
     101015,
-    'Version is required and must be an integer',
+    'Version is required and must be an integer >= 1',
     HttpStatus.BAD_REQUEST,
   ),
   STORE_ACTIVE_CANNOT_BE_DELETED: createErrorCode(
