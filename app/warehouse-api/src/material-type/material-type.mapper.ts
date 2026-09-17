@@ -15,7 +15,7 @@ import { normalizeCode } from 'src/shared/utils/code.util';
  * Automapper KHÔNG kế thừa map của DTO cha, nên `UpdateMaterialTypeRequestDto extends
  * CreateMaterialTypeRequestDto` vẫn phải khai map riêng — dùng chung hàm này cho cả 2.
  */
-const normalizeMaterialType = <T extends CreateMaterialTypeRequestDto>() =>
+const normalizeMaterialType = <T extends Partial<CreateMaterialTypeRequestDto>>() =>
   [
     forMember<T, MaterialType>(
       (d) => d.name,

@@ -15,6 +15,7 @@ import { MaterialTypeException } from './material-type.exception';
 import { MaterialTypeValidation } from './material-type.validation';
 import { Material } from 'src/material/material.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { pickDefined } from 'src/shared/utils/obj.util';
 
 @Injectable()
 export class MaterialTypeService {
@@ -93,9 +94,13 @@ export class MaterialTypeService {
     if (!materialType)
       throw new MaterialTypeException(MaterialTypeValidation.MATERIAL_TYPE_NOT_FOUND);
 
-    const data = this.mapper.map(dto, UpdateMaterialTypeRequestDto, MaterialType);
-    if (data.code !== materialType.code) await this.assertCodeIsFree(data.code);
-    if (data.name !== materialType.name) await this.assertNameIsFree(data.name);
+    // PATCH partial: xem `pickDefined` — field không gửi giữ nguyên giá trị cũ, và chỉ check trùng
+    // cho field CÓ mặt (thiếu rào `undefined` thì `assertCodeIsFree(undefined)` tra nhầm bản ghi).
+    const data = pickDefined(this.mapper.map(dto, UpdateMaterialTypeRequestDto, MaterialType));
+    if (data.code !== undefined && data.code !== materialType.code)
+      await this.assertCodeIsFree(data.code);
+    if (data.name !== undefined && data.name !== materialType.name)
+      await this.assertNameIsFree(data.name);
 
     Object.assign(materialType, data);
     const updated = await this.materialTypeRepository.save(materialType);
