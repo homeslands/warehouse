@@ -1,10 +1,11 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { FindOptionsWhere, Repository } from 'typeorm';
+import { FindOptionsRelations, FindOptionsWhere, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
+  AssignStoreWarehouseRequestDto,
   CreateStoreRequestDto,
   GetAllStoreRequestDto,
   StoreResponseDto,
@@ -14,11 +15,23 @@ import { Store } from './store.entity';
 import { StoreException } from './store.exception';
 import { StoreValidation } from './store.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { WarehouseException } from 'src/warehouse/warehouse.exception';
+import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
+
+/**
+ * `warehouse` cố ý KHÔNG `eager` trên entity (xem `store.entity.ts`), nên mọi read path phải truyền
+ * hằng này — thiếu nó thì response im lặng mất `warehouseSlug`, không có lỗi nào báo ra.
+ */
+const STORE_RELATIONS: FindOptionsRelations<Store> = { warehouse: true };
 
 @Injectable()
 export class StoreService {
   constructor(
     @InjectRepository(Store) private readonly storeRepository: Repository<Store>,
+    // Chỉ cần tra kho theo slug + check `isActive` nên đăng ký Repository thay vì import
+    // `WarehouseModule` (giống `WarehouseMaterialService`).
+    @InjectRepository(Warehouse) private readonly warehouseRepository: Repository<Warehouse>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
   ) {}
@@ -45,6 +58,7 @@ export class StoreService {
 
     const [items, total] = await this.storeRepository.findAndCount({
       where,
+      relations: STORE_RELATIONS,
       order: { createdAt: 'DESC' },
       skip: (query.page - 1) * query.size,
       take: query.size,
@@ -63,7 +77,10 @@ export class StoreService {
   }
 
   async findOne(slug: string): Promise<StoreResponseDto> {
-    const store = await this.storeRepository.findOneBy({ slug });
+    const store = await this.storeRepository.findOne({
+      where: { slug },
+      relations: STORE_RELATIONS,
+    });
     if (!store) throw new StoreException(StoreValidation.STORE_NOT_FOUND);
     return this.mapper.map(store, Store, StoreResponseDto);
   }
@@ -75,6 +92,7 @@ export class StoreService {
     // try/catch ở đây.
     const store = await this.storeRepository.findOne({
       where: { slug },
+      relations: STORE_RELATIONS,
       lock: { mode: 'optimistic', version: dto.version },
     });
     if (!store) throw new StoreException(StoreValidation.STORE_NOT_FOUND);
@@ -92,6 +110,33 @@ export class StoreService {
     return this.mapper.map(updated, Store, StoreResponseDto);
   }
 
+  /**
+   * Gắn (hoặc gỡ với `warehouseSlug: null`) kho của cửa hàng. Tách khỏi `PATCH /stores/:slug` vì nó
+   * thay thế đúng 1 slot và idempotent — cùng tinh thần `PUT /warehouses/:slug/manager`.
+   */
+  async assignWarehouse(
+    slug: string,
+    dto: AssignStoreWarehouseRequestDto,
+  ): Promise<StoreResponseDto> {
+    const context = `${StoreService.name}.${this.assignWarehouse.name}`;
+    const store = await this.storeRepository.findOne({
+      where: { slug },
+      relations: STORE_RELATIONS,
+      lock: { mode: 'optimistic', version: dto.version },
+    });
+    if (!store) throw new StoreException(StoreValidation.STORE_NOT_FOUND);
+
+    store.warehouse =
+      dto.warehouseSlug === null ? null : await this.resolveWarehouse(dto.warehouseSlug, store.id);
+
+    const updated = await this.storeRepository.save(store);
+    this.logger.log(
+      `Store ${updated.id} warehouse set to: ${updated.warehouse?.id ?? 'none'}`,
+      context,
+    );
+    return this.mapper.map(updated, Store, StoreResponseDto);
+  }
+
   async deleteStore(slug: string): Promise<number> {
     const context = `${StoreService.name}.${this.deleteStore.name}`;
     const store = await this.storeRepository.findOneBy({ slug });
@@ -103,6 +148,33 @@ export class StoreService {
     await this.storeRepository.softRemove(store);
     this.logger.log(`Store deleted: ${store.id}`, context);
     return 1;
+  }
+
+  /**
+   * Quan hệ là 1-1: kho đã thuộc về cửa hàng khác thì không gắn lại được. UNIQUE index ở
+   * `store_tbl.warehouse_id_column` là rào cuối ở DB, check này chỉ để trả lỗi nghiệp vụ thay vì
+   * để MySQL ném `ER_DUP_ENTRY` thành 500.
+   */
+  private async resolveWarehouse(warehouseSlug: string, storeId: string): Promise<Warehouse> {
+    // Kho đã xoá mềm bị `findOneBy` loại sẵn ⇒ rơi vào nhánh không tìm thấy, không cần mã lỗi riêng.
+    const warehouse = await this.warehouseRepository.findOneBy({ slug: warehouseSlug });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+    if (!warehouse.isActive) throw new StoreException(StoreValidation.STORE_WAREHOUSE_INACTIVE);
+
+    // `withDeleted`: cửa hàng đã xoá mềm VẪN giữ FK (UNIQUE index không bỏ qua row xoá mềm), nên
+    // phải phân biệt "kho đang thuộc cửa hàng khác" với "kho bị cửa hàng đã xoá giữ chỗ".
+    const holder = await this.storeRepository.findOne({
+      where: { warehouse: { id: warehouse.id } },
+      withDeleted: true,
+    });
+    if (holder && holder.id !== storeId)
+      throw new StoreException(
+        holder.deletedAt
+          ? StoreValidation.STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE
+          : StoreValidation.STORE_WAREHOUSE_ALREADY_ASSIGNED,
+      );
+
+    return warehouse;
   }
 
   /**
