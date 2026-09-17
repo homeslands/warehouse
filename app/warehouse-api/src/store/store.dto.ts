@@ -6,6 +6,7 @@ import {
   IsNotEmpty,
   IsOptional,
   Matches,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -93,9 +94,18 @@ export class CreateStoreRequestDto {
 }
 
 export class UpdateStoreRequestDto extends CreateStoreRequestDto {
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'STORE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'STORE_VERSION_IS_REQUIRED' })
+  // `@Min(1)` KHÔNG phải rào thẩm mỹ: TypeORM bọc cả khối check optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`), mà
+  // `0` là falsy ⇒ gửi `version: 0` khiến phép so sánh version KHÔNG chạy và `save()` ghi đè vô
+  // điều kiện. `@IsNotEmpty` lẫn `@IsInt` đều cho `0` qua (class-validator coi `0` là "not empty"),
+  // còn `@VersionColumn` luôn bắt đầu từ 1 nên `0` không bao giờ là giá trị hợp lệ.
+  @Min(1, { message: 'STORE_VERSION_IS_REQUIRED' })
   version: number;
 }
 
@@ -111,9 +121,14 @@ export class AssignStoreWarehouseRequestDto {
   @IsNotEmpty({ message: 'STORE_WAREHOUSE_SLUG_IS_REQUIRED' })
   warehouseSlug: string | null;
 
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'STORE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'STORE_VERSION_IS_REQUIRED' })
+  // Xem giải thích ở `UpdateStoreRequestDto.version`.
+  @Min(1, { message: 'STORE_VERSION_IS_REQUIRED' })
   version: number;
 }
 
