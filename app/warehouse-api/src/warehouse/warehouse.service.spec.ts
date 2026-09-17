@@ -279,6 +279,54 @@ describe('WarehouseService', () => {
     });
   });
 
+  // PATCH phải là partial update đúng nghĩa REST: field không gửi giữ nguyên giá trị cũ.
+  describe('updateWarehouse — partial (PATCH)', () => {
+    beforeEach(() => {
+      // `jest.clearAllMocks()` chỉ xoá lịch sử gọi, KHÔNG xoá implementation đã set ở test trước.
+      warehouseRepository.findOneBy.mockResolvedValue(null);
+    });
+
+    it('chỉ đổi field được gửi, các field khác giữ nguyên', async () => {
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+      warehouseRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateWarehouse('wh-slug-1', {
+        name: 'Kho Hà Nội 2',
+        version: 1,
+      } as never);
+
+      expect(result).toMatchObject({
+        name: 'Kho Hà Nội 2',
+        code: 'WH-HN-01',
+        address: 'Số 1, Cầu Giấy, Hà Nội',
+      });
+    });
+
+    it('không check trùng cho field không gửi', async () => {
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+      warehouseRepository.save.mockImplementation((data) => data);
+
+      await service.updateWarehouse('wh-slug-1', { name: 'Tên mới', version: 1 } as never);
+
+      expect(warehouseRepository.findOneBy).toHaveBeenCalledTimes(1);
+      expect(warehouseRepository.findOneBy).toHaveBeenCalledWith({ name: 'Tên mới' });
+    });
+
+    // `PartialType` sao chép initializer `isActive = true` của DTO cha ⇒ nếu không huỷ, PATCH không
+    // gửi `isActive` sẽ bật lại kho đã ngừng hoạt động.
+    it('không tự bật lại isActive khi PATCH không gửi field đó', async () => {
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse({ isActive: false }));
+      warehouseRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateWarehouse('wh-slug-1', {
+        name: 'Tên mới',
+        version: 1,
+      } as never);
+
+      expect(result.isActive).toBe(false);
+    });
+  });
+
   describe('updateWarehouse', () => {
     const updateDto = { ...createDto(), version: 4 };
 
