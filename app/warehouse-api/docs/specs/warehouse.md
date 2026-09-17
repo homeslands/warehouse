@@ -63,6 +63,8 @@ Mỗi kho thuộc tối đa 1 cửa hàng. `Warehouse.store` là **inverse side*
 
 Hệ quả cần nhớ: kho `isActive = false` **không gắn được** cho cửa hàng, và kho đang thuộc 1 cửa hàng thì cửa hàng khác không lấy được (kể cả khi cửa hàng giữ nó đã bị xoá mềm).
 
+- `version` trong `UpdateWarehouseRequestDto`/`AssignWarehouseManagerRequestDto` bắt buộc `@Min(1)` — gửi `version: 0` sẽ bypass hoàn toàn optimistic lock của TypeORM (`SelectQueryBuilder.js:691-693`, `0` là falsy ⇒ check không chạy). Xem `docs/specs/store.md` mục "Quy tắc nghiệp vụ".
+
 ## Ngoài phạm vi (Out of scope)
 
 - Chưa trả `storeSlug` trong `WarehouseResponseDto` — muốn biết kho thuộc cửa hàng nào thì tra từ phía `GET /stores`.

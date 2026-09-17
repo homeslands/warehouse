@@ -91,6 +91,8 @@ Dùng `@HasRole` (RBAC cơ bản), giống `/warehouses`. `SUPER_ADMIN` bypass.
 - `PATCH /warehouses/:warehouseSlug/materials/:materialSlug/quantity` — điều chỉnh tồn theo `delta`
 - `DELETE /warehouses/:warehouseSlug/materials/:materialSlug` — gỡ vật tư khỏi kho
 
+- `version` trong `UpdateMaterialRequestDto`/`UpdateMaterialTypeRequestDto` bắt buộc `@Min(1)` — gửi `version: 0` sẽ bypass hoàn toàn optimistic lock của TypeORM (`SelectQueryBuilder.js:691-693`, `0` là falsy ⇒ check không chạy).
+
 ## Ngoài phạm vi (Out of scope)
 
 - **Phiếu nhập/xuất/kiểm kho** — `PATCH .../quantity` là cửa tạm để chỉnh tồn khi chưa có phiếu; khi làm phiếu thì phiếu là nơi duy nhất đổi `quantity` và endpoint này nên bỏ.

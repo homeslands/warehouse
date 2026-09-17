@@ -1,4 +1,4 @@
-import { IsInt, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, Matches, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
@@ -29,9 +29,17 @@ export class CreateMaterialTypeRequestDto {
 }
 
 export class UpdateMaterialTypeRequestDto extends CreateMaterialTypeRequestDto {
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'MATERIAL_TYPE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'MATERIAL_TYPE_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'MATERIAL_TYPE_VERSION_IS_REQUIRED' })
   version: number;
 }
 
