@@ -15,6 +15,7 @@ import { Store } from './store.entity';
 import { StoreException } from './store.exception';
 import { StoreValidation } from './store.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { pickDefined } from 'src/shared/utils/obj.util';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
@@ -97,12 +98,16 @@ export class StoreService {
     });
     if (!store) throw new StoreException(StoreValidation.STORE_NOT_FOUND);
 
-    const data = this.mapper.map(dto, UpdateStoreRequestDto, Store);
-    // Chỉ check lại trùng khi giá trị THỰC SỰ đổi — gửi lại đúng giá trị cũ không được báo trùng
-    // với chính bản ghi đang sửa.
-    if (data.code !== store.code) await this.assertCodeIsFree(data.code);
-    if (data.name !== store.name) await this.assertNameIsFree(data.name);
-    if (data.taxCode !== store.taxCode) await this.assertTaxCodeIsFree(data.taxCode);
+    // PATCH partial: `pickDefined` bỏ mọi field client không gửi, phần còn lại mới được ghi đè lên
+    // entity vừa load ⇒ field vắng mặt giữ nguyên giá trị cũ.
+    const data = pickDefined(this.mapper.map(dto, UpdateStoreRequestDto, Store));
+    // Chỉ check lại trùng khi field CÓ được gửi VÀ giá trị THỰC SỰ đổi — gửi lại đúng giá trị cũ
+    // không được báo trùng với chính bản ghi đang sửa, còn field không gửi thì không có gì để check
+    // (thiếu rào `undefined` thì `assertCodeIsFree(undefined)` sẽ tra nhầm sang bản ghi khác).
+    if (data.code !== undefined && data.code !== store.code) await this.assertCodeIsFree(data.code);
+    if (data.name !== undefined && data.name !== store.name) await this.assertNameIsFree(data.name);
+    if (data.taxCode !== undefined && data.taxCode !== store.taxCode)
+      await this.assertTaxCodeIsFree(data.taxCode);
 
     Object.assign(store, data);
     const updated = await this.storeRepository.save(store);

@@ -83,7 +83,7 @@ CRUD chuẩn 5 route, không có endpoint đặc thù:
 - `POST /stores` — tạo cửa hàng.
 - `GET /stores` — danh sách phân trang, filter `isActive`.
 - `GET /stores/:slug` — chi tiết.
-- `PATCH /stores/:slug` — cập nhật (body bắt buộc có `version`). **Không** đụng tới `warehouse`.
+- `PATCH /stores/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ; riêng `version` luôn bắt buộc. **Không** đụng tới `warehouse`.
 - `PUT /stores/:slug/warehouse` — gắn kho (hoặc gỡ với `warehouseSlug: null`).
 - `DELETE /stores/:slug` — xoá mềm.
 
