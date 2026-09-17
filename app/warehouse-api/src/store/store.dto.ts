@@ -1,4 +1,13 @@
-import { IsBoolean, IsEmail, IsInt, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import {
+  IsBoolean,
+  IsDefined,
+  IsEmail,
+  IsInt,
+  IsNotEmpty,
+  IsOptional,
+  Matches,
+  ValidateIf,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
@@ -90,6 +99,24 @@ export class UpdateStoreRequestDto extends CreateStoreRequestDto {
   version: number;
 }
 
+export class AssignStoreWarehouseRequestDto {
+  @ApiProperty({
+    description: 'Slug của kho gắn với cửa hàng. Gửi `null` để gỡ gắn kết.',
+    example: 'x7fk2p9qab',
+    nullable: true,
+    type: String,
+  })
+  @IsDefined({ message: 'STORE_WAREHOUSE_SLUG_IS_REQUIRED' })
+  @ValidateIf((o: AssignStoreWarehouseRequestDto) => o.warehouseSlug !== null)
+  @IsNotEmpty({ message: 'STORE_WAREHOUSE_SLUG_IS_REQUIRED' })
+  warehouseSlug: string | null;
+
+  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @IsNotEmpty({ message: 'STORE_VERSION_IS_REQUIRED' })
+  @IsInt({ message: 'STORE_VERSION_IS_REQUIRED' })
+  version: number;
+}
+
 export class GetAllStoreRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by active state', example: true })
   @IsOptional()
@@ -134,4 +161,12 @@ export class StoreResponseDto extends VersionedResponseDto {
   @AutoMap()
   @ApiProperty()
   isActive: boolean;
+
+  // Flatten từ quan hệ `warehouse` bằng `forMember` (giống `WarehouseResponseDto.managerSlug`) —
+  // không @AutoMap() để automapper không tự map nguyên entity `Warehouse` ra ngoài.
+  @ApiPropertyOptional({ description: 'Slug của kho gắn với cửa hàng' })
+  warehouseSlug?: string;
+
+  @ApiPropertyOptional({ description: 'Tên kho gắn với cửa hàng' })
+  warehouseName?: string;
 }
