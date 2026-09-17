@@ -373,6 +373,85 @@ describe('StoreService', () => {
     });
   });
 
+  // PATCH phải là partial update đúng nghĩa REST: field không gửi giữ nguyên giá trị cũ.
+  describe('updateStore — partial (PATCH)', () => {
+    beforeEach(() => {
+      // `jest.clearAllMocks()` chỉ xoá lịch sử gọi, KHÔNG xoá implementation đã set ở test trước.
+      storeRepository.findOneBy.mockResolvedValue(null);
+    });
+
+    it('chỉ đổi field được gửi, các field khác giữ nguyên', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore());
+      storeRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateStore('st-slug-1', {
+        name: 'Cửa hàng Hà Nội 2',
+        version: 1,
+      } as never);
+
+      expect(storeRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          name: 'Cửa hàng Hà Nội 2',
+          code: 'ST-HN-01',
+          legalName: 'Công ty TNHH ABC',
+          taxCode: '0101234567',
+        }),
+      );
+      expect(result).toMatchObject({ name: 'Cửa hàng Hà Nội 2', code: 'ST-HN-01' });
+    });
+
+    // Thiếu rào `undefined`, `assertCodeIsFree(undefined)` sẽ tra trúng một bản ghi bất kỳ và báo
+    // trùng sai.
+    it('không check trùng cho field không gửi', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore());
+      storeRepository.save.mockImplementation((data) => data);
+
+      await service.updateStore('st-slug-1', { name: 'Tên mới', version: 1 } as never);
+
+      expect(storeRepository.findOne).toHaveBeenCalledTimes(1);
+      expect(storeRepository.findOneBy).toHaveBeenCalledTimes(1);
+      expect(storeRepository.findOneBy).toHaveBeenCalledWith({ name: 'Tên mới' });
+    });
+
+    // `PartialType` sao chép initializer `isActive = true` của DTO cha ⇒ nếu không huỷ, PATCH không
+    // gửi `isActive` sẽ bật lại cửa hàng đã ngừng hoạt động.
+    it('không tự bật lại isActive khi PATCH không gửi field đó', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore({ isActive: false }));
+      storeRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateStore('st-slug-1', {
+        name: 'Tên mới',
+        version: 1,
+      } as never);
+
+      expect(result.isActive).toBe(false);
+    });
+
+    it('vẫn tắt được isActive khi gửi false tường minh', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore({ isActive: true }));
+      storeRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateStore('st-slug-1', {
+        isActive: false,
+        version: 1,
+      } as never);
+
+      expect(result.isActive).toBe(false);
+    });
+
+    it('giữ nguyên quan hệ warehouse khi PATCH không nhắc tới nó', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: baseWarehouse() }));
+      storeRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateStore('st-slug-1', {
+        name: 'Tên mới',
+        version: 1,
+      } as never);
+
+      expect(result).toMatchObject({ warehouseSlug: 'wh-slug-1' });
+    });
+  });
+
   describe('assignWarehouse', () => {
     const assignDto = { warehouseSlug: 'wh-slug-1', version: 4 };
 

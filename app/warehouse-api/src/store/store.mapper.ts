@@ -8,9 +8,11 @@ import { versionedMapper } from 'src/app/versioned.mapper';
 
 /**
  * Chuẩn hoá dùng chung cho cả 2 map Create/Update -> Entity. Automapper KHÔNG kế thừa map của DTO
- * cha, nên `UpdateStoreRequestDto extends CreateStoreRequestDto` vẫn phải khai map riêng.
+ * cha, nên `UpdateStoreRequestDto` (partial của `CreateStoreRequestDto`) vẫn phải khai map riêng.
+ * Ràng buộc là `Partial<...>` vì DTO của PATCH có mọi field optional; các `mapFrom` bên dưới đều
+ * dùng `?.` nên field vắng mặt map ra `undefined` và bị `pickDefined` lọc bỏ ở service.
  */
-const normalizeStore = <T extends CreateStoreRequestDto>() =>
+const normalizeStore = <T extends Partial<CreateStoreRequestDto>>() =>
   [
     forMember<T, Store>(
       (d) => d.name,
