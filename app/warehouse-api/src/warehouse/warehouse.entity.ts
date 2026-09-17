@@ -1,7 +1,8 @@
-import { Entity, Column, ManyToOne, JoinColumn } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { VersionedBase } from 'src/app/versioned.entity';
 import { User } from 'src/user/user.entity';
+import { Store } from 'src/store/store.entity';
 
 @Entity('warehouse_tbl')
 export class Warehouse extends VersionedBase {
@@ -32,4 +33,12 @@ export class Warehouse extends VersionedBase {
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'manager_id_column' })
   manager: User;
+
+  /**
+   * Inverse side của quan hệ 1-1 với `Store` — KHÔNG có cột nào trên `warehouse_tbl`, FK +
+   * UNIQUE nằm ở `store_tbl.warehouse_id_column` (xem `store.entity.ts`). Khai ở đây chỉ để đọc
+   * ngược "kho này thuộc cửa hàng nào"; muốn lấy phải truyền `relations: { store: true }`.
+   */
+  @OneToOne(() => Store, (store) => store.warehouse, { nullable: true })
+  store?: Store | null;
 }

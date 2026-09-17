@@ -57,8 +57,15 @@ Entity kế thừa **`VersionedBase`**: kho được sửa theo luồng "load fu
 - `PUT /warehouses/:slug/manager` — phân công / gỡ phân công quản lý (body `{ managerSlug: string | null, version: number }`). Idempotent, trả về `WarehouseResponseDto` đã bump `version`.
 - `DELETE /warehouses/:slug` — xoá mềm.
 
+## Quan hệ với `Store` (1-1, thêm 2026-09-17)
+
+Mỗi kho thuộc tối đa 1 cửa hàng. `Warehouse.store` là **inverse side** — không có cột nào trên `warehouse_tbl`, FK + UNIQUE nằm ở `store_tbl.warehouse_id_column`. Việc gắn/gỡ làm **hoàn toàn ở phía store** qua `PUT /stores/:slug/warehouse`; module `warehouse` không có endpoint nào đụng tới quan hệ này và read path của nó chưa trả `storeSlug`. Chi tiết quy tắc: `docs/specs/store.md`, mục "Quan hệ Store ↔ Warehouse (1-1)".
+
+Hệ quả cần nhớ: kho `isActive = false` **không gắn được** cho cửa hàng, và kho đang thuộc 1 cửa hàng thì cửa hàng khác không lấy được (kể cả khi cửa hàng giữ nó đã bị xoá mềm).
+
 ## Ngoài phạm vi (Out of scope)
 
+- Chưa trả `storeSlug` trong `WarehouseResponseDto` — muốn biết kho thuộc cửa hàng nào thì tra từ phía `GET /stores`.
 - Chưa hỗ trợ `sort` (`BaseQueryDto.sort` bị bỏ qua, luôn `createdAt DESC` — giống mọi module hiện có).
 - Chưa có row-level scoping của phiếu theo kho (MANAGER vẫn thấy mọi kho ở `GET /warehouses`) — sẽ làm cùng module phiếu.
 - Chưa giới hạn 1 manager chỉ được 1 kho.

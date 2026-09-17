@@ -2,7 +2,9 @@
 
 ## Mục tiêu
 
-Tạo master data **cửa hàng** — đơn vị quản lý sản phẩm và xuất hoá đơn. `Store` **độc lập hoàn toàn với `Warehouse`**: không có FK, không có bảng nối, không có ràng buộc nghiệp vụ nào giữa 2 entity ở version này. Kho là nơi chứa vật tư; cửa hàng là pháp nhân bán hàng và đứng tên trên hoá đơn. ADMIN quản lý danh sách cửa hàng; MANAGER/SUPERVISOR đọc danh sách để chọn khi lập phiếu/hoá đơn sau này.
+Tạo master data **cửa hàng** — đơn vị quản lý sản phẩm và xuất hoá đơn. Kho là nơi chứa vật tư; cửa hàng là pháp nhân bán hàng và đứng tên trên hoá đơn. ADMIN quản lý danh sách cửa hàng; MANAGER/SUPERVISOR đọc danh sách để chọn khi lập phiếu/hoá đơn sau này.
+
+> **Cập nhật 2026-09-17:** `Store` **có quan hệ 1-1 với `Warehouse`** — mỗi cửa hàng gắn tối đa 1 kho, mỗi kho thuộc tối đa 1 cửa hàng. Bản spec đầu tiên chốt "độc lập hoàn toàn, không FK"; quyết định đó đã bị đảo lại theo yêu cầu của user. Xem mục "Quan hệ Store ↔ Warehouse (1-1)" bên dưới.
 
 ## Entity / dữ liệu
 
@@ -17,10 +19,11 @@ Tạo master data **cửa hàng** — đơn vị quản lý sản phẩm và xu�
 | email | string | không | `@IsEmail()` |
 | address | string | không | địa chỉ thực tế của cửa hàng (có thể khác `invoiceAddress`) |
 | isActive | boolean | có | default `true`; cửa hàng ngừng hoạt động thì set `false` |
+| warehouse | quan hệ 1-1 tới `Warehouse` | không | FK `warehouse_id_column` (UNIQUE, NULL được) trỏ tới `warehouse_tbl.id_column` |
 
 **Đặt tên field:** spec gốc viết `phoneNumber`, nhưng entity dùng **`phonenumber`** (toàn chữ thường) để khớp `Warehouse.phonenumber` và `User.phonenumber` đang có trong repo — 3 entity gọi cùng một khái niệm bằng cùng một tên. Cột DB: `phonenumber_column`.
 
-Quan hệ với entity khác: **Không có.** Không FK tới `Warehouse`, `User`, hay `Material`.
+Quan hệ với entity khác: **1-1 với `Warehouse`** (xem mục riêng bên dưới). Không FK tới `User` hay `Material`.
 
 Entity kế thừa **`VersionedBase`**: cửa hàng được sửa theo luồng "load full ra form, sửa nhiều field (8 field, phần lớn là thông tin pháp nhân), lưu lại" — 2 admin sửa cùng lúc có thể ghi đè nhau ⇒ cần optimistic locking. Không có thao tác atomic tăng/giảm nào trên entity này.
 
@@ -37,6 +40,27 @@ Entity kế thừa **`VersionedBase`**: cửa hàng được sửa theo luồng 
 - Xoá là **xoá mềm** (`softRemove`).
 - `email` được `trim().toLowerCase()` trước khi lưu; không unique (2 cửa hàng dùng chung 1 email liên hệ là hợp lệ).
 
+## Quan hệ Store ↔ Warehouse (1-1)
+
+- **Owning side là `Store`**: cột `store_tbl.warehouse_id_column` + **UNIQUE index** `UQ_store_warehouse`. Chính UNIQUE đó là thứ chặn 2 cửa hàng cùng trỏ vào 1 kho ở tầng DB — service chỉ check trước để trả lỗi nghiệp vụ thay vì để MySQL ném `ER_DUP_ENTRY` thành 500. `Warehouse.store` là inverse side, không có cột nào trên `warehouse_tbl`.
+- **Nullable**: cửa hàng chưa gắn kho (và kho chưa thuộc cửa hàng nào) là trạng thái hợp lệ. MySQL cho phép nhiều NULL trong UNIQUE index nên nhiều cửa hàng cùng ở trạng thái "chưa gắn" vẫn OK. `POST /stores` **không** nhận `warehouseSlug` — tạo xong mới gắn.
+- **Gắn/gỡ qua endpoint riêng** `PUT /stores/:slug/warehouse` (body `{ warehouseSlug: string | null, version: number }`), **không** qua `PATCH /stores/:slug` — nó thay thế đúng 1 slot và idempotent, cùng tinh thần `PUT /warehouses/:slug/manager`. `warehouseSlug: null` là đường gỡ gắn kết duy nhất (không có `DELETE` riêng).
+- `version` bắt buộc như mọi thao tác ghi trên entity `VersionedBase` — lệch version trả `DATA_VERSION_CONFLICT` 409.
+- Quan hệ **không `eager`**: mọi read path phải truyền `relations: { warehouse: true }`, thiếu là response im lặng mất `warehouseSlug`.
+- Response `StoreResponseDto` flatten thành `warehouseSlug` + `warehouseName` (giống `WarehouseResponseDto.managerSlug`), không trả nguyên entity `Warehouse`.
+
+Quy tắc khi gắn:
+
+| Tình huống | Kết quả |
+|---|---|
+| Kho không tồn tại / đã xoá mềm | `WAREHOUSE_NOT_FOUND` (dùng lại mã của module `warehouse`, giống `warehouse-material`) |
+| Kho `isActive = false` | `STORE_WAREHOUSE_INACTIVE` (101018) |
+| Kho đang thuộc cửa hàng khác còn sống | `STORE_WAREHOUSE_ALREADY_ASSIGNED` (101019) |
+| Kho bị cửa hàng **đã xoá mềm** giữ chỗ | `STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE` (101020) — UNIQUE index không bỏ qua row xoá mềm, giống cách xử lý `code` |
+| Gửi lại đúng kho cửa hàng đang giữ | Thành công (idempotent), không báo trùng với chính mình |
+
+FK dùng **`ON DELETE SET NULL`** (giống `FK_warehouse_manager`): "cửa hàng chưa có kho" là trạng thái hợp lệ nên xoá cứng kho thoái hoá về trạng thái đó thay vì chặn. Thực tế kho chỉ xoá mềm nên nhánh này hiếm khi chạy.
+
 ## Quyền truy cập
 
 Dùng **RBAC cơ bản (`@HasRole`)**, không dùng `@RequireAuthority` ⇒ **không cần migration seed `Authority`**. Đây là mặc định cho module nghiệp vụ mới theo `CLAUDE.md`, và khớp với `warehouse`/`material-type`/`material` đang dùng.
@@ -46,6 +70,7 @@ Dùng **RBAC cơ bản (`@HasRole`)**, không dùng `@RequireAuthority` ⇒ **kh
 | Create | `ADMIN` |
 | Read (list/detail) | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 | Update | `ADMIN` |
+| Gắn/gỡ kho (`PUT /stores/:slug/warehouse`) | `ADMIN` |
 | Delete | `ADMIN` |
 
 `SUPER_ADMIN` bypass toàn bộ. Read cấp cho cả 3 role vì mọi màn hình chọn cửa hàng (lập phiếu, xuất hoá đơn sau này) đều cần dropdown danh sách store.
@@ -57,16 +82,20 @@ CRUD chuẩn 5 route, không có endpoint đặc thù:
 - `POST /stores` — tạo cửa hàng.
 - `GET /stores` — danh sách phân trang, filter `isActive`.
 - `GET /stores/:slug` — chi tiết.
-- `PATCH /stores/:slug` — cập nhật (body bắt buộc có `version`).
+- `PATCH /stores/:slug` — cập nhật (body bắt buộc có `version`). **Không** đụng tới `warehouse`.
+- `PUT /stores/:slug/warehouse` — gắn kho (hoặc gỡ với `warehouseSlug: null`).
 - `DELETE /stores/:slug` — xoá mềm.
 
-Mã lỗi dùng dải **`1010xx`** (`101001`+) — dải chưa module nào dùng (`1000xx`–`1008xx` đã có chủ, `100800`–`100900` là dải dùng chung).
+Mã lỗi dùng dải **`1010xx`** (`101001`+) — dải chưa module nào dùng (`1000xx`–`1008xx` đã có chủ, `100800`–`100900` là dải dùng chung). Đang dùng tới `101020`.
 
 ## Ngoài phạm vi (Out of scope)
 
 - **Xuất hoá đơn** — user nói rõ "but not working this task". Entity chỉ *chứa* thông tin pháp nhân để sau này in lên hoá đơn; không có logic sinh số hoá đơn, mẫu hoá đơn, hay tích hợp cơ quan thuế.
 - **Quản lý sản phẩm theo store** — chưa có FK `Product → Store`, chưa có bảng `Product`.
-- Chưa có quan hệ nào với `Warehouse` (cố ý — Store độc lập).
+- Chưa lọc danh sách theo kho (`GET /stores` chưa có `warehouseSlug`/`hasWarehouse` như `GET /warehouses` có `managerSlug`/`hasManager`).
+- Chưa cho gắn kho ngay trong `POST /stores` — phải tạo store rồi gọi `PUT /stores/:slug/warehouse`.
+- Chưa có chiều đọc ngược qua API kho (`GET /warehouses/:slug` chưa trả `storeSlug`) — quan hệ inverse đã khai ở entity nhưng chưa dùng ở read path nào của module `warehouse`.
+- Xoá mềm cửa hàng **không** tự nhả kho: FK vẫn giữ, kho đó không gắn cho cửa hàng khác được cho tới khi có API restore/hard-delete (trả `STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE`).
 - Chưa hỗ trợ `sort` (`BaseQueryDto.sort` bị bỏ qua, luôn `createdAt DESC` — giống mọi module hiện có).
 - Chưa có API restore store đã xoá mềm, chưa có audit log đổi thông tin pháp nhân.
 - Chưa có phân công người phụ trách store (khác `warehouse` — store chưa có `manager`).
