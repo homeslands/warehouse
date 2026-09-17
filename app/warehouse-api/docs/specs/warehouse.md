@@ -53,7 +53,7 @@ Entity kế thừa **`VersionedBase`**: kho được sửa theo luồng "load fu
 - `GET /warehouses` — danh sách phân trang, filter `isActive`, `managerSlug`, `hasManager`.
 - `GET /warehouses/mine` — kho mà người đang đăng nhập phụ trách (phân trang, filter `isActive`). **Phải khai trước `GET /:slug`** trong controller.
 - `GET /warehouses/:slug` — chi tiết.
-- `PATCH /warehouses/:slug` — cập nhật (body có `version`).
+- `PATCH /warehouses/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ; riêng `version` luôn bắt buộc.
 - `PUT /warehouses/:slug/manager` — phân công / gỡ phân công quản lý (body `{ managerSlug: string | null, version: number }`). Idempotent, trả về `WarehouseResponseDto` đã bump `version`.
 - `DELETE /warehouses/:slug` — xoá mềm.
 
