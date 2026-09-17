@@ -38,3 +38,16 @@ describe('UpdateExampleRequestDto.version', () => {
     expect(messagesFor(UpdateExampleRequestDto, payload(version))).not.toEqual([]);
   });
 });
+
+describe('UpdateExampleRequestDto — PATCH partial', () => {
+  const errorsFor = (payload: object) =>
+    validateSync(plainToInstance(UpdateExampleRequestDto, payload), { whitelist: true });
+
+  it('chấp nhận body chỉ có version (không đổi field nào)', () => {
+    expect(errorsFor({ version: 1 })).toEqual([]);
+  });
+
+  it('chấp nhận body chỉ có description', () => {
+    expect(errorsFor({ description: 'Mô tả mới', version: 1 })).toEqual([]);
+  });
+});

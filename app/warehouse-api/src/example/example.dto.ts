@@ -1,5 +1,5 @@
 import { IsInt, IsNotEmpty, IsOptional, Min } from 'class-validator';
-import { ApiProperty } from '@nestjs/swagger';
+import { ApiProperty, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 
@@ -15,7 +15,13 @@ export class CreateExampleRequestDto {
   description?: string;
 }
 
-export class UpdateExampleRequestDto extends CreateExampleRequestDto {
+/**
+ * PATCH đúng nghĩa REST: mọi field nghiệp vụ đều optional, field nào không gửi thì giữ nguyên giá
+ * trị cũ (`PartialType` gắn `@IsOptional()` lên toàn bộ field thừa hưởng, validator vẫn chạy khi
+ * field CÓ mặt). Chỉ `version` là bắt buộc — nó không phải dữ liệu nghiệp vụ mà là điều kiện của
+ * optimistic lock.
+ */
+export class UpdateExampleRequestDto extends PartialType(CreateExampleRequestDto) {
   @ApiProperty({
     description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
     minimum: 1,
