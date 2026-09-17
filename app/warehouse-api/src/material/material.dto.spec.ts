@@ -39,3 +39,31 @@ describe('UpdateMaterialRequestDto.version', () => {
     expect(messagesFor(UpdateMaterialRequestDto, payload(version))).not.toEqual([]);
   });
 });
+
+describe('UpdateMaterialRequestDto — PATCH partial', () => {
+  const errorsFor = (payload: object) =>
+    validateSync(plainToInstance(UpdateMaterialRequestDto, payload), { whitelist: true });
+
+  it('chấp nhận body chỉ có version (không đổi field nào)', () => {
+    expect(errorsFor({ version: 1 })).toEqual([]);
+  });
+
+  it('chấp nhận body chỉ có name', () => {
+    expect(errorsFor({ name: 'Găng tay nitrile', version: 1 })).toEqual([]);
+  });
+
+  it('vẫn từ chối minimumInventory âm khi field có mặt', () => {
+    const messages = errorsFor({ minimumInventory: -1, version: 1 }).flatMap((e) =>
+      Object.values(e.constraints ?? {}),
+    );
+    expect(messages).toContain('MATERIAL_MINIMUM_INVENTORY_INVALID');
+  });
+
+  // `PartialType` sao chép initializer `= 0` của DTO cha — phải bị huỷ, nếu không PATCH không gửi
+  // ngưỡng tồn sẽ reset cả 2 về 0.
+  it('không tự gán ngưỡng tồn = 0 khi body không gửi chúng', () => {
+    const dto = plainToInstance(UpdateMaterialRequestDto, { version: 1 });
+    expect(dto.minimumInventory).toBeUndefined();
+    expect(dto.maximumInventory).toBeUndefined();
+  });
+});

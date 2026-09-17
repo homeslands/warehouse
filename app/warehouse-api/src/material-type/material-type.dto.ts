@@ -1,6 +1,6 @@
 import { IsInt, IsNotEmpty, IsOptional, Matches, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
@@ -28,7 +28,13 @@ export class CreateMaterialTypeRequestDto {
   description?: string;
 }
 
-export class UpdateMaterialTypeRequestDto extends CreateMaterialTypeRequestDto {
+/**
+ * PATCH đúng nghĩa REST: mọi field nghiệp vụ đều optional, field nào không gửi thì giữ nguyên giá
+ * trị cũ (`PartialType` gắn `@IsOptional()` lên toàn bộ field thừa hưởng, validator vẫn chạy khi
+ * field CÓ mặt). Chỉ `version` là bắt buộc — nó không phải dữ liệu nghiệp vụ mà là điều kiện của
+ * optimistic lock.
+ */
+export class UpdateMaterialTypeRequestDto extends PartialType(CreateMaterialTypeRequestDto) {
   @ApiProperty({
     description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
     minimum: 1,
