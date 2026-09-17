@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   Matches,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
@@ -62,9 +63,17 @@ export class CreateWarehouseRequestDto {
 }
 
 export class UpdateWarehouseRequestDto extends CreateWarehouseRequestDto {
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   version: number;
 }
 
@@ -80,9 +89,17 @@ export class AssignWarehouseManagerRequestDto {
   @IsNotEmpty({ message: 'WAREHOUSE_MANAGER_SLUG_IS_REQUIRED' })
   managerSlug: string | null;
 
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   version: number;
 }
 
