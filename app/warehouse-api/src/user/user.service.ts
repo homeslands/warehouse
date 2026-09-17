@@ -109,8 +109,8 @@ export class UserService {
 
   /**
    * Đổi mật khẩu HỘ user khác (`POST /users/{userSlug}/change-password`) — quyền tĩnh, đã được
-   * `AuthorityGuard` chặn bằng `@RequireAuthority('USER_CHANGE_PASSWORD')` (`ADMIN`/`MANAGER` được
-   * seed sẵn, `SUPER_ADMIN` bypass) trước khi vào đây. Không hỏi mật khẩu hiện tại vì người gọi
+   * `HasRoleGuard` chặn bằng `@HasRole(RoleEnum.Admin, RoleEnum.Manager)` (`SUPER_ADMIN` bypass)
+   * trước khi vào đây. Không hỏi mật khẩu hiện tại vì người gọi
    * không biết mật khẩu cũ của user đó — tự đổi mật khẩu của mình thì đi `POST /auth/change-password`.
    *
    * Chỉ thu hồi phiên của user BỊ ĐỔI; token của người gọi không bị đụng tới, nên không trả token.
@@ -137,8 +137,8 @@ export class UserService {
    * không cần biết mật khẩu cũ. Bắt đi qua `POST /auth/change-password`.
    *
    * Chặn thêm leo thang đặc quyền: người không phải `SUPER_ADMIN` không được đổi mật khẩu của một
-   * `SUPER_ADMIN` — nếu không, bất kỳ ai được cấp `USER_CHANGE_PASSWORD` (theo yêu cầu là
-   * `ADMIN`/`MANAGER`) đều có thể reset mật khẩu tài khoản root rồi đăng nhập bằng chính nó.
+   * `SUPER_ADMIN` — nếu không, bất kỳ `ADMIN`/`MANAGER` nào đều có thể reset mật khẩu tài khoản
+   * root rồi đăng nhập bằng chính nó.
    */
   private assertCanChangeOtherPassword(currentUser: CurrentUserDto, target: User): void {
     if (target.id === currentUser.userId) {
