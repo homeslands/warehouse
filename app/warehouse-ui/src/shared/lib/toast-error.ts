@@ -3,8 +3,8 @@ import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from './api-error-message'
 
 /**
- * 401 (ngoài đăng nhập) đã dẫn tới logout + chuyển trang ở `main.tsx`. Một toast nữa chỉ là nhiễu
- * trên đường người dùng bị đá ra.
+ * 401 đã được interceptor xử lý (refresh hoặc kết thúc phiên, màn login hiện lý do) — toast thêm
+ * chỉ là nhiễu.
  */
 export function toastApiError(error: unknown): void {
   if (isApiError(error) && error.statusCode === 401) return

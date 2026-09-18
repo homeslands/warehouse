@@ -1,0 +1,16 @@
+{
+  "home": "Tổng quan",
+  "examples": "Example",
+  "greeting": "Xin chào, {{name}}!",
+  "greetingNoName": "Xin chào!",
+  "noFeatures": "Chưa có chức năng nào được cấp quyền.",
+  "toggleSidebar": "Thu gọn / mở rộng menu",
+  "mainMenu": "Menu chính",
+  "mainMenuDescription": "Các màn hình của ứng dụng.",
+  "breadcrumb": "Vị trí hiện tại",
+  "groups": {
+    "catalog": "Danh mục",
+    "admin": "Quản trị",
+    "dev": "Dev"
+  }
+}
