@@ -11,5 +11,17 @@
   "themeSystem": "Theo hệ thống",
   "language": "Ngôn ngữ",
   "languageVi": "Tiếng Việt",
-  "languageEn": "English"
+  "languageEn": "English",
+  "selectPlaceholder": "Chọn...",
+  "searchPlaceholder": "Tìm...",
+  "noResults": "Không có kết quả.",
+  "clearSelection": "Xoá lựa chọn",
+  "pickDate": "Chọn ngày",
+  "empty": "Chưa có dữ liệu.",
+  "pageInfo": "Trang {{page}} / {{totalPages}} — {{total}} bản ghi",
+  "prevPage": "Trang trước",
+  "nextPage": "Trang sau",
+  "pageSize": "Số dòng mỗi trang",
+  "search": "Tìm kiếm",
+  "clearSearch": "Xoá tìm kiếm"
 }

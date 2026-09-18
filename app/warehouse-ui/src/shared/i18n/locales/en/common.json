@@ -11,5 +11,17 @@
   "themeSystem": "System",
   "language": "Language",
   "languageVi": "Tiếng Việt",
-  "languageEn": "English"
+  "languageEn": "English",
+  "selectPlaceholder": "Select...",
+  "searchPlaceholder": "Search...",
+  "noResults": "No results.",
+  "clearSelection": "Clear selection",
+  "pickDate": "Pick a date",
+  "empty": "No data yet.",
+  "pageInfo": "Page {{page}} / {{totalPages}} — {{total}} records",
+  "prevPage": "Previous",
+  "nextPage": "Next",
+  "pageSize": "Rows per page",
+  "search": "Search",
+  "clearSearch": "Clear search"
 }
