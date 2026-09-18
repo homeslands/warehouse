@@ -1,0 +1,16 @@
+{
+  "home": "Overview",
+  "examples": "Example",
+  "greeting": "Hello, {{name}}!",
+  "greetingNoName": "Hello!",
+  "noFeatures": "No features have been granted to you yet.",
+  "toggleSidebar": "Toggle menu",
+  "mainMenu": "Main menu",
+  "mainMenuDescription": "The application screens.",
+  "breadcrumb": "Breadcrumb",
+  "groups": {
+    "catalog": "Catalog",
+    "admin": "Administration",
+    "dev": "Dev"
+  }
+}

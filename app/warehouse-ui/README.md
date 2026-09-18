@@ -26,15 +26,18 @@ Mở http://localhost:5175
 | `npm test` | Vitest |
 | `npm run typecheck` | `tsc --noEmit` |
 | `npm run lint` | ESLint |
+| `npm run format:check` | Prettier, chỉ kiểm tra |
+| `npm run test:coverage` | Vitest kèm coverage — ngưỡng ở `coverage.thresholds` trong `vite.config.ts` là sàn chặn tụt lùi, chỉ nâng, không hạ |
 | `npm run build` | Build production |
-| `npm run gen:api` | Sinh type từ `swagger.json` (cần backend chạy) |
+| `npm run check` | Chạy đủ lint → typecheck → test:coverage → build → format:check, dừng ở bước lỗi đầu tiên. **Chạy trước khi push.** |
 
 ## Kiến trúc
 
-- `src/app/` — router, providers
-- `src/features/` — màn hình theo nghiệp vụ
-- `src/shared/` — http, auth, i18n, config dùng chung
-- `src/components/ui/` — shadcn/ui
+Feature-Sliced Design, sáu tầng, chiều import một chiều:
+
+`app → pages → widgets → features → entities → shared`
+
+ESLint giữ luật (`boundaries/dependencies`, `boundaries/entry-point`). Chi tiết ở `CLAUDE.md`.
 
 ## Đa ngôn ngữ
 
@@ -47,6 +50,6 @@ câu tiếng Anh nguyên bản của backend (và một cảnh báo trong consol
 
 ## Giao diện sáng/tối
 
-`next-themes`, điều khiển bằng class trên `<html>`. Token màu ở `src/index.css`.
+`next-themes`, điều khiển bằng class trên `<html>`. Token màu ở `src/app/styles/index.css`.
 Dùng token (`bg-background`, `text-muted-foreground`, ...) thay vì màu cứng (`bg-slate-50`),
 nếu không dark mode sẽ chỉ đúng một nửa.
