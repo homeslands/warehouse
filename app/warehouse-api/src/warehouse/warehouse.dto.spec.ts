@@ -62,3 +62,30 @@ describe('AssignWarehouseManagerRequestDto.version', () => {
     expect(messagesFor(AssignWarehouseManagerRequestDto, payload(version))).not.toEqual([]);
   });
 });
+
+describe('UpdateWarehouseRequestDto — PATCH partial', () => {
+  const errorsFor = (payload: object) =>
+    validateSync(plainToInstance(UpdateWarehouseRequestDto, payload), { whitelist: true });
+
+  it('chấp nhận body chỉ có version (không đổi field nào)', () => {
+    expect(errorsFor({ version: 1 })).toEqual([]);
+  });
+
+  it('chấp nhận body chỉ có name', () => {
+    expect(errorsFor({ name: 'Kho mới', version: 1 })).toEqual([]);
+  });
+
+  // Optional KHÔNG có nghĩa là bỏ validate: field nào CÓ mặt vẫn phải hợp lệ.
+  it('vẫn từ chối isActive sai kiểu khi field có mặt', () => {
+    const messages = errorsFor({ isActive: 'khong-phai-boolean', version: 1 }).flatMap((e) =>
+      Object.values(e.constraints ?? {}),
+    );
+    expect(messages).toContain('WAREHOUSE_IS_ACTIVE_INVALID');
+  });
+
+  // `PartialType` sao chép initializer `isActive = true` của DTO cha — phải bị huỷ, nếu không PATCH
+  // không gửi `isActive` sẽ bật lại kho đã ngừng hoạt động.
+  it('không tự gán isActive = true khi body không gửi field đó', () => {
+    expect(plainToInstance(UpdateWarehouseRequestDto, { version: 1 }).isActive).toBeUndefined();
+  });
+});

@@ -39,3 +39,24 @@ describe('UpdateMaterialTypeRequestDto.version', () => {
     expect(messagesFor(UpdateMaterialTypeRequestDto, payload(version))).not.toEqual([]);
   });
 });
+
+describe('UpdateMaterialTypeRequestDto — PATCH partial', () => {
+  const errorsFor = (payload: object) =>
+    validateSync(plainToInstance(UpdateMaterialTypeRequestDto, payload), { whitelist: true });
+
+  it('chấp nhận body chỉ có version (không đổi field nào)', () => {
+    expect(errorsFor({ version: 1 })).toEqual([]);
+  });
+
+  it('chấp nhận body chỉ có name', () => {
+    expect(errorsFor({ name: 'Vật tư lâu bền', version: 1 })).toEqual([]);
+  });
+
+  // Optional KHÔNG có nghĩa là bỏ validate: field nào CÓ mặt vẫn phải hợp lệ.
+  it('vẫn từ chối code sai format khi field có mặt', () => {
+    const messages = errorsFor({ code: '!', version: 1 }).flatMap((e) =>
+      Object.values(e.constraints ?? {}),
+    );
+    expect(messages).toContain('MATERIAL_TYPE_CODE_INVALID');
+  });
+});

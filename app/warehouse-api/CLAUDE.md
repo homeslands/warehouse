@@ -77,6 +77,20 @@ async create(@Body(new ValidationPipe({ transform: true, whitelist: true })) dto
 ```
 Đặt tên: `Create<X>RequestDto`, `Update<X>RequestDto`, `<X>ResponseDto` (extends `BaseResponseDto`, hoặc `VersionedResponseDto` nếu entity dùng `VersionedBase` — xem mục "Base entity"). Mỗi field: `@AutoMap()` + `@ApiProperty()` + class-validator.
 
+### PATCH là partial update (bắt buộc, đúng nghĩa REST)
+
+`PATCH` chỉ nhận field cần đổi; field không gửi **giữ nguyên giá trị cũ**. `PUT` mới là thay toàn bộ (hiện chỉ có `PUT /warehouses/:slug/manager` và `PUT /stores/:slug/warehouse`, cả hai thay đúng 1 slot quan hệ). 3 việc phải làm đủ, thiếu 1 là hỏng âm thầm:
+
+1. **DTO**: `export class Update<X>RequestDto extends PartialType(Create<X>RequestDto)` (`PartialType` của `@nestjs/swagger`) — nó gắn `@IsOptional()` lên mọi field thừa hưởng, validator vẫn chạy khi field CÓ mặt. `version` khai riêng trong lớp con và vẫn bắt buộc.
+2. **Huỷ property initializer thừa hưởng**: `PartialType` sao chép cả `isActive?: boolean = true` / `minimumInventory?: number = 0` của DTO cha ⇒ PATCH không gửi field đó sẽ **âm thầm ghi giá trị mặc định đè lên bản ghi** (bật lại kho/cửa hàng đã tắt, reset ngưỡng tồn về 0). Khai lại field trong lớp con **kèm nguyên bộ decorator** (thiếu `@AutoMap()` là automapper bỏ luôn field, không map gì cả) và gán `= undefined`.
+3. **Service**: `const data = pickDefined(this.mapper.map(dto, Update<X>RequestDto, <X>))` (`src/shared/utils/obj.util.ts`) trước khi `Object.assign(entity, data)`; mọi check trùng phải thêm rào `data.field !== undefined` — thiếu rào thì `assertCodeIsFree(undefined)` tra nhầm sang bản ghi khác. Field cần resolve quan hệ (`typeSlug` → entity) chỉ resolve khi client CÓ gửi.
+
+Nếu mapper có `mapFrom((s) => s.field ?? <default>)` thì phải tách map của Create và Update: Create giữ default, Update để `undefined` chảy qua cho `pickDefined` lọc (xem `material.mapper.ts`: `inventoryDefaults()` vs `inventoryPassthrough()`).
+
+`null` được coi như "không gửi" (`pickDefined` lọc cả `undefined` lẫn `null`) — hiện **chưa có** cách xoá 1 field optional về NULL qua PATCH. Ngoại lệ có chủ ý: `warehouse-material` dùng `null` nghĩa là "bỏ override, quay về ngưỡng của Material" và tự xử lý riêng, không đi qua `pickDefined`.
+
+Test khoá 3 điểm trên nằm ở `<module>.dto.spec.ts` (body chỉ có `version` phải hợp lệ; initializer đã bị huỷ) và `<module>.service.spec.ts` (`describe('update<X> — partial (PATCH)')`).
+
 **Quan trọng — message class-validator phải trùng KEY trong `<module>.validation.ts`** (vd `@IsNotEmpty({ message: 'EXAMPLE_NAME_IS_REQUIRED' })` phải khớp key đã khai báo), không phải câu văn tự do — `HttpExceptionFilter` tra `AppValidation[message]` để map ra `statusCode: 422` + mã lỗi chuẩn. Không khớp → trả nguyên message thô với statusCode 400 mặc định.
 
 Query phân trang kế thừa `BaseQueryDto` (`page`, `size`, `sort: string[]`).

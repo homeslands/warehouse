@@ -18,6 +18,7 @@ import { WarehouseValidation } from './warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { pickDefined } from 'src/shared/utils/obj.util';
 
 /**
  * `manager` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path phải
@@ -89,9 +90,14 @@ export class WarehouseService {
     });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
 
-    const data = this.mapper.map(dto, UpdateWarehouseRequestDto, Warehouse);
-    if (data.code !== warehouse.code) await this.assertCodeIsFree(data.code);
-    if (data.name !== warehouse.name) await this.assertNameIsFree(data.name);
+    // PATCH partial: `pickDefined` bỏ mọi field client không gửi ⇒ field vắng mặt giữ nguyên giá
+    // trị cũ. Check trùng chỉ chạy khi field CÓ mặt VÀ đổi giá trị — thiếu rào `undefined` thì
+    // `assertCodeIsFree(undefined)` sẽ tra nhầm sang bản ghi khác.
+    const data = pickDefined(this.mapper.map(dto, UpdateWarehouseRequestDto, Warehouse));
+    if (data.code !== undefined && data.code !== warehouse.code)
+      await this.assertCodeIsFree(data.code);
+    if (data.name !== undefined && data.name !== warehouse.name)
+      await this.assertNameIsFree(data.name);
 
     Object.assign(warehouse, data);
     const updated = await this.warehouseRepository.save(warehouse);

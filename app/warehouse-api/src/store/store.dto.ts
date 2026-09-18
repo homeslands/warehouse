@@ -10,7 +10,7 @@ import {
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 import { STORE_CODE_REGEX, STORE_PHONENUMBER_REGEX, STORE_TAX_CODE_REGEX } from './store.constants';
@@ -93,7 +93,24 @@ export class CreateStoreRequestDto {
   isActive?: boolean = true;
 }
 
-export class UpdateStoreRequestDto extends CreateStoreRequestDto {
+/**
+ * PATCH đúng nghĩa REST: mọi field nghiệp vụ đều optional, field nào không gửi thì giữ nguyên giá
+ * trị cũ (`PartialType` gắn `@IsOptional()` lên toàn bộ field thừa hưởng, validator vẫn chạy khi
+ * field CÓ mặt). Chỉ `version` là bắt buộc — nó không phải dữ liệu nghiệp vụ mà là điều kiện của
+ * optimistic lock.
+ */
+export class UpdateStoreRequestDto extends PartialType(CreateStoreRequestDto) {
+  // `PartialType` sao chép cả property initializer của DTO cha (`isActive = true`), nên PATCH không
+  // gửi `isActive` sẽ âm thầm BẬT LẠI cửa hàng đã ngừng hoạt động. Gán `undefined` ở lớp con để huỷ
+  // initializer đó (target ES2021 + `useDefineForClassFields: false` ⇒ gán này chạy sau constructor
+  // của lớp cha).
+  @AutoMap()
+  @ApiPropertyOptional({ description: 'Whether the store is in use' })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean({ message: 'STORE_IS_ACTIVE_INVALID' })
+  override isActive?: boolean = undefined;
+
   @ApiProperty({
     description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
     minimum: 1,

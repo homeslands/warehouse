@@ -11,6 +11,7 @@ import {
   UpdateExampleRequestDto,
 } from './example.dto';
 import { Example } from './example.entity';
+import { pickDefined } from 'src/shared/utils/obj.util';
 import { ExampleException } from './example.exception';
 import { ExampleValidation } from './example.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
@@ -69,8 +70,9 @@ export class ExampleService {
     });
     if (!example) throw new ExampleException(ExampleValidation.EXAMPLE_NOT_FOUND);
 
-    const data = this.mapper.map(dto, UpdateExampleRequestDto, Example);
-    if (data.name !== example.name) {
+    // PATCH partial: xem `pickDefined` — field không gửi giữ nguyên giá trị cũ.
+    const data = pickDefined(this.mapper.map(dto, UpdateExampleRequestDto, Example));
+    if (data.name !== undefined && data.name !== example.name) {
       const existed = await this.exampleRepository.findOneBy({ name: data.name });
       if (existed) throw new ExampleException(ExampleValidation.EXAMPLE_NAME_DOES_EXIST);
     }
