@@ -12,9 +12,9 @@ import { versionedMapper } from 'src/app/versioned.mapper';
 
 /**
  * Chuẩn hoá dùng chung cho cả 2 map Create/Update -> Entity. Automapper KHÔNG kế thừa map của DTO
- * cha, nên `UpdateWarehouseRequestDto extends CreateWarehouseRequestDto` vẫn phải khai map riêng.
+ * cha, nên `UpdateWarehouseRequestDto` (partial của Create DTO) vẫn phải khai map riêng.
  */
-const normalizeWarehouse = <T extends CreateWarehouseRequestDto>() =>
+const normalizeWarehouse = <T extends Partial<CreateWarehouseRequestDto>>() =>
   [
     forMember<T, Warehouse>(
       (d) => d.name,

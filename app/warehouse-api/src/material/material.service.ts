@@ -16,6 +16,7 @@ import { MaterialValidation } from './material.validation';
 import { MaterialTypeService } from 'src/material-type/material-type.service';
 import { WarehouseMaterial } from 'src/warehouse-material/warehouse-material.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { pickDefined } from 'src/shared/utils/obj.util';
 
 /**
  * `type` cố tình KHÔNG `eager` trên entity, nên mọi read path phải truyền hằng này — thiếu nó thì
@@ -102,10 +103,21 @@ export class MaterialService {
     });
     if (!material) throw new MaterialException(MaterialValidation.MATERIAL_NOT_FOUND);
 
-    const data = this.mapper.map(dto, UpdateMaterialRequestDto, Material);
-    if (data.code !== material.code) await this.assertCodeIsFree(data.code);
-    this.assertInventoryRange(data.minimumInventory, data.maximumInventory);
-    data.type = await this.materialTypeService.findEntityBySlug(dto.typeSlug);
+    // PATCH partial: `pickDefined` bỏ mọi field client không gửi ⇒ field vắng mặt giữ nguyên giá
+    // trị cũ.
+    const data = pickDefined(this.mapper.map(dto, UpdateMaterialRequestDto, Material));
+    if (data.code !== undefined && data.code !== material.code)
+      await this.assertCodeIsFree(data.code);
+    // So sánh ngưỡng trên giá trị SAU khi ghép, không phải trên mỗi phần client gửi: PATCH chỉ đổi
+    // `minimumInventory` vẫn phải bị chặn nếu nó vượt `maximumInventory` đang có trong DB.
+    this.assertInventoryRange(
+      data.minimumInventory ?? material.minimumInventory,
+      data.maximumInventory ?? material.maximumInventory,
+    );
+    // Không gửi `typeSlug` = giữ nguyên loại vật tư cũ; gửi rồi mới tra (tra với `undefined` sẽ ném
+    // `MATERIAL_TYPE_NOT_FOUND` oan).
+    if (dto.typeSlug !== undefined)
+      data.type = await this.materialTypeService.findEntityBySlug(dto.typeSlug);
 
     Object.assign(material, data);
     const updated = await this.materialRepository.save(material);

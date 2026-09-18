@@ -129,6 +129,55 @@ describe('MaterialService', () => {
     });
   });
 
+  // PATCH phải là partial update đúng nghĩa REST: field không gửi giữ nguyên giá trị cũ.
+  describe('updateMaterial — partial (PATCH)', () => {
+    it('chỉ đổi field được gửi, các field khác giữ nguyên', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial());
+      materialRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateMaterial('mat-slug-1', {
+        name: 'Găng tay nitrile',
+        version: 1,
+      } as never);
+
+      expect(result).toMatchObject({ name: 'Găng tay nitrile', code: 'MAT-001' });
+    });
+
+    // `PartialType` sao chép initializer `= 0` của DTO cha ⇒ nếu không huỷ, PATCH không gửi ngưỡng
+    // tồn sẽ reset cả 2 về 0.
+    it('không reset ngưỡng tồn về 0 khi PATCH không gửi chúng', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial());
+      materialRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateMaterial('mat-slug-1', {
+        name: 'Tên mới',
+        version: 1,
+      } as never);
+
+      expect(result).toMatchObject({ minimumInventory: 10, maximumInventory: 100 });
+    });
+
+    // Tra `findEntityBySlug(undefined)` sẽ ném `MATERIAL_TYPE_NOT_FOUND` oan.
+    it('không tra lại materialType khi PATCH không gửi typeSlug', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial());
+      materialRepository.save.mockImplementation((data) => data);
+
+      await service.updateMaterial('mat-slug-1', { name: 'Tên mới', version: 1 } as never);
+
+      expect(materialTypeService.findEntityBySlug).not.toHaveBeenCalled();
+    });
+
+    // Ngưỡng phải so trên giá trị SAU khi ghép, không phải trên mỗi phần client gửi.
+    it('chặn khi minimumInventory mới vượt maximumInventory đang có trong DB', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial());
+
+      await expectError(
+        service.updateMaterial('mat-slug-1', { minimumInventory: 999, version: 1 } as never),
+        MaterialValidation.MATERIAL_INVENTORY_RANGE_INVALID.code,
+      );
+    });
+  });
+
   describe('deleteMaterial', () => {
     it('refuses to delete a material still assigned to a warehouse', async () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial());

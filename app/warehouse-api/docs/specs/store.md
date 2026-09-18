@@ -38,6 +38,7 @@ Entity kế thừa **`VersionedBase`**: cửa hàng được sửa theo luồng 
 - Khi update, chỉ check lại trùng `code`/`name`/`taxCode` nếu giá trị **thực sự đổi** — gửi lại đúng giá trị cũ không bị báo trùng với chính nó.
 - **Không xoá được cửa hàng đang `isActive`** — phải `PATCH isActive: false` trước. Rào chống xoá nhầm rẻ nhất khi chưa có bảng sản phẩm/hoá đơn để check tham chiếu.
 - Xoá là **xoá mềm** (`softRemove`).
+- `version` trong mọi write DTO (`UpdateStoreRequestDto`, `AssignStoreWarehouseRequestDto`) bắt buộc **`@Min(1)`**, không chỉ `@IsInt()`. Lý do không hiển nhiên: TypeORM bọc cả khối so sánh version của optimistic lock trong `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) — `0` là falsy nên gửi `version: 0` khiến check **không chạy** và `save()` ghi đè vô điều kiện, chỉ với 1 request. `@IsNotEmpty` lẫn `@IsInt` đều cho `0` đi qua. Chặn ở DTO là rào duy nhất.
 - `email` được `trim().toLowerCase()` trước khi lưu; không unique (2 cửa hàng dùng chung 1 email liên hệ là hợp lệ).
 
 ## Quan hệ Store ↔ Warehouse (1-1)
@@ -82,7 +83,7 @@ CRUD chuẩn 5 route, không có endpoint đặc thù:
 - `POST /stores` — tạo cửa hàng.
 - `GET /stores` — danh sách phân trang, filter `isActive`.
 - `GET /stores/:slug` — chi tiết.
-- `PATCH /stores/:slug` — cập nhật (body bắt buộc có `version`). **Không** đụng tới `warehouse`.
+- `PATCH /stores/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ; riêng `version` luôn bắt buộc. **Không** đụng tới `warehouse`.
 - `PUT /stores/:slug/warehouse` — gắn kho (hoặc gỡ với `warehouseSlug: null`).
 - `DELETE /stores/:slug` — xoá mềm.
 

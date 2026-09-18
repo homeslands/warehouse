@@ -5,10 +5,11 @@ import {
   IsNotEmpty,
   IsOptional,
   Matches,
+  Min,
   ValidateIf,
 } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 import { WAREHOUSE_CODE_REGEX, WAREHOUSE_PHONENUMBER_REGEX } from './warehouse.constants';
@@ -61,10 +62,35 @@ export class CreateWarehouseRequestDto {
   isActive?: boolean = true;
 }
 
-export class UpdateWarehouseRequestDto extends CreateWarehouseRequestDto {
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+/**
+ * PATCH đúng nghĩa REST: mọi field nghiệp vụ đều optional, field nào không gửi thì giữ nguyên giá
+ * trị cũ (`PartialType` gắn `@IsOptional()` lên toàn bộ field thừa hưởng, validator vẫn chạy khi
+ * field CÓ mặt). Chỉ `version` là bắt buộc — nó không phải dữ liệu nghiệp vụ mà là điều kiện của
+ * optimistic lock.
+ */
+export class UpdateWarehouseRequestDto extends PartialType(CreateWarehouseRequestDto) {
+  // `PartialType` sao chép cả property initializer của DTO cha, nên PATCH không gửi field này sẽ
+  // âm thầm ghi đè giá trị mặc định lên bản ghi. Khai lại (kèm nguyên decorator, thiếu `@AutoMap()`
+  // là automapper bỏ luôn field) và gán `undefined` để huỷ initializer đó — target ES2021 +
+  // `useDefineForClassFields: false` ⇒ gán ở lớp con chạy sau constructor lớp cha.
+  @AutoMap()
+  @ApiPropertyOptional({ description: 'Whether the warehouse is in use' })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean({ message: 'WAREHOUSE_IS_ACTIVE_INVALID' })
+  override isActive?: boolean = undefined;
+
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   version: number;
 }
 
@@ -80,9 +106,17 @@ export class AssignWarehouseManagerRequestDto {
   @IsNotEmpty({ message: 'WAREHOUSE_MANAGER_SLUG_IS_REQUIRED' })
   managerSlug: string | null;
 
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'WAREHOUSE_VERSION_IS_REQUIRED' })
   version: number;
 }
 

@@ -18,7 +18,7 @@ import { normalizeCode } from 'src/shared/utils/code.util';
  * `typeSlug` cố tình KHÔNG map sang entity: quan hệ `type` do service resolve ra entity thật rồi
  * gán, mapper mà tự đụng vào sẽ ghi đè thành `undefined`.
  */
-const normalizeMaterial = <T extends CreateMaterialRequestDto>() =>
+const normalizeMaterial = <T extends Partial<CreateMaterialRequestDto>>() =>
   [
     forMember<T, Material>(
       (d) => d.code,
@@ -28,6 +28,18 @@ const normalizeMaterial = <T extends CreateMaterialRequestDto>() =>
       (d) => d.name,
       mapFrom((s) => s.name?.trim()),
     ),
+  ] as const;
+
+/**
+ * Ngưỡng tồn phải map KHÁC nhau giữa Create và Update, nên tách riêng khỏi `normalizeMaterial`:
+ *
+ * - Create: thiếu ngưỡng ⇒ mặc định `0`.
+ * - Update (PATCH): thiếu ngưỡng ⇒ phải ra `undefined` để `pickDefined` lọc bỏ và giá trị cũ trong
+ *   DB được giữ nguyên. Dùng chung `?? 0` như Create thì mọi PATCH không nhắc tới ngưỡng sẽ âm thầm
+ *   reset cả 2 về 0.
+ */
+const inventoryDefaults = <T extends Partial<CreateMaterialRequestDto>>() =>
+  [
     forMember<T, Material>(
       (d) => d.minimumInventory,
       mapFrom((s) => s.minimumInventory ?? 0),
@@ -35,6 +47,18 @@ const normalizeMaterial = <T extends CreateMaterialRequestDto>() =>
     forMember<T, Material>(
       (d) => d.maximumInventory,
       mapFrom((s) => s.maximumInventory ?? 0),
+    ),
+  ] as const;
+
+const inventoryPassthrough = <T extends Partial<CreateMaterialRequestDto>>() =>
+  [
+    forMember<T, Material>(
+      (d) => d.minimumInventory,
+      mapFrom((s) => s.minimumInventory),
+    ),
+    forMember<T, Material>(
+      (d) => d.maximumInventory,
+      mapFrom((s) => s.maximumInventory),
     ),
   ] as const;
 
@@ -71,6 +95,7 @@ export class MaterialProfile extends AutomapperProfile {
         CreateMaterialRequestDto,
         Material,
         ...normalizeMaterial<CreateMaterialRequestDto>(),
+        ...inventoryDefaults<CreateMaterialRequestDto>(),
       );
 
       createMap(
@@ -78,6 +103,7 @@ export class MaterialProfile extends AutomapperProfile {
         UpdateMaterialRequestDto,
         Material,
         ...normalizeMaterial<UpdateMaterialRequestDto>(),
+        ...inventoryPassthrough<UpdateMaterialRequestDto>(),
       );
     };
   }

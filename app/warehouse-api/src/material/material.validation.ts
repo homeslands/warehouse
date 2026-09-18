@@ -75,7 +75,7 @@ export const MaterialValidation: TMaterialErrorCode = {
   ),
   MATERIAL_VERSION_IS_REQUIRED: createErrorCode(
     100711,
-    'Version is required and must be an integer',
+    'Version is required and must be an integer >= 1',
     HttpStatus.BAD_REQUEST,
   ),
   MATERIAL_IN_USE: createErrorCode(

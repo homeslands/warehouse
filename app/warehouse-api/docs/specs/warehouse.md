@@ -53,7 +53,7 @@ Entity kế thừa **`VersionedBase`**: kho được sửa theo luồng "load fu
 - `GET /warehouses` — danh sách phân trang, filter `isActive`, `managerSlug`, `hasManager`.
 - `GET /warehouses/mine` — kho mà người đang đăng nhập phụ trách (phân trang, filter `isActive`). **Phải khai trước `GET /:slug`** trong controller.
 - `GET /warehouses/:slug` — chi tiết.
-- `PATCH /warehouses/:slug` — cập nhật (body có `version`).
+- `PATCH /warehouses/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ; riêng `version` luôn bắt buộc.
 - `PUT /warehouses/:slug/manager` — phân công / gỡ phân công quản lý (body `{ managerSlug: string | null, version: number }`). Idempotent, trả về `WarehouseResponseDto` đã bump `version`.
 - `DELETE /warehouses/:slug` — xoá mềm.
 
@@ -62,6 +62,8 @@ Entity kế thừa **`VersionedBase`**: kho được sửa theo luồng "load fu
 Mỗi kho thuộc tối đa 1 cửa hàng. `Warehouse.store` là **inverse side** — không có cột nào trên `warehouse_tbl`, FK + UNIQUE nằm ở `store_tbl.warehouse_id_column`. Việc gắn/gỡ làm **hoàn toàn ở phía store** qua `PUT /stores/:slug/warehouse`; module `warehouse` không có endpoint nào đụng tới quan hệ này và read path của nó chưa trả `storeSlug`. Chi tiết quy tắc: `docs/specs/store.md`, mục "Quan hệ Store ↔ Warehouse (1-1)".
 
 Hệ quả cần nhớ: kho `isActive = false` **không gắn được** cho cửa hàng, và kho đang thuộc 1 cửa hàng thì cửa hàng khác không lấy được (kể cả khi cửa hàng giữ nó đã bị xoá mềm).
+
+- `version` trong `UpdateWarehouseRequestDto`/`AssignWarehouseManagerRequestDto` bắt buộc `@Min(1)` — gửi `version: 0` sẽ bypass hoàn toàn optimistic lock của TypeORM (`SelectQueryBuilder.js:691-693`, `0` là falsy ⇒ check không chạy). Xem `docs/specs/store.md` mục "Quy tắc nghiệp vụ".
 
 ## Ngoài phạm vi (Out of scope)
 

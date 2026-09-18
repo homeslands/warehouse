@@ -1,6 +1,6 @@
 import { IsInt, IsNotEmpty, IsOptional, Matches, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
@@ -45,10 +45,44 @@ export class CreateMaterialRequestDto {
   maximumInventory?: number = 0;
 }
 
-export class UpdateMaterialRequestDto extends CreateMaterialRequestDto {
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+/**
+ * PATCH đúng nghĩa REST: mọi field nghiệp vụ đều optional, field nào không gửi thì giữ nguyên giá
+ * trị cũ (`PartialType` gắn `@IsOptional()` lên toàn bộ field thừa hưởng, validator vẫn chạy khi
+ * field CÓ mặt). Chỉ `version` là bắt buộc — nó không phải dữ liệu nghiệp vụ mà là điều kiện của
+ * optimistic lock.
+ */
+export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestDto) {
+  // `PartialType` sao chép cả property initializer của DTO cha (`= 0`), nên PATCH không gửi ngưỡng
+  // tồn sẽ âm thầm reset nó về 0. Khai lại (kèm nguyên decorator, thiếu `@AutoMap()` là automapper
+  // bỏ luôn field) và gán `undefined` để huỷ initializer — target ES2021 +
+  // `useDefineForClassFields: false` ⇒ gán ở lớp con chạy sau constructor lớp cha.
+  @AutoMap()
+  @ApiPropertyOptional({ description: 'Ngưỡng tồn tối thiểu mặc định', example: 10 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
+  @Min(0, { message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
+  override minimumInventory?: number = undefined;
+
+  @AutoMap()
+  @ApiPropertyOptional({ description: 'Ngưỡng tồn tối đa mặc định', example: 100 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
+  @Min(0, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
+  override maximumInventory?: number = undefined;
+
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'MATERIAL_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'MATERIAL_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'MATERIAL_VERSION_IS_REQUIRED' })
   version: number;
 }
 
