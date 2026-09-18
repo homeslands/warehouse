@@ -25,6 +25,9 @@ export type BackendPaginated<T> = {
   hasPrevios: boolean
 }
 
+/** Entity dùng optimistic locking: gửi lại `version` nhận từ lần GET gần nhất khi cập nhật. */
+export type Versioned = { version: number }
+
 /** Hình dạng mà phần còn lại của app nhìn thấy. */
 export type Paginated<T> = {
   items: T[]
@@ -34,4 +37,21 @@ export type Paginated<T> = {
   totalPages: number
   hasNext: boolean
   hasPrevious: boolean
+}
+
+/**
+ * Tham số một trang danh sách: `page`, `size` và bộ lọc riêng của màn (`F`). Đây là thứ đi vào
+ * query key và `getPaginated` — đổi bộ lọc là một mục cache khác.
+ */
+export type ListParams<F extends object = Record<never, never>> = { page: number; size: number } & F
+
+/** Vì sao phiên kết thúc — interceptor và vòng đời phiên dùng chung, màn login hiện câu tương ứng. */
+export type SessionEndReason = 'expired' | 'revoked' | 'userInactive' | 'unauthorized' | 'loggedOut'
+
+/** `result` của POST /auth/login và /auth/refresh. */
+export type AuthTokens = {
+  accessToken: string
+  refreshToken: string
+  expireTime: string
+  expireTimeRefreshToken: string
 }

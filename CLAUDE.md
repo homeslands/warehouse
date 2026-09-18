@@ -5,7 +5,7 @@ Không dùng nx/turborepo/lerna/pnpm-workspace — đây chỉ là 1 thư mục 
 ```
 app/
 ├── warehouse-api/   # NestJS 10 + TypeORM/MySQL — backend, xem app/warehouse-api/CLAUDE.md
-└── warehouse-ui/    # frontend — hiện chưa có code/CLAUDE.md riêng
+└── warehouse-ui/    # React 19 + Vite 8 + TypeScript, Feature-Sliced Design — xem app/warehouse-ui/CLAUDE.md
 ```
 
 ## Quy tắc chung khi làm việc trong repo này

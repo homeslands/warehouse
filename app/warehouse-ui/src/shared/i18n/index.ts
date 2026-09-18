@@ -6,22 +6,37 @@ import viCommon from './locales/vi/common.json'
 import viAuth from './locales/vi/auth.json'
 import viExamples from './locales/vi/examples.json'
 import viErrors from './locales/vi/errors.json'
-import viError from './locales/vi/error.json'
+import viErrorPages from './locales/vi/errorPages.json'
+import viNav from './locales/vi/nav.json'
 import enCommon from './locales/en/common.json'
 import enAuth from './locales/en/auth.json'
 import enExamples from './locales/en/examples.json'
 import enErrors from './locales/en/errors.json'
-import enError from './locales/en/error.json'
+import enErrorPages from './locales/en/errorPages.json'
+import enNav from './locales/en/nav.json'
 
 export const defaultNS = 'common'
 
-// Hai namespace `errors` và `error` chỉ khác nhau một chữ `s` — dễ gõ nhầm vì cả hai đều
-// typecheck được. Phân biệt rõ:
-// - `errors` (số nhiều) — bản dịch cho 26 mã lỗi backend, tra qua `src/shared/api/error-codes.ts`.
-// - `error` (số ít) — chuỗi của ba trang lỗi (ErrorPage / NotFoundPage / ForbiddenPage).
+// `errors` (số nhiều) — bản dịch cho 26 mã lỗi backend, tra qua `src/shared/api/error-codes.ts`.
+// `errorPages` — chuỗi của ba trang lỗi (ErrorPage / NotFoundPage / ForbiddenPage).
+// `nav` — nhãn menu, breadcrumb, tên nhóm menu và trang Tổng quan.
 export const resources = {
-  vi: { common: viCommon, auth: viAuth, examples: viExamples, errors: viErrors, error: viError },
-  en: { common: enCommon, auth: enAuth, examples: enExamples, errors: enErrors, error: enError },
+  vi: {
+    common: viCommon,
+    auth: viAuth,
+    examples: viExamples,
+    errors: viErrors,
+    errorPages: viErrorPages,
+    nav: viNav,
+  },
+  en: {
+    common: enCommon,
+    auth: enAuth,
+    examples: enExamples,
+    errors: enErrors,
+    errorPages: enErrorPages,
+    nav: enNav,
+  },
 } as const
 
 export const SUPPORTED_LANGUAGES = ['vi', 'en'] as const
@@ -33,7 +48,7 @@ void i18n
   .init({
     resources,
     defaultNS,
-    ns: ['common', 'auth', 'examples', 'errors', 'error'],
+    ns: ['common', 'auth', 'examples', 'errors', 'errorPages', 'nav'],
     fallbackLng: 'vi',
     supportedLngs: SUPPORTED_LANGUAGES,
     detection: {
