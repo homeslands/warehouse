@@ -14,6 +14,7 @@ import {
   TMaterialTypeErrorCode,
 } from 'src/material-type/material-type.validation';
 import { MaterialValidation, TMaterialErrorCode } from 'src/material/material.validation';
+import { UnitValidation, TUnitErrorCode } from 'src/unit/unit.validation';
 import {
   WarehouseMaterialValidation,
   TWarehouseMaterialErrorCode,
@@ -51,6 +52,7 @@ export const AppValidation: TAuthErrorCode &
   TWarehouseErrorCode &
   TMaterialTypeErrorCode &
   TMaterialErrorCode &
+  TUnitErrorCode &
   TWarehouseMaterialErrorCode &
   TStoreErrorCode &
   TTaxProfileErrorCode &
@@ -67,6 +69,7 @@ export const AppValidation: TAuthErrorCode &
   ...WarehouseValidation,
   ...MaterialTypeValidation,
   ...MaterialValidation,
+  ...UnitValidation,
   ...WarehouseMaterialValidation,
   ...StoreValidation,
   ...TaxProfileValidation,
