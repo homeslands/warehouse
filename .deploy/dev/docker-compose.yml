@@ -133,6 +133,11 @@ services:
       timeout: 10s # Increase timeout for slower responses
       retries: 5
     restart: unless-stopped
+    environment:
+      VITE_GOOGLE_MAP_API_KEY: ${VITE_GOOGLE_MAP_API_KEY}
+      VITE_API_BASE_URL: ${VITE_API_BASE_URL}
+      VITE_PUBLIC_FILE_URL: ${VITE_PUBLIC_FILE_URL}
+      VITE_ORDER_EXPIRATION_TIME_SECONDS: ${VITE_ORDER_EXPIRATION_TIME_SECONDS}
     ports:
       - "5175:5175"
     networks:
