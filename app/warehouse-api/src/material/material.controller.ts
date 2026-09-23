@@ -13,10 +13,12 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  ConvertMaterialQuantityRequestDto,
   CreateMaterialConversionUnitRequestDto,
   CreateMaterialRequestDto,
   GetAllMaterialRequestDto,
   GetConversionUnitRequestDto,
+  MaterialConversionResultResponseDto,
   MaterialConversionUnitResponseDto,
   MaterialResponseDto,
   UpdateMaterialConversionUnitRequestDto,
@@ -99,7 +101,7 @@ export class MaterialController {
   @Get(':slug/conversion-units')
   @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Danh sách đơn vị quy đổi ĐÃ GẮN cho vật tư (kèm tỉ lệ, quy cách)' })
+  @ApiOperation({ summary: 'Danh sách đơn vị quy đổi ĐÃ GẮN cho vật tư (kèm tỉ lệ quy đổi)' })
   @ApiPaginatedResponse(MaterialConversionUnitResponseDto, 'Retrieved')
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async findConversionUnits(
@@ -164,10 +166,36 @@ export class MaterialController {
     } as AppResponseDto<MaterialConversionUnitResponseDto>;
   }
 
+  // POST cho 1 thao tác KHÔNG đổi dữ liệu: tham số đi trong body cho gọn (3 field, có số thập
+  // phân), nên quyền để ở mức ĐỌC như các route GET chứ không phải ADMIN.
+  @Post(':slug/convert')
+  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Quy đổi số lượng giữa 2 đơn vị của vật tư (qua đơn vị cơ sở)' })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Converted',
+    type: MaterialConversionResultResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async convertQuantity(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: ConvertMaterialQuantityRequestDto,
+  ) {
+    const result = await this.materialService.convertQuantity(slug, requestData);
+    return {
+      message: 'Quantity has been converted successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<MaterialConversionResultResponseDto>;
+  }
+
   @Patch(':slug/conversion-units/:unitSlug')
   @HasRole(RoleEnum.Admin)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Sửa tỉ lệ quy đổi / quy cách của 1 đơn vị quy đổi' })
+  @ApiOperation({ summary: 'Sửa tỉ lệ quy đổi của 1 đơn vị quy đổi' })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Updated',

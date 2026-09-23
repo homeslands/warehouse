@@ -13,13 +13,15 @@ export const MATERIAL_MAXIMUM_INVENTORY_INVALID = 'MATERIAL_MAXIMUM_INVENTORY_IN
 export const MATERIAL_INVENTORY_RANGE_INVALID = 'MATERIAL_INVENTORY_RANGE_INVALID';
 export const MATERIAL_VERSION_IS_REQUIRED = 'MATERIAL_VERSION_IS_REQUIRED';
 export const MATERIAL_IN_USE = 'MATERIAL_IN_USE';
-export const MATERIAL_BASE_UNIT_IS_CONVERSION_UNIT = 'MATERIAL_BASE_UNIT_IS_CONVERSION_UNIT';
 export const MATERIAL_BASE_UNIT_IS_REQUIRED = 'MATERIAL_BASE_UNIT_IS_REQUIRED';
 export const MATERIAL_UNIT_SLUG_IS_REQUIRED = 'MATERIAL_UNIT_SLUG_IS_REQUIRED';
 export const MATERIAL_CONVERSION_UNIT_DOES_EXIST = 'MATERIAL_CONVERSION_UNIT_DOES_EXIST';
 export const MATERIAL_CONVERSION_UNIT_NOT_FOUND = 'MATERIAL_CONVERSION_UNIT_NOT_FOUND';
 export const MATERIAL_CONVERSION_RATE_INVALID = 'MATERIAL_CONVERSION_RATE_INVALID';
-export const MATERIAL_CONVERSION_QUANTITY_INVALID = 'MATERIAL_CONVERSION_QUANTITY_INVALID';
+export const MATERIAL_CONVERT_QUANTITY_INVALID = 'MATERIAL_CONVERT_QUANTITY_INVALID';
+export const MATERIAL_BASE_UNIT_RATE_IS_FIXED = 'MATERIAL_BASE_UNIT_RATE_IS_FIXED';
+export const MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED = 'MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED';
+export const MATERIAL_BASE_UNIT_LOCKED = 'MATERIAL_BASE_UNIT_LOCKED';
 
 export type TMaterialErrorCodeKey =
   | typeof MATERIAL_NOT_FOUND
@@ -34,13 +36,15 @@ export type TMaterialErrorCodeKey =
   | typeof MATERIAL_INVENTORY_RANGE_INVALID
   | typeof MATERIAL_VERSION_IS_REQUIRED
   | typeof MATERIAL_IN_USE
-  | typeof MATERIAL_BASE_UNIT_IS_CONVERSION_UNIT
   | typeof MATERIAL_BASE_UNIT_IS_REQUIRED
   | typeof MATERIAL_UNIT_SLUG_IS_REQUIRED
   | typeof MATERIAL_CONVERSION_UNIT_DOES_EXIST
   | typeof MATERIAL_CONVERSION_UNIT_NOT_FOUND
   | typeof MATERIAL_CONVERSION_RATE_INVALID
-  | typeof MATERIAL_CONVERSION_QUANTITY_INVALID;
+  | typeof MATERIAL_CONVERT_QUANTITY_INVALID
+  | typeof MATERIAL_BASE_UNIT_RATE_IS_FIXED
+  | typeof MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED
+  | typeof MATERIAL_BASE_UNIT_LOCKED;
 
 export type TMaterialErrorCode = Record<TMaterialErrorCodeKey, TErrorCodeValue>;
 
@@ -96,10 +100,9 @@ export const MaterialValidation: TMaterialErrorCode = {
     100712,
     'Material is still assigned to warehouses - remove it from them first',
   ),
-  MATERIAL_BASE_UNIT_IS_CONVERSION_UNIT: createErrorCode(
-    100713,
-    'Base unit must not be one of the conversion units of this material',
-  ),
+  // 100713 bỏ trống có chủ ý: từng là `MATERIAL_BASE_UNIT_IS_CONVERSION_UNIT` của mô hình cũ (base
+  // unit nằm NGOÀI bảng join). Nay base unit chính là 1 dòng trong bảng join nên rào đó vô nghĩa —
+  // gắn lại đơn vị cơ sở rơi vào `MATERIAL_CONVERSION_UNIT_DOES_EXIST`.
   MATERIAL_BASE_UNIT_IS_REQUIRED: createErrorCode(
     100714,
     'Material must have a base unit before conversion units can be attached',
@@ -123,9 +126,23 @@ export const MaterialValidation: TMaterialErrorCode = {
     'conversionRate must be a number greater than 0 (max 6 decimal places)',
     HttpStatus.BAD_REQUEST,
   ),
-  MATERIAL_CONVERSION_QUANTITY_INVALID: createErrorCode(
-    100719,
-    'quantity must be an integer >= 1',
+  // 100719 bỏ trống có chủ ý: từng là `MATERIAL_CONVERSION_QUANTITY_INVALID` của cột `quantity`
+  // trên bảng join, cột đó đã bị gỡ. Không tái sử dụng số cũ để log/client cũ không hiểu nhầm.
+  MATERIAL_CONVERT_QUANTITY_INVALID: createErrorCode(
+    100720,
+    'quantity to convert must be a number >= 0 (max 6 decimal places)',
     HttpStatus.BAD_REQUEST,
+  ),
+  MATERIAL_BASE_UNIT_RATE_IS_FIXED: createErrorCode(
+    100721,
+    'Conversion rate of the base unit is always 1 and cannot be changed',
+  ),
+  MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED: createErrorCode(
+    100722,
+    'Base unit cannot be detached - change the base unit of the material first',
+  ),
+  MATERIAL_BASE_UNIT_LOCKED: createErrorCode(
+    100723,
+    'Base unit can no longer be changed: the material already has stock or other conversion units',
   ),
 };

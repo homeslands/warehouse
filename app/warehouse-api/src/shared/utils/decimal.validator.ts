@@ -1,7 +1,8 @@
 import { registerDecorator, ValidationOptions } from 'class-validator';
 
-/** Số thập phân dạng thường (không mũ), không dấu — dấu do `@IsPositive` lo. */
-const PLAIN_DECIMAL_REGEX = /^\d+(\.\d+)?$/;
+/** Số thập phân dạng thường (không mũ). Dấu âm được chấp nhận — giới hạn dưới do `@Min`/
+ * `@IsPositive` lo, decorator này chỉ xét SỐ CHỮ SỐ THẬP PHÂN. */
+const PLAIN_DECIMAL_REGEX = /^-?\d+(\.\d+)?$/;
 
 /**
  * Chặn số có quá `scale` chữ số thập phân so với cột DECIMAL tương ứng dưới DB.

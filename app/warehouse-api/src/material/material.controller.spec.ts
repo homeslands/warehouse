@@ -17,6 +17,7 @@ describe('MaterialController', () => {
     addConversionUnit: jest.fn(),
     updateConversionUnit: jest.fn(),
     removeConversionUnit: jest.fn(),
+    convertQuantity: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -98,6 +99,17 @@ describe('MaterialController', () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it('wraps the convert result in AppResponseDto with 200', async () => {
+    const dto = { quantity: 5, fromUnitSlug: 'unit-slug-9', toUnitSlug: 'unit-slug-1' };
+    materialService.convertQuantity.mockResolvedValue({ toQuantity: 250 });
+
+    const response = await controller.convertQuantity('mat-slug-1', dto);
+
+    expect(materialService.convertQuantity).toHaveBeenCalledWith('mat-slug-1', dto);
+    expect(response.result).toEqual({ toQuantity: 250 });
+    expect(response.statusCode).toBe(200);
+  });
+
   it('renders the detach count as a message string', async () => {
     materialService.removeConversionUnit.mockResolvedValue(1);
 
@@ -125,6 +137,8 @@ describe('MaterialController', () => {
       expect(roles(controller.findOne)).toEqual(readRoles);
       expect(roles(controller.findConversionUnits)).toEqual(readRoles);
       expect(roles(controller.findAvailableConversionUnits)).toEqual(readRoles);
+      // `POST /materials/:slug/convert` không đổi dữ liệu nên nằm ở nhóm quyền ĐỌC.
+      expect(roles(controller.convertQuantity)).toEqual(readRoles);
     });
   });
 });

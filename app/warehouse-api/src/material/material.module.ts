@@ -7,6 +7,7 @@ import { MaterialProfile } from './material.mapper';
 import { MaterialUnit } from './material-unit.entity';
 import { MaterialTypeModule } from 'src/material-type/material-type.module';
 import { UnitModule } from 'src/unit/unit.module';
+import { DbModule } from 'src/db/db.module';
 import { WarehouseMaterial } from 'src/warehouse-material/warehouse-material.entity';
 
 @Module({
@@ -16,10 +17,13 @@ import { WarehouseMaterial } from 'src/warehouse-material/warehouse-material.ent
   // `UnitModule` thì import cả module (cần `UnitService` để resolve `baseUnitSlug` và để list đơn
   // vị quy đổi): không tạo vòng vì `UnitModule` chỉ import ENTITY `Material`, không import
   // `MaterialModule`.
+  // `DbModule` cho `TransactionManagerService` — đặt/đổi đơn vị cơ sở ghi 2 bảng theo thứ tự bắt
+  // buộc bởi FK tổ hợp, không thể để nửa chừng.
   imports: [
     TypeOrmModule.forFeature([Material, MaterialUnit, WarehouseMaterial]),
     MaterialTypeModule,
     UnitModule,
+    DbModule,
   ],
   controllers: [MaterialController],
   providers: [MaterialService, MaterialProfile],

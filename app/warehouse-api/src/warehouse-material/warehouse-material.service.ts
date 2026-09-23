@@ -20,6 +20,7 @@ import { MaterialService } from 'src/material/material.service';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { roundToScale } from 'src/shared/utils/decimal.transformer';
 
 /**
  * `quantity` không bao giờ được tính bằng đọc-rồi-ghi, nên mọi read path chỉ cần đủ quan hệ để
@@ -148,8 +149,10 @@ export class WarehouseMaterialService {
     dto: AdjustWarehouseMaterialQuantityRequestDto,
   ): Promise<WarehouseMaterialResponseDto> {
     const context = `${WarehouseMaterialService.name}.${this.adjustQuantity.name}`;
-    // `@IsNotEmpty()` của class-validator KHÔNG chặn số 0 (0 không phải "empty"), nên phải chặn ở đây.
-    const delta = Math.trunc(Number(dto.delta));
+    // `@IsNotEmpty()` của class-validator KHÔNG chặn số 0 (0 không phải "empty"), nên phải chặn ở
+    // đây. KHÔNG `Math.trunc` nữa: tồn là DECIMAL(18,6) nên delta lẻ là hợp lệ — cắt phần thập phân
+    // sẽ nuốt mất lượng nhập theo đơn vị nhỏ hơn đơn vị cơ sở.
+    const delta = roundToScale(Number(dto.delta));
     if (!Number.isFinite(delta) || delta === 0)
       throw new WarehouseMaterialException(
         WarehouseMaterialValidation.WAREHOUSE_MATERIAL_DELTA_INVALID,
@@ -158,8 +161,8 @@ export class WarehouseMaterialService {
     const row = await this.findRow(warehouseSlug, materialSlug);
 
     // 1 câu UPDATE có điều kiện, KHÔNG đọc-rồi-ghi: 2 lần điều chỉnh đồng thời đều được cộng dồn
-    // thay vì mất 1. `delta` đã qua `Math.trunc(Number(...))` nên nội suy vào SQL là số, không phải
-    // chuỗi từ client. `affected === 0` nghĩa là điều kiện `>= 0` chặn lại.
+    // thay vì mất 1. `delta` đã qua `roundToScale(Number(...))` nên nội suy vào SQL là số thật,
+    // không phải chuỗi từ client. `affected === 0` nghĩa là điều kiện `>= 0` chặn lại.
     const result = await this.warehouseMaterialRepository
       .createQueryBuilder()
       .update(WarehouseMaterial)
