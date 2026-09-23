@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { FindOptionsWhere, Like, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Like, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -7,6 +7,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   CreateUnitRequestDto,
   GetAllUnitRequestDto,
+  UnitMaterialCountResponseDto,
   UnitResponseDto,
   UpdateUnitRequestDto,
 } from './unit.dto';
@@ -21,8 +22,9 @@ import { AppPaginatedResponseDto } from 'src/app/app.dto';
 export class UnitService {
   constructor(
     @InjectRepository(Unit) private readonly unitRepository: Repository<Unit>,
-    // Chỉ để đếm tham chiếu qua bảng join lúc xoá. Inject Repository chứ KHÔNG inject
-    // `MaterialService` — tránh vòng phụ thuộc module, cùng pattern `MaterialTypeService`.
+    // Chỉ để đếm vật tư đang tham chiếu unit. Inject Repository chứ KHÔNG inject
+    // `MaterialService` — tránh vòng phụ thuộc module (`MaterialModule` mới là bên import
+    // `UnitModule`), cùng pattern `MaterialTypeService`.
     @InjectRepository(Material) private readonly materialRepository: Repository<Material>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
@@ -40,10 +42,20 @@ export class UnitService {
     return this.mapper.map(created, Unit, UnitResponseDto);
   }
 
-  async findAll(query: GetAllUnitRequestDto): Promise<AppPaginatedResponseDto<UnitResponseDto>> {
+  /**
+   * `excludedUnitIds` phục vụ `GET /materials/:slug/conversion-units/available`
+   * (`MaterialService.findAvailableConversionUnits`): unit CHỌN ĐƯỢC làm đơn vị quy đổi = mọi unit
+   * TRỪ đơn vị cơ sở của vật tư và TRỪ những unit đã gắn. Để tham số ở đây thay vì viết 1 hàm list
+   * thứ hai — phân trang/filter phải giống hệt `GET /units`, tách ra là chắc chắn lệch nhau về sau.
+   */
+  async findAll(
+    query: GetAllUnitRequestDto,
+    excludedUnitIds: string[] = [],
+  ): Promise<AppPaginatedResponseDto<UnitResponseDto>> {
     const where: FindOptionsWhere<Unit> = {};
     if (query.code) where.code = query.code;
     if (query.name) where.name = Like(`%${query.name}%`);
+    if (excludedUnitIds.length > 0) where.id = Not(In(excludedUnitIds));
 
     const [items, total] = await this.unitRepository.findAndCount({
       where,
@@ -100,16 +112,48 @@ export class UnitService {
     const context = `${UnitService.name}.${this.deleteUnit.name}`;
     const unit = await this.findEntityBySlug(slug);
 
-    // Xoá mềm, nên FK của bảng join không chặn giúp: dòng trong `material_unit_can_have_tbl` vẫn
-    // trỏ vào unit đã "xoá" và material vẫn khai nó là đơn vị dùng được. Phải tự chặn ở đây.
+    // Xoá mềm, nên FK không chặn giúp: dòng trong `material_unit_can_have_tbl` (và cả
+    // `material_tbl.base_unit_id_column`) vẫn trỏ vào unit đã "xoá". Phải tự chặn ở đây, và phải
+    // đếm CẢ HAI đường tham chiếu — chỉ đếm bảng join là bỏ lọt vật tư lấy nó làm đơn vị cơ sở.
     const referenced = await this.materialRepository.count({
-      where: { unitsCanHave: { id: unit.id } },
+      where: this.usedByMaterialWhere(unit.id),
     });
     if (referenced > 0) throw new UnitException(UnitValidation.UNIT_IN_USE);
 
     await this.unitRepository.softRemove(unit);
     this.logger.log(`Unit deleted: ${unit.id}`, context);
     return 1;
+  }
+
+  /**
+   * "Có bao nhiêu vật tư đang dùng đơn vị này?" — tách riêng 2 đường tham chiếu (đơn vị cơ sở /
+   * đơn vị quy đổi) và tổng số vật tư DUY NHẤT.
+   *
+   * `total` đếm riêng bằng điều kiện OR chứ không cộng 2 số trên: quy tắc nghiệp vụ cấm 1 vật tư
+   * vừa lấy unit làm base vừa khai nó là đơn vị quy đổi, nhưng dữ liệu ghi thẳng dưới DB
+   * (bảng join hiện chưa có API ghi) vẫn có thể vi phạm — lúc đó phép cộng sẽ đếm đúp.
+   */
+  async countMaterialsUsing(slug: string): Promise<UnitMaterialCountResponseDto> {
+    const unit = await this.findEntityBySlug(slug);
+
+    const [asBaseUnit, asConversionUnit, total] = await Promise.all([
+      this.materialRepository.count({ where: { baseUnit: { id: unit.id } } }),
+      this.materialRepository.count({ where: { unitsCanHave: { unitId: unit.id } } }),
+      this.materialRepository.count({ where: this.usedByMaterialWhere(unit.id) }),
+    ]);
+
+    return {
+      unitSlug: unit.slug,
+      unitCode: unit.code,
+      asBaseUnit,
+      asConversionUnit,
+      total,
+    } as UnitMaterialCountResponseDto;
+  }
+
+  /** Mảng = OR trong TypeORM: vật tư dùng unit làm đơn vị cơ sở HOẶC làm đơn vị quy đổi. */
+  private usedByMaterialWhere(unitId: string): FindOptionsWhere<Material>[] {
+    return [{ baseUnit: { id: unitId } }, { unitsCanHave: { unitId } }];
   }
 
   /**

@@ -2,7 +2,7 @@
 
 NestJS 10 + TypeORM/MySQL. `setup.md` trong thư mục này là ghi chú thủ công về các bước setup ban đầu (env, DB, chạy app lần đầu) — không phải tài liệu convention cho Claude, không cần đọc trừ khi cần setup môi trường từ đầu.
 
-> `src/` hiện có: `app/`, `auth/`, `authority/`, `authority-group/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `material/`, `material-type/`, `migrations/`, `notification/firebase/`, `permission/`, `rbac/`, `redis/`, `role/`, `shared/`, `user/`, `warehouse/`, `warehouse-material/`. Module nghiệp vụ đã có: kho (`warehouse`), danh mục vật tư (`material-type`/`material`) và tồn kho theo kho (`warehouse-material`) — xem `docs/specs/material.md`. Chưa có phiếu nhập/xuất/kiểm kho; tạo mới theo template `example/`.
+> `src/` hiện có: `app/`, `auth/`, `authority/`, `authority-group/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `material/`, `material-type/`, `migrations/`, `notification/firebase/`, `permission/`, `rbac/`, `redis/`, `role/`, `shared/`, `unit/`, `user/`, `warehouse/`, `warehouse-material/`. Module nghiệp vụ đã có: kho (`warehouse`), danh mục vật tư (`material-type`/`material`) và tồn kho theo kho (`warehouse-material`) — xem `docs/specs/material.md`. Chưa có phiếu nhập/xuất/kiểm kho; tạo mới theo template `example/`.
 
 ## Quy trình làm feature mới
 
@@ -152,6 +152,10 @@ Decorator:
 | `GET /materials`, `GET /materials/{slug}` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 | `POST`/`PATCH`/`DELETE /warehouses/{slug}/materials...` (kể cả `PATCH .../quantity`) | `ADMIN` |
 | `GET /warehouses/{slug}/materials` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `GET /materials/{slug}/conversion-units`, `GET /materials/{slug}/conversion-units/available` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `POST /materials/{slug}/conversion-units`, `PATCH`/`DELETE /materials/{slug}/conversion-units/{unitSlug}` | `ADMIN` |
+| `POST`/`PATCH`/`DELETE /units...` | `ADMIN` |
+| `GET /units`, `GET /units/{slug}`, `GET /units/{slug}/material-count` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 
 `SUPER_ADMIN` bypass tất cả. Map này chép đúng `defaultRoles` từng seed ở migration `1783728000010`/`1783728000011`/`1783728000014` lúc 2 module còn dùng `@RequireAuthority`. Đổi map = sửa decorator trên controller, không có API/migration nào đổi được lúc chạy. Có test khoá metadata decorator trong `user.controller.spec.ts`/`warehouse.controller.spec.ts` — gỡ nhầm decorator là test đỏ.
 
@@ -227,6 +231,14 @@ Bất biến khi sửa vùng này:
 7. Đăng ký trong `<module>.module.ts`, rồi thêm vào `src/app/app.module.ts` (imports) và `src/app/app.validation.ts` (gộp `<Feature>Validation`).
 8. Sinh + chạy migration: `npm run typeorm:g --name=create-<feature>-table` rồi `npm run typeorm:r` (kèm migration seed `Authority` nếu bước 6 có dùng `@RequireAuthority` với code mới).
 
+## Đơn vị tính của vật tư (`unit` + bảng join `material_unit_can_have_tbl`)
+
+- `Material.baseUnit` (FK `base_unit_id_column`, NULL-able) là ĐƠN VỊ CƠ SỞ — mốc của mọi `conversionRate`. `MaterialUnit` (`src/material/material-unit.entity.ts`) là entity trung gian của quan hệ N-N: bảng join mang dữ liệu (`conversion_rate` DECIMAL(18,6), `quantity` INT) nên **không dùng `@ManyToMany` được** (TypeORM chỉ đọc/ghi 2 cột khoá của bảng join, cột phụ bị bỏ qua im lặng). Entity này KHÔNG kế thừa `Base`: PK tổ hợp, không `slug`, không soft-delete ⇒ `DELETE` là xoá cứng.
+- 3 rào nghiệp vụ nằm ở `MaterialService`, DB không biểu diễn được bằng index (chúng vắt qua 2 bảng): phải có base unit trước khi gắn đơn vị quy đổi (`MATERIAL_BASE_UNIT_IS_REQUIRED`); 1 unit không được vừa là base vừa là đơn vị quy đổi của cùng vật tư (`MATERIAL_BASE_UNIT_IS_CONVERSION_UNIT`, check ở CẢ 2 chiều — lúc đặt base unit và lúc gắn đơn vị quy đổi); gắn trùng ⇒ `MATERIAL_CONVERSION_UNIT_DOES_EXIST` (sửa tỉ lệ thì dùng `PATCH`).
+- `GET .../conversion-units` trả danh sách ĐÃ GẮN (kèm tỉ lệ/quy cách); `GET .../conversion-units/available` trả unit CHỌN ĐƯỢC (đã loại base unit + các unit đã gắn) — cả hai dùng `UnitService.findAll(query, excludedUnitIds)`, đừng viết hàm list thứ hai cho unit.
+- `MaterialUnit` không có cột `version` ⇒ **không có optimistic lock** ở `PATCH .../conversion-units/{unitSlug}` (khác mọi module dùng `VersionedBase`): body không nhận `version`, 2 người sửa cùng lúc thì người sau thắng.
+- `IsDecimalWithScale` (`src/shared/utils/decimal.validator.ts`) thay cho `@IsNumber({ maxDecimalPlaces })`: decorator có sẵn của class-validator **crash (500)** với số dạng mũ (`(1e-7).toString()` không có dấu chấm ⇒ `undefined.length`). Cột DECIMAL nào cần chặn số lẻ quá tầm thì dùng validator này.
+
 ## Common/shared code
 
 Không có `src/common`. `src/app/`: response DTO, exception/error-code base, `base.entity`/`base.dto`/`base.mapper`, `http-exception.filter`, swagger decorator, `env.validation`. `src/shared/`: hiện chỉ có `utils/`. `src/redis/`: `RedisModule` (`@Global()`) + `RedisService` bọc `ioredis` — client dùng chung cho mọi module cần Redis trực tiếp (BullMQ tự quản connection riêng của nó). Guard/decorator xác thực-phân quyền nằm ngay trong module sở hữu (`src/auth/`, `src/role/`, `src/feature-flag-system/`).
@@ -247,6 +259,7 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 - OTP, quên mật khẩu (reset khi không nhớ mật khẩu cũ), validate định dạng số điện thoại. **Không có ràng buộc độ mạnh mật khẩu** ở bất kỳ đâu (`login`/`POST /users`/2 endpoint đổi mật khẩu chỉ `@IsNotEmpty()`) — mật khẩu 1 ký tự vẫn qua.
 - Phiếu nhập/xuất/kiểm kho, phiếu chi kho — `AuthorityCode` đã khai sẵn code cho chúng nhưng **chưa module nào tồn tại**. Tồn kho hiện chỉ sửa được bằng `PATCH /warehouses/{slug}/materials/{materialSlug}/quantity` (cửa TẠM, bỏ khi có phiếu).
 - **`typeorm:g` KHÔNG dùng được trên repo này**: `migration:generate` diff cả schema cũ và đẻ ra lệnh drop/re-add `user_tbl.phonenumber_column`, `warehouse_tbl.code_column` (mất dữ liệu) + hạ cấp `ON DELETE` của loạt FK, vì migration cũ đặt tên index/FK thủ công và dùng VARCHAR hẹp hơn suy diễn từ entity. Viết tay migration (xem `1783728000015-create-material-tables.ts`), hoặc sinh ra rồi xoá sạch lệnh ngoài phạm vi trước khi chạy.
+- `Material.baseUnit` (`base_unit_id_column`) là NULL-able và **không có cách gỡ về NULL qua PATCH** (`pickDefined` lọc cả `null`) — vật tư cũ tạo trước migration `1783728000020` vẫn chưa có đơn vị cơ sở.
 - Không có `Dockerfile`/`docker-compose.yml` — MySQL/Redis phải tự cài/chạy.
 - **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là **mọi request có JWT đều 401** (check thu hồi token fail-closed) — nặng hơn trước, xem mục "Thu hồi token". `/health` đã có indicator Redis.
 - `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.

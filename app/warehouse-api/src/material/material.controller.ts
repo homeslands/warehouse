@@ -13,11 +13,16 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  CreateMaterialConversionUnitRequestDto,
   CreateMaterialRequestDto,
   GetAllMaterialRequestDto,
+  GetConversionUnitRequestDto,
+  MaterialConversionUnitResponseDto,
   MaterialResponseDto,
+  UpdateMaterialConversionUnitRequestDto,
   UpdateMaterialRequestDto,
 } from './material.dto';
+import { UnitResponseDto } from 'src/unit/unit.dto';
 import { MaterialService } from './material.service';
 import { HasRole } from 'src/role/role.decorator';
 import { RoleEnum } from 'src/role/role.enum';
@@ -88,6 +93,118 @@ export class MaterialController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<MaterialResponseDto>;
+  }
+
+  // Route 2 đoạn nên không đụng `@Get(':slug')` ở trên (`:slug` chỉ khớp 1 đoạn path).
+  @Get(':slug/conversion-units')
+  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Danh sách đơn vị quy đổi ĐÃ GẮN cho vật tư (kèm tỉ lệ, quy cách)' })
+  @ApiPaginatedResponse(MaterialConversionUnitResponseDto, 'Retrieved')
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async findConversionUnits(
+    @Param('slug') slug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: GetConversionUnitRequestDto,
+  ) {
+    const result = await this.materialService.findConversionUnits(slug, query);
+    return {
+      message: 'Conversion units have been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<MaterialConversionUnitResponseDto>>;
+  }
+
+  // `available` là literal nên luôn được Nest ưu tiên hơn pattern `:unitSlug` — không có GET nào
+  // dùng `:unitSlug` nên cũng không có gì để đụng.
+  @Get(':slug/conversion-units/available')
+  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Đơn vị CHỌN ĐƯỢC làm đơn vị quy đổi (đã loại đơn vị cơ sở và các unit đã gắn)',
+  })
+  @ApiPaginatedResponse(UnitResponseDto, 'Retrieved')
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async findAvailableConversionUnits(
+    @Param('slug') slug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: GetConversionUnitRequestDto,
+  ) {
+    const result = await this.materialService.findAvailableConversionUnits(slug, query);
+    return {
+      message: 'Available conversion units have been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<UnitResponseDto>>;
+  }
+
+  @Post(':slug/conversion-units')
+  @HasRole(RoleEnum.Admin)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Gắn 1 đơn vị quy đổi cho vật tư' })
+  @ApiResponseWithType({
+    status: HttpStatus.CREATED,
+    description: 'Created',
+    type: MaterialConversionUnitResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async addConversionUnit(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: CreateMaterialConversionUnitRequestDto,
+  ) {
+    const result = await this.materialService.addConversionUnit(slug, requestData);
+    return {
+      message: 'Conversion unit has been attached successfully',
+      statusCode: HttpStatus.CREATED,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<MaterialConversionUnitResponseDto>;
+  }
+
+  @Patch(':slug/conversion-units/:unitSlug')
+  @HasRole(RoleEnum.Admin)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Sửa tỉ lệ quy đổi / quy cách của 1 đơn vị quy đổi' })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Updated',
+    type: MaterialConversionUnitResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  @ApiParam({ name: 'unitSlug', required: true, example: 'unit-abc123' })
+  async updateConversionUnit(
+    @Param('slug') slug: string,
+    @Param('unitSlug') unitSlug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: UpdateMaterialConversionUnitRequestDto,
+  ) {
+    const result = await this.materialService.updateConversionUnit(slug, unitSlug, requestData);
+    return {
+      message: 'Conversion unit has been updated successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<MaterialConversionUnitResponseDto>;
+  }
+
+  @Delete(':slug/conversion-units/:unitSlug')
+  @HasRole(RoleEnum.Admin)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Gỡ 1 đơn vị quy đổi khỏi vật tư' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  @ApiParam({ name: 'unitSlug', required: true, example: 'unit-abc123' })
+  async removeConversionUnit(@Param('slug') slug: string, @Param('unitSlug') unitSlug: string) {
+    const result = await this.materialService.removeConversionUnit(slug, unitSlug);
+    return {
+      message: 'Conversion unit has been detached successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result: `${result} conversion unit have been detached successfully`,
+    } as AppResponseDto<string>;
   }
 
   @Patch(':slug')
