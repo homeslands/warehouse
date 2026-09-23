@@ -1,9 +1,10 @@
-import { IsInt, IsNotEmpty, IsOptional, Matches, Min } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, IsPositive, Matches, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
+import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const upper = ({ value }: { value: unknown }) =>
@@ -27,6 +28,18 @@ export class CreateMaterialRequestDto {
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_TYPE_SLUG_IS_REQUIRED' })
   typeSlug: string;
+
+  /**
+   * Slug của `Unit` làm ĐƠN VỊ CƠ SỞ. Optional vì cột `base_unit_id_column` thêm sau lên bảng đã có
+   * dữ liệu (migration `1783728000020`) nên còn NULL-able.
+   *
+   * Cố ý KHÔNG `@AutoMap()`: quan hệ `baseUnit` do service resolve ra entity thật rồi gán, mapper
+   * đụng vào sẽ ghi đè thành `undefined` (cùng cách xử lý `typeSlug`).
+   */
+  @ApiPropertyOptional({ description: 'Slug của đơn vị cơ sở (Unit)', example: 'unit-abc123' })
+  @IsOptional()
+  @Transform(trim)
+  baseUnitSlug?: string;
 
   @AutoMap()
   @ApiPropertyOptional({ description: 'Ngưỡng tồn tối thiểu mặc định', default: 0, example: 10 })
@@ -129,4 +142,102 @@ export class MaterialResponseDto extends VersionedResponseDto {
 
   @ApiPropertyOptional({ description: 'Tên loại vật tư' })
   typeName?: string;
+
+  // Flatten từ quan hệ `baseUnit` — `undefined` khi vật tư chưa khai đơn vị cơ sở.
+  @ApiPropertyOptional({ description: 'Slug của đơn vị cơ sở' })
+  baseUnitSlug?: string;
+
+  @ApiPropertyOptional({ description: 'Mã đơn vị cơ sở' })
+  baseUnitCode?: string;
+
+  @ApiPropertyOptional({ description: 'Tên đơn vị cơ sở' })
+  baseUnitName?: string;
+}
+
+/**
+ * Query của `GET /materials/:slug/conversion-units`. Khai riêng ở module material (thay vì dùng lại
+ * `GetAllUnitRequestDto` của module unit) để 2 endpoint tiến hoá độc lập — filter ở đây luôn được
+ * hiểu trong phạm vi "đơn vị dùng được làm đơn vị quy đổi cho vật tư này".
+ */
+export class GetConversionUnitRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by exact unit business code', example: 'KG' })
+  @IsOptional()
+  @Transform(upper)
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by unit name (chứa chuỗi con)' })
+  @IsOptional()
+  @Transform(trim)
+  name?: string;
+}
+
+/**
+ * Gắn 1 đơn vị QUY ĐỔI cho vật tư (`POST /materials/:slug/conversion-units`).
+ *
+ * Không đi qua automapper: entity đích (`MaterialUnit`) chỉ có 2 cột dữ liệu và 2 cột khoá — map
+ * tự động vào entity có PK tổ hợp dễ ghi đè nhầm `materialId`/`unitId`, service gán tay rõ hơn.
+ */
+export class CreateMaterialConversionUnitRequestDto {
+  @ApiProperty({ description: 'Slug của Unit làm đơn vị quy đổi', example: 'unit-abc123' })
+  @Transform(trim)
+  @IsNotEmpty({ message: 'MATERIAL_UNIT_SLUG_IS_REQUIRED' })
+  unitSlug: string;
+
+  @ApiProperty({
+    description: 'Số ĐƠN VỊ CƠ SỞ trong 1 đơn vị này (1 BAO = 50 KG ⇒ 50)',
+    example: 50,
+    minimum: 0,
+    exclusiveMinimum: true,
+  })
+  @Type(() => Number)
+  // Cột DB là DECIMAL(18,6) — chặn ngay ở DTO thay vì để MySQL làm tròn im lặng. Xem
+  // `IsDecimalWithScale`: `@IsNumber({ maxDecimalPlaces })` có sẵn thì crash với số dạng mũ.
+  @IsDecimalWithScale(6, { message: 'MATERIAL_CONVERSION_RATE_INVALID' })
+  @IsPositive({ message: 'MATERIAL_CONVERSION_RATE_INVALID' })
+  conversionRate: number;
+
+  @ApiPropertyOptional({ description: 'Số lượng quy cách đóng gói', default: 1, example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
+  @Min(1, { message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
+  quantity?: number = 1;
+}
+
+/**
+ * `OmitType` bỏ `unitSlug` trước khi `PartialType`: đơn vị cần sửa đã nằm ở path param
+ * (`PATCH /materials/:slug/conversion-units/:unitSlug`), cho đổi qua body nghĩa là 1 request vừa
+ * trỏ vào dòng này vừa ghi sang dòng khác.
+ */
+export class UpdateMaterialConversionUnitRequestDto extends PartialType(
+  OmitType(CreateMaterialConversionUnitRequestDto, ['unitSlug'] as const),
+) {
+  // Huỷ initializer `= 1` thừa hưởng từ DTO cha — nếu không, PATCH chỉ đổi `conversionRate` sẽ âm
+  // thầm reset `quantity` về 1 (cùng bẫy với ngưỡng tồn của `UpdateMaterialRequestDto`).
+  @ApiPropertyOptional({ description: 'Số lượng quy cách đóng gói', example: 1 })
+  @IsOptional()
+  @Type(() => Number)
+  @IsInt({ message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
+  @Min(1, { message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
+  override quantity?: number = undefined;
+}
+
+/** 1 dòng `material_unit_can_have_tbl` đã phẳng hoá cùng thông tin đơn vị. */
+export class MaterialConversionUnitResponseDto {
+  @ApiProperty({ example: 'unit-abc123' })
+  unitSlug: string;
+
+  @ApiProperty({ example: 'BAO' })
+  unitCode: string;
+
+  @ApiProperty({ example: 'Bao 50kg' })
+  unitName: string;
+
+  @AutoMap()
+  @ApiProperty({ description: 'Số đơn vị cơ sở trong 1 đơn vị này', example: 50 })
+  conversionRate: number;
+
+  @AutoMap()
+  @ApiProperty({ description: 'Số lượng quy cách đóng gói', example: 1 })
+  quantity: number;
 }

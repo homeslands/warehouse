@@ -65,6 +65,30 @@ export class GetAllUnitRequestDto extends BaseQueryDto {
   name?: string;
 }
 
+/**
+ * Trả lời câu hỏi "có bao nhiêu vật tư đang dùng đơn vị này" (`GET /units/:slug/material-count`).
+ * Không đi qua automapper — đây là kết quả đếm, không phải ảnh chiếu của 1 entity.
+ */
+export class UnitMaterialCountResponseDto {
+  @ApiProperty({ example: 'unit-abc123' })
+  unitSlug: string;
+
+  @ApiProperty({ example: 'KG' })
+  unitCode: string;
+
+  @ApiProperty({ description: 'Số vật tư lấy đơn vị này làm ĐƠN VỊ CƠ SỞ', example: 3 })
+  asBaseUnit: number;
+
+  @ApiProperty({ description: 'Số vật tư khai đơn vị này là ĐƠN VỊ QUY ĐỔI', example: 7 })
+  asConversionUnit: number;
+
+  @ApiProperty({
+    description: 'Tổng số vật tư DUY NHẤT dùng đơn vị này (theo bất kỳ đường nào)',
+    example: 9,
+  })
+  total: number;
+}
+
 export class UnitResponseDto extends VersionedResponseDto {
   @AutoMap()
   @ApiProperty()
