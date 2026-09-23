@@ -1,10 +1,11 @@
 import { Column, Entity, JoinColumn, ManyToOne, PrimaryColumn } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
+import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 import { Material } from './material.entity';
 import { Unit } from 'src/unit/unit.entity';
 
 /**
- * Bảng join `material_unit_can_have_tbl` giờ MANG DỮ LIỆU (`conversion_rate`, `quantity`) nên
+ * Bảng join `material_unit_can_have_tbl` giờ MANG DỮ LIỆU (`conversion_rate`) nên
  * không còn khai được bằng `@ManyToMany` + `@JoinTable` — TypeORM chỉ ghi/đọc đúng 2 cột khoá của
  * bảng join, mọi cột phụ sẽ bị bỏ qua hoàn toàn. Vì vậy quan hệ N-N được tách thành entity trung
  * gian này (`Material.unitsCanHave` / `Unit.materialUnits` là 2 phía `@OneToMany`).
@@ -12,15 +13,6 @@ import { Unit } from 'src/unit/unit.entity';
  * KHÔNG kế thừa `Base`: bảng không có `id`/`slug`/soft-delete, PK là cặp
  * (`material_id_column`, `unit_id_column`) — đúng schema đã tạo ở migration `1783728000019`.
  */
-
-/**
- * MySQL driver trả `DECIMAL` về dưới dạng string (giữ nguyên độ chính xác). Không transform thì
- * `conversionRate` ra ngoài là `"50.000000"` và mọi phép nhân quy đổi thành nối chuỗi.
- */
-const decimalToNumber = {
-  to: (value?: number | null) => value,
-  from: (value?: string | null) => (value === null || value === undefined ? value : Number(value)),
-};
 
 @Entity('material_unit_can_have_tbl')
 export class MaterialUnit {
@@ -38,7 +30,12 @@ export class MaterialUnit {
   @JoinColumn({ name: 'unit_id_column' })
   unit: Unit;
 
-  /** Số ĐƠN VỊ CƠ SỞ (`Material.baseUnit`) trong 1 đơn vị này. VD base = KG, 1 BAO = 50 ⇒ 50. */
+  /**
+   * Số ĐƠN VỊ CƠ SỞ trong 1 đơn vị này. VD base = KG, 1 BAO = 50 ⇒ 50.
+   *
+   * Dòng của CHÍNH đơn vị cơ sở (dòng mà `Material.baseUnit` trỏ tới) luôn có giá trị `1` —
+   * `MaterialService` không cho sửa tỉ lệ của dòng đó.
+   */
   @AutoMap()
   @Column({
     name: 'conversion_rate_column',
@@ -49,9 +46,4 @@ export class MaterialUnit {
     transformer: decimalToNumber,
   })
   conversionRate: number;
-
-  /** Số lượng quy cách đóng gói của đơn vị này (mặc định 1). */
-  @AutoMap()
-  @Column({ name: 'quantity_column', type: 'int', default: 1 })
-  quantity: number;
 }

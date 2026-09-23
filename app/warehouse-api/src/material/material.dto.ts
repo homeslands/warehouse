@@ -45,7 +45,7 @@ export class CreateMaterialRequestDto {
   @ApiPropertyOptional({ description: 'Ngưỡng tồn tối thiểu mặc định', default: 0, example: 10 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
+  @IsDecimalWithScale(6, { message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
   @Min(0, { message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
   minimumInventory?: number = 0;
 
@@ -53,7 +53,7 @@ export class CreateMaterialRequestDto {
   @ApiPropertyOptional({ description: 'Ngưỡng tồn tối đa mặc định', default: 0, example: 100 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
+  @IsDecimalWithScale(6, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
   @Min(0, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
   maximumInventory?: number = 0;
 }
@@ -73,7 +73,7 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   @ApiPropertyOptional({ description: 'Ngưỡng tồn tối thiểu mặc định', example: 10 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
+  @IsDecimalWithScale(6, { message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
   @Min(0, { message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
   override minimumInventory?: number = undefined;
 
@@ -81,7 +81,7 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   @ApiPropertyOptional({ description: 'Ngưỡng tồn tối đa mặc định', example: 100 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
+  @IsDecimalWithScale(6, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
   @Min(0, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
   override maximumInventory?: number = undefined;
 
@@ -195,13 +195,6 @@ export class CreateMaterialConversionUnitRequestDto {
   @IsDecimalWithScale(6, { message: 'MATERIAL_CONVERSION_RATE_INVALID' })
   @IsPositive({ message: 'MATERIAL_CONVERSION_RATE_INVALID' })
   conversionRate: number;
-
-  @ApiPropertyOptional({ description: 'Số lượng quy cách đóng gói', default: 1, example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt({ message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
-  @Min(1, { message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
-  quantity?: number = 1;
 }
 
 /**
@@ -211,16 +204,7 @@ export class CreateMaterialConversionUnitRequestDto {
  */
 export class UpdateMaterialConversionUnitRequestDto extends PartialType(
   OmitType(CreateMaterialConversionUnitRequestDto, ['unitSlug'] as const),
-) {
-  // Huỷ initializer `= 1` thừa hưởng từ DTO cha — nếu không, PATCH chỉ đổi `conversionRate` sẽ âm
-  // thầm reset `quantity` về 1 (cùng bẫy với ngưỡng tồn của `UpdateMaterialRequestDto`).
-  @ApiPropertyOptional({ description: 'Số lượng quy cách đóng gói', example: 1 })
-  @IsOptional()
-  @Type(() => Number)
-  @IsInt({ message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
-  @Min(1, { message: 'MATERIAL_CONVERSION_QUANTITY_INVALID' })
-  override quantity?: number = undefined;
-}
+) {}
 
 /** 1 dòng `material_unit_can_have_tbl` đã phẳng hoá cùng thông tin đơn vị. */
 export class MaterialConversionUnitResponseDto {
@@ -237,7 +221,69 @@ export class MaterialConversionUnitResponseDto {
   @ApiProperty({ description: 'Số đơn vị cơ sở trong 1 đơn vị này', example: 50 })
   conversionRate: number;
 
-  @AutoMap()
-  @ApiProperty({ description: 'Số lượng quy cách đóng gói', example: 1 })
+  // Đơn vị cơ sở nay cũng là 1 dòng của bảng join (rate = 1) nên nó nằm trong CHÍNH danh sách này —
+  // client cần cờ để hiển thị khác đi và để biết dòng nào không sửa/gỡ được.
+  @ApiProperty({ description: 'Dòng này có phải ĐƠN VỊ CƠ SỞ của vật tư không', example: false })
+  isBaseUnit: boolean;
+}
+
+/** Body của `POST /materials/:slug/convert` — quy đổi số lượng giữa 2 đơn vị của cùng 1 vật tư. */
+export class ConvertMaterialQuantityRequestDto {
+  @ApiProperty({ description: 'Số lượng cần quy đổi', example: 5 })
+  @Type(() => Number)
+  @IsDecimalWithScale(6, { message: 'MATERIAL_CONVERT_QUANTITY_INVALID' })
+  @Min(0, { message: 'MATERIAL_CONVERT_QUANTITY_INVALID' })
   quantity: number;
+
+  @ApiProperty({ description: 'Slug đơn vị NGUỒN (đơn vị cơ sở hoặc 1 đơn vị quy đổi đã gắn)' })
+  @Transform(trim)
+  @IsNotEmpty({ message: 'MATERIAL_UNIT_SLUG_IS_REQUIRED' })
+  fromUnitSlug: string;
+
+  @ApiProperty({ description: 'Slug đơn vị ĐÍCH (đơn vị cơ sở hoặc 1 đơn vị quy đổi đã gắn)' })
+  @Transform(trim)
+  @IsNotEmpty({ message: 'MATERIAL_UNIT_SLUG_IS_REQUIRED' })
+  toUnitSlug: string;
+}
+
+/**
+ * Kết quả quy đổi. Trả kèm `quantityInBaseUnit` và 2 tỉ lệ đã dùng để client đối chiếu được phép
+ * tính, thay vì phải tin vào mỗi con số cuối.
+ */
+export class MaterialConversionResultResponseDto {
+  @ApiProperty({ example: 'x7fk2p9qab' })
+  materialSlug: string;
+
+  @ApiProperty({ example: 'unit-bao' })
+  fromUnitSlug: string;
+
+  @ApiProperty({ example: 'BAO' })
+  fromUnitCode: string;
+
+  @ApiProperty({ description: 'Số lượng đầu vào', example: 5 })
+  fromQuantity: number;
+
+  @ApiProperty({ description: 'Số đơn vị cơ sở trong 1 đơn vị nguồn', example: 50 })
+  fromConversionRate: number;
+
+  @ApiProperty({ example: 'unit-kg' })
+  toUnitSlug: string;
+
+  @ApiProperty({ example: 'KG' })
+  toUnitCode: string;
+
+  @ApiProperty({ description: 'Số lượng sau quy đổi (làm tròn 6 chữ số thập phân)', example: 250 })
+  toQuantity: number;
+
+  @ApiProperty({ description: 'Số đơn vị cơ sở trong 1 đơn vị đích', example: 1 })
+  toConversionRate: number;
+
+  @ApiProperty({ example: 'unit-kg' })
+  baseUnitSlug: string;
+
+  @ApiProperty({ example: 'KG' })
+  baseUnitCode: string;
+
+  @ApiProperty({ description: 'Số lượng quy về đơn vị cơ sở', example: 250 })
+  quantityInBaseUnit: number;
 }

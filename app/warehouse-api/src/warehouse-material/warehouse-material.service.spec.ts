@@ -218,6 +218,19 @@ describe('WarehouseMaterialService', () => {
       );
     });
 
+    // Tồn là DECIMAL(18,6) từ migration `1783728000021`: nhập theo đơn vị nhỏ hơn đơn vị cơ sở cho
+    // ra delta lẻ, `Math.trunc` cũ sẽ nuốt sạch phần thập phân (0.5 -> 0).
+    it('giữ nguyên phần thập phân của delta thay vì cắt về số nguyên', async () => {
+      warehouseMaterialRepository.findOne.mockResolvedValue(row({ quantity: 20 }));
+      const builder = mockUpdateBuilder(1);
+
+      await service.adjustQuantity('wh-slug-1', 'mat-slug-1', { delta: 0.5 });
+
+      const setter = builder.set.mock.calls[0][0].quantity as () => string;
+      expect(setter()).toContain('0.5');
+      expect(builder.andWhere.mock.calls[0][0]).toContain('0.5');
+    });
+
     // `@IsNotEmpty()` của class-validator KHÔNG coi 0 là empty, nên rào này phải nằm ở service.
     it('rejects a zero delta before touching the database', async () => {
       await expectError(
