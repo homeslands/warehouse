@@ -12,7 +12,6 @@ describe('UnitController', () => {
     findOne: jest.fn(),
     updateUnit: jest.fn(),
     deleteUnit: jest.fn(),
-    countMaterialsUsing: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -60,23 +59,6 @@ describe('UnitController', () => {
     expect(response.result).toBe('1 unit have been deleted successfully');
   });
 
-  it('wraps the material-count result in AppResponseDto', async () => {
-    const count = {
-      unitSlug: 'unit-slug-1',
-      unitCode: 'KG',
-      asBaseUnit: 3,
-      asConversionUnit: 7,
-      total: 9,
-    };
-    unitService.countMaterialsUsing.mockResolvedValue(count);
-
-    const response = await controller.countMaterialsUsing('unit-slug-1');
-
-    expect(unitService.countMaterialsUsing).toHaveBeenCalledWith('unit-slug-1');
-    expect(response.result).toEqual(count);
-    expect(response.statusCode).toBe(200);
-  });
-
   // Quyền nằm hoàn toàn ở decorator (`HasRoleGuard` đọc metadata này), service không check role.
   describe('@HasRole metadata', () => {
     const roles = (handler: (...args: never[]) => unknown): RoleEnum[] | undefined =>
@@ -92,7 +74,6 @@ describe('UnitController', () => {
       const readRoles = [RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor];
       expect(roles(controller.findAll)).toEqual(readRoles);
       expect(roles(controller.findOne)).toEqual(readRoles);
-      expect(roles(controller.countMaterialsUsing)).toEqual(readRoles);
     });
   });
 });

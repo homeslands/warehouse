@@ -124,7 +124,7 @@ export class MaterialController {
   @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Đơn vị CHỌN ĐƯỢC làm đơn vị quy đổi (đã loại đơn vị cơ sở và các unit đã gắn)',
+    summary: 'Đơn vị CHỌN ĐƯỢC làm đơn vị quy đổi',
   })
   @ApiPaginatedResponse(UnitResponseDto, 'Retrieved')
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
