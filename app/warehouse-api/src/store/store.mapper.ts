@@ -4,7 +4,6 @@ import { Injectable } from '@nestjs/common';
 import { CreateStoreRequestDto, StoreResponseDto, UpdateStoreRequestDto } from './store.dto';
 import { Store } from './store.entity';
 import { baseMapper } from 'src/app/base.mapper';
-import { versionedMapper } from 'src/app/versioned.mapper';
 
 /**
  * Chuẩn hoá dùng chung cho cả 2 map Create/Update -> Entity. Automapper KHÔNG kế thừa map của DTO
@@ -64,7 +63,6 @@ export class StoreProfile extends AutomapperProfile {
         Store,
         StoreResponseDto,
         extend(baseMapper(mapper)),
-        versionedMapper(),
         // Flatten quan hệ 1-1 `warehouse` (giống `WarehouseResponseDto.managerSlug`) — chỉ ra
         // `slug`/`name`, không trả nguyên entity `Warehouse` ra response.
         forMember(

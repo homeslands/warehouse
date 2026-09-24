@@ -18,7 +18,7 @@ Tạo master data **kho** cho hệ thống và cho phép phân công **1 quản 
 
 Quan hệ: `Warehouse belongsTo User` (`@ManyToOne`, `ON DELETE SET NULL`, **không** `eager`).
 
-Entity kế thừa **`VersionedBase`**: kho được sửa theo luồng "load full ra form, sửa nhiều field, lưu lại", 2 admin sửa cùng lúc có thể ghi đè nhau ⇒ cần optimistic locking.
+Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `1783728000024` — `VersionedBase` chỉ dành cho phiếu nhập/xuất/kiểm kho): không có optimistic lock, 2 admin sửa cùng lúc thì người sau thắng.
 
 ## Quy tắc nghiệp vụ
 
@@ -29,7 +29,7 @@ Entity kế thừa **`VersionedBase`**: kho được sửa theo luồng "load fu
 - **Phân công quản lý**: user được gán phải (1) tồn tại và chưa xoá mềm, (2) `isActive === true`, (3) `role.name === 'MANAGER'`. Gán `SUPERVISOR` làm quản lý kho sẽ tạo ra người không có quyền `IMPORT_FORM_CONFIRM`/`EXPORT_FORM_CONFIRM`/`BALANCE_FORM_APPROVE`/`WAREHOUSE_PAYMENT_APPROVE` của chính kho mình quản lý — đây là ràng buộc toàn vẹn dữ liệu, không phải phân quyền người gọi.
 - **1 user được phụ trách nhiều kho** — cố ý cho phép (tổ chức nhỏ 1 quản lý 2 điểm). Siết lại sau cần migration; nới ra thì miễn phí.
 - Gửi `managerSlug: null` để **gỡ phân công**; không tra user, không lỗi.
-- Gán lại đúng manager đang có: vẫn `save`, `version` vẫn tăng — không short-circuit.
+- Gán lại đúng manager đang có: vẫn `save` — không short-circuit.
 - **Không xoá được kho đang `isActive`** — phải `PATCH isActive: false` trước. Rào chống xoá nhầm rẻ nhất khi chưa có bảng tồn kho/phiếu để check tham chiếu.
 - Xoá là **xoá mềm** (`softRemove`); kho đã xoá **giữ nguyên** `manager_id_column` để restore sau này còn ý nghĩa.
 - `managerSlug` **không** nằm trong body create/update: `AuthorityGuard` chặn theo endpoint chứ không theo field, để `managerSlug` trong create thì ai có `WAREHOUSE_CREATE` cũng phân công được manager mà không cần `WAREHOUSE_ASSIGN_MANAGER`.
@@ -53,8 +53,8 @@ Entity kế thừa **`VersionedBase`**: kho được sửa theo luồng "load fu
 - `GET /warehouses` — danh sách phân trang, filter `isActive`, `managerSlug`, `hasManager`.
 - `GET /warehouses/mine` — kho mà người đang đăng nhập phụ trách (phân trang, filter `isActive`). **Phải khai trước `GET /:slug`** trong controller.
 - `GET /warehouses/:slug` — chi tiết.
-- `PATCH /warehouses/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ; riêng `version` luôn bắt buộc.
-- `PUT /warehouses/:slug/manager` — phân công / gỡ phân công quản lý (body `{ managerSlug: string | null, version: number }`). Idempotent, trả về `WarehouseResponseDto` đã bump `version`.
+- `PATCH /warehouses/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ.
+- `PUT /warehouses/:slug/manager` — phân công / gỡ phân công quản lý (body `{ managerSlug: string | null }`). Idempotent, trả về `WarehouseResponseDto`.
 - `DELETE /warehouses/:slug` — xoá mềm.
 
 ## Quan hệ với `Store` (1-1, thêm 2026-09-17)
@@ -63,7 +63,6 @@ Mỗi kho thuộc tối đa 1 cửa hàng. `Warehouse.store` là **inverse side*
 
 Hệ quả cần nhớ: kho `isActive = false` **không gắn được** cho cửa hàng, và kho đang thuộc 1 cửa hàng thì cửa hàng khác không lấy được (kể cả khi cửa hàng giữ nó đã bị xoá mềm).
 
-- `version` trong `UpdateWarehouseRequestDto`/`AssignWarehouseManagerRequestDto` bắt buộc `@Min(1)` — gửi `version: 0` sẽ bypass hoàn toàn optimistic lock của TypeORM (`SelectQueryBuilder.js:691-693`, `0` là falsy ⇒ check không chạy). Xem `docs/specs/store.md` mục "Quy tắc nghiệp vụ".
 
 ## Ngoài phạm vi (Out of scope)
 

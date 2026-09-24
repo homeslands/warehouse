@@ -1,9 +1,9 @@
 import { Entity, Column } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
-import { VersionedBase } from 'src/app/versioned.entity';
+import { Base } from 'src/app/base.entity';
 
 @Entity('material_type_tbl')
-export class MaterialType extends VersionedBase {
+export class MaterialType extends Base {
   @AutoMap()
   @Column({ name: 'name_column', unique: true })
   name: string;

@@ -4,7 +4,6 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { OptimisticLockVersionMismatchError } from 'typeorm';
 import { StoreService } from './store.service';
 import { StoreProfile } from './store.mapper';
 import { Store } from './store.entity';
@@ -23,7 +22,6 @@ const baseStore = (overrides: Partial<Store> = {}): Store =>
     legalName: 'Công ty TNHH ABC',
     taxCode: '0101234567',
     isActive: true,
-    version: 1,
     ...overrides,
   }) as Store;
 
@@ -34,7 +32,6 @@ const baseWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
     name: 'Kho Hà Nội',
     code: 'WH-HN-01',
     isActive: true,
-    version: 1,
     ...overrides,
   }) as Warehouse;
 
@@ -228,7 +225,7 @@ describe('StoreService', () => {
       expect(whereOf()).toEqual({});
     });
 
-    it('computes pagination metadata and exposes version', async () => {
+    it('computes pagination metadata', async () => {
       storeRepository.findAndCount.mockResolvedValue([[baseStore()], 3]);
 
       const result = await service.findAll({ page: 2, size: 1 });
@@ -241,7 +238,7 @@ describe('StoreService', () => {
         hasNext: true,
         hasPrevios: true,
       });
-      expect(result.items[0]).toMatchObject({ slug: 'st-slug-1', version: 1 });
+      expect(result.items[0]).toMatchObject({ slug: 'st-slug-1' });
     });
   });
 
@@ -261,7 +258,7 @@ describe('StoreService', () => {
         where: { slug: 'st-slug-1' },
         relations: { warehouse: true },
       });
-      expect(result).toMatchObject({ slug: 'st-slug-1', code: 'ST-HN-01', version: 1 });
+      expect(result).toMatchObject({ slug: 'st-slug-1', code: 'ST-HN-01' });
     });
 
     // Quan hệ không `eager`: quên `relations` là response im lặng mất `warehouseSlug`.
@@ -283,9 +280,9 @@ describe('StoreService', () => {
   });
 
   describe('updateStore', () => {
-    const updateDto = { ...createDto(), version: 4 };
+    const updateDto = createDto();
 
-    it('loads the row with an optimistic lock on the given version', async () => {
+    it('loads the row by slug', async () => {
       storeRepository.findOne.mockResolvedValue(baseStore());
       storeRepository.save.mockImplementation((data) => data);
 
@@ -294,7 +291,6 @@ describe('StoreService', () => {
       expect(storeRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'st-slug-1' },
         relations: { warehouse: true },
-        lock: { mode: 'optimistic', version: 4 },
       });
     });
 
@@ -353,16 +349,6 @@ describe('StoreService', () => {
       expect(result).toMatchObject({ warehouseSlug: 'wh-slug-1' });
     });
 
-    it('lets an optimistic lock mismatch propagate to the global filter', async () => {
-      storeRepository.findOne.mockRejectedValue(
-        new OptimisticLockVersionMismatchError('Store', 9, 4),
-      );
-
-      await expect(service.updateStore('st-slug-1', updateDto)).rejects.toBeInstanceOf(
-        OptimisticLockVersionMismatchError,
-      );
-    });
-
     it('throws when the store is not found', async () => {
       storeRepository.findOne.mockResolvedValue(null);
 
@@ -386,7 +372,6 @@ describe('StoreService', () => {
 
       const result = await service.updateStore('st-slug-1', {
         name: 'Cửa hàng Hà Nội 2',
-        version: 1,
       } as never);
 
       expect(storeRepository.save).toHaveBeenCalledWith(
@@ -406,7 +391,7 @@ describe('StoreService', () => {
       storeRepository.findOne.mockResolvedValue(baseStore());
       storeRepository.save.mockImplementation((data) => data);
 
-      await service.updateStore('st-slug-1', { name: 'Tên mới', version: 1 } as never);
+      await service.updateStore('st-slug-1', { name: 'Tên mới' } as never);
 
       expect(storeRepository.findOne).toHaveBeenCalledTimes(1);
       expect(storeRepository.findOneBy).toHaveBeenCalledTimes(1);
@@ -421,7 +406,6 @@ describe('StoreService', () => {
 
       const result = await service.updateStore('st-slug-1', {
         name: 'Tên mới',
-        version: 1,
       } as never);
 
       expect(result.isActive).toBe(false);
@@ -433,7 +417,6 @@ describe('StoreService', () => {
 
       const result = await service.updateStore('st-slug-1', {
         isActive: false,
-        version: 1,
       } as never);
 
       expect(result.isActive).toBe(false);
@@ -445,7 +428,6 @@ describe('StoreService', () => {
 
       const result = await service.updateStore('st-slug-1', {
         name: 'Tên mới',
-        version: 1,
       } as never);
 
       expect(result).toMatchObject({ warehouseSlug: 'wh-slug-1' });
@@ -453,9 +435,9 @@ describe('StoreService', () => {
   });
 
   describe('assignWarehouse', () => {
-    const assignDto = { warehouseSlug: 'wh-slug-1', version: 4 };
+    const assignDto = { warehouseSlug: 'wh-slug-1' };
 
-    it('loads the row with an optimistic lock and the warehouse relation', async () => {
+    it('loads the row with the warehouse relation', async () => {
       storeRepository.findOne.mockResolvedValueOnce(baseStore()).mockResolvedValueOnce(null);
       warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
       storeRepository.save.mockImplementation((data) => data);
@@ -465,7 +447,6 @@ describe('StoreService', () => {
       expect(storeRepository.findOne).toHaveBeenNthCalledWith(1, {
         where: { slug: 'st-slug-1' },
         relations: { warehouse: true },
-        lock: { mode: 'optimistic', version: 4 },
       });
     });
 
@@ -489,7 +470,6 @@ describe('StoreService', () => {
 
       const result = await service.assignWarehouse('st-slug-1', {
         warehouseSlug: null,
-        version: 4,
       });
 
       expect(warehouseRepository.findOneBy).not.toHaveBeenCalled();
@@ -568,16 +548,6 @@ describe('StoreService', () => {
         where: { warehouse: { id: 'wh-id-1' } },
         withDeleted: true,
       });
-    });
-
-    it('lets an optimistic lock mismatch propagate to the global filter', async () => {
-      storeRepository.findOne.mockRejectedValue(
-        new OptimisticLockVersionMismatchError('Store', 9, 4),
-      );
-
-      await expect(service.assignWarehouse('st-slug-1', assignDto)).rejects.toBeInstanceOf(
-        OptimisticLockVersionMismatchError,
-      );
     });
 
     it('throws when the store is not found', async () => {

@@ -86,7 +86,6 @@ export class WarehouseService {
     const warehouse = await this.warehouseRepository.findOne({
       where: { slug },
       relations: WAREHOUSE_RELATIONS,
-      lock: { mode: 'optimistic', version: dto.version },
     });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
 
@@ -113,7 +112,6 @@ export class WarehouseService {
     const warehouse = await this.warehouseRepository.findOne({
       where: { slug },
       relations: WAREHOUSE_RELATIONS,
-      lock: { mode: 'optimistic', version: dto.version },
     });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
 

@@ -4,7 +4,7 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { IsNull, Not, OptimisticLockVersionMismatchError } from 'typeorm';
+import { IsNull, Not } from 'typeorm';
 import { WarehouseService } from './warehouse.service';
 import { WarehouseProfile } from './warehouse.mapper';
 import { Warehouse } from './warehouse.entity';
@@ -21,7 +21,6 @@ const baseWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
     code: 'WH-HN-01',
     address: 'Số 1, Cầu Giấy, Hà Nội',
     isActive: true,
-    version: 1,
     manager: null,
     ...overrides,
   }) as Warehouse;
@@ -233,7 +232,6 @@ describe('WarehouseService', () => {
         hasPrevios: true,
       });
       expect(result.items[0]).toMatchObject({
-        version: 1,
         managerSlug: 'manager-slug-1',
         managerPhonenumber: '0900000000',
       });
@@ -292,7 +290,6 @@ describe('WarehouseService', () => {
 
       const result = await service.updateWarehouse('wh-slug-1', {
         name: 'Kho Hà Nội 2',
-        version: 1,
       } as never);
 
       expect(result).toMatchObject({
@@ -306,7 +303,7 @@ describe('WarehouseService', () => {
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
       warehouseRepository.save.mockImplementation((data) => data);
 
-      await service.updateWarehouse('wh-slug-1', { name: 'Tên mới', version: 1 } as never);
+      await service.updateWarehouse('wh-slug-1', { name: 'Tên mới' } as never);
 
       expect(warehouseRepository.findOneBy).toHaveBeenCalledTimes(1);
       expect(warehouseRepository.findOneBy).toHaveBeenCalledWith({ name: 'Tên mới' });
@@ -320,7 +317,6 @@ describe('WarehouseService', () => {
 
       const result = await service.updateWarehouse('wh-slug-1', {
         name: 'Tên mới',
-        version: 1,
       } as never);
 
       expect(result.isActive).toBe(false);
@@ -328,9 +324,9 @@ describe('WarehouseService', () => {
   });
 
   describe('updateWarehouse', () => {
-    const updateDto = { ...createDto(), version: 4 };
+    const updateDto = createDto();
 
-    it('loads the row with an optimistic lock on the given version', async () => {
+    it('loads the row by slug', async () => {
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
       warehouseRepository.save.mockImplementation((data) => data);
 
@@ -339,7 +335,6 @@ describe('WarehouseService', () => {
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
         relations: { manager: true },
-        lock: { mode: 'optimistic', version: 4 },
       });
     });
 
@@ -374,16 +369,6 @@ describe('WarehouseService', () => {
       );
     });
 
-    it('lets an optimistic lock mismatch propagate to the global filter', async () => {
-      warehouseRepository.findOne.mockRejectedValue(
-        new OptimisticLockVersionMismatchError('Warehouse', 9, 4),
-      );
-
-      await expect(service.updateWarehouse('wh-slug-1', updateDto)).rejects.toBeInstanceOf(
-        OptimisticLockVersionMismatchError,
-      );
-    });
-
     it('throws when the warehouse is not found', async () => {
       warehouseRepository.findOne.mockResolvedValue(null);
 
@@ -405,7 +390,6 @@ describe('WarehouseService', () => {
 
       const result = await service.assignManager('wh-slug-1', {
         managerSlug: 'manager-slug-1',
-        version: 1,
       });
 
       expect(warehouseRepository.save).toHaveBeenCalledWith(
@@ -415,7 +399,7 @@ describe('WarehouseService', () => {
     });
 
     it('unassigns without looking the user up when managerSlug is null', async () => {
-      const result = await service.assignManager('wh-slug-1', { managerSlug: null, version: 1 });
+      const result = await service.assignManager('wh-slug-1', { managerSlug: null });
 
       expect(userService.findBySlug).not.toHaveBeenCalled();
       expect(warehouseRepository.save).toHaveBeenCalledWith(
@@ -428,7 +412,7 @@ describe('WarehouseService', () => {
       userService.findBySlug.mockResolvedValue(null);
 
       await expectWarehouseError(
-        service.assignManager('wh-slug-1', { managerSlug: 'ghost', version: 1 }),
+        service.assignManager('wh-slug-1', { managerSlug: 'ghost' }),
         WarehouseValidation.WAREHOUSE_MANAGER_NOT_FOUND.code,
       );
     });
@@ -437,7 +421,7 @@ describe('WarehouseService', () => {
       userService.findBySlug.mockResolvedValue(managerUser({ isActive: false }));
 
       await expectWarehouseError(
-        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1', version: 1 }),
+        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1' }),
         WarehouseValidation.WAREHOUSE_MANAGER_INACTIVE.code,
       );
     });
@@ -448,19 +432,18 @@ describe('WarehouseService', () => {
       );
 
       await expectWarehouseError(
-        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1', version: 1 }),
+        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1' }),
         WarehouseValidation.WAREHOUSE_MANAGER_ROLE_INVALID.code,
       );
       expect(warehouseRepository.save).not.toHaveBeenCalled();
     });
 
-    it('loads the row with an optimistic lock on the given version', async () => {
-      await service.assignManager('wh-slug-1', { managerSlug: null, version: 7 });
+    it('loads the row by slug', async () => {
+      await service.assignManager('wh-slug-1', { managerSlug: null });
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
         relations: { manager: true },
-        lock: { mode: 'optimistic', version: 7 },
       });
     });
 
@@ -468,7 +451,7 @@ describe('WarehouseService', () => {
       warehouseRepository.findOne.mockResolvedValue(null);
 
       await expectWarehouseError(
-        service.assignManager('missing-slug', { managerSlug: null, version: 1 }),
+        service.assignManager('missing-slug', { managerSlug: null }),
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
       );
     });

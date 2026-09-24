@@ -25,7 +25,7 @@ Tạo master data **cửa hàng** — đơn vị quản lý sản phẩm và xu�
 
 Quan hệ với entity khác: **1-1 với `Warehouse`** (xem mục riêng bên dưới). Không FK tới `User` hay `Material`.
 
-Entity kế thừa **`VersionedBase`**: cửa hàng được sửa theo luồng "load full ra form, sửa nhiều field (8 field, phần lớn là thông tin pháp nhân), lưu lại" — 2 admin sửa cùng lúc có thể ghi đè nhau ⇒ cần optimistic locking. Không có thao tác atomic tăng/giảm nào trên entity này.
+Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `1783728000024` — `VersionedBase` chỉ dành cho phiếu nhập/xuất/kiểm kho): không có optimistic lock, 2 admin sửa cùng lúc thì người sau thắng. Không có thao tác atomic tăng/giảm nào trên entity này.
 
 ## Quy tắc nghiệp vụ
 
@@ -38,15 +38,13 @@ Entity kế thừa **`VersionedBase`**: cửa hàng được sửa theo luồng 
 - Khi update, chỉ check lại trùng `code`/`name`/`taxCode` nếu giá trị **thực sự đổi** — gửi lại đúng giá trị cũ không bị báo trùng với chính nó.
 - **Không xoá được cửa hàng đang `isActive`** — phải `PATCH isActive: false` trước. Rào chống xoá nhầm rẻ nhất khi chưa có bảng sản phẩm/hoá đơn để check tham chiếu.
 - Xoá là **xoá mềm** (`softRemove`).
-- `version` trong mọi write DTO (`UpdateStoreRequestDto`, `AssignStoreWarehouseRequestDto`) bắt buộc **`@Min(1)`**, không chỉ `@IsInt()`. Lý do không hiển nhiên: TypeORM bọc cả khối so sánh version của optimistic lock trong `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) — `0` là falsy nên gửi `version: 0` khiến check **không chạy** và `save()` ghi đè vô điều kiện, chỉ với 1 request. `@IsNotEmpty` lẫn `@IsInt` đều cho `0` đi qua. Chặn ở DTO là rào duy nhất.
 - `email` được `trim().toLowerCase()` trước khi lưu; không unique (2 cửa hàng dùng chung 1 email liên hệ là hợp lệ).
 
 ## Quan hệ Store ↔ Warehouse (1-1)
 
 - **Owning side là `Store`**: cột `store_tbl.warehouse_id_column` + **UNIQUE index** `UQ_store_warehouse`. Chính UNIQUE đó là thứ chặn 2 cửa hàng cùng trỏ vào 1 kho ở tầng DB — service chỉ check trước để trả lỗi nghiệp vụ thay vì để MySQL ném `ER_DUP_ENTRY` thành 500. `Warehouse.store` là inverse side, không có cột nào trên `warehouse_tbl`.
 - **Nullable**: cửa hàng chưa gắn kho (và kho chưa thuộc cửa hàng nào) là trạng thái hợp lệ. MySQL cho phép nhiều NULL trong UNIQUE index nên nhiều cửa hàng cùng ở trạng thái "chưa gắn" vẫn OK. `POST /stores` **không** nhận `warehouseSlug` — tạo xong mới gắn.
-- **Gắn/gỡ qua endpoint riêng** `PUT /stores/:slug/warehouse` (body `{ warehouseSlug: string | null, version: number }`), **không** qua `PATCH /stores/:slug` — nó thay thế đúng 1 slot và idempotent, cùng tinh thần `PUT /warehouses/:slug/manager`. `warehouseSlug: null` là đường gỡ gắn kết duy nhất (không có `DELETE` riêng).
-- `version` bắt buộc như mọi thao tác ghi trên entity `VersionedBase` — lệch version trả `DATA_VERSION_CONFLICT` 409.
+- **Gắn/gỡ qua endpoint riêng** `PUT /stores/:slug/warehouse` (body `{ warehouseSlug: string | null }`), **không** qua `PATCH /stores/:slug` — nó thay thế đúng 1 slot và idempotent, cùng tinh thần `PUT /warehouses/:slug/manager`. `warehouseSlug: null` là đường gỡ gắn kết duy nhất (không có `DELETE` riêng).
 - Quan hệ **không `eager`**: mọi read path phải truyền `relations: { warehouse: true }`, thiếu là response im lặng mất `warehouseSlug`.
 - Response `StoreResponseDto` flatten thành `warehouseSlug` + `warehouseName` (giống `WarehouseResponseDto.managerSlug`), không trả nguyên entity `Warehouse`.
 
@@ -83,7 +81,7 @@ CRUD chuẩn 5 route, không có endpoint đặc thù:
 - `POST /stores` — tạo cửa hàng.
 - `GET /stores` — danh sách phân trang, filter `isActive`.
 - `GET /stores/:slug` — chi tiết.
-- `PATCH /stores/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ; riêng `version` luôn bắt buộc. **Không** đụng tới `warehouse`.
+- `PATCH /stores/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ. **Không** đụng tới `warehouse`.
 - `PUT /stores/:slug/warehouse` — gắn kho (hoặc gỡ với `warehouseSlug: null`).
 - `DELETE /stores/:slug` — xoá mềm.
 

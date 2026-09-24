@@ -89,7 +89,6 @@ export class MaterialTypeService {
     const context = `${MaterialTypeService.name}.${this.updateMaterialType.name}`;
     const materialType = await this.materialTypeRepository.findOne({
       where: { slug },
-      lock: { mode: 'optimistic', version: dto.version },
     });
     if (!materialType)
       throw new MaterialTypeException(MaterialTypeValidation.MATERIAL_TYPE_NOT_FOUND);

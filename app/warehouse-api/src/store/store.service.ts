@@ -88,13 +88,9 @@ export class StoreService {
 
   async updateStore(slug: string, dto: UpdateStoreRequestDto): Promise<StoreResponseDto> {
     const context = `${StoreService.name}.${this.updateStore.name}`;
-    // `lock.optimistic` để TypeORM tự ném `OptimisticLockVersionMismatchError` khi `version` lệch —
-    // `OptimisticLockExceptionFilter` (global) đổi nó thành `DATA_VERSION_CONFLICT` 409, không
-    // try/catch ở đây.
     const store = await this.storeRepository.findOne({
       where: { slug },
       relations: STORE_RELATIONS,
-      lock: { mode: 'optimistic', version: dto.version },
     });
     if (!store) throw new StoreException(StoreValidation.STORE_NOT_FOUND);
 
@@ -127,7 +123,6 @@ export class StoreService {
     const store = await this.storeRepository.findOne({
       where: { slug },
       relations: STORE_RELATIONS,
-      lock: { mode: 'optimistic', version: dto.version },
     });
     if (!store) throw new StoreException(StoreValidation.STORE_NOT_FOUND);
 

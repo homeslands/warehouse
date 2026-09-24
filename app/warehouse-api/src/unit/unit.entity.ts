@@ -1,10 +1,10 @@
 import { Entity, Column, OneToMany } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
-import { VersionedBase } from 'src/app/versioned.entity';
+import { Base } from 'src/app/base.entity';
 import { MaterialUnit } from 'src/material/material-unit.entity';
 
 @Entity('unit_tbl')
-export class Unit extends VersionedBase {
+export class Unit extends Base {
   @AutoMap()
   @Column({ name: 'name_column', unique: true })
   name: string;
