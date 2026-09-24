@@ -21,6 +21,7 @@ export const MATERIAL_CONVERT_QUANTITY_INVALID = 'MATERIAL_CONVERT_QUANTITY_INVA
 export const MATERIAL_BASE_UNIT_RATE_IS_FIXED = 'MATERIAL_BASE_UNIT_RATE_IS_FIXED';
 export const MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED = 'MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED';
 export const MATERIAL_BASE_UNIT_LOCKED = 'MATERIAL_BASE_UNIT_LOCKED';
+export const MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED = 'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED';
 
 export type TMaterialErrorCodeKey =
   | typeof MATERIAL_NOT_FOUND
@@ -42,7 +43,8 @@ export type TMaterialErrorCodeKey =
   | typeof MATERIAL_CONVERT_QUANTITY_INVALID
   | typeof MATERIAL_BASE_UNIT_RATE_IS_FIXED
   | typeof MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED
-  | typeof MATERIAL_BASE_UNIT_LOCKED;
+  | typeof MATERIAL_BASE_UNIT_LOCKED
+  | typeof MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED;
 
 export type TMaterialErrorCode = Record<TMaterialErrorCodeKey, TErrorCodeValue>;
 
@@ -138,4 +140,5 @@ export const MaterialValidation: TMaterialErrorCode = {
     100723,
     'Base unit can no longer be changed: the material already has stock or other conversion units',
   ),
+  MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED: createErrorCode(100724, 'baseUnitSlug is required'),
 };

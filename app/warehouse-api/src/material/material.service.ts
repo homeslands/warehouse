@@ -72,16 +72,12 @@ export class MaterialService {
     this.assertInventoryRange(data.minimumInventory, data.maximumInventory);
     // Ném `MATERIAL_TYPE_NOT_FOUND` nếu slug sai — lỗi của module material-type, cố ý không bọc lại.
     data.type = await this.materialTypeService.findEntityBySlug(dto.typeSlug);
-    // Không gửi `baseUnitSlug` = vật tư chưa khai đơn vị cơ sở (cột NULL-able). Ném `UNIT_NOT_FOUND`
-    // nếu slug sai (lỗi của module unit, cố ý không bọc lại).
-    const baseUnit =
-      dto.baseUnitSlug === undefined
-        ? undefined
-        : await this.unitService.findEntityBySlug(dto.baseUnitSlug);
+    // `baseUnitSlug` bắt buộc (DTO chặn thiếu/`null`). Ném `UNIT_NOT_FOUND` nếu slug sai (lỗi của
+    // module unit, cố ý không bọc lại).
+    const baseUnit = await this.unitService.findEntityBySlug(dto.baseUnitSlug);
 
     const created = await this.transactionManagerService.execute(async (manager) => {
       const material = await manager.save(this.materialRepository.create(data));
-      if (!baseUnit) return material;
 
       await manager.save(
         this.materialUnitRepository.create({
