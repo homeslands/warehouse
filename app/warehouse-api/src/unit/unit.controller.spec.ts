@@ -42,7 +42,7 @@ describe('UnitController', () => {
 
   it('wraps the update result in AppResponseDto', async () => {
     unitService.updateUnit.mockResolvedValue({ slug: 'unit-slug-1', name: 'Kilôgam' });
-    const dto = { name: 'Kilôgam', version: 1 };
+    const dto = { name: 'Kilôgam' };
 
     const response = await controller.updateUnit('unit-slug-1', dto);
 

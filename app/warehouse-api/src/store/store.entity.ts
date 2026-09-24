@@ -1,6 +1,6 @@
 import { Entity, Column, OneToOne, JoinColumn } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
-import { VersionedBase } from 'src/app/versioned.entity';
+import { Base } from 'src/app/base.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 
 /**
@@ -8,7 +8,7 @@ import { Warehouse } from 'src/warehouse/warehouse.entity';
  * (`Warehouse`) và 1 kho chỉ thuộc về tối đa 1 cửa hàng (quan hệ 1-1, xem `docs/specs/store.md`).
  */
 @Entity('store_tbl')
-export class Store extends VersionedBase {
+export class Store extends Base {
   @AutoMap()
   @Column({ name: 'name_column' })
   name: string;

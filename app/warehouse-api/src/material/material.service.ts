@@ -146,7 +146,6 @@ export class MaterialService {
     const material = await this.materialRepository.findOne({
       where: { slug },
       relations: MATERIAL_RELATIONS,
-      lock: { mode: 'optimistic', version: dto.version },
     });
     if (!material) throw new MaterialException(MaterialValidation.MATERIAL_NOT_FOUND);
 
@@ -373,8 +372,8 @@ export class MaterialService {
     if (row.unitId === material.baseUnit?.id)
       throw new MaterialException(MaterialValidation.MATERIAL_BASE_UNIT_RATE_IS_FIXED);
 
-    // PATCH partial: field không gửi giữ nguyên giá trị cũ. Bảng join KHÔNG kế thừa
-    // `VersionedBase` (không có cột `version`) nên ở đây không có optimistic lock — 2 người sửa
+    // PATCH partial: field không gửi giữ nguyên giá trị cũ. Bảng join không có cột
+    // `version` nên ở đây không có optimistic lock — 2 người sửa
     // cùng lúc thì người sau thắng, chấp nhận được vì mỗi dòng chỉ có đúng 1 số.
     const data = pickDefined({ conversionRate: dto.conversionRate });
     Object.assign(row, data);

@@ -67,22 +67,21 @@ describe('StoreController', () => {
   });
 
   it('passes the slug and body through to updateStore', async () => {
-    const updateDto = { ...createDto, version: 2 };
-    storeService.updateStore.mockResolvedValue({ slug: 'st-slug-1', version: 3 });
+    const updateDto = createDto;
+    storeService.updateStore.mockResolvedValue({ slug: 'st-slug-1' });
 
     const response = await controller.updateStore('st-slug-1', updateDto);
 
     expect(storeService.updateStore).toHaveBeenCalledWith('st-slug-1', updateDto);
-    expect(response.result).toMatchObject({ version: 3 });
+    expect(response.result).toMatchObject({});
     expect(response.statusCode).toBe(200);
   });
 
   it('passes the slug and body through to assignWarehouse', async () => {
-    const assignDto = { warehouseSlug: 'wh-slug-1', version: 2 };
+    const assignDto = { warehouseSlug: 'wh-slug-1' };
     storeService.assignWarehouse.mockResolvedValue({
       slug: 'st-slug-1',
       warehouseSlug: 'wh-slug-1',
-      version: 3,
     });
 
     const response = await controller.assignWarehouse('st-slug-1', assignDto);
@@ -93,8 +92,8 @@ describe('StoreController', () => {
   });
 
   it('forwards a null warehouseSlug (unassign) untouched', async () => {
-    const assignDto = { warehouseSlug: null, version: 2 };
-    storeService.assignWarehouse.mockResolvedValue({ slug: 'st-slug-1', version: 3 });
+    const assignDto = { warehouseSlug: null };
+    storeService.assignWarehouse.mockResolvedValue({ slug: 'st-slug-1' });
 
     await controller.assignWarehouse('st-slug-1', assignDto);
 

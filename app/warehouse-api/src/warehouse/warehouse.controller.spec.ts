@@ -80,8 +80,8 @@ describe('WarehouseController', () => {
   });
 
   it('forwards slug and body to updateWarehouse', async () => {
-    const body = { ...createDto, version: 2 };
-    warehouseService.updateWarehouse.mockResolvedValue({ slug: 'wh-slug-1', version: 3 });
+    const body = createDto;
+    warehouseService.updateWarehouse.mockResolvedValue({ slug: 'wh-slug-1' });
 
     const response = await controller.updateWarehouse('wh-slug-1', body);
 
@@ -90,8 +90,8 @@ describe('WarehouseController', () => {
   });
 
   it('forwards slug and body to assignManager', async () => {
-    const body = { managerSlug: 'manager-slug-1', version: 1 };
-    warehouseService.assignManager.mockResolvedValue({ slug: 'wh-slug-1', version: 2 });
+    const body = { managerSlug: 'manager-slug-1' };
+    warehouseService.assignManager.mockResolvedValue({ slug: 'wh-slug-1' });
 
     await controller.assignManager('wh-slug-1', body);
 
@@ -99,14 +99,13 @@ describe('WarehouseController', () => {
   });
 
   it('passes a null managerSlug through without coercing it away', async () => {
-    const body = { managerSlug: null, version: 1 };
-    warehouseService.assignManager.mockResolvedValue({ slug: 'wh-slug-1', version: 2 });
+    const body = { managerSlug: null };
+    warehouseService.assignManager.mockResolvedValue({ slug: 'wh-slug-1' });
 
     await controller.assignManager('wh-slug-1', body);
 
     expect(warehouseService.assignManager).toHaveBeenCalledWith('wh-slug-1', {
       managerSlug: null,
-      version: 1,
     });
   });
 

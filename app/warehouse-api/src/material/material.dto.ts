@@ -1,8 +1,8 @@
-import { IsInt, IsNotEmpty, IsOptional, IsPositive, Matches, Min } from 'class-validator';
+import { IsNotEmpty, IsOptional, IsPositive, Matches, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
+import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 
@@ -61,8 +61,7 @@ export class CreateMaterialRequestDto {
 /**
  * PATCH đúng nghĩa REST: mọi field nghiệp vụ đều optional, field nào không gửi thì giữ nguyên giá
  * trị cũ (`PartialType` gắn `@IsOptional()` lên toàn bộ field thừa hưởng, validator vẫn chạy khi
- * field CÓ mặt). Chỉ `version` là bắt buộc — nó không phải dữ liệu nghiệp vụ mà là điều kiện của
- * optimistic lock.
+ * field CÓ mặt).
  */
 export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestDto) {
   // `PartialType` sao chép cả property initializer của DTO cha (`= 0`), nên PATCH không gửi ngưỡng
@@ -84,19 +83,6 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   @IsDecimalWithScale(6, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
   @Min(0, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
   override maximumInventory?: number = undefined;
-
-  @ApiProperty({
-    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
-    minimum: 1,
-  })
-  @IsNotEmpty({ message: 'MATERIAL_VERSION_IS_REQUIRED' })
-  @IsInt({ message: 'MATERIAL_VERSION_IS_REQUIRED' })
-  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
-  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
-  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
-  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
-  @Min(1, { message: 'MATERIAL_VERSION_IS_REQUIRED' })
-  version: number;
 }
 
 export class GetAllMaterialRequestDto extends BaseQueryDto {
@@ -116,7 +102,7 @@ export class GetAllMaterialRequestDto extends BaseQueryDto {
   name?: string;
 }
 
-export class MaterialResponseDto extends VersionedResponseDto {
+export class MaterialResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty()
   code: string;
