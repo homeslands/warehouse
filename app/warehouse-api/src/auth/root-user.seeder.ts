@@ -36,6 +36,8 @@ export class RootUserSeeder implements OnApplicationBootstrap {
     // UserService.createUser tự hash password bằng SALT_ROUNDS.
     await this.userService.createUser({
       phonenumber: this.rootPhonenumber,
+      firstName: 'Root',
+      lastName: 'User',
       password: this.rootPassword,
       roleSlug: superAdminRole.slug,
     });
