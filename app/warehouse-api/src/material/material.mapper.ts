@@ -3,10 +3,12 @@ import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core'
 import { Injectable } from '@nestjs/common';
 import {
   CreateMaterialRequestDto,
+  MaterialConversionUnitResponseDto,
   MaterialResponseDto,
   UpdateMaterialRequestDto,
 } from './material.dto';
 import { Material } from './material.entity';
+import { MaterialUnit } from './material-unit.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { versionedMapper } from 'src/app/versioned.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
@@ -15,8 +17,8 @@ import { normalizeCode } from 'src/shared/utils/code.util';
  * Automapper KHÔNG kế thừa map của DTO cha — `UpdateMaterialRequestDto extends
  * CreateMaterialRequestDto` vẫn phải khai map riêng.
  *
- * `typeSlug` cố tình KHÔNG map sang entity: quan hệ `type` do service resolve ra entity thật rồi
- * gán, mapper mà tự đụng vào sẽ ghi đè thành `undefined`.
+ * `typeSlug`/`baseUnitSlug` cố tình KHÔNG map sang entity: quan hệ `type`/`baseUnit` do service
+ * resolve ra entity thật rồi gán, mapper mà tự đụng vào sẽ ghi đè thành `undefined`.
  */
 const normalizeMaterial = <T extends Partial<CreateMaterialRequestDto>>() =>
   [
@@ -87,6 +89,40 @@ export class MaterialProfile extends AutomapperProfile {
         forMember(
           (d) => d.typeName,
           mapFrom((s) => s.type?.name),
+        ),
+        // `baseUnit` là quan hệ NULL-able và không `eager` — thiếu `relations: { baseUnit: true }`
+        // ở read path thì 3 field dưới im lặng ra `undefined`, không có lỗi nào báo ra.
+        forMember(
+          (d) => d.baseUnitSlug,
+          mapFrom((s) => s.baseUnit?.slug),
+        ),
+        forMember(
+          (d) => d.baseUnitCode,
+          mapFrom((s) => s.baseUnit?.code),
+        ),
+        forMember(
+          (d) => d.baseUnitName,
+          mapFrom((s) => s.baseUnit?.name),
+        ),
+      );
+
+      // Dòng bảng join -> DTO phẳng. `unit` phải được load (`relations: { unit: true }`), thiếu là
+      // 3 field `unit*` im lặng ra `undefined`.
+      createMap(
+        mapper,
+        MaterialUnit,
+        MaterialConversionUnitResponseDto,
+        forMember(
+          (d) => d.unitSlug,
+          mapFrom((s) => s.unit?.slug),
+        ),
+        forMember(
+          (d) => d.unitCode,
+          mapFrom((s) => s.unit?.code),
+        ),
+        forMember(
+          (d) => d.unitName,
+          mapFrom((s) => s.unit?.name),
         ),
       );
 

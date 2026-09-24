@@ -180,5 +180,56 @@ describe('UnitService', () => {
       await expectError(service.deleteUnit('unit-slug-1'), UnitValidation.UNIT_IN_USE.code);
       expect(unitRepository.softRemove).not.toHaveBeenCalled();
     });
+
+    // Chỉ đếm bảng join là bỏ lọt vật tư lấy unit làm ĐƠN VỊ CƠ SỞ (FK trực tiếp trên material_tbl).
+    it('đếm cả 2 đường tham chiếu: base unit và đơn vị quy đổi', async () => {
+      unitRepository.findOneBy.mockResolvedValue(baseUnit());
+      materialRepository.count.mockResolvedValue(0);
+
+      await service.deleteUnit('unit-slug-1');
+
+      expect(materialRepository.count).toHaveBeenCalledWith({
+        where: [{ baseUnit: { id: 'unit-id-1' } }, { unitsCanHave: { unitId: 'unit-id-1' } }],
+      });
+    });
+  });
+
+  describe('countMaterialsUsing', () => {
+    it('tách riêng số vật tư theo base unit / đơn vị quy đổi và tổng số vật tư duy nhất', async () => {
+      materialRepository.count
+        .mockResolvedValueOnce(3) // asBaseUnit
+        .mockResolvedValueOnce(7) // asConversionUnit
+        .mockResolvedValueOnce(9); // total (điều kiện OR, không phải phép cộng)
+
+      const result = await service.countMaterialsUsing(baseUnit().id);
+
+      expect(result).toEqual({
+        asBaseUnit: 3,
+        asConversionUnit: 7,
+        total: 9,
+      });
+    });
+  });
+
+  describe('findAll — loại trừ unit theo danh sách id', () => {
+    it('thêm điều kiện id NOT IN (...) khi được truyền', async () => {
+      unitRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 }, ['unit-id-1', 'unit-id-2']);
+
+      const { where } = unitRepository.findAndCount.mock.calls[0][0];
+      // `Not(In([...]))` của TypeORM: `.type` là toán tử ngoài cùng, `.value` đã được FindOperator
+      // bóc đệ quy về mảng bên trong — so khớp giá trị thay vì so danh tính object.
+      expect(where.id.type).toBe('not');
+      expect(where.id.value).toEqual(['unit-id-1', 'unit-id-2']);
+    });
+
+    it('không thêm điều kiện gì khi danh sách loại trừ rỗng', async () => {
+      unitRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 }, []);
+
+      expect(unitRepository.findAndCount.mock.calls[0][0].where).toEqual({});
+    });
   });
 });
