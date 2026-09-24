@@ -64,7 +64,7 @@ Mọi entity kế thừa `Base` (`src/app/base.entity.ts`): `id` (uuid PK), `slu
 **`VersionedBase` (`src/app/versioned.entity.ts`, extends `Base`)** — thêm cột `version` (`@VersionColumn()`, TypeORM tự tăng mỗi lần `save()`), dùng cho entity có luồng "load full ra sửa nhiều field qua form rồi lưu lại" (2 người sửa cùng lúc có thể ghi đè nhau) — **không** dùng cho entity chỉ có thao tác atomic tăng/giảm hoặc log append-only. Quyết định `Base` hay `VersionedBase` chốt ngay lúc viết spec (mục "Entity / dữ liệu" trong `docs/specs/_TEMPLATE.md`), không tự thêm sau khi đã code xong.
 
 Khi dùng `VersionedBase`:
-- `Update<X>RequestDto` thêm field `version: number` (`@IsNotEmpty() @IsInt()`) — client phải gửi lại `version` nhận được từ lần `GET` gần nhất.
+- `Update<X>RequestDto` thêm field `version: number` (`@IsNotEmpty() @IsInt() @Min(1)`) — client phải gửi lại `version` nhận được từ lần `GET` gần nhất. **`@Min(1)` là bắt buộc, không phải trang trí:** TypeORM bọc cả khối so sánh version của optimistic lock trong `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) — `0` là falsy nên client gửi `version: 0` khiến check **không chạy** và `save()` ghi đè vô điều kiện, chỉ với 1 request (không cần race). `@IsNotEmpty` lẫn `@IsInt` đều cho `0` đi qua. Test khoá hành vi này ở `<module>.dto.spec.ts` của cả 5 module dùng `VersionedBase`.
 - `<X>ResponseDto` kế thừa `VersionedResponseDto` (`src/app/base.dto.ts`) thay vì `BaseResponseDto`.
 - Trong `<module>.service.ts`, `update...()` load entity bằng `repository.findOne({ where: { slug }, lock: { mode: 'optimistic', version: dto.version } })` — TypeORM tự throw `OptimisticLockVersionMismatchError` nếu `version` không khớp bản mới nhất trong DB; lỗi này được `OptimisticLockExceptionFilter` (`src/app/optimistic-lock.filter.ts`, đã đăng ký global qua `APP_FILTER`) bắt và trả `DATA_VERSION_CONFLICT` (409) tự động — **không** tự try/catch trong service. Xem `src/example/example.service.ts` (`updateExample`) làm mẫu.
 - `<module>.mapper.ts`: `createMap(mapper, Entity, ResponseDto, extend(baseMapper(mapper)), versionedMapper())` — `versionedMapper()` (`src/app/versioned.mapper.ts`) map riêng field `version`, dùng kèm chứ không thay thế `extend(baseMapper(mapper))`. Xem `src/example/example.mapper.ts` làm mẫu.
@@ -76,6 +76,20 @@ Khi dùng `VersionedBase`:
 async create(@Body(new ValidationPipe({ transform: true, whitelist: true })) dto: CreateXRequestDto) { ... }
 ```
 Đặt tên: `Create<X>RequestDto`, `Update<X>RequestDto`, `<X>ResponseDto` (extends `BaseResponseDto`, hoặc `VersionedResponseDto` nếu entity dùng `VersionedBase` — xem mục "Base entity"). Mỗi field: `@AutoMap()` + `@ApiProperty()` + class-validator.
+
+### PATCH là partial update (bắt buộc, đúng nghĩa REST)
+
+`PATCH` chỉ nhận field cần đổi; field không gửi **giữ nguyên giá trị cũ**. `PUT` mới là thay toàn bộ (hiện chỉ có `PUT /warehouses/:slug/manager` và `PUT /stores/:slug/warehouse`, cả hai thay đúng 1 slot quan hệ). 3 việc phải làm đủ, thiếu 1 là hỏng âm thầm:
+
+1. **DTO**: `export class Update<X>RequestDto extends PartialType(Create<X>RequestDto)` (`PartialType` của `@nestjs/swagger`) — nó gắn `@IsOptional()` lên mọi field thừa hưởng, validator vẫn chạy khi field CÓ mặt. `version` khai riêng trong lớp con và vẫn bắt buộc.
+2. **Huỷ property initializer thừa hưởng**: `PartialType` sao chép cả `isActive?: boolean = true` / `minimumInventory?: number = 0` của DTO cha ⇒ PATCH không gửi field đó sẽ **âm thầm ghi giá trị mặc định đè lên bản ghi** (bật lại kho/cửa hàng đã tắt, reset ngưỡng tồn về 0). Khai lại field trong lớp con **kèm nguyên bộ decorator** (thiếu `@AutoMap()` là automapper bỏ luôn field, không map gì cả) và gán `= undefined`.
+3. **Service**: `const data = pickDefined(this.mapper.map(dto, Update<X>RequestDto, <X>))` (`src/shared/utils/obj.util.ts`) trước khi `Object.assign(entity, data)`; mọi check trùng phải thêm rào `data.field !== undefined` — thiếu rào thì `assertCodeIsFree(undefined)` tra nhầm sang bản ghi khác. Field cần resolve quan hệ (`typeSlug` → entity) chỉ resolve khi client CÓ gửi.
+
+Nếu mapper có `mapFrom((s) => s.field ?? <default>)` thì phải tách map của Create và Update: Create giữ default, Update để `undefined` chảy qua cho `pickDefined` lọc (xem `material.mapper.ts`: `inventoryDefaults()` vs `inventoryPassthrough()`).
+
+`null` được coi như "không gửi" (`pickDefined` lọc cả `undefined` lẫn `null`) — hiện **chưa có** cách xoá 1 field optional về NULL qua PATCH. Ngoại lệ có chủ ý: `warehouse-material` dùng `null` nghĩa là "bỏ override, quay về ngưỡng của Material" và tự xử lý riêng, không đi qua `pickDefined`.
+
+Test khoá 3 điểm trên nằm ở `<module>.dto.spec.ts` (body chỉ có `version` phải hợp lệ; initializer đã bị huỷ) và `<module>.service.spec.ts` (`describe('update<X> — partial (PATCH)')`).
 
 **Quan trọng — message class-validator phải trùng KEY trong `<module>.validation.ts`** (vd `@IsNotEmpty({ message: 'EXAMPLE_NAME_IS_REQUIRED' })` phải khớp key đã khai báo), không phải câu văn tự do — `HttpExceptionFilter` tra `AppValidation[message]` để map ra `statusCode: 422` + mã lỗi chuẩn. Không khớp → trả nguyên message thô với statusCode 400 mặc định.
 

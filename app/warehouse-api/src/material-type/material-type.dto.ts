@@ -1,6 +1,6 @@
-import { IsInt, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { IsInt, IsNotEmpty, IsOptional, Matches, Min } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, VersionedResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
@@ -28,10 +28,24 @@ export class CreateMaterialTypeRequestDto {
   description?: string;
 }
 
-export class UpdateMaterialTypeRequestDto extends CreateMaterialTypeRequestDto {
-  @ApiProperty({ description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột' })
+/**
+ * PATCH đúng nghĩa REST: mọi field nghiệp vụ đều optional, field nào không gửi thì giữ nguyên giá
+ * trị cũ (`PartialType` gắn `@IsOptional()` lên toàn bộ field thừa hưởng, validator vẫn chạy khi
+ * field CÓ mặt). Chỉ `version` là bắt buộc — nó không phải dữ liệu nghiệp vụ mà là điều kiện của
+ * optimistic lock.
+ */
+export class UpdateMaterialTypeRequestDto extends PartialType(CreateMaterialTypeRequestDto) {
+  @ApiProperty({
+    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    minimum: 1,
+  })
   @IsNotEmpty({ message: 'MATERIAL_TYPE_VERSION_IS_REQUIRED' })
   @IsInt({ message: 'MATERIAL_TYPE_VERSION_IS_REQUIRED' })
+  // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
+  // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
+  // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
+  // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
+  @Min(1, { message: 'MATERIAL_TYPE_VERSION_IS_REQUIRED' })
   version: number;
 }
 

@@ -88,7 +88,7 @@ export const WarehouseValidation: TWarehouseErrorCode = {
   ),
   WAREHOUSE_VERSION_IS_REQUIRED: createErrorCode(
     100512,
-    'Version is required and must be an integer',
+    'Version is required and must be an integer >= 1',
     HttpStatus.BAD_REQUEST,
   ),
   WAREHOUSE_MANAGER_SLUG_IS_REQUIRED: createErrorCode(
