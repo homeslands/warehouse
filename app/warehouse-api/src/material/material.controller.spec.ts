@@ -47,7 +47,12 @@ describe('MaterialController', () => {
 
   it('wraps the create result in AppResponseDto', async () => {
     materialService.createMaterial.mockResolvedValue({ slug: 'mat-slug-1' });
-    const dto = { code: 'MAT-001', name: 'Găng tay', typeSlug: 'type-slug-1' };
+    const dto = {
+      code: 'MAT-001',
+      name: 'Găng tay',
+      typeSlug: 'type-slug-1',
+      baseUnitSlug: 'unit-slug-1',
+    };
 
     const response = await controller.createMaterial(dto);
 

@@ -40,6 +40,7 @@ const createDto = (overrides: Record<string, unknown> = {}) => ({
   code: 'MAT-001',
   name: 'Găng tay cao su',
   typeSlug: 'type-slug-1',
+  baseUnitSlug: 'unit-slug-1',
   minimumInventory: 10,
   maximumInventory: 100,
   ...overrides,
@@ -118,6 +119,9 @@ describe('MaterialService', () => {
   });
 
   describe('createMaterial', () => {
+    // `baseUnitSlug` bắt buộc khi tạo ⇒ mọi lần tạo đều tra unit.
+    beforeEach(() => unitService.findEntityBySlug.mockResolvedValue(unit()));
+
     it('resolves typeSlug to the real entity and upper-cases the code', async () => {
       materialRepository.findOne.mockResolvedValue(null);
       materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
@@ -255,15 +259,15 @@ describe('MaterialService', () => {
       expect(result).toMatchObject({ baseUnitSlug: 'unit-slug-1', baseUnitCode: 'KG' });
     });
 
-    it('không tra unit khi tạo mới mà không gửi baseUnitSlug', async () => {
+    it('không tạo vật tư khi baseUnitSlug không tồn tại', async () => {
       materialRepository.findOne.mockResolvedValue(null);
       materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
-      materialRepository.create.mockImplementation((data) => data);
-      materialRepository.save.mockImplementation((data) => data);
+      unitService.findEntityBySlug.mockRejectedValue(new Error('UNIT_NOT_FOUND'));
 
-      await service.createMaterial(createDto());
-
-      expect(unitService.findEntityBySlug).not.toHaveBeenCalled();
+      await expect(service.createMaterial(createDto({ baseUnitSlug: 'ghost' }))).rejects.toThrow(
+        'UNIT_NOT_FOUND',
+      );
+      expect(transactionManagerService.execute).not.toHaveBeenCalled();
     });
 
     it('không tra unit khi PATCH không gửi baseUnitSlug', async () => {
