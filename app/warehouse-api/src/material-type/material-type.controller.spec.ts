@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MaterialTypeController } from './material-type.controller';
 import { MaterialTypeService } from './material-type.service';
-import { HAS_ROLE_KEY } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 
 describe('MaterialTypeController', () => {
   let controller: MaterialTypeController;
@@ -48,21 +48,18 @@ describe('MaterialTypeController', () => {
     expect(response.result).toBe('1 material type have been deleted successfully');
   });
 
-  // Quyền nằm hoàn toàn ở decorator (`HasRoleGuard` đọc metadata này), service không check role.
-  describe('@HasRole metadata', () => {
-    const roles = (handler: (...args: never[]) => unknown): RoleEnum[] | undefined =>
-      Reflect.getMetadata(HAS_ROLE_KEY, handler);
+  // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
+  // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
+  describe('@RequireAuthority metadata', () => {
+    const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
+      Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
 
-    it('restricts every write route to ADMIN', () => {
-      expect(roles(controller.createMaterialType)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.updateMaterialType)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.deleteMaterialType)).toEqual([RoleEnum.Admin]);
-    });
-
-    it('opens the read routes to ADMIN, MANAGER and SUPERVISOR', () => {
-      const readRoles = [RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor];
-      expect(roles(controller.findAll)).toEqual(readRoles);
-      expect(roles(controller.findOne)).toEqual(readRoles);
+    it('maps every route to its authority code', () => {
+      expect(authority(controller.createMaterialType)).toEqual([AuthorityCode.MaterialCreate]);
+      expect(authority(controller.findAll)).toEqual([AuthorityCode.MaterialRead]);
+      expect(authority(controller.findOne)).toEqual([AuthorityCode.MaterialRead]);
+      expect(authority(controller.updateMaterialType)).toEqual([AuthorityCode.MaterialUpdate]);
+      expect(authority(controller.deleteMaterialType)).toEqual([AuthorityCode.MaterialDelete]);
     });
   });
 });

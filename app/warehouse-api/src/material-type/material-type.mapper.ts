@@ -8,7 +8,6 @@ import {
 } from './material-type.dto';
 import { MaterialType } from './material-type.entity';
 import { baseMapper } from 'src/app/base.mapper';
-import { versionedMapper } from 'src/app/versioned.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
 
 /**
@@ -41,13 +40,7 @@ export class MaterialTypeProfile extends AutomapperProfile {
 
   override get profile() {
     return (mapper: Mapper) => {
-      createMap(
-        mapper,
-        MaterialType,
-        MaterialTypeResponseDto,
-        extend(baseMapper(mapper)),
-        versionedMapper(),
-      );
+      createMap(mapper, MaterialType, MaterialTypeResponseDto, extend(baseMapper(mapper)));
 
       createMap(
         mapper,

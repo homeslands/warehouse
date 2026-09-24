@@ -8,7 +8,6 @@ export const MATERIAL_TYPE_CODE_IS_REQUIRED = 'MATERIAL_TYPE_CODE_IS_REQUIRED';
 export const MATERIAL_TYPE_CODE_INVALID = 'MATERIAL_TYPE_CODE_INVALID';
 export const MATERIAL_TYPE_CODE_DOES_EXIST = 'MATERIAL_TYPE_CODE_DOES_EXIST';
 export const MATERIAL_TYPE_CODE_RESERVED_BY_DELETED = 'MATERIAL_TYPE_CODE_RESERVED_BY_DELETED';
-export const MATERIAL_TYPE_VERSION_IS_REQUIRED = 'MATERIAL_TYPE_VERSION_IS_REQUIRED';
 export const MATERIAL_TYPE_IN_USE = 'MATERIAL_TYPE_IN_USE';
 
 export type TMaterialTypeErrorCodeKey =
@@ -19,7 +18,6 @@ export type TMaterialTypeErrorCodeKey =
   | typeof MATERIAL_TYPE_CODE_INVALID
   | typeof MATERIAL_TYPE_CODE_DOES_EXIST
   | typeof MATERIAL_TYPE_CODE_RESERVED_BY_DELETED
-  | typeof MATERIAL_TYPE_VERSION_IS_REQUIRED
   | typeof MATERIAL_TYPE_IN_USE;
 
 export type TMaterialTypeErrorCode = Record<TMaterialTypeErrorCodeKey, TErrorCodeValue>;
@@ -48,11 +46,6 @@ export const MaterialTypeValidation: TMaterialTypeErrorCode = {
   MATERIAL_TYPE_CODE_RESERVED_BY_DELETED: createErrorCode(
     100607,
     'Material type code is still held by a deleted material type',
-  ),
-  MATERIAL_TYPE_VERSION_IS_REQUIRED: createErrorCode(
-    100608,
-    'Version is required and must be an integer >= 1',
-    HttpStatus.BAD_REQUEST,
   ),
   MATERIAL_TYPE_IN_USE: createErrorCode(
     100609,

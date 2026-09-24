@@ -8,7 +8,6 @@ export const UNIT_CODE_IS_REQUIRED = 'UNIT_CODE_IS_REQUIRED';
 export const UNIT_CODE_INVALID = 'UNIT_CODE_INVALID';
 export const UNIT_CODE_DOES_EXIST = 'UNIT_CODE_DOES_EXIST';
 export const UNIT_CODE_RESERVED_BY_DELETED = 'UNIT_CODE_RESERVED_BY_DELETED';
-export const UNIT_VERSION_IS_REQUIRED = 'UNIT_VERSION_IS_REQUIRED';
 export const UNIT_IN_USE = 'UNIT_IN_USE';
 
 export type TUnitErrorCodeKey =
@@ -19,7 +18,6 @@ export type TUnitErrorCodeKey =
   | typeof UNIT_CODE_INVALID
   | typeof UNIT_CODE_DOES_EXIST
   | typeof UNIT_CODE_RESERVED_BY_DELETED
-  | typeof UNIT_VERSION_IS_REQUIRED
   | typeof UNIT_IN_USE;
 
 export type TUnitErrorCode = Record<TUnitErrorCodeKey, TErrorCodeValue>;
@@ -40,11 +38,6 @@ export const UnitValidation: TUnitErrorCode = {
   UNIT_CODE_RESERVED_BY_DELETED: createErrorCode(
     100907,
     'Unit code is still held by a deleted unit',
-  ),
-  UNIT_VERSION_IS_REQUIRED: createErrorCode(
-    100908,
-    'Version is required and must be an integer >= 1',
-    HttpStatus.BAD_REQUEST,
   ),
   UNIT_IN_USE: createErrorCode(100909, 'Unit is still referenced by materials - detach them first'),
 };

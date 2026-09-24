@@ -1,13 +1,13 @@
 import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
-import { VersionedBase } from 'src/app/versioned.entity';
+import { Base } from 'src/app/base.entity';
 import { MaterialType } from 'src/material-type/material-type.entity';
 import { Unit } from 'src/unit/unit.entity';
 import { MaterialUnit } from './material-unit.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 
 @Entity('material_tbl')
-export class Material extends VersionedBase {
+export class Material extends Base {
   @AutoMap()
   @Column({ name: 'code_column', unique: true })
   code: string;

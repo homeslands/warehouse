@@ -32,7 +32,6 @@ const baseMaterial = (overrides: Partial<Material> = {}): Material =>
     type: materialType(),
     minimumInventory: 10,
     maximumInventory: 100,
-    version: 1,
     ...overrides,
   }) as Material;
 
@@ -176,7 +175,6 @@ describe('MaterialService', () => {
 
       const result = await service.updateMaterial('mat-slug-1', {
         name: 'Găng tay nitrile',
-        version: 1,
       } as never);
 
       expect(result).toMatchObject({ name: 'Găng tay nitrile', code: 'MAT-001' });
@@ -190,7 +188,6 @@ describe('MaterialService', () => {
 
       const result = await service.updateMaterial('mat-slug-1', {
         name: 'Tên mới',
-        version: 1,
       } as never);
 
       expect(result).toMatchObject({ minimumInventory: 10, maximumInventory: 100 });
@@ -201,7 +198,7 @@ describe('MaterialService', () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial());
       materialRepository.save.mockImplementation((data) => data);
 
-      await service.updateMaterial('mat-slug-1', { name: 'Tên mới', version: 1 } as never);
+      await service.updateMaterial('mat-slug-1', { name: 'Tên mới' } as never);
 
       expect(materialTypeService.findEntityBySlug).not.toHaveBeenCalled();
     });
@@ -211,7 +208,7 @@ describe('MaterialService', () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial());
 
       await expectError(
-        service.updateMaterial('mat-slug-1', { minimumInventory: 999, version: 1 } as never),
+        service.updateMaterial('mat-slug-1', { minimumInventory: 999 } as never),
         MaterialValidation.MATERIAL_INVENTORY_RANGE_INVALID.code,
       );
     });
@@ -270,7 +267,7 @@ describe('MaterialService', () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial({ baseUnit: unit() }));
       materialRepository.save.mockImplementation((data) => data);
 
-      const result = await service.updateMaterial('mat-slug-1', { name: 'Tên mới', version: 1 });
+      const result = await service.updateMaterial('mat-slug-1', { name: 'Tên mới' });
 
       expect(unitService.findEntityBySlug).not.toHaveBeenCalled();
       expect(materialUnitRepository.countBy).not.toHaveBeenCalled();
@@ -286,7 +283,6 @@ describe('MaterialService', () => {
 
       const result = await service.updateMaterial('mat-slug-1', {
         baseUnitSlug: 'unit-slug-1',
-        version: 1,
       });
 
       // FK tổ hợp (id, base_unit_id) -> (material_id, unit_id): dòng join phải tồn tại trước.
@@ -311,7 +307,7 @@ describe('MaterialService', () => {
       materialRepository.save.mockImplementation((data) => data);
       materialUnitRepository.create.mockImplementation((data) => data);
 
-      await service.updateMaterial('mat-slug-1', { baseUnitSlug: 'unit-slug-9', version: 1 });
+      await service.updateMaterial('mat-slug-1', { baseUnitSlug: 'unit-slug-9' });
 
       // RESTRICT: chỉ được xoá dòng cũ sau khi `base_unit_id` đã trỏ sang dòng mới.
       expect(manager.delete).toHaveBeenCalledWith(MaterialUnit, {
@@ -333,7 +329,7 @@ describe('MaterialService', () => {
       materialUnitRepository.countBy.mockResolvedValue(1);
 
       await expectError(
-        service.updateMaterial('mat-slug-1', { baseUnitSlug: 'unit-slug-9', version: 1 }),
+        service.updateMaterial('mat-slug-1', { baseUnitSlug: 'unit-slug-9' }),
         MaterialValidation.MATERIAL_BASE_UNIT_LOCKED.code,
       );
       expect(manager.delete).not.toHaveBeenCalled();
@@ -348,7 +344,7 @@ describe('MaterialService', () => {
       materialUnitRepository.countBy.mockResolvedValue(3);
 
       await expectError(
-        service.updateMaterial('mat-slug-1', { baseUnitSlug: 'unit-slug-9', version: 1 }),
+        service.updateMaterial('mat-slug-1', { baseUnitSlug: 'unit-slug-9' }),
         MaterialValidation.MATERIAL_BASE_UNIT_LOCKED.code,
       );
     });
