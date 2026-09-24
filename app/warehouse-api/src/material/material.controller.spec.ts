@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { MaterialController } from './material.controller';
 import { MaterialService } from './material.service';
-import { HAS_ROLE_KEY } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 
 describe('MaterialController', () => {
   let controller: MaterialController;
@@ -118,27 +118,42 @@ describe('MaterialController', () => {
     expect(response.result).toBe('1 conversion unit have been detached successfully');
   });
 
-  describe('@HasRole metadata', () => {
-    const roles = (handler: (...args: never[]) => unknown): RoleEnum[] | undefined =>
-      Reflect.getMetadata(HAS_ROLE_KEY, handler);
+  // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
+  // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
+  describe('@RequireAuthority metadata', () => {
+    const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
+      Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
 
-    it('restricts every write route to ADMIN', () => {
-      expect(roles(controller.createMaterial)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.updateMaterial)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.deleteMaterial)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.addConversionUnit)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.updateConversionUnit)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.removeConversionUnit)).toEqual([RoleEnum.Admin]);
-    });
-
-    it('opens the read routes to ADMIN, MANAGER and SUPERVISOR', () => {
-      const readRoles = [RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor];
-      expect(roles(controller.findAll)).toEqual(readRoles);
-      expect(roles(controller.findOne)).toEqual(readRoles);
-      expect(roles(controller.findConversionUnits)).toEqual(readRoles);
-      expect(roles(controller.findAvailableConversionUnits)).toEqual(readRoles);
-      // `POST /materials/:slug/convert` không đổi dữ liệu nên nằm ở nhóm quyền ĐỌC.
-      expect(roles(controller.convertQuantity)).toEqual(readRoles);
+    it('maps every route to its authority code', () => {
+      expect(authority(controller.createMaterial)).toEqual([AuthorityCode.MaterialCreate]);
+      expect(authority(controller.findAll)).toEqual([AuthorityCode.MaterialRead]);
+      expect(authority(controller.findOne)).toEqual([AuthorityCode.MaterialRead]);
+      expect(authority(controller.updateMaterial)).toEqual([AuthorityCode.MaterialUpdate]);
+      expect(authority(controller.deleteMaterial)).toEqual([AuthorityCode.MaterialDelete]);
+      expect(authority(controller.findConversionUnits)).toEqual([
+        AuthorityCode.MaterialRead,
+        AuthorityCode.UnitRead,
+      ]);
+      expect(authority(controller.findAvailableConversionUnits)).toEqual([
+        AuthorityCode.MaterialRead,
+        AuthorityCode.UnitRead,
+      ]);
+      expect(authority(controller.convertQuantity)).toEqual([
+        AuthorityCode.MaterialRead,
+        AuthorityCode.UnitRead,
+      ]);
+      expect(authority(controller.addConversionUnit)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.UnitUpdate,
+      ]);
+      expect(authority(controller.updateConversionUnit)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.UnitUpdate,
+      ]);
+      expect(authority(controller.removeConversionUnit)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.UnitUpdate,
+      ]);
     });
   });
 });

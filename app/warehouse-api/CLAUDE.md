@@ -117,50 +117,43 @@ Thứ tự: `JwtOptionalAuthGuard` → `AuthorityGuard` → `HasRoleGuard` → `
 
 Có **2 cơ chế phân quyền chạy song song**, độc lập nhau (gắn cả 2 trên 1 endpoint là AND — phải qua cả hai):
 
-1. **Authority động** — bảng `Role`/`Authority`/`AuthorityGroup`/`Permission`, admin bật/tắt lúc chạy, xem `docs/specs/authority-permission.md`.
-2. **RBAC cơ bản theo role tĩnh** (`@HasRole`) — hardcode role trong code, không chạm DB/Redis, không cần migration seed. Hiện đang dùng ở **`src/user/`, `src/warehouse/`, `src/material-type/`, `src/material/`, `src/warehouse-material/`** (toàn bộ 5 module, xem bảng map ở mục "RBAC cơ bản" bên dưới) — mặc định cho module nghiệp vụ mới; các module hạ tầng còn lại (`example`/`role`/`authority`/`permission`/`logger`/`db`) vẫn dùng `@RequireAuthority`.
+1. **Authority động** (`@RequireAuthority`) — bảng `Role`/`Authority`/`AuthorityGroup`/`Permission`, admin bật/tắt lúc chạy, xem `docs/specs/authority-permission.md`. **Mặc định cho MỌI endpoint** — toàn bộ controller nghiệp vụ (`user`/`warehouse`/`material-type`/`unit`/`material`/`warehouse-material`/`store`/`tax-profile`) lẫn hạ tầng (`example`/`role`/`authority`/`permission`/`logger`/`db`) đều dùng nó.
+2. **RBAC cơ bản theo role tĩnh** (`@HasRole`) — decorator/guard **vẫn giữ và vẫn đăng ký** nhưng **hiện không endpoint nào dùng**. Đừng gắn nó cho endpoint mới; dùng `@RequireAuthority` + migration seed.
 
 Decorator:
 
 - `@Public()` — bỏ qua yêu cầu JWT, không check gì.
 - Không gắn gì — yêu cầu JWT hợp lệ, không check quyền cụ thể (mọi role đã login đều gọi được).
-- `@RequireAuthority('SOME_CODE')` (`src/authority/authority.decorator.ts`) — yêu cầu JWT hợp lệ **và** role của user phải được cấp `SOME_CODE` đó trong `permission_tbl` (admin bật/tắt qua `PUT/DELETE /roles/:roleSlug/authorities/:authorityCode`). `SUPER_ADMIN` bypass toàn bộ check này.
-- **Không có API tạo/xoá `Authority`/`AuthorityGroup`** — cố tình, để buộc đi qua migration (xem mục "Nợ kỹ thuật" và `docs/WORKFLOW.md` bước 6): mỗi lần gắn/đổi/xoá `@RequireAuthority(code)` trên 1 endpoint, phải viết kèm migration thêm/sửa/xoá `Authority` row có `code` tương ứng trong cùng lần đổi code. `Authority.code` là khoá tra cứu ổn định, tách riêng với `slug` (được phép đổi qua `PATCH /authorities/:slug`, chỉ đổi `name`/nhóm hiển thị).
-- `@HasRole(RoleEnum.Admin, RoleEnum.Manager)` (`src/role/role.decorator.ts`, guard `HasRoleGuard` trong `src/role/role.guard.ts`) — **RBAC cơ bản**: yêu cầu JWT hợp lệ **và** `roleName` (claim `role` của access token) nằm trong danh sách khai ngay tại decorator. Không đọc DB/Redis, **không cần migration seed `Authority`** — đổi quyền = sửa code + deploy. Dùng khi phân quyền là bất biến của hệ thống hoặc chưa muốn dựng `Authority` cho endpoint đó; endpoint cần admin bật/tắt được lúc chạy thì vẫn dùng `@RequireAuthority`. `SUPER_ADMIN` bypass; token cũ không có claim `role` bị chặn (fail-closed). Nhận ít nhất 1 role — `@HasRole()` rỗng là lỗi compile.
+- `@RequireAuthority(AuthorityCode.X[, AuthorityCode.Y...])` (`src/authority/authority.decorator.ts`, hằng trong `src/authority/authority.constants.ts`) — yêu cầu JWT hợp lệ **và** role của user phải được cấp **tất cả** `code` đã khai trong `permission_tbl` (admin bật/tắt qua `PUT/DELETE /roles/:roleSlug/authorities/:authorityCode`). `SUPER_ADMIN` bypass toàn bộ check này.
+- **Không có API tạo/xoá `Authority`/`AuthorityGroup`** — cố tình, để buộc đi qua migration (xem `docs/WORKFLOW.md` bước 6). **Mỗi feature mới = 1 migration seed authority riêng** (chỉ bộ CRUD `<FEATURE>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`; thao tác nối sang tài nguyên khác thì kết hợp code sẵn có bằng `@RequireAuthority(A, B)`, không đẻ code mới), viết trong cùng lần đổi code: thêm hằng vào `AuthorityCode` (giữ nguyên hằng cũ, ghi chú migration seed nó), rồi migration khai mảng `AuthoritySeed[]` (`code`/`name`/`group`/`defaultRoles`) và gọi `seedAuthorities()`/`unseedAuthorities()` trong `src/authority/authority-seed.util.ts` (mẫu: `1783728000024-seed-unit-authorities.ts`). Helper nằm ngoài `src/migrations/` vì glob migration nạp mọi export ở đó. `Authority.code` là khoá tra cứu ổn định, tách riêng với `slug` (được phép đổi qua `PATCH /authorities/:slug`, chỉ đổi `name`/nhóm hiển thị).
+- `@HasRole(RoleEnum.Admin, RoleEnum.Manager)` (`src/role/role.decorator.ts`, guard `HasRoleGuard` trong `src/role/role.guard.ts`) — **giữ lại nhưng không dùng**. Yêu cầu JWT hợp lệ **và** `roleName` (claim `role`) nằm trong danh sách khai ở decorator; không đọc DB/Redis, không cần migration. `SUPER_ADMIN` bypass; token không có claim `role` bị chặn (fail-closed).
 - `hasRole(user, RoleEnum.Admin)` (cùng file) — bản hàm, chỉ dùng trong service cho rào **phụ thuộc dữ liệu** mà guard không biết được (vd chỉ `SUPER_ADMIN` được đụng tài khoản `SUPER_ADMIN` khác). Rào tĩnh theo endpoint thì dùng decorator, đừng tự check trong service.
-- `@CurrentUser()` — lấy `CurrentUserDto { userId, userName, roleName, sessionId, scope }` (`sessionId` = claim `sid`, có thể `undefined` với token phát trước khi có claim này), `scope: string[]` là danh sách `Authority.code` role hiện có, tính lại từ DB mỗi request (không cache, không nằm trong JWT) — quyền admin bật/tắt có hiệu lực ngay từ request tiếp theo, không cần user re-login.
+- `@CurrentUser()` — lấy `CurrentUserDto { userId, userName, roleName, sessionId, scope }` (`sessionId` = claim `sid`, có thể `undefined` với token phát trước khi có claim này), `scope: string[]` là danh sách `Authority.code` role hiện có (cache Redis `rbac:user:{userId}`, xem `docs/specs/rbac.md`) — quyền admin bật/tắt qua API có hiệu lực ngay từ request tiếp theo, không cần user re-login. **Nhưng** migration seed authority ghi thẳng DB, không xoá cache: sau `typeorm:r` phải xoá key `rbac:*` (hoặc chờ hết TTL), không thì user đang có cache bị 403 ở endpoint mới.
 - `@Feature('group:feature:child')` — bật/tắt theo feature flag (khác authority: dùng cho bật/tắt tính năng, không phải phân quyền theo role).
 - `RoleBasedSerializationInterceptor` (global): ẩn/hiện field response theo role qua `@Expose({ groups: [RoleEnum.Admin] })` trên Response DTO — vẫn dựa vào `RoleEnum`/`roleName`, không liên quan tới `@RequireAuthority`.
 
-### RBAC cơ bản — map endpoint → role (`user`/`warehouse`)
+### Map endpoint → authority (quyền cấp sẵn lúc seed)
 
-| Endpoint | Role được phép |
-|---|---|
-| `POST /users` | `ADMIN` |
-| `GET /users` | `ADMIN` |
-| `POST /users/{userSlug}/change-password` | `ADMIN`, `MANAGER` |
-| `POST /warehouses` | `ADMIN` |
-| `GET /warehouses` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `GET /warehouses/mine` | mọi user đã đăng nhập (service tự lọc theo `userId`) |
-| `GET /warehouses/{slug}` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `PATCH /warehouses/{slug}` | `ADMIN` |
-| `PUT /warehouses/{slug}/manager` | `ADMIN` |
-| `DELETE /warehouses/{slug}` | `ADMIN` |
-| `POST`/`PATCH`/`DELETE /material-types...` | `ADMIN` |
-| `GET /material-types`, `GET /material-types/{slug}` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `POST`/`PATCH`/`DELETE /materials...` | `ADMIN` |
-| `GET /materials`, `GET /materials/{slug}` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `POST`/`PATCH`/`DELETE /warehouses/{slug}/materials...` (kể cả `PATCH .../quantity`) | `ADMIN` |
-| `GET /warehouses/{slug}/materials` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `GET /materials/{slug}/conversion-units`, `GET /materials/{slug}/conversion-units/available` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `POST /materials/{slug}/conversion-units`, `PATCH`/`DELETE /materials/{slug}/conversion-units/{unitSlug}` | `ADMIN` |
-| `POST /materials/{slug}/convert` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `POST`/`PATCH`/`DELETE /units...` | `ADMIN` |
-| `GET /units`, `GET /units/{slug}`, `GET /units/{slug}/material-count` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route nối 2 tài nguyên **không** có authority riêng mà gắn `@RequireAuthority(A, B)` — nhiều code là **AND** (metadata luôn là mảng). Loại vật tư dùng chung `MATERIAL_*` với vật tư.
 
-`SUPER_ADMIN` bypass tất cả. Map này chép đúng `defaultRoles` từng seed ở migration `1783728000010`/`1783728000011`/`1783728000014` lúc 2 module còn dùng `@RequireAuthority`. Đổi map = sửa decorator trên controller, không có API/migration nào đổi được lúc chạy. Có test khoá metadata decorator trong `user.controller.spec.ts`/`warehouse.controller.spec.ts` — gỡ nhầm decorator là test đỏ.
+| Endpoint | Authority (AND) | Cấp sẵn cho |
+|---|---|---|
+| `POST /users` / `GET /users` | `USER_CREATE` / `USER_READ` | `ADMIN` |
+| `POST /users/{userSlug}/change-password` | `USER_CHANGE_PASSWORD` | `ADMIN`, `MANAGER` |
+| `POST` / `PATCH` / `DELETE /warehouses...` / `PUT .../manager` | `WAREHOUSE_CREATE` / `_UPDATE` / `_DELETE` / `_ASSIGN_MANAGER` | `ADMIN` |
+| `GET /warehouses`, `GET /warehouses/{slug}` | `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `GET /warehouses/mine` | — (mọi user đã đăng nhập, service tự lọc theo `userId`) | |
+| `POST` / `GET` / `PATCH` / `DELETE /material-types...` và `/materials/{slug}` | `MATERIAL_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
+| `GET /materials/{slug}/conversion-units...`, `POST /materials/{slug}/convert` | `MATERIAL_READ` + `UNIT_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `POST` / `PATCH` / `DELETE /materials/{slug}/conversion-units...` | `MATERIAL_UPDATE` + `UNIT_UPDATE` | `ADMIN` |
+| `POST` / `GET` / `PATCH` / `DELETE /units...` | `UNIT_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
+| `GET /warehouses/{slug}/materials` | `MATERIAL_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `POST` / `PATCH` / `DELETE /warehouses/{slug}/materials...` (kể cả `.../quantity`) | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
+| `POST` / `GET` / `PATCH` / `DELETE /stores...` | `STORE_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
+| `PUT /stores/{slug}/warehouse` | `STORE_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
+| `GET /tax-profiles...` / `POST /tax-profiles/{taxCode}/refresh` | `TAX_PROFILE_READ` / `TAX_PROFILE_UPDATE` | `ADMIN`, `MANAGER`, `SUPERVISOR` / `ADMIN` |
 
-**Nợ:** 8 `Authority` row của 2 module này (`USER_*`, `WAREHOUSE_*`) vẫn còn trong DB và vẫn hiện ở API quản trị permission nhưng **bật/tắt không còn tác dụng gì** — chưa có migration xoá. Hằng tương ứng trong `src/authority/authority.constants.ts` được đánh dấu `MỒ CÔI`.
+`SUPER_ADMIN` bypass tất cả. Cột "Cấp sẵn cho" chỉ là giá trị seed (migration `1783728000010`/`011`/`014`/`024`–`027`), khớp đúng `@HasRole` cũ; sau khi migrate nguồn sự thật là `permission_tbl`. Có test khoá metadata `@RequireAuthority` trong `<module>.controller.spec.ts` của từng module — gỡ/đổi nhầm decorator là test đỏ.
 
 ## Swagger convention
 
@@ -181,10 +174,10 @@ export class ExampleController {
 - `POST /auth/login`, `POST /auth/refresh` (cả 2 `@Public()`), `GET /auth/me`, `POST /auth/logout`, `POST /auth/logout-all`, `POST /auth/change-password` (4 cái sau cần JWT). Prefix đầy đủ: `/api/{VERSION}/...`.
 - Đổi mật khẩu tách làm **2 endpoint ở 2 module khác nhau, quyền tĩnh khai ngay trên decorator** (không còn nhánh phân quyền theo body):
   - `POST /auth/change-password` (`AuthController` → `AuthService.changeOwnPassword`) — **tự đổi mật khẩu của chính mình**, mọi user đã đăng nhập đều gọi được (không gắn decorator quyền), body bắt buộc `currentPassword` + `newPassword`, trả `result.tokens` là cặp token mới (`sid` mới) để không bị văng khỏi app. Không nhận `userSlug`.
-  - `POST /users/{userSlug}/change-password` (`UserController` → `UserService.changeUserPassword`, xem mục "Đổi mật khẩu hộ user khác" bên dưới) — **đổi hộ user khác**, gắn `@HasRole(RoleEnum.Admin, RoleEnum.Manager)` (`SUPER_ADMIN` bypass), body chỉ có `newPassword`, trả `{ userSlug }`.
+  - `POST /users/{userSlug}/change-password` (`UserController` → `UserService.changeUserPassword`, xem mục "Đổi mật khẩu hộ user khác" bên dưới) — **đổi hộ user khác**, gắn `@RequireAuthority(AuthorityCode.UserChangePassword)` (`SUPER_ADMIN` bypass), body chỉ có `newPassword`, trả `{ userSlug }`.
 - Access token và refresh token ký cùng `JWT_SECRET`, phân biệt bằng claim `type` (`TokenType` trong `auth.dto.ts`): `JwtStrategy` từ chối refresh token dùng như access token, `AuthService.refresh()` từ chối access token gửi vào `/auth/refresh`. `jti` của 2 loại **khác nhau**; claim `sid` (session id) thì **giống nhau** và không đổi khi `/auth/refresh` ký lại token — `sid` mới là thứ dùng để thu hồi, không phải `jti`.
 - Sai mật khẩu và không tìm thấy user đều trả `INVALID_CREDENTIALS` (không phân biệt).
-- Role được seed sẵn qua migration (`SUPERVISOR`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`); tài khoản admin đầu tiên tự tạo bởi `RootUserSeeder` (`ROOT_PHONENUMBER`/`ROOT_PASSWORD` trong `.env`, mặc định `root`/`root`) — dùng để test route giới hạn bởi `@RequireAuthority(...)`/`@HasRole(...)` mà không cần thao tác SQL.
+- Role được seed sẵn qua migration (`SUPERVISOR`/`MANAGER`/`ADMIN`/`SUPER_ADMIN`); tài khoản admin đầu tiên tự tạo bởi `RootUserSeeder` (`ROOT_PHONENUMBER`/`ROOT_PASSWORD` trong `.env`, mặc định `root`/`root`) — dùng để test route giới hạn bởi `@RequireAuthority(...)` mà không cần thao tác SQL.
 - Đổi role user khác: chưa có endpoint, phải update thủ công cột `role_id_column` trong DB.
 
 ### Đổi mật khẩu hộ user khác (`src/user/`)
@@ -192,7 +185,7 @@ export class ExampleController {
 `POST /users/{userSlug}/change-password` nằm ở **`UserController`/`UserService`** chứ không phải module auth: nó là thao tác quản trị trên tài khoản người khác, mã lỗi dùng dải `UserValidation` (`1004xx`), DTO `ChangeUserPassword*` nằm trong `user.dto.ts`. Chỉ luồng **tự đổi** (`/auth/change-password`) mới ở lại `src/auth/`.
 
 - `UserService` cần `TokenRevocationService` để thu hồi phiên của user bị đổi. Vì `AuthModule` đã import `UserModule`, import ngược lại sẽ thành vòng tròn — nên service này được tách ra **`TokenRevocationModule`** (`src/auth/token-revocation.module.ts`, không import gì vì `RedisModule`/`ConfigModule` đều `@Global()`), cả `AuthModule` lẫn `UserModule` cùng import. Cần Redis ở module khác thì import module này, đừng khai `TokenRevocationService` làm provider riêng (2 instance) và đừng dùng `forwardRef`.
-- `UserService.changeUserPassword` chỉ còn 2 rào **phụ thuộc dữ liệu** mà `HasRoleGuard` không biết được: trỏ `userSlug` vào **chính mình** → `CHANGE_OWN_PASSWORD_NOT_ALLOWED` (endpoint này không hỏi mật khẩu cũ, cho phép là mở đường cho token bị đánh cắp của admin đổi mật khẩu chính tài khoản đó), và người không phải `SUPER_ADMIN` đổi mật khẩu của một `SUPER_ADMIN` → `CHANGE_PASSWORD_FORBIDDEN`. Check role của người gọi thì đã do decorator lo.
+- `UserService.changeUserPassword` chỉ còn 2 rào **phụ thuộc dữ liệu** mà `AuthorityGuard` không biết được: trỏ `userSlug` vào **chính mình** → `CHANGE_OWN_PASSWORD_NOT_ALLOWED` (endpoint này không hỏi mật khẩu cũ, cho phép là mở đường cho token bị đánh cắp của admin đổi mật khẩu chính tài khoản đó), và người không phải `SUPER_ADMIN` đổi mật khẩu của một `SUPER_ADMIN` → `CHANGE_PASSWORD_FORBIDDEN`. Check role của người gọi thì đã do decorator lo.
 
 ### Thu hồi token — deny-list trên Redis
 
@@ -228,9 +221,9 @@ Bất biến khi sửa vùng này:
 3. `<module>.mapper.ts`: `createMap(mapper, Entity, ResponseDto, extend(baseMapper(mapper)))` khi map Entity → ResponseDto, thêm `versionedMapper()` vào cuối nếu entity dùng `VersionedBase` (xem mục "Automapper"/"Base entity" ở trên).
 4. `<module>.exception.ts` (extends `AppException`) + `<module>.validation.ts` (dải mã lỗi chưa dùng — kiểm tra file khác để tránh trùng).
 5. Controller: `ValidationPipe({ transform: true, whitelist: true })` cho từng `@Body`/`@Query`; response theo `AppResponseDto`/`AppPaginatedResponseDto`; `@ApiTags`/`@ApiBearerAuth`/`@ApiResponseWithType`.
-6. Gắn `@Public()`/`@RequireAuthority('SOME_CODE')`/`@HasRole(RoleEnum.Admin)`/`@Feature()` nếu cần giới hạn truy cập. `@HasRole(...)` không cần migration nào. Nếu dùng `@RequireAuthority(...)` với `code` chưa tồn tại, **bắt buộc** viết kèm migration seed `Authority` row đó (xem mục "Guard & decorator" ở trên và `docs/WORKFLOW.md` bước 6) — không tách làm sau.
+6. Gắn `@Public()`/`@RequireAuthority(AuthorityCode.X)`/`@Feature()` nếu cần giới hạn truy cập — **không dùng `@HasRole`**. Feature mới luôn kèm: hằng `<Feature>Create/Read/Update/Delete` (chỉ CRUD) trong `AuthorityCode` và **1 migration seed riêng** gọi `seedAuthorities()`/`unseedAuthorities()` (xem mục "Guard & decorator" ở trên và `docs/WORKFLOW.md` bước 6) — không tách làm sau. Thêm test khoá metadata `REQUIRE_AUTHORITY_KEY` trong `<feature>.controller.spec.ts`.
 7. Đăng ký trong `<module>.module.ts`, rồi thêm vào `src/app/app.module.ts` (imports) và `src/app/app.validation.ts` (gộp `<Feature>Validation`).
-8. Sinh + chạy migration: `npm run typeorm:g --name=create-<feature>-table` rồi `npm run typeorm:r` (kèm migration seed `Authority` nếu bước 6 có dùng `@RequireAuthority` với code mới).
+8. Sinh + chạy migration: `npm run typeorm:g --name=create-<feature>-table` rồi `npm run typeorm:r` (kèm migration seed `Authority` của bước 6).
 
 ## Đơn vị tính của vật tư (`unit` + bảng join `material_unit_can_have_tbl`)
 
@@ -279,5 +272,4 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 - **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là **mọi request có JWT đều 401** (check thu hồi token fail-closed) — nặng hơn trước, xem mục "Thu hồi token". `/health` đã có indicator Redis.
 - `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.
 - Không còn phát hiện refresh token bị đánh cắp (reuse detection đã bỏ cùng allow-list): token bị lộ dùng được tới khi hết hạn hoặc user logout.
-- **8 `Authority` mồ côi** (`USER_CREATE`/`USER_READ`/`USER_CHANGE_PASSWORD` + 5 `WAREHOUSE_*`): 2 module `user`/`warehouse` đã chuyển sang `@HasRole`, nhưng row trong `authority_tbl`/`permission_tbl` vẫn còn và vẫn hiện ra ở API quản trị permission — admin bật/tắt chúng **không có tác dụng gì**. Chưa viết migration xoá (xem mục "RBAC cơ bản").
 - Chưa có endpoint xoá tài khoản / khoá-mở khoá (`isActive`) / đổi role user khác, dù primitive `TokenRevocationService.revokeAllTokensForUser()` đã sẵn sàng cho chúng. Đổi mật khẩu thì đã có (2 endpoint, xem mục "Auth flow").

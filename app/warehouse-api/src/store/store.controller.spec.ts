@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { StoreController } from './store.controller';
 import { StoreService } from './store.service';
-import { HAS_ROLE_KEY } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 
 describe('StoreController', () => {
   let controller: StoreController;
@@ -110,24 +110,22 @@ describe('StoreController', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  // Quyền của cả module nằm hoàn toàn ở decorator (`HasRoleGuard` đọc metadata này), service không
-  // check role — gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào
-  // khác phát hiện ra.
-  describe('@HasRole metadata', () => {
-    const roles = (handler: (...args: never[]) => unknown): RoleEnum[] | undefined =>
-      Reflect.getMetadata(HAS_ROLE_KEY, handler);
+  // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
+  // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
+  describe('@RequireAuthority metadata', () => {
+    const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
+      Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
 
-    it('restricts every write route to ADMIN', () => {
-      expect(roles(controller.createStore)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.updateStore)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.assignWarehouse)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.deleteStore)).toEqual([RoleEnum.Admin]);
-    });
-
-    it('opens the read routes to ADMIN, MANAGER and SUPERVISOR', () => {
-      const readRoles = [RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor];
-      expect(roles(controller.findAll)).toEqual(readRoles);
-      expect(roles(controller.findOne)).toEqual(readRoles);
+    it('maps every route to its authority code', () => {
+      expect(authority(controller.createStore)).toEqual([AuthorityCode.StoreCreate]);
+      expect(authority(controller.findAll)).toEqual([AuthorityCode.StoreRead]);
+      expect(authority(controller.findOne)).toEqual([AuthorityCode.StoreRead]);
+      expect(authority(controller.updateStore)).toEqual([AuthorityCode.StoreUpdate]);
+      expect(authority(controller.assignWarehouse)).toEqual([
+        AuthorityCode.StoreUpdate,
+        AuthorityCode.WarehouseUpdate,
+      ]);
+      expect(authority(controller.deleteStore)).toEqual([AuthorityCode.StoreDelete]);
     });
   });
 });

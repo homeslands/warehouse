@@ -75,5 +75,31 @@ export const AuthorityCode = {
   WarehouseUpdate: 'WAREHOUSE_UPDATE',
   WarehouseDelete: 'WAREHOUSE_DELETE',
   WarehouseAssignManager: 'WAREHOUSE_ASSIGN_MANAGER',
+
+  // ===== Seed ở migration 1783728000024 (Unit) =====
+  UnitCreate: 'UNIT_CREATE',
+  UnitRead: 'UNIT_READ',
+  UnitUpdate: 'UNIT_UPDATE',
+  UnitDelete: 'UNIT_DELETE',
+
+  // ===== Seed ở migration 1783728000025 (Material — gồm cả loại vật tư) =====
+  // Không có authority riêng cho loại vật tư / đơn vị quy đổi / vật tư theo kho: route nối 2 tài
+  // nguyên dùng `@RequireAuthority(A, B)` (AND), vd gắn đơn vị quy đổi = `MaterialUpdate` + `UnitUpdate`.
+  MaterialCreate: 'MATERIAL_CREATE',
+  MaterialRead: 'MATERIAL_READ',
+  MaterialUpdate: 'MATERIAL_UPDATE',
+  MaterialDelete: 'MATERIAL_DELETE',
+
+  // ===== Seed ở migration 1783728000026 (Store) =====
+  // Gán kho cho cửa hàng = `StoreUpdate` + `WarehouseUpdate`.
+  StoreCreate: 'STORE_CREATE',
+  StoreRead: 'STORE_READ',
+  StoreUpdate: 'STORE_UPDATE',
+  StoreDelete: 'STORE_DELETE',
+
+  // ===== Seed ở migration 1783728000027 (Tax profile) =====
+  // `POST /tax-profiles/:taxCode/refresh` ghi đè hồ sơ đã lưu ⇒ `TaxProfileUpdate`.
+  TaxProfileRead: 'TAX_PROFILE_READ',
+  TaxProfileUpdate: 'TAX_PROFILE_UPDATE',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];

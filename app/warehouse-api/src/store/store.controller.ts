@@ -21,8 +21,8 @@ import {
   UpdateStoreRequestDto,
 } from './store.dto';
 import { StoreService } from './store.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
@@ -33,7 +33,7 @@ export class StoreController {
   constructor(private readonly storeService: StoreService) {}
 
   @Post()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.StoreCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new store' })
   @ApiResponseWithType({
@@ -55,7 +55,7 @@ export class StoreController {
   }
 
   @Get()
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.StoreRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all stores (paginated)' })
   @ApiPaginatedResponse(StoreResponseDto, 'Retrieved')
@@ -73,7 +73,7 @@ export class StoreController {
   }
 
   @Get(':slug')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.StoreRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a store by slug' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Retrieved', type: StoreResponseDto })
@@ -89,7 +89,7 @@ export class StoreController {
   }
 
   @Patch(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.StoreUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a store' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: StoreResponseDto })
@@ -111,7 +111,7 @@ export class StoreController {
   // `PUT` chứ không `PATCH`/`DELETE`: nó thay thế đúng 1 slot warehouse và idempotent, còn
   // `warehouseSlug: null` gỡ gắn kết ngay trong cùng code path (giống `PUT /warehouses/:slug/manager`).
   @Put(':slug/warehouse')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.StoreUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Assign (or unassign with null) the warehouse of a store' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Assigned', type: StoreResponseDto })
@@ -131,7 +131,7 @@ export class StoreController {
   }
 
   @Delete(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.StoreDelete)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a store' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
