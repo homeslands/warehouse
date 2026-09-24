@@ -14,7 +14,6 @@ import {
 } from '@nestjs/common';
 import {
   CreateUnitRequestDto,
-  UnitMaterialCountResponseDto,
   UnitResponseDto,
   GetAllUnitRequestDto,
   UpdateUnitRequestDto,
@@ -88,27 +87,6 @@ export class UnitController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<UnitResponseDto>;
-  }
-
-  // Route 2 đoạn nên không đụng `@Get(':slug')` ở trên (`:slug` chỉ khớp 1 đoạn path).
-  @Get(':slug/material-count')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Đếm số vật tư đang dùng đơn vị này (cơ sở + quy đổi)' })
-  @ApiResponseWithType({
-    status: HttpStatus.OK,
-    description: 'Retrieved',
-    type: UnitMaterialCountResponseDto,
-  })
-  @ApiParam({ name: 'slug', required: true, example: 'unit-abc123' })
-  async countMaterialsUsing(@Param('slug') slug: string) {
-    const result = await this.unitService.countMaterialsUsing(slug);
-    return {
-      message: 'Material usage of the unit has been retrieved successfully',
-      statusCode: HttpStatus.OK,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<UnitMaterialCountResponseDto>;
   }
 
   @Patch(':slug')

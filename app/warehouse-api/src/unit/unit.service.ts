@@ -7,7 +7,6 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   CreateUnitRequestDto,
   GetAllUnitRequestDto,
-  UnitMaterialCountResponseDto,
   UnitResponseDto,
   UpdateUnitRequestDto,
 } from './unit.dto';
@@ -65,8 +64,17 @@ export class UnitService {
     });
     const totalPages = Math.ceil(total / query.size);
 
+    const dtos = this.mapper.mapArray(items, Unit, UnitResponseDto);
+
+    // Đếm vật tư dùng mỗi unit — tạo map slug -> unit.id để tra nhanh
+    const unitMap = new Map(items.map((u) => [u.slug, u.id]));
+    for (const dto of dtos) {
+      const unitId = unitMap.get(dto.slug)!;
+      dto.materialCount = await this.countMaterialsUsing(unitId);
+    }
+
     return {
-      items: this.mapper.mapArray(items, Unit, UnitResponseDto),
+      items: dtos,
       total,
       page: query.page,
       pageSize: query.size,
@@ -132,23 +140,19 @@ export class UnitService {
    * `total` đếm riêng bằng điều kiện OR chứ không cộng 2 số trên: quy tắc nghiệp vụ cấm 1 vật tư
    * vừa lấy unit làm base vừa khai nó là đơn vị quy đổi, nhưng dữ liệu ghi thẳng dưới DB
    * (bảng join hiện chưa có API ghi) vẫn có thể vi phạm — lúc đó phép cộng sẽ đếm đúp.
+   *
+   * Dùng bởi `findAll` để load materialCount cho mỗi unit.
    */
-  async countMaterialsUsing(slug: string): Promise<UnitMaterialCountResponseDto> {
-    const unit = await this.findEntityBySlug(slug);
-
+  async countMaterialsUsing(
+    unitId: string,
+  ): Promise<{ asBaseUnit: number; asConversionUnit: number; total: number }> {
     const [asBaseUnit, asConversionUnit, total] = await Promise.all([
-      this.materialRepository.count({ where: { baseUnit: { id: unit.id } } }),
-      this.materialRepository.count({ where: { unitsCanHave: { unitId: unit.id } } }),
-      this.materialRepository.count({ where: this.usedByMaterialWhere(unit.id) }),
+      this.materialRepository.count({ where: { baseUnit: { id: unitId } } }),
+      this.materialRepository.count({ where: { unitsCanHave: { unitId } } }),
+      this.materialRepository.count({ where: this.usedByMaterialWhere(unitId) }),
     ]);
 
-    return {
-      unitSlug: unit.slug,
-      unitCode: unit.code,
-      asBaseUnit,
-      asConversionUnit,
-      total,
-    } as UnitMaterialCountResponseDto;
+    return { asBaseUnit, asConversionUnit, total };
   }
 
   /** Mảng = OR trong TypeORM: vật tư dùng unit làm đơn vị cơ sở HOẶC làm đơn vị quy đổi. */

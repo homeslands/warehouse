@@ -196,31 +196,18 @@ describe('UnitService', () => {
 
   describe('countMaterialsUsing', () => {
     it('tách riêng số vật tư theo base unit / đơn vị quy đổi và tổng số vật tư duy nhất', async () => {
-      unitRepository.findOneBy.mockResolvedValue(baseUnit());
       materialRepository.count
         .mockResolvedValueOnce(3) // asBaseUnit
         .mockResolvedValueOnce(7) // asConversionUnit
         .mockResolvedValueOnce(9); // total (điều kiện OR, không phải phép cộng)
 
-      const result = await service.countMaterialsUsing('unit-slug-1');
+      const result = await service.countMaterialsUsing(baseUnit().id);
 
       expect(result).toEqual({
-        unitSlug: 'unit-slug-1',
-        unitCode: 'KG',
         asBaseUnit: 3,
         asConversionUnit: 7,
         total: 9,
       });
-    });
-
-    it('ném UNIT_NOT_FOUND khi slug sai', async () => {
-      unitRepository.findOneBy.mockResolvedValue(null);
-
-      await expectError(
-        service.countMaterialsUsing('missing-slug'),
-        UnitValidation.UNIT_NOT_FOUND.code,
-      );
-      expect(materialRepository.count).not.toHaveBeenCalled();
     });
   });
 
