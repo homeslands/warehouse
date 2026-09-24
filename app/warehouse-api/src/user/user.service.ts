@@ -108,9 +108,9 @@ export class UserService {
   }
 
   /**
-   * Đổi mật khẩu HỘ user khác (`POST /users/{userSlug}/change-password`) — quyền tĩnh, đã được
-   * `HasRoleGuard` chặn bằng `@HasRole(RoleEnum.Admin, RoleEnum.Manager)` (`SUPER_ADMIN` bypass)
-   * trước khi vào đây. Không hỏi mật khẩu hiện tại vì người gọi
+   * Đổi mật khẩu HỘ user khác (`POST /users/{userSlug}/change-password`) — quyền đã được
+   * `AuthorityGuard` chặn bằng `@RequireAuthority(AuthorityCode.UserChangePassword)` (`SUPER_ADMIN`
+   * bypass) trước khi vào đây. Không hỏi mật khẩu hiện tại vì người gọi
    * không biết mật khẩu cũ của user đó — tự đổi mật khẩu của mình thì đi `POST /auth/change-password`.
    *
    * Chỉ thu hồi phiên của user BỊ ĐỔI; token của người gọi không bị đụng tới, nên không trả token.

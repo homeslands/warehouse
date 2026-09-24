@@ -15,8 +15,8 @@ import {
   TaxProfileResponseDto,
 } from './tax-profile.dto';
 import { TaxProfileService } from './tax-profile.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
@@ -27,7 +27,7 @@ export class TaxProfileController {
   constructor(private readonly taxProfileService: TaxProfileService) {}
 
   @Get()
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.TaxProfileRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all cached tax profiles (paginated)' })
   @ApiPaginatedResponse(TaxProfileResponseDto, 'Retrieved')
@@ -45,7 +45,7 @@ export class TaxProfileController {
   }
 
   @Get(':taxCode')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.TaxProfileRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Look up a tax profile by tax code (cache-first, calls the provider on a miss)',
@@ -70,10 +70,10 @@ export class TaxProfileController {
   }
 
   // `POST` chứ không phải query param `?refresh=true` trên route GET: nó là đường DUY NHẤT gọi
-  // thẳng ra bên thứ ba, nên phân quyền phải nằm trọn ở decorator (ADMIN) thay vì phải tự check
+  // thẳng ra bên thứ ba, nên phân quyền phải nằm trọn ở decorator (`TAX_PROFILE_UPDATE`) thay vì phải tự check
   // role trong service theo giá trị của 1 param.
   @Post(':taxCode/refresh')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.TaxProfileUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Force a re-fetch from the tax lookup provider and overwrite the cache',

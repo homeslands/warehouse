@@ -19,8 +19,8 @@ import {
   UpdateMaterialTypeRequestDto,
 } from './material-type.dto';
 import { MaterialTypeService } from './material-type.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
@@ -31,7 +31,7 @@ export class MaterialTypeController {
   constructor(private readonly materialTypeService: MaterialTypeService) {}
 
   @Post()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new material type' })
   @ApiResponseWithType({
@@ -53,7 +53,7 @@ export class MaterialTypeController {
   }
 
   @Get()
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all material types (paginated)' })
   @ApiPaginatedResponse(MaterialTypeResponseDto, 'Retrieved')
@@ -71,7 +71,7 @@ export class MaterialTypeController {
   }
 
   @Get(':slug')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a material type by slug' })
   @ApiResponseWithType({
@@ -91,7 +91,7 @@ export class MaterialTypeController {
   }
 
   @Patch(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a material type' })
   @ApiResponseWithType({
@@ -115,7 +115,7 @@ export class MaterialTypeController {
   }
 
   @Delete(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialDelete)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a material type (chặn nếu còn material tham chiếu)' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
