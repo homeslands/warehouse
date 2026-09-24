@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { TaxProfileController } from './tax-profile.controller';
 import { TaxProfileService } from './tax-profile.service';
-import { HAS_ROLE_KEY } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 
 describe('TaxProfileController', () => {
   let controller: TaxProfileController;
@@ -56,23 +56,16 @@ describe('TaxProfileController', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  // Quyền của cả module nằm hoàn toàn ở decorator (`HasRoleGuard` đọc metadata này), service không
-  // check role — gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào
-  // khác phát hiện ra.
-  describe('@HasRole metadata', () => {
-    const roles = (handler: (...args: never[]) => unknown): RoleEnum[] | undefined =>
-      Reflect.getMetadata(HAS_ROLE_KEY, handler);
+  // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
+  // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
+  describe('@RequireAuthority metadata', () => {
+    const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
+      Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
 
-    it('opens the read routes to ADMIN, MANAGER and SUPERVISOR', () => {
-      const readRoles = [RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor];
-      expect(roles(controller.findAll)).toEqual(readRoles);
-      expect(roles(controller.lookup)).toEqual(readRoles);
-    });
-
-    // `refresh` là đường DUY NHẤT gọi thẳng ra bên thứ ba — mở cho role khác là mở đường nện
-    // upstream, nên rào này phải giữ nguyên ADMIN.
-    it('restricts refresh to ADMIN', () => {
-      expect(roles(controller.refresh)).toEqual([RoleEnum.Admin]);
+    it('maps every route to its authority code', () => {
+      expect(authority(controller.findAll)).toEqual([AuthorityCode.TaxProfileRead]);
+      expect(authority(controller.lookup)).toEqual([AuthorityCode.TaxProfileRead]);
+      expect(authority(controller.refresh)).toEqual([AuthorityCode.TaxProfileUpdate]);
     });
   });
 });

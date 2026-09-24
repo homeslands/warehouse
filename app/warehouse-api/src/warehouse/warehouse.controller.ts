@@ -22,8 +22,8 @@ import {
   WarehouseResponseDto,
 } from './warehouse.dto';
 import { WarehouseService } from './warehouse.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
@@ -35,7 +35,7 @@ export class WarehouseController {
   constructor(private readonly warehouseService: WarehouseService) {}
 
   @Post()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.WarehouseCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new warehouse' })
   @ApiResponseWithType({
@@ -57,7 +57,7 @@ export class WarehouseController {
   }
 
   @Get()
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all warehouses (paginated)' })
   @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
@@ -75,7 +75,7 @@ export class WarehouseController {
   }
 
   // PHẢI khai TRƯỚC `@Get(':slug')`, nếu không route `:slug` nuốt mất đường dẫn `mine`.
-  // Không gắn `@HasRole`: chỉ cần JWT hợp lệ, và service đã tự giới hạn theo `userId`.
+  // Không gắn `@RequireAuthority`: chỉ cần JWT hợp lệ, và service đã tự giới hạn theo `userId`.
   @Get('mine')
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get warehouses managed by the current user (paginated)' })
@@ -95,7 +95,7 @@ export class WarehouseController {
   }
 
   @Get(':slug')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a warehouse by slug' })
   @ApiResponseWithType({
@@ -115,7 +115,7 @@ export class WarehouseController {
   }
 
   @Patch(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a warehouse' })
   @ApiResponseWithType({
@@ -141,7 +141,7 @@ export class WarehouseController {
   // `PUT` chứ không `PATCH`/`DELETE`: nó thay thế đúng 1 slot manager và idempotent, còn
   // `managerSlug: null` gỡ phân công ngay trong cùng code path.
   @Put(':slug/manager')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.WarehouseAssignManager)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Assign (or unassign with null) the manager of a warehouse' })
   @ApiResponseWithType({
@@ -165,7 +165,7 @@ export class WarehouseController {
   }
 
   @Delete(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.WarehouseDelete)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a warehouse' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })

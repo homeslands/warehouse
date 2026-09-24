@@ -10,7 +10,6 @@ import {
 import { Material } from './material.entity';
 import { MaterialUnit } from './material-unit.entity';
 import { baseMapper } from 'src/app/base.mapper';
-import { versionedMapper } from 'src/app/versioned.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
 
 /**
@@ -77,7 +76,6 @@ export class MaterialProfile extends AutomapperProfile {
         Material,
         MaterialResponseDto,
         extend(baseMapper(mapper)),
-        versionedMapper(),
         forMember(
           (d) => d.typeSlug,
           mapFrom((s) => s.type?.slug),

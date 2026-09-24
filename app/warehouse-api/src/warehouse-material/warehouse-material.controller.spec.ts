@@ -1,8 +1,8 @@
 import { Test, TestingModule } from '@nestjs/testing';
 import { WarehouseMaterialController } from './warehouse-material.controller';
 import { WarehouseMaterialService } from './warehouse-material.service';
-import { HAS_ROLE_KEY } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 
 describe('WarehouseMaterialController', () => {
   let controller: WarehouseMaterialController;
@@ -61,22 +61,32 @@ describe('WarehouseMaterialController', () => {
     expect(response.result).toBe('1 warehouse material have been removed successfully');
   });
 
-  describe('@HasRole metadata', () => {
-    const roles = (handler: (...args: never[]) => unknown): RoleEnum[] | undefined =>
-      Reflect.getMetadata(HAS_ROLE_KEY, handler);
+  // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
+  // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
+  describe('@RequireAuthority metadata', () => {
+    const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
+      Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
 
-    it('restricts every write route, including the stock adjustment, to ADMIN', () => {
-      expect(roles(controller.assignMaterial)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.updateThresholds)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.adjustQuantity)).toEqual([RoleEnum.Admin]);
-      expect(roles(controller.removeMaterial)).toEqual([RoleEnum.Admin]);
-    });
-
-    it('opens the read route to ADMIN, MANAGER and SUPERVISOR', () => {
-      expect(roles(controller.findAll)).toEqual([
-        RoleEnum.Admin,
-        RoleEnum.Manager,
-        RoleEnum.Supervisor,
+    it('maps every route to its authority code', () => {
+      expect(authority(controller.assignMaterial)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.WarehouseUpdate,
+      ]);
+      expect(authority(controller.findAll)).toEqual([
+        AuthorityCode.MaterialRead,
+        AuthorityCode.WarehouseRead,
+      ]);
+      expect(authority(controller.updateThresholds)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.WarehouseUpdate,
+      ]);
+      expect(authority(controller.adjustQuantity)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.WarehouseUpdate,
+      ]);
+      expect(authority(controller.removeMaterial)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.WarehouseUpdate,
       ]);
     });
   });

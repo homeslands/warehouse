@@ -1,11 +1,11 @@
 import { Entity, Column, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
-import { VersionedBase } from 'src/app/versioned.entity';
+import { Base } from 'src/app/base.entity';
 import { User } from 'src/user/user.entity';
 import { Store } from 'src/store/store.entity';
 
 @Entity('warehouse_tbl')
-export class Warehouse extends VersionedBase {
+export class Warehouse extends Base {
   @AutoMap()
   @Column({ name: 'name_column' })
   name: string;

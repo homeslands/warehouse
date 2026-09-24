@@ -22,16 +22,18 @@ export class AuthorityGuard implements CanActivate {
     ]);
     if (isPublic) return true;
 
-    const requiredAuthority = this.reflector.getAllAndOverride<string>(REQUIRE_AUTHORITY_KEY, [
+    const requiredAuthorities = this.reflector.getAllAndOverride<string[]>(REQUIRE_AUTHORITY_KEY, [
       context.getHandler(),
       context.getClass(),
     ]);
-    if (!requiredAuthority) return true;
+    if (!requiredAuthorities?.length) return true;
 
     const user: CurrentUserDto = context.switchToHttp().getRequest().user;
     if (user?.roleName === RoleEnum.SuperAdmin) return true;
 
-    return (user?.scope ?? []).includes(requiredAuthority);
+    // AND: `@RequireAuthority(A, B)` cần đủ cả A lẫn B.
+    const scope = user?.scope ?? [];
+    return requiredAuthorities.every((code) => scope.includes(code));
   }
 }
 
