@@ -31,7 +31,7 @@ export const UnitValidation: TUnitErrorCode = {
   UNIT_CODE_IS_REQUIRED: createErrorCode(100904, 'Unit code is required', HttpStatus.BAD_REQUEST),
   UNIT_CODE_INVALID: createErrorCode(
     100905,
-    'Unit code must be 2-32 characters of letters, digits or hyphen (e.g. KG)',
+    'Unit code must be 1-32 characters of letters, digits or hyphen (e.g. KG)',
     HttpStatus.BAD_REQUEST,
   ),
   UNIT_CODE_DOES_EXIST: createErrorCode(100906, 'Unit code does exist'),

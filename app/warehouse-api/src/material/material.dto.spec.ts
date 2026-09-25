@@ -3,6 +3,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import {
   CreateMaterialConversionUnitRequestDto,
+  CreateMaterialRequestDto,
   UpdateMaterialConversionUnitRequestDto,
   UpdateMaterialRequestDto,
 } from './material.dto';
@@ -100,5 +101,45 @@ describe('UpdateMaterialConversionUnitRequestDto — PATCH partial', () => {
     );
 
     expect(dto).not.toHaveProperty('unitSlug');
+  });
+});
+
+describe('CreateMaterialRequestDto.baseUnitSlug — bắt buộc', () => {
+  const payload = { code: 'MAT-001', name: 'Găng tay', typeSlug: 'type-slug-1' };
+  const messagesFor = (body: object) =>
+    validateSync(plainToInstance(CreateMaterialRequestDto, body), { whitelist: true })
+      .filter((e) => e.property === 'baseUnitSlug')
+      .flatMap((e) => Object.values(e.constraints ?? {}));
+
+  it('chấp nhận khi có baseUnitSlug', () => {
+    expect(messagesFor({ ...payload, baseUnitSlug: 'unit-slug-1' })).toEqual([]);
+  });
+
+  it.each([
+    ['thiếu', undefined],
+    ['null', null],
+    ['chuỗi rỗng', ''],
+    ['chỉ có khoảng trắng', '   '],
+  ])('từ chối baseUnitSlug %s', (_label, baseUnitSlug) => {
+    expect(messagesFor({ ...payload, baseUnitSlug })).toContain(
+      'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED',
+    );
+  });
+});
+
+describe('UpdateMaterialRequestDto.baseUnitSlug — PATCH', () => {
+  const messagesFor = (body: object) =>
+    validateSync(plainToInstance(UpdateMaterialRequestDto, body), { whitelist: true })
+      .filter((e) => e.property === 'baseUnitSlug')
+      .flatMap((e) => Object.values(e.constraints ?? {}));
+
+  it('không bắt buộc gửi', () => {
+    expect(messagesFor({ version: 1 })).toEqual([]);
+  });
+
+  it('gửi thì không được rỗng', () => {
+    expect(messagesFor({ baseUnitSlug: '', version: 1 })).toContain(
+      'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED',
+    );
   });
 });

@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
-import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
+import { UNIT_CODE_REGEX } from 'src/shared/utils/code.util';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -17,7 +17,7 @@ export class CreateUnitRequestDto {
   @AutoMap()
   @ApiProperty({ description: 'The business code of unit', example: 'KG' })
   @Transform(trim)
-  @Matches(BUSINESS_CODE_REGEX, { message: 'UNIT_CODE_INVALID' })
+  @Matches(UNIT_CODE_REGEX, { message: 'UNIT_CODE_INVALID' })
   @IsNotEmpty({ message: 'UNIT_CODE_IS_REQUIRED' })
   code: string;
 
