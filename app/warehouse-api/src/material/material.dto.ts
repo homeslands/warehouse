@@ -30,16 +30,18 @@ export class CreateMaterialRequestDto {
   typeSlug: string;
 
   /**
-   * Slug của `Unit` làm ĐƠN VỊ CƠ SỞ. Optional vì cột `base_unit_id_column` thêm sau lên bảng đã có
-   * dữ liệu (migration `1783728000020`) nên còn NULL-able.
+   * Slug của `Unit` làm ĐƠN VỊ CƠ SỞ — bắt buộc khi tạo mới: không có base unit thì vật tư không gắn
+   * được đơn vị quy đổi, không quy đổi được số lượng. Cột `base_unit_id_column` dưới DB vẫn NULL-able
+   * (migration `1783728000020`) chỉ vì vật tư cũ tạo trước đó; `@IsNotEmpty` chặn cả thiếu lẫn `null`.
+   * PATCH vẫn optional (qua `PartialType`), nhưng gửi thì không được rỗng.
    *
    * Cố ý KHÔNG `@AutoMap()`: quan hệ `baseUnit` do service resolve ra entity thật rồi gán, mapper
    * đụng vào sẽ ghi đè thành `undefined` (cùng cách xử lý `typeSlug`).
    */
-  @ApiPropertyOptional({ description: 'Slug của đơn vị cơ sở (Unit)', example: 'unit-abc123' })
-  @IsOptional()
+  @ApiProperty({ description: 'Slug của đơn vị cơ sở (Unit)', example: 'unit-abc123' })
   @Transform(trim)
-  baseUnitSlug?: string;
+  @IsNotEmpty({ message: 'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED' })
+  baseUnitSlug: string;
 
   @AutoMap()
   @ApiPropertyOptional({ description: 'Ngưỡng tồn tối thiểu mặc định', default: 0, example: 10 })
