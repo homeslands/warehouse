@@ -1,4 +1,9 @@
-import { Injectable, UnauthorizedException } from '@nestjs/common';
+import {
+  Injectable,
+  Logger,
+  ServiceUnavailableException,
+  UnauthorizedException,
+} from '@nestjs/common';
 import { PassportStrategy } from '@nestjs/passport';
 import { ConfigService } from '@nestjs/config';
 import { ExtractJwt, Strategy } from 'passport-jwt';
@@ -10,6 +15,8 @@ import { TokenRevocationService } from '../../token-revocation.service';
 
 @Injectable()
 export class JwtStrategy extends PassportStrategy(Strategy) {
+  private readonly logger = new Logger(JwtStrategy.name);
+
   constructor(
     private readonly rbacService: RbacService,
     private readonly cls: ClsService,
@@ -41,7 +48,7 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     // `RbacService` đọc lại DB, tính lại quyền và ghi lại cache. `AuthorityGuard` phía sau chỉ so
     // `scope` đã nạp ở đây, không đọc Redis lần 2. Xem `docs/specs/rbac.md`.
     // `null` = user không còn / bị khoá (khác hẳn `[]` = có cache, role không có quyền nào).
-    const scope = await this.rbacService.resolve(payload.sub);
+    const scope = await this.resolveScope(payload.sub);
     if (!scope) {
       throw new UnauthorizedException();
     }
@@ -60,5 +67,22 @@ export class JwtStrategy extends PassportStrategy(Strategy) {
     this.cls.set('user', currentUser);
 
     return currentUser;
+  }
+
+  /**
+   * Redis lỗi đã được `RbacCacheService` nuốt (fail-open), nên lỗi tới được đây là lỗi MySQL ở
+   * nhánh cache miss (mất kết nối, schema lệch vì chưa chạy migration...). Fail-closed với 503: không
+   * tính được quyền thì không cho qua, nhưng cũng không để lỗi SQL thô lọt ra response dưới dạng 500.
+   */
+  private async resolveScope(userId: string): Promise<string[] | null> {
+    try {
+      return await this.rbacService.resolve(userId);
+    } catch (error) {
+      this.logger.error(
+        `Cannot resolve RBAC scope for user ${userId}: ${error instanceof Error ? error.message : String(error)}`,
+        error instanceof Error ? error.stack : undefined,
+      );
+      throw new ServiceUnavailableException();
+    }
   }
 }
