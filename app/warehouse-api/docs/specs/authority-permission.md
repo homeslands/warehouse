@@ -52,6 +52,15 @@ Cần migration thêm cột `code_column` (unique) vào `authority_tbl`.
 - Quyền thay đổi (do admin bật/tắt qua API) có hiệu lực từ request tiếp theo của user bị ảnh hưởng, không cần đăng nhập lại — `scope` của user được cache trên Redis (SET `rbac:user:{userId}`, xem `docs/specs/rbac.md`), và `grant`/`revoke` xoá cache của mọi user thuộc role đó ngay sau khi ghi DB nên request kế tiếp đọc lại từ DB.
 - Migration của chính feature này seed sẵn: `AuthorityGroup` cho `example`; `Authority` gồm `EXAMPLE_CREATE`/`EXAMPLE_UPDATE`/`EXAMPLE_DELETE` (thay cho `@HasRoles(Admin, SuperAdmin)` cũ trên `example.controller.ts`) và `MANAGE_PERMISSIONS` (cho chính API quản trị permission); cấp cả 4 quyền này cho role `ADMIN` để hành vi ngay sau migrate không đổi so với trước.
 
+## Cấp của role (role level)
+
+`role_tbl.level_column` (số lớn = cấp cao; seed ở migration `1783728000028`: `SUPERVISOR`=10, `MANAGER`=20, `ADMIN`=30, `SUPER_ADMIN`=100). Cấp nằm ở DB chứ không ở `RoleEnum` để role tạo mới qua `POST /roles` (tên tự do + `level` bắt buộc) cũng xếp được vào thứ bậc.
+
+- **Chỉ thao tác được role có cấp THẤP HƠN mình** (ngang cấp cũng không): `PUT`/`DELETE /roles/:roleSlug/authorities/:code`, `POST /roles` (level mới < level mình), `PATCH /roles/:slug`, `POST /users` (role gán cho user mới). Vi phạm ⇒ 403 `ROLE_LEVEL_FORBIDDEN` (100104). Check nằm ở `RoleService.assertCanManage`; token không có claim `role` hoặc role đã bị xoá ⇒ fail-closed.
+- **Chỉ cấp được authority mà role của mình đang có** — so với `user.scope` (nạp từ cache RBAC mỗi request). Nhờ vậy role mới tạo chỉ nhận được tối đa quyền của người tạo, không bao giờ được cấp quyền của cấp cao hơn. Vi phạm ⇒ 403 `AUTHORITY_NOT_OWNED` (100202).
+- **Thu hồi lan xuống**: `DELETE` 1 authority khỏi role R ⇒ xoá luôn authority đó khỏi mọi role có `level` < R (1 câu `DELETE`), rồi xoá cache RBAC của tất cả các role bị ảnh hưởng — giữ bất biến "cấp dưới chỉ có tối đa quyền của cấp trên".
+- `SUPER_ADMIN` bypass cả 3 quy tắc (nhất quán với `AuthorityGuard`). `RootUserSeeder` gọi `createUser(dto, null)` — hệ thống tự tạo, không có người thao tác để so cấp.
+
 ## Danh mục authority của 4 loại phiếu kho (bảng phân quyền 5.5)
 
 Chia làm 2 chỗ theo vòng đời của từng thứ: **`code`** (khoá tra cứu bất biến, phải khớp `@RequireAuthority(...)`) nằm ở `src/authority/authority.constants.ts` dưới dạng hằng `AuthorityCode`; **tên hiển thị, nhóm hiển thị và quyền cấp sẵn cho từng role** nằm trong chính migration `1783728000012-seed-warehouse-form-authorities.ts`, vì cả 3 là DỮ LIỆU — sau khi migrate, nguồn sự thật là `authority_tbl`/`permission_tbl` và admin sửa được qua API, nên để chúng trong code app chỉ tạo ảo giác code là nguồn sự thật. Migration import `AuthorityCode` nên `code` trong DB không thể lệch với code app ngay từ lần seed đầu.
@@ -94,8 +103,8 @@ Thêm quy tắc mới, áp dụng cho mọi feature từ nay về sau: **khi che
 - `GET /authorities` (filter theo group), `PATCH /authorities/:slug` (sửa `name`/`authorityGroupSlug`)
 - `GET /roles`, `GET /roles/:slug` (kèm danh sách `authorityCodes` đang được cấp cho role đó)
 - `POST /roles`, `PATCH /roles/:slug`
-- `PUT /roles/:roleSlug/authorities/:authorityCode` — bật 1 quyền cho 1 role (idempotent)
-- `DELETE /roles/:roleSlug/authorities/:authorityCode` — tắt 1 quyền của 1 role (idempotent)
+- `PUT /roles/:roleSlug/authorities/:authorityCode` — bật 1 quyền cho 1 role cấp thấp hơn mình; chỉ quyền mình đang có (idempotent)
+- `DELETE /roles/:roleSlug/authorities/:authorityCode` — tắt 1 quyền của 1 role cấp thấp hơn mình và mọi role cấp dưới nó (idempotent)
 
 ## Ngoài phạm vi (Out of scope)
 

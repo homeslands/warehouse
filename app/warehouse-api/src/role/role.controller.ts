@@ -14,6 +14,7 @@ import { AppResponseDto } from 'src/app/app.dto';
 import { ApiResponseWithType } from 'src/app/app.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
+import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 import { RoleService } from './role.service';
 import { CreateRoleRequestDto, RoleResponseDto, UpdateRoleRequestDto } from './role.dto';
 
@@ -60,17 +61,18 @@ export class RoleController {
   @Post()
   @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a role' })
+  @ApiOperation({ summary: "Create a role (level must be lower than the caller's)" })
   @ApiResponseWithType({
     status: HttpStatus.CREATED,
     description: 'Created',
     type: RoleResponseDto,
   })
   async create(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: CreateRoleRequestDto,
   ) {
-    const result = await this.roleService.create(requestData);
+    const result = await this.roleService.create(currentUser, requestData);
     return {
       message: 'Role has been created successfully',
       statusCode: HttpStatus.CREATED,
@@ -86,11 +88,12 @@ export class RoleController {
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: RoleResponseDto })
   @ApiParam({ name: 'slug', required: true, example: 'admin' })
   async update(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Param('slug') slug: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: UpdateRoleRequestDto,
   ) {
-    const result = await this.roleService.update(slug, requestData);
+    const result = await this.roleService.update(currentUser, slug, requestData);
     return {
       message: 'Role has been updated successfully',
       statusCode: HttpStatus.OK,
