@@ -106,7 +106,7 @@ services:
       update_config:
         delay: 10s
         parallelism: 1
-        warehouse: start-first
+        order: start-first
         failure_action: rollback
         monitor: 60s
         max_failure_ratio: 0.3
