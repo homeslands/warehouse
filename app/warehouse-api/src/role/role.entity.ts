@@ -13,6 +13,13 @@ export class Role extends Base {
   @Column({ name: 'description_column', nullable: true })
   description?: string;
 
+  // Cấp của role — số lớn = cấp cao. Chỉ sửa được role / gán được role có `level` thấp hơn role của
+  // mình (xem `RoleService.assertCanManage`). Nằm ở DB chứ không phải `RoleEnum` để role thêm mới
+  // qua API cũng xếp được vào thứ bậc.
+  @AutoMap()
+  @Column({ name: 'level_column', type: 'int', default: 0 })
+  level: number;
+
   @OneToMany(() => Permission, (permission) => permission.role)
   permissions: Permission[];
 }

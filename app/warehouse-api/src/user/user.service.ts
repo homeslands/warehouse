@@ -37,12 +37,21 @@ export class UserService {
     this.saltRounds = parseInt(this.configService.get('SALT_ROUNDS'), 10);
   }
 
-  async createUser(dto: CreateUserRequestDto): Promise<UserResponseDto> {
+  /**
+   * `actor` = người gọi API; chỉ được gán role có cấp thấp hơn role của mình (không thì ai có
+   * `USER_CREATE` cũng tạo được tài khoản `SUPER_ADMIN`). `null` CHỈ dành cho hệ thống tự tạo
+   * (`RootUserSeeder`) — không có người thao tác nên không có cấp để so.
+   */
+  async createUser(
+    dto: CreateUserRequestDto,
+    actor: CurrentUserDto | null,
+  ): Promise<UserResponseDto> {
     const existed = await this.userRepository.findOneBy({ phonenumber: dto.phonenumber });
     if (existed) throw new UserException(UserValidation.USER_PHONENUMBER_DOES_EXIST);
 
     const role = await this.roleService.findBySlug(dto.roleSlug);
     if (!role) throw new RoleException(RoleValidation.ROLE_NOT_FOUND);
+    if (actor) await this.roleService.assertCanManage(actor, role);
 
     const data = this.mapper.map(dto, CreateUserRequestDto, User);
     const hashedPassword = await bcrypt.hash(dto.password, this.saltRounds);

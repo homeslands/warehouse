@@ -33,14 +33,18 @@ export class RootUserSeeder implements OnApplicationBootstrap {
       return;
     }
 
-    // UserService.createUser tự hash password bằng SALT_ROUNDS.
-    await this.userService.createUser({
-      phonenumber: this.rootPhonenumber,
-      firstName: 'Root',
-      lastName: 'User',
-      password: this.rootPassword,
-      roleSlug: superAdminRole.slug,
-    });
+    // UserService.createUser tự hash password bằng SALT_ROUNDS. `actor = null`: hệ thống tự tạo,
+    // không có người thao tác để so cấp.
+    await this.userService.createUser(
+      {
+        phonenumber: this.rootPhonenumber,
+        firstName: 'Root',
+        lastName: 'User',
+        password: this.rootPassword,
+        roleSlug: superAdminRole.slug,
+      },
+      null,
+    );
 
     this.logger.log(`Root user has been seeded (phonenumber: ${this.rootPhonenumber})`, {
       context: 'RootUserSeeder',
