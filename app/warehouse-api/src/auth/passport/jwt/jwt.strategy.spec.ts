@@ -1,5 +1,5 @@
 import { ConfigService } from '@nestjs/config';
-import { UnauthorizedException } from '@nestjs/common';
+import { ServiceUnavailableException, UnauthorizedException } from '@nestjs/common';
 import { ClsService } from 'nestjs-cls';
 import { RbacService } from 'src/rbac/rbac.service';
 import { AuthJwtPayload, TokenType } from '../../auth.dto';
@@ -52,6 +52,15 @@ describe('JwtStrategy', () => {
       scope: ['EXAMPLE_CREATE'],
     });
     expect(cls.set).toHaveBeenCalledWith('user', result);
+  });
+
+  // DB lỗi ở nhánh cache miss (mất kết nối, schema lệch) ⇒ fail-closed 503, không để lỗi SQL thô
+  // lọt ra thành 500.
+  it('turns a database error while resolving the scope into 503', async () => {
+    rbacService.resolve.mockRejectedValue(new Error("Unknown column 'Role.level_column'"));
+
+    await expect(strategy.validate(payload)).rejects.toBeInstanceOf(ServiceUnavailableException);
+    expect(cls.set).not.toHaveBeenCalled();
   });
 
   // Token phát trước khi có claim `role` vẫn phải dùng được tới lúc hết hạn — nhưng mất bypass
