@@ -29,6 +29,7 @@ describe('UserService', () => {
     revokeSession: jest.fn(),
     revokeAllTokensForUser: jest.fn(),
   };
+  const roleService = { findBySlug: jest.fn(), assertCanManage: jest.fn() };
   const config: Record<string, string> = { SALT_ROUNDS: '4' };
   const configService = { get: (key: string) => config[key] };
 
@@ -63,7 +64,7 @@ describe('UserService', () => {
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: ConfigService, useValue: configService },
-        { provide: RoleService, useValue: { findBySlug: jest.fn() } },
+        { provide: RoleService, useValue: roleService },
         { provide: TokenRevocationService, useValue: tokenRevocationService },
       ],
     }).compile();
@@ -74,6 +75,42 @@ describe('UserService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('createUser', () => {
+    const adminRole = { id: 'admin-role-id', slug: 'admin', name: RoleEnum.Admin, level: 30 };
+    const dto = {
+      phonenumber: '0900000000',
+      firstName: 'A',
+      lastName: 'B',
+      password: 'secret',
+      roleSlug: 'admin',
+    };
+
+    beforeEach(() => {
+      userRepository.findOneBy.mockResolvedValue(null);
+      roleService.findBySlug.mockResolvedValue(adminRole);
+      userRepository.create.mockImplementation((data) => data);
+      userRepository.save.mockImplementation(async (data) => ({ ...data, id: 'new-id' }));
+    });
+
+    // Chặn leo thang đặc quyền: có USER_CREATE vẫn không được tạo tài khoản ngang/cao cấp hơn mình.
+    it('rejects assigning a role the caller cannot manage', async () => {
+      const forbidden = new Error('ROLE_LEVEL_FORBIDDEN');
+      roleService.assertCanManage.mockRejectedValue(forbidden);
+
+      await expect(service.createUser(dto, caller())).rejects.toBe(forbidden);
+      expect(roleService.assertCanManage).toHaveBeenCalledWith(caller(), adminRole);
+      expect(userRepository.save).not.toHaveBeenCalled();
+    });
+
+    // `actor = null` chỉ dành cho RootUserSeeder — không có người thao tác để so cấp.
+    it('skips the level check for a system-created user', async () => {
+      await service.createUser(dto, null);
+
+      expect(roleService.assertCanManage).not.toHaveBeenCalled();
+      expect(userRepository.save).toHaveBeenCalled();
+    });
   });
 
   // Check authority `USER_CHANGE_PASSWORD` nằm ở `@RequireAuthority` trên controller (quyền tĩnh,

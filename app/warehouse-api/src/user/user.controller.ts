@@ -34,17 +34,18 @@ export class UserController {
   @Post()
   @RequireAuthority(AuthorityCode.UserCreate)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new user (assign role)' })
+  @ApiOperation({ summary: "Create a new user (assign a role lower than the caller's)" })
   @ApiResponseWithType({
     status: HttpStatus.CREATED,
     description: 'Created',
     type: UserResponseDto,
   })
   async createUser(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: CreateUserRequestDto,
   ) {
-    const result = await this.userService.createUser(requestData);
+    const result = await this.userService.createUser(requestData, currentUser);
     return {
       message: 'User has been created successfully',
       statusCode: HttpStatus.CREATED,
