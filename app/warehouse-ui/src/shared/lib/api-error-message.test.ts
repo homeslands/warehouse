@@ -87,3 +87,15 @@ describe('resolveApiErrorMessage', () => {
     )
   })
 })
+
+describe('resolveApiErrorMessage — 403 do thiếu quyền', () => {
+  it('thay "Forbidden resource" tiếng Anh bằng câu tiếng Việt nói rõ quyền có thể vừa đổi', () => {
+    // So với CHUỖI LITERAL, không so với `i18n.t(...)`: thiếu khoá thì i18n trả lại chính tên khoá,
+    // và so `i18n.t` với `i18n.t` sẽ xanh sẵn.
+    expect(
+      resolveApiErrorMessage(apiError({ statusCode: 403, message: 'Forbidden resource' })),
+    ).toBe(
+      'Bạn không có quyền thực hiện thao tác này. Quyền của bạn có thể vừa được thay đổi — giao diện đã được cập nhật lại.',
+    )
+  })
+})

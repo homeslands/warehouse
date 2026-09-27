@@ -183,3 +183,55 @@ describe('useClampPage', () => {
     expect(setPage).not.toHaveBeenCalled()
   })
 })
+
+describe('useListParams — sắp xếp', () => {
+  it('URL trống → chưa sắp xếp', () => {
+    expect(setup('/list').result.current.sort).toBeUndefined()
+  })
+
+  it('đọc sort từ URL theo dạng backend khai: "<trường>:<chiều>"', () => {
+    expect(setup('/list?sort=name:ASC').result.current.sort).toEqual({
+      field: 'name',
+      dir: 'ASC',
+    })
+  })
+
+  it.each(['name', 'name:', ':ASC', 'name:SIDEWAYS', 'name:asc:extra', ''])(
+    'sort=%s sai dạng → bỏ qua, không ném lỗi',
+    (raw) => {
+      expect(setup(`/list?sort=${raw}`).result.current.sort).toBeUndefined()
+    },
+  )
+
+  it('chiều không phân biệt hoa thường, chuẩn hoá về HOA', () => {
+    expect(setup('/list?sort=name:desc').result.current.sort).toEqual({
+      field: 'name',
+      dir: 'DESC',
+    })
+  })
+
+  it('setSort ghi lên URL và đưa về trang 1', () => {
+    const { result } = setup('/list?page=4')
+
+    act(() => result.current.setSort({ field: 'name', dir: 'DESC' }))
+
+    expect(location.search).toContain('sort=name%3ADESC')
+    expect(location.search).not.toContain('page=4')
+  })
+
+  it('setSort(undefined) xoá hẳn khỏi URL', () => {
+    const { result } = setup('/list?sort=name:ASC')
+
+    act(() => result.current.setSort(undefined))
+
+    expect(location.search).not.toContain('sort')
+  })
+
+  it('đổi bộ lọc KHÔNG làm mất sắp xếp đang chọn', () => {
+    const { result } = setup('/list?sort=name:ASC')
+
+    act(() => result.current.setFilters({ name: 'oc' }))
+
+    expect(location.search).toContain('sort=name%3AASC')
+  })
+})

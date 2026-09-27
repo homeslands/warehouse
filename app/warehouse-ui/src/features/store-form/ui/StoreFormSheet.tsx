@@ -1,0 +1,200 @@
+import { zodResolver } from '@hookform/resolvers/zod'
+import { useEffect } from 'react'
+import { useForm } from 'react-hook-form'
+import { useTranslation } from 'react-i18next'
+import { z } from 'zod'
+import { applyApiErrorToForm } from '@/shared/lib/form-errors'
+import { toastApiError } from '@/shared/lib/toast-error'
+import { FormSheet } from '@/shared/ui/FormSheet'
+import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { Input } from '@/shared/ui/input'
+import { Switch } from '@/shared/ui/switch'
+import { useCreateStore, useUpdateStore, type Store, type StoreInput } from '@/entities/store'
+
+type StoreErrorKey =
+  | 'stores:codeRequired'
+  | 'stores:codeInvalid'
+  | 'stores:nameRequired'
+  | 'stores:legalNameRequired'
+  | 'stores:taxCodeRequired'
+  | 'stores:taxCodeInvalid'
+
+/** Xem ghi chú ở `WarehouseFormSheet`: backend chặt hơn, 101005 vẫn hiện đúng dưới ô Mã. */
+const CODE_REGEX = /^[A-Za-z0-9-]{2,32}$/
+/** Đúng `STORE_TAX_CODE_REGEX` của backend: 10 chữ số + hậu tố chi nhánh 3 chữ số tuỳ chọn. */
+const TAX_CODE_REGEX = /^\d{10}(-\d{3})?$/
+
+const schema = z.object({
+  code: z
+    .string()
+    .min(1, 'stores:codeRequired' satisfies StoreErrorKey)
+    .regex(CODE_REGEX, 'stores:codeInvalid' satisfies StoreErrorKey),
+  name: z.string().min(1, 'stores:nameRequired' satisfies StoreErrorKey),
+  legalName: z.string().min(1, 'stores:legalNameRequired' satisfies StoreErrorKey),
+  taxCode: z
+    .string()
+    .min(1, 'stores:taxCodeRequired' satisfies StoreErrorKey)
+    .regex(TAX_CODE_REGEX, 'stores:taxCodeInvalid' satisfies StoreErrorKey),
+  invoiceAddress: z.string().optional(),
+  phonenumber: z.string().optional(),
+  email: z.string().optional(),
+  address: z.string().optional(),
+  isActive: z.boolean(),
+})
+
+const FIELD_BY_CODE = {
+  101003: 'name',
+  101005: 'code',
+  101006: 'code',
+  101007: 'code',
+  101010: 'taxCode',
+  101011: 'taxCode',
+  101012: 'phonenumber',
+  101013: 'email',
+} as const
+
+const EMPTY_FORM: StoreInput = {
+  code: '',
+  name: '',
+  legalName: '',
+  taxCode: '',
+  invoiceAddress: '',
+  phonenumber: '',
+  email: '',
+  address: '',
+  isActive: true,
+}
+
+/**
+ * `phonenumber` (`@Matches`) và `email` (`@IsEmail`) không nhận chuỗi rỗng — `@IsOptional()` chỉ bỏ
+ * qua `undefined`/`null`. `invoiceAddress`/`address` chỉ có `@IsOptional()` nên gửi `''` được, và
+ * đó là cách duy nhất để xoá nội dung cũ khi sửa.
+ */
+function toApiInput(values: StoreInput): StoreInput {
+  return {
+    code: values.code.trim(),
+    name: values.name.trim(),
+    legalName: values.legalName.trim(),
+    taxCode: values.taxCode.trim(),
+    invoiceAddress: values.invoiceAddress ?? '',
+    address: values.address ?? '',
+    phonenumber: values.phonenumber?.trim() || undefined,
+    email: values.email?.trim() || undefined,
+    isActive: values.isActive,
+  }
+}
+
+type Props = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  /** Có = sửa cửa hàng này; không có = tạo mới. */
+  store?: Store
+}
+
+export function StoreFormSheet({ open, onOpenChange, store }: Props) {
+  const { t } = useTranslation(['stores', 'common'])
+  const create = useCreateStore()
+  const update = useUpdateStore()
+  const isPending = create.isPending || update.isPending
+
+  const form = useForm<StoreInput>({ resolver: zodResolver(schema), defaultValues: EMPTY_FORM })
+  const submitDisabled = store ? !form.formState.isDirty : false
+
+  useEffect(() => {
+    if (!open) return
+    form.reset(
+      store
+        ? {
+            code: store.code,
+            name: store.name,
+            legalName: store.legalName,
+            taxCode: store.taxCode,
+            invoiceAddress: store.invoiceAddress ?? '',
+            phonenumber: store.phonenumber ?? '',
+            email: store.email ?? '',
+            address: store.address ?? '',
+            isActive: store.isActive,
+          }
+        : EMPTY_FORM,
+    )
+  }, [open, store, form])
+
+  const handleError = (error: unknown) => {
+    if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) return
+    toastApiError(error)
+  }
+
+  const onSubmit = (values: StoreInput) => {
+    const input = toApiInput(values)
+    const options = { onSuccess: () => onOpenChange(false), onError: handleError }
+    if (store) {
+      update.mutate({ slug: store.slug, input }, options)
+    } else {
+      create.mutate(input, options)
+    }
+  }
+
+  const textField = (
+    name:
+      | 'code'
+      | 'name'
+      | 'legalName'
+      | 'taxCode'
+      | 'invoiceAddress'
+      | 'phonenumber'
+      | 'email'
+      | 'address',
+    label: string,
+    required = false,
+  ) => (
+    <FormField
+      control={form.control}
+      name={name}
+      render={({ field }) => (
+        <FormItem required={required}>
+          <FormLabel>{label}</FormLabel>
+          <FormControl>
+            <Input {...field} value={field.value ?? ''} />
+          </FormControl>
+          <FormMessage />
+        </FormItem>
+      )}
+    />
+  )
+
+  return (
+    <FormSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      title={store ? t('stores:edit') : t('stores:create')}
+      submitLabel={store ? t('common:save') : t('stores:create')}
+      isPending={isPending}
+      submitDisabled={submitDisabled}
+      onSubmit={form.handleSubmit(onSubmit)}
+    >
+      <Form {...form}>
+        {textField('code', t('stores:columnCode'), true)}
+        {textField('name', t('stores:columnName'), true)}
+        {textField('legalName', t('stores:columnLegalName'), true)}
+        {textField('taxCode', t('stores:columnTaxCode'), true)}
+        {textField('invoiceAddress', t('stores:fieldInvoiceAddress'))}
+        {textField('address', t('stores:fieldAddress'))}
+        {textField('phonenumber', t('stores:fieldPhonenumber'))}
+        {textField('email', t('stores:fieldEmail'))}
+
+        <FormField
+          control={form.control}
+          name="isActive"
+          render={({ field }) => (
+            <FormItem className="flex items-center gap-3">
+              <FormControl>
+                <Switch checked={field.value} onCheckedChange={field.onChange} ref={field.ref} />
+              </FormControl>
+              <FormLabel>{t('stores:fieldIsActive')}</FormLabel>
+            </FormItem>
+          )}
+        />
+      </Form>
+    </FormSheet>
+  )
+}

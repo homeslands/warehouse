@@ -10,6 +10,7 @@ import i18n from '@/shared/i18n'
 import { apiError, ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
+import { chooseOption, selectedLabel } from '@/shared/test/select'
 import type { Example } from '@/entities/example'
 import { ExamplesPage } from '@/pages/examples'
 
@@ -31,7 +32,9 @@ function LocationProbe() {
   return <output data-testid="location">{search}</output>
 }
 
-function renderPage(options: { route?: string; auth?: 'admin' | 'customer' } = {}) {
+type TestAuth = NonNullable<Parameters<typeof renderWithProviders>[1]>['auth']
+
+function renderPage(options: { route?: string; auth?: TestAuth } = {}) {
   return renderWithProviders(
     <>
       <ExamplesPage />
@@ -127,6 +130,50 @@ describe('ExamplesPage — hiển thị và quyền', () => {
   })
 })
 
+describe('ExamplesPage — quyền theo AUTHORITY, không theo vai trò', () => {
+  // Backend gác ba endpoint ghi bằng @RequireAuthority(EXAMPLE_CREATE / _UPDATE / _DELETE), không
+  // bằng @HasRole — nên FE hỏi đúng từng mã, và vai trò không còn ý nghĩa gì ở đây.
+  const withScope = (roleName: string, scope: string[]) => ({
+    userId: 'u1',
+    userName: 'tester',
+    roleName,
+    scope,
+  })
+
+  it('ADMIN nhưng scope RỖNG → không thấy nút nào (vai trò không cấp quyền)', async () => {
+    renderPage({ auth: withScope('ADMIN', []) })
+    await screen.findByText('Example A')
+
+    expect(screen.queryByRole('button', { name: /tạo example/i })).not.toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Thao tác' })).not.toBeInTheDocument()
+  })
+
+  it('MANAGER có EXAMPLE_CREATE → thấy nút Tạo, không có cột Thao tác', async () => {
+    renderPage({ auth: withScope('MANAGER', ['EXAMPLE_CREATE']) })
+    await screen.findByText('Example A')
+
+    expect(screen.getByRole('button', { name: /tạo example/i })).toBeInTheDocument()
+    expect(screen.queryByRole('columnheader', { name: 'Thao tác' })).not.toBeInTheDocument()
+  })
+
+  it('chỉ EXAMPLE_UPDATE → cột Thao tác chỉ có Sửa', async () => {
+    renderPage({ auth: withScope('SUPERVISOR', ['EXAMPLE_UPDATE']) })
+    const row = (await screen.findByText('Example A')).closest('tr')!
+
+    expect(within(row).getByRole('button', { name: 'Sửa' })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'Xoá' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /tạo example/i })).not.toBeInTheDocument()
+  })
+
+  it('chỉ EXAMPLE_DELETE → cột Thao tác chỉ có Xoá', async () => {
+    renderPage({ auth: withScope('SUPERVISOR', ['EXAMPLE_DELETE']) })
+    const row = (await screen.findByText('Example A')).closest('tr')!
+
+    expect(within(row).getByRole('button', { name: 'Xoá' })).toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'Sửa' })).not.toBeInTheDocument()
+  })
+})
+
 describe('ExamplesPage — phân trang trên URL', () => {
   it('nút Trang trước bị vô hiệu ở trang đầu', async () => {
     renderPage()
@@ -155,7 +202,7 @@ describe('ExamplesPage — phân trang trên URL', () => {
     expect(await screen.findByText('Example B')).toBeInTheDocument()
     expect(requested).toEqual(['?page=2&size=20'])
     expect(screen.getByText('Trang 2 / 3 — 45 bản ghi')).toBeInTheDocument()
-    expect(screen.getByLabelText('Số dòng mỗi trang')).toHaveValue('20')
+    expect(selectedLabel('Số dòng mỗi trang')).toBe('20')
   })
 
   it('bấm Trang sau → URL ?page=2', async () => {
@@ -190,7 +237,7 @@ describe('ExamplesPage — phân trang trên URL', () => {
     const { user } = renderPage({ route: '/examples?page=3' })
     await screen.findByText('Example A')
 
-    await user.selectOptions(screen.getByLabelText('Số dòng mỗi trang'), '20')
+    await chooseOption(user, 'Số dòng mỗi trang', '20')
 
     await vi.waitFor(() => expect(requested.at(-1)).toBe('?page=1&size=20'))
     expect(screen.getByTestId('location').textContent).toBe('?size=20')

@@ -41,7 +41,11 @@ Các file test dựng cả cây router (`app/routes/ErrorPage.test.tsx`, `NotFou
 ### Ba luật, ESLint giữ hộ
 
 1. **Chiều import.** Vi phạm → `boundaries/dependencies` báo lỗi.
-2. **Không import ngang tầng.** `features/example-form` không được import `features/example-delete`. Cần dùng chung thì đẩy xuống tầng dưới.
+2. **Không import ngang tầng.** `features/example-form` không được import `features/example-delete`;
+   `entities/store` không được import `entities/warehouse`. Cần dùng chung thì đẩy xuống tầng dưới,
+   hoặc — khi cả hai đã là entity và không còn tầng nào thấp hơn để đẩy xuống — làm ở `features`, nơi
+   được phép import cả hai (vd `features/store-assign-warehouse` invalidate cả `storeKeys.all` lẫn
+   `warehouseKeys.all` sau khi gán kho cho cửa hàng).
 3. **Public API.** Mỗi slice có `index.ts` là cổng duy nhất. Import `@/entities/example`, không bao giờ `@/entities/example/api/hooks`. Ngoại lệ: `shared/` import thẳng theo segment (`@/shared/ui/button`).
 
 **Barrel `index.ts` chỉ được chứa `export`.** Không import phụ, không side-effect, không logic — đó là nguồn gốc vòng import.
@@ -104,17 +108,45 @@ Alias `@/*` → `./src/*` nằm ở **cả hai** file:
      `RoleGate` lấy `roles` của match **sâu nhất** có khai: route con không khai thì thừa hưởng cha;
      route con khai `roles` riêng thì dùng roles của nó (có thể rộng hơn cha) — cha không phải trần
      quyền (menu cũng vậy).
+   - `authority`: gác theo **quyền** (`Authority.code`, endpoint gắn `@RequireAuthority(...)` ở
+     backend thay vì `@HasRole`). Khai cùng `roles` thì phải qua **cả hai** (AND) — khớp cách
+     backend tách `@HasRole` và `@RequireAuthority` thành hai guard độc lập. Ví dụ: `/permissions`
+     khai `handle.authority: 'MANAGE_PERMISSIONS'`. Chuỗi rỗng bị coi như không khai (fail-closed,
+     xem `readHandle` ở `app/routes/handle.ts`) — đừng khai `authority: ''` để "tạm tắt gác".
    - Không thêm route `loader` (kể cả trả từ `lazy`) trừ khi kiểm quyền trước: loader chạy trước
      `RoleGate` (RoleGate chỉ là layout render sau khi loader xong).
    - `nav`: bỏ đi thì màn không hiện trên sidebar (vd trang chi tiết). `group` ∈ `NAV_GROUP_ORDER`
      (`catalog` → `admin` → `dev`, trong `app/routes/handle.ts`); nhóm mới = thêm vào đó + khoá
      `nav:groups.<key>`. Màn chưa làm thì **không** khai mục menu.
    - `crumb`: nhãn breadcrumb + tiêu đề tab (`"<crumb> · <tên app>"`).
+   - **Trang chi tiết** là route con lồng dưới route danh sách (`/warehouses/:slug` dưới `/warehouses`),
+     khai `handle.crumb: 'nav:detail'`. Trang gọi `useCrumbTitle(record?.name)` (`@/widgets/app-shell`)
+     để breadcrumb và tiêu đề tab hiện tên bản ghi. Link từ bảng gửi `state.backTo`; nút quay lại đọc
+     bằng `readBackTo(location.state, '/warehouses')` (`shared/lib/back-link.ts`). Thân trang là **một**
+     `DetailCard` "Tổng quan" (`shared/ui/detail.tsx`): nhãn trên giá trị, lưới 1/2/3 cột; nhóm khác
+     loại (vd pháp nhân) là `DetailGroup` có tiêu đề trong cùng card; trường dài `span="full"`; tạo/cập
+     nhật lúc ở chân card (`DetailMeta`). Không lặp lại tên — đã là `<h1>`.
    - `labelKey` / `crumb` là khoá namespace `nav` (`shared/i18n/locales/{vi,en}/nav.json`), kiểm lúc
      biên dịch — thêm khoá vào **cả hai** file trước.
    - Luôn `satisfies AppRouteHandle`: `handle` của react-router là `unknown`, thiếu `satisfies` thì
      khai sai không bị bắt.
-5. Test composition (menu hiện đúng theo role, `/forbidden` khi thiếu quyền) ở `app/routes/`, dùng
+5. `roles`/`authority` của route = quyền **XEM** (guard của endpoint GET). Quyền **GHI** gác riêng
+   trong màn, **theo đúng decorator của từng endpoint ghi**:
+   - `@RequireAuthority(X)` → `can(user, 'X')`, **mỗi nút một mã** của đúng endpoint nó gọi
+     (`/examples`: Tạo ↔ `EXAMPLE_CREATE`, Sửa ↔ `EXAMPLE_UPDATE`, Xoá ↔ `EXAMPLE_DELETE`).
+   - `@HasRole(RoleEnum.Admin)` → `hasRole(user, ROLES.ADMIN)`.
+   - Màn mà backend **đang chuyển** từ role sang authority (`/warehouses`, `/stores`): luật đặt ở
+     `pages/<x>/model/abilities.ts` — một hàm thuần `<x>Abilities(user, flags)` trả
+     `{ create, update, delete, … }`, nhánh theo cờ trong `BACKEND_SUPPORTS`. Trang gọi
+     `<x>Abilities(user, BACKEND_SUPPORTS)`; test truyền cờ trực tiếp (không mock module). Route đọc
+     cờ qua `createRoutes({ capabilities })`.
+   - Nút mở hộp cần tải dữ liệu của **endpoint khác** thì cần cả quyền đó: gán quản lý kho =
+     `WAREHOUSE_ASSIGN_MANAGER` **và** `USER_READ` (hộp tải `GET /users`); gán kho cho cửa hàng =
+     `STORE_UPDATE` **và** `WAREHOUSE_UPDATE` (chính endpoint gán đòi cả hai) **và** `WAREHOUSE_READ`
+     (hộp tải danh sách kho).
+   Không có quyền thì ẩn hẳn nút, và **không dựng cột thao tác** khi không còn nút nào trong cột
+   (ngăn cách trước mục Xoá cũng chỉ vẽ khi phía trên còn mục khác).
+6. Test composition (menu hiện đúng theo role, `/forbidden` khi thiếu quyền) ở `app/routes/`, dùng
    `renderWithRouter(createRoutes({ dev: false }), { route, auth })`.
 
 Đừng nhét cả bốn tầng vào một thư mục — đó chính là thứ cấu trúc này tồn tại để ngăn.
@@ -124,12 +156,18 @@ Màn chỉ dành cho dev (Example) khai trong `devScreens()` — sau cả cờ `
 
 ### Thêm một API mới
 
-1. Type → `entities/<x>/model/types.ts`, **viết tay** (không sinh từ Swagger); backend có `version` thì kế
-   thừa `Versioned` (`shared/api/types.ts`). Đối chiếu Swagger khi khai: trường backend **luôn trả** thì
-   khai **bắt buộc** dù Swagger ghi tuỳ chọn (DTO dùng `@ApiPropertyOptional` cả cho `slug`, `createdAt`,
-   `updatedAt`, `version`). Danh sách có bộ lọc: khai `<X>Filters` cạnh type, tham số là `ListParams<<X>Filters>`.
+1. Type → `entities/<x>/model/types.ts`, **viết tay** (không sinh từ Swagger); chỉ **các loại phiếu**
+   (nhập/xuất/kiểm kho) còn `version` → kế thừa `Versioned` (`shared/api/types.ts`); danh mục (kho, cửa
+   hàng, vật tư, loại vật tư, đơn vị) **không** có `version` từ `WMS-10-be(2)`. Đối chiếu Swagger khi khai:
+   trường backend **luôn trả** thì khai **bắt buộc** dù Swagger ghi tuỳ chọn (DTO dùng `@ApiPropertyOptional`
+   cả cho `slug`, `createdAt`, `updatedAt`, `version`). Danh sách có bộ lọc: khai `<X>Filters` cạnh type,
+   tham số là `ListParams<<X>Filters>`.
 2. Hàm gọi API → `entities/<x>/api/<x>.api.ts`, chỉ dùng `getData` / `getPaginated` / `postData` /
-   `patchData` / `deleteData` từ `shared/api/http.ts`. **Không dùng `axios` trực tiếp** — mất refresh token.
+   `patchData` / `putData` / `deleteData` từ `shared/api/http.ts`. **Không dùng `axios` trực tiếp** — mất
+   refresh token. Backend dùng `PUT` cho các endpoint "thay đúng một slot" và idempotent
+   (`PUT /warehouses/:slug/manager`, `PUT /stores/:slug/warehouse`): **đừng gộp chúng vào form sửa** —
+   một lần bấm Lưu hoá thành hai request, lỗi nửa chừng không xử lý gọn được. Endpoint bỏ gán nhận
+   `null` tường minh (`managerSlug: null`, `warehouseSlug: null`), không phải thiếu field hay chuỗi rỗng.
 3. Key → `entities/<x>/api/query-keys.ts`, theo mẫu `entities/example/api/query-keys.ts`.
 4. Hook → `entities/<x>/api/hooks.ts`:
    - danh sách phân trang có `placeholderData: keepPreviousData`;
@@ -178,6 +216,32 @@ Tài nguyên định danh bằng `slug`, không phải `id`.
 - Toast lỗi là việc của `app/query-client.ts` (`QueryCache` / `MutationCache`). **Hook không tự toast lỗi.**
 - Query lỗi ở lần tải đầu không toast (component hiện lỗi tại chỗ); đã có dữ liệu mà tải lại lỗi thì toast.
 - 401 và request bị huỷ không bao giờ toast.
+- **403 do thiếu quyền** (`isPermissionDenied`, `shared/api/http.ts`) = `scope` trong store đã cũ
+  vì người khác vừa đổi quyền của role mình. `app/query-client.ts` nạp lại `/auth/me`
+  (`refreshCurrentUser`, gộp các lời gọi chồng nhau thành một request) → menu, nút, `RoleGate` tự
+  cập nhật; mất quyền vào màn đang đứng thì bị đưa sang `/forbidden`. Toast dùng
+  `id: 'permission-denied'` nên nhiều request cùng bị từ chối chỉ hiện **một** toast. Việc nạp lại
+  chạy **trước** mọi nhánh bỏ toast (`suppressErrorToast`, lỗi lần tải đầu) — các nhánh đó chỉ tắt
+  việc *báo*, không tắt việc *làm mới quyền*. Backend không gắn `code` cho loại 403 này nên nhận diện
+  bằng `statusCode === 403` + không `code` + message `"Forbidden resource"` (câu mặc định của Nest);
+  phải khớp message vì `FeatureGuard` cũng trả 403 không `code`. Có mã riêng từ backend thì đổi sang
+  so `code`. Phần làm mới quyền **không** có trong `mutationToastQueryClient()` (`shared` không import
+  được `entities`) — test nó ở tầng `app` (`app/query-client.test.ts`, `app/permission-revoked.test.tsx`).
+  Chỉ bắt được **bị thu** quyền; chiều **được cấp thêm** do `usePermissionSync` lo (dưới đây).
+- **Quay lại tab thì kiểm tra lại quyền**: `usePermissionSync` (`entities/session`, gắn trong
+  `app/App.tsx` cạnh `useSession`) nạp lại `/auth/me` khi tab hiện lại sau khi bị ẩn **≥ 30s**
+  và cách lần trước **≥ 60s** (tính cả lần nạp lúc mở phiên) — luật nằm ở hàm thuần `shouldRecheck`.
+  Vai trò hoặc tập `scope` khác đi (không tính thứ tự) → toast thông tin "Quyền của bạn vừa được cập
+  nhật."; không đổi thì im lặng. Chuyển giữa các màn trong app **không** tốn request nào.
+- **Trang 403 nêu lý do**: `RoleGate` nhớ màn gần nhất đã cho vào; bị chặn ngay tại **đúng** màn
+  đó (quyền đổi giữa phiên) → `/forbidden?reason=permissionChanged`, `ForbiddenPage` hiện "Quyền truy
+  cập đã thay đổi". Tự gõ URL không có quyền → `/forbidden` trần, câu chung như cũ.
+- **Bẫy khi test các hook trong `entities/session`**: `src/app/test-setup.ts` import barrel
+  `@/entities/session` trước khi file test chạy, nên module trong barrel đã giữ bản **thật** của mọi
+  thứ nó import — `vi.mock('sonner')` hay `vi.mock('./refresh-user')` trong file test **không chen
+  vào được**, mock im lặng không bao giờ thấy lời gọi. Kiểm thứ người dùng thấy (render `<Toaster />`
+  thật, đếm request bằng MSW) hoặc tách luật ra hàm thuần (`shouldRecheck`). Module **ngoài** barrel
+  (vd `app/query-client.ts`) thì `vi.mock('@/entities/session', …)` vẫn ăn bình thường.
 - Tự xử lý lỗi → `meta: { suppressErrorToast: true }` rồi tự gọi `toastApiError` cho phần còn lại
   (ví dụ `features/change-password`).
 
@@ -206,22 +270,124 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   `z.number({ error: 'materials:minRequired' })` — thiếu thì UI tiếng Việt hiện câu tiếng Anh gốc của Zod.
 - **Lỗi backend vào ô**: mutation đặt `meta: { suppressErrorToast: true }`, rồi trong `onError`:
   `if (!applyApiErrorToForm(form, error, { 999902: 'name' })) toastApiError(error)`.
+- **Đừng dùng thuộc tính validate gốc của HTML trên input** (`required`, `type="email"`,
+  `pattern`, `min`/`max`). Trình duyệt **và jsdom** chạy validate gốc TRƯỚC khi submit, nên form
+  không gửi, resolver Zod không chạy, và **không lỗi nào hiện ra** — nhìn như bấm Lưu mà không có
+  gì xảy ra. Đã cắn thật với `type="email"` ở `features/profile-form`. Cần bàn phím email trên
+  mobile thì dùng `inputMode="email"` (chỉ gợi ý bàn phím, không validate).
 - **Trường bắt buộc**: `<FormItem required>` (khai một lần trên `FormItem`, dữ liệu tĩnh qua context —
   không phải state/effect) khiến `FormLabel` tự hiện dấu `*` đỏ (aria-hidden) và `FormControl` tự gắn
   `aria-required="true"` cho control cùng `FormItem` — không dùng thuộc tính `required` gốc của HTML (gây
   bong bóng validate trình duyệt). Form sửa khoá nút Lưu khi form chưa đổi so với giá trị lúc mở
   (`!formState.isDirty`); **không** khoá nút vì form chưa hợp lệ — bấm Lưu vẫn phải báo lỗi tại từng ô và
   focus vào ô lỗi đầu tiên (`handleSubmit` mặc định `shouldFocusError`).
+- **409 (`isVersionConflict`) thì đóng hộp** — chỉ áp cho thứ còn `version` (màn Example, và các loại
+  phiếu sau này): khi mutation trả 409 vì `version` lệch, bên gọi tự đóng hộp thay vì giữ nó mở — giữ
+  mở chỉ tạo vòng lặp thử lại vì `version` trong tay đã cũ.
+  - **Kho và cửa hàng KHÔNG có nhánh này**: backend bỏ `version` cho danh mục ở `WMS-10-be(2)`. Hệ
+    quả: hai người sửa cùng một kho cùng lúc thì **người lưu sau ghi đè người lưu trước, không có
+    cảnh báo** — quyết định của backend, FE không bù được.
+- **Sheet hay dialog** — quy ước của dự án, chọn theo *hình dạng thao tác*, không theo sở thích:
+  - **form nhiều ô → `FormSheet`** (`shared/ui/FormSheet.tsx`): ngăn trượt bên phải ~480px (full width
+    dưới 640px), tiêu đề cố định, vùng nội dung cuộn được, chân sheet cố định chứa Huỷ/Lưu. Props:
+    `open`, `onOpenChange`, `title`, `description?`, `submitLabel`, `isPending`, `submitDisabled?`,
+    `onSubmit`, `children`. Nút Lưu nằm TRONG `<form>` (không dùng thuộc tính `form=` — jsdom không nối
+    nó qua portal của Radix). Mẫu: `features/warehouse-form`, `features/store-form`.
+    Bẫy CSS: class ghi đè chiều rộng phải dùng cùng tiền tố biến thể
+    (`data-[side=right]:sm:max-w-[480px]`), vì `sheet.tsx` gốc có `data-[side=right]:w-3/4` — class
+    trần thua về specificity và jsdom **không** phát hiện được (chỉ thấy khi xem CSS đã build).
+    Cùng loại bẫy, hai biến thể khác đã cắn thật trong dự án này:
+    - `AlertDialogContent` có `data-[size=sm]:max-w-xs`. Truyền `className="max-w-md"` **không ăn**:
+      tailwind-merge không coi hai class khác biến thể là trùng, và selector kèm `[data-size]` thắng
+      specificity. Phải viết `data-[size=sm]:max-w-md`.
+    - `AlertDialogAction`/`AlertDialogCancel` truyền className qua `Slot` của Radix, mà `Slot`
+      **nối chuỗi** chứ không chạy tailwind-merge → `size="lg"` (`h-9`) cộng `className="h-11"` để lại
+      CẢ HAI trên phần tử, thắng thua do thứ tự utility trong stylesheet. Đừng ghi đè chiều cao bằng
+      className ở đó — thêm hẳn một `size` vào `button.tsx` (đó là lý do có `xl`).
+
+    Cả hai đều vô hình khi đọc code và khi chạy test. Cách kiểm: render thật rồi in `element.className`
+    ra xem class nào còn sống sót.
+  - **thao tác một ô (gán, chọn) → `Dialog`**: mẫu `features/warehouse-assign-manager`,
+    `features/store-assign-warehouse`. Không dựng react-hook-form cho một ô — state cục bộ + một
+    `<p role="alert">` cho lỗi backend thuộc ô đó là đủ.
+  - **Mọi hộp thoại đều cùng một hình dáng**: huy hiệu icon `DialogIcon` (`shared/ui/DialogIcon.tsx`
+    — quầng ba lớp, `tone="destructive"` cho hành động phá huỷ, mặc định là tông chính) ở đầu, phần
+    đầu căn giữa (`<DialogHeader className="items-center text-center">`), chân hộp phẳng
+    (`className="flex-row border-t-0 bg-transparent [&>button]:flex-1"`) với nút `size="xl"`.
+    Dùng `flex-1` chứ **không** `grid-cols-2`: nhiều hộp có nút hiện theo điều kiện (vd "Bỏ gán" chỉ
+    hiện khi đã gán ai đó), lưới cứng hai cột sẽ để nút còn lại nằm lẻ nửa bên trái.
+    Cỡ chữ tiêu đề/mô tả nằm ở `DialogTitle`/`AlertDialogTitle` gốc — đừng gắn `text-*` ở từng hộp.
+  - **xác nhận → `ConfirmDialog`** (`shared/ui/ConfirmDialog.tsx`, bọc `Dialog`): xoá, ngừng/mở
+    hoạt động, đăng xuất mọi thiết bị. `tone`: `destructive` (mặc định) cho hành động phá huỷ,
+    `success` cho hành động tích cực (vd mở lại hoạt động), `default` cho trung tính — đổi cả màu
+    quầng icon lẫn nút xác nhận.
+    **Hành động đổi trạng thái bản ghi thì HỎI LẠI cả hai chiều**: một hộp lo cả bật lẫn tắt, hướng
+    suy ra từ `isActive` của chính bản ghi (`features/<x>-toggle-active`), trang chỉ giữ một mẩu
+    state. Đừng làm chiều "bật" thành thao tác một cú bấm — trước đây từng vậy và nó lệch hẳn
+    khỏi phần còn lại. **Đừng dựng lại hộp xác nhận bằng `AlertDialog` trần** —
+    sáu hộp hiện có đều đi qua nó, thêm hộp thứ bảy cũng vậy. Props: `open`, `onOpenChange`, `icon`
+    (glyph trần, quầng ba lớp do hộp tự vẽ), `title`, `description`, `confirmLabel`, `cancelLabel`,
+    `closeLabel`, `isPending?`, `onConfirm`. Phần "nhớ bản ghi cuối lúc hộp mờ dần" thuộc về bên gọi
+    vì nó gắn với entity.
+    **Vì sao bọc `Dialog` chứ không phải `AlertDialog`:** `AlertDialog` của Radix hard-code
+    `onPointerDownOutside: (e) => e.preventDefault()` — không gỡ được bằng props — nên không bao giờ
+    đóng được bằng cách bấm ra ngoài. `ConfirmDialog` vì thế dựng trên `Dialog` rồi đặt lại
+    `role="alertdialog"` (Radix spread `...contentProps` SAU `role` nên ghi đè được): vừa có cử chỉ
+    bấm-ra-ngoài-để-đóng, vừa giữ đúng ngữ nghĩa ARIA. Đổi lại phải **tự** chặn mọi lối đóng khi
+    đang gửi (`onEscapeKeyDown`, `onPointerDownOutside`, `showCloseButton={!isPending}`) — có test
+    trong `ConfirmDialog.test.tsx`.
+
+  - **Mọi hộp thoại đều có đủ nút Huỷ + nút xác nhận, và đóng được bằng cách bấm ra ngoài** (trừ lúc
+    đang gửi request). Nút × của `Dialog`/`Sheet` lấy nhãn từ `common:close` — **đừng hardcode
+    "Close"**; bản shadcn gốc viết cứng tiếng Anh, đã sửa ở cả `dialog.tsx` và `sheet.tsx`.
+  - Màn Example giữ `Dialog` cho form — cố ý, **đừng đi sửa nó**.
+  - **Không đóng được khi đang gửi**: `FormSheet` và hai hộp gán (`AssignWarehouseManagerDialog`,
+    `AssignStoreWarehouseDialog`) đều chặn `onEscapeKeyDown` / `onPointerDownOutside` và giấu nút ×
+    (`showCloseButton={!isPending}`) lúc đang gửi — `Dialog.Close`/`SheetContent` của Radix gọi thẳng
+    `onOpenChange` khi bấm ×, không đi qua hai handler kia, nên phải xử lý riêng.
 - **Linh kiện**: `Combobox` (lọc tại client, không phân biệt dấu), `DatePicker` (giá trị `YYYY-MM-DD`),
-  `NumberInput` (`number | undefined`, không bao giờ `NaN`), `Checkbox`, `Textarea`, `Badge`, `Skeleton`,
-  `AlertDialog` (xác nhận xoá).
+  `NumberInput` (`number | undefined`, không bao giờ `NaN`), `Checkbox`, `Switch`, `Textarea`, `Badge`,
+  `Skeleton`, `AlertDialog` / `ConfirmDialog` (xác nhận phá huỷ), `Select` (`shared/ui/select.tsx`, shadcn/Radix — mọi ô
+  chọn trong app đều dùng nó, **không còn `<select>` gốc ở đâu**), `SelectFilter`
+  (`shared/ui/data-table/SelectFilter.tsx` — ô lọc một-trong-vài-giá-trị trên `ListToolbar`, bọc quanh
+  `Select`, nhãn qua `aria-label`).
+  - Radix `Select.Item` **không nhận `value=""`** (chuỗi rỗng dành riêng cho "chưa chọn gì", khai vậy
+    là ném lỗi). `SelectFilter` vì thế đổi mục "không lọc" sang một giá trị nội bộ rồi dịch ngược về
+    `''` trước khi báo ra — bên ngoài vẫn chỉ thấy `''`. Ô chọn mới nào có mục "tất cả" phải làm y vậy.
+  - Nhãn nhìn thấy được **không** nối được bằng `<label>` bọc ngoài (nút mở là `<button>`, không phải
+    control của form) — đặt tên khả truy cập bằng `aria-label` trên `SelectTrigger`.
+- **Ô tuỳ chọn và chuỗi rỗng**: `@IsOptional()` của backend chỉ bỏ qua `undefined`/`null`, **không** bỏ
+  qua `''`. Ô tuỳ chọn có validator định dạng (`phonenumber` `@Matches`, `email` `@IsEmail`) phải gửi
+  `undefined` khi trống, nếu không backend trả lỗi định dạng cho một ô người dùng đã bỏ trắng. Ô tuỳ
+  chọn chỉ có `@IsOptional()` (`description`, `address`, `invoiceAddress`) gửi `''` được — và đó là
+  cách duy nhất để **xoá** nội dung cũ khi sửa (PATCH partial: field vắng mặt = giữ nguyên).
+- **Ngừng/mở hoạt động** là PATCH chỉ `{ isActive }` (partial), không phải gửi lại cả form.
+  Backend bắt **ngừng hoạt động trước khi xoá** (100517 / 101016) → khoá sẵn mục Xoá kèm `title` nêu lý
+  do, thay vì để người dùng bấm rồi ăn toast lỗi.
+- **Danh sách lựa chọn dựng từ trang dữ liệu đang hiển thị thì luôn có thể cũ** (kho "còn trống" của
+  `AssignStoreWarehouseDialog` tính từ `warehouseSlug` của các dòng cửa hàng ở `StoresPage`, không
+  phải một trường "thuộc cửa hàng nào" trên chính kho) — cửa hàng ở trang khác hay người khác vừa gán
+  thì không thấy được. Vì vậy lỗi trùng/đã-bị-chiếm (101019/101020) phải hiện **tại ô chọn**, kèm
+  invalidate cả hai danh sách liên quan; invalidate chéo entity đặt ở tầng `features`
+  (`AssignStoreWarehouseDialog` invalidate cả `warehouseKeys.all` lẫn `storeKeys.all`), không phải
+  trong hook của một entity — ranh giới FSD: `entities/store` không được import `entities/warehouse`.
 - **Hiển thị**: `formatNumber` / `formatCurrency` (VND) / `formatDate` / `formatDateTime` (`shared/lib/format.ts`)
   theo ngôn ngữ đang chọn, rỗng → `—`. Component dùng chúng phải gọi `useTranslation()`.
 - **Test**: `renderWithProviders(ui, { route, auth: 'admin' | 'customer' | CurrentUser | 'none', queryClient })`.
-  `auth` được tầng app tiêm qua `src/app/test-setup.ts` (shared không import entities). Muốn đếm toast với
+  `auth` được tầng app tiêm qua `src/app/test-setup.ts` (shared không import entities).
+  Chọn giá trị trong một `Select`: dùng `chooseOption(user, '<tên ô>', '<nhãn mục>')` /
+  `selectedLabel('<tên ô>')` (`shared/test/select.ts`) — `user.selectOptions` chỉ chạy với `<select>`
+  gốc, Radix Select là nút mở + danh sách trong portal. Muốn đếm toast với
   handler global thật thì test ở tầng `app` với `queryClient` của `app/query-client.ts`. Component cần
   **data router** (`useMatches`, `useNavigation`, `lazy`, `handle` — vd `AppShell`) thì dùng
   `renderWithRouter(routes, { route, auth })` (cùng file), trả thêm `router`.
+  - `mutationToastQueryClient()` (`shared/test/query-client.ts`): client mặc định của
+    `renderWithProviders` **không có** `MutationCache`, nên khẳng định kiểu
+    `expect(toast.error).not.toHaveBeenCalled()` (kiểm `meta.suppressErrorToast`) đúng sẵn dù hook có
+    bug hay không — không bao giờ đỏ được. Test nào khẳng định điều đó phải truyền
+    `queryClient: mutationToastQueryClient()` vào `renderWithProviders`. Đây là bản sao đúng chốt
+    `MutationCache.onError` của `app/query-client.ts` (`shared` không import được `app`) — sửa một bên
+    thì phải soát lại bên kia.
 
 Bẫy khi thêm linh kiện shadcn (style `radix-nova`):
 - `npx shadcn add` hỏi ghi đè file đã có và treo khi không có TTY → `yes n | npx shadcn@latest add <tên> --yes`.
@@ -229,8 +395,10 @@ Bẫy khi thêm linh kiện shadcn (style `radix-nova`):
   `@/shared/lib/cn`, chạy `prettier --write`.
 - `radix-nova` không còn `form` — `shared/ui/form.tsx` chép từ `new-york-v4`.
 - File export `xxxVariants` / hook cạnh component → thêm warning react-refresh; bỏ export hoặc tách file.
-- jsdom thiếu `ResizeObserver` / `scrollIntoView` (cmdk) — stub trong `shared/test/setup.ts`; thêm polyfill
-  khác chỉ khi có test đỏ vì nó.
+- jsdom thiếu `ResizeObserver` / `scrollIntoView` (cmdk) và **Pointer Capture API** (`hasPointerCapture`,
+  Radix Select gọi trong `pointerdown` của nút mở) — stub trong `shared/test/setup.ts`; thêm polyfill
+  khác chỉ khi có test đỏ vì nó. Thiếu stub pointer capture thì test chết dưới dạng *Unhandled Error*
+  chứ không phải test đỏ bình thường, dễ nhìn nhầm là lỗi khác.
 - `sidebar` đã tách `SidebarContext` / `useSidebar` / `SIDEBAR_COOKIE_NAME` sang `shared/ui/sidebar-context.ts`
   (import `useSidebar` từ đó, không từ `sidebar.tsx`); `shared/lib/use-mobile.ts` viết lại bằng
   `matchMedia(...).matches` — test màn nhỏ chỉ cần giả `matchMedia`. Chạy lại `shadcn add` cho các file này
@@ -245,20 +413,80 @@ Bẫy khi thêm linh kiện shadcn (style `radix-nova`):
 
 ## Quyền
 
-Backend **chỉ enforce bằng role**, và **không authority nào được seed** → `scope` luôn là `"[]"`.
+Hai trục gác độc lập, cả hai **bypass `SUPER_ADMIN`** (khớp `AuthorityGuard`/`HasRoleGuard` của
+backend cho nó qua trước khi nhìn `scope`):
 
-Gác UI bằng `hasRole(user, ROLES.ADMIN)` (`ROLES` / `Role` trong `entities/session`, khớp `RoleEnum`
-của backend: `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `SUPERVISOR`). `hasRole` **luôn true với `SUPER_ADMIN`**
-(khớp bypass của backend) — không cần liệt kê nó. **Không dùng `can()`** — nó luôn trả `false`.
+- `hasRole(user, ...roles)` gác theo **vai trò** (`ROLES` / `Role` trong `entities/session`, khớp
+  `RoleEnum` của backend: `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `SUPERVISOR`).
+- `can(user, 'CODE')` gác theo **quyền** — `CODE` là một `Authority.code`, tra trong `user.scope`
+  (mảng mã authority, `entities/session/model/permissions.ts`; nạp từ Redis mỗi request nên vừa
+  bật/tắt quyền admin là có hiệu lực ngay). Từ `WMS-10-be(1)` (2026-09-25) backend gác **mọi**
+  endpoint nghiệp vụ bằng `@RequireAuthority` — **60 mã**, seed mặc định chép đúng `@HasRole` cũ.
+  **Nhiều mã trong một decorator là AND**: route nối hai tài nguyên không có mã riêng (gán kho cho
+  cửa hàng = `STORE_UPDATE` + `WAREHOUSE_UPDATE`; vật tư trong kho = `MATERIAL_*` + `WAREHOUSE_*`) →
+  FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
+  nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
+  `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
+  `/examples`, `/warehouses`, `/stores` (hai màn sau qua `pages/*/model/abilities.ts`). Đếm bằng `grep
+  AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
+  chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
+  `authority.constants.ts`, không phải cách migration tham chiếu tới chúng.
 
-Gác màn hình: `handle.roles` của route (xem "Thêm một màn hình nghiệp vụ mới") — `RoleGate` đưa về
-`/forbidden`, `buildNav` ẩn mục menu. Không bọc từng route bằng component guard.
+Chọn cái nào: **theo đúng thứ backend gác**. Endpoint gắn `@RequireAuthority(X)` → FE gác bằng
+`can(user, 'X')`. Endpoint gắn `@HasRole(...)` → gác bằng `hasRole`.
+
+Mã authority có **kiểu**: `AuthorityCode` / `AUTHORITY_CODES` (`shared/api/authority-codes.ts`),
+bản sao của `app/warehouse-api/src/authority/authority.constants.ts`. `can()` và `handle.authority`
+chỉ nhận mã trong danh sách — gõ sai là lỗi biên dịch (có test `@ts-expect-error` giữ điều này).
+Bản sao thì có thể lệch: màn `/permissions` so với `GET /authorities` và `console.warn` khi dev
+(`authorityCodeDrift`) — thấy cảnh báo thì sửa danh sách (đồng bộ lần cuối 2026-09-25, 60 mã).
+
+`scope` nạp một lần vào store lúc mở phiên, không tự làm mới. Người dùng tự đổi quyền của **chính
+role mình** (`features/permission-matrix`) thì phải gọi `refreshCurrentUser()`
+(`entities/session/model/refresh-user.ts`) ngay sau khi API thành công — nếu không, `scope` trong
+store cũ đi và `can()` nói dối cho tới lần đăng nhập sau.
+
+Bảng quyền theo vai trò (BRD §5, bản đã chốt) ở **`docs/permissions.md`** — gác route và hiện/ẩn nút
+theo đúng đó, đừng suy diễn lại từ BRD. Tóm tắt: cả ba role đều **tạo/sửa** được phiếu nhập, xuất,
+kiểm kho, chi kho; chỉ `ADMIN`/`MANAGER` được **duyệt**; phiếu `Confirmed` bất biến với mọi role.
+
+Gác màn hình: `handle.roles` (vai trò) và/hoặc `handle.authority` (quyền, `Authority.code`) của
+route (xem "Thêm một màn hình nghiệp vụ mới") — khai **cả hai** thì phải qua cả hai (AND), khớp cách
+backend tách `@HasRole` và `@RequireAuthority` thành hai guard độc lập. `RoleGate` đưa về
+`/forbidden`, `buildNav` ẩn mục menu — cả hai đọc `handle` của match sâu nhất có khai; không bọc
+từng route bằng component guard. Màn `/permissions` (`pages/permissions`) là ví dụ gác bằng quyền:
+`handle.authority: 'MANAGE_PERMISSIONS'`, nav nhóm `admin`.
+
+Màn `/permissions` **không** hiện tên quyền backend trả về (lẫn Anh–Việt: "Create user" cạnh "Tạo
+phiếu nhập kho"): tên quyền dịch theo **mã** (`permissions:authorityNames.<CODE>`), tên nhóm dịch theo
+tên nhóm backend (`GROUP_KEYS` trong `features/permission-matrix/model/labels.ts` →
+`permissions:groupNames.*`); dòng mã bên dưới giữ nguyên. Mã/nhóm FE chưa biết → hiện tên backend.
+**Thêm mã vào `AUTHORITY_CODES` thì thêm tên vào cả `vi` lẫn `en`** — `labels.test.ts` đỏ nếu thiếu.
+Cột vai trò xếp theo cấp bậc `ROLE_RANK` (SUPER_ADMIN → ADMIN → MANAGER → SUPERVISOR), không theo thứ tự
+API (`sortRolesByRank`).
+
+Trong màn `/permissions`, **mọi** lần gạt switch đều đi qua `ConfirmDialog` — cả cấp lẫn gỡ, cho mọi
+vai trò, không chỉ ca tự thu hồi. Bảng dày switch cạnh nhau, không có undo, và thay đổi có hiệu lực
+ngay với mọi người dùng đang đăng nhập, nên một cú bấm nhầm không được phép là một cú bấm. Hộp có ba
+nhánh chữ (cấp / gỡ / tự thu hồi `MANAGE_PERMISSIONS` của chính role mình) — sửa một nhánh thì soát
+cả ba, có test riêng cho từng nhánh. Toast **thành công** nằm trong `useTogglePermission`, toast lỗi
+vẫn để chốt `MutationCache.onError` lo như mọi nơi khác.
+
+Công tắc **"Kho tôi quản lý"** trên `/warehouses` (`?scope=mine`, nguồn `GET /warehouses/mine`) chỉ hiện
+với vai trò **MANAGER** — so `user.roleName` trực tiếp, không `hasRole` (hàm đó cho SUPER_ADMIN qua).
+Đây là ngoại lệ có chủ đích của luật "gác theo quyền": backend chỉ cho gán người vai trò MANAGER làm
+quản lý kho (`100516`), nên với vai trò khác danh sách luôn trống. Người khác mở link `?scope=mine`
+thì bị bỏ qua tham số, thấy danh sách đầy đủ.
 
 ## Đa ngôn ngữ
 
 Tiếng Việt mặc định, tiếng Anh thứ hai. Khoá được kiểm tra kiểu lúc biên dịch.
 
 Namespace `nav`: nhãn menu, tên nhóm (`groups.*`), breadcrumb, tiêu đề tab và trang Tổng quan.
+
+Mỗi màn nghiệp vụ có namespace riêng trùng tên số nhiều của entity (`warehouses`, `stores`) chứa tiêu
+đề, tên cột, nhãn ô form, chuỗi dialog và toast của màn đó — thêm màn mới là thêm một cặp file
+`locales/{vi,en}/<tên>.json` rồi khai trong `shared/i18n/index.ts` (cả `resources` lẫn `ns`).
 
 Hai namespace dễ nhầm:
 - `errors` (số nhiều) — bản dịch mã lỗi backend, tra qua `shared/api/error-codes.ts`
@@ -271,6 +499,39 @@ Anh nguyên bản của backend (kèm `console.warn`).
 
 `next-themes`, class trên `<html>`. Dùng token (`bg-background`, `text-muted-foreground`), **không
 dùng màu cứng** (`bg-slate-50`) — nếu không dark mode chỉ đúng một nửa.
+
+## Màn đăng nhập
+
+Ảnh nền ở `pages/login/assets/` (hai bản 1280px / 1920px, JPEG ~55%, nạp qua `srcSet`, `alt=""`,
+`fetchPriority="high"`). Đổi ảnh thì nén lại cỡ đó (`sips -s formatOptions 55 --resampleWidth …`) —
+ảnh gốc từ máy ảnh vài MB là thứ lớn nhất trang tải đầu tiên. Lớp phủ tối trên ảnh dùng `black/…` cố
+định ở cả hai chế độ sáng/tối (chữ trắng trên ảnh phải đọc được) — ngoại lệ có chủ đích của luật "dùng
+token". Thẻ đăng nhập là **kính mờ** (glassmorphism): màu `white/…` cố định, gom trong các hằng
+`GLASS_*` đầu `LoginPage.tsx` — nền thật của thẻ là ảnh đã làm mờ, không phải `--background`, nên nó
+**không** đổi theo sáng/tối. Không có `backdrop-filter` thì rơi về nền `slate-900/70` để chữ trắng vẫn đọc
+được. **Bẫy autofill:** Chrome tô ô tự điền bằng nền `#e8f0fe` mà `background` không gỡ được — trên kính
+nó thành một mảng xanh nhạt. Mẹo cũ "kéo dài `transition` của `background-color`" **đã hết tác dụng** ở Chrome
+mới (thử thật: ra chữ trắng trên nền xanh nhạt). Cách đang dùng ở `GLASS_INPUT`: `background-clip: text`
+(thu nền autofill vào trong nét chữ) + `-webkit-text-fill-color` phủ chữ lên — Chrome không cho đổi màu
+nền nhưng cho đổi phạm vi vẽ nền. Đã kiểm bằng một ô giả lập nền `!important` trong Chrome headless.
+
+**Chụp màn hình để kiểm tra giao diện** (jsdom không dựng CSS): `npm run build && npx vite preview`,
+rồi Chrome headless `--screenshot --window-size=W,H`. **Bẫy:** Chrome kẹp chiều rộng cửa sổ tối thiểu
+~500px — `--window-size=390,…` vẫn dựng layout ở 500px rồi cắt ảnh, trông như bị tràn ngang dù layout
+đúng. Chụp cỡ điện thoại thì nhúng trang vào `<iframe width="390">` trong một file HTML tạm.
+
+## Cỡ chữ
+
+Thang cỡ chữ khai trong khối `@theme` ở `app/styles/index.css` (`--text-xs` … `--text-2xl` kèm
+`--text-*--line-height`), nâng ~14% so với mặc định Tailwind. **Muốn chữ to/nhỏ hơn thì sửa thang ở
+đó, đừng đi đổi `text-sm` thành `text-base` ở từng component** — mọi utility `text-*` đọc từ các
+biến này nên một chỗ sửa là cả app theo.
+
+Cỡ hardcode dạng `text-[0.9rem]` (`shared/ui/button.tsx` size `sm`, `shared/ui/calendar.tsx`)
+**không** theo thang — đổi thang thì phải chỉnh tay mấy chỗ đó cho cân.
+
+Chiều cao cố định đi kèm cỡ chữ: `Button` `h-8`, `Badge` `h-6`, `Input` `h-9`. Nâng cỡ chữ mà quên
+nâng chiều cao thì `Badge` (có `overflow-hidden`) cắt mất chữ.
 
 ## Lệnh
 
@@ -291,15 +552,90 @@ mất công tìm cách sửa nó.
 
 ## Nợ kỹ thuật đang treo
 
+- **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
+  bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
+  nhưng backend **chưa có endpoint nào** — `user_tbl` cũng chưa có cột `fullName`/`email`, và
+  `GET /auth/me` đang trả `userName` chính là số điện thoại. Xem
+  `docs/proposals/2026-09-23-account-profile-and-sessions.md`. Phần sau cờ có test riêng chạy với
+  cờ BẬT (`pages/account/ui/AccountPage.flags.test.tsx`).
 - **Env nhét vào bundle lúc build.** Mỗi môi trường cần một image riêng; không promote image từ
   staging lên production được. Chuyển sang runtime config (`window.__ENV__`) khi nào cần điều đó.
-- **`entities/` mới có `session` và `example`.** Màn hình nghiệp vụ thật chưa có API backend.
-- **Breadcrumb chưa có tên động.** `crumb` là khoá i18n tĩnh; trang chi tiết (`/materials/:slug`) cần tên
-  bản ghi thì mở rộng `crumb` (vd hàm nhận `match.data`/`params`) khi làm màn chi tiết đầu tiên.
-- **Chưa sắp xếp theo cột.** `BaseQueryDto` nhận `sort` nhưng chưa service nào xử lý (mọi danh sách
-  phân trang `createdAt DESC`). Thêm `sort` vào `useListParams`/`DataTable` khi backend làm.
+- **Chưa tìm theo tên/mã, chưa lọc cửa hàng theo kho.** Backend `GET /warehouses` và `GET /stores` chưa
+  nhận `name` / `code` / `warehouseSlug` → hai màn chưa có `SearchInput`. Thêm khi backend làm.
+- **Danh sách "kho còn trống" do FE tự tính.** Hộp gán kho cho cửa hàng loại kho đã gán dựa trên **trang
+  dữ liệu cửa hàng đang hiển thị** — cửa hàng ở trang khác không thấy được. Backend vẫn là chốt chặn
+  (101019/101020) và lỗi hiện ngay tại ô chọn; bỏ được khi backend có `GET /warehouses?hasStore=false`.
+- **Lý do "Xoá bị khoá" dùng thuộc tính `title` gốc của HTML** thay vì component tooltip có style riêng
+  (`DropdownMenuItem` của `WarehousesPage`/`StoresPage`) — chấp nhận được vì đây là menu item disabled,
+  nhưng không đồng bộ hình thức với phần còn lại của UI.
+- **`Switch` chưa nối `field.name` / `field.onBlur`** khi dùng trong `react-hook-form`
+  (`WarehouseFormSheet`, `StoreFormSheet` chỉ truyền `checked`/`onCheckedChange`/`ref`) — chưa gây lỗi
+  thấy được vì `isActive` luôn có giá trị mặc định, nhưng thiếu validate-on-blur và tên field khi debug.
+- **`phonenumber` / `email` gửi `undefined` khi trống nên không xoá được giá trị cũ qua form** (khác với
+  `description`/`address`/`invoiceAddress`, gửi `''` xoá được bình thường) — hệ quả trực tiếp của bẫy
+  "Ô tuỳ chọn và chuỗi rỗng" ở trên; cần API riêng hoặc backend nới `@IsOptional()` mới xoá được.
+- **Sắp xếp theo cột và tìm kiếm: FE ĐÃ DỰNG SẴN, backend chưa làm.** Cả hai nằm sau cờ trong
+  `shared/api/backend-capabilities.ts` (`BACKEND_SUPPORTS.sort` / `.search`), mặc định `false`.
+  - Sort: `useListParams` giữ trạng thái trên URL (`?sort=name:DESC`), `sortToParam` đổi sang dạng
+    `['name:DESC']` mà `BaseQueryDto` khai (`@IsArray()` → phải là mảng, `sort[]=…` trên query
+    string). `DataTable` nhận prop `sorting`; cột nào sắp được thì khai
+    `meta: { sortField: '<trường>' }` trong `ColumnDef`. Bấm lần lượt tăng → giảm → thôi sắp.
+    **Không dùng `getSortedRowModel`** của TanStack: nó chỉ sắp trong trang hiện tại (10–50 dòng)
+    nên người dùng tưởng cả danh sách đã sắp — sai âm thầm, tệ hơn là không có.
+  - Search: `SearchInput` đã gắn sẵn vào `ListToolbar` của hai màn, khoá bộ lọc là `search`.
+    **Tên tham số chưa chốt với backend** — nếu backend đặt `q`/`keyword`/`name` thì đổi khoá đó ở
+    `WarehouseFilters`/`StoreFilters` và trong `FILTERS` của hai màn.
+  - **Bật cờ chỉ khi đã thử với API thật.** Bật nhầm thì UI hiện mũi tên / ô tìm mà dữ liệu không
+    đổi. Phần sau cờ có test riêng chạy với cờ BẬT
+    (`pages/warehouses/ui/WarehousesPage.sort-search.test.tsx`) — sửa phần này thì chạy cả file đó.
 - **Root `tsconfig.json` dùng `baseUrl`**, field mà TypeScript 6 deprecate. Xem lại khi nâng cấp TS,
   và kiểm lại `npx shadcn add` vẫn ghi đúng vào `src/shared/ui/` sau khi sửa.
 - **Refresh token nằm ở `localStorage`.** XSS đọc được và giữ phiên **vô thời hạn**: mỗi lần
   `/auth/refresh` ký refresh token mới với hạn 30 ngày mới, nên chỉ logout / logout-all / đổi mật khẩu
   mới chặn được. Chờ backend chuyển sang cookie httpOnly — xem `docs/proposals/2026-09-17-refresh-token-httponly-cookie.md`.
+- **Nợ có điều kiện kích hoạt — `ConfirmDialog` chung.** Bốn hộp xác nhận
+  (`DeleteWarehouseDialog`/`DeleteStoreDialog`, `DeactivateWarehouseDialog`/`DeactivateStoreDialog`) là bản sao
+  cấu trúc của nhau, chỉ khác kiểu entity, tên prop và khoá i18n. Cố ý giữ vậy lúc này: bản generic cần
+  ~6 props chuỗi + `getSlug`/`getName` để bù phần khác nhau, đắt hơn là chép. **Điều kiện kích hoạt: entity
+  thứ ba cần cùng cặp hộp này thì rút `ConfirmDialog` ra `shared/ui` TRƯỚC khi chép lần thứ ba** — lúc đó là
+  6 bản, và một sửa đổi hành vi chung (ví dụ nhánh còn thiếu: `AlertDialog` chưa chặn Esc lúc đang gửi, khác
+  với `FormSheet` và hai hộp gán) sẽ phải làm ở 6 chỗ, thiếu một chỗ thì không gì bắt được.
+- **`useWarehouses` có option `enabled`, `useStores` thì không** (chưa nơi nào cần tải danh sách cửa hàng có
+  điều kiện). Ai chép `entities/store` làm mẫu mà cần nạp có điều kiện thì tự thêm, theo đúng dạng của
+  `useWarehouses`.
+- **`toRejection` (`src/shared/api/http.ts`) trả `error.response?.data ?? error`, mà axios để nguyên
+  chuỗi rỗng khi 5xx không có body** — `??` chỉ thay khi `data` là `null`/`undefined`, `''` lọt qua
+  nguyên vẹn. Hệ quả đang chạm người dùng: `isApiError('')` là `false` nên `resolveApiErrorMessage`
+  trả `errors:network` ("Không kết nối được máy chủ") cho một lỗi 500 **có** phản hồi từ server —
+  sai loại lỗi, ở toast global, `DataTable`, hai hộp gán (`AssignWarehouseManagerDialog`,
+  `AssignStoreWarehouseDialog`) và màn phân quyền. Phụ: `isVersionConflict('')` cũng `false` (409
+  không body sẽ không đóng được sheet/hộp theo đúng quy ước "409 thì đóng hộp"), và `retry` coi `''`
+  là lỗi tạm thời nên thử lại tới 3 lần thay vì dừng ngay. Sửa tối thiểu khi làm:
+  `const d = error.response?.data; return d === undefined || d === '' ? error : d`. **Đợt này chưa
+  sửa** — chạm tầng `shared`, ảnh hưởng nhiều test.
+- **Luật ủy quyền R1–R4 ở màn `/permissions`: FE ĐÃ DỰNG SẴN sau cờ `permissionDelegationRules`
+  (mặc định `false`), chờ backend.** Đặc tả: `docs/proposals/2026-09-25-permission-delegation-rules.md`.
+  Luật từng ô là hàm thuần `cellLock` / `isRankLocked` (`features/permission-matrix/model/cell-rules.ts`),
+  thứ tự R3 → R1 → R2 → R4 như backend; SUPER_ADMIN miễn R1–R3, R4 ("vai trò cuối cùng") áp cho mọi
+  người và áp cả khi cờ tắt. Cột vai trò ngang/cao hơn mình vẽ ✓/— (chỉ xem) thay cho switch. Hằng số
+  phải khớp backend: `ROLE_RANK` (`entities/session/model/roles.ts`), `PROTECTED_AUTHORITY_CODES`
+  (`shared/api/authority-codes.ts`). **Còn thiếu**: bốn mã lỗi mới (`AUTHORITY_PROTECTED`,
+  `ROLE_RANK_NOT_ALLOWED`, `AUTHORITY_NOT_HELD`, `LAST_PERMISSION_ADMIN`) chưa có trong
+  `error-codes.ts` vì backend chưa chọn số — tới lúc đó lỗi từ chối hiện câu chung. Bật cờ xong thì
+  hộp cảnh báo "tự thu hồi" trong `PermissionMatrix.tsx` không còn ai chạm tới được (R1 khoá cột của
+  chính mình) — gỡ nó khi gỡ cờ. Test với cờ bật: `PermissionMatrix.delegation.test.tsx`.
+- **Cờ chuyển tiếp role → authority còn chưa gỡ.** `authorityGuards` (kho + người dùng) và
+  `storeAuthorityGuards` (cửa hàng) trong `shared/api/backend-capabilities.ts` **đã bật** từ
+  2026-09-25 (backend `WMS-10-be(1)`). Còn giữ để tắt được nếu một môi trường chưa lên bản backend
+  mới. Khi mọi môi trường đã chạy ổn: gỡ hai cờ, gỡ nhánh `hasRole` trong
+  `pages/{warehouses,stores}/model/abilities.ts`, gỡ `capabilities` khỏi `createRoutes`, và bỏ các
+  test chạy với cờ tắt (`abilities.test.ts` phần "cờ TẮT", `describe` "cờ TẮT" cuối
+  `app/routes/routes.test.tsx`). Nhắc: từ lúc backend deploy, mọi ô đã bật/tắt ở `/permissions` có
+  hiệu lực thật (sandbox 2026-09-24: MANAGER đang có `WAREHOUSE_CREATE` → tạo được kho).
+- **Ma trận quyền seed ở backend dịch từ BRD §5.5 bản CŨ, lệch với bản chốt 2026-09-23** (Manager tạo/sửa
+  được cả bốn loại phiếu). Cần vào màn `/permissions` bật **7 ô** cho `MANAGER`:
+  `IMPORT_FORM_CREATE`, `EXPORT_FORM_CREATE`, `BALANCE_FORM_CREATE`, `BALANCE_FORM_RECORD_COUNT`,
+  `IMPORT_FORM_UPDATE_DRAFT`, `EXPORT_FORM_UPDATE_DRAFT`, `WAREHOUSE_PAYMENT_UPDATE_DRAFT`. Không cần
+  migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hiện chưa
+  có tác dụng**: module phiếu chưa có endpoint nào — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend
+  làm module đó và gác bằng `@RequireAuthority`.

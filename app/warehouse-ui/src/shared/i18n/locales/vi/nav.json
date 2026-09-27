@@ -1,6 +1,11 @@
 {
   "home": "Tổng quan",
+  "warehouses": "Kho",
+  "stores": "Cửa hàng",
+  "permissions": "Phân quyền",
   "examples": "Example",
+  "account": "Tài khoản",
+  "detail": "Chi tiết",
   "greeting": "Xin chào, {{name}}!",
   "greetingNoName": "Xin chào!",
   "noFeatures": "Chưa có chức năng nào được cấp quyền.",

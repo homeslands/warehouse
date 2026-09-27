@@ -1,6 +1,11 @@
 {
   "home": "Overview",
+  "warehouses": "Warehouses",
+  "stores": "Stores",
+  "permissions": "Permissions",
   "examples": "Example",
+  "account": "Account",
+  "detail": "Details",
   "greeting": "Hello, {{name}}!",
   "greetingNoName": "Hello!",
   "noFeatures": "No features have been granted to you yet.",
