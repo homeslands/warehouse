@@ -37,6 +37,12 @@
 
   --destructive: oklch(0.577 0.245 27.325);
 
+  /* Màu trạng thái cho thông báo (toast). `--destructive` đã đóng vai lỗi nên không khai lại.
+     Ba biến này là nền của huy hiệu icon tròn — chữ/icon trên đó luôn trắng. */
+  --success: oklch(0.596 0.145 163.225);
+  --warning: oklch(0.681 0.162 75.834);
+  --info: oklch(0.588 0.158 254.624);
+
   --input: oklch(0.922 0 0);
 
   --ring: oklch(0.708 0 0);
@@ -63,11 +69,33 @@
 
   --sidebar-accent: oklch(0.97 0 0);
 
+  /* Nền mục đang chọn — phải ĐẬM HƠN --sidebar-accent (nền hover), nếu không
+     mục đang chọn và mục đang rê chuột trông y hệt nhau. */
+  --sidebar-active: oklch(0.91 0 0);
+
   --sidebar-accent-foreground: oklch(0.205 0 0);
 
   --sidebar-border: oklch(0.922 0 0);
 
   --sidebar-ring: oklch(0.708 0 0);
+}
+
+/* Thang cỡ chữ toàn app — nâng ~14% so với mặc định Tailwind cho dễ đọc hơn.
+   Đổi ở ĐÂY, không đi sửa `text-sm` ở từng component: mọi utility `text-*` đọc từ các biến này.
+   Cỡ hardcode dạng `text-[0.8rem]` KHÔNG theo thang này — xem button.tsx / calendar.tsx. */
+@theme {
+  --text-xs: 0.875rem;
+  --text-xs--line-height: 1.25rem;
+  --text-sm: 1rem;
+  --text-sm--line-height: 1.5rem;
+  --text-base: 1.125rem;
+  --text-base--line-height: 1.75rem;
+  --text-lg: 1.25rem;
+  --text-lg--line-height: 1.9375rem;
+  --text-xl: 1.4375rem;
+  --text-xl--line-height: 2rem;
+  --text-2xl: 1.75rem;
+  --text-2xl--line-height: 2.25rem;
 }
 
 @theme inline {
@@ -77,6 +105,7 @@
   --color-sidebar-border: var(--sidebar-border);
   --color-sidebar-accent-foreground: var(--sidebar-accent-foreground);
   --color-sidebar-accent: var(--sidebar-accent);
+  --color-sidebar-active: var(--sidebar-active);
   --color-sidebar-primary-foreground: var(--sidebar-primary-foreground);
   --color-sidebar-primary: var(--sidebar-primary);
   --color-sidebar-foreground: var(--sidebar-foreground);
@@ -90,6 +119,9 @@
   --color-input: var(--input);
   --color-border: var(--border);
   --color-destructive: var(--destructive);
+  --color-success: var(--success);
+  --color-warning: var(--warning);
+  --color-info: var(--info);
   --color-accent-foreground: var(--accent-foreground);
   --color-accent: var(--accent);
   --color-muted-foreground: var(--muted-foreground);
@@ -131,6 +163,9 @@
   --accent: oklch(0.269 0 0);
   --accent-foreground: oklch(0.985 0 0);
   --destructive: oklch(0.704 0.191 22.216);
+  --success: oklch(0.696 0.17 162.48);
+  --warning: oklch(0.769 0.188 70.08);
+  --info: oklch(0.707 0.165 254.624);
   --border: oklch(1 0 0 / 10%);
   --input: oklch(1 0 0 / 15%);
   --ring: oklch(0.556 0 0);
@@ -144,6 +179,7 @@
   --sidebar-primary: oklch(0.488 0.243 264.376);
   --sidebar-primary-foreground: oklch(0.985 0 0);
   --sidebar-accent: oklch(0.269 0 0);
+  --sidebar-active: oklch(0.371 0 0);
   --sidebar-accent-foreground: oklch(0.985 0 0);
   --sidebar-border: oklch(1 0 0 / 10%);
   --sidebar-ring: oklch(0.556 0 0);

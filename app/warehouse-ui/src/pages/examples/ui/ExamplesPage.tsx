@@ -5,7 +5,7 @@ import { z } from 'zod'
 import { useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
-import { useAuthStore, hasRole } from '@/entities/session'
+import { can, useAuthStore } from '@/entities/session'
 import {
   buildExampleColumns,
   useDeleteExample,
@@ -21,9 +21,12 @@ const FILTERS = z.object({})
 export function ExamplesPage() {
   const user = useAuthStore((s) => s.user)
   const { t } = useTranslation(['examples', 'common'])
-  // Gác bằng hasRole, KHÔNG bằng can(): backend chặn bằng @HasRoles(Admin, SuperAdmin),
-  // và can() luôn trả false vì không authority nào được seed.
-  const canWrite = hasRole(user, 'ADMIN', 'SUPER_ADMIN')
+  // Gác bằng can(), KHÔNG bằng hasRole: backend gác ba endpoint ghi bằng
+  // @RequireAuthority(EXAMPLE_CREATE / EXAMPLE_UPDATE / EXAMPLE_DELETE) — vai trò không quyết định
+  // gì, admin bật/tắt từng quyền ở màn /permissions. Mỗi nút hỏi đúng mã của endpoint nó gọi.
+  const canCreate = can(user, 'EXAMPLE_CREATE')
+  const canUpdate = can(user, 'EXAMPLE_UPDATE')
+  const canDelete = can(user, 'EXAMPLE_DELETE')
 
   const { page, size, filters, setPage, setSize } = useListParams(FILTERS)
   const [formOpen, setFormOpen] = useState(false)
@@ -38,38 +41,43 @@ export function ExamplesPage() {
 
   const columns = useMemo<ColumnDef<Example>[]>(() => {
     const base = buildExampleColumns(t)
-    if (!canWrite) return base
+    // Không có quyền nào trong hai → không dựng cột, thay vì một cột rỗng.
+    if (!canUpdate && !canDelete) return base
 
     const actionsColumn: ColumnDef<Example> = {
       id: 'actions',
       header: t('examples:actions'),
       cell: ({ row }) => (
         <div className="flex gap-2">
-          <Button
-            variant="outline"
-            size="sm"
-            onClick={() => {
-              setEditing(row.original)
-              setFormOpen(true)
-            }}
-          >
-            {t('examples:editAction')}
-          </Button>
-          <Button variant="destructive" size="sm" onClick={() => setDeleting(row.original)}>
-            {t('examples:deleteAction')}
-          </Button>
+          {canUpdate && (
+            <Button
+              variant="outline"
+              size="sm"
+              onClick={() => {
+                setEditing(row.original)
+                setFormOpen(true)
+              }}
+            >
+              {t('examples:editAction')}
+            </Button>
+          )}
+          {canDelete && (
+            <Button variant="destructive" size="sm" onClick={() => setDeleting(row.original)}>
+              {t('examples:deleteAction')}
+            </Button>
+          )}
         </div>
       ),
     }
 
     return [...base, actionsColumn]
-  }, [canWrite, t])
+  }, [canUpdate, canDelete, t])
 
   return (
     <div className="space-y-4">
       <div className="flex items-center justify-between">
         <h1 className="text-xl font-semibold">{t('examples:title')}</h1>
-        {canWrite && (
+        {canCreate && (
           <Button
             onClick={() => {
               setEditing(undefined)

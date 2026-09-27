@@ -21,17 +21,18 @@ export function ModeToggle() {
           <Moon className="hidden h-4 w-4 dark:block" />
         </Button>
       </DropdownMenuTrigger>
-      <DropdownMenuContent align="end">
-        <DropdownMenuItem onClick={() => setTheme('light')}>
-          <Sun className="mr-2 h-4 w-4" />
+      {/* Cùng số đo với `LanguageToggle` — xem ghi chú ở đó. */}
+      <DropdownMenuContent align="end" sideOffset={8} className="min-w-48 p-1.5">
+        <DropdownMenuItem className="gap-3 px-3 py-2" onClick={() => setTheme('light')}>
+          <Sun className="size-4" />
           {t('themeLight')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('dark')}>
-          <Moon className="mr-2 h-4 w-4" />
+        <DropdownMenuItem className="gap-3 px-3 py-2" onClick={() => setTheme('dark')}>
+          <Moon className="size-4" />
           {t('themeDark')}
         </DropdownMenuItem>
-        <DropdownMenuItem onClick={() => setTheme('system')}>
-          <Monitor className="mr-2 h-4 w-4" />
+        <DropdownMenuItem className="gap-3 px-3 py-2" onClick={() => setTheme('system')}>
+          <Monitor className="size-4" />
           {t('themeSystem')}
         </DropdownMenuItem>
       </DropdownMenuContent>

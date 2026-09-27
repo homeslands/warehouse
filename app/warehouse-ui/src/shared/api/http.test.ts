@@ -5,6 +5,7 @@ import {
   getData,
   getPaginated,
   isApiError,
+  isPermissionDenied,
   isVersionConflict,
   postData,
   setSessionEndHandler,
@@ -606,5 +607,76 @@ describe('isVersionConflict', () => {
     expect(isVersionConflict({ ...base, statusCode: 409 })).toBe(false)
     expect(isVersionConflict({ ...base, statusCode: 422, code: 999901 })).toBe(false)
     expect(isVersionConflict(new Error('Network Error'))).toBe(false)
+  })
+})
+
+describe('getPaginated — sắp xếp', () => {
+  function captureParams() {
+    const seen: { url: string } = { url: '' }
+    server.use(
+      mswHttp.get(`${BASE}/materials`, ({ request }) => {
+        seen.url = request.url
+        return ok({
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: 10,
+          totalPages: 0,
+          hasNext: false,
+          hasPrevios: false,
+        })
+      }),
+    )
+    return seen
+  }
+
+  it('gửi sort dưới dạng MẢNG — BaseQueryDto khai `sort?: string[]` kèm @IsArray()', async () => {
+    const seen = captureParams()
+
+    await getPaginated('/materials', { page: 1, size: 10, sort: ['name:DESC'] })
+
+    // `sort[]=…` là dạng axios sinh ra cho mảng và cũng là dạng Express/qs parse ngược về mảng.
+    // Gửi `sort=name:DESC` trần thì backend nhận chuỗi và @IsArray() từ chối.
+    expect(decodeURIComponent(new URL(seen.url).search)).toContain('sort[]=name:DESC')
+  })
+
+  it('không sắp xếp thì không gửi tham số sort', async () => {
+    const seen = captureParams()
+
+    await getPaginated('/materials', { page: 1, size: 10, sort: undefined })
+
+    expect(new URL(seen.url).searchParams.has('sort')).toBe(false)
+    expect(new URL(seen.url).searchParams.has('sort[]')).toBe(false)
+  })
+})
+
+describe('isPermissionDenied', () => {
+  const base = { timestamp: '', path: '/warehouses/a', method: 'DELETE' }
+  // Đúng hình dạng backend trả khi `AuthorityGuard`/`HasRoleGuard` trả `false`: Nest ném
+  // `ForbiddenException` mặc định, filter không gắn `code`.
+  const guardDenied = { ...base, statusCode: 403, message: 'Forbidden resource' }
+
+  it('true với 403 do guard phân quyền từ chối', () => {
+    expect(isPermissionDenied(guardDenied)).toBe(true)
+  })
+
+  it('false với 403 nghiệp vụ có mã (vd tài khoản bị khoá 100002)', () => {
+    expect(isPermissionDenied({ ...guardDenied, code: 100002 })).toBe(false)
+  })
+
+  it('false với 403 của FeatureGuard — cũng không có code nhưng KHÔNG phải chuyện quyền', () => {
+    expect(
+      isPermissionDenied({
+        ...base,
+        statusCode: 403,
+        message: 'Feature "x" is currently disabled',
+      }),
+    ).toBe(false)
+  })
+
+  it('false với lỗi không phải 403', () => {
+    expect(isPermissionDenied({ ...guardDenied, statusCode: 401 })).toBe(false)
+    expect(isPermissionDenied({ ...guardDenied, statusCode: 500 })).toBe(false)
+    expect(isPermissionDenied(new Error('Network Error'))).toBe(false)
   })
 })

@@ -7,6 +7,7 @@ import {
   MemoryRouter,
   RouterProvider,
   createMemoryRouter,
+  type InitialEntry,
   type RouteObject,
 } from 'react-router-dom'
 
@@ -14,14 +15,14 @@ import {
  * Cùng hình dạng với `CurrentUser` của `entities/session`. `shared` không được import `entities`,
  * nên khai lại ở đây; TypeScript so theo cấu trúc nên truyền `CurrentUser` vào vẫn hợp lệ.
  */
-export type TestUser = { userId: string; userName: string; roleName: string; scope: string }
+export type TestUser = { userId: string; userName: string; roleName: string; scope: string[] }
 
 /** `'none'` = chưa đăng nhập. Không đụng `endReason` để test màn login tự đặt lý do trước khi render. */
 export type TestAuth = 'admin' | 'customer' | 'none' | TestUser
 
 const TEST_USERS = {
-  admin: { userId: 'u-admin', userName: 'root', roleName: 'SUPER_ADMIN', scope: '[]' },
-  customer: { userId: 'u-customer', userName: 'khach', roleName: 'CUSTOMER', scope: '[]' },
+  admin: { userId: 'u-admin', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] },
+  customer: { userId: 'u-customer', userName: 'khach', roleName: 'CUSTOMER', scope: [] },
 } as const satisfies Record<'admin' | 'customer', TestUser>
 
 let applyAuth: (user: TestUser | null) => void = () => {
@@ -41,7 +42,7 @@ export function setTestAuthApplier(fn: (user: TestUser | null) => void): void {
 
 export type RenderWithProvidersOptions = {
   /** Địa chỉ ban đầu của `MemoryRouter`, gồm cả query string. Mặc định `/`. */
-  route?: string
+  route?: InitialEntry
   auth?: TestAuth
   /** Mặc định client mới, `retry: false`, KHÔNG có handler toast global của `app/query-client.ts`. */
   queryClient?: QueryClient

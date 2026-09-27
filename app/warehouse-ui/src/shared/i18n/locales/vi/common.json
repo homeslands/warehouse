@@ -3,6 +3,7 @@
   "logout": "Đăng xuất",
   "loading": "Đang tải...",
   "cancel": "Huỷ",
+  "close": "Đóng",
   "save": "Lưu",
   "saving": "Đang lưu...",
   "theme": "Giao diện",
@@ -23,5 +24,11 @@
   "nextPage": "Trang sau",
   "pageSize": "Số dòng mỗi trang",
   "search": "Tìm kiếm",
-  "clearSearch": "Xoá tìm kiếm"
+  "clearSearch": "Xoá tìm kiếm",
+  "backToList": "Quay lại danh sách",
+  "retry": "Thử lại",
+  "moreActions": "Thao tác khác",
+  "sectionOverview": "Tổng quan",
+  "createdAt": "Tạo lúc",
+  "updatedAt": "Cập nhật lúc"
 }

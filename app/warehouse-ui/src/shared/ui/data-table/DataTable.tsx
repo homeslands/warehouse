@@ -1,8 +1,10 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
+import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
-import { PAGE_SIZE_OPTIONS } from '@/shared/lib/list-params'
+import { PAGE_SIZE_OPTIONS, type SortState } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
 
@@ -26,7 +28,31 @@ type DataTableProps<TData> = {
   error?: unknown
   emptyText?: string
   pagination?: DataTablePagination
+  /**
+   * Bật sắp xếp theo cột. Cột nào sắp xếp được thì khai `meta: { sortField: '<tên trường backend>' }`
+   * trong `ColumnDef` — cột không khai thì header vẫn là chữ thường, không bấm được.
+   *
+   * Sắp xếp chạy Ở SERVER: `onChange` chỉ đổi tham số rồi để danh sách tải lại. **Không** dùng
+   * `getSortedRowModel` của TanStack — nó chỉ sắp trong trang hiện tại (10–50 dòng), người dùng sẽ
+   * tưởng cả danh sách đã được sắp.
+   */
+  sorting?: DataTableSorting
 }
+
+export type DataTableSorting = {
+  value: SortState | undefined
+  onChange: (next: SortState | undefined) => void
+}
+
+/** Bấm lần lượt: chưa sắp → tăng → giảm → thôi sắp. */
+function nextSort(current: SortState | undefined, field: string): SortState | undefined {
+  if (current?.field !== field) return { field, dir: 'ASC' }
+  if (current.dir === 'ASC') return { field, dir: 'DESC' }
+  return undefined
+}
+
+/** `meta` của ColumnDef là `unknown` với TanStack — khai kiểu ở đây để đọc có kiểm. */
+type ColumnMeta = { sortField?: string }
 
 const SKELETON_ROWS = 5
 
@@ -37,6 +63,7 @@ export function DataTable<TData>({
   error,
   emptyText,
   pagination,
+  sorting,
 }: DataTableProps<TData>) {
   const { t } = useTranslation(['common'])
   const table = useReactTable({
@@ -97,13 +124,43 @@ export function DataTable<TData>({
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
-                {headerGroup.headers.map((header) => (
-                  <TableHead key={header.id}>
-                    {header.isPlaceholder
-                      ? null
-                      : flexRender(header.column.columnDef.header, header.getContext())}
-                  </TableHead>
-                ))}
+                {headerGroup.headers.map((header) => {
+                  const field = (header.column.columnDef.meta as ColumnMeta | undefined)?.sortField
+                  const label = header.isPlaceholder
+                    ? null
+                    : flexRender(header.column.columnDef.header, header.getContext())
+                  const active =
+                    field !== undefined && sorting?.value?.field === field
+                      ? sorting.value.dir
+                      : undefined
+
+                  if (sorting === undefined || field === undefined) {
+                    return <TableHead key={header.id}>{label}</TableHead>
+                  }
+                  return (
+                    <TableHead
+                      key={header.id}
+                      aria-sort={
+                        active === 'ASC' ? 'ascending' : active === 'DESC' ? 'descending' : 'none'
+                      }
+                    >
+                      <button
+                        type="button"
+                        className="-mx-2 inline-flex items-center gap-1 rounded-md px-2 py-1 hover:text-foreground"
+                        onClick={() => sorting.onChange(nextSort(sorting.value, field))}
+                      >
+                        {label}
+                        {active === 'ASC' ? (
+                          <ArrowUpIcon className="size-3.5" aria-hidden />
+                        ) : active === 'DESC' ? (
+                          <ArrowDownIcon className="size-3.5" aria-hidden />
+                        ) : (
+                          <ArrowUpDownIcon className="size-3.5 opacity-40" aria-hidden />
+                        )}
+                      </button>
+                    </TableHead>
+                  )
+                })}
               </TableRow>
             ))}
           </TableHeader>
@@ -113,20 +170,26 @@ export function DataTable<TData>({
 
       {pagination && (
         <div className="flex flex-wrap items-center justify-end gap-2">
-          <label className="text-muted-foreground flex items-center gap-2 text-sm">
-            {t('common:pageSize')}
-            <select
-              className="border-input bg-background text-foreground dark:bg-input/30 h-8 rounded-lg border px-2 text-sm"
-              value={pagination.size}
-              onChange={(event) => pagination.onSizeChange(Number(event.target.value))}
+          <div className="text-muted-foreground flex items-center gap-2 text-sm">
+            <span aria-hidden>{t('common:pageSize')}</span>
+            {/* Nhãn nhìn thấy được nằm ngoài nút mở (Radix Select là <button>, không nối được
+                bằng <label> bọc ngoài) nên tên khả truy cập đặt thẳng bằng aria-label. */}
+            <Select
+              value={String(pagination.size)}
+              onValueChange={(next) => pagination.onSizeChange(Number(next))}
             >
-              {PAGE_SIZE_OPTIONS.map((option) => (
-                <option key={option} value={option}>
-                  {option}
-                </option>
-              ))}
-            </select>
-          </label>
+              <SelectTrigger aria-label={t('common:pageSize')} size="sm">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {PAGE_SIZE_OPTIONS.map((option) => (
+                  <SelectItem key={option} value={String(option)}>
+                    {option}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+          </div>
           <span className="text-muted-foreground text-sm">
             {t('common:pageInfo', {
               page: pagination.page,

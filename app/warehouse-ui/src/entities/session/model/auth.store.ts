@@ -1,4 +1,6 @@
+import { toast } from 'sonner'
 import { create } from 'zustand'
+import i18n from '@/shared/i18n'
 import { http } from '@/shared/api/http'
 import { LOGOUT_PATH } from '@/shared/api/routes'
 import {
@@ -97,6 +99,10 @@ export const useAuthStore = create<AuthState>((set, get) => ({
       }
     }
     get().endSession('loggedOut')
+    // Toast Ở ĐÂY chứ không ở `endSession`: `logout` chỉ chạy khi người dùng tự bấm. Phiên hết hạn
+    // (interceptor) và tab khác đăng xuất (sự kiện storage) đi qua `endSession` — người dùng không
+    // làm gì, báo "đăng xuất thành công" lúc đó là nói dối. `i18n.t` vì đây không phải component.
+    toast.success(i18n.t('auth:logoutSuccess'))
   },
 }))
 

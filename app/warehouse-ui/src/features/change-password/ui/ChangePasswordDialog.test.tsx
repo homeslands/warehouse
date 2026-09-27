@@ -13,7 +13,7 @@ import { useAuthStore } from '@/entities/session'
 import { ChangePasswordDialog } from './ChangePasswordDialog'
 
 const BASE = 'http://localhost:8085/api/v1'
-const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: '[]' }
+const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
 
 function renderDialog() {
   const onOpenChange = vi.fn()
