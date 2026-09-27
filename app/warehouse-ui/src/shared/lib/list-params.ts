@@ -18,15 +18,49 @@ type KnownKeys<T> = {
 /** Bộ lọc mà màn khai bằng Zod object. Giá trị đọc từ URL là chuỗi — lọc số dùng `z.coerce`. */
 export type ListFilters<S extends z.ZodObject> = KnownKeys<z.output<S>>
 
+/**
+ * Một cột đang sắp xếp. Backend nhận `sort?: string[]` dạng `['createdAt:DESC']`
+ * (`BaseQueryDto`), nên URL cũng dùng đúng dạng `?sort=createdAt:DESC` — một nơi một định dạng.
+ * Chỉ hỗ trợ MỘT cột: backend chưa xử lý `sort` nên đa cột là bịa hợp đồng.
+ */
+export type SortState = { field: string; dir: 'ASC' | 'DESC' }
+
 export type ListParamsState<S extends z.ZodObject> = {
   page: number
   size: number
   filters: ListFilters<S>
+  /** `undefined` = chưa chọn cột nào; danh sách dùng thứ tự mặc định của backend. */
+  sort: SortState | undefined
   setPage: (page: number) => void
   /** Đổi số dòng → về trang 1. */
   setSize: (size: number) => void
   /** Gộp vào bộ lọc hiện tại; `undefined`/`''` là bỏ lọc. Đổi bộ lọc → về trang 1. */
   setFilters: (patch: Partial<ListFilters<S>>) => void
+  /** `undefined` = bỏ sắp xếp. Đổi sắp xếp → về trang 1 (trang 2 của thứ tự cũ là vô nghĩa). */
+  setSort: (next: SortState | undefined) => void
+}
+
+/** `"name:DESC"` → `{ field: 'name', dir: 'DESC' }`. Sai dạng thì bỏ qua, không ném. */
+function parseSort(raw: string | null): SortState | undefined {
+  if (raw === null) return undefined
+  const parts = raw.split(':')
+  if (parts.length !== 2) return undefined
+  const [field, rawDir] = parts
+  const dir = rawDir.toUpperCase()
+  if (field === '' || (dir !== 'ASC' && dir !== 'DESC')) return undefined
+  return { field, dir }
+}
+
+function formatSort(sort: SortState | undefined): string {
+  return sort === undefined ? '' : `${sort.field}:${sort.dir}`
+}
+
+/**
+ * Đổi sang tham số `getPaginated` gửi lên backend. `BaseQueryDto` khai `sort?: string[]` kèm
+ * `@IsArray()`, nên phải là MẢNG dù FE chỉ sắp một cột. Dùng hàm này thay vì tự nối chuỗi.
+ */
+export function sortToParam(sort: SortState | undefined): string[] | undefined {
+  return sort === undefined ? undefined : [formatSort(sort)]
 }
 
 function parsePage(raw: string | null): number {
@@ -76,6 +110,8 @@ export function useListParams<S extends z.ZodObject>(schema: S): ListParamsState
 
   const page = parsePage(searchParams.get('page'))
   const size = parseSize(searchParams.get('size'))
+  const sortRaw = searchParams.get('sort')
+  const sort = useMemo(() => parseSort(sortRaw), [sortRaw])
   const filters = useMemo(
     () => parseFilters(schema, filterKeys, searchParams),
     [schema, filterKeys, searchParams],
@@ -96,7 +132,12 @@ export function useListParams<S extends z.ZodObject>(schema: S): ListParamsState
   deps.current = { schema, filterKeys, setSearchParams }
 
   const setters = useMemo(() => {
-    type State = { page: number; size: number; filters: Record<string, unknown> }
+    type State = {
+      page: number
+      size: number
+      filters: Record<string, unknown>
+      sort: SortState | undefined
+    }
 
     const write = (change: (current: State) => State) => {
       const { schema: currentSchema, filterKeys: keys, setSearchParams: set } = deps.current
@@ -105,15 +146,17 @@ export function useListParams<S extends z.ZodObject>(schema: S): ListParamsState
         page: parsePage(prev.get('page')),
         size: parseSize(prev.get('size')),
         filters: parseFilters(currentSchema, keys, prev),
+        sort: parseSort(prev.get('sort')),
       })
 
       const out = new URLSearchParams(prev)
-      for (const key of ['page', 'size', ...keys]) out.delete(key)
+      for (const key of ['page', 'size', 'sort', ...keys]) out.delete(key)
       if (next.page !== DEFAULT_PAGE) out.set('page', String(next.page))
       if (next.size !== DEFAULT_PAGE_SIZE) out.set('size', String(next.size))
       for (const [key, value] of Object.entries(next.filters)) {
         if (!isEmpty(value)) out.set(key, String(value))
       }
+      if (!isEmpty(formatSort(next.sort))) out.set('sort', formatSort(next.sort))
       latest.current = out
       set(out, { replace: true })
     }
@@ -128,10 +171,12 @@ export function useListParams<S extends z.ZodObject>(schema: S): ListParamsState
           page: DEFAULT_PAGE,
           filters: { ...current.filters, ...patch },
         })),
+      setSort: (next: SortState | undefined) =>
+        write((current) => ({ ...current, page: DEFAULT_PAGE, sort: next })),
     }
   }, [])
 
-  return { page, size, filters, ...setters }
+  return { page, size, filters, sort, ...setters }
 }
 
 /**

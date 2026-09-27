@@ -50,3 +50,21 @@ describe('toastApiError', () => {
     expect(toast.error).toHaveBeenCalledExactlyOnceWith(i18n.t('errors:network'))
   })
 })
+
+describe('toastApiError — 403 do thiếu quyền', () => {
+  it('gắn id cố định để nhiều request cùng bị từ chối chỉ hiện MỘT toast', () => {
+    const error: ApiError = {
+      statusCode: 403,
+      timestamp: '',
+      path: '/warehouses',
+      method: 'GET',
+      message: 'Forbidden resource',
+    }
+
+    toastApiError(error)
+
+    expect(toast.error).toHaveBeenCalledExactlyOnceWith(expect.any(String), {
+      id: 'permission-denied',
+    })
+  })
+})

@@ -5,41 +5,24 @@ const user = (over: Partial<CurrentUser> = {}): CurrentUser => ({
   userId: 'u1',
   userName: 'root',
   roleName: 'SUPER_ADMIN',
-  scope: '[]',
+  scope: [],
   ...over,
 })
 
-describe('safeParseScope', () => {
-  it('parse mảng authority hợp lệ', () => {
-    expect(safeParseScope('["CREATE_EXAMPLE","READ_EXAMPLE"]')).toEqual([
-      'CREATE_EXAMPLE',
-      'READ_EXAMPLE',
+describe('safeParseScope — nhận MẢNG, không phải chuỗi JSON', () => {
+  it('mảng chuỗi giữ nguyên', () => {
+    expect(safeParseScope(['IMPORT_FORM_CREATE', 'USER_READ'])).toEqual([
+      'IMPORT_FORM_CREATE',
+      'USER_READ',
     ])
   })
 
-  it('trả mảng rỗng với "[]" — đây là trường hợp THỰC TẾ hôm nay', () => {
-    expect(safeParseScope('[]')).toEqual([])
+  it('mảng lẫn kiểu khác → lọc bỏ phần không phải chuỗi', () => {
+    expect(safeParseScope(['A', 1, null, 'B'])).toEqual(['A', 'B'])
   })
 
-  it('trả mảng rỗng với chuỗi rỗng', () => {
-    expect(safeParseScope('')).toEqual([])
-  })
-
-  it('trả mảng rỗng với null/undefined', () => {
-    expect(safeParseScope(null)).toEqual([])
-    expect(safeParseScope(undefined)).toEqual([])
-  })
-
-  it('trả mảng rỗng với JSON hỏng, không ném lỗi', () => {
-    expect(safeParseScope('{ đây không phải json')).toEqual([])
-  })
-
-  it('trả mảng rỗng khi JSON hợp lệ nhưng không phải mảng', () => {
-    expect(safeParseScope('{"a":1}')).toEqual([])
-  })
-
-  it('lọc bỏ phần tử không phải chuỗi', () => {
-    expect(safeParseScope('["A",1,null,"B"]')).toEqual(['A', 'B'])
+  it.each([undefined, null, 'A,B', 42, {}])('%s không phải mảng → []', (raw) => {
+    expect(safeParseScope(raw)).toEqual([])
   })
 })
 
@@ -83,15 +66,36 @@ describe('hasRole', () => {
 })
 
 describe('can', () => {
-  it('true khi authority có trong scope', () => {
-    expect(can(user({ scope: '["CREATE_EXAMPLE"]' }), 'CREATE_EXAMPLE')).toBe(true)
+  it('có quyền trong scope → true', () => {
+    // roleName khác SUPER_ADMIN: nếu để mặc định (user() = SUPER_ADMIN) thì bypass ở dòng dưới
+    // che mất nhánh đang cần kiểm — test sẽ xanh dù can() không đọc scope.
+    expect(
+      can(user({ roleName: 'ADMIN', scope: ['MANAGE_PERMISSIONS'] }), 'MANAGE_PERMISSIONS'),
+    ).toBe(true)
   })
 
-  it('false với SUPER_ADMIN khi scope rỗng — trạng thái thực tế hôm nay', () => {
-    expect(can(user({ roleName: 'SUPER_ADMIN', scope: '[]' }), 'CREATE_EXAMPLE')).toBe(false)
+  it('không có → false', () => {
+    // Cùng lý do trên: bắt buộc roleName khác SUPER_ADMIN, nếu không bypass luôn thắng và
+    // assertion `false` sẽ đỏ oan dù can() đúng.
+    expect(can(user({ roleName: 'ADMIN', scope: ['USER_READ'] }), 'MANAGE_PERMISSIONS')).toBe(false)
   })
 
-  it('false khi chưa đăng nhập', () => {
-    expect(can(null, 'CREATE_EXAMPLE')).toBe(false)
+  it('SUPER_ADMIN luôn true dù scope RỖNG', () => {
+    // AuthorityGuard của backend cho SUPER_ADMIN qua TRƯỚC khi nhìn scope, và migration cố tình
+    // không cấp row permission nào cho nó (tài khoản root thật có scope: []). Thiếu bypass này
+    // thì người quyền cao nhất là người duy nhất bị FE đá khỏi màn phân quyền.
+    expect(can(user({ roleName: 'SUPER_ADMIN', scope: [] }), 'MANAGE_PERMISSIONS')).toBe(true)
+  })
+
+  it('không đăng nhập → false', () => {
+    expect(can(null, 'MANAGE_PERMISSIONS')).toBe(false)
+  })
+})
+
+describe('can — mã quyền có kiểu', () => {
+  it('gõ sai mã là lỗi BIÊN DỊCH, không phải `false` âm thầm lúc chạy', () => {
+    // `npm run typecheck` đỏ nếu dòng dưới KHÔNG còn là lỗi kiểu — tức `can()` lại nhận `string`.
+    // @ts-expect-error — 'WAREHOUSE_CREAT' không phải AuthorityCode
+    expect(can(null, 'WAREHOUSE_CREAT')).toBe(false)
   })
 })

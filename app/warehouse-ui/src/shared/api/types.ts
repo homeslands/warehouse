@@ -43,7 +43,12 @@ export type Paginated<T> = {
  * Tham số một trang danh sách: `page`, `size` và bộ lọc riêng của màn (`F`). Đây là thứ đi vào
  * query key và `getPaginated` — đổi bộ lọc là một mục cache khác.
  */
-export type ListParams<F extends object = Record<never, never>> = { page: number; size: number } & F
+export type ListParams<F extends object = Record<never, never>> = {
+  page: number
+  size: number
+  /** Dạng `['createdAt:DESC']` theo `BaseQueryDto`. Dựng bằng `sortToParam`. */
+  sort?: string[]
+} & F
 
 /** Vì sao phiên kết thúc — interceptor và vòng đời phiên dùng chung, màn login hiện câu tương ứng. */
 export type SessionEndReason = 'expired' | 'revoked' | 'userInactive' | 'unauthorized' | 'loggedOut'

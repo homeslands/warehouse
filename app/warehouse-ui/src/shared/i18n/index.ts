@@ -5,12 +5,20 @@ import { initReactI18next } from 'react-i18next'
 import viCommon from './locales/vi/common.json'
 import viAuth from './locales/vi/auth.json'
 import viExamples from './locales/vi/examples.json'
+import viAccount from './locales/vi/account.json'
+import viPermissions from './locales/vi/permissions.json'
+import viWarehouses from './locales/vi/warehouses.json'
+import viStores from './locales/vi/stores.json'
 import viErrors from './locales/vi/errors.json'
 import viErrorPages from './locales/vi/errorPages.json'
 import viNav from './locales/vi/nav.json'
 import enCommon from './locales/en/common.json'
 import enAuth from './locales/en/auth.json'
 import enExamples from './locales/en/examples.json'
+import enAccount from './locales/en/account.json'
+import enPermissions from './locales/en/permissions.json'
+import enWarehouses from './locales/en/warehouses.json'
+import enStores from './locales/en/stores.json'
 import enErrors from './locales/en/errors.json'
 import enErrorPages from './locales/en/errorPages.json'
 import enNav from './locales/en/nav.json'
@@ -20,22 +28,34 @@ export const defaultNS = 'common'
 // `errors` (số nhiều) — bản dịch cho 26 mã lỗi backend, tra qua `src/shared/api/error-codes.ts`.
 // `errorPages` — chuỗi của ba trang lỗi (ErrorPage / NotFoundPage / ForbiddenPage).
 // `nav` — nhãn menu, breadcrumb, tên nhóm menu và trang Tổng quan.
+// `warehouses` — chuỗi của màn Kho (cột, form, dialog, toast).
+// `account` — màn Tài khoản: hồ sơ, bảo mật, thiết bị đang đăng nhập.
+// `stores` — chuỗi của màn Cửa hàng.
+// `permissions` — bảng ma trận phân quyền role × authority.
 export const resources = {
   vi: {
     common: viCommon,
     auth: viAuth,
     examples: viExamples,
+    warehouses: viWarehouses,
+    account: viAccount,
+    stores: viStores,
     errors: viErrors,
     errorPages: viErrorPages,
     nav: viNav,
+    permissions: viPermissions,
   },
   en: {
     common: enCommon,
     auth: enAuth,
     examples: enExamples,
+    warehouses: enWarehouses,
+    account: enAccount,
+    stores: enStores,
     errors: enErrors,
     errorPages: enErrorPages,
     nav: enNav,
+    permissions: enPermissions,
   },
 } as const
 
@@ -48,7 +68,18 @@ void i18n
   .init({
     resources,
     defaultNS,
-    ns: ['common', 'auth', 'examples', 'errors', 'errorPages', 'nav'],
+    ns: [
+      'common',
+      'auth',
+      'examples',
+      'warehouses',
+      'stores',
+      'account',
+      'errors',
+      'errorPages',
+      'nav',
+      'permissions',
+    ],
     fallbackLng: 'vi',
     supportedLngs: SUPPORTED_LANGUAGES,
     detection: {
