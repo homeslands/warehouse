@@ -7,5 +7,7 @@
   "notFoundTitle": "Không tìm thấy trang",
   "notFoundDescription": "Địa chỉ bạn vừa mở không tồn tại.",
   "forbiddenTitle": "Không đủ quyền",
+  "forbiddenChangedTitle": "Quyền truy cập đã thay đổi",
+  "forbiddenChangedDescription": "Quản trị viên vừa thay đổi quyền của vai trò bạn nên bạn không còn truy cập được màn này. Nếu cho rằng đây là nhầm lẫn, hãy liên hệ quản trị viên.",
   "forbiddenDescription": "Bạn không đủ quyền truy cập trang này."
 }

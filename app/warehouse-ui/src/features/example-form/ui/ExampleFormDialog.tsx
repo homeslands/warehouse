@@ -7,7 +7,9 @@ import { isVersionConflict } from '@/shared/api/http'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
+import { PencilIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
+import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import {
@@ -72,7 +74,10 @@ export function ExampleFormDialog({ open, onOpenChange, example }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
+        <DialogHeader className="items-center text-center">
+          <DialogIcon>
+            <PencilIcon />
+          </DialogIcon>
           <DialogTitle>{example ? t('examples:edit') : t('examples:create')}</DialogTitle>
         </DialogHeader>
 
@@ -106,8 +111,17 @@ export function ExampleFormDialog({ open, onOpenChange, example }: Props) {
               )}
             />
 
-            <DialogFooter>
-              <Button type="submit" disabled={disableSubmit}>
+            <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="xl"
+                disabled={isPending}
+                onClick={() => onOpenChange(false)}
+              >
+                {t('common:cancel')}
+              </Button>
+              <Button type="submit" size="xl" disabled={disableSubmit}>
                 {isPending ? t('common:saving') : t('common:save')}
               </Button>
             </DialogFooter>

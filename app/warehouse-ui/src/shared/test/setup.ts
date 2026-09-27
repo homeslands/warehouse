@@ -44,6 +44,16 @@ if (typeof Element.prototype.scrollIntoView !== 'function') {
   Element.prototype.scrollIntoView = () => {}
 }
 
+// jsdom không cài đặt Pointer Capture API. Radix Select gọi `hasPointerCapture` ngay trong handler
+// pointerdown của nút mở (để phân biệt bấm-rồi-thả với bấm-giữ-rê) → thiếu thì mọi test mở Select
+// chết với "target.hasPointerCapture is not a function", và lỗi rơi ra ngoài test nên chỉ hiện
+// dưới dạng Unhandled Error. Không cần bắt con trỏ thật trong test nên stub là đủ.
+if (typeof Element.prototype.hasPointerCapture !== 'function') {
+  Element.prototype.hasPointerCapture = () => false
+  Element.prototype.setPointerCapture = () => {}
+  Element.prototype.releasePointerCapture = () => {}
+}
+
 beforeAll(() => server.listen({ onUnhandledRequest: 'error' }))
 afterEach(() => {
   server.resetHandlers()

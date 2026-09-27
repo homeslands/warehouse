@@ -1,4 +1,5 @@
 import { HttpResponse, http as mswHttp } from 'msw'
+import { toast } from 'sonner'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { server } from '@/shared/test/msw'
 import { http } from '@/shared/api/http'
@@ -7,7 +8,7 @@ import { LOGOUT_TIMEOUT_MS, setCacheCleaner, useAuthStore } from './auth.store'
 
 const BASE = 'http://localhost:8085/api/v1'
 const pair = { accessToken: 'acc-1', refreshToken: 'ref-1' }
-const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: '[]' }
+const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
 
 let cleaner: ReturnType<typeof vi.fn<() => void>>
 
@@ -248,5 +249,41 @@ describe('refresh đang bay lúc đăng xuất', () => {
       status: 'unauthenticated',
       endReason: 'loggedOut',
     })
+  })
+})
+
+describe('toast đăng xuất', () => {
+  // `spyOn` trên chính object `toast` thật, KHÔNG `vi.mock('sonner')`: store này nằm trong barrel
+  // `entities/session` mà `src/app/test-setup.ts` nạp trước — mock module sẽ không chen vào kịp.
+  const success = () => vi.spyOn(toast, 'success').mockImplementation(() => '')
+  afterEach(() => vi.restoreAllMocks())
+
+  it('người dùng tự bấm đăng xuất → toast "Đã đăng xuất" đúng một lần', async () => {
+    const spy = success()
+    useAuthStore.getState().startSession(pair)
+    server.use(mswHttp.post(`${BASE}/auth/logout`, () => HttpResponse.json({ result: {} })))
+
+    await useAuthStore.getState().logout()
+
+    expect(spy).toHaveBeenCalledExactlyOnceWith('Đã đăng xuất')
+  })
+
+  it('phiên hết hạn (endSession) → KHÔNG toast — người dùng không bấm gì', () => {
+    const spy = success()
+    useAuthStore.getState().startSession(pair)
+
+    useAuthStore.getState().endSession('expired')
+
+    expect(spy).not.toHaveBeenCalled()
+  })
+
+  it('tab khác đăng xuất (sự kiện storage) → tab này KHÔNG toast', () => {
+    const spy = success()
+    useAuthStore.getState().startSession(pair)
+
+    localStorage.removeItem('warehouse.auth')
+    window.dispatchEvent(new StorageEvent('storage', { key: 'warehouse.auth' }))
+
+    expect(spy).not.toHaveBeenCalled()
   })
 })

@@ -1,6 +1,6 @@
 import i18n from '@/shared/i18n'
 import { ERROR_CODE_KEYS } from '@/shared/api/error-codes'
-import { isApiError } from '@/shared/api/http'
+import { isApiError, isPermissionDenied } from '@/shared/api/http'
 
 /**
  * Hàm thuần, KHÔNG phải hook — dùng được cả trong render lẫn trong callback của react-query.
@@ -8,6 +8,8 @@ import { isApiError } from '@/shared/api/http'
  */
 export function resolveApiErrorMessage(error: unknown): string {
   if (!isApiError(error)) return i18n.t('errors:network')
+  // Không có `code` để tra, và câu gốc "Forbidden resource" là tiếng Anh, không nói gì với người dùng.
+  if (isPermissionDenied(error)) return i18n.t('errors:permissionDenied')
 
   const key = error.code === undefined ? undefined : ERROR_CODE_KEYS[error.code]
 

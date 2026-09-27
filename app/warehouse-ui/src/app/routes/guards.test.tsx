@@ -9,7 +9,7 @@ const asUser = (roleName: string): CurrentUser => ({
   userId: 'u1',
   userName: 'tester',
   roleName,
-  scope: '[]',
+  scope: [],
 })
 
 function LoginProbe() {

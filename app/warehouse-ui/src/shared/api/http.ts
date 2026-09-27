@@ -170,6 +170,27 @@ export function isVersionConflict(e: unknown): boolean {
   return isApiError(e) && e.statusCode === 409 && e.code === DATA_VERSION_CONFLICT_CODE
 }
 
+/** Câu mặc định Nest ném khi một guard trả `false` (`FORBIDDEN_MESSAGE` của `@nestjs/core`). */
+const GUARD_FORBIDDEN_MESSAGE = 'Forbidden resource'
+
+/**
+ * 403 do guard phân quyền (`AuthorityGuard` / `HasRoleGuard`) từ chối — thường nghĩa là quyền vừa
+ * bị đổi giữa phiên và `scope` trong store đã cũ.
+ *
+ * Backend KHÔNG gắn `code` cho loại này, nên phải khớp thêm message: `FeatureGuard` toàn cục cũng
+ * trả 403 không `code` ("Feature … is currently disabled") mà không phải chuyện quyền; 403 nghiệp vụ
+ * (tài khoản bị khoá 100002, …) thì có `code`. Khi backend có mã riêng cho lỗi thiếu quyền, đổi
+ * sang so `code` và bỏ so message.
+ */
+export function isPermissionDenied(e: unknown): boolean {
+  return (
+    isApiError(e) &&
+    e.statusCode === 403 &&
+    e.code === undefined &&
+    e.message === GUARD_FORBIDDEN_MESSAGE
+  )
+}
+
 export async function getData<T>(url: string, config?: AxiosRequestConfig): Promise<T> {
   const res = await http.get<ApiResponse<T>>(url, config)
   return res.data.result
@@ -182,6 +203,12 @@ export async function postData<T>(url: string, body?: unknown): Promise<T> {
 
 export async function patchData<T>(url: string, body?: unknown): Promise<T> {
   const res = await http.patch<ApiResponse<T>>(url, body)
+  return res.data.result
+}
+
+/** Backend dùng PUT cho các endpoint "thay đúng một slot" (gán quản lý kho, gán kho cho cửa hàng). */
+export async function putData<T>(url: string, body?: unknown): Promise<T> {
+  const res = await http.put<ApiResponse<T>>(url, body)
   return res.data.result
 }
 

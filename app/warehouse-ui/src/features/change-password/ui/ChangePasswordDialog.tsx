@@ -5,7 +5,9 @@ import { useTranslation } from 'react-i18next'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
+import { KeyRoundIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
+import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { useChangePassword } from '../api/useChangePassword'
@@ -30,7 +32,7 @@ const AUTOCOMPLETE = {
 const FIELD_BY_CODE = { [CURRENT_PASSWORD_INCORRECT_CODE]: 'currentPassword' } as const
 
 export function ChangePasswordDialog({ open, onOpenChange }: Props) {
-  const { t } = useTranslation(['auth', 'errors'])
+  const { t } = useTranslation(['auth', 'errors', 'common'])
   const changePassword = useChangePassword()
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
@@ -56,7 +58,10 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
       <DialogContent>
-        <DialogHeader>
+        <DialogHeader className="items-center text-center">
+          <DialogIcon tone="destructive">
+            <KeyRoundIcon />
+          </DialogIcon>
           <DialogTitle>{t('auth:changePassword.title')}</DialogTitle>
         </DialogHeader>
 
@@ -79,8 +84,17 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
               />
             ))}
 
-            <DialogFooter>
-              <Button type="submit" disabled={changePassword.isPending}>
+            <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="xl"
+                disabled={changePassword.isPending}
+                onClick={() => onOpenChange(false)}
+              >
+                {t('common:cancel')}
+              </Button>
+              <Button type="submit" size="xl" disabled={changePassword.isPending}>
                 {changePassword.isPending
                   ? t('auth:changePassword.submitting')
                   : t('auth:changePassword.submit')}

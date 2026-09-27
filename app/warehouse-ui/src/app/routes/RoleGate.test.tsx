@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { act, render, screen, waitFor } from '@testing-library/react'
 import { RouterProvider, createMemoryRouter, type RouteObject } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { ROLES, useAuthStore } from '@/entities/session'
@@ -29,15 +29,28 @@ const tree: RouteObject[] = [
           },
         ],
       },
+      {
+        path: '/needs-authority',
+        element: <div>CẦN QUYỀN</div>,
+        handle: { authority: 'MANAGE_PERMISSIONS' } satisfies AppRouteHandle,
+      },
+      {
+        path: '/needs-both',
+        element: <div>CẦN CẢ HAI</div>,
+        handle: {
+          roles: [ROLES.MANAGER],
+          authority: 'MANAGE_PERMISSIONS',
+        } satisfies AppRouteHandle,
+      },
     ],
   },
 ]
 
-function renderAt(path: string, roleName: string) {
+function renderAt(path: string, roleName: string, scope: string[] = []) {
   useAuthStore.setState({
     hasSession: true,
     status: 'authenticated',
-    user: { userId: 'u1', userName: 'tester', roleName, scope: '[]' },
+    user: { userId: 'u1', userName: 'tester', roleName, scope },
   })
   render(<RouterProvider router={createMemoryRouter(tree, { initialEntries: [path] })} />)
 }
@@ -79,5 +92,76 @@ describe('RoleGate', () => {
   it('roles của match sâu nhất thắng: MANAGER (cha cho phép) vào /stock/adjust → /forbidden', async () => {
     renderAt('/stock/adjust', 'MANAGER')
     expect(await screen.findByText('KHÔNG ĐỦ QUYỀN')).toBeInTheDocument()
+  })
+})
+
+describe('RoleGate — gác bằng authority', () => {
+  it('thiếu authority → /forbidden', async () => {
+    renderAt('/needs-authority', 'ADMIN', [])
+    expect(await screen.findByText('KHÔNG ĐỦ QUYỀN')).toBeInTheDocument()
+  })
+
+  it('có authority trong scope → vào được', async () => {
+    renderAt('/needs-authority', 'ADMIN', ['MANAGE_PERMISSIONS'])
+    expect(await screen.findByText('CẦN QUYỀN')).toBeInTheDocument()
+  })
+
+  it('SUPER_ADMIN vào được dù scope RỖNG', async () => {
+    // Backend cho SUPER_ADMIN bypass và cố tình không cấp permission row nào cho nó. Thiếu bypass
+    // này ở can() thì người quyền cao nhất là người duy nhất bị khoá khỏi màn phân quyền.
+    renderAt('/needs-authority', 'SUPER_ADMIN', [])
+    expect(await screen.findByText('CẦN QUYỀN')).toBeInTheDocument()
+  })
+
+  it('khai cả roles lẫn authority → phải qua CẢ HAI', async () => {
+    // Đúng authority nhưng SAI role → vẫn chặn.
+    renderAt('/needs-both', 'ADMIN', ['MANAGE_PERMISSIONS'])
+    expect(await screen.findByText('KHÔNG ĐỦ QUYỀN')).toBeInTheDocument()
+  })
+
+  it('đúng role nhưng THIẾU authority → vẫn chặn', async () => {
+    // Nửa AND do task này tạo ra. Ca "đúng authority, sai role" ở trên bị chốt `roles` cũ chặn nên
+    // xanh kể cả khi chưa có code authority — chỉ ca này mới canh được.
+    renderAt('/needs-both', 'MANAGER', [])
+    expect(await screen.findByText('KHÔNG ĐỦ QUYỀN')).toBeInTheDocument()
+  })
+
+  it('đúng cả role lẫn authority → vào được', async () => {
+    renderAt('/needs-both', 'MANAGER', ['MANAGE_PERMISSIONS'])
+    expect(await screen.findByText('CẦN CẢ HAI')).toBeInTheDocument()
+  })
+})
+
+describe('RoleGate — quyền đổi GIỮA PHIÊN', () => {
+  function renderRouter(path: string, roleName: string, scope: string[]) {
+    useAuthStore.setState({
+      hasSession: true,
+      status: 'authenticated',
+      user: { userId: 'u1', userName: 'tester', roleName, scope },
+    })
+    const router = createMemoryRouter(tree, { initialEntries: [path] })
+    render(<RouterProvider router={router} />)
+    return router
+  }
+
+  it('đang ở màn được vào, rồi bị thu quyền → /forbidden KÈM lý do', async () => {
+    const router = renderRouter('/needs-authority', 'ADMIN', ['MANAGE_PERMISSIONS'])
+    expect(await screen.findByText('CẦN QUYỀN')).toBeInTheDocument()
+
+    act(() => {
+      useAuthStore.setState({
+        user: { userId: 'u1', userName: 'tester', roleName: 'ADMIN', scope: [] },
+      })
+    })
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+    expect(router.state.location.search).toBe('?reason=permissionChanged')
+  })
+
+  it('tự gõ URL màn không có quyền → /forbidden KHÔNG kèm lý do (không có gì "vừa đổi")', async () => {
+    const router = renderRouter('/needs-authority', 'ADMIN', [])
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+    expect(router.state.location.search).toBe('')
   })
 })

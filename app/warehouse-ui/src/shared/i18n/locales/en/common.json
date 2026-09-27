@@ -3,6 +3,7 @@
   "logout": "Sign out",
   "loading": "Loading...",
   "cancel": "Cancel",
+  "close": "Close",
   "save": "Save",
   "saving": "Saving...",
   "theme": "Theme",
@@ -23,5 +24,11 @@
   "nextPage": "Next",
   "pageSize": "Rows per page",
   "search": "Search",
-  "clearSearch": "Clear search"
+  "clearSearch": "Clear search",
+  "backToList": "Back to list",
+  "retry": "Try again",
+  "moreActions": "More actions",
+  "sectionOverview": "Overview",
+  "createdAt": "Created",
+  "updatedAt": "Updated"
 }
