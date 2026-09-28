@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Raw, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -16,6 +16,7 @@ import { WarehouseMaterialException } from './warehouse-material.exception';
 import { WarehouseMaterialValidation } from './warehouse-material.validation';
 import { effectiveMaximum, effectiveMinimum } from './warehouse-material.util';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { Material } from 'src/material/material.entity';
 import { MaterialService } from 'src/material/material.service';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
@@ -86,31 +87,30 @@ export class WarehouseMaterialService {
   ): Promise<AppPaginatedResponseDto<WarehouseMaterialResponseDto>> {
     const warehouse = await this.findWarehouse(warehouseSlug);
 
-    // QueryBuilder chứ không `findAndCount`: 2 filter `belowMinimum`/`aboveMaximum` so với ngưỡng
-    // EFFECTIVE (`COALESCE(override, mặc định của material)`), không diễn đạt được bằng
-    // `FindOptionsWhere`. Lọc ở SQL để phân trang vẫn đúng tổng số.
-    const qb = this.warehouseMaterialRepository
-      .createQueryBuilder('wm')
-      .innerJoinAndSelect('wm.material', 'material')
-      .innerJoinAndSelect('material.type', 'type')
-      .innerJoinAndSelect('wm.warehouse', 'warehouse')
-      .where('warehouse.id_column = :warehouseId', { warehouseId: warehouse.id });
-
-    if (query.typeSlug) qb.andWhere('type.slug_column = :typeSlug', { typeSlug: query.typeSlug });
+    // 2 filter `belowMinimum`/`aboveMaximum` so với ngưỡng EFFECTIVE (`COALESCE(override, mặc định
+    // của material)`) — so cột với cột nên phải dùng `Raw`. `Raw` đặt trên cột của `material` để
+    // TypeORM truyền vào alias của bảng material đã join; phía `WarehouseMaterial` là alias gốc mà
+    // `find*` luôn đặt bằng `metadata.name`. Viết theo tên property (`quantity`, `minimumInventory`),
+    // TypeORM tự đổi sang tên cột thật. Lọc ở SQL để phân trang vẫn đúng tổng số.
+    const wm = this.warehouseMaterialRepository.metadata.name;
+    const materialWhere: FindOptionsWhere<Material> = {};
+    if (query.typeSlug) materialWhere.type = { slug: query.typeSlug };
     if (query.belowMinimum === true)
-      qb.andWhere(
-        'wm.quantity_column < COALESCE(wm.minimum_inventory_column, material.minimum_inventory_column)',
+      materialWhere.minimumInventory = Raw(
+        (minimum) => `${wm}.quantity < COALESCE(${wm}.minimumInventory, ${minimum})`,
       );
     if (query.aboveMaximum === true)
-      qb.andWhere(
-        'wm.quantity_column > COALESCE(wm.maximum_inventory_column, material.maximum_inventory_column)',
+      materialWhere.maximumInventory = Raw(
+        (maximum) => `${wm}.quantity > COALESCE(${wm}.maximumInventory, ${maximum})`,
       );
 
-    const [items, total] = await qb
-      .orderBy('wm.created_at_column', 'DESC')
-      .skip((query.page - 1) * query.size)
-      .take(query.size)
-      .getManyAndCount();
+    const [items, total] = await this.warehouseMaterialRepository.findAndCount({
+      where: { warehouse: { id: warehouse.id }, material: materialWhere },
+      relations: RELATIONS,
+      order: { createdAt: 'DESC' },
+      skip: (query.page - 1) * query.size,
+      take: query.size,
+    });
 
     const totalPages = Math.ceil(total / query.size);
     return {
