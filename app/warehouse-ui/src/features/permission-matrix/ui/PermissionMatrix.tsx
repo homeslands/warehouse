@@ -1,4 +1,4 @@
-import { useState } from 'react'
+import { Fragment, useState } from 'react'
 import { CheckIcon, MinusIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Authority } from '@/entities/authority'
@@ -35,6 +35,20 @@ function groupAuthorities(authorities: Authority[]): { name: string; items: Auth
     else out.push({ name, items: [authority] })
   }
   return out
+}
+
+/** Cho mã quyền xuống dòng ở dấu `_` (không bẻ giữa chữ như `break-all`) khi cột tên quyền bị hẹp. */
+function breakableCode(code: string) {
+  return code.split('_').map((part, i) => (
+    <Fragment key={i}>
+      {i > 0 && (
+        <>
+          _<wbr />
+        </>
+      )}
+      {part}
+    </Fragment>
+  ))
 }
 
 export function PermissionMatrix({
@@ -149,17 +163,21 @@ export function PermissionMatrix({
         <section key={group.name} className="grid gap-2">
           <h2 className="font-heading text-base font-semibold">{groupName(group.name)}</h2>
 
-          <div className="overflow-x-auto rounded-xl border">
+          <div className="@container overflow-x-auto rounded-xl border">
             <Table>
               <TableHeader>
                 <TableRow>
                   {/* Cột đầu DÍNH trái: bảng cuộn ngang, không dính thì kéo sang cột vai trò
                       cuối là mất luôn tên quyền đang bật. Phải có nền đặc, nếu không nội dung
                       cuộn qua sẽ lộ ra dưới nó. */}
-                  <TableHead className="bg-background sticky left-0 z-20">
+                  <TableHead className="bg-background sticky left-0 z-20 max-w-40 whitespace-normal @2xl:max-w-none @2xl:whitespace-nowrap">
                     {t('permissions:columnAuthority')}
                   </TableHead>
-                  {superAdmin && <TableHead>{superAdmin.name}</TableHead>}
+                  {/* Khung bảng hẹp ẩn cột SUPER_ADMIN: nó chỉ là lời nhắc "Toàn quyền", không bấm được — nhường
+                      chỗ cho các cột vai trò chỉnh được. */}
+                  {superAdmin && (
+                    <TableHead className="hidden @xl:table-cell">{superAdmin.name}</TableHead>
+                  )}
                   {editableRoles.map((role) => (
                     <TableHead key={role.slug}>
                       <div className="grid">
@@ -187,17 +205,21 @@ export function PermissionMatrix({
                     {/* `transition-colors` phải LẶP LẠI ở đây: nó nằm trên `<tr>`, không di truyền
                         xuống `<td>`. Thiếu nó, nền `<tr>` mờ dần trong khi ô dính đổi màu tức thì
                         — cột đầu nháy lệch nhịp với phần còn lại của dòng mỗi lần rê chuột. */}
-                    <TableCell className="bg-background group-hover:bg-muted sticky left-0 z-10 transition-colors">
+                    {/* Khung bảng hẹp (container query): cột dính giới hạn 10rem và cho xuống dòng, không thì nó chiếm gần hết
+                        bề ngang, các cột vai trò chỉ còn một khe để cuộn. */}
+                    <TableCell className="bg-background group-hover:bg-muted sticky left-0 z-10 max-w-40 whitespace-normal transition-colors @2xl:max-w-none @2xl:whitespace-nowrap">
                       <div className="grid gap-0.5">
                         <span>{authorityName(authority)}</span>
-                        <span className="text-muted-foreground text-xs">{authority.code}</span>
+                        <span className="text-muted-foreground text-xs">
+                          {breakableCode(authority.code)}
+                        </span>
                       </div>
                     </TableCell>
                     {/* Cột SUPER_ADMIN là LỜI KHẲNG ĐỊNH, không phải dữ liệu: nó bypass mọi cổng
                         kiểm tra và cố tình không có row nào trong permission_tbl. Vẽ switch ở đây
                         là bịa ra một trạng thái không tồn tại. */}
                     {superAdmin && (
-                      <TableCell className="text-muted-foreground text-sm">
+                      <TableCell className="text-muted-foreground hidden text-sm @xl:table-cell">
                         {t('permissions:fullAccess')}
                       </TableCell>
                     )}

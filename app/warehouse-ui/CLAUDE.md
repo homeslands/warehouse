@@ -121,8 +121,10 @@ Alias `@/*` → `./src/*` nằm ở **cả hai** file:
    - `crumb`: nhãn breadcrumb + tiêu đề tab (`"<crumb> · <tên app>"`).
    - **Trang chi tiết** là route con lồng dưới route danh sách (`/warehouses/:slug` dưới `/warehouses`),
      khai `handle.crumb: 'nav:detail'`. Trang gọi `useCrumbTitle(record?.name)` (`@/widgets/app-shell`)
-     để breadcrumb và tiêu đề tab hiện tên bản ghi. Link từ bảng gửi `state.backTo`; nút quay lại đọc
-     bằng `readBackTo(location.state, '/warehouses')` (`shared/lib/back-link.ts`). Thân trang là **một**
+     để breadcrumb và tiêu đề tab hiện tên bản ghi. Bấm **cả hàng** mở chi tiết (`DataTable`
+     `onRowClick`; ô tên vẫn là `<Link>` cho bàn phím và Ctrl/⌘+bấm), cả hai gửi `state.backTo`; nút
+     quay lại đọc bằng `readBackTo(location.state, '/warehouses')` (`shared/lib/back-link.ts`). Thân
+     trang là **một**
      `DetailCard` "Tổng quan" (`shared/ui/detail.tsx`): nhãn trên giá trị, lưới 1/2/3 cột; nhóm khác
      loại (vd pháp nhân) là `DetailGroup` có tiêu đề trong cùng card; trường dài `span="full"`; tạo/cập
      nhật lúc ở chân card (`DetailMeta`). Không lặp lại tên — đã là `<h1>`.
@@ -263,7 +265,15 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
 - **Tự lùi trang**: `useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)`.
 - **Bảng**: `DataTable` (`shared/ui/data-table/DataTable.tsx`) — truyền `data={data?.items}` (undefined = chưa
   có dữ liệu), `isLoading={isPending}`, `error`, `pagination={{ …, isFetching: isPlaceholderData }}`.
-  Thanh trên bảng: `ListToolbar` (`filters` / `actions`) + `SearchInput` (debounce 300 ms).
+  Thanh trên bảng: `ListToolbar` — `search` (ô tìm, căn **trái**, `SearchInput` debounce 300 ms),
+  `filters` rồi `actions` (nút Tạo…) căn **phải**, nút hành động ngoài cùng; không có ô tìm thì cả cụm vẫn
+  nằm bên phải.
+  Khung bảng hẹp: cột phụ khai `meta: { hideBelow: '@sm' | '@2xl' | '@4xl' }` trong `ColumnDef` — **container
+  query** theo bề rộng thật của khung bảng (breakpoint theo cửa sổ sai khi sidebar đang mở); xem đủ ở trang
+  chi tiết. Cột tên, trạng thái, thao tác không khai. Cột chỉ có icon (menu `⋯`) khai `meta: { compactHeader: true }` — chữ tiêu
+  đề chỉ còn cho trình đọc màn hình khi khung hẹp.
+  Từ hai bộ lọc trở lên: `collapseFiltersOnMobile` + `activeFilterCount` — màn < 768px gom bộ lọc vào nút
+  "Bộ lọc" mở ngăn trượt (bộ lọc đổi URL ngay, không có nút Áp dụng).
 - **Form**: `Form`/`FormField`/`FormItem`/`FormLabel`/`FormControl`/`FormMessage` (`shared/ui/form.tsx`).
   Message của schema Zod là **khoá i18n có namespace** (`'examples:nameRequired'`) — `FormMessage` tự dịch;
   chuỗi không phải khoá hiện nguyên. **Mọi** rule cần message là khoá, kể cả lỗi sai kiểu:

@@ -47,6 +47,7 @@ export function ExamplesPage() {
     const actionsColumn: ColumnDef<Example> = {
       id: 'actions',
       header: t('examples:actions'),
+      meta: { compactHeader: true },
       cell: ({ row }) => (
         <div className="flex gap-2">
           {canUpdate && (
