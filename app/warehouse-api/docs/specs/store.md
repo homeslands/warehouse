@@ -98,7 +98,7 @@ Dùng **RBAC cơ bản (`@HasRole`)**, không dùng `@RequireAuthority` ⇒ **kh
 CRUD chuẩn 5 route, không có endpoint đặc thù:
 
 - `POST /stores` — tạo cửa hàng.
-- `GET /stores` — danh sách phân trang, filter `isActive`.
+- `GET /stores` — danh sách phân trang, filter `isActive`. Người gọi là `MANAGER` chỉ nhận cửa hàng gắn với kho mình phụ trách (`warehouse.manager = userId`); cửa hàng chưa gắn kho không hiện với `MANAGER`. `GET /stores/:slug` chưa lọc.
 - `GET /stores/:slug` — chi tiết.
 - `PATCH /stores/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ. **Không** đụng tới `warehouse`.
 - `PUT /stores/:slug/warehouse` — gắn kho (hoặc gỡ với `warehouseSlug: null`); kho đang thuộc cửa hàng khác được chuyển sang.

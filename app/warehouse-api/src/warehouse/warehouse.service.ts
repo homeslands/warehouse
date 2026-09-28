@@ -18,6 +18,8 @@ import { WarehouseValidation } from './warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { hasRole } from 'src/role/role.decorator';
+import { CurrentUserDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
 
 /**
@@ -47,12 +49,18 @@ export class WarehouseService {
     return this.mapper.map(created, Warehouse, WarehouseResponseDto);
   }
 
+  /**
+   * `MANAGER` chỉ thấy kho mình phụ trách: filter `managerSlug`/`hasManager` của query bị bỏ qua để
+   * không mở rộng được ra kho của người khác. Role khác (kể cả `SUPER_ADMIN`) thấy toàn bộ.
+   */
   async findAll(
     query: GetAllWarehouseRequestDto,
+    currentUser?: CurrentUserDto,
   ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
     const where: FindOptionsWhere<Warehouse> = {};
     if (query.isActive !== undefined) where.isActive = query.isActive;
-    if (query.managerSlug) where.manager = { slug: query.managerSlug };
+    if (hasRole(currentUser, RoleEnum.Manager)) where.manager = { id: currentUser.userId };
+    else if (query.managerSlug) where.manager = { slug: query.managerSlug };
     else if (query.hasManager === true) where.manager = Not(IsNull());
     else if (query.hasManager === false) where.manager = IsNull();
 
