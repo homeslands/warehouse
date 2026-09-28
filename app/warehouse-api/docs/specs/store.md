@@ -54,9 +54,27 @@ Quy tắc khi gắn:
 |---|---|
 | Kho không tồn tại / đã xoá mềm | `WAREHOUSE_NOT_FOUND` (dùng lại mã của module `warehouse`, giống `warehouse-material`) |
 | Kho `isActive = false` | `STORE_WAREHOUSE_INACTIVE` (101018) |
-| Kho đang thuộc cửa hàng khác còn sống | `STORE_WAREHOUSE_ALREADY_ASSIGNED` (101019) |
-| Kho bị cửa hàng **đã xoá mềm** giữ chỗ | `STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE` (101020) — UNIQUE index không bỏ qua row xoá mềm, giống cách xử lý `code` |
-| Gửi lại đúng kho cửa hàng đang giữ | Thành công (idempotent), không báo trùng với chính mình |
+| Kho đang thuộc cửa hàng khác (còn sống **hoặc đã xoá mềm**) | **Chuyển kho**: gỡ khỏi cửa hàng đang giữ (FK = NULL, ghi lịch sử `RELEASED` cho cửa hàng đó) rồi mới gắn vào cửa hàng này. Mã 101019/101020 (`STORE_WAREHOUSE_ALREADY_ASSIGNED`/`RESERVED_BY_DELETED_STORE`) **đã bỏ** (cập nhật 2026-09-28), không tái sử dụng |
+| Gửi lại đúng kho cửa hàng đang giữ / gỡ khi chưa có kho | No-op (idempotent): không ghi DB, không ghi lịch sử |
+
+**Không có cột phía kho**: "set store = null trong kho" chính là FK của cửa hàng cũ về NULL — `Warehouse.store` chỉ là inverse side đọc qua FK đó, nên 1 FK duy nhất là nguồn sự thật, không thể lệch 2 phía.
+
+Thứ tự ghi bắt buộc (vì `UQ_store_warehouse`), trong **1 transaction** (`TransactionManagerService`), khoá `SELECT ... FOR UPDATE` cả dòng cửa hàng đích lẫn dòng cửa hàng đang giữ kho: (1) FK của cửa hàng đang giữ → NULL, (2) FK của cửa hàng này → kho mới (kho cũ của nó tự được nhả), (3) ghi lịch sử. 2 request chéo nhau (A lấy kho của B, B lấy kho của A cùng lúc) có thể deadlock — MySQL huỷ 1 bên (500), client gọi lại.
+
+### Lịch sử gắn kho & restore (`store_warehouse_history_tbl`, migration `1783728000030`)
+
+Mỗi lần slot `warehouse` của 1 cửa hàng **đổi giá trị** ghi 1 dòng (append-only, không sửa/xoá qua API): `action`, `previousWarehouse` (trước), `newWarehouse` (sau), `relatedStore`, `restoredFrom`, `changedBy` (user thao tác).
+
+| `action` | Khi nào | `relatedStore` |
+|---|---|---|
+| `ASSIGN` | `PUT .../warehouse` với 1 kho | cửa hàng bị lấy kho (nếu có) |
+| `UNASSIGN` | `PUT .../warehouse` với `null` | — |
+| `RELEASED` | ghi trên cửa hàng **bị lấy kho** | cửa hàng đã lấy kho |
+| `RESTORE` | `POST .../restore` | cửa hàng bị lấy kho (nếu có) |
+
+- `GET /stores/:slug/warehouse-histories` — phân trang, mới nhất trước; đọc kèm `withDeleted` để kho/cửa hàng đã xoá mềm vẫn hiện.
+- `POST /stores/:slug/warehouse-histories/:historySlug/restore` — đưa cửa hàng về `previousWarehouse` của dòng đó (`null` ⇒ gỡ kho), đi qua **đúng luồng gắn kho** (cùng rào `WAREHOUSE_NOT_FOUND`/`STORE_WAREHOUSE_INACTIVE`, cùng hành vi lấy kho từ cửa hàng khác) và tự ghi 1 dòng `RESTORE` ⇒ restore cũng hoàn tác được. Dòng lịch sử không thuộc cửa hàng này ⇒ `STORE_WAREHOUSE_HISTORY_NOT_FOUND` (101021). Kho cũ đã bị xoá mềm ⇒ `WAREHOUSE_NOT_FOUND` (không bị hiểu nhầm thành "gỡ kho").
+- Chỉ ghi lịch sử cho quan hệ kho. Đổi thông tin pháp nhân qua `PATCH /stores/:slug` **chưa** có audit log.
 
 FK dùng **`ON DELETE SET NULL`** (giống `FK_warehouse_manager`): "cửa hàng chưa có kho" là trạng thái hợp lệ nên xoá cứng kho thoái hoá về trạng thái đó thay vì chặn. Thực tế kho chỉ xoá mềm nên nhánh này hiếm khi chạy.
 
@@ -69,7 +87,8 @@ Dùng **RBAC cơ bản (`@HasRole`)**, không dùng `@RequireAuthority` ⇒ **kh
 | Create | `ADMIN` |
 | Read (list/detail) | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 | Update | `ADMIN` |
-| Gắn/gỡ kho (`PUT /stores/:slug/warehouse`) | `ADMIN` |
+| Gắn/gỡ kho (`PUT /stores/:slug/warehouse`), restore từ lịch sử | `ADMIN` (`STORE_UPDATE` + `WAREHOUSE_UPDATE`) |
+| Xem lịch sử gắn kho | `ADMIN`, `MANAGER`, `SUPERVISOR` (`STORE_READ` + `WAREHOUSE_READ`) |
 | Delete | `ADMIN` |
 
 `SUPER_ADMIN` bypass toàn bộ. Read cấp cho cả 3 role vì mọi màn hình chọn cửa hàng (lập phiếu, xuất hoá đơn sau này) đều cần dropdown danh sách store.
@@ -82,10 +101,12 @@ CRUD chuẩn 5 route, không có endpoint đặc thù:
 - `GET /stores` — danh sách phân trang, filter `isActive`.
 - `GET /stores/:slug` — chi tiết.
 - `PATCH /stores/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ. **Không** đụng tới `warehouse`.
-- `PUT /stores/:slug/warehouse` — gắn kho (hoặc gỡ với `warehouseSlug: null`).
+- `PUT /stores/:slug/warehouse` — gắn kho (hoặc gỡ với `warehouseSlug: null`); kho đang thuộc cửa hàng khác được chuyển sang.
+- `GET /stores/:slug/warehouse-histories` — lịch sử gắn kho.
+- `POST /stores/:slug/warehouse-histories/:historySlug/restore` — khôi phục kho từ 1 dòng lịch sử.
 - `DELETE /stores/:slug` — xoá mềm.
 
-Mã lỗi dùng dải **`1010xx`** (`101001`+) — dải chưa module nào dùng (`1000xx`–`1008xx` đã có chủ, `100800`–`100900` là dải dùng chung). Đang dùng tới `101020`.
+Mã lỗi dùng dải **`1010xx`** (`101001`+) — dải chưa module nào dùng (`1000xx`–`1008xx` đã có chủ, `100800`–`100900` là dải dùng chung). Đang dùng tới `101021` (101019/101020 đã bỏ, không tái sử dụng).
 
 ## Ngoài phạm vi (Out of scope)
 
@@ -94,7 +115,7 @@ Mã lỗi dùng dải **`1010xx`** (`101001`+) — dải chưa module nào dùng
 - Chưa lọc danh sách theo kho (`GET /stores` chưa có `warehouseSlug`/`hasWarehouse` như `GET /warehouses` có `managerSlug`/`hasManager`).
 - Chưa cho gắn kho ngay trong `POST /stores` — phải tạo store rồi gọi `PUT /stores/:slug/warehouse`.
 - Chưa có chiều đọc ngược qua API kho (`GET /warehouses/:slug` chưa trả `storeSlug`) — quan hệ inverse đã khai ở entity nhưng chưa dùng ở read path nào của module `warehouse`.
-- Xoá mềm cửa hàng **không** tự nhả kho: FK vẫn giữ, kho đó không gắn cho cửa hàng khác được cho tới khi có API restore/hard-delete (trả `STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE`).
+- Xoá mềm cửa hàng **không** tự nhả kho: FK vẫn giữ, nhưng gắn kho đó cho cửa hàng khác sẽ tự gỡ nó khỏi cửa hàng đã xoá (ghi `RELEASED`).
 - Chưa hỗ trợ `sort` (`BaseQueryDto.sort` bị bỏ qua, luôn `createdAt DESC` — giống mọi module hiện có).
 - Chưa có API restore store đã xoá mềm, chưa có audit log đổi thông tin pháp nhân.
 - Chưa có phân công người phụ trách store (khác `warehouse` — store chưa có `manager`).

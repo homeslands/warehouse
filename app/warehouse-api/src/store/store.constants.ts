@@ -11,3 +11,17 @@ export const STORE_PHONENUMBER_REGEX = /^0\d{8,10}$/;
  * format, KHÔNG check checksum thật của Tổng cục Thuế.
  */
 export const STORE_TAX_CODE_REGEX = /^\d{10}(-\d{3})?$/;
+
+/**
+ * Loại thay đổi trong lịch sử gắn kho của 1 cửa hàng (`StoreWarehouseHistory.action`).
+ * - `ASSIGN`: gắn kho mới (kể cả đổi từ kho này sang kho khác).
+ * - `UNASSIGN`: gỡ kho (`warehouseSlug: null`).
+ * - `RELEASED`: kho bị cửa hàng KHÁC lấy đi (`relatedStore` = cửa hàng lấy) — ghi trên cửa hàng mất kho.
+ * - `RESTORE`: khôi phục về kho trước đó của 1 dòng lịch sử (`restoredFrom` = dòng đó).
+ */
+export enum StoreWarehouseHistoryAction {
+  Assign = 'ASSIGN',
+  Unassign = 'UNASSIGN',
+  Released = 'RELEASED',
+  Restore = 'RESTORE',
+}

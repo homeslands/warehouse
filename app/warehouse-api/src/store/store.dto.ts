@@ -11,7 +11,12 @@ import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
-import { STORE_CODE_REGEX, STORE_PHONENUMBER_REGEX, STORE_TAX_CODE_REGEX } from './store.constants';
+import {
+  STORE_CODE_REGEX,
+  STORE_PHONENUMBER_REGEX,
+  STORE_TAX_CODE_REGEX,
+  StoreWarehouseHistoryAction,
+} from './store.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -174,4 +179,48 @@ export class StoreResponseDto extends BaseResponseDto {
 
   @ApiPropertyOptional({ description: 'Tên kho gắn với cửa hàng' })
   warehouseName?: string;
+}
+
+export class GetStoreWarehouseHistoryRequestDto extends BaseQueryDto {}
+
+/**
+ * 1 dòng lịch sử gắn kho, mới nhất trước. Quan hệ flatten ra `slug`/`name` (không lộ `id`), giống
+ * `StoreResponseDto.warehouseSlug`.
+ */
+export class StoreWarehouseHistoryResponseDto extends BaseResponseDto {
+  @AutoMap()
+  @ApiProperty({ enum: StoreWarehouseHistoryAction })
+  action: StoreWarehouseHistoryAction;
+
+  @ApiPropertyOptional({
+    description: 'Kho trước thay đổi — đích của restore; trống = chưa có kho',
+  })
+  previousWarehouseSlug?: string;
+
+  @ApiPropertyOptional()
+  previousWarehouseName?: string;
+
+  @ApiPropertyOptional({ description: 'Kho sau thay đổi; trống = đã gỡ kho' })
+  newWarehouseSlug?: string;
+
+  @ApiPropertyOptional()
+  newWarehouseName?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Cửa hàng còn lại trong lần chuyển kho: RELEASED = cửa hàng lấy kho đi; ASSIGN/RESTORE = cửa hàng bị lấy kho',
+  })
+  relatedStoreSlug?: string;
+
+  @ApiPropertyOptional()
+  relatedStoreName?: string;
+
+  @ApiPropertyOptional({ description: 'Dòng lịch sử được khôi phục (chỉ với RESTORE)' })
+  restoredFromSlug?: string;
+
+  @ApiPropertyOptional({ description: 'Slug của người thao tác' })
+  changedBySlug?: string;
+
+  @ApiPropertyOptional({ description: 'Họ tên người thao tác' })
+  changedByName?: string;
 }
