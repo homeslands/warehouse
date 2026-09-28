@@ -196,6 +196,26 @@ describe('WarehouseService', () => {
       expect(whereOf()).toEqual({ manager: Not(IsNull()) });
     });
 
+    // MANAGER chỉ thấy kho mình phụ trách, filter manager trong query không mở rộng được phạm vi.
+    it('scopes a MANAGER to their own warehouses and ignores manager filters', async () => {
+      const manager = { userId: 'user-id-1', roleName: RoleEnum.Manager, scope: [] };
+      await service.findAll(
+        { page: 1, size: 10, isActive: true, managerSlug: 'someone-else', hasManager: false },
+        manager,
+      );
+
+      expect(whereOf()).toEqual({ isActive: true, manager: { id: 'user-id-1' } });
+    });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin, RoleEnum.Supervisor])(
+      'does not scope %s',
+      async (roleName) => {
+        await service.findAll({ page: 1, size: 10 }, { userId: 'user-id-1', roleName, scope: [] });
+
+        expect(whereOf()).toEqual({});
+      },
+    );
+
     it('treats an unparseable hasManager as absent rather than false', async () => {
       // DTO trả nguyên chuỗi lạ cho `@IsBoolean` bắt; service không được coi nó là `false` và
       // lọc ngược tập dữ liệu.

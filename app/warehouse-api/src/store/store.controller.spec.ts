@@ -51,13 +51,13 @@ describe('StoreController', () => {
     expect(response.statusCode).toBe(201);
   });
 
-  it('forwards the query untouched to findAll', async () => {
+  it('forwards the query and current user to findAll', async () => {
     const query = { page: 1, size: 10, isActive: false };
     storeService.findAll.mockResolvedValue({ items: [], total: 0 });
 
-    const response = await controller.findAll(query);
+    const response = await controller.findAll(currentUser, query);
 
-    expect(storeService.findAll).toHaveBeenCalledWith(query);
+    expect(storeService.findAll).toHaveBeenCalledWith(query, currentUser);
     expect(response.statusCode).toBe(200);
   });
 

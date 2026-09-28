@@ -331,16 +331,34 @@ describe('AuthService', () => {
   describe('getProfile', () => {
     // `userName` cố tình không nằm trong cache RBAC (xem docs/specs/rbac.md) nên endpoint này là
     // chỗ duy nhất phải đọc DB để lấy `phonenumber`.
-    it('merges the phonenumber from the database into the current user', async () => {
-      userService.findById.mockResolvedValue({ ...activeUser, phonenumber: '0376295216' } as User);
+    it('merges the personal info from the database into the current user', async () => {
+      userService.findById.mockResolvedValue({
+        ...activeUser,
+        phonenumber: '0376295216',
+        firstName: 'Minh',
+        lastName: 'Nguyen',
+        email: 'minh@example.com',
+        dob: '1990-01-31',
+        address: 'Cầu Giấy, Hà Nội',
+        password: 'hashed',
+      } as User);
 
-      expect(await service.getProfile(caller())).toEqual({
+      const profile = await service.getProfile(caller());
+
+      expect(profile).toEqual({
         userId: 'user-id',
         userName: '0376295216',
+        phonenumber: '0376295216',
+        firstName: 'Minh',
+        lastName: 'Nguyen',
+        email: 'minh@example.com',
+        dob: '1990-01-31',
+        address: 'Cầu Giấy, Hà Nội',
         roleName: RoleEnum.Manager,
         sessionId: 'sid-1',
         scope: [],
       });
+      expect(profile).not.toHaveProperty('password');
       expect(userService.findById).toHaveBeenCalledWith('user-id');
     });
 

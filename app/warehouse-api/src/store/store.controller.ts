@@ -60,13 +60,17 @@ export class StoreController {
   @Get()
   @RequireAuthority(AuthorityCode.StoreRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all stores (paginated)' })
+  @ApiOperation({
+    summary: 'Get all stores (paginated)',
+    description: 'MANAGER chỉ nhận về cửa hàng gắn với kho mình phụ trách; role khác thấy toàn bộ.',
+  })
   @ApiPaginatedResponse(StoreResponseDto, 'Retrieved')
   async findAll(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     query: GetAllStoreRequestDto,
   ) {
-    const result = await this.storeService.findAll(query);
+    const result = await this.storeService.findAll(query, currentUser);
     return {
       message: 'All stores have been retrieved successfully',
       statusCode: HttpStatus.OK,

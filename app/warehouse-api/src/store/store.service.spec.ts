@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RoleEnum } from 'src/role/role.enum';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
@@ -255,6 +256,26 @@ describe('StoreService', () => {
 
       expect(whereOf()).toEqual({});
     });
+
+    // Cửa hàng "thuộc về" MANAGER = cửa hàng gắn với kho mà MANAGER đó phụ trách.
+    it('scopes a MANAGER to stores linked to warehouses they manage', async () => {
+      const manager = { userId: 'user-id-1', roleName: RoleEnum.Manager, scope: [] };
+      await service.findAll({ page: 1, size: 10, isActive: true }, manager);
+
+      expect(whereOf()).toEqual({
+        isActive: true,
+        warehouse: { manager: { id: 'user-id-1' } },
+      });
+    });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin, RoleEnum.Supervisor])(
+      'does not scope %s',
+      async (roleName) => {
+        await service.findAll({ page: 1, size: 10 }, { userId: 'user-id-1', roleName, scope: [] });
+
+        expect(whereOf()).toEqual({});
+      },
+    );
 
     it('computes pagination metadata', async () => {
       storeRepository.findAndCount.mockResolvedValue([[baseStore()], 3]);

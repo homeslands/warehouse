@@ -25,6 +25,8 @@ import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { hasRole } from 'src/role/role.decorator';
+import { RoleEnum } from 'src/role/role.enum';
 import { User } from 'src/user/user.entity';
 
 /**
@@ -72,8 +74,18 @@ export class StoreService {
     return this.mapper.map(created, Store, StoreResponseDto);
   }
 
-  async findAll(query: GetAllStoreRequestDto): Promise<AppPaginatedResponseDto<StoreResponseDto>> {
+  /**
+   * `MANAGER` chỉ thấy cửa hàng thuộc về mình — tức cửa hàng đang gắn với kho mà user đó phụ trách
+   * (`Store` không có cột người quản lý riêng, quyền sở hữu đi qua `Warehouse.manager`). Cửa hàng
+   * chưa gắn kho vì vậy không hiện với `MANAGER`. Role khác (kể cả `SUPER_ADMIN`) thấy toàn bộ.
+   */
+  async findAll(
+    query: GetAllStoreRequestDto,
+    currentUser?: CurrentUserDto,
+  ): Promise<AppPaginatedResponseDto<StoreResponseDto>> {
     const where: FindOptionsWhere<Store> = {};
+    if (hasRole(currentUser, RoleEnum.Manager))
+      where.warehouse = { manager: { id: currentUser.userId } };
     // `typeof === 'boolean'` chứ không `!== undefined`: giá trị lạ (`?isActive=notabool`) phải bị
     // coi là KHÔNG lọc, không được lọt xuống `where` rồi lọc ngược tập dữ liệu. `@IsBoolean` ở DTO
     // đã chặn từ tầng HTTP, đây là rào thứ hai cho lời gọi service trực tiếp.
