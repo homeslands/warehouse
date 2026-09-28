@@ -101,5 +101,26 @@ export const AuthorityCode = {
   // `POST /tax-profiles/:taxCode/refresh` ghi đè hồ sơ đã lưu ⇒ `TaxProfileUpdate`.
   TaxProfileRead: 'TAX_PROFILE_READ',
   TaxProfileUpdate: 'TAX_PROFILE_UPDATE',
+
+  // ===== Seed ở migration 1783728000029 (Role) =====
+  // Thay `ManagePermissions` trên `POST/PATCH /roles`; `ManagePermissions` vẫn giữ cho bật/tắt quyền
+  // (`PUT/DELETE /roles/:roleSlug/authorities/:authorityCode`) và `PATCH /authorities/:slug`.
+  RoleCreate: 'ROLE_CREATE',
+  RoleRead: 'ROLE_READ',
+  RoleUpdate: 'ROLE_UPDATE',
+  RoleDelete: 'ROLE_DELETE',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];
+
+/**
+ * Quyền quản trị phân quyền — KHÔNG uỷ quyền được: chỉ cấp được cho role `ADMIN` (và vì chỉ
+ * `SUPER_ADMIN` có cấp cao hơn `ADMIN`, chỉ `SUPER_ADMIN` cấp lại được). Nếu không, ADMIN tự đưa
+ * `MANAGE_PERMISSIONS` cho MANAGER là MANAGER tự phân quyền cho SUPERVISOR. Chặn ở
+ * `PermissionService.grant`. `RoleRead` cố tình không nằm đây — xem role không phải điều chỉnh role.
+ */
+export const NON_DELEGABLE_AUTHORITY_CODES: readonly TAuthorityCode[] = [
+  AuthorityCode.ManagePermissions,
+  AuthorityCode.RoleCreate,
+  AuthorityCode.RoleUpdate,
+  AuthorityCode.RoleDelete,
+];

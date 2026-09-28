@@ -151,9 +151,11 @@ Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route n
 | `POST` / `PATCH` / `DELETE /warehouses/{slug}/materials...` (kể cả `.../quantity`) | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
 | `POST` / `GET` / `PATCH` / `DELETE /stores...` | `STORE_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
 | `PUT /stores/{slug}/warehouse` | `STORE_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
+| `GET` / `POST` / `PATCH` / `DELETE /roles...` | `ROLE_READ` / `_CREATE` / `_UPDATE` / `_DELETE` | `ADMIN` |
+| `PUT` / `DELETE /roles/{roleSlug}/authorities/{authorityCode}` | `MANAGE_PERMISSIONS` | `ADMIN` — **khoá cứng**: `MANAGE_PERMISSIONS`/`ROLE_CREATE`/`_UPDATE`/`_DELETE` chỉ cấp được cho role `ADMIN` (`NON_DELEGABLE_AUTHORITY_CODES`, chặn ở `PermissionService.grant`, cả `SUPER_ADMIN` cũng không cấp xuống dưới được) |
 | `GET /tax-profiles...` / `POST /tax-profiles/{taxCode}/refresh` | `TAX_PROFILE_READ` / `TAX_PROFILE_UPDATE` | `ADMIN`, `MANAGER`, `SUPERVISOR` / `ADMIN` |
 
-`SUPER_ADMIN` bypass tất cả. Cột "Cấp sẵn cho" chỉ là giá trị seed (migration `1783728000010`/`011`/`014`/`024`–`027`), khớp đúng `@HasRole` cũ; sau khi migrate nguồn sự thật là `permission_tbl`. Có test khoá metadata `@RequireAuthority` trong `<module>.controller.spec.ts` của từng module — gỡ/đổi nhầm decorator là test đỏ.
+`SUPER_ADMIN` bypass tất cả. Cột "Cấp sẵn cho" chỉ là giá trị seed (migration `1783728000010`/`011`/`014`/`024`–`027`/`029`), khớp đúng `@HasRole` cũ; sau khi migrate nguồn sự thật là `permission_tbl`. Có test khoá metadata `@RequireAuthority` trong `<module>.controller.spec.ts` của từng module — gỡ/đổi nhầm decorator là test đỏ.
 
 ## Swagger convention
 

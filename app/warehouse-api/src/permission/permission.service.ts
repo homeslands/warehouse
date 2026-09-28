@@ -11,6 +11,7 @@ import { AuthorityService } from 'src/authority/authority.service';
 import { RbacService } from 'src/rbac/rbac.service';
 import { RoleEnum } from 'src/role/role.enum';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { NON_DELEGABLE_AUTHORITY_CODES, TAuthorityCode } from 'src/authority/authority.constants';
 
 @Injectable()
 export class PermissionService {
@@ -42,6 +43,13 @@ export class PermissionService {
     await this.roleService.assertCanManage(actor, role);
     if (actor.roleName !== RoleEnum.SuperAdmin && !actor.scope.includes(authority.code)) {
       throw new AuthorityException(AuthorityValidation.AUTHORITY_NOT_OWNED);
+    }
+    // Quyền quản trị phân quyền chỉ ADMIN được giữ — áp cho cả SUPER_ADMIN, không bypass.
+    if (
+      NON_DELEGABLE_AUTHORITY_CODES.includes(authority.code as TAuthorityCode) &&
+      role.name !== RoleEnum.Admin
+    ) {
+      throw new AuthorityException(AuthorityValidation.AUTHORITY_NOT_DELEGABLE);
     }
 
     const existed = await this.permissionRepository.findOne({

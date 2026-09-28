@@ -127,6 +127,57 @@ describe('PermissionService', () => {
       expect(permissionRepository.save).toHaveBeenCalledWith({ role, authority });
     });
 
+    // Quyền quản trị phân quyền không uỷ quyền được xuống dưới ADMIN — kể cả khi người cấp đang có
+    // nó và role đích thấp cấp hơn; nếu không MANAGER nhận được quyền tự phân quyền cho SUPERVISOR.
+    it.each(['MANAGE_PERMISSIONS', 'ROLE_CREATE', 'ROLE_UPDATE', 'ROLE_DELETE'])(
+      'rejects granting %s to a role other than ADMIN',
+      async (code) => {
+        authorityService.findByCode.mockResolvedValue({ id: 'authority-id', code });
+
+        const promise = service.grant({ ...admin, scope: [code] }, 'manager', code);
+
+        await expect(promise).rejects.toBeInstanceOf(AuthorityException);
+        await expect(promise).rejects.toMatchObject({
+          code: AuthorityValidation.AUTHORITY_NOT_DELEGABLE.code,
+        });
+        expect(permissionRepository.save).not.toHaveBeenCalled();
+      },
+    );
+
+    it('applies the same lock to SUPER_ADMIN', async () => {
+      authorityService.findByCode.mockResolvedValue({
+        id: 'authority-id',
+        code: 'MANAGE_PERMISSIONS',
+      });
+
+      await expect(
+        service.grant(
+          { userId: 'root-id', roleName: RoleEnum.SuperAdmin, scope: [] },
+          'manager',
+          'MANAGE_PERMISSIONS',
+        ),
+      ).rejects.toMatchObject({ code: AuthorityValidation.AUTHORITY_NOT_DELEGABLE.code });
+    });
+
+    // Chỉ SUPER_ADMIN (cấp > ADMIN) cấp lại được cho ADMIN, vd sau khi lỡ thu hồi.
+    it('lets SUPER_ADMIN grant a non-delegable authority back to ADMIN', async () => {
+      const adminRole = { id: 'admin-role-id', slug: 'admin', name: RoleEnum.Admin, level: 30 };
+      const managePermissions = { id: 'authority-id', code: 'MANAGE_PERMISSIONS' };
+      roleService.findBySlug.mockResolvedValue(adminRole);
+      authorityService.findByCode.mockResolvedValue(managePermissions);
+
+      await service.grant(
+        { userId: 'root-id', roleName: RoleEnum.SuperAdmin, scope: [] },
+        'admin',
+        'MANAGE_PERMISSIONS',
+      );
+
+      expect(permissionRepository.save).toHaveBeenCalledWith({
+        role: adminRole,
+        authority: managePermissions,
+      });
+    });
+
     it('rejects an unknown role without touching the cache', async () => {
       roleService.findBySlug.mockResolvedValue(null);
 
