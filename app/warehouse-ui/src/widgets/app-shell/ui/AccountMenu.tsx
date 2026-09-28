@@ -1,4 +1,4 @@
-import { ChevronDown, LogOutIcon } from 'lucide-react'
+import { ChevronDown, CircleUserRoundIcon, LogOutIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link } from 'react-router-dom'
@@ -27,9 +27,17 @@ export function AccountMenu() {
     <>
       <DropdownMenu>
         <DropdownMenuTrigger asChild>
-          <Button variant="ghost" size="sm">
-            {user?.userName} <span className="text-muted-foreground">({user?.roleName})</span>
-            <ChevronDown aria-hidden />
+          {/* Màn hẹp chỉ còn icon — tên + vai trò dài sẽ chiếm hết header. Tên khả truy cập luôn đủ. */}
+          <Button
+            variant="ghost"
+            size="sm"
+            aria-label={`${user?.userName ?? ''} (${user?.roleName ?? ''})`}
+          >
+            <CircleUserRoundIcon aria-hidden className="sm:hidden" />
+            <span className="hidden sm:inline">
+              {user?.userName} <span className="text-muted-foreground">({user?.roleName})</span>
+            </span>
+            <ChevronDown aria-hidden className="hidden sm:block" />
           </Button>
         </DropdownMenuTrigger>
         <DropdownMenuContent align="end">

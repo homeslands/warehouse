@@ -110,6 +110,37 @@ describe('StoresPage — bảng', () => {
     )
   })
 
+  it('bấm vào hàng (ô bất kỳ, không riêng tên) → mở trang chi tiết, kèm state.backTo', async () => {
+    const { user, router } = renderWithRouter(
+      [
+        { path: '/stores', element: <StoresPage /> },
+        { path: '/stores/:slug', element: <p>CHI TIẾT CỬA HÀNG</p> },
+      ],
+      { route: '/stores?isActive=true', auth: 'admin' },
+    )
+
+    await user.click(await screen.findByText('ST-HN-01'))
+
+    expect(router.state.location.pathname).toBe('/stores/ch-ha-noi')
+    expect(router.state.location.state).toEqual({ backTo: '/stores?isActive=true' })
+  })
+
+  it('bấm nút ⋯ và mục trong menu của hàng → KHÔNG mở trang chi tiết', async () => {
+    const { user, router } = renderWithRouter(
+      [
+        { path: '/stores', element: <StoresPage /> },
+        { path: '/stores/:slug', element: <p>CHI TIẾT CỬA HÀNG</p> },
+      ],
+      { route: '/stores', auth: 'admin' },
+    )
+
+    await user.click(await screen.findByRole('button', { name: 'Thao tác với Cửa hàng Hà Nội 1' }))
+    // Menu render qua portal (ngoài <tr>) nhưng sự kiện React vẫn nổi lên hàng.
+    await user.click(await screen.findByRole('menuitem', { name: 'Sửa' }))
+
+    expect(router.state.location.pathname).toBe('/stores')
+  })
+
   it('link kèm state.backTo bằng đúng URL danh sách hiện tại (kể cả query) — `<Link state>` không hiện trong DOM nên phải điều hướng thật rồi đọc location của route đích', async () => {
     // `renderPage` (renderWithProviders) chỉ dựng MemoryRouter, không có route con để nhận điều
     // hướng — dùng renderWithRouter với một route `:slug` thật để đọc lại `location.state` sau khi

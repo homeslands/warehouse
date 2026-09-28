@@ -330,6 +330,39 @@ describe('AppShell — landmark', () => {
   })
 })
 
+describe('AppShell — màn hẹp (class responsive; jsdom không áp media query nên kiểm cấu trúc)', () => {
+  it('vùng nội dung có min-w-0 — thiếu nó bảng rộng đẩy cả trang tràn ngang (lỗi thấy ở 768px)', () => {
+    renderShell()
+    expect(screen.getByRole('main').parentElement).toHaveClass('min-w-0')
+  })
+
+  it('nút tài khoản: dưới sm chỉ còn icon, tên khả truy cập vẫn đủ tên + vai trò', () => {
+    renderShell()
+    const button = screen.getByRole('button', { name: 'root (SUPER_ADMIN)' })
+    expect(within(button).getByText('root').closest('span')).toHaveClass('hidden', 'sm:inline')
+  })
+
+  it('breadcrumb dưới sm chỉ còn mục cuối (cắt "…"); mục trước và dấu phân cách ẩn', () => {
+    renderShell(
+      [{ path: '/examples', element: <div />, handle: { crumb: 'nav:examples' } }],
+      '/examples',
+    )
+    const trail = screen.getByRole('navigation', { name: 'Vị trí hiện tại' })
+
+    expect(within(trail).getByRole('link', { name: 'Tổng quan' }).closest('li')).toHaveClass(
+      'hidden',
+      'sm:inline-flex',
+    )
+    const separators = trail.querySelectorAll('[data-slot="breadcrumb-separator"]')
+    expect(separators).toHaveLength(1)
+    for (const separator of Array.from(separators))
+      expect(separator).toHaveClass('hidden', 'sm:inline-flex')
+    const current = within(trail).getByText('Example')
+    expect(current).toHaveClass('truncate')
+    expect(current.closest('li')).not.toHaveClass('hidden')
+  })
+})
+
 describe('AppShell — tải màn lazy', () => {
   it('đang tải màn mới: màn cũ vẫn hiện + thanh tiến trình; tải xong thì thanh biến mất', async () => {
     let finishLoading: () => void = () => {}

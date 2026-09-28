@@ -2,7 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontalIcon } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useLocation } from 'react-router-dom'
+import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
@@ -96,6 +96,12 @@ export function WarehousesPage() {
   const location = useLocation()
   // Gửi kèm link tới trang chi tiết: nút "Quay lại danh sách" ở đó đọc lại đúng trang/bộ lọc này.
   const backTo = location.pathname + location.search
+  const navigate = useNavigate()
+  // Link ở cột tên và cú bấm cả hàng dùng chung một đích, cùng mang `backTo`.
+  const detailLink = useCallback(
+    (w: Warehouse) => ({ to: `/warehouses/${w.slug}`, state: { backTo } }),
+    [backTo],
+  )
   const user = useAuthStore((s) => s.user)
   // Mỗi nút theo đúng thứ backend kiểm — vai trò hay mã quyền tuỳ cờ `authorityGuards`.
   const ability = warehouseAbilities(user, BACKEND_SUPPORTS)
@@ -156,7 +162,7 @@ export function WarehousesPage() {
 
   const columns = useMemo<ColumnDef<Warehouse>[]>(() => {
     const base = buildWarehouseColumns(t, {
-      detailLink: (w) => ({ to: `/warehouses/${w.slug}`, state: { backTo } }),
+      detailLink,
     })
     // Không còn thao tác nào trên dòng → không dựng cột, thay vì một nút mở ra menu rỗng.
     if (!hasRowActions) return base
@@ -164,6 +170,7 @@ export function WarehousesPage() {
     const actions: ColumnDef<Warehouse> = {
       id: 'actions',
       header: t('warehouses:actions'),
+      meta: { compactHeader: true },
       cell: ({ row }) => {
         const warehouse = row.original
 
@@ -223,13 +230,32 @@ export function WarehousesPage() {
     }
 
     return [...base, actions]
-  }, [ability.update, ability.assignManager, ability.delete, hasRowActions, t, backTo])
+  }, [ability.update, ability.assignManager, ability.delete, hasRowActions, t, detailLink])
 
   return (
     <div className="space-y-4">
       <h1 className="text-xl font-semibold">{t('warehouses:title')}</h1>
 
       <ListToolbar
+        collapseFiltersOnMobile
+        activeFilterCount={
+          [
+            mine,
+            filters.isActive !== undefined,
+            filters.managerSlug,
+            filters.hasManager === false,
+          ].filter(Boolean).length
+        }
+        search={
+          BACKEND_SUPPORTS.search &&
+          !mine && (
+            <SearchInput
+              value={filters.search ?? ''}
+              onChange={(value) => setFilters({ search: value === '' ? undefined : value })}
+              placeholder={t('common:search')}
+            />
+          )
+        }
         filters={
           <>
             {canViewMine && (
@@ -266,13 +292,6 @@ export function WarehousesPage() {
                   {t('warehouses:scopeMine')}
                 </Button>
               </div>
-            )}
-            {BACKEND_SUPPORTS.search && !mine && (
-              <SearchInput
-                value={filters.search ?? ''}
-                onChange={(value) => setFilters({ search: value === '' ? undefined : value })}
-                placeholder={t('common:search')}
-              />
             )}
             <SelectFilter
               label={t('warehouses:columnStatus')}
@@ -326,6 +345,10 @@ export function WarehousesPage() {
 
       <DataTable
         columns={columns}
+        onRowClick={(row) => {
+          const { to, state } = detailLink(row)
+          navigate(to, { state })
+        }}
         data={data?.items}
         isLoading={isPending}
         error={error}
