@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -25,6 +26,7 @@ export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
   @Get()
+  @RequireAuthority(AuthorityCode.RoleRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all roles' })
   @ApiResponseWithType({
@@ -44,6 +46,7 @@ export class RoleController {
   }
 
   @Get(':slug')
+  @RequireAuthority(AuthorityCode.RoleRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a role by slug, with authority codes currently granted' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Retrieved', type: RoleResponseDto })
@@ -59,7 +62,7 @@ export class RoleController {
   }
 
   @Post()
-  @RequireAuthority(AuthorityCode.ManagePermissions)
+  @RequireAuthority(AuthorityCode.RoleCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: "Create a role (level must be lower than the caller's)" })
   @ApiResponseWithType({
@@ -82,7 +85,7 @@ export class RoleController {
   }
 
   @Patch(':slug')
-  @RequireAuthority(AuthorityCode.ManagePermissions)
+  @RequireAuthority(AuthorityCode.RoleUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a role description' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: RoleResponseDto })
@@ -100,5 +103,24 @@ export class RoleController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<RoleResponseDto>;
+  }
+
+  @Delete(':slug')
+  @RequireAuthority(AuthorityCode.RoleDelete)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Delete a role (level must be lower than the caller's, not built-in, no users assigned)",
+  })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
+  @ApiParam({ name: 'slug', required: true, example: 'team-lead' })
+  async remove(@CurrentUser() currentUser: CurrentUserDto, @Param('slug') slug: string) {
+    const result = await this.roleService.remove(currentUser, slug);
+    return {
+      message: 'Role has been deleted successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result: `${result} role have been deleted successfully`,
+    } as AppResponseDto<string>;
   }
 }

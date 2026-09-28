@@ -56,8 +56,9 @@ Cần migration thêm cột `code_column` (unique) vào `authority_tbl`.
 
 `role_tbl.level_column` (số lớn = cấp cao; seed ở migration `1783728000028`: `SUPERVISOR`=10, `MANAGER`=20, `ADMIN`=30, `SUPER_ADMIN`=100). Cấp nằm ở DB chứ không ở `RoleEnum` để role tạo mới qua `POST /roles` (tên tự do + `level` bắt buộc) cũng xếp được vào thứ bậc.
 
-- **Chỉ thao tác được role có cấp THẤP HƠN mình** (ngang cấp cũng không): `PUT`/`DELETE /roles/:roleSlug/authorities/:code`, `POST /roles` (level mới < level mình), `PATCH /roles/:slug`, `POST /users` (role gán cho user mới). Vi phạm ⇒ 403 `ROLE_LEVEL_FORBIDDEN` (100104). Check nằm ở `RoleService.assertCanManage`; token không có claim `role` hoặc role đã bị xoá ⇒ fail-closed.
+- **Chỉ thao tác được role có cấp THẤP HƠN mình** (ngang cấp cũng không): `PUT`/`DELETE /roles/:roleSlug/authorities/:code`, `POST /roles` (level mới < level mình), `PATCH`/`DELETE /roles/:slug`, `POST /users` (role gán cho user mới). Vi phạm ⇒ 403 `ROLE_LEVEL_FORBIDDEN` (100104). Check nằm ở `RoleService.assertCanManage`; token không có claim `role` hoặc role đã bị xoá ⇒ fail-closed.
 - **Chỉ cấp được authority mà role của mình đang có** — so với `user.scope` (nạp từ cache RBAC mỗi request). Nhờ vậy role mới tạo chỉ nhận được tối đa quyền của người tạo, không bao giờ được cấp quyền của cấp cao hơn. Vi phạm ⇒ 403 `AUTHORITY_NOT_OWNED` (100202).
+- **Quyền quản trị phân quyền không uỷ quyền được**: `MANAGE_PERMISSIONS`, `ROLE_CREATE`/`ROLE_UPDATE`/`ROLE_DELETE` (`NON_DELEGABLE_AUTHORITY_CODES` trong `authority.constants.ts`) chỉ cấp được cho role `ADMIN` — áp cả cho `SUPER_ADMIN` (không bypass). Cấp cho role khác ⇒ 403 `AUTHORITY_NOT_DELEGABLE` (100203). Vì chỉ `SUPER_ADMIN` có cấp cao hơn `ADMIN`, chỉ nó cấp lại được cho `ADMIN`. Migration `1783728000029` gỡ các grant sẵn có của nhóm này ở role khác `ADMIN`.
 - **Thu hồi lan xuống**: `DELETE` 1 authority khỏi role R ⇒ xoá luôn authority đó khỏi mọi role có `level` < R (1 câu `DELETE`), rồi xoá cache RBAC của tất cả các role bị ảnh hưởng — giữ bất biến "cấp dưới chỉ có tối đa quyền của cấp trên".
 - `SUPER_ADMIN` bypass cả 3 quy tắc (nhất quán với `AuthorityGuard`). `RootUserSeeder` gọi `createUser(dto, null)` — hệ thống tự tạo, không có người thao tác để so cấp.
 
@@ -88,10 +89,11 @@ Thêm quy tắc mới, áp dụng cho mọi feature từ nay về sau: **khi che
 
 | Action | Authority yêu cầu |
 |---|---|
-| `GET /authorities`, `GET /authority-groups`, `GET /roles`, `GET /roles/:slug` | Không gắn — mọi user đã login |
+| `GET /authorities`, `GET /authority-groups` | Không gắn — mọi user đã login |
+| `GET /roles`, `GET /roles/:slug` | `ROLE_READ` |
 | `POST/PATCH/DELETE /authority-groups` | `MANAGE_PERMISSIONS` |
 | `PATCH /authorities/:slug` (chỉ sửa `name`/`authorityGroup`, không sửa `code`) | `MANAGE_PERMISSIONS` |
-| `POST/PATCH /roles` | `MANAGE_PERMISSIONS` |
+| `POST` / `PATCH` / `DELETE /roles...` | `ROLE_CREATE` / `ROLE_UPDATE` / `ROLE_DELETE` (seed `1783728000029`, cấp sẵn chỉ `ADMIN`) |
 | `PUT /roles/:roleSlug/authorities/:authorityCode` (bật), `DELETE` cùng path (tắt) | `MANAGE_PERMISSIONS` |
 | `POST /examples`, `PATCH /examples/:slug`, `DELETE /examples/:slug` | `EXAMPLE_CREATE` / `EXAMPLE_UPDATE` / `EXAMPLE_DELETE` |
 
@@ -103,6 +105,7 @@ Thêm quy tắc mới, áp dụng cho mọi feature từ nay về sau: **khi che
 - `GET /authorities` (filter theo group), `PATCH /authorities/:slug` (sửa `name`/`authorityGroupSlug`)
 - `GET /roles`, `GET /roles/:slug` (kèm danh sách `authorityCodes` đang được cấp cho role đó)
 - `POST /roles`, `PATCH /roles/:slug`
+- `DELETE /roles/:slug` — xoá mềm role cấp thấp hơn mình; chặn role có sẵn trong `RoleEnum` (`ROLE_BUILT_IN_CANNOT_BE_DELETED`) và role còn user giữ, kể cả user đã xoá mềm (`ROLE_IN_USE`). Tên role đã xoá không dùng lại được (`POST /roles` tra cả bản ghi xoá mềm) vì RBAC tra role/cache theo `name`.
 - `PUT /roles/:roleSlug/authorities/:authorityCode` — bật 1 quyền cho 1 role cấp thấp hơn mình; chỉ quyền mình đang có (idempotent)
 - `DELETE /roles/:roleSlug/authorities/:authorityCode` — tắt 1 quyền của 1 role cấp thấp hơn mình và mọi role cấp dưới nó (idempotent)
 
