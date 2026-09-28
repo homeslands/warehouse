@@ -1,7 +1,9 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react'
+import type { MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
+import { cn } from '@/shared/lib/cn'
 import { PAGE_SIZE_OPTIONS, type SortState } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
@@ -37,6 +39,12 @@ type DataTableProps<TData> = {
    * tưởng cả danh sách đã được sắp.
    */
   sorting?: DataTableSorting
+  /**
+   * Bấm vào hàng (vd mở trang chi tiết). Bỏ qua cú bấm vào phần tử tương tác trong hàng (link, nút,
+   * menu `⋯`, ô chọn) và cú bấm khi đang bôi đen chữ. Ô chính của hàng vẫn nên là `<Link>` để bàn
+   * phím và Ctrl/⌘+bấm (mở tab mới) dùng được — hàng `<tr>` không nhận focus.
+   */
+  onRowClick?: (row: TData) => void
 }
 
 export type DataTableSorting = {
@@ -51,10 +59,49 @@ function nextSort(current: SortState | undefined, field: string): SortState | un
   return undefined
 }
 
-/** `meta` của ColumnDef là `unknown` với TanStack — khai kiểu ở đây để đọc có kiểm. */
-type ColumnMeta = { sortField?: string }
+/**
+ * `meta` của ColumnDef là `unknown` với TanStack — khai kiểu ở đây để đọc có kiểm.
+ * `hideBelow`: ẩn cột phụ khi **khung bảng** hẹp hơn mốc (container query — tính theo chỗ thật còn
+ * lại, kể cả khi sidebar đang mở; breakpoint theo cửa sổ thì sai ở tablet/laptop có sidebar).
+ * Mốc: `@sm` 24rem · `@2xl` 42rem · `@4xl` 56rem. Cột tên, trạng thái, thao tác đừng khai.
+ */
+export type DataTableColumnMeta = {
+  sortField?: string
+  hideBelow?: '@sm' | '@2xl' | '@4xl'
+  /**
+   * Cột chỉ có icon (vd menu `⋯`): khung < `@sm` thì chữ tiêu đề chỉ còn cho trình đọc màn hình — chữ
+   * "Thao tác" rộng gấp đôi cái nút, đủ đẩy cả cột ra khỏi khung trên điện thoại.
+   */
+  compactHeader?: boolean
+}
+
+// Chuỗi class viết đủ để Tailwind quét được — không ghép động.
+const HIDE_BELOW = {
+  '@sm': 'hidden @sm:table-cell',
+  '@2xl': 'hidden @2xl:table-cell',
+  '@4xl': 'hidden @4xl:table-cell',
+} as const
+
+function hiddenClass(meta: unknown): string | undefined {
+  const hideBelow = (meta as DataTableColumnMeta | undefined)?.hideBelow
+  return hideBelow && HIDE_BELOW[hideBelow]
+}
 
 const SKELETON_ROWS = 5
+
+const INTERACTIVE =
+  'a, button, input, select, textarea, label, [role="menuitem"], [role="checkbox"]'
+
+/**
+ * Cú bấm có thuộc về chính hàng không. Menu `⋯` render qua portal: DOM nằm ngoài `<tr>` nhưng sự
+ * kiện React vẫn nổi lên hàng — `contains` loại được trường hợp đó.
+ */
+function isRowClick(event: MouseEvent<HTMLTableRowElement>): boolean {
+  const target = event.target as Element
+  if (!event.currentTarget.contains(target)) return false
+  if (target.closest(INTERACTIVE)) return false
+  return !window.getSelection()?.toString()
+}
 
 export function DataTable<TData>({
   columns,
@@ -64,6 +111,7 @@ export function DataTable<TData>({
   emptyText,
   pagination,
   sorting,
+  onRowClick,
 }: DataTableProps<TData>) {
   const { t } = useTranslation(['common'])
   const table = useReactTable({
@@ -107,9 +155,18 @@ export function DataTable<TData>({
       )
     }
     return rows.map((row) => (
-      <TableRow key={row.id}>
+      <TableRow
+        key={row.id}
+        className={cn(onRowClick && 'cursor-pointer')}
+        onClick={
+          onRowClick &&
+          ((event) => {
+            if (isRowClick(event)) onRowClick(row.original)
+          })
+        }
+      >
         {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id}>
+          <TableCell key={cell.id} className={hiddenClass(cell.column.columnDef.meta)}>
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
         ))}
@@ -119,27 +176,41 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-4">
-      <div className="rounded-md border">
+      <div className="@container rounded-md border">
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
               <TableRow key={headerGroup.id}>
                 {headerGroup.headers.map((header) => {
-                  const field = (header.column.columnDef.meta as ColumnMeta | undefined)?.sortField
-                  const label = header.isPlaceholder
+                  const field = (header.column.columnDef.meta as DataTableColumnMeta | undefined)
+                    ?.sortField
+                  const rendered = header.isPlaceholder
                     ? null
                     : flexRender(header.column.columnDef.header, header.getContext())
+                  const label = (header.column.columnDef.meta as DataTableColumnMeta | undefined)
+                    ?.compactHeader ? (
+                    <span className="sr-only @sm:not-sr-only">{rendered}</span>
+                  ) : (
+                    rendered
+                  )
                   const active =
                     field !== undefined && sorting?.value?.field === field
                       ? sorting.value.dir
                       : undefined
 
+                  const hidden = hiddenClass(header.column.columnDef.meta)
+
                   if (sorting === undefined || field === undefined) {
-                    return <TableHead key={header.id}>{label}</TableHead>
+                    return (
+                      <TableHead key={header.id} className={hidden}>
+                        {label}
+                      </TableHead>
+                    )
                   }
                   return (
                     <TableHead
                       key={header.id}
+                      className={hidden}
                       aria-sort={
                         active === 'ASC' ? 'ascending' : active === 'DESC' ? 'descending' : 'none'
                       }
@@ -197,22 +268,25 @@ export function DataTable<TData>({
               total: pagination.total,
             })}
           </span>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.isFetching || pagination.page <= 1}
-            onClick={() => pagination.onPageChange(pagination.page - 1)}
-          >
-            {t('common:prevPage')}
-          </Button>
-          <Button
-            variant="outline"
-            size="sm"
-            disabled={pagination.isFetching || pagination.page >= pagination.totalPages}
-            onClick={() => pagination.onPageChange(pagination.page + 1)}
-          >
-            {t('common:nextPage')}
-          </Button>
+          {/* Hai nút đi cùng nhau: màn hẹp xuống dòng cả cặp, không tách "Trang sau" ra dòng riêng. */}
+          <div className="flex gap-2">
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.isFetching || pagination.page <= 1}
+              onClick={() => pagination.onPageChange(pagination.page - 1)}
+            >
+              {t('common:prevPage')}
+            </Button>
+            <Button
+              variant="outline"
+              size="sm"
+              disabled={pagination.isFetching || pagination.page >= pagination.totalPages}
+              onClick={() => pagination.onPageChange(pagination.page + 1)}
+            >
+              {t('common:nextPage')}
+            </Button>
+          </div>
         </div>
       )}
     </div>
