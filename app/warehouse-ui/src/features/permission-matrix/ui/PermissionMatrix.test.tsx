@@ -121,6 +121,22 @@ describe('PermissionMatrix — dựng bảng', () => {
     ).not.toBeInTheDocument()
   })
 
+  it('khung bảng hẹp (container query): cột SUPER_ADMIN (chỉ là lời nhắc) ẩn dưới @xl; cột tên quyền giới hạn bề ngang và xuống dòng', () => {
+    renderMatrix()
+
+    for (const header of screen.getAllByRole('columnheader', { name: 'SUPER_ADMIN' }))
+      expect(header).toHaveClass('hidden', '@xl:table-cell')
+    for (const cell of screen.getAllByText('Toàn quyền'))
+      expect(cell).toHaveClass('hidden', '@xl:table-cell')
+    expect(screen.getByText('IMPORT_FORM_CREATE').closest('td')).toHaveClass(
+      'max-w-40',
+      'whitespace-normal',
+      '@2xl:max-w-none',
+    )
+    // Mã quyền xuống dòng ở dấu `_`, không bẻ giữa chữ.
+    expect(screen.getByText('IMPORT_FORM_CREATE').querySelectorAll('wbr')).toHaveLength(2)
+  })
+
   it('switch phản ánh authorityCodes của từng role', () => {
     renderMatrix()
 
