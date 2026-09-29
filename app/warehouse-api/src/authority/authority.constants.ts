@@ -75,5 +75,52 @@ export const AuthorityCode = {
   WarehouseUpdate: 'WAREHOUSE_UPDATE',
   WarehouseDelete: 'WAREHOUSE_DELETE',
   WarehouseAssignManager: 'WAREHOUSE_ASSIGN_MANAGER',
+
+  // ===== Seed ở migration 1783728000024 (Unit) =====
+  UnitCreate: 'UNIT_CREATE',
+  UnitRead: 'UNIT_READ',
+  UnitUpdate: 'UNIT_UPDATE',
+  UnitDelete: 'UNIT_DELETE',
+
+  // ===== Seed ở migration 1783728000025 (Material — gồm cả loại vật tư) =====
+  // Không có authority riêng cho loại vật tư / đơn vị quy đổi / vật tư theo kho: route nối 2 tài
+  // nguyên dùng `@RequireAuthority(A, B)` (AND), vd gắn đơn vị quy đổi = `MaterialUpdate` + `UnitUpdate`.
+  MaterialCreate: 'MATERIAL_CREATE',
+  MaterialRead: 'MATERIAL_READ',
+  MaterialUpdate: 'MATERIAL_UPDATE',
+  MaterialDelete: 'MATERIAL_DELETE',
+
+  // ===== Seed ở migration 1783728000026 (Store) =====
+  // Gán kho cho cửa hàng = `StoreUpdate` + `WarehouseUpdate`.
+  StoreCreate: 'STORE_CREATE',
+  StoreRead: 'STORE_READ',
+  StoreUpdate: 'STORE_UPDATE',
+  StoreDelete: 'STORE_DELETE',
+
+  // ===== Seed ở migration 1783728000027 (Tax profile) =====
+  // `POST /tax-profiles/:taxCode/refresh` ghi đè hồ sơ đã lưu ⇒ `TaxProfileUpdate`.
+  TaxProfileRead: 'TAX_PROFILE_READ',
+  TaxProfileUpdate: 'TAX_PROFILE_UPDATE',
+
+  // ===== Seed ở migration 1783728000029 (Role) =====
+  // Thay `ManagePermissions` trên `POST/PATCH /roles`; `ManagePermissions` vẫn giữ cho bật/tắt quyền
+  // (`PUT/DELETE /roles/:roleSlug/authorities/:authorityCode`) và `PATCH /authorities/:slug`.
+  RoleCreate: 'ROLE_CREATE',
+  RoleRead: 'ROLE_READ',
+  RoleUpdate: 'ROLE_UPDATE',
+  RoleDelete: 'ROLE_DELETE',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];
+
+/**
+ * Quyền quản trị phân quyền — KHÔNG uỷ quyền được: chỉ cấp được cho role `ADMIN` (và vì chỉ
+ * `SUPER_ADMIN` có cấp cao hơn `ADMIN`, chỉ `SUPER_ADMIN` cấp lại được). Nếu không, ADMIN tự đưa
+ * `MANAGE_PERMISSIONS` cho MANAGER là MANAGER tự phân quyền cho SUPERVISOR. Chặn ở
+ * `PermissionService.grant`. `RoleRead` cố tình không nằm đây — xem role không phải điều chỉnh role.
+ */
+export const NON_DELEGABLE_AUTHORITY_CODES: readonly TAuthorityCode[] = [
+  AuthorityCode.ManagePermissions,
+  AuthorityCode.RoleCreate,
+  AuthorityCode.RoleUpdate,
+  AuthorityCode.RoleDelete,
+];

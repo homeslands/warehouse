@@ -17,7 +17,6 @@ const baseUnit = (overrides: Partial<Unit> = {}): Unit =>
     slug: 'unit-slug-1',
     name: 'Kilogram',
     code: 'KG',
-    version: 1,
     ...overrides,
   }) as Unit;
 
@@ -121,7 +120,6 @@ describe('UnitService', () => {
 
       const result = await service.updateUnit('unit-slug-1', {
         description: 'Mô tả mới',
-        version: 1,
       });
 
       // `findOne` chỉ được gọi 1 lần (load entity) — không có lần nào để check trùng code.
@@ -130,15 +128,14 @@ describe('UnitService', () => {
       expect(result).toMatchObject({ name: 'Kilogram', code: 'KG', description: 'Mô tả mới' });
     });
 
-    it('loads the entity under an optimistic lock on the version sent by the client', async () => {
+    it('loads the entity by slug', async () => {
       unitRepository.findOne.mockResolvedValue(baseUnit());
       unitRepository.save.mockImplementation((data: Unit) => data);
 
-      await service.updateUnit('unit-slug-1', { version: 3 });
+      await service.updateUnit('unit-slug-1', {});
 
       expect(unitRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'unit-slug-1' },
-        lock: { mode: 'optimistic', version: 3 },
       });
     });
 
@@ -148,7 +145,7 @@ describe('UnitService', () => {
         .mockResolvedValueOnce(baseUnit({ id: 'unit-id-2', code: 'G' }));
 
       await expectError(
-        service.updateUnit('unit-slug-1', { code: 'G', version: 1 }),
+        service.updateUnit('unit-slug-1', { code: 'G' }),
         UnitValidation.UNIT_CODE_DOES_EXIST.code,
       );
     });
@@ -156,10 +153,7 @@ describe('UnitService', () => {
     it('throws when the unit is not found', async () => {
       unitRepository.findOne.mockResolvedValue(null);
 
-      await expectError(
-        service.updateUnit('missing-slug', { version: 1 }),
-        UnitValidation.UNIT_NOT_FOUND.code,
-      );
+      await expectError(service.updateUnit('missing-slug', {}), UnitValidation.UNIT_NOT_FOUND.code);
     });
   });
 

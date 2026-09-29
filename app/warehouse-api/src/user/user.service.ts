@@ -37,12 +37,21 @@ export class UserService {
     this.saltRounds = parseInt(this.configService.get('SALT_ROUNDS'), 10);
   }
 
-  async createUser(dto: CreateUserRequestDto): Promise<UserResponseDto> {
+  /**
+   * `actor` = người gọi API; chỉ được gán role có cấp thấp hơn role của mình (không thì ai có
+   * `USER_CREATE` cũng tạo được tài khoản `SUPER_ADMIN`). `null` CHỈ dành cho hệ thống tự tạo
+   * (`RootUserSeeder`) — không có người thao tác nên không có cấp để so.
+   */
+  async createUser(
+    dto: CreateUserRequestDto,
+    actor: CurrentUserDto | null,
+  ): Promise<UserResponseDto> {
     const existed = await this.userRepository.findOneBy({ phonenumber: dto.phonenumber });
     if (existed) throw new UserException(UserValidation.USER_PHONENUMBER_DOES_EXIST);
 
     const role = await this.roleService.findBySlug(dto.roleSlug);
     if (!role) throw new RoleException(RoleValidation.ROLE_NOT_FOUND);
+    if (actor) await this.roleService.assertCanManage(actor, role);
 
     const data = this.mapper.map(dto, CreateUserRequestDto, User);
     const hashedPassword = await bcrypt.hash(dto.password, this.saltRounds);
@@ -108,9 +117,9 @@ export class UserService {
   }
 
   /**
-   * Đổi mật khẩu HỘ user khác (`POST /users/{userSlug}/change-password`) — quyền tĩnh, đã được
-   * `HasRoleGuard` chặn bằng `@HasRole(RoleEnum.Admin, RoleEnum.Manager)` (`SUPER_ADMIN` bypass)
-   * trước khi vào đây. Không hỏi mật khẩu hiện tại vì người gọi
+   * Đổi mật khẩu HỘ user khác (`POST /users/{userSlug}/change-password`) — quyền đã được
+   * `AuthorityGuard` chặn bằng `@RequireAuthority(AuthorityCode.UserChangePassword)` (`SUPER_ADMIN`
+   * bypass) trước khi vào đây. Không hỏi mật khẩu hiện tại vì người gọi
    * không biết mật khẩu cũ của user đó — tự đổi mật khẩu của mình thì đi `POST /auth/change-password`.
    *
    * Chỉ thu hồi phiên của user BỊ ĐỔI; token của người gọi không bị đụng tới, nên không trả token.

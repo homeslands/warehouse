@@ -100,7 +100,6 @@ export class UnitService {
     const context = `${UnitService.name}.${this.updateUnit.name}`;
     const unit = await this.unitRepository.findOne({
       where: { slug },
-      lock: { mode: 'optimistic', version: dto.version },
     });
     if (!unit) throw new UnitException(UnitValidation.UNIT_NOT_FOUND);
 

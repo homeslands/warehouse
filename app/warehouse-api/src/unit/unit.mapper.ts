@@ -4,7 +4,6 @@ import { Injectable } from '@nestjs/common';
 import { CreateUnitRequestDto, UnitResponseDto, UpdateUnitRequestDto } from './unit.dto';
 import { Unit } from './unit.entity';
 import { baseMapper } from 'src/app/base.mapper';
-import { versionedMapper } from 'src/app/versioned.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
 
 /**
@@ -37,7 +36,7 @@ export class UnitProfile extends AutomapperProfile {
 
   override get profile() {
     return (mapper: Mapper) => {
-      createMap(mapper, Unit, UnitResponseDto, extend(baseMapper(mapper)), versionedMapper());
+      createMap(mapper, Unit, UnitResponseDto, extend(baseMapper(mapper)));
 
       createMap(mapper, CreateUnitRequestDto, Unit, ...normalizeUnit<CreateUnitRequestDto>());
 

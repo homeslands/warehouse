@@ -17,7 +17,7 @@ describe('AuthorityGuard', () => {
       switchToHttp: () => ({ getRequest: () => ({ user }) }),
     }) as unknown as ExecutionContext;
 
-  const metadata = (values: { isPublic?: boolean; requiredAuthority?: string }) => {
+  const metadata = (values: { isPublic?: boolean; requiredAuthority?: string[] }) => {
     reflector.getAllAndOverride.mockImplementation((key: string) => {
       if (key === IS_PUBLIC_KEY) return values.isPublic;
       if (key === REQUIRE_AUTHORITY_KEY) return values.requiredAuthority;
@@ -43,14 +43,14 @@ describe('AuthorityGuard', () => {
   });
 
   it('bypasses the check for SUPER_ADMIN regardless of scope', () => {
-    metadata({ requiredAuthority: 'MANAGE_PERMISSIONS' });
+    metadata({ requiredAuthority: ['MANAGE_PERMISSIONS'] });
 
     expect(guard.canActivate(context({ roleName: RoleEnum.SuperAdmin, scope: [] }))).toBe(true);
   });
 
   // `scope` là danh sách quyền `JwtStrategy` nạp từ cache Redis — guard chỉ so khớp, không tự đọc.
   it('allows when the cached scope contains the required authority', () => {
-    metadata({ requiredAuthority: 'EXAMPLE_CREATE' });
+    metadata({ requiredAuthority: ['EXAMPLE_CREATE'] });
 
     expect(
       guard.canActivate(context({ roleName: RoleEnum.Admin, scope: ['EXAMPLE_CREATE'] })),
@@ -58,15 +58,28 @@ describe('AuthorityGuard', () => {
   });
 
   it('denies when the cached scope lacks the required authority', () => {
-    metadata({ requiredAuthority: 'EXAMPLE_DELETE' });
+    metadata({ requiredAuthority: ['EXAMPLE_DELETE'] });
 
     expect(
       guard.canActivate(context({ roleName: RoleEnum.Admin, scope: ['EXAMPLE_CREATE'] })),
     ).toBe(false);
   });
 
+  it('requires EVERY authority when several are declared (AND)', () => {
+    metadata({ requiredAuthority: ['MATERIAL_UPDATE', 'WAREHOUSE_UPDATE'] });
+
+    expect(
+      guard.canActivate(context({ roleName: RoleEnum.Admin, scope: ['MATERIAL_UPDATE'] })),
+    ).toBe(false);
+    expect(
+      guard.canActivate(
+        context({ roleName: RoleEnum.Admin, scope: ['MATERIAL_UPDATE', 'WAREHOUSE_UPDATE'] }),
+      ),
+    ).toBe(true);
+  });
+
   it('denies when scope is missing or there is no user at all', () => {
-    metadata({ requiredAuthority: 'EXAMPLE_CREATE' });
+    metadata({ requiredAuthority: ['EXAMPLE_CREATE'] });
 
     expect(guard.canActivate(context({ roleName: RoleEnum.Admin }))).toBe(false);
     expect(guard.canActivate(context(undefined))).toBe(false);

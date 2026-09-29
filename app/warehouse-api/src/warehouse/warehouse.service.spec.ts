@@ -4,7 +4,7 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { IsNull, Not, OptimisticLockVersionMismatchError } from 'typeorm';
+import { IsNull, Not } from 'typeorm';
 import { WarehouseService } from './warehouse.service';
 import { WarehouseProfile } from './warehouse.mapper';
 import { Warehouse } from './warehouse.entity';
@@ -21,7 +21,6 @@ const baseWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
     code: 'WH-HN-01',
     address: 'Số 1, Cầu Giấy, Hà Nội',
     isActive: true,
-    version: 1,
     manager: null,
     ...overrides,
   }) as Warehouse;
@@ -31,6 +30,8 @@ const managerUser = (overrides: Record<string, unknown> = {}) =>
     id: 'user-id-1',
     slug: 'manager-slug-1',
     phonenumber: '0900000000',
+    firstName: 'Minh',
+    lastName: 'Nguyen',
     isActive: true,
     role: { name: RoleEnum.Manager },
     ...overrides,
@@ -168,7 +169,7 @@ describe('WarehouseService', () => {
 
       expect(warehouseRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          relations: { manager: true },
+          relations: { manager: true, store: true },
           order: { createdAt: 'DESC' },
           skip: 0,
           take: 10,
@@ -197,6 +198,26 @@ describe('WarehouseService', () => {
       expect(whereOf()).toEqual({ manager: Not(IsNull()) });
     });
 
+    // MANAGER chỉ thấy kho mình phụ trách, filter manager trong query không mở rộng được phạm vi.
+    it('scopes a MANAGER to their own warehouses and ignores manager filters', async () => {
+      const manager = { userId: 'user-id-1', roleName: RoleEnum.Manager, scope: [] };
+      await service.findAll(
+        { page: 1, size: 10, isActive: true, managerSlug: 'someone-else', hasManager: false },
+        manager,
+      );
+
+      expect(whereOf()).toEqual({ isActive: true, manager: { id: 'user-id-1' } });
+    });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin, RoleEnum.Supervisor])(
+      'does not scope %s',
+      async (roleName) => {
+        await service.findAll({ page: 1, size: 10 }, { userId: 'user-id-1', roleName, scope: [] });
+
+        expect(whereOf()).toEqual({});
+      },
+    );
+
     it('treats an unparseable hasManager as absent rather than false', async () => {
       // DTO trả nguyên chuỗi lạ cho `@IsBoolean` bắt; service không được coi nó là `false` và
       // lọc ngược tập dữ liệu.
@@ -216,9 +237,14 @@ describe('WarehouseService', () => {
       expect(whereOf()).toEqual({ manager: { slug: 'manager-slug-1' } });
     });
 
-    it('computes pagination metadata and flattens the manager fields', async () => {
+    it('computes pagination metadata and flattens the manager and store fields', async () => {
       warehouseRepository.findAndCount.mockResolvedValue([
-        [baseWarehouse({ manager: managerUser() })],
+        [
+          baseWarehouse({
+            manager: managerUser(),
+            store: { slug: 'store-slug-1', name: 'Cửa hàng Hà Nội 1' } as never,
+          }),
+        ],
         3,
       ]);
 
@@ -233,10 +259,23 @@ describe('WarehouseService', () => {
         hasPrevios: true,
       });
       expect(result.items[0]).toMatchObject({
-        version: 1,
         managerSlug: 'manager-slug-1',
         managerPhonenumber: '0900000000',
+        managerFirstName: 'Minh',
+        managerLastName: 'Nguyen',
+        storeSlug: 'store-slug-1',
+        storeName: 'Cửa hàng Hà Nội 1',
       });
+    });
+
+    it('leaves manager and store fields empty when neither is linked', async () => {
+      warehouseRepository.findAndCount.mockResolvedValue([[baseWarehouse()], 1]);
+
+      const result = await service.findAll({ page: 1, size: 10 });
+
+      expect(result.items[0].managerSlug).toBeUndefined();
+      expect(result.items[0].storeSlug).toBeUndefined();
+      expect(result.items[0].storeName).toBeUndefined();
     });
   });
 
@@ -274,7 +313,7 @@ describe('WarehouseService', () => {
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
-        relations: { manager: true },
+        relations: { manager: true, store: true },
       });
     });
   });
@@ -292,7 +331,6 @@ describe('WarehouseService', () => {
 
       const result = await service.updateWarehouse('wh-slug-1', {
         name: 'Kho Hà Nội 2',
-        version: 1,
       } as never);
 
       expect(result).toMatchObject({
@@ -306,7 +344,7 @@ describe('WarehouseService', () => {
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
       warehouseRepository.save.mockImplementation((data) => data);
 
-      await service.updateWarehouse('wh-slug-1', { name: 'Tên mới', version: 1 } as never);
+      await service.updateWarehouse('wh-slug-1', { name: 'Tên mới' } as never);
 
       expect(warehouseRepository.findOneBy).toHaveBeenCalledTimes(1);
       expect(warehouseRepository.findOneBy).toHaveBeenCalledWith({ name: 'Tên mới' });
@@ -320,7 +358,6 @@ describe('WarehouseService', () => {
 
       const result = await service.updateWarehouse('wh-slug-1', {
         name: 'Tên mới',
-        version: 1,
       } as never);
 
       expect(result.isActive).toBe(false);
@@ -328,9 +365,9 @@ describe('WarehouseService', () => {
   });
 
   describe('updateWarehouse', () => {
-    const updateDto = { ...createDto(), version: 4 };
+    const updateDto = createDto();
 
-    it('loads the row with an optimistic lock on the given version', async () => {
+    it('loads the row by slug', async () => {
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
       warehouseRepository.save.mockImplementation((data) => data);
 
@@ -338,8 +375,7 @@ describe('WarehouseService', () => {
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
-        relations: { manager: true },
-        lock: { mode: 'optimistic', version: 4 },
+        relations: { manager: true, store: true },
       });
     });
 
@@ -374,16 +410,6 @@ describe('WarehouseService', () => {
       );
     });
 
-    it('lets an optimistic lock mismatch propagate to the global filter', async () => {
-      warehouseRepository.findOne.mockRejectedValue(
-        new OptimisticLockVersionMismatchError('Warehouse', 9, 4),
-      );
-
-      await expect(service.updateWarehouse('wh-slug-1', updateDto)).rejects.toBeInstanceOf(
-        OptimisticLockVersionMismatchError,
-      );
-    });
-
     it('throws when the warehouse is not found', async () => {
       warehouseRepository.findOne.mockResolvedValue(null);
 
@@ -405,7 +431,6 @@ describe('WarehouseService', () => {
 
       const result = await service.assignManager('wh-slug-1', {
         managerSlug: 'manager-slug-1',
-        version: 1,
       });
 
       expect(warehouseRepository.save).toHaveBeenCalledWith(
@@ -415,7 +440,7 @@ describe('WarehouseService', () => {
     });
 
     it('unassigns without looking the user up when managerSlug is null', async () => {
-      const result = await service.assignManager('wh-slug-1', { managerSlug: null, version: 1 });
+      const result = await service.assignManager('wh-slug-1', { managerSlug: null });
 
       expect(userService.findBySlug).not.toHaveBeenCalled();
       expect(warehouseRepository.save).toHaveBeenCalledWith(
@@ -428,7 +453,7 @@ describe('WarehouseService', () => {
       userService.findBySlug.mockResolvedValue(null);
 
       await expectWarehouseError(
-        service.assignManager('wh-slug-1', { managerSlug: 'ghost', version: 1 }),
+        service.assignManager('wh-slug-1', { managerSlug: 'ghost' }),
         WarehouseValidation.WAREHOUSE_MANAGER_NOT_FOUND.code,
       );
     });
@@ -437,7 +462,7 @@ describe('WarehouseService', () => {
       userService.findBySlug.mockResolvedValue(managerUser({ isActive: false }));
 
       await expectWarehouseError(
-        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1', version: 1 }),
+        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1' }),
         WarehouseValidation.WAREHOUSE_MANAGER_INACTIVE.code,
       );
     });
@@ -448,19 +473,18 @@ describe('WarehouseService', () => {
       );
 
       await expectWarehouseError(
-        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1', version: 1 }),
+        service.assignManager('wh-slug-1', { managerSlug: 'manager-slug-1' }),
         WarehouseValidation.WAREHOUSE_MANAGER_ROLE_INVALID.code,
       );
       expect(warehouseRepository.save).not.toHaveBeenCalled();
     });
 
-    it('loads the row with an optimistic lock on the given version', async () => {
-      await service.assignManager('wh-slug-1', { managerSlug: null, version: 7 });
+    it('loads the row by slug', async () => {
+      await service.assignManager('wh-slug-1', { managerSlug: null });
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
-        relations: { manager: true },
-        lock: { mode: 'optimistic', version: 7 },
+        relations: { manager: true, store: true },
       });
     });
 
@@ -468,7 +492,7 @@ describe('WarehouseService', () => {
       warehouseRepository.findOne.mockResolvedValue(null);
 
       await expectWarehouseError(
-        service.assignManager('missing-slug', { managerSlug: null, version: 1 }),
+        service.assignManager('missing-slug', { managerSlug: null }),
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
       );
     });

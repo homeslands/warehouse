@@ -6,7 +6,7 @@ Khai báo danh mục vật tư (`MaterialType` → `Material`) và quản lý **
 
 ## Entity / dữ liệu
 
-### `MaterialType` (`material_type_tbl`) — kế thừa `VersionedBase`
+### `MaterialType` (`material_type_tbl`) — kế thừa `Base`
 
 | Field | Kiểu | Bắt buộc? | Ghi chú |
 |---|---|---|---|
@@ -14,7 +14,7 @@ Khai báo danh mục vật tư (`MaterialType` → `Material`) và quản lý **
 | code | string | có | unique, khoá nghiệp vụ, tự `toUpperCase()` |
 | description | string | không | |
 
-### `Material` (`material_tbl`) — kế thừa `VersionedBase`
+### `Material` (`material_tbl`) — kế thừa `Base`
 
 | Field | Kiểu | Bắt buộc? | Ghi chú |
 |---|---|---|---|
@@ -38,7 +38,7 @@ Bảng nối kho ↔ vật tư, 1 row = 1 vật tư trong 1 kho.
 
 `UNIQUE(warehouse_id_column, material_id_column)` — 1 vật tư chỉ có đúng 1 row trong 1 kho.
 
-**`Base` chứ không `VersionedBase`:** `quantity` là đại lượng cộng/trừ nguyên tử (sau này do phiếu nhập/xuất ghi), đúng trường hợp CLAUDE.md nói **không** dùng optimistic locking. Ngược lại `MaterialType`/`Material` là master data sửa qua form nhiều field → `VersionedBase`, giống `Warehouse`.
+**`Base` chứ không `VersionedBase`:** `quantity` là đại lượng cộng/trừ nguyên tử (sau này do phiếu nhập/xuất ghi), đúng trường hợp CLAUDE.md nói **không** dùng optimistic locking. `MaterialType`/`Material` cũng dùng `Base` (bỏ `VersionedBase` từ migration `1783728000024`): `VersionedBase` chỉ dành cho phiếu nhập/xuất/kiểm kho.
 
 ## Quy tắc nghiệp vụ
 
@@ -74,14 +74,14 @@ Dùng `@HasRole` (RBAC cơ bản), giống `/warehouses`. `SUPER_ADMIN` bypass.
 - `POST /material-types` — tạo
 - `GET /material-types` — list phân trang (filter `code`, `name`)
 - `GET /material-types/:slug` — chi tiết
-- `PATCH /material-types/:slug` — sửa (kèm `version`)
+- `PATCH /material-types/:slug` — sửa
 - `DELETE /material-types/:slug` — xoá
 
 **Material** — `/materials`
 - `POST /materials` — tạo (body có `typeSlug`)
 - `GET /materials` — list phân trang (filter `typeSlug`, `code`, `name`)
 - `GET /materials/:slug` — chi tiết
-- `PATCH /materials/:slug` — sửa (kèm `version`)
+- `PATCH /materials/:slug` — sửa
 - `DELETE /materials/:slug` — xoá
 
 **Vật tư của kho** — `/warehouses/:warehouseSlug/materials`
@@ -91,7 +91,6 @@ Dùng `@HasRole` (RBAC cơ bản), giống `/warehouses`. `SUPER_ADMIN` bypass.
 - `PATCH /warehouses/:warehouseSlug/materials/:materialSlug/quantity` — điều chỉnh tồn theo `delta`
 - `DELETE /warehouses/:warehouseSlug/materials/:materialSlug` — gỡ vật tư khỏi kho
 
-- `version` trong `UpdateMaterialRequestDto`/`UpdateMaterialTypeRequestDto` bắt buộc `@Min(1)` — gửi `version: 0` sẽ bypass hoàn toàn optimistic lock của TypeORM (`SelectQueryBuilder.js:691-693`, `0` là falsy ⇒ check không chạy).
 
 ## Ngoài phạm vi (Out of scope)
 

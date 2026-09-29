@@ -8,7 +8,14 @@ export enum TokenType {
 }
 
 export interface ProfileResponseDto extends CurrentUserDto {
+  /** Giữ lại cho client cũ — cùng giá trị với `phonenumber`. */
   userName: string;
+  phonenumber: string;
+  firstName: string;
+  lastName: string;
+  email?: string;
+  dob?: string;
+  address?: string;
 }
 
 export interface AuthJwtPayload {

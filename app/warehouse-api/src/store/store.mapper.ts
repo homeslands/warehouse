@@ -1,10 +1,15 @@
 import { AutomapperProfile, InjectMapper } from '@automapper/nestjs';
 import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core';
 import { Injectable } from '@nestjs/common';
-import { CreateStoreRequestDto, StoreResponseDto, UpdateStoreRequestDto } from './store.dto';
+import {
+  CreateStoreRequestDto,
+  StoreResponseDto,
+  StoreWarehouseHistoryResponseDto,
+  UpdateStoreRequestDto,
+} from './store.dto';
 import { Store } from './store.entity';
+import { StoreWarehouseHistory } from './store-warehouse-history.entity';
 import { baseMapper } from 'src/app/base.mapper';
-import { versionedMapper } from 'src/app/versioned.mapper';
 
 /**
  * Chuẩn hoá dùng chung cho cả 2 map Create/Update -> Entity. Automapper KHÔNG kế thừa map của DTO
@@ -64,7 +69,6 @@ export class StoreProfile extends AutomapperProfile {
         Store,
         StoreResponseDto,
         extend(baseMapper(mapper)),
-        versionedMapper(),
         // Flatten quan hệ 1-1 `warehouse` (giống `WarehouseResponseDto.managerSlug`) — chỉ ra
         // `slug`/`name`, không trả nguyên entity `Warehouse` ra response.
         forMember(
@@ -74,6 +78,65 @@ export class StoreProfile extends AutomapperProfile {
         forMember(
           (d) => d.warehouseName,
           mapFrom((s) => s.warehouse?.name),
+        ),
+        forMember(
+          (d) => d.manager,
+          mapFrom((s) => {
+            const manager = s.warehouse?.manager;
+            return manager
+              ? {
+                  slug: manager.slug,
+                  phonenumber: manager.phonenumber,
+                  firstName: manager.firstName,
+                  lastName: manager.lastName,
+                }
+              : undefined;
+          }),
+        ),
+      );
+
+      createMap(
+        mapper,
+        StoreWarehouseHistory,
+        StoreWarehouseHistoryResponseDto,
+        extend(baseMapper(mapper)),
+        forMember(
+          (d) => d.previousWarehouseSlug,
+          mapFrom((s) => s.previousWarehouse?.slug),
+        ),
+        forMember(
+          (d) => d.previousWarehouseName,
+          mapFrom((s) => s.previousWarehouse?.name),
+        ),
+        forMember(
+          (d) => d.newWarehouseSlug,
+          mapFrom((s) => s.newWarehouse?.slug),
+        ),
+        forMember(
+          (d) => d.newWarehouseName,
+          mapFrom((s) => s.newWarehouse?.name),
+        ),
+        forMember(
+          (d) => d.relatedStoreSlug,
+          mapFrom((s) => s.relatedStore?.slug),
+        ),
+        forMember(
+          (d) => d.relatedStoreName,
+          mapFrom((s) => s.relatedStore?.name),
+        ),
+        forMember(
+          (d) => d.restoredFromSlug,
+          mapFrom((s) => s.restoredFrom?.slug),
+        ),
+        forMember(
+          (d) => d.changedBySlug,
+          mapFrom((s) => s.changedBy?.slug),
+        ),
+        forMember(
+          (d) => d.changedByName,
+          mapFrom((s) =>
+            s.changedBy ? `${s.changedBy.lastName} ${s.changedBy.firstName}`.trim() : undefined,
+          ),
         ),
       );
 

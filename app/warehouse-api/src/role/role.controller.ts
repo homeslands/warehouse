@@ -1,6 +1,7 @@
 import {
   Body,
   Controller,
+  Delete,
   Get,
   HttpCode,
   HttpStatus,
@@ -14,6 +15,7 @@ import { AppResponseDto } from 'src/app/app.dto';
 import { ApiResponseWithType } from 'src/app/app.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
+import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 import { RoleService } from './role.service';
 import { CreateRoleRequestDto, RoleResponseDto, UpdateRoleRequestDto } from './role.dto';
 
@@ -24,6 +26,7 @@ export class RoleController {
   constructor(private readonly roleService: RoleService) {}
 
   @Get()
+  @RequireAuthority(AuthorityCode.RoleRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all roles' })
   @ApiResponseWithType({
@@ -43,6 +46,7 @@ export class RoleController {
   }
 
   @Get(':slug')
+  @RequireAuthority(AuthorityCode.RoleRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a role by slug, with authority codes currently granted' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Retrieved', type: RoleResponseDto })
@@ -58,19 +62,20 @@ export class RoleController {
   }
 
   @Post()
-  @RequireAuthority(AuthorityCode.ManagePermissions)
+  @RequireAuthority(AuthorityCode.RoleCreate)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a role' })
+  @ApiOperation({ summary: "Create a role (level must be lower than the caller's)" })
   @ApiResponseWithType({
     status: HttpStatus.CREATED,
     description: 'Created',
     type: RoleResponseDto,
   })
   async create(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: CreateRoleRequestDto,
   ) {
-    const result = await this.roleService.create(requestData);
+    const result = await this.roleService.create(currentUser, requestData);
     return {
       message: 'Role has been created successfully',
       statusCode: HttpStatus.CREATED,
@@ -80,22 +85,42 @@ export class RoleController {
   }
 
   @Patch(':slug')
-  @RequireAuthority(AuthorityCode.ManagePermissions)
+  @RequireAuthority(AuthorityCode.RoleUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a role description' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: RoleResponseDto })
   @ApiParam({ name: 'slug', required: true, example: 'admin' })
   async update(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Param('slug') slug: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: UpdateRoleRequestDto,
   ) {
-    const result = await this.roleService.update(slug, requestData);
+    const result = await this.roleService.update(currentUser, slug, requestData);
     return {
       message: 'Role has been updated successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<RoleResponseDto>;
+  }
+
+  @Delete(':slug')
+  @RequireAuthority(AuthorityCode.RoleDelete)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary:
+      "Delete a role (level must be lower than the caller's, not built-in, no users assigned)",
+  })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
+  @ApiParam({ name: 'slug', required: true, example: 'team-lead' })
+  async remove(@CurrentUser() currentUser: CurrentUserDto, @Param('slug') slug: string) {
+    const result = await this.roleService.remove(currentUser, slug);
+    return {
+      message: 'Role has been deleted successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result: `${result} role have been deleted successfully`,
+    } as AppResponseDto<string>;
   }
 }

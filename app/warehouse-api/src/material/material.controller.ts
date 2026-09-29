@@ -26,8 +26,8 @@ import {
 } from './material.dto';
 import { UnitResponseDto } from 'src/unit/unit.dto';
 import { MaterialService } from './material.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
@@ -38,7 +38,7 @@ export class MaterialController {
   constructor(private readonly materialService: MaterialService) {}
 
   @Post()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new material' })
   @ApiResponseWithType({
@@ -60,7 +60,7 @@ export class MaterialController {
   }
 
   @Get()
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all materials (paginated)' })
   @ApiPaginatedResponse(MaterialResponseDto, 'Retrieved')
@@ -78,7 +78,7 @@ export class MaterialController {
   }
 
   @Get(':slug')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a material by slug' })
   @ApiResponseWithType({
@@ -99,7 +99,7 @@ export class MaterialController {
 
   // Route 2 đoạn nên không đụng `@Get(':slug')` ở trên (`:slug` chỉ khớp 1 đoạn path).
   @Get(':slug/conversion-units')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Danh sách đơn vị quy đổi ĐÃ GẮN cho vật tư (kèm tỉ lệ quy đổi)' })
   @ApiPaginatedResponse(MaterialConversionUnitResponseDto, 'Retrieved')
@@ -121,7 +121,7 @@ export class MaterialController {
   // `available` là literal nên luôn được Nest ưu tiên hơn pattern `:unitSlug` — không có GET nào
   // dùng `:unitSlug` nên cũng không có gì để đụng.
   @Get(':slug/conversion-units/available')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Đơn vị CHỌN ĐƯỢC làm đơn vị quy đổi',
@@ -143,7 +143,7 @@ export class MaterialController {
   }
 
   @Post(':slug/conversion-units')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.UnitUpdate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Gắn 1 đơn vị quy đổi cho vật tư' })
   @ApiResponseWithType({
@@ -167,9 +167,9 @@ export class MaterialController {
   }
 
   // POST cho 1 thao tác KHÔNG đổi dữ liệu: tham số đi trong body cho gọn (3 field, có số thập
-  // phân), nên quyền để ở mức ĐỌC như các route GET chứ không phải ADMIN.
+  // phân), nên quyền để ở mức ĐỌC (`MATERIAL_READ` + `UNIT_READ`) như các route GET.
   @Post(':slug/convert')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Quy đổi số lượng giữa 2 đơn vị của vật tư (qua đơn vị cơ sở)' })
   @ApiResponseWithType({
@@ -193,7 +193,7 @@ export class MaterialController {
   }
 
   @Patch(':slug/conversion-units/:unitSlug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.UnitUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Sửa tỉ lệ quy đổi của 1 đơn vị quy đổi' })
   @ApiResponseWithType({
@@ -219,7 +219,7 @@ export class MaterialController {
   }
 
   @Delete(':slug/conversion-units/:unitSlug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.UnitUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Gỡ 1 đơn vị quy đổi khỏi vật tư' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
@@ -236,7 +236,7 @@ export class MaterialController {
   }
 
   @Patch(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a material' })
   @ApiResponseWithType({
@@ -260,7 +260,7 @@ export class MaterialController {
   }
 
   @Delete(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialDelete)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a material (chặn nếu còn được gán vào kho)' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })

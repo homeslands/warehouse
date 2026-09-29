@@ -8,7 +8,6 @@ import {
 } from './warehouse.dto';
 import { Warehouse } from './warehouse.entity';
 import { baseMapper } from 'src/app/base.mapper';
-import { versionedMapper } from 'src/app/versioned.mapper';
 
 /**
  * Chuẩn hoá dùng chung cho cả 2 map Create/Update -> Entity. Automapper KHÔNG kế thừa map của DTO
@@ -49,14 +48,18 @@ export class WarehouseProfile extends AutomapperProfile {
         Warehouse,
         WarehouseResponseDto,
         extend(baseMapper(mapper)),
-        versionedMapper(),
         forMember(
-          (d) => d.managerSlug,
-          mapFrom((s) => s.manager?.slug),
-        ),
-        forMember(
-          (d) => d.managerPhonenumber,
-          mapFrom((s) => s.manager?.phonenumber),
+          (d) => d.manager,
+          mapFrom((s) =>
+            s.manager
+              ? {
+                  slug: s.manager.slug,
+                  phonenumber: s.manager.phonenumber,
+                  firstName: s.manager.firstName,
+                  lastName: s.manager.lastName,
+                }
+              : undefined,
+          ),
         ),
       );
 

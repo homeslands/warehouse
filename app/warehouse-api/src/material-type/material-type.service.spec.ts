@@ -17,7 +17,6 @@ const baseType = (overrides: Partial<MaterialType> = {}): MaterialType =>
     slug: 'type-slug-1',
     name: 'Vật tư tiêu hao',
     code: 'MT-01',
-    version: 1,
     ...overrides,
   }) as MaterialType;
 

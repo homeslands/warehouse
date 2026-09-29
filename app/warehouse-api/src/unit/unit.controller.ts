@@ -19,8 +19,8 @@ import {
   UpdateUnitRequestDto,
 } from './unit.dto';
 import { UnitService } from './unit.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
@@ -31,7 +31,7 @@ export class UnitController {
   constructor(private readonly unitService: UnitService) {}
 
   @Post()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.UnitCreate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Create a new unit' })
   @ApiResponseWithType({
@@ -53,7 +53,7 @@ export class UnitController {
   }
 
   @Get()
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all units (paginated)' })
   @ApiPaginatedResponse(UnitResponseDto, 'Retrieved')
@@ -70,7 +70,7 @@ export class UnitController {
   }
 
   @Get(':slug')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get a unit by slug' })
   @ApiResponseWithType({
@@ -90,7 +90,7 @@ export class UnitController {
   }
 
   @Patch(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.UnitUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update a unit' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: UnitResponseDto })
@@ -110,7 +110,7 @@ export class UnitController {
   }
 
   @Delete(':slug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.UnitDelete)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Delete a unit' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })

@@ -20,8 +20,8 @@ import {
   WarehouseMaterialResponseDto,
 } from './warehouse-material.dto';
 import { WarehouseMaterialService } from './warehouse-material.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
@@ -33,7 +33,7 @@ export class WarehouseMaterialController {
   constructor(private readonly warehouseMaterialService: WarehouseMaterialService) {}
 
   @Post()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.CREATED)
   @ApiOperation({ summary: 'Assign a material to this warehouse' })
   @ApiResponseWithType({
@@ -56,7 +56,7 @@ export class WarehouseMaterialController {
   }
 
   @Get()
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager, RoleEnum.Supervisor)
+  @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get the materials of this warehouse with their stock (paginated)' })
   @ApiPaginatedResponse(WarehouseMaterialResponseDto, 'Retrieved')
@@ -75,7 +75,7 @@ export class WarehouseMaterialController {
   }
 
   @Patch(':materialSlug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Update the per-warehouse inventory thresholds (không đụng tồn)',
@@ -109,7 +109,7 @@ export class WarehouseMaterialController {
   }
 
   @Patch(':materialSlug/quantity')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Adjust the stock quantity by a delta',
@@ -144,7 +144,7 @@ export class WarehouseMaterialController {
   }
 
   @Delete(':materialSlug')
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Remove a material from this warehouse (chặn nếu tồn > 0)' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Removed', type: String })

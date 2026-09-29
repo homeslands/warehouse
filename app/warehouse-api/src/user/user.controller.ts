@@ -19,8 +19,8 @@ import {
   UserResponseDto,
 } from './user.dto';
 import { UserService } from './user.service';
-import { HasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUser, CurrentUserDto } from './user.decorator';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
@@ -32,19 +32,20 @@ export class UserController {
   constructor(private readonly userService: UserService) {}
 
   @Post()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.UserCreate)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a new user (assign role)' })
+  @ApiOperation({ summary: "Create a new user (assign a role lower than the caller's)" })
   @ApiResponseWithType({
     status: HttpStatus.CREATED,
     description: 'Created',
     type: UserResponseDto,
   })
   async createUser(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: CreateUserRequestDto,
   ) {
-    const result = await this.userService.createUser(requestData);
+    const result = await this.userService.createUser(requestData, currentUser);
     return {
       message: 'User has been created successfully',
       statusCode: HttpStatus.CREATED,
@@ -54,7 +55,7 @@ export class UserController {
   }
 
   @Get()
-  @HasRole(RoleEnum.Admin)
+  @RequireAuthority(AuthorityCode.UserRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all users (paginated, filter by role)' })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
@@ -71,13 +72,13 @@ export class UserController {
   }
 
   @Post(':userSlug/change-password')
-  @HasRole(RoleEnum.Admin, RoleEnum.Manager)
+  @RequireAuthority(AuthorityCode.UserChangePassword)
   @Throttle({ default: { limit: 10, ttl: 60000 } })
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Change the password of another user (ADMIN/MANAGER only)',
+    summary: 'Change the password of another user (requires USER_CHANGE_PASSWORD)',
     description:
-      'Đổi mật khẩu HỘ user khác — chỉ `ADMIN`/`MANAGER` (`SUPER_ADMIN` bypass), ' +
+      'Đổi mật khẩu HỘ user khác — cần authority `USER_CHANGE_PASSWORD` (`SUPER_ADMIN` bypass), ' +
       'KHÔNG cần `currentPassword`. Riêng tài khoản `SUPER_ADMIN` thì ' +
       'chỉ `SUPER_ADMIN` khác mới đổi được, và không được trỏ `userSlug` vào chính mình — tự đổi ' +
       'mật khẩu của mình thì gọi `POST /auth/change-password`.\n\n' +

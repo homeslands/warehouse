@@ -34,9 +34,9 @@ Value lưu **nguyên bản** (`SMEMBERS` ra thẳng danh sách code, `HGETALL` r
 | `POST /auth/login` | `GET rbac:role:{roleName}:authorities`, rồi 1 `MULTI`: `DEL` → `SADD @cached + quyền` → `EXPIRE` (TTL `DURATION`) — **sau** khi đã xác thực + `isActive`. Access token ký kèm claim `role` | load user (đã có sẵn), thêm 1 query `role ⋈ permission ⋈ authority` chỉ khi key role miss |
 | `POST /auth/refresh` | ghi lại như login (access token mới có hạn mới, cache ghi lúc login sẽ hết trước); claim `role` ký lại theo giá trị vừa đọc từ DB | `findById` (eager `role`) |
 | Mọi request có JWT (`JwtStrategy.validate`) | **1 lệnh `SMEMBERS rbac:user:{uid}`** — hit ⇒ dựng `CurrentUserDto` từ cache | **0 query** khi hit |
-| `GET /auth/me` | như trên | +1 query lấy `phonenumber` (`userName` không nằm trong cache) |
+| `GET /auth/me` | như trên | +1 query lấy thông tin cá nhân (`phonenumber`/`firstName`/`lastName`/`email`/`dob`/`address` — không nằm trong cache) |
 | Cache miss / Redis lỗi / meta mất | ghi lại với đủ TTL | `findById` + `authoritiesOfRole(roleName)` (**đọc `rbac:role:{roleName}:authorities` trước**, miss thì 1 query `role ⋈ permission ⋈ authority` rồi ghi lại key role) |
-| `PUT/DELETE /roles/:roleSlug/authorities/:code` | 1 `DEL` biến đổi (1 key × số user thuộc role) + `DEL rbac:role:{roleName}:authorities` — **sau** khi ghi DB | +1 query lấy `id` user theo `role_id_column` |
+| `PUT/DELETE /roles/:roleSlug/authorities/:code` | 1 `DEL` biến đổi (1 key × số user thuộc role) + `DEL rbac:role:{roleName}:authorities` — **sau** khi ghi DB; `DELETE` lặp lại cho từng role cấp dưới bị thu hồi lan xuống | +1 query lấy `id` user theo `role_id_column` (mỗi role bị ảnh hưởng) |
 
 **Ghi đè phải `DEL` trước `SADD`.** `SADD` hợp nhất vào set đang có: ghi đè mà không xoá trước thì quyền vừa bị thu hồi vẫn nằm lại trong cache tới hết TTL. Cả cụm `DEL`/`SADD`/`EXPIRE` nằm trong 1 `MULTI` để không có khoảnh khắc cache chỉ có một nửa.
 
@@ -52,7 +52,7 @@ Value lưu **nguyên bản** (`SMEMBERS` ra thẳng danh sách code, `HGETALL` r
 
 **Role không tồn tại** (user mang `role_id` rác, hoặc role bị xoá) ⇒ `[]`, cache lại `[]`, **không** throw: user đó mất quyền và bị `AuthorityGuard` chặn, không phải lỗi 500.
 
-**Hiệu lực ngay của bật/tắt quyền** (cam kết của `authority-permission.md`) được giữ bằng invalidation trong `PermissionService.grant/revoke`: xoá cache của mọi user thuộc role đó + key authority của chính role đó, request kế tiếp tính lại từ DB. Nhánh grant idempotent (đã có row) không đổi gì nên không xoá.
+**Hiệu lực ngay của bật/tắt quyền** (cam kết của `authority-permission.md`) được giữ bằng invalidation trong `PermissionService.grant/revoke`: xoá cache của mọi user thuộc role đó + key authority của chính role đó, request kế tiếp tính lại từ DB. Nhánh grant idempotent (đã có row) không đổi gì nên không xoá. `revoke` thu hồi lan xuống mọi role cấp thấp hơn (xem mục "Cấp của role" ở `authority-permission.md`) nên invalidate lần lượt từng role bị ảnh hưởng, không chỉ role đích.
 
 ## Bất biến
 
