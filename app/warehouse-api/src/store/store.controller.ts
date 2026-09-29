@@ -17,7 +17,9 @@ import {
   AssignStoreWarehouseRequestDto,
   CreateStoreRequestDto,
   GetAllStoreRequestDto,
+  GetStoreWarehouseHistoryRequestDto,
   StoreResponseDto,
+  StoreWarehouseHistoryResponseDto,
   UpdateStoreRequestDto,
 } from './store.dto';
 import { StoreService } from './store.service';
@@ -25,6 +27,7 @@ import { RequireAuthority } from 'src/authority/authority.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
+import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 
 @ApiTags('Store')
 @Controller('stores')
@@ -57,13 +60,17 @@ export class StoreController {
   @Get()
   @RequireAuthority(AuthorityCode.StoreRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all stores (paginated)' })
+  @ApiOperation({
+    summary: 'Get all stores (paginated)',
+    description: 'MANAGER chỉ nhận về cửa hàng gắn với kho mình phụ trách; role khác thấy toàn bộ.',
+  })
   @ApiPaginatedResponse(StoreResponseDto, 'Retrieved')
   async findAll(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     query: GetAllStoreRequestDto,
   ) {
-    const result = await this.storeService.findAll(query);
+    const result = await this.storeService.findAll(query, currentUser);
     return {
       message: 'All stores have been retrieved successfully',
       statusCode: HttpStatus.OK,
@@ -113,17 +120,65 @@ export class StoreController {
   @Put(':slug/warehouse')
   @RequireAuthority(AuthorityCode.StoreUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Assign (or unassign with null) the warehouse of a store' })
+  @ApiOperation({
+    summary:
+      'Assign (or unassign with null) the warehouse of a store; a warehouse held by another store is moved here. Every change is recorded in the warehouse history',
+  })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Assigned', type: StoreResponseDto })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async assignWarehouse(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Param('slug') slug: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
     requestData: AssignStoreWarehouseRequestDto,
   ) {
-    const result = await this.storeService.assignWarehouse(slug, requestData);
+    const result = await this.storeService.assignWarehouse(currentUser, slug, requestData);
     return {
       message: 'Store warehouse has been assigned successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<StoreResponseDto>;
+  }
+
+  @Get(':slug/warehouse-histories')
+  @RequireAuthority(AuthorityCode.StoreRead, AuthorityCode.WarehouseRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get the warehouse assignment history of a store (newest first)' })
+  @ApiPaginatedResponse(StoreWarehouseHistoryResponseDto, 'Retrieved')
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async findWarehouseHistories(
+    @Param('slug') slug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: GetStoreWarehouseHistoryRequestDto,
+  ) {
+    const result = await this.storeService.findWarehouseHistories(slug, query);
+    return {
+      message: 'Store warehouse history has been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<StoreWarehouseHistoryResponseDto>>;
+  }
+
+  // Ghi (đổi kho của cửa hàng) nên cùng quyền với `PUT :slug/warehouse`.
+  @Post(':slug/warehouse-histories/:historySlug/restore')
+  @RequireAuthority(AuthorityCode.StoreUpdate, AuthorityCode.WarehouseUpdate)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: "Restore the store's warehouse to the previous warehouse of a history entry",
+  })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Restored', type: StoreResponseDto })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  @ApiParam({ name: 'historySlug', required: true, example: 'h8mk3q1zcd' })
+  async restoreWarehouse(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param('slug') slug: string,
+    @Param('historySlug') historySlug: string,
+  ) {
+    const result = await this.storeService.restoreWarehouse(currentUser, slug, historySlug);
+    return {
+      message: 'Store warehouse has been restored successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,

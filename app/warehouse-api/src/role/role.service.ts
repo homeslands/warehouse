@@ -9,11 +9,16 @@ import { RoleException } from './role.exception';
 import { RoleValidation } from './role.validation';
 import { RoleEnum } from './role.enum';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { User } from 'src/user/user.entity';
+
+/** Role mà seed/code phụ thuộc theo tên (`RoleEnum`, `defaultRoles` của migration seed authority). */
+const BUILT_IN_ROLES: readonly string[] = Object.values(RoleEnum);
 
 @Injectable()
 export class RoleService {
   constructor(
     @InjectRepository(Role) private readonly roleRepository: Repository<Role>,
+    @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectMapper() private readonly mapper: Mapper,
   ) {}
 
@@ -84,7 +89,12 @@ export class RoleService {
   async create(actor: CurrentUserDto, dto: CreateRoleRequestDto): Promise<RoleResponseDto> {
     await this.assertCanManage(actor, dto.level);
 
-    const existed = await this.roleRepository.findOneBy({ name: dto.name });
+    // Tra cả role đã xoá mềm: RBAC tra role theo `name` (claim JWT, key cache
+    // `rbac:role:{name}:authorities`), dùng lại tên cũ là nhận nhầm cache/quyền của role đã xoá.
+    const existed = await this.roleRepository.findOne({
+      where: { name: dto.name },
+      withDeleted: true,
+    });
     if (existed) throw new RoleException(RoleValidation.ROLE_NAME_ALREADY_EXISTS);
 
     const role = this.roleRepository.create({
@@ -108,5 +118,25 @@ export class RoleService {
     if (dto.description !== undefined) role.description = dto.description;
     const updated = await this.roleRepository.save(role);
     return this.mapper.map(updated, Role, RoleResponseDto);
+  }
+
+  async remove(actor: CurrentUserDto, slug: string): Promise<number> {
+    const role = await this.roleRepository.findOneBy({ slug });
+    if (!role) throw new RoleException(RoleValidation.ROLE_NOT_FOUND);
+    await this.assertCanManage(actor, role);
+
+    if (BUILT_IN_ROLES.includes(role.name))
+      throw new RoleException(RoleValidation.ROLE_BUILT_IN_CANNOT_BE_DELETED);
+
+    // Xoá mềm nên FK `user_tbl.role_id_column` không chặn giúp. Đếm cả user đã xoá mềm: khôi phục
+    // user đó là nó trỏ vào role không còn tồn tại.
+    const assigned = await this.userRepository.count({
+      where: { role: { id: role.id } },
+      withDeleted: true,
+    });
+    if (assigned > 0) throw new RoleException(RoleValidation.ROLE_IN_USE);
+
+    await this.roleRepository.softRemove(role);
+    return 1;
   }
 }

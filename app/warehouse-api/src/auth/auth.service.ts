@@ -43,15 +43,25 @@ export class AuthService {
   }
 
   /**
-   * `GET /auth/me`. Đọc DB 1 query để lấy `phonenumber`: `userName` cố tình KHÔNG được cache
-   * (không request nào khác cần, xem `docs/specs/rbac.md`), còn endpoint này thì hiếm khi gọi và
-   * đúng ra phải là nguồn chuẩn về user chứ không phải bản chụp trong token/cache.
+   * `GET /auth/me`. Đọc DB 1 query để lấy thông tin cá nhân (`phonenumber`, họ tên, `email`, `dob`,
+   * `address`): các field này cố tình KHÔNG được cache (không request nào khác cần, xem
+   * `docs/specs/rbac.md`), còn endpoint này thì hiếm khi gọi và đúng ra phải là nguồn chuẩn về user
+   * chứ không phải bản chụp trong token/cache.
    */
   async getProfile(currentUser: CurrentUserDto): Promise<ProfileResponseDto> {
     const user = await this.userService.findById(currentUser.userId);
     if (!user) throw new UserException(UserValidation.USER_NOT_FOUND);
 
-    return { ...currentUser, userName: user.phonenumber };
+    return {
+      ...currentUser,
+      userName: user.phonenumber,
+      phonenumber: user.phonenumber,
+      firstName: user.firstName,
+      lastName: user.lastName,
+      email: user.email,
+      dob: user.dob,
+      address: user.address,
+    };
   }
 
   async validateUser(phonenumber: string, pass: string): Promise<User | null> {

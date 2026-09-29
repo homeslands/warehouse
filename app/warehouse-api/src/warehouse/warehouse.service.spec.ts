@@ -30,6 +30,8 @@ const managerUser = (overrides: Record<string, unknown> = {}) =>
     id: 'user-id-1',
     slug: 'manager-slug-1',
     phonenumber: '0900000000',
+    firstName: 'Minh',
+    lastName: 'Nguyen',
     isActive: true,
     role: { name: RoleEnum.Manager },
     ...overrides,
@@ -167,7 +169,7 @@ describe('WarehouseService', () => {
 
       expect(warehouseRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          relations: { manager: true },
+          relations: { manager: true, store: true },
           order: { createdAt: 'DESC' },
           skip: 0,
           take: 10,
@@ -196,6 +198,26 @@ describe('WarehouseService', () => {
       expect(whereOf()).toEqual({ manager: Not(IsNull()) });
     });
 
+    // MANAGER chỉ thấy kho mình phụ trách, filter manager trong query không mở rộng được phạm vi.
+    it('scopes a MANAGER to their own warehouses and ignores manager filters', async () => {
+      const manager = { userId: 'user-id-1', roleName: RoleEnum.Manager, scope: [] };
+      await service.findAll(
+        { page: 1, size: 10, isActive: true, managerSlug: 'someone-else', hasManager: false },
+        manager,
+      );
+
+      expect(whereOf()).toEqual({ isActive: true, manager: { id: 'user-id-1' } });
+    });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin, RoleEnum.Supervisor])(
+      'does not scope %s',
+      async (roleName) => {
+        await service.findAll({ page: 1, size: 10 }, { userId: 'user-id-1', roleName, scope: [] });
+
+        expect(whereOf()).toEqual({});
+      },
+    );
+
     it('treats an unparseable hasManager as absent rather than false', async () => {
       // DTO trả nguyên chuỗi lạ cho `@IsBoolean` bắt; service không được coi nó là `false` và
       // lọc ngược tập dữ liệu.
@@ -215,9 +237,14 @@ describe('WarehouseService', () => {
       expect(whereOf()).toEqual({ manager: { slug: 'manager-slug-1' } });
     });
 
-    it('computes pagination metadata and flattens the manager fields', async () => {
+    it('computes pagination metadata and flattens the manager and store fields', async () => {
       warehouseRepository.findAndCount.mockResolvedValue([
-        [baseWarehouse({ manager: managerUser() })],
+        [
+          baseWarehouse({
+            manager: managerUser(),
+            store: { slug: 'store-slug-1', name: 'Cửa hàng Hà Nội 1' } as never,
+          }),
+        ],
         3,
       ]);
 
@@ -234,7 +261,21 @@ describe('WarehouseService', () => {
       expect(result.items[0]).toMatchObject({
         managerSlug: 'manager-slug-1',
         managerPhonenumber: '0900000000',
+        managerFirstName: 'Minh',
+        managerLastName: 'Nguyen',
+        storeSlug: 'store-slug-1',
+        storeName: 'Cửa hàng Hà Nội 1',
       });
+    });
+
+    it('leaves manager and store fields empty when neither is linked', async () => {
+      warehouseRepository.findAndCount.mockResolvedValue([[baseWarehouse()], 1]);
+
+      const result = await service.findAll({ page: 1, size: 10 });
+
+      expect(result.items[0].managerSlug).toBeUndefined();
+      expect(result.items[0].storeSlug).toBeUndefined();
+      expect(result.items[0].storeName).toBeUndefined();
     });
   });
 
@@ -272,7 +313,7 @@ describe('WarehouseService', () => {
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
-        relations: { manager: true },
+        relations: { manager: true, store: true },
       });
     });
   });
@@ -334,7 +375,7 @@ describe('WarehouseService', () => {
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
-        relations: { manager: true },
+        relations: { manager: true, store: true },
       });
     });
 
@@ -443,7 +484,7 @@ describe('WarehouseService', () => {
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
-        relations: { manager: true },
+        relations: { manager: true, store: true },
       });
     });
 
