@@ -18,9 +18,7 @@ export const STORE_IS_ACTIVE_INVALID = 'STORE_IS_ACTIVE_INVALID';
 export const STORE_ACTIVE_CANNOT_BE_DELETED = 'STORE_ACTIVE_CANNOT_BE_DELETED';
 export const STORE_WAREHOUSE_SLUG_IS_REQUIRED = 'STORE_WAREHOUSE_SLUG_IS_REQUIRED';
 export const STORE_WAREHOUSE_INACTIVE = 'STORE_WAREHOUSE_INACTIVE';
-export const STORE_WAREHOUSE_ALREADY_ASSIGNED = 'STORE_WAREHOUSE_ALREADY_ASSIGNED';
-export const STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE =
-  'STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE';
+export const STORE_WAREHOUSE_HISTORY_NOT_FOUND = 'STORE_WAREHOUSE_HISTORY_NOT_FOUND';
 
 export type TStoreErrorCodeKey =
   | typeof STORE_NOT_FOUND
@@ -40,8 +38,7 @@ export type TStoreErrorCodeKey =
   | typeof STORE_ACTIVE_CANNOT_BE_DELETED
   | typeof STORE_WAREHOUSE_SLUG_IS_REQUIRED
   | typeof STORE_WAREHOUSE_INACTIVE
-  | typeof STORE_WAREHOUSE_ALREADY_ASSIGNED
-  | typeof STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE;
+  | typeof STORE_WAREHOUSE_HISTORY_NOT_FOUND;
 
 export type TStoreErrorCode = Record<TStoreErrorCodeKey, TErrorCodeValue>;
 
@@ -102,12 +99,12 @@ export const StoreValidation: TStoreErrorCode = {
     101018,
     'The warehouse is inactive and cannot be assigned to a store',
   ),
-  STORE_WAREHOUSE_ALREADY_ASSIGNED: createErrorCode(
-    101019,
-    'The warehouse is already assigned to another store',
-  ),
-  STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE: createErrorCode(
-    101020,
-    'The warehouse is still held by a deleted store',
+  // 101019 (`STORE_WAREHOUSE_ALREADY_ASSIGNED`) / 101020 (`STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE`)
+  // đã bỏ: gắn kho đang thuộc cửa hàng khác giờ tự gỡ khỏi cửa hàng đó (ghi lịch sử `RELEASED`).
+  // Không tái sử dụng 2 mã này.
+  STORE_WAREHOUSE_HISTORY_NOT_FOUND: createErrorCode(
+    101021,
+    'Store warehouse history entry not found',
+    HttpStatus.NOT_FOUND,
   ),
 };

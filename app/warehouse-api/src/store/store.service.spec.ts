@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RoleEnum } from 'src/role/role.enum';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
@@ -10,6 +11,11 @@ import { Store } from './store.entity';
 import { StoreException } from './store.exception';
 import { StoreValidation } from './store.validation';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { User } from 'src/user/user.entity';
+import { TransactionManagerService } from 'src/db/transaction-manager.service';
+import { CurrentUserDto } from 'src/user/user.decorator';
+import { StoreWarehouseHistory } from './store-warehouse-history.entity';
+import { StoreWarehouseHistoryAction } from './store.constants';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 
@@ -35,12 +41,26 @@ const baseWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
     ...overrides,
   }) as Warehouse;
 
+const managerUser = (): User =>
+  ({
+    id: 'user-id-9',
+    slug: 'manager-slug-1',
+    phonenumber: '0900000000',
+    firstName: 'Minh',
+    lastName: 'Nguyen',
+  }) as User;
+
 const createDto = () => ({
   name: 'Cửa hàng Hà Nội 1',
   code: 'ST-HN-01',
   legalName: 'Công ty TNHH ABC',
   taxCode: '0101234567',
 });
+
+const otherStoreFixture = (): Store => baseStore({ id: 'store-id-2', slug: 'st-slug-2' });
+
+const savedHistoriesOf = (repository: { save: jest.Mock }) =>
+  repository.save.mock.calls.map(([entry]) => entry);
 
 /** Assert đúng mã lỗi nghiệp vụ, không chỉ đúng class exception. */
 const expectStoreError = async (promise: Promise<unknown>, code: number) => {
@@ -57,10 +77,31 @@ describe('StoreService', () => {
     save: jest.fn(),
     findAndCount: jest.fn(),
     softRemove: jest.fn(),
+    update: jest.fn(),
   };
   const warehouseRepository = {
-    findOneBy: jest.fn(),
+    findOne: jest.fn(),
   };
+  const historyRepository = {
+    findOne: jest.fn(),
+    findAndCount: jest.fn(),
+    create: jest.fn((data) => data),
+    save: jest.fn(async (data) => data),
+  };
+  // `applyWarehouse` lấy mọi repository qua `manager` của transaction.
+  const manager = {
+    getRepository: jest.fn((entity: unknown) =>
+      entity === Store
+        ? storeRepository
+        : entity === Warehouse
+          ? warehouseRepository
+          : historyRepository,
+    ),
+  };
+  const transactionManager = {
+    execute: jest.fn((onSave: (m: typeof manager) => Promise<unknown>) => onSave(manager)),
+  };
+  const actor: CurrentUserDto = { userId: 'user-id-1', roleName: 'ADMIN', scope: [] };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -70,7 +111,8 @@ describe('StoreService', () => {
         StoreService,
         StoreProfile,
         { provide: getRepositoryToken(Store), useValue: storeRepository },
-        { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
+        { provide: getRepositoryToken(StoreWarehouseHistory), useValue: historyRepository },
+        { provide: TransactionManagerService, useValue: transactionManager },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
       ],
@@ -225,6 +267,26 @@ describe('StoreService', () => {
       expect(whereOf()).toEqual({});
     });
 
+    // Cửa hàng "thuộc về" MANAGER = cửa hàng gắn với kho mà MANAGER đó phụ trách.
+    it('scopes a MANAGER to stores linked to warehouses they manage', async () => {
+      const manager = { userId: 'user-id-1', roleName: RoleEnum.Manager, scope: [] };
+      await service.findAll({ page: 1, size: 10, isActive: true }, manager);
+
+      expect(whereOf()).toEqual({
+        isActive: true,
+        warehouse: { manager: { id: 'user-id-1' } },
+      });
+    });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin, RoleEnum.Supervisor])(
+      'does not scope %s',
+      async (roleName) => {
+        await service.findAll({ page: 1, size: 10 }, { userId: 'user-id-1', roleName, scope: [] });
+
+        expect(whereOf()).toEqual({});
+      },
+    );
+
     it('computes pagination metadata', async () => {
       storeRepository.findAndCount.mockResolvedValue([[baseStore()], 3]);
 
@@ -256,7 +318,7 @@ describe('StoreService', () => {
 
       expect(storeRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'st-slug-1' },
-        relations: { warehouse: true },
+        relations: { warehouse: { manager: true } },
       });
       expect(result).toMatchObject({ slug: 'st-slug-1', code: 'ST-HN-01' });
     });
@@ -277,6 +339,30 @@ describe('StoreService', () => {
 
       expect(result.warehouseSlug).toBeUndefined();
     });
+
+    // Store không có cột quản lý riêng — `manager` là quản lý của kho đang gắn.
+    it("exposes the linked warehouse's manager as the store manager", async () => {
+      storeRepository.findOne.mockResolvedValue(
+        baseStore({ warehouse: baseWarehouse({ manager: managerUser() }) }),
+      );
+
+      const result = await service.findOne('st-slug-1');
+
+      expect(result.manager).toEqual({
+        slug: 'manager-slug-1',
+        phonenumber: '0900000000',
+        firstName: 'Minh',
+        lastName: 'Nguyen',
+      });
+    });
+
+    it('leaves manager undefined when the linked warehouse has no manager', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: baseWarehouse() }));
+
+      const result = await service.findOne('st-slug-1');
+
+      expect(result.manager).toBeUndefined();
+    });
   });
 
   describe('updateStore', () => {
@@ -290,7 +376,7 @@ describe('StoreService', () => {
 
       expect(storeRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'st-slug-1' },
-        relations: { warehouse: true },
+        relations: { warehouse: { manager: true } },
       });
     });
 
@@ -436,127 +522,340 @@ describe('StoreService', () => {
 
   describe('assignWarehouse', () => {
     const assignDto = { warehouseSlug: 'wh-slug-1' };
+    const otherStore = () => baseStore({ id: 'store-id-2', slug: 'st-slug-2' });
+    /** Lần `findOne` 1 = cửa hàng đích, lần 2 = cửa hàng đang giữ kho. */
+    const givenStores = (store: Store | null, holder: Store | null = null) =>
+      storeRepository.findOne.mockResolvedValueOnce(store).mockResolvedValueOnce(holder);
+    const savedHistories = () => historyRepository.save.mock.calls.map(([entry]) => entry);
 
-    it('loads the row with the warehouse relation', async () => {
-      storeRepository.findOne.mockResolvedValueOnce(baseStore()).mockResolvedValueOnce(null);
-      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
-      storeRepository.save.mockImplementation((data) => data);
+    it('runs inside a transaction and locks the store row', async () => {
+      givenStores(baseStore());
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
 
-      await service.assignWarehouse('st-slug-1', assignDto);
+      await service.assignWarehouse(actor, 'st-slug-1', assignDto);
 
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
       expect(storeRepository.findOne).toHaveBeenNthCalledWith(1, {
         where: { slug: 'st-slug-1' },
         relations: { warehouse: true },
+        lock: { mode: 'pessimistic_write' },
       });
     });
 
-    it('assigns a free warehouse and returns it flattened', async () => {
-      storeRepository.findOne.mockResolvedValueOnce(baseStore()).mockResolvedValueOnce(null);
-      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
-      storeRepository.save.mockImplementation((data) => data);
+    it('assigns a free warehouse, records ASSIGN and returns it flattened', async () => {
+      givenStores(baseStore());
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
 
-      const result = await service.assignWarehouse('st-slug-1', assignDto);
+      const result = await service.assignWarehouse(actor, 'st-slug-1', assignDto);
 
-      expect(storeRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ warehouse: expect.objectContaining({ id: 'wh-id-1' }) }),
+      expect(storeRepository.update).toHaveBeenCalledTimes(1);
+      expect(storeRepository.update).toHaveBeenCalledWith(
+        { id: 'store-id-1' },
+        { warehouse: expect.objectContaining({ id: 'wh-id-1' }) },
       );
+      expect(savedHistories()).toEqual([
+        expect.objectContaining({
+          action: StoreWarehouseHistoryAction.Assign,
+          previousWarehouse: null,
+          newWarehouse: expect.objectContaining({ id: 'wh-id-1' }),
+          relatedStore: null,
+          changedBy: { id: 'user-id-1' },
+        }),
+      ]);
       expect(result).toMatchObject({ warehouseSlug: 'wh-slug-1', warehouseName: 'Kho Hà Nội' });
     });
 
-    // `warehouseSlug: null` là đường gỡ gắn kết duy nhất — không có endpoint DELETE riêng.
-    it('unassigns the warehouse when warehouseSlug is null', async () => {
-      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: baseWarehouse() }));
-      storeRepository.save.mockImplementation((data) => data);
+    it('returns the manager of the newly assigned warehouse', async () => {
+      givenStores(baseStore());
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse({ manager: managerUser() }));
 
-      const result = await service.assignWarehouse('st-slug-1', {
-        warehouseSlug: null,
+      const result = await service.assignWarehouse(actor, 'st-slug-1', assignDto);
+
+      expect(warehouseRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'wh-slug-1' },
+        relations: { manager: true },
       });
+      expect(result.manager).toMatchObject({ slug: 'manager-slug-1' });
+    });
 
-      expect(warehouseRepository.findOneBy).not.toHaveBeenCalled();
-      expect(storeRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ warehouse: null }),
+    // Bản khoá `FOR UPDATE` không join `manager` — nhánh idempotent vẫn phải trả `manager`.
+    it('returns the manager when re-assigning the same warehouse (idempotent)', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: baseWarehouse() }));
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse({ manager: managerUser() }));
+
+      const result = await service.assignWarehouse(actor, 'st-slug-1', assignDto);
+
+      expect(storeRepository.update).not.toHaveBeenCalled();
+      expect(result.manager).toMatchObject({ slug: 'manager-slug-1' });
+    });
+
+    it('records the warehouse it replaces as previousWarehouse', async () => {
+      const old = baseWarehouse({ id: 'wh-id-0', slug: 'wh-slug-0' });
+      givenStores(baseStore({ warehouse: old }));
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+
+      await service.assignWarehouse(actor, 'st-slug-1', assignDto);
+
+      expect(savedHistories()[0]).toMatchObject({
+        action: StoreWarehouseHistoryAction.Assign,
+        previousWarehouse: old,
+      });
+    });
+
+    // `warehouseSlug: null` là đường gỡ gắn kết duy nhất — không có endpoint DELETE riêng.
+    it('unassigns the warehouse when warehouseSlug is null and records UNASSIGN', async () => {
+      const old = baseWarehouse();
+      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: old }));
+
+      const result = await service.assignWarehouse(actor, 'st-slug-1', { warehouseSlug: null });
+
+      expect(warehouseRepository.findOne).not.toHaveBeenCalled();
+      expect(storeRepository.update).toHaveBeenCalledWith(
+        { id: 'store-id-1' },
+        { warehouse: null },
       );
+      expect(savedHistories()).toEqual([
+        expect.objectContaining({
+          action: StoreWarehouseHistoryAction.Unassign,
+          previousWarehouse: old,
+          newWarehouse: null,
+        }),
+      ]);
       expect(result.warehouseSlug).toBeUndefined();
     });
 
-    it('throws WAREHOUSE_NOT_FOUND when the warehouse does not exist (or is soft-deleted)', async () => {
-      storeRepository.findOne.mockResolvedValue(baseStore());
-      warehouseRepository.findOneBy.mockResolvedValue(null);
+    // 1-1: kho đang thuộc cửa hàng khác bị gỡ khỏi cửa hàng đó TRƯỚC (thứ tự bắt buộc bởi
+    // `UQ_store_warehouse`), cửa hàng mất kho có dòng `RELEASED` riêng để restore lại được.
+    it('moves a warehouse held by another store: releases it first, then assigns', async () => {
+      givenStores(baseStore(), otherStore());
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
 
-      const promise = service.assignWarehouse('st-slug-1', assignDto);
-      await expect(promise).rejects.toBeInstanceOf(WarehouseException);
-      await expect(promise).rejects.toMatchObject({
-        code: WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
-      });
+      await service.assignWarehouse(actor, 'st-slug-1', assignDto);
+
+      expect(storeRepository.update.mock.calls).toEqual([
+        [{ id: 'store-id-2' }, { warehouse: null }],
+        [{ id: 'store-id-1' }, { warehouse: expect.objectContaining({ id: 'wh-id-1' }) }],
+      ]);
+      expect(savedHistories()).toEqual([
+        expect.objectContaining({
+          store: expect.objectContaining({ id: 'store-id-2' }),
+          action: StoreWarehouseHistoryAction.Released,
+          previousWarehouse: expect.objectContaining({ id: 'wh-id-1' }),
+          newWarehouse: null,
+          relatedStore: expect.objectContaining({ id: 'store-id-1' }),
+        }),
+        expect.objectContaining({
+          store: expect.objectContaining({ id: 'store-id-1' }),
+          action: StoreWarehouseHistoryAction.Assign,
+          relatedStore: expect.objectContaining({ id: 'store-id-2' }),
+        }),
+      ]);
     });
 
-    it('refuses an inactive warehouse', async () => {
-      storeRepository.findOne.mockResolvedValue(baseStore());
-      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse({ isActive: false }));
+    it('also takes the warehouse from a soft-deleted store', async () => {
+      givenStores(baseStore(), baseStore({ id: 'store-id-2', deletedAt: new Date() }));
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
 
-      await expectStoreError(
-        service.assignWarehouse('st-slug-1', assignDto),
-        StoreValidation.STORE_WAREHOUSE_INACTIVE.code,
+      await service.assignWarehouse(actor, 'st-slug-1', assignDto);
+
+      expect(storeRepository.update).toHaveBeenNthCalledWith(
+        1,
+        { id: 'store-id-2' },
+        { warehouse: null },
       );
     });
 
-    // Chính là ràng buộc 1-1: kho đã có chủ thì cửa hàng khác không lấy được.
-    it('refuses a warehouse already held by another live store', async () => {
-      storeRepository.findOne
-        .mockResolvedValueOnce(baseStore())
-        .mockResolvedValueOnce(baseStore({ id: 'store-id-2', slug: 'st-slug-2' }));
-      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
+    it('looks up and locks the holder including soft-deleted stores', async () => {
+      givenStores(baseStore());
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
 
-      await expectStoreError(
-        service.assignWarehouse('st-slug-1', assignDto),
-        StoreValidation.STORE_WAREHOUSE_ALREADY_ASSIGNED.code,
-      );
-    });
-
-    it('reports a distinct error when the holder is a soft-deleted store', async () => {
-      storeRepository.findOne
-        .mockResolvedValueOnce(baseStore())
-        .mockResolvedValueOnce(baseStore({ id: 'store-id-2', deletedAt: new Date() }));
-      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
-
-      await expectStoreError(
-        service.assignWarehouse('st-slug-1', assignDto),
-        StoreValidation.STORE_WAREHOUSE_RESERVED_BY_DELETED_STORE.code,
-      );
-    });
-
-    // Gửi lại đúng kho đang gắn phải idempotent, không được tự báo trùng với chính mình.
-    it('allows re-assigning the warehouse the store already holds', async () => {
-      const store = baseStore({ warehouse: baseWarehouse() });
-      storeRepository.findOne.mockResolvedValueOnce(store).mockResolvedValueOnce(store);
-      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
-      storeRepository.save.mockImplementation((data) => data);
-
-      const result = await service.assignWarehouse('st-slug-1', assignDto);
-
-      expect(result).toMatchObject({ warehouseSlug: 'wh-slug-1' });
-    });
-
-    it('looks up the holder including soft-deleted stores', async () => {
-      storeRepository.findOne.mockResolvedValueOnce(baseStore()).mockResolvedValueOnce(null);
-      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
-      storeRepository.save.mockImplementation((data) => data);
-
-      await service.assignWarehouse('st-slug-1', assignDto);
+      await service.assignWarehouse(actor, 'st-slug-1', assignDto);
 
       expect(storeRepository.findOne).toHaveBeenNthCalledWith(2, {
         where: { warehouse: { id: 'wh-id-1' } },
         withDeleted: true,
+        lock: { mode: 'pessimistic_write' },
       });
+    });
+
+    // Gửi lại đúng kho đang gắn phải idempotent: không ghi DB, không đẻ dòng lịch sử rác.
+    it('is a no-op when the store already holds that warehouse', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: baseWarehouse() }));
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+
+      const result = await service.assignWarehouse(actor, 'st-slug-1', assignDto);
+
+      expect(storeRepository.update).not.toHaveBeenCalled();
+      expect(historyRepository.save).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ warehouseSlug: 'wh-slug-1' });
+    });
+
+    it('is a no-op when unassigning a store that has no warehouse', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore());
+
+      await service.assignWarehouse(actor, 'st-slug-1', { warehouseSlug: null });
+
+      expect(storeRepository.update).not.toHaveBeenCalled();
+      expect(historyRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('throws WAREHOUSE_NOT_FOUND when the warehouse does not exist (or is soft-deleted)', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore());
+      warehouseRepository.findOne.mockResolvedValue(null);
+
+      const promise = service.assignWarehouse(actor, 'st-slug-1', assignDto);
+      await expect(promise).rejects.toBeInstanceOf(WarehouseException);
+      await expect(promise).rejects.toMatchObject({
+        code: WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      });
+      expect(storeRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('refuses an inactive warehouse', async () => {
+      storeRepository.findOne.mockResolvedValue(baseStore());
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse({ isActive: false }));
+
+      await expectStoreError(
+        service.assignWarehouse(actor, 'st-slug-1', assignDto),
+        StoreValidation.STORE_WAREHOUSE_INACTIVE.code,
+      );
+      expect(storeRepository.update).not.toHaveBeenCalled();
     });
 
     it('throws when the store is not found', async () => {
       storeRepository.findOne.mockResolvedValue(null);
 
       await expectStoreError(
-        service.assignWarehouse('missing-slug', assignDto),
+        service.assignWarehouse(actor, 'missing-slug', assignDto),
         StoreValidation.STORE_NOT_FOUND.code,
       );
+    });
+  });
+
+  describe('findWarehouseHistories', () => {
+    const query = { page: 1, size: 10 };
+
+    it('lists the store history newest first, including soft-deleted relations', async () => {
+      storeRepository.findOneBy.mockResolvedValue(baseStore());
+      historyRepository.findAndCount.mockResolvedValue([
+        [
+          {
+            slug: 'h-1',
+            action: StoreWarehouseHistoryAction.Assign,
+            previousWarehouse: baseWarehouse({ slug: 'wh-slug-0', name: 'Kho cũ' }),
+            newWarehouse: baseWarehouse(),
+            relatedStore: otherStoreFixture(),
+            changedBy: { slug: 'u-slug-1', firstName: 'An', lastName: 'Nguyễn' },
+          },
+        ],
+        11,
+      ]);
+
+      const result = await service.findWarehouseHistories('st-slug-1', query);
+
+      expect(historyRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { store: { id: 'store-id-1' } },
+          withDeleted: true,
+          order: { createdAt: 'DESC' },
+          skip: 0,
+          take: 10,
+        }),
+      );
+      expect(result).toMatchObject({ total: 11, totalPages: 2, hasNext: true });
+      expect(result.items[0]).toMatchObject({
+        slug: 'h-1',
+        action: 'ASSIGN',
+        previousWarehouseSlug: 'wh-slug-0',
+        previousWarehouseName: 'Kho cũ',
+        newWarehouseSlug: 'wh-slug-1',
+        relatedStoreSlug: 'st-slug-2',
+        changedBySlug: 'u-slug-1',
+        changedByName: 'Nguyễn An',
+      });
+    });
+
+    it('throws when the store is not found', async () => {
+      storeRepository.findOneBy.mockResolvedValue(null);
+
+      await expectStoreError(
+        service.findWarehouseHistories('missing', query),
+        StoreValidation.STORE_NOT_FOUND.code,
+      );
+    });
+  });
+
+  describe('restoreWarehouse', () => {
+    const entry = (previousWarehouse: Warehouse | null) =>
+      ({ id: 'h-id-1', slug: 'h-1', previousWarehouse }) as StoreWarehouseHistory;
+
+    it('re-applies the previous warehouse of the entry and records RESTORE', async () => {
+      const previous = baseWarehouse({ id: 'wh-id-0', slug: 'wh-slug-0' });
+      historyRepository.findOne.mockResolvedValue(entry(previous));
+      storeRepository.findOne
+        .mockResolvedValueOnce(baseStore({ warehouse: baseWarehouse() }))
+        .mockResolvedValueOnce(null);
+      warehouseRepository.findOne.mockResolvedValue(previous);
+
+      const result = await service.restoreWarehouse(actor, 'st-slug-1', 'h-1');
+
+      expect(historyRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'h-1', store: { slug: 'st-slug-1' } },
+        relations: { previousWarehouse: true },
+        withDeleted: true,
+      });
+      expect(warehouseRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'wh-slug-0' },
+        relations: { manager: true },
+      });
+      expect(historyRepository.save).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          action: StoreWarehouseHistoryAction.Restore,
+          restoredFrom: expect.objectContaining({ slug: 'h-1' }),
+          previousWarehouse: expect.objectContaining({ id: 'wh-id-1' }),
+          newWarehouse: previous,
+        }),
+      );
+      expect(result).toMatchObject({ warehouseSlug: 'wh-slug-0' });
+    });
+
+    it('unassigns when the entry had no previous warehouse', async () => {
+      historyRepository.findOne.mockResolvedValue(entry(null));
+      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: baseWarehouse() }));
+
+      await service.restoreWarehouse(actor, 'st-slug-1', 'h-1');
+
+      expect(storeRepository.update).toHaveBeenCalledWith(
+        { id: 'store-id-1' },
+        { warehouse: null },
+      );
+      expect(savedHistoriesOf(historyRepository)[0]).toMatchObject({
+        action: StoreWarehouseHistoryAction.Restore,
+      });
+    });
+
+    // Kho cũ đã xoá mềm: được nạp nhờ `withDeleted`, rồi bị `resolveWarehouse` chặn — KHÔNG được
+    // hiểu nhầm thành "trước đó không có kho" và gỡ kho hiện tại.
+    it('refuses to restore a warehouse that has since been deleted', async () => {
+      const deleted = baseWarehouse({ id: 'wh-id-0', slug: 'wh-slug-0', deletedAt: new Date() });
+      historyRepository.findOne.mockResolvedValue(entry(deleted));
+      storeRepository.findOne.mockResolvedValue(baseStore({ warehouse: baseWarehouse() }));
+      warehouseRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.restoreWarehouse(actor, 'st-slug-1', 'h-1')).rejects.toMatchObject({
+        code: WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      });
+      expect(storeRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('throws when the entry does not belong to the store (or does not exist)', async () => {
+      historyRepository.findOne.mockResolvedValue(null);
+
+      await expectStoreError(
+        service.restoreWarehouse(actor, 'st-slug-1', 'h-x'),
+        StoreValidation.STORE_WAREHOUSE_HISTORY_NOT_FOUND.code,
+      );
+      expect(storeRepository.update).not.toHaveBeenCalled();
     });
   });
 

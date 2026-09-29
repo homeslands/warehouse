@@ -12,8 +12,12 @@ describe('StoreController', () => {
     findOne: jest.fn(),
     updateStore: jest.fn(),
     assignWarehouse: jest.fn(),
+    findWarehouseHistories: jest.fn(),
+    restoreWarehouse: jest.fn(),
     deleteStore: jest.fn(),
   };
+
+  const currentUser = { userId: 'user-id-1', roleName: 'ADMIN', scope: [] };
 
   const createDto = {
     name: 'Cửa hàng Hà Nội 1',
@@ -47,13 +51,13 @@ describe('StoreController', () => {
     expect(response.statusCode).toBe(201);
   });
 
-  it('forwards the query untouched to findAll', async () => {
+  it('forwards the query and current user to findAll', async () => {
     const query = { page: 1, size: 10, isActive: false };
     storeService.findAll.mockResolvedValue({ items: [], total: 0 });
 
-    const response = await controller.findAll(query);
+    const response = await controller.findAll(currentUser, query);
 
-    expect(storeService.findAll).toHaveBeenCalledWith(query);
+    expect(storeService.findAll).toHaveBeenCalledWith(query, currentUser);
     expect(response.statusCode).toBe(200);
   });
 
@@ -77,6 +81,16 @@ describe('StoreController', () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it('passes the caller, slug and history slug through to restoreWarehouse', async () => {
+    storeService.restoreWarehouse.mockResolvedValue({ slug: 'st-slug-1', warehouseSlug: 'wh-0' });
+
+    const response = await controller.restoreWarehouse(currentUser, 'st-slug-1', 'h-1');
+
+    expect(storeService.restoreWarehouse).toHaveBeenCalledWith(currentUser, 'st-slug-1', 'h-1');
+    expect(response.result).toMatchObject({ warehouseSlug: 'wh-0' });
+    expect(response.statusCode).toBe(200);
+  });
+
   it('passes the slug and body through to assignWarehouse', async () => {
     const assignDto = { warehouseSlug: 'wh-slug-1' };
     storeService.assignWarehouse.mockResolvedValue({
@@ -84,9 +98,9 @@ describe('StoreController', () => {
       warehouseSlug: 'wh-slug-1',
     });
 
-    const response = await controller.assignWarehouse('st-slug-1', assignDto);
+    const response = await controller.assignWarehouse(currentUser, 'st-slug-1', assignDto);
 
-    expect(storeService.assignWarehouse).toHaveBeenCalledWith('st-slug-1', assignDto);
+    expect(storeService.assignWarehouse).toHaveBeenCalledWith(currentUser, 'st-slug-1', assignDto);
     expect(response.result).toMatchObject({ warehouseSlug: 'wh-slug-1' });
     expect(response.statusCode).toBe(200);
   });
@@ -95,9 +109,9 @@ describe('StoreController', () => {
     const assignDto = { warehouseSlug: null };
     storeService.assignWarehouse.mockResolvedValue({ slug: 'st-slug-1' });
 
-    await controller.assignWarehouse('st-slug-1', assignDto);
+    await controller.assignWarehouse(currentUser, 'st-slug-1', assignDto);
 
-    expect(storeService.assignWarehouse).toHaveBeenCalledWith('st-slug-1', assignDto);
+    expect(storeService.assignWarehouse).toHaveBeenCalledWith(currentUser, 'st-slug-1', assignDto);
   });
 
   it('renders the deleteStore count as a message string', async () => {
@@ -121,6 +135,14 @@ describe('StoreController', () => {
       expect(authority(controller.findOne)).toEqual([AuthorityCode.StoreRead]);
       expect(authority(controller.updateStore)).toEqual([AuthorityCode.StoreUpdate]);
       expect(authority(controller.assignWarehouse)).toEqual([
+        AuthorityCode.StoreUpdate,
+        AuthorityCode.WarehouseUpdate,
+      ]);
+      expect(authority(controller.findWarehouseHistories)).toEqual([
+        AuthorityCode.StoreRead,
+        AuthorityCode.WarehouseRead,
+      ]);
+      expect(authority(controller.restoreWarehouse)).toEqual([
         AuthorityCode.StoreUpdate,
         AuthorityCode.WarehouseUpdate,
       ]);

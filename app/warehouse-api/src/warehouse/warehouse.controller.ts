@@ -59,13 +59,18 @@ export class WarehouseController {
   @Get()
   @RequireAuthority(AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all warehouses (paginated)' })
+  @ApiOperation({
+    summary: 'Get all warehouses (paginated)',
+    description:
+      'MANAGER chỉ nhận về kho mình phụ trách (bỏ qua `managerSlug`/`hasManager`); role khác thấy toàn bộ.',
+  })
   @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
   async findAll(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
     query: GetAllWarehouseRequestDto,
   ) {
-    const result = await this.warehouseService.findAll(query);
+    const result = await this.warehouseService.findAll(query, currentUser);
     return {
       message: 'All warehouses have been retrieved successfully',
       statusCode: HttpStatus.OK,

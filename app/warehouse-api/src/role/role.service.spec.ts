@@ -10,6 +10,7 @@ import { RoleService } from './role.service';
 import { RoleEnum } from './role.enum';
 import { RoleException } from './role.exception';
 import { RoleValidation } from './role.validation';
+import { User } from 'src/user/user.entity';
 
 describe('RoleService', () => {
   let service: RoleService;
@@ -26,7 +27,9 @@ describe('RoleService', () => {
     find: jest.fn(),
     create: jest.fn((data) => data),
     save: jest.fn(async (data) => ({ ...data, id: 'new-id', slug: 'new-slug', permissions: [] })),
+    softRemove: jest.fn(),
   };
+  const userRepository = { count: jest.fn() };
 
   const actor = (roleName?: string): CurrentUserDto => ({ userId: 'u', roleName, scope: [] });
 
@@ -50,6 +53,7 @@ describe('RoleService', () => {
         RoleService,
         RoleProfile,
         { provide: getRepositoryToken(Role), useValue: roleRepository },
+        { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
       ],
     }).compile();
@@ -101,6 +105,20 @@ describe('RoleService', () => {
       expect(result).toMatchObject({ name: 'TEAM_LEAD', level: 15, authorityCodes: [] });
     });
 
+    // Tên của role đã xoá mềm vẫn bị chiếm: RBAC tra role/cache theo `name`.
+    it('rejects reusing the name of a soft-deleted role', async () => {
+      roleRepository.findOne.mockResolvedValue({ id: 'old-id', name: 'TEAM_LEAD' });
+
+      await expect(
+        service.create(actor('ADMIN'), { name: 'TEAM_LEAD', level: 15 }),
+      ).rejects.toMatchObject({ code: RoleValidation.ROLE_NAME_ALREADY_EXISTS.code });
+      expect(roleRepository.findOne).toHaveBeenCalledWith({
+        where: { name: 'TEAM_LEAD' },
+        withDeleted: true,
+      });
+      expect(roleRepository.save).not.toHaveBeenCalled();
+    });
+
     it('rejects creating a role at or above the caller level', async () => {
       await expectForbidden(service.create(actor('ADMIN'), { name: 'CO_ADMIN', level: 30 }));
       expect(roleRepository.save).not.toHaveBeenCalled();
@@ -116,6 +134,70 @@ describe('RoleService', () => {
 
       await expectForbidden(service.update(actor('ADMIN'), 'admin', { description: 'x' }));
       expect(roleRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('remove', () => {
+    const teamLead = { id: 'team-lead-id', slug: 'team-lead', name: 'TEAM_LEAD', level: 15 };
+    const withTarget = (target: Partial<Role>) =>
+      roleRepository.findOneBy.mockImplementation(
+        async (where: { name?: string; slug?: string }) =>
+          where.slug ? target : (roles[where.name!] ?? null),
+      );
+    const expectCode = async (promise: Promise<unknown>, code: number) => {
+      await expect(promise).rejects.toBeInstanceOf(RoleException);
+      await expect(promise).rejects.toMatchObject({ code });
+    };
+
+    it('soft-removes a lower, custom role that no user holds', async () => {
+      withTarget(teamLead);
+      userRepository.count.mockResolvedValue(0);
+
+      await expect(service.remove(actor('ADMIN'), 'team-lead')).resolves.toBe(1);
+      expect(userRepository.count).toHaveBeenCalledWith({
+        where: { role: { id: 'team-lead-id' } },
+        withDeleted: true,
+      });
+      expect(roleRepository.softRemove).toHaveBeenCalledWith(teamLead);
+    });
+
+    it('returns ROLE_NOT_FOUND for an unknown slug', async () => {
+      withTarget(null as unknown as Role);
+
+      await expectCode(
+        service.remove(actor('ADMIN'), 'missing'),
+        RoleValidation.ROLE_NOT_FOUND.code,
+      );
+    });
+
+    it('rejects deleting a role at or above the caller level', async () => {
+      withTarget(roles.ADMIN);
+
+      await expectForbidden(service.remove(actor('ADMIN'), 'admin'));
+      expect(roleRepository.softRemove).not.toHaveBeenCalled();
+    });
+
+    // Seed authority (`defaultRoles`) và `RoleEnum` phụ thuộc theo tên — kể cả khi cấp cho phép.
+    it('rejects deleting a built-in role even when its level is lower', async () => {
+      withTarget(roles.MANAGER);
+
+      await expectCode(
+        service.remove(actor('ADMIN'), 'manager'),
+        RoleValidation.ROLE_BUILT_IN_CANNOT_BE_DELETED.code,
+      );
+      expect(roleRepository.softRemove).not.toHaveBeenCalled();
+    });
+
+    // Xoá mềm nên FK không chặn: phải tự đếm user còn giữ role.
+    it('rejects deleting a role still assigned to users', async () => {
+      withTarget(teamLead);
+      userRepository.count.mockResolvedValue(2);
+
+      await expectCode(
+        service.remove(actor('ADMIN'), 'team-lead'),
+        RoleValidation.ROLE_IN_USE.code,
+      );
+      expect(roleRepository.softRemove).not.toHaveBeenCalled();
     });
   });
 });

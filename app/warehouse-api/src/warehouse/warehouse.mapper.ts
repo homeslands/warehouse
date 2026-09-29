@@ -49,12 +49,17 @@ export class WarehouseProfile extends AutomapperProfile {
         WarehouseResponseDto,
         extend(baseMapper(mapper)),
         forMember(
-          (d) => d.managerSlug,
-          mapFrom((s) => s.manager?.slug),
-        ),
-        forMember(
-          (d) => d.managerPhonenumber,
-          mapFrom((s) => s.manager?.phonenumber),
+          (d) => d.manager,
+          mapFrom((s) =>
+            s.manager
+              ? {
+                  slug: s.manager.slug,
+                  phonenumber: s.manager.phonenumber,
+                  firstName: s.manager.firstName,
+                  lastName: s.manager.lastName,
+                }
+              : undefined,
+          ),
         ),
       );
 
