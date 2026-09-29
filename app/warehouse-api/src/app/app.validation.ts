@@ -20,6 +20,7 @@ import {
   TWarehouseMaterialErrorCode,
 } from 'src/warehouse-material/warehouse-material.validation';
 import { StoreValidation, TStoreErrorCode } from 'src/store/store.validation';
+import { SupplierValidation, TSupplierErrorCode } from 'src/supplier/supplier.validation';
 import { TaxProfileValidation, TTaxProfileErrorCode } from 'src/tax-profile/tax-profile.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
@@ -55,6 +56,7 @@ export const AppValidation: TAuthErrorCode &
   TUnitErrorCode &
   TWarehouseMaterialErrorCode &
   TStoreErrorCode &
+  TSupplierErrorCode &
   TTaxProfileErrorCode &
   TDbErrorCode &
   TFileErrorCode &
@@ -72,6 +74,7 @@ export const AppValidation: TAuthErrorCode &
   ...UnitValidation,
   ...WarehouseMaterialValidation,
   ...StoreValidation,
+  ...SupplierValidation,
   ...TaxProfileValidation,
   ...DbValidation,
   ...FileValidation,

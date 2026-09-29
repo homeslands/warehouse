@@ -1,0 +1,266 @@
+import { Test, TestingModule } from '@nestjs/testing';
+import { getRepositoryToken } from '@nestjs/typeorm';
+import { getMapperToken } from '@automapper/nestjs';
+import { createMapper } from '@automapper/core';
+import { classes } from '@automapper/classes';
+import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { SupplierService } from './supplier.service';
+import { SupplierProfile } from './supplier.mapper';
+import { Supplier } from './supplier.entity';
+import { SupplierTransaction } from './supplier-transaction.entity';
+import { SupplierException } from './supplier.exception';
+import { SupplierValidation } from './supplier.validation';
+import { SupplierTransactionType } from './supplier.constants';
+import { Material } from 'src/material/material.entity';
+import { MaterialException } from 'src/material/material.exception';
+import { CurrentUserDto } from 'src/user/user.decorator';
+
+describe('SupplierService', () => {
+  let service: SupplierService;
+  const supplierRepository = {
+    findOneBy: jest.fn(),
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    findAndCount: jest.fn(),
+    softRemove: jest.fn(),
+  };
+  const transactionRepository = {
+    findOne: jest.fn(),
+    create: jest.fn(),
+    save: jest.fn(),
+    findAndCount: jest.fn(),
+  };
+  const materialRepository = {
+    findOne: jest.fn(),
+    findAndCount: jest.fn(),
+    countBy: jest.fn(),
+    update: jest.fn(),
+  };
+
+  const supplier = { id: 'sup-1', slug: 's1', code: 'NCC-01', name: 'Supplier A' } as Supplier;
+  const actor = { userId: 'u1' } as CurrentUserDto;
+
+  beforeEach(async () => {
+    jest.resetAllMocks();
+
+    const module: TestingModule = await Test.createTestingModule({
+      providers: [
+        SupplierService,
+        SupplierProfile,
+        { provide: getRepositoryToken(Supplier), useValue: supplierRepository },
+        { provide: getRepositoryToken(SupplierTransaction), useValue: transactionRepository },
+        { provide: getRepositoryToken(Material), useValue: materialRepository },
+        { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
+        { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
+      ],
+    }).compile();
+    await module.init();
+
+    service = module.get<SupplierService>(SupplierService);
+  });
+
+  it('should be defined', () => {
+    expect(service).toBeDefined();
+  });
+
+  describe('createSupplier', () => {
+    it('upper-cases code and saves when code is free', async () => {
+      supplierRepository.findOne.mockResolvedValue(null);
+      supplierRepository.create.mockImplementation((data) => data);
+      supplierRepository.save.mockImplementation(async (data) => ({ ...data, id: 'x' }));
+
+      const result = await service.createSupplier({ code: 'ncc-01', name: ' Supplier A ' });
+
+      expect(result).toMatchObject({ code: 'NCC-01', name: 'Supplier A' });
+    });
+
+    it('throws CODE_DOES_EXIST / CODE_RESERVED_BY_DELETED_SUPPLIER', async () => {
+      supplierRepository.findOne.mockResolvedValueOnce({ id: 'x' });
+      await expect(service.createSupplier({ code: 'NCC-01', name: 'A' })).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_CODE_DOES_EXIST.code,
+      });
+
+      supplierRepository.findOne.mockResolvedValueOnce({ id: 'x', deletedAt: new Date() });
+      await expect(service.createSupplier({ code: 'NCC-01', name: 'A' })).rejects.toBeInstanceOf(
+        SupplierException,
+      );
+    });
+  });
+
+  describe('updateSupplier — partial (PATCH)', () => {
+    it('keeps fields that were not sent and skips the code check', async () => {
+      supplierRepository.findOneBy.mockResolvedValue({ ...supplier, phonenumber: '0912345678' });
+      supplierRepository.save.mockImplementation(async (data) => data);
+
+      const result = await service.updateSupplier('s1', { address: 'Hà Nội' });
+
+      expect(result).toMatchObject({
+        code: 'NCC-01',
+        name: 'Supplier A',
+        phonenumber: '0912345678',
+        address: 'Hà Nội',
+      });
+      expect(supplierRepository.findOne).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteSupplier', () => {
+    it('refuses while materials are still attached', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      materialRepository.countBy.mockResolvedValue(2);
+
+      await expect(service.deleteSupplier('s1')).rejects.toBeInstanceOf(SupplierException);
+      expect(supplierRepository.softRemove).not.toHaveBeenCalled();
+    });
+
+    it('soft-removes when no material is attached', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      materialRepository.countBy.mockResolvedValue(0);
+
+      await expect(service.deleteSupplier('s1')).resolves.toBe(1);
+      expect(supplierRepository.softRemove).toHaveBeenCalledWith(supplier);
+    });
+  });
+
+  describe('attach / detach material', () => {
+    it('attaches a free material', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      materialRepository.findOne.mockResolvedValue({ id: 'm-1', slug: 'm1', supplier: null });
+
+      await service.attachMaterial('s1', 'm1');
+
+      expect(materialRepository.update).toHaveBeenCalledWith(
+        { id: 'm-1' },
+        { supplier: { id: 'sup-1' } },
+      );
+    });
+
+    it('refuses a material owned by another supplier', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      materialRepository.findOne.mockResolvedValue({ id: 'm-1', supplier: { id: 'other' } });
+
+      await expect(service.attachMaterial('s1', 'm1')).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER.code,
+      });
+      expect(materialRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('throws MATERIAL_NOT_FOUND for an unknown material', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      materialRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.attachMaterial('s1', 'missing')).rejects.toBeInstanceOf(
+        MaterialException,
+      );
+    });
+
+    it('detach refuses a material not attached to this supplier', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      materialRepository.findOne.mockResolvedValue({ id: 'm-1', supplier: null });
+
+      await expect(service.detachMaterial('s1', 'm1')).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED.code,
+      });
+    });
+  });
+
+  describe('createTransaction', () => {
+    beforeEach(() => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      transactionRepository.create.mockImplementation((data) => data);
+      transactionRepository.save.mockImplementation(async (data) => ({ ...data, id: 't-1' }));
+      transactionRepository.findOne.mockResolvedValue(null);
+    });
+
+    it('PURCHASE: computes amount = quantity × unitPrice, rounded to 2 decimals', async () => {
+      materialRepository.findOne.mockResolvedValue({ id: 'm-1', slug: 'm1', supplier });
+
+      const result = await service.createTransaction(actor, 's1', {
+        type: SupplierTransactionType.Purchase,
+        materialSlug: 'm1',
+        quantity: 1.333333,
+        unitPrice: 3,
+        amount: 999999, // bị bỏ qua
+      });
+
+      expect(transactionRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          quantity: 1.333333,
+          unitPrice: 3,
+          amount: 4,
+          performedBy: { id: 'u1' },
+        }),
+      );
+      expect(result).toMatchObject({ type: 'PURCHASE', amount: 4 });
+    });
+
+    it('PURCHASE: refuses a material not attached to this supplier', async () => {
+      materialRepository.findOne.mockResolvedValue({ id: 'm-1', supplier: { id: 'other' } });
+
+      await expect(
+        service.createTransaction(actor, 's1', {
+          type: SupplierTransactionType.Purchase,
+          materialSlug: 'm1',
+          quantity: 1,
+          unitPrice: 1,
+        }),
+      ).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED.code,
+      });
+      expect(transactionRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('PAYMENT: stores amount only', async () => {
+      await service.createTransaction(actor, 's1', {
+        type: SupplierTransactionType.Payment,
+        amount: 500000,
+      });
+
+      const saved = transactionRepository.save.mock.calls[0][0];
+      expect(saved).toMatchObject({ type: 'PAYMENT', amount: 500000 });
+      expect(saved.material).toBeUndefined();
+      expect(materialRepository.findOne).not.toHaveBeenCalled();
+    });
+
+    it('PAYMENT: refuses material fields', async () => {
+      await expect(
+        service.createTransaction(actor, 's1', {
+          type: SupplierTransactionType.Payment,
+          amount: 1,
+          materialSlug: 'm1',
+        }),
+      ).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL.code,
+      });
+    });
+  });
+
+  describe('findTransactions', () => {
+    it('throws when supplier is not found', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(null);
+
+      await expect(
+        service.findTransactions('missing', { page: 1, size: 10 }),
+      ).rejects.toBeInstanceOf(SupplierException);
+    });
+
+    it('filters by supplier/type and reads soft-deleted relations', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(supplier);
+      transactionRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findTransactions('s1', {
+        page: 1,
+        size: 10,
+        type: SupplierTransactionType.Payment,
+      });
+
+      expect(transactionRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { supplier: { id: 'sup-1' }, type: 'PAYMENT' },
+          withDeleted: true,
+        }),
+      );
+    });
+  });
+});
