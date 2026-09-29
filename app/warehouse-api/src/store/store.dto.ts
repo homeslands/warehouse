@@ -10,6 +10,7 @@ import {
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
+import { WarehouseManagerDto } from 'src/warehouse/warehouse.dto';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import {
   STORE_CODE_REGEX,
@@ -179,6 +180,15 @@ export class StoreResponseDto extends BaseResponseDto {
 
   @ApiPropertyOptional({ description: 'Tên kho gắn với cửa hàng' })
   warehouseName?: string;
+
+  // Store không có cột quản lý riêng — đây là `warehouse.manager` của kho đang gắn, dựng object thủ
+  // công bằng `forMember` (cùng shape với `WarehouseResponseDto.manager`). Trống nếu chưa gắn kho
+  // hoặc kho chưa phân công quản lý.
+  @ApiPropertyOptional({
+    description: 'Quản lý cửa hàng (quản lý của kho đang gắn)',
+    type: () => WarehouseManagerDto,
+  })
+  manager?: WarehouseManagerDto;
 }
 
 export class GetStoreWarehouseHistoryRequestDto extends BaseQueryDto {}
