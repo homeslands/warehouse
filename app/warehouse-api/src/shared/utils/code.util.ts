@@ -8,4 +8,10 @@
  */
 export const BUSINESS_CODE_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,30}[a-zA-Z0-9])$/;
 
+/**
+ * Mã đơn vị tính (`Unit.code`): cùng công thức `BUSINESS_CODE_REGEX` nhưng cho phép 1 ký tự
+ * (1-32) vì có ký hiệu đơn vị chuẩn chỉ 1 chữ, vd `L` (lít), `M` (mét), `G` (gam).
+ */
+export const UNIT_CODE_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,30}[a-zA-Z0-9])?$/;
+
 export const normalizeCode = (value?: string): string | undefined => value?.trim().toUpperCase();

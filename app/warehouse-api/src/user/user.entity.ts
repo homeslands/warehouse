@@ -9,6 +9,27 @@ export class User extends Base {
   @Column({ name: 'phonenumber_column', unique: true })
   phonenumber: string;
 
+  @AutoMap()
+  @Column({ name: 'first_name_column' })
+  firstName: string;
+
+  @AutoMap()
+  @Column({ name: 'last_name_column' })
+  lastName: string;
+
+  // `type: 'date'`: TypeORM trả về chuỗi `YYYY-MM-DD` (không phải `Date`), không dính múi giờ.
+  @AutoMap()
+  @Column({ name: 'dob_column', type: 'date', nullable: true })
+  dob?: string;
+
+  @AutoMap()
+  @Column({ name: 'email_column', nullable: true })
+  email?: string;
+
+  @AutoMap()
+  @Column({ name: 'address_column', nullable: true })
+  address?: string;
+
   @Column({ name: 'password_column' })
   password: string;
 

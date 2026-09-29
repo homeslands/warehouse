@@ -1,8 +1,9 @@
-import { IsBoolean, IsInt, IsNotEmpty, IsOptional, Min, ValidateIf } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, Min, ValidateIf } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
+import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -21,7 +22,8 @@ const OverrideThreshold = (message: string) => (target: object, key: string) => 
   IsOptional()(target, key);
   ValidateIf((o: Record<string, unknown>) => o[key] !== null && o[key] !== undefined)(target, key);
   Type(() => Number)(target, key);
-  IsInt({ message })(target, key);
+  // DECIMAL(18,6) từ migration `1783728000021` — ngưỡng phải cùng kiểu với tồn để so sánh được.
+  IsDecimalWithScale(6, { message })(target, key);
   Min(0, { message })(target, key);
 };
 
@@ -32,10 +34,10 @@ export class AssignWarehouseMaterialRequestDto {
   materialSlug: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Tồn ban đầu', default: 0, example: 0 })
+  @ApiPropertyOptional({ description: 'Tồn ban đầu (theo đơn vị cơ sở)', default: 0, example: 0 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt({ message: 'WAREHOUSE_MATERIAL_QUANTITY_INVALID' })
+  @IsDecimalWithScale(6, { message: 'WAREHOUSE_MATERIAL_QUANTITY_INVALID' })
   @Min(0, { message: 'WAREHOUSE_MATERIAL_QUANTITY_INVALID' })
   quantity?: number = 0;
 
@@ -77,11 +79,13 @@ export class UpdateWarehouseMaterialRequestDto {
 
 export class AdjustWarehouseMaterialQuantityRequestDto {
   @ApiProperty({
-    description: 'Số lượng cộng (dương) hoặc trừ (âm) vào tồn hiện tại. Không nhận 0.',
+    description:
+      'Số lượng cộng (dương) hoặc trừ (âm) vào tồn hiện tại, theo ĐƠN VỊ CƠ SỞ. Không nhận 0.',
     example: 5,
   })
   @Type(() => Number)
-  @IsInt({ message: 'WAREHOUSE_MATERIAL_DELTA_INVALID' })
+  // Cho phép số lẻ (tồn là DECIMAL(18,6)); dấu âm hợp lệ vì đây là delta.
+  @IsDecimalWithScale(6, { message: 'WAREHOUSE_MATERIAL_DELTA_INVALID' })
   @IsNotEmpty({ message: 'WAREHOUSE_MATERIAL_DELTA_INVALID' })
   delta: number;
 }
@@ -107,7 +111,7 @@ export class GetWarehouseMaterialRequestDto extends BaseQueryDto {
 
 export class WarehouseMaterialResponseDto extends BaseResponseDto {
   @AutoMap()
-  @ApiProperty({ description: 'Tồn thực tế trong kho này' })
+  @ApiProperty({ description: 'Tồn thực tế trong kho này, theo đơn vị cơ sở của vật tư' })
   quantity: number;
 
   @ApiPropertyOptional({

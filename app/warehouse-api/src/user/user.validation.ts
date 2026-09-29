@@ -6,6 +6,10 @@ export const USER_PHONENUMBER_IS_REQUIRED = 'USER_PHONENUMBER_IS_REQUIRED';
 export const USER_PHONENUMBER_INVALID = 'USER_PHONENUMBER_INVALID';
 export const USER_PASSWORD_IS_REQUIRED = 'USER_PASSWORD_IS_REQUIRED';
 export const USER_ROLE_SLUG_IS_REQUIRED = 'USER_ROLE_SLUG_IS_REQUIRED';
+export const USER_FIRST_NAME_IS_REQUIRED = 'USER_FIRST_NAME_IS_REQUIRED';
+export const USER_LAST_NAME_IS_REQUIRED = 'USER_LAST_NAME_IS_REQUIRED';
+export const USER_DOB_INVALID = 'USER_DOB_INVALID';
+export const USER_EMAIL_INVALID = 'USER_EMAIL_INVALID';
 export const USER_NOT_FOUND = 'USER_NOT_FOUND';
 export const USER_NEW_PASSWORD_IS_REQUIRED = 'USER_NEW_PASSWORD_IS_REQUIRED';
 export const CHANGE_PASSWORD_FORBIDDEN = 'CHANGE_PASSWORD_FORBIDDEN';
@@ -17,6 +21,10 @@ export type TUserErrorCodeKey =
   | typeof USER_PHONENUMBER_INVALID
   | typeof USER_PASSWORD_IS_REQUIRED
   | typeof USER_ROLE_SLUG_IS_REQUIRED
+  | typeof USER_FIRST_NAME_IS_REQUIRED
+  | typeof USER_LAST_NAME_IS_REQUIRED
+  | typeof USER_DOB_INVALID
+  | typeof USER_EMAIL_INVALID
   | typeof USER_NOT_FOUND
   | typeof USER_NEW_PASSWORD_IS_REQUIRED
   | typeof CHANGE_PASSWORD_FORBIDDEN
@@ -46,6 +54,22 @@ export const UserValidation: TUserErrorCode = {
     'Role slug is required',
     HttpStatus.BAD_REQUEST,
   ),
+  USER_FIRST_NAME_IS_REQUIRED: createErrorCode(
+    100410,
+    'First name is required',
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_LAST_NAME_IS_REQUIRED: createErrorCode(
+    100411,
+    'Last name is required',
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_DOB_INVALID: createErrorCode(
+    100412,
+    'Date of birth must be a valid date in YYYY-MM-DD format',
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_EMAIL_INVALID: createErrorCode(100413, 'Email is invalid', HttpStatus.BAD_REQUEST),
   USER_NOT_FOUND: createErrorCode(100405, 'User not found', HttpStatus.NOT_FOUND),
   USER_NEW_PASSWORD_IS_REQUIRED: createErrorCode(
     100406,

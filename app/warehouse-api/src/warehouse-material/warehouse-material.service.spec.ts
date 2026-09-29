@@ -54,7 +54,9 @@ describe('WarehouseMaterialService', () => {
     create: jest.fn(),
     save: jest.fn(),
     softRemove: jest.fn(),
+    findAndCount: jest.fn(),
     createQueryBuilder: jest.fn(),
+    metadata: { name: 'WarehouseMaterial' },
   };
   const warehouseRepository = { findOneBy: jest.fn() };
   const materialService = { findEntityBySlug: jest.fn() };
@@ -218,6 +220,19 @@ describe('WarehouseMaterialService', () => {
       );
     });
 
+    // Tồn là DECIMAL(18,6) từ migration `1783728000021`: nhập theo đơn vị nhỏ hơn đơn vị cơ sở cho
+    // ra delta lẻ, `Math.trunc` cũ sẽ nuốt sạch phần thập phân (0.5 -> 0).
+    it('giữ nguyên phần thập phân của delta thay vì cắt về số nguyên', async () => {
+      warehouseMaterialRepository.findOne.mockResolvedValue(row({ quantity: 20 }));
+      const builder = mockUpdateBuilder(1);
+
+      await service.adjustQuantity('wh-slug-1', 'mat-slug-1', { delta: 0.5 });
+
+      const setter = builder.set.mock.calls[0][0].quantity as () => string;
+      expect(setter()).toContain('0.5');
+      expect(builder.andWhere.mock.calls[0][0]).toContain('0.5');
+    });
+
     // `@IsNotEmpty()` của class-validator KHÔNG coi 0 là empty, nên rào này phải nằm ở service.
     it('rejects a zero delta before touching the database', async () => {
       await expectError(
@@ -225,6 +240,46 @@ describe('WarehouseMaterialService', () => {
         WarehouseMaterialValidation.WAREHOUSE_MATERIAL_DELTA_INVALID.code,
       );
       expect(warehouseMaterialRepository.createQueryBuilder).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findAll', () => {
+    const page = { page: 1, size: 10, sort: [] };
+
+    it('filters by warehouse/type and paginates without the query builder', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse());
+      warehouseMaterialRepository.findAndCount.mockResolvedValue([[row()], 11]);
+
+      const result = await service.findAll('wh-slug-1', { ...page, typeSlug: 'type-slug-1' });
+
+      const options = warehouseMaterialRepository.findAndCount.mock.calls[0][0];
+      expect(options).toMatchObject({
+        where: { warehouse: { id: 'wh-id-1' }, material: { type: { slug: 'type-slug-1' } } },
+        relations: { warehouse: true, material: { type: true } },
+        order: { createdAt: 'DESC' },
+        skip: 0,
+        take: 10,
+      });
+      expect(options.where.material.minimumInventory).toBeUndefined();
+      expect(options.where.material.maximumInventory).toBeUndefined();
+      expect(warehouseMaterialRepository.createQueryBuilder).not.toHaveBeenCalled();
+      expect(result).toMatchObject({ total: 11, totalPages: 2, hasNext: true, hasPrevios: false });
+    });
+
+    // Phải so với ngưỡng EFFECTIVE (override ?? mặc định của material), không phải chỉ override.
+    it('compares quantity against the effective thresholds', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse());
+      warehouseMaterialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug-1', { ...page, belowMinimum: true, aboveMaximum: true });
+
+      const { material: where } = warehouseMaterialRepository.findAndCount.mock.calls[0][0].where;
+      expect(where.minimumInventory.getSql('m.minimumInventory')).toBe(
+        'WarehouseMaterial.quantity < COALESCE(WarehouseMaterial.minimumInventory, m.minimumInventory)',
+      );
+      expect(where.maximumInventory.getSql('m.maximumInventory')).toBe(
+        'WarehouseMaterial.quantity > COALESCE(WarehouseMaterial.maximumInventory, m.maximumInventory)',
+      );
     });
   });
 

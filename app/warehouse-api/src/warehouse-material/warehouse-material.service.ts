@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { Repository } from 'typeorm';
+import { FindOptionsWhere, Raw, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -16,10 +16,12 @@ import { WarehouseMaterialException } from './warehouse-material.exception';
 import { WarehouseMaterialValidation } from './warehouse-material.validation';
 import { effectiveMaximum, effectiveMinimum } from './warehouse-material.util';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { Material } from 'src/material/material.entity';
 import { MaterialService } from 'src/material/material.service';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { roundToScale } from 'src/shared/utils/decimal.transformer';
 
 /**
  * `quantity` không bao giờ được tính bằng đọc-rồi-ghi, nên mọi read path chỉ cần đủ quan hệ để
@@ -85,31 +87,30 @@ export class WarehouseMaterialService {
   ): Promise<AppPaginatedResponseDto<WarehouseMaterialResponseDto>> {
     const warehouse = await this.findWarehouse(warehouseSlug);
 
-    // QueryBuilder chứ không `findAndCount`: 2 filter `belowMinimum`/`aboveMaximum` so với ngưỡng
-    // EFFECTIVE (`COALESCE(override, mặc định của material)`), không diễn đạt được bằng
-    // `FindOptionsWhere`. Lọc ở SQL để phân trang vẫn đúng tổng số.
-    const qb = this.warehouseMaterialRepository
-      .createQueryBuilder('wm')
-      .innerJoinAndSelect('wm.material', 'material')
-      .innerJoinAndSelect('material.type', 'type')
-      .innerJoinAndSelect('wm.warehouse', 'warehouse')
-      .where('warehouse.id_column = :warehouseId', { warehouseId: warehouse.id });
-
-    if (query.typeSlug) qb.andWhere('type.slug_column = :typeSlug', { typeSlug: query.typeSlug });
+    // 2 filter `belowMinimum`/`aboveMaximum` so với ngưỡng EFFECTIVE (`COALESCE(override, mặc định
+    // của material)`) — so cột với cột nên phải dùng `Raw`. `Raw` đặt trên cột của `material` để
+    // TypeORM truyền vào alias của bảng material đã join; phía `WarehouseMaterial` là alias gốc mà
+    // `find*` luôn đặt bằng `metadata.name`. Viết theo tên property (`quantity`, `minimumInventory`),
+    // TypeORM tự đổi sang tên cột thật. Lọc ở SQL để phân trang vẫn đúng tổng số.
+    const wm = this.warehouseMaterialRepository.metadata.name;
+    const materialWhere: FindOptionsWhere<Material> = {};
+    if (query.typeSlug) materialWhere.type = { slug: query.typeSlug };
     if (query.belowMinimum === true)
-      qb.andWhere(
-        'wm.quantity_column < COALESCE(wm.minimum_inventory_column, material.minimum_inventory_column)',
+      materialWhere.minimumInventory = Raw(
+        (minimum) => `${wm}.quantity < COALESCE(${wm}.minimumInventory, ${minimum})`,
       );
     if (query.aboveMaximum === true)
-      qb.andWhere(
-        'wm.quantity_column > COALESCE(wm.maximum_inventory_column, material.maximum_inventory_column)',
+      materialWhere.maximumInventory = Raw(
+        (maximum) => `${wm}.quantity > COALESCE(${wm}.maximumInventory, ${maximum})`,
       );
 
-    const [items, total] = await qb
-      .orderBy('wm.created_at_column', 'DESC')
-      .skip((query.page - 1) * query.size)
-      .take(query.size)
-      .getManyAndCount();
+    const [items, total] = await this.warehouseMaterialRepository.findAndCount({
+      where: { warehouse: { id: warehouse.id }, material: materialWhere },
+      relations: RELATIONS,
+      order: { createdAt: 'DESC' },
+      skip: (query.page - 1) * query.size,
+      take: query.size,
+    });
 
     const totalPages = Math.ceil(total / query.size);
     return {
@@ -148,8 +149,10 @@ export class WarehouseMaterialService {
     dto: AdjustWarehouseMaterialQuantityRequestDto,
   ): Promise<WarehouseMaterialResponseDto> {
     const context = `${WarehouseMaterialService.name}.${this.adjustQuantity.name}`;
-    // `@IsNotEmpty()` của class-validator KHÔNG chặn số 0 (0 không phải "empty"), nên phải chặn ở đây.
-    const delta = Math.trunc(Number(dto.delta));
+    // `@IsNotEmpty()` của class-validator KHÔNG chặn số 0 (0 không phải "empty"), nên phải chặn ở
+    // đây. KHÔNG `Math.trunc` nữa: tồn là DECIMAL(18,6) nên delta lẻ là hợp lệ — cắt phần thập phân
+    // sẽ nuốt mất lượng nhập theo đơn vị nhỏ hơn đơn vị cơ sở.
+    const delta = roundToScale(Number(dto.delta));
     if (!Number.isFinite(delta) || delta === 0)
       throw new WarehouseMaterialException(
         WarehouseMaterialValidation.WAREHOUSE_MATERIAL_DELTA_INVALID,
@@ -158,8 +161,8 @@ export class WarehouseMaterialService {
     const row = await this.findRow(warehouseSlug, materialSlug);
 
     // 1 câu UPDATE có điều kiện, KHÔNG đọc-rồi-ghi: 2 lần điều chỉnh đồng thời đều được cộng dồn
-    // thay vì mất 1. `delta` đã qua `Math.trunc(Number(...))` nên nội suy vào SQL là số, không phải
-    // chuỗi từ client. `affected === 0` nghĩa là điều kiện `>= 0` chặn lại.
+    // thay vì mất 1. `delta` đã qua `roundToScale(Number(...))` nên nội suy vào SQL là số thật,
+    // không phải chuỗi từ client. `affected === 0` nghĩa là điều kiện `>= 0` chặn lại.
     const result = await this.warehouseMaterialRepository
       .createQueryBuilder()
       .update(WarehouseMaterial)
