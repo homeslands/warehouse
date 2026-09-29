@@ -109,6 +109,13 @@ export const AuthorityCode = {
   RoleRead: 'ROLE_READ',
   RoleUpdate: 'ROLE_UPDATE',
   RoleDelete: 'ROLE_DELETE',
+
+  // ===== Seed ở migration 1783728000032 (Supplier — gồm cả giao dịch nhà cung cấp) =====
+  // Ghi giao dịch = `SupplierUpdate`; gắn/gỡ vật tư = `SupplierUpdate` + `MaterialUpdate`.
+  SupplierCreate: 'SUPPLIER_CREATE',
+  SupplierRead: 'SUPPLIER_READ',
+  SupplierUpdate: 'SUPPLIER_UPDATE',
+  SupplierDelete: 'SUPPLIER_DELETE',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];
 
