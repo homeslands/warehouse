@@ -23,10 +23,12 @@ import { CurrentUserDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
 
 /**
- * `manager` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path phải
- * truyền hằng này — thiếu nó thì response im lặng mất `managerSlug`, không có lỗi nào báo ra.
+ * `manager`/`store` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path
+ * phải truyền hằng này — thiếu nó thì response im lặng mất `managerSlug`/`storeSlug`, không có lỗi
+ * nào báo ra. `store` là inverse side (FK nằm ở `store_tbl`) nên `save(warehouse)` không ghi gì
+ * sang nó khi giá trị không đổi.
  */
-const WAREHOUSE_RELATIONS: FindOptionsRelations<Warehouse> = { manager: true };
+const WAREHOUSE_RELATIONS: FindOptionsRelations<Warehouse> = { manager: true, store: true };
 
 @Injectable()
 export class WarehouseService {

@@ -106,6 +106,20 @@ export class GetAllWarehouseRequestDto extends GetMyWarehouseRequestDto {
   hasManager?: boolean;
 }
 
+export class WarehouseManagerDto {
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  phonenumber: string;
+
+  @ApiProperty()
+  firstName: string;
+
+  @ApiProperty()
+  lastName: string;
+}
+
 export class WarehouseResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty()
@@ -131,11 +145,11 @@ export class WarehouseResponseDto extends BaseResponseDto {
   @ApiProperty()
   isActive: boolean;
 
-  // Flatten từ quan hệ `manager` bằng `forMember` (giống `UserResponseDto.roleSlug`) — không
-  // `@AutoMap()`, và không lồng nguyên `UserResponseDto` vào response.
-  @ApiPropertyOptional({ description: 'Slug của quản lý kho, bỏ trống nếu chưa phân công' })
-  managerSlug?: string;
-
-  @ApiPropertyOptional({ description: 'Số điện thoại của quản lý kho' })
-  managerPhonenumber?: string;
+  // Dựng object thủ công từ quan hệ `manager` bằng `forMember` — không `@AutoMap()`, và không lồng
+  // nguyên `UserResponseDto` (lộ role/dob/email... không cần thiết cho màn kho).
+  @ApiPropertyOptional({
+    description: 'Quản lý kho, bỏ trống nếu chưa phân công',
+    type: () => WarehouseManagerDto,
+  })
+  manager?: WarehouseManagerDto;
 }

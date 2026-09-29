@@ -51,6 +51,7 @@ Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `178372800002
 
 - `POST /warehouses` — tạo kho.
 - `GET /warehouses` — danh sách phân trang, filter `isActive`, `managerSlug`, `hasManager`. Người gọi là `MANAGER` chỉ nhận kho mình phụ trách (`managerSlug`/`hasManager` bị bỏ qua).
+- Mỗi kho trong response (list, `mine`, chi tiết, kết quả `PATCH`/`PUT`) kèm thông tin quản lý (`managerSlug`, `managerPhonenumber`, `managerFirstName`, `managerLastName`) và cửa hàng sở hữu (`storeSlug`, `storeName`) — bỏ trống nếu chưa gắn.
 - `GET /warehouses/mine` — kho mà người đang đăng nhập phụ trách (phân trang, filter `isActive`). **Phải khai trước `GET /:slug`** trong controller.
 - `GET /warehouses/:slug` — chi tiết.
 - `PATCH /warehouses/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ.
@@ -66,7 +67,6 @@ Hệ quả cần nhớ: kho `isActive = false` **không gắn được** cho c�
 
 ## Ngoài phạm vi (Out of scope)
 
-- Chưa trả `storeSlug` trong `WarehouseResponseDto` — muốn biết kho thuộc cửa hàng nào thì tra từ phía `GET /stores`.
 - Chưa hỗ trợ `sort` (`BaseQueryDto.sort` bị bỏ qua, luôn `createdAt DESC` — giống mọi module hiện có).
 - Chưa có row-level scoping của phiếu theo kho — sẽ làm cùng module phiếu. `GET /warehouses` đã lọc theo `MANAGER`, nhưng `GET /warehouses/:slug` thì chưa (MANAGER vẫn đọc được chi tiết kho khác nếu biết `slug`).
 - Chưa giới hạn 1 manager chỉ được 1 kho.

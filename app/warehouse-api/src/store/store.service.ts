@@ -31,9 +31,16 @@ import { User } from 'src/user/user.entity';
 
 /**
  * `warehouse` cố ý KHÔNG `eager` trên entity (xem `store.entity.ts`), nên mọi read path phải truyền
- * hằng này — thiếu nó thì response im lặng mất `warehouseSlug`, không có lỗi nào báo ra.
+ * hằng này — thiếu nó thì response im lặng mất `warehouseSlug`/`manager`, không có lỗi nào báo ra.
+ * Store không có cột quản lý riêng: `manager` của cửa hàng chính là `warehouse.manager`.
  */
-const STORE_RELATIONS: FindOptionsRelations<Store> = { warehouse: true };
+const STORE_RELATIONS: FindOptionsRelations<Store> = { warehouse: { manager: true } };
+
+/**
+ * Bản rút gọn cho `SELECT ... FOR UPDATE` trong `applyWarehouse` — không join `manager` để khỏi khoá
+ * luôn dòng `user_tbl`. `manager` của kho đích lấy qua `resolveWarehouse` thay vào đó.
+ */
+const STORE_LOCK_RELATIONS: FindOptionsRelations<Store> = { warehouse: true };
 
 const HISTORY_RELATIONS: FindOptionsRelations<StoreWarehouseHistory> = {
   previousWarehouse: true,
@@ -263,7 +270,7 @@ export class StoreService {
 
     const store = await stores.findOne({
       where: { slug },
-      relations: STORE_RELATIONS,
+      relations: STORE_LOCK_RELATIONS,
       lock: WRITE_LOCK,
     });
     if (!store) throw new StoreException(StoreValidation.STORE_NOT_FOUND);
@@ -274,6 +281,8 @@ export class StoreService {
         : // Tra kho qua `manager` (không import `WarehouseModule`, giống `WarehouseMaterialService`).
           await this.resolveWarehouse(manager.getRepository(Warehouse), warehouseSlug);
     const previous = store.warehouse ?? null;
+    // Gán `target` (đã kèm `manager`) cho cả nhánh idempotent: bản khoá ở trên không join `manager`.
+    store.warehouse = target;
     // Idempotent: không đổi gì thì không ghi DB và không đẻ dòng lịch sử rác.
     if ((previous?.id ?? null) === (target?.id ?? null)) return store;
 
@@ -314,7 +323,6 @@ export class StoreService {
       }),
     );
 
-    store.warehouse = target;
     return store;
   }
 
@@ -323,7 +331,10 @@ export class StoreService {
     warehouseSlug: string,
   ): Promise<Warehouse> {
     // Kho đã xoá mềm bị `findOneBy` loại sẵn ⇒ rơi vào nhánh không tìm thấy, không cần mã lỗi riêng.
-    const warehouse = await warehouses.findOneBy({ slug: warehouseSlug });
+    const warehouse = await warehouses.findOne({
+      where: { slug: warehouseSlug },
+      relations: { manager: true },
+    });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
     if (!warehouse.isActive) throw new StoreException(StoreValidation.STORE_WAREHOUSE_INACTIVE);
     return warehouse;

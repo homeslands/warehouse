@@ -79,6 +79,20 @@ export class StoreProfile extends AutomapperProfile {
           (d) => d.warehouseName,
           mapFrom((s) => s.warehouse?.name),
         ),
+        forMember(
+          (d) => d.manager,
+          mapFrom((s) => {
+            const manager = s.warehouse?.manager;
+            return manager
+              ? {
+                  slug: manager.slug,
+                  phonenumber: manager.phonenumber,
+                  firstName: manager.firstName,
+                  lastName: manager.lastName,
+                }
+              : undefined;
+          }),
+        ),
       );
 
       createMap(

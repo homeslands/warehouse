@@ -46,7 +46,8 @@ Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `178372800002
 - **Nullable**: cửa hàng chưa gắn kho (và kho chưa thuộc cửa hàng nào) là trạng thái hợp lệ. MySQL cho phép nhiều NULL trong UNIQUE index nên nhiều cửa hàng cùng ở trạng thái "chưa gắn" vẫn OK. `POST /stores` **không** nhận `warehouseSlug` — tạo xong mới gắn.
 - **Gắn/gỡ qua endpoint riêng** `PUT /stores/:slug/warehouse` (body `{ warehouseSlug: string | null }`), **không** qua `PATCH /stores/:slug` — nó thay thế đúng 1 slot và idempotent, cùng tinh thần `PUT /warehouses/:slug/manager`. `warehouseSlug: null` là đường gỡ gắn kết duy nhất (không có `DELETE` riêng).
 - Quan hệ **không `eager`**: mọi read path phải truyền `relations: { warehouse: true }`, thiếu là response im lặng mất `warehouseSlug`.
-- Response `StoreResponseDto` flatten thành `warehouseSlug` + `warehouseName` (giống `WarehouseResponseDto.managerSlug`), không trả nguyên entity `Warehouse`.
+- Response `StoreResponseDto` flatten thành `warehouseSlug` + `warehouseName`, không trả nguyên entity `Warehouse`.
+- `StoreResponseDto.manager` (`{ slug, phonenumber, firstName, lastName }`, cùng shape `WarehouseResponseDto.manager`) = quản lý của **kho đang gắn** (`warehouse.manager`) — store không có cột quản lý riêng. Trống khi chưa gắn kho hoặc kho chưa phân công quản lý. Read path load `relations: { warehouse: { manager: true } }`; riêng `SELECT ... FOR UPDATE` trong gắn/gỡ/restore chỉ join `warehouse` (không khoá dòng `user_tbl`), `manager` lấy từ lần tra kho đích.
 
 Quy tắc khi gắn:
 
@@ -114,11 +115,10 @@ Mã lỗi dùng dải **`1010xx`** (`101001`+) — dải chưa module nào dùng
 - **Quản lý sản phẩm theo store** — chưa có FK `Product → Store`, chưa có bảng `Product`.
 - Chưa lọc danh sách theo kho (`GET /stores` chưa có `warehouseSlug`/`hasWarehouse` như `GET /warehouses` có `managerSlug`/`hasManager`).
 - Chưa cho gắn kho ngay trong `POST /stores` — phải tạo store rồi gọi `PUT /stores/:slug/warehouse`.
-- Chưa có chiều đọc ngược qua API kho (`GET /warehouses/:slug` chưa trả `storeSlug`) — quan hệ inverse đã khai ở entity nhưng chưa dùng ở read path nào của module `warehouse`.
 - Xoá mềm cửa hàng **không** tự nhả kho: FK vẫn giữ, nhưng gắn kho đó cho cửa hàng khác sẽ tự gỡ nó khỏi cửa hàng đã xoá (ghi `RELEASED`).
 - Chưa hỗ trợ `sort` (`BaseQueryDto.sort` bị bỏ qua, luôn `createdAt DESC` — giống mọi module hiện có).
 - Chưa có API restore store đã xoá mềm, chưa có audit log đổi thông tin pháp nhân.
-- Chưa có phân công người phụ trách store (khác `warehouse` — store chưa có `manager`).
+- Chưa có phân công người phụ trách store riêng — `manager` trong response chỉ là quản lý của kho đang gắn, đổi bằng `PUT /warehouses/:slug/manager`.
 - Chưa validate MST theo thuật toán checksum thật của Tổng cục Thuế, chỉ check format `/^\d{10}(-\d{3})?$/`.
 
 ## Câu hỏi mở / chưa chốt
