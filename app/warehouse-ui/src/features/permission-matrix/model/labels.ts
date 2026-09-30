@@ -9,6 +9,7 @@ import { isAuthorityCode } from '@/shared/api/authority-codes'
 export const GROUP_KEYS = {
   Example: 'example',
   'Permission Management': 'permissionManagement',
+  Role: 'role',
   System: 'system',
   'User Management': 'userManagement',
   'Import Form': 'importForm',

@@ -35,8 +35,7 @@ const warehouse: Warehouse = {
   address: 'Số 1, Cầu Giấy, Hà Nội',
   phonenumber: '02412345678',
   isActive: true,
-  managerSlug: 'u-manager',
-  managerPhonenumber: '0901234567',
+  manager: { slug: 'u-manager', phonenumber: '0901234567', firstName: '', lastName: '' },
 }
 
 function LocationProbe() {
@@ -180,21 +179,21 @@ describe('WarehousesPage — bảng', () => {
     expect(router.state.location.state).toEqual({ backTo: '/warehouses?isActive=false' })
   })
 
-  it('kho chưa có quản lý / chưa có điện thoại hiện "—", không để ô trống', async () => {
+  it('kho chưa có quản lý / chưa có điện thoại hiện "Chưa có" (chữ xám), không để ô trống', async () => {
     captureQuery([
       {
         ...warehouse,
         phonenumber: undefined,
-        managerSlug: undefined,
-        managerPhonenumber: undefined,
+        manager: undefined,
       },
     ])
     renderPage()
 
     const row = (await screen.findByText('Kho Hà Nội 1')).closest('tr')!
     const cells = within(row).getAllByRole('cell')
-    expect(cells[3]).toHaveTextContent(/^—$/)
-    expect(cells[4]).toHaveTextContent(/^—$/)
+    expect(cells[3]).toHaveTextContent(/^Chưa có$/)
+    expect(cells[4]).toHaveTextContent(/^Chưa có$/)
+    expect(within(cells[3]).getByText('Chưa có')).toHaveClass('text-muted-foreground')
   })
 
   it('kho đã ngừng hoạt động hiện badge "Ngừng hoạt động"', async () => {
@@ -512,6 +511,25 @@ describe('WarehousesPage — lọc theo quản lý và gán quản lý', () => {
       expect(screen.getByTestId('location')).toHaveTextContent('managerSlug=u-manager'),
     )
     await waitFor(() => expect(seen.at(-1)).toContain('managerSlug=u-manager'))
+  })
+
+  it('ô lọc quản lý hiện "Họ Tên (số điện thoại)"; chưa có tên thì chỉ số điện thoại', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/users`, () =>
+        paginated([
+          { ...managers[0], lastName: 'Trần', firstName: 'Thị B' },
+          { ...managers[0], slug: 'u-khong-ten', phonenumber: '0907777777' },
+        ]),
+      ),
+    )
+    const { user } = renderPage()
+    await screen.findByText('Kho Hà Nội 1')
+
+    await user.click(screen.getByRole('combobox', { name: 'Lọc theo quản lý' }))
+    const list = await screen.findByRole('listbox')
+
+    expect(within(list).getByText(`Trần Thị B (${managers[0].phonenumber})`)).toBeInTheDocument()
+    expect(within(list).getByText('0907777777')).toBeInTheDocument()
   })
 
   it('managerSlug trên URL không nằm trong danh sách ứng viên vẫn hiện ra và xoá được', async () => {

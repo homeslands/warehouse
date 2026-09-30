@@ -2,8 +2,8 @@
  * Mã quyền (`Authority.code`) mà FE dùng trong `can()` và `handle.authority`. Có kiểu để gõ sai là
  * lỗi biên dịch — không có danh sách này thì `can(user, 'WAREHOUSE_CREAT')` lặng lẽ trả `false`.
  *
- * Nguồn gốc: `app/warehouse-api/src/authority/authority.constants.ts` (đồng bộ 2026-09-25 với
- * `WMS-10-be(1)`, 60 mã). Danh sách là BẢN SAO nên có thể lệch: màn `/permissions` so với
+ * Nguồn gốc: `app/warehouse-api/src/authority/authority.constants.ts` (đồng bộ 2026-09-30 với
+ * `WMS-10-be(8)`, 64 mã). Danh sách là BẢN SAO nên có thể lệch: màn `/permissions` so với
  * `GET /authorities` và `console.warn` khi dev (`authorityCodeDrift`). Thấy cảnh báo thì sửa ở đây.
  *
  * Route nối hai tài nguyên KHÔNG có mã riêng — backend gắn `@RequireAuthority(A, B)` (AND), vd gán
@@ -17,6 +17,11 @@ export const AUTHORITY_CODES = [
   'MANAGE_PERMISSIONS',
   'DB_BACKUP',
   'LOGGER_READ',
+  // Vai trò (`WMS-10-be(5)`): `GET /roles` cần `ROLE_READ`
+  'ROLE_CREATE',
+  'ROLE_READ',
+  'ROLE_UPDATE',
+  'ROLE_DELETE',
   // Người dùng
   'USER_CREATE',
   'USER_READ',

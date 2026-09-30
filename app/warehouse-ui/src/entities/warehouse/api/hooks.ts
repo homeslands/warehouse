@@ -5,7 +5,6 @@ import type { ApiError, ListParams } from '@/shared/api/types'
 import {
   assignWarehouseManager,
   createWarehouse,
-  fetchMyWarehouses,
   fetchWarehouse,
   fetchWarehouses,
   removeWarehouse,
@@ -14,7 +13,6 @@ import {
 import { warehouseKeys } from './query-keys'
 import type {
   AssignWarehouseManagerInput,
-  MyWarehouseFilters,
   Warehouse,
   WarehouseFilters,
   WarehouseInput,
@@ -95,19 +93,6 @@ export function useWarehouse(slug: string) {
     queryKey: warehouseKeys.detail(slug),
     queryFn: () => fetchWarehouse(slug),
     meta: { suppressErrorToast: true },
-  })
-}
-
-/** Kho do chính người đang đăng nhập quản lý. `enabled` để trang chỉ gọi khi đang ở chế độ đó. */
-export function useMyWarehouses(
-  params: ListParams<MyWarehouseFilters>,
-  options: { enabled?: boolean } = {},
-) {
-  return useQuery({
-    queryKey: warehouseKeys.mine(params),
-    queryFn: () => fetchMyWarehouses(params),
-    enabled: options.enabled ?? true,
-    placeholderData: keepPreviousData,
   })
 }
 

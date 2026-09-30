@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 
 import { cn } from '@/shared/lib/cn'
-import { EMPTY_VALUE } from '@/shared/lib/format'
+import { EmptyValue } from '@/shared/ui/EmptyValue'
 
 /**
  * Card tổng quan của trang chi tiết: một tiêu đề, các `DetailGroup` ngăn bằng đường kẻ mảnh,
@@ -39,7 +39,7 @@ export function DetailGroup({ title, children }: { title?: ReactNode; children: 
 
 /**
  * Một trường: nhãn nằm trên giá trị. `span="full"` cho trường dài (địa chỉ, mô tả) chiếm trọn
- * chiều ngang. Giá trị trống: bên gọi truyền `EMPTY_VALUE`.
+ * chiều ngang. Giá trị trống: bên gọi truyền `<EmptyValue />`.
  */
 export function DetailField({
   label,
@@ -72,9 +72,9 @@ export function DetailMeta({ items }: { items: { label: ReactNode; value: ReactN
   )
 }
 
-/** Điện thoại / email dạng link `tel:` / `mailto:`; trống thì hiện `EMPTY_VALUE`. */
+/** Điện thoại / email dạng link `tel:` / `mailto:`; trống thì hiện `<EmptyValue />`. */
 export function DetailContact({ kind, value }: { kind: 'tel' | 'mailto'; value?: string | null }) {
-  if (!value) return EMPTY_VALUE
+  if (!value) return <EmptyValue />
   return (
     <a href={`${kind}:${value}`} className="underline-offset-4 hover:underline">
       {value}

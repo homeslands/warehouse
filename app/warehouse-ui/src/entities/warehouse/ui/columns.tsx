@@ -1,7 +1,9 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import type { TFunction } from 'i18next'
 import { Link } from 'react-router-dom'
-import { EMPTY_VALUE, formatDateTime } from '@/shared/lib/format'
+import { formatDateTime } from '@/shared/lib/format'
+import { EmptyValue } from '@/shared/ui/EmptyValue'
+import { formatPersonLabel } from '@/shared/lib/person-name'
 import type { Warehouse } from '../model/types'
 import { WarehouseStatusBadge } from './WarehouseStatusBadge'
 
@@ -10,7 +12,7 @@ export type DetailLink<T> = (row: T) => { to: string; state?: unknown }
 
 /**
  * Không có cột sắp xếp: `BaseQueryDto` nhận `sort` nhưng chưa service nào xử lý (mọi danh sách
- * `createdAt DESC`). Cột Quản lý hiện `managerPhonenumber` — backend KHÔNG trả tên quản lý.
+ * `createdAt DESC`). Cột Quản lý hiện "Họ tên (số điện thoại)" từ `manager`.
  * Khung bảng hẹp ẩn cột phụ (`meta.hideBelow`, theo container) — hẹp nhất còn Tên, Trạng thái, Thao tác;
  * đủ thông tin ở trang chi tiết. Tên được xuống dòng nhưng giữ tối thiểu 5rem.
  * Ô ngày format lúc render: bảng render lại khi đổi ngôn ngữ vì trang gọi `useTranslation()`.
@@ -53,13 +55,14 @@ export function buildWarehouseColumns(
       accessorKey: 'phonenumber',
       meta: { sortField: 'phonenumber', hideBelow: '@4xl' },
       header: t('warehouses:columnPhonenumber'),
-      cell: ({ row }) => row.original.phonenumber || EMPTY_VALUE,
+      cell: ({ row }) => row.original.phonenumber || <EmptyValue />,
     },
     {
       id: 'manager',
       meta: { hideBelow: '@2xl' },
       header: t('warehouses:columnManager'),
-      cell: ({ row }) => row.original.managerPhonenumber || EMPTY_VALUE,
+      cell: ({ row }) =>
+        row.original.manager ? formatPersonLabel(row.original.manager) : <EmptyValue />,
     },
     {
       id: 'status',

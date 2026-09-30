@@ -8,8 +8,8 @@
  * - **Không có `version`.** Mọi endpoint ghi khác trong hệ thống đều đòi `version`, nên đề xuất có
  *   xin `GET /auth/me` trả thêm — tới lúc đó `version` vẫn optional và form chỉ gửi khi có.
  *
- * `fullName` / `email` **chưa có ở backend** — xem
- * `docs/proposals/2026-09-23-account-profile-and-sessions.md`.
+ * Hồ sơ (`phonenumber`, `firstName`, `lastName`, `email`, `dob`, `address`) backend đã trả từ 2026-09-30;
+ * sửa hồ sơ (`PATCH /auth/me`) thì chưa — xem `docs/proposals/2026-09-23-account-profile-and-sessions.md`.
  */
 export type Profile = {
   userId: string
@@ -18,8 +18,14 @@ export type Profile = {
   scope: string[]
   sessionId?: string
   version?: number
+  /** Chỉ phần sửa hồ sơ (sau cờ `profileEdit`) còn dùng — backend thực tế trả `firstName`/`lastName`. */
   fullName?: string
-  email?: string
+  phonenumber?: string
+  firstName?: string
+  lastName?: string
+  email?: string | null
+  dob?: string | null
+  address?: string | null
   isActive?: boolean
 }
 

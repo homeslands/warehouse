@@ -2,7 +2,6 @@ import { deleteData, getData, getPaginated, patchData, postData, putData } from 
 import type { ListParams, Paginated } from '@/shared/api/types'
 import type {
   AssignWarehouseManagerInput,
-  MyWarehouseFilters,
   Warehouse,
   WarehouseFilters,
   WarehouseInput,
@@ -34,8 +33,3 @@ export const assignWarehouseManager = (
 
 export const fetchWarehouse = (slug: string): Promise<Warehouse> =>
   getData<Warehouse>(`/warehouses/${slug}`)
-
-/** Kho do CHÍNH người đang đăng nhập quản lý. Backend tự lọc theo người gọi, không gác quyền riêng. */
-export const fetchMyWarehouses = (
-  params: ListParams<MyWarehouseFilters>,
-): Promise<Paginated<Warehouse>> => getPaginated<Warehouse>('/warehouses/mine', params)

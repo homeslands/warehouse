@@ -102,12 +102,12 @@ describe('ExamplesPage — hiển thị và quyền', () => {
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('mô tả rỗng hiện "—", không để ô trống', async () => {
+  it('mô tả rỗng hiện "Chưa có", không để ô trống', async () => {
     server.use(mswHttp.get(`${BASE}/examples`, () => paginated([{ ...example, description: '' }])))
     renderPage()
 
     const row = (await screen.findByText('Example A')).closest('tr')!
-    expect(within(row).getAllByRole('cell')[1]).toHaveTextContent(/^—$/)
+    expect(within(row).getAllByRole('cell')[1]).toHaveTextContent(/^Chưa có$/)
   })
 
   it('cột Ngày tạo theo ngôn ngữ đang chọn, đổi ngôn ngữ thì đổi định dạng', async () => {

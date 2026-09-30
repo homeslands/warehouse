@@ -28,8 +28,7 @@ const warehouse: Warehouse = {
   address: 'Số 1, Cầu Giấy, Hà Nội',
   phonenumber: '02412345678',
   isActive: true,
-  managerSlug: 'u-manager',
-  managerPhonenumber: '0901234567',
+  manager: { slug: 'u-manager', phonenumber: '0901234567', firstName: '', lastName: '' },
 }
 
 const roles: Role[] = [{ slug: 'r-manager', name: 'MANAGER', authorityCodes: [] }]

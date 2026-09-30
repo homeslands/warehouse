@@ -111,7 +111,9 @@ Alias `@/*` → `./src/*` nằm ở **cả hai** file:
    - `authority`: gác theo **quyền** (`Authority.code`, endpoint gắn `@RequireAuthority(...)` ở
      backend thay vì `@HasRole`). Khai cùng `roles` thì phải qua **cả hai** (AND) — khớp cách
      backend tách `@HasRole` và `@RequireAuthority` thành hai guard độc lập. Ví dụ: `/permissions`
-     khai `handle.authority: 'MANAGE_PERMISSIONS'`. Chuỗi rỗng bị coi như không khai (fail-closed,
+     khai `handle.authority: ['MANAGE_PERMISSIONS', 'ROLE_READ']` — **mảng = phải có tất cả** (màn gọi
+     nhiều endpoint gác bằng mã khác nhau; kiểm bằng `hasAuthority` trong `app/routes/handle.ts`).
+     Chuỗi rỗng bị coi như không khai (fail-closed,
      xem `readHandle` ở `app/routes/handle.ts`) — đừng khai `authority: ''` để "tạm tắt gác".
    - Không thêm route `loader` (kể cả trả từ `lazy`) trừ khi kiểm quyền trước: loader chạy trước
      `RoleGate` (RoleGate chỉ là layout render sau khi loader xong).
@@ -143,7 +145,8 @@ Alias `@/*` → `./src/*` nằm ở **cả hai** file:
      `<x>Abilities(user, BACKEND_SUPPORTS)`; test truyền cờ trực tiếp (không mock module). Route đọc
      cờ qua `createRoutes({ capabilities })`.
    - Nút mở hộp cần tải dữ liệu của **endpoint khác** thì cần cả quyền đó: gán quản lý kho =
-     `WAREHOUSE_ASSIGN_MANAGER` **và** `USER_READ` (hộp tải `GET /users`); gán kho cho cửa hàng =
+     `WAREHOUSE_ASSIGN_MANAGER` **và** `USER_READ` **và** `ROLE_READ` (hộp tải `GET /roles` rồi `GET /users`);
+     gán kho cho cửa hàng =
      `STORE_UPDATE` **và** `WAREHOUSE_UPDATE` (chính endpoint gán đòi cả hai) **và** `WAREHOUSE_READ`
      (hộp tải danh sách kho).
    Không có quyền thì ẩn hẳn nút, và **không dựng cột thao tác** khi không còn nút nào trong cột
@@ -382,7 +385,9 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   (`AssignStoreWarehouseDialog` invalidate cả `warehouseKeys.all` lẫn `storeKeys.all`), không phải
   trong hook của một entity — ranh giới FSD: `entities/store` không được import `entities/warehouse`.
 - **Hiển thị**: `formatNumber` / `formatCurrency` (VND) / `formatDate` / `formatDateTime` (`shared/lib/format.ts`)
-  theo ngôn ngữ đang chọn, rỗng → `—`. Component dùng chúng phải gọi `useTranslation()`.
+  theo ngôn ngữ đang chọn, rỗng → `—`. Ô bảng / trang chi tiết **thiếu giá trị** thì dùng `<EmptyValue />`
+  (`shared/ui/EmptyValue.tsx`): chữ xám "Chưa có" / "Not set" — không `—`, không `N/A`; trường có câu riêng
+  ("Chưa có quản lý", "Chưa gán kho") thì dùng câu đó. Component dùng chúng phải gọi `useTranslation()`.
 - **Test**: `renderWithProviders(ui, { route, auth: 'admin' | 'customer' | CurrentUser | 'none', queryClient })`.
   `auth` được tầng app tiêm qua `src/app/test-setup.ts` (shared không import entities).
   Chọn giá trị trong một `Select`: dùng `chooseOption(user, '<tên ô>', '<nhãn mục>')` /
@@ -431,7 +436,7 @@ backend cho nó qua trước khi nhìn `scope`):
 - `can(user, 'CODE')` gác theo **quyền** — `CODE` là một `Authority.code`, tra trong `user.scope`
   (mảng mã authority, `entities/session/model/permissions.ts`; nạp từ Redis mỗi request nên vừa
   bật/tắt quyền admin là có hiệu lực ngay). Từ `WMS-10-be(1)` (2026-09-25) backend gác **mọi**
-  endpoint nghiệp vụ bằng `@RequireAuthority` — **60 mã**, seed mặc định chép đúng `@HasRole` cũ.
+  endpoint nghiệp vụ bằng `@RequireAuthority` — **64 mã** (thêm `ROLE_*` từ `WMS-10-be(5)`: `GET /roles` cần `ROLE_READ`), seed mặc định chép đúng `@HasRole` cũ.
   **Nhiều mã trong một decorator là AND**: route nối hai tài nguyên không có mã riêng (gán kho cho
   cửa hàng = `STORE_UPDATE` + `WAREHOUSE_UPDATE`; vật tư trong kho = `MATERIAL_*` + `WAREHOUSE_*`) →
   FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
@@ -449,7 +454,7 @@ Mã authority có **kiểu**: `AuthorityCode` / `AUTHORITY_CODES` (`shared/api/a
 bản sao của `app/warehouse-api/src/authority/authority.constants.ts`. `can()` và `handle.authority`
 chỉ nhận mã trong danh sách — gõ sai là lỗi biên dịch (có test `@ts-expect-error` giữ điều này).
 Bản sao thì có thể lệch: màn `/permissions` so với `GET /authorities` và `console.warn` khi dev
-(`authorityCodeDrift`) — thấy cảnh báo thì sửa danh sách (đồng bộ lần cuối 2026-09-25, 60 mã).
+(`authorityCodeDrift`) — thấy cảnh báo thì sửa danh sách (đồng bộ lần cuối 2026-09-30, 64 mã).
 
 `scope` nạp một lần vào store lúc mở phiên, không tự làm mới. Người dùng tự đổi quyền của **chính
 role mình** (`features/permission-matrix`) thì phải gọi `refreshCurrentUser()`
@@ -465,7 +470,7 @@ route (xem "Thêm một màn hình nghiệp vụ mới") — khai **cả hai** t
 backend tách `@HasRole` và `@RequireAuthority` thành hai guard độc lập. `RoleGate` đưa về
 `/forbidden`, `buildNav` ẩn mục menu — cả hai đọc `handle` của match sâu nhất có khai; không bọc
 từng route bằng component guard. Màn `/permissions` (`pages/permissions`) là ví dụ gác bằng quyền:
-`handle.authority: 'MANAGE_PERMISSIONS'`, nav nhóm `admin`.
+`handle.authority: ['MANAGE_PERMISSIONS', 'ROLE_READ']`, nav nhóm `admin`.
 
 Màn `/permissions` **không** hiện tên quyền backend trả về (lẫn Anh–Việt: "Create user" cạnh "Tạo
 phiếu nhập kho"): tên quyền dịch theo **mã** (`permissions:authorityNames.<CODE>`), tên nhóm dịch theo
@@ -482,11 +487,18 @@ nhánh chữ (cấp / gỡ / tự thu hồi `MANAGE_PERMISSIONS` của chính ro
 cả ba, có test riêng cho từng nhánh. Toast **thành công** nằm trong `useTogglePermission`, toast lỗi
 vẫn để chốt `MutationCache.onError` lo như mọi nơi khác.
 
-Công tắc **"Kho tôi quản lý"** trên `/warehouses` (`?scope=mine`, nguồn `GET /warehouses/mine`) chỉ hiện
-với vai trò **MANAGER** — so `user.roleName` trực tiếp, không `hasRole` (hàm đó cho SUPER_ADMIN qua).
-Đây là ngoại lệ có chủ đích của luật "gác theo quyền": backend chỉ cho gán người vai trò MANAGER làm
-quản lý kho (`100516`), nên với vai trò khác danh sách luôn trống. Người khác mở link `?scope=mine`
-thì bị bỏ qua tham số, thấy danh sách đầy đủ.
+**Tên vai trò hiển thị** luôn qua `useRoleLabel()` (`entities/session`, khoá `common:roles.<ROLE>`):
+`MANAGER` → "Quản lý" / "Manager". Không in thẳng `roleName` ra UI (góc avatar, trang Tài khoản, cột và hộp
+xác nhận ở `/permissions`). Vai trò lạ → hiện nguyên mã. Họ tên người: `formatFullName` / `initialsOf` / `formatPersonLabel`
+(`shared/lib/person-name.ts`), họ trước tên. Người đăng nhập chưa có tên → hiện "Người dùng" (`common:unnamedUser`) kèm
+icon, **không** lấy số điện thoại làm tên (số điện thoại ở dòng phụ).
+
+**MANAGER chỉ thấy phần của mình — backend lọc** (`WMS-10-be(7)`): `GET /warehouses` trả kho mình được gán làm
+quản lý, `GET /stores` trả cửa hàng gắn với các kho đó; `managerSlug`/`hasManager` bị bỏ qua. FE vì vậy **không**
+có công tắc "kho của tôi", không gọi `/warehouses/mine`, ẩn hai bộ lọc theo quản lý và dùng câu báo trống riêng
+(`warehouses:mineEmpty`, `stores:mineEmpty`). Backend so vai trò bằng `hasRole(Manager)` **không** miễn
+SUPER_ADMIN → FE so `user.roleName === ROLES.MANAGER`, không dùng `hasRole` của FE. Chi tiết `GET /…/:slug`
+backend **chưa** lọc (MANAGER mở link kho khác vẫn xem được).
 
 ## Đa ngôn ngữ
 
@@ -564,8 +576,9 @@ mất công tìm cách sửa nó.
 
 - **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
   bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
-  nhưng backend **chưa có endpoint nào** — `user_tbl` cũng chưa có cột `fullName`/`email`, và
-  `GET /auth/me` đang trả `userName` chính là số điện thoại. Xem
+  nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,
+  `firstName`, `lastName`, `email`, `dob`, `address`) — góc avatar và trang Tài khoản hiện họ tên (lùi về
+  `userName` khi tên rỗng); form sửa hồ sơ sau cờ vẫn dùng `fullName` cũ, phải đổi khi backend có `PATCH`. Xem
   `docs/proposals/2026-09-23-account-profile-and-sessions.md`. Phần sau cờ có test riêng chạy với
   cờ BẬT (`pages/account/ui/AccountPage.flags.test.tsx`).
 - **Env nhét vào bundle lúc build.** Mỗi môi trường cần một image riêng; không promote image từ

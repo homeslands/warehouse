@@ -130,9 +130,9 @@ export function createRoutes({
       lazy: () => import('@/pages/permissions').then((m) => ({ Component: m.PermissionsPage })),
       // Gác bằng authority, KHÔNG bằng role: backend gác endpoint bật/tắt bằng
       // @RequireAuthority(MANAGE_PERMISSIONS). Gác bằng role thì admin bị thu hồi quyền vẫn vào
-      // được màn rồi bấm gì cũng 403.
+      // được màn rồi bấm gì cũng 403. Màn tải `GET /roles` — cần thêm `ROLE_READ` (`WMS-10-be(5)`).
       handle: {
-        authority: 'MANAGE_PERMISSIONS',
+        authority: ['MANAGE_PERMISSIONS', 'ROLE_READ'],
         nav: { group: 'admin', labelKey: 'nav:permissions', icon: ShieldCheck },
         crumb: 'nav:permissions',
       } satisfies AppRouteHandle,

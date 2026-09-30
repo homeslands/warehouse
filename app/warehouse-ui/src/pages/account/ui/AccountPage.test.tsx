@@ -29,7 +29,33 @@ describe('AccountPage — cờ mặc định (backend chưa hỗ trợ)', () => 
     renderWithProviders(<AccountPage />, { route: '/account', auth: 'admin' })
 
     expect(await screen.findByText('root')).toBeInTheDocument()
-    expect(screen.getByText('SUPER_ADMIN')).toBeInTheDocument()
+    expect(screen.getByText('Quản trị cấp cao')).toBeInTheDocument()
+  })
+
+  it('/auth/me có họ tên → tiêu đề là họ tên, dòng dưới là tên đăng nhập · email', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/auth/me`, () =>
+        ok({
+          userId: 'u1',
+          userName: '0901234567',
+          roleName: 'MANAGER',
+          scope: [],
+          phonenumber: '0901234567',
+          firstName: 'Văn A',
+          lastName: 'Nguyễn',
+          email: 'a.nguyen@example.com',
+          dob: null,
+          address: null,
+        }),
+      ),
+    )
+    renderWithProviders(<AccountPage />, { route: '/account', auth: 'admin' })
+
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Nguyễn Văn A' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('0901234567 · a.nguyen@example.com')).toBeInTheDocument()
+    expect(screen.getByText('Quản lý')).toBeInTheDocument()
   })
 
   it('nói rõ đây là tên dùng để đăng nhập', async () => {
@@ -71,24 +97,24 @@ describe('AccountPage — cờ mặc định (backend chưa hỗ trợ)', () => 
 
     // `auth: 'admin'` tiêm user `root` / `SUPER_ADMIN` vào store — màn phải lùi về đó
     // thay vì trống trơn.
-    expect(await screen.findByText('SUPER_ADMIN')).toBeInTheDocument()
+    expect(await screen.findByText('Quản trị cấp cao')).toBeInTheDocument()
     expect(screen.getByText('root')).toBeInTheDocument()
   })
 })
 
 describe('AccountPage — phần đầu trang', () => {
-  it('ảnh đại diện tạm lấy chữ cái đầu của tên đăng nhập', async () => {
+  it('chưa có họ tên → tiêu đề "Người dùng", tên đăng nhập ở dòng dưới, không dựng chữ viết tắt từ nó', async () => {
     renderWithProviders(<AccountPage />, { route: '/account', auth: 'admin' })
-    await screen.findByText('root')
 
-    // Backend chưa có avatar → dựng từ tên. Một từ thì lấy hai ký tự đầu.
-    expect(screen.getByText('RO')).toBeInTheDocument()
+    expect(await screen.findByRole('heading', { level: 1, name: 'Người dùng' })).toBeInTheDocument()
+    expect(screen.getByText('root')).toBeInTheDocument()
+    expect(screen.queryByText('RO')).not.toBeInTheDocument()
   })
 
   it('vai trò hiện dưới dạng badge, không lặp lại tên đăng nhập ở thẻ riêng', async () => {
     renderWithProviders(<AccountPage />, { route: '/account', auth: 'admin' })
 
-    expect(await screen.findByText('SUPER_ADMIN')).toBeInTheDocument()
+    expect(await screen.findByText('Quản trị cấp cao')).toBeInTheDocument()
     expect(screen.getAllByText('root')).toHaveLength(1)
   })
 })

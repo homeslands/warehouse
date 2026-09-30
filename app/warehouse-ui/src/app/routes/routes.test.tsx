@@ -184,6 +184,36 @@ describe('createRoutes — màn Cửa hàng', () => {
   })
 })
 
+describe('createRoutes — màn Phân quyền cần MANAGE_PERMISSIONS và ROLE_READ', () => {
+  beforeEach(() => {
+    server.use(
+      mswHttp.get(`${BASE}/roles`, () => ok([])),
+      mswHttp.get(`${BASE}/authorities`, () => ok([])),
+    )
+  })
+  const admin = (scope: string[]) => ({ userId: 'u', userName: 'a', roleName: 'ADMIN', scope })
+
+  it('chỉ có MANAGE_PERMISSIONS (màn sẽ 403 ở GET /roles) → /forbidden, không có mục menu', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/permissions',
+      auth: admin(['MANAGE_PERMISSIONS']),
+    })
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+    expect(screen.queryByRole('link', { name: 'Phân quyền' })).not.toBeInTheDocument()
+  })
+
+  it('có đủ hai mã → vào được, menu có mục "Phân quyền"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/permissions',
+      auth: admin(['MANAGE_PERMISSIONS', 'ROLE_READ']),
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Phân quyền', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Phân quyền' })).toHaveAttribute('href', '/permissions')
+  })
+})
+
 describe('gác /warehouses theo authority (cờ authorityGuards bật)', () => {
   const routes = () =>
     createRoutes({

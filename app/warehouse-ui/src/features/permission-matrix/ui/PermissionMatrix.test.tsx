@@ -114,17 +114,17 @@ describe('PermissionMatrix — dựng bảng', () => {
     renderMatrix()
 
     // Mỗi nhóm là một bảng riêng nên header cột lặp lại ở từng bảng — fixture có 2 nhóm.
-    expect(screen.getAllByText('SUPER_ADMIN')).toHaveLength(2)
+    expect(screen.getAllByText('Quản trị cấp cao')).toHaveLength(2)
     // Không có switch nào thuộc cột đó — nó bypass toàn bộ, không có dữ liệu quyền để bật/tắt.
     expect(
-      screen.queryByRole('switch', { name: 'Tạo phiếu nhập kho — SUPER_ADMIN' }),
+      screen.queryByRole('switch', { name: 'Tạo phiếu nhập kho — Quản trị cấp cao' }),
     ).not.toBeInTheDocument()
   })
 
   it('khung bảng hẹp (container query): cột SUPER_ADMIN (chỉ là lời nhắc) ẩn dưới @xl; cột tên quyền giới hạn bề ngang và xuống dòng', () => {
     renderMatrix()
 
-    for (const header of screen.getAllByRole('columnheader', { name: 'SUPER_ADMIN' }))
+    for (const header of screen.getAllByRole('columnheader', { name: 'Quản trị cấp cao' }))
       expect(header).toHaveClass('hidden', '@xl:table-cell')
     for (const cell of screen.getAllByText('Toàn quyền'))
       expect(cell).toHaveClass('hidden', '@xl:table-cell')
@@ -140,8 +140,8 @@ describe('PermissionMatrix — dựng bảng', () => {
   it('switch phản ánh authorityCodes của từng role', () => {
     renderMatrix()
 
-    expect(screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — MANAGER' })).toBeChecked()
-    expect(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' })).not.toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — Quản lý' })).toBeChecked()
+    expect(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' })).not.toBeChecked()
   })
 
   it('hiện chú thích giải thích vì sao cột SUPER_ADMIN không bấm được', () => {
@@ -149,7 +149,7 @@ describe('PermissionMatrix — dựng bảng', () => {
 
     expect(
       screen.getByText(
-        'SUPER_ADMIN đi qua mọi cổng kiểm tra quyền nên không có dữ liệu bật/tắt — cột này chỉ để nhắc rằng nó luôn có đủ quyền.',
+        'Quản trị cấp cao đi qua mọi cổng kiểm tra quyền nên không có dữ liệu bật/tắt — cột này chỉ để nhắc rằng vai trò này luôn có đủ quyền.',
       ),
     ).toBeInTheDocument()
   })
@@ -169,7 +169,7 @@ describe('PermissionMatrix — thứ tự cột và tên quyền', () => {
     const headers = within(firstTable)
       .getAllByRole('columnheader')
       .map((th) => th.textContent)
-    expect(headers).toEqual(['Quyền', 'SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SUPERVISOR'])
+    expect(headers).toEqual(['Quyền', 'Quản trị cấp cao', 'Quản trị viên', 'Quản lý', 'Giám sát'])
   })
 
   it('tên quyền lấy theo MÃ từ i18n, không theo tên backend; mã vẫn hiện nguyên', () => {
@@ -222,7 +222,7 @@ describe('PermissionMatrix — hộp xác nhận', () => {
     )
     const { user } = renderMatrix()
 
-    await user.click(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' }))
+    await user.click(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' }))
 
     expect(await screen.findByRole('alertdialog')).toBeInTheDocument()
     expect(called).toBe(false)
@@ -237,7 +237,7 @@ describe('PermissionMatrix — hộp xác nhận', () => {
       }),
     )
     const { user } = renderMatrix()
-    const cell = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' })
+    const cell = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' })
 
     await user.click(cell)
     const box = await screen.findByRole('alertdialog')
@@ -250,17 +250,17 @@ describe('PermissionMatrix — hộp xác nhận', () => {
   it('hộp gọi đúng tên quyền và tên vai trò đang đổi', async () => {
     const { user } = renderMatrix()
 
-    await user.click(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' }))
+    await user.click(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' }))
 
     const box = await screen.findByRole('alertdialog')
     expect(within(box).getByText(/Tạo phiếu nhập kho/)).toBeInTheDocument()
-    expect(within(box).getByText(/MANAGER/)).toBeInTheDocument()
+    expect(within(box).getByText(/Quản lý/)).toBeInTheDocument()
   })
 
   it('cấp và gỡ dùng hai câu khác nhau', async () => {
     const { user } = renderMatrix()
 
-    await user.click(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' }))
+    await user.click(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' }))
     expect(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Cấp quyền' }),
     ).toBeInTheDocument()
@@ -268,7 +268,7 @@ describe('PermissionMatrix — hộp xác nhận', () => {
     await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
 
     // Ô đang BẬT → hộp phải chuyển sang nhánh gỡ, không phải vẫn câu cấp quyền.
-    await user.click(screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — MANAGER' }))
+    await user.click(screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — Quản lý' }))
     expect(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Gỡ quyền' }),
     ).toBeInTheDocument()
@@ -286,7 +286,7 @@ describe('PermissionMatrix — bật/tắt', () => {
     )
     const { user } = renderMatrix()
 
-    await confirmToggle(user, 'Tạo phiếu nhập kho — MANAGER', 'Cấp quyền')
+    await confirmToggle(user, 'Tạo phiếu nhập kho — Quản lý', 'Cấp quyền')
 
     await waitFor(() => expect(hit).toBe('manager/IMPORT_FORM_CREATE'))
   })
@@ -301,7 +301,7 @@ describe('PermissionMatrix — bật/tắt', () => {
     )
     const { user } = renderMatrix()
 
-    await confirmToggle(user, 'Xác nhận phiếu nhập kho — MANAGER', 'Gỡ quyền')
+    await confirmToggle(user, 'Xác nhận phiếu nhập kho — Quản lý', 'Gỡ quyền')
 
     await waitFor(() => expect(hit).toBe('manager/IMPORT_FORM_CONFIRM'))
   })
@@ -310,7 +310,7 @@ describe('PermissionMatrix — bật/tắt', () => {
     server.use(mswHttp.put(`${BASE}/roles/:roleSlug/authorities/:code`, () => ok('granted')))
     const { user } = renderMatrix()
 
-    await confirmToggle(user, 'Tạo phiếu nhập kho — MANAGER', 'Cấp quyền')
+    await confirmToggle(user, 'Tạo phiếu nhập kho — Quản lý', 'Cấp quyền')
 
     await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Đã cấp quyền'))
   })
@@ -328,10 +328,10 @@ describe('PermissionMatrix — bật/tắt', () => {
       }),
     )
     const { user } = renderMatrix()
-    const clicked = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' })
-    const other = screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — MANAGER' })
+    const clicked = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' })
+    const other = screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — Quản lý' })
 
-    await confirmToggle(user, 'Tạo phiếu nhập kho — MANAGER', 'Cấp quyền')
+    await confirmToggle(user, 'Tạo phiếu nhập kho — Quản lý', 'Cấp quyền')
 
     await waitFor(() => expect(clicked).toBeDisabled())
     // Ô khác KHÔNG bị khoá theo — khoá cả bảng là trải nghiệm khác hẳn.
@@ -361,13 +361,13 @@ describe('PermissionMatrix — bật/tắt', () => {
       }),
     )
     const { user } = renderMatrix()
-    const first = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' })
-    const second = screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — MANAGER' })
+    const first = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' })
+    const second = screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — Quản lý' })
 
-    await confirmToggle(user, 'Tạo phiếu nhập kho — MANAGER', 'Cấp quyền')
+    await confirmToggle(user, 'Tạo phiếu nhập kho — Quản lý', 'Cấp quyền')
     await waitFor(() => expect(first).toBeDisabled())
 
-    await confirmToggle(user, 'Xác nhận phiếu nhập kho — MANAGER', 'Gỡ quyền')
+    await confirmToggle(user, 'Xác nhận phiếu nhập kho — Quản lý', 'Gỡ quyền')
     await waitFor(() => expect(second).toBeDisabled())
     // Ô thứ nhất vẫn phải khoá — request của nó vẫn treo, chưa `onSettled`.
     expect(first).toBeDisabled()
@@ -385,9 +385,9 @@ describe('PermissionMatrix — bật/tắt', () => {
       ),
     )
     const { user } = renderMatrix()
-    const cell = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — MANAGER' })
+    const cell = screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Quản lý' })
 
-    await confirmToggle(user, 'Tạo phiếu nhập kho — MANAGER', 'Cấp quyền')
+    await confirmToggle(user, 'Tạo phiếu nhập kho — Quản lý', 'Cấp quyền')
 
     await waitFor(() => expect(cell).toBeEnabled())
     expect(cell).not.toBeChecked()
@@ -406,7 +406,7 @@ describe('PermissionMatrix — bật/tắt', () => {
     )
     const { user } = renderMatrix(ADMIN_USER, {}, mutationToastQueryClient())
 
-    await confirmToggle(user, 'Tạo phiếu nhập kho — MANAGER', 'Cấp quyền')
+    await confirmToggle(user, 'Tạo phiếu nhập kho — Quản lý', 'Cấp quyền')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
   })
@@ -415,7 +415,7 @@ describe('PermissionMatrix — bật/tắt', () => {
 describe('PermissionMatrix — chốt an toàn', () => {
   it('role CUỐI CÙNG giữ MANAGE_PERMISSIONS → switch khoá, bấm không mở hộp', async () => {
     const { user } = renderMatrix()
-    const cell = screen.getByRole('switch', { name: 'Quản trị phân quyền — ADMIN' })
+    const cell = screen.getByRole('switch', { name: 'Quản trị phân quyền — Quản trị viên' })
 
     expect(cell).toBeDisabled()
     await user.click(cell)
@@ -437,7 +437,7 @@ describe('PermissionMatrix — chốt an toàn', () => {
     )
     const { user } = renderMatrix(ADMIN_USER, { roles: twoHolders })
 
-    await user.click(screen.getByRole('switch', { name: 'Quản trị phân quyền — ADMIN' }))
+    await user.click(screen.getByRole('switch', { name: 'Quản trị phân quyền — Quản trị viên' }))
 
     const box = await screen.findByRole('alertdialog')
     expect(within(box).getByText('Tự bỏ quyền quản trị phân quyền?')).toBeInTheDocument()
@@ -461,7 +461,7 @@ describe('PermissionMatrix — chốt an toàn', () => {
     )
     const { user } = renderMatrix(ADMIN_USER, { roles: twoHolders })
 
-    await confirmToggle(user, 'Quản trị phân quyền — ADMIN', 'Bỏ quyền')
+    await confirmToggle(user, 'Quản trị phân quyền — Quản trị viên', 'Bỏ quyền')
 
     await waitFor(() => expect(hit).toBe('admin/MANAGE_PERMISSIONS'))
   })
@@ -474,7 +474,7 @@ describe('PermissionMatrix — chốt an toàn', () => {
     ]
     const { user } = renderMatrix(ADMIN_USER, { roles: twoHolders })
 
-    await user.click(screen.getByRole('switch', { name: 'Quản trị phân quyền — SUPERVISOR' }))
+    await user.click(screen.getByRole('switch', { name: 'Quản trị phân quyền — Giám sát' }))
 
     const box = await screen.findByRole('alertdialog')
     expect(within(box).getByText('Gỡ quyền này khỏi vai trò?')).toBeInTheDocument()
@@ -489,6 +489,8 @@ describe('PermissionMatrix — chốt an toàn', () => {
     const SUPER_ADMIN_USER = { userId: 'u2', userName: 's', roleName: 'SUPER_ADMIN', scope: [] }
     renderMatrix(SUPER_ADMIN_USER)
 
-    expect(screen.getByRole('switch', { name: 'Quản trị phân quyền — ADMIN' })).toBeDisabled()
+    expect(
+      screen.getByRole('switch', { name: 'Quản trị phân quyền — Quản trị viên' }),
+    ).toBeDisabled()
   })
 })
