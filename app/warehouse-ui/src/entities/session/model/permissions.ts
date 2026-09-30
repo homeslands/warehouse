@@ -11,6 +11,16 @@ export type CurrentUser = {
    * quyền admin vừa bật/tắt có hiệu lực ngay, không cần đăng nhập lại.
    */
   scope: string[]
+  /**
+   * Hồ sơ `GET /auth/me` trả thêm từ khi backend có cột hồ sơ. Tài khoản chưa khai tên để chuỗi rỗng
+   * (`firstName: ''`), `email`/`dob`/`address` là `null` — hiển thị luôn phải lùi về `userName`.
+   */
+  phonenumber?: string
+  firstName?: string
+  lastName?: string
+  email?: string | null
+  dob?: string | null
+  address?: string | null
 }
 
 /** Chặn dữ liệu lạ từ API; không parse gì — `scope` vốn đã là mảng. */

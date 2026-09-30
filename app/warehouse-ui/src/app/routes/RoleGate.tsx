@@ -1,7 +1,7 @@
 import { useRef } from 'react'
 import { Navigate, Outlet, useLocation, useMatches } from 'react-router-dom'
-import { can, hasRole, useAuthStore } from '@/entities/session'
-import { readHandle } from './handle'
+import { hasRole, useAuthStore } from '@/entities/session'
+import { hasAuthority, readHandle } from './handle'
 
 /**
  * Layout đứng giữa AppShell và các màn. Hai trục gác độc lập, mỗi trục lấy giá trị của match SÂU
@@ -22,7 +22,8 @@ export function RoleGate() {
   const roles = handles.map((h) => h.roles).findLast((r) => r !== undefined)
   const authority = handles.map((h) => h.authority).findLast((a) => a !== undefined)
 
-  const denied = (roles && !hasRole(user, ...roles)) || (authority && !can(user, authority))
+  const denied =
+    (roles && !hasRole(user, ...roles)) || (authority && !hasAuthority(user, authority))
   if (denied) {
     const to =
       lastAllowed.current === pathname ? '/forbidden?reason=permissionChanged' : '/forbidden'

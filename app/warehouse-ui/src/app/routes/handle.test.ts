@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { readHandle } from './handle'
+import { hasAuthority, readHandle } from './handle'
 
 describe('readHandle', () => {
   it('authority là chuỗi khác rỗng → giữ nguyên', () => {
@@ -17,5 +17,32 @@ describe('readHandle', () => {
 
   it('không khai authority → không có trường này trong kết quả', () => {
     expect(readHandle({ roles: [] })).toEqual({ roles: [] })
+  })
+
+  it('authority là mảng → giữ các mã khác rỗng; mảng rỗng (sau khi lọc) coi như không khai', () => {
+    expect(readHandle({ authority: ['MANAGE_PERMISSIONS', '', 'ROLE_READ'] })).toEqual({
+      authority: ['MANAGE_PERMISSIONS', 'ROLE_READ'],
+    })
+    expect(readHandle({ authority: ['', ''] })).toEqual({})
+  })
+})
+
+describe('hasAuthority', () => {
+  const user = (scope: string[]) => ({ userId: 'u', userName: 'a', roleName: 'ADMIN', scope })
+
+  it('một mã → có mã đó; mảng → phải có TẤT CẢ (AND)', () => {
+    expect(hasAuthority(user(['MANAGE_PERMISSIONS']), 'MANAGE_PERMISSIONS')).toBe(true)
+    expect(hasAuthority(user(['MANAGE_PERMISSIONS']), ['MANAGE_PERMISSIONS', 'ROLE_READ'])).toBe(
+      false,
+    )
+    expect(
+      hasAuthority(user(['MANAGE_PERMISSIONS', 'ROLE_READ']), ['MANAGE_PERMISSIONS', 'ROLE_READ']),
+    ).toBe(true)
+  })
+
+  it('SUPER_ADMIN qua mọi mã', () => {
+    expect(
+      hasAuthority({ ...user([]), roleName: 'SUPER_ADMIN' }, ['MANAGE_PERMISSIONS', 'ROLE_READ']),
+    ).toBe(true)
   })
 })

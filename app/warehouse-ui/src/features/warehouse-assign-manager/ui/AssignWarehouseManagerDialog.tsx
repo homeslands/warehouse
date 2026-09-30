@@ -17,6 +17,7 @@ import {
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Label } from '@/shared/ui/label'
 import { useManagerCandidates } from '@/entities/user'
+import { formatPersonLabel } from '@/shared/lib/person-name'
 import { useAssignWarehouseManager, type Warehouse } from '@/entities/warehouse'
 
 /** Lỗi thuộc về ô chọn quản lý — hiện ngay trong hộp. Còn lại (404 kho) đi toast. */
@@ -39,18 +40,22 @@ export function AssignWarehouseManagerDialog({ warehouse, onOpenChange }: Props)
   // Mở cho một kho khác không được còn lựa chọn/lỗi của lần trước.
   useEffect(() => {
     if (warehouse) {
-      setSelected(warehouse.managerSlug)
+      setSelected(warehouse.manager?.slug)
       setFieldError(null)
     }
   }, [warehouse])
 
   // Quản lý hiện tại có thể đã bị khoá → không nằm trong danh sách ứng viên. Vẫn phải hiện được
   // giá trị đang gán, nếu không ô chọn trông như đang trống.
-  const options: ComboboxOption[] = candidates.map((c) => ({ value: c.slug, label: c.phonenumber }))
-  if (warehouse?.managerSlug && !options.some((o) => o.value === warehouse.managerSlug)) {
+  const options: ComboboxOption[] = candidates.map((c) => ({
+    value: c.slug,
+    label: formatPersonLabel(c),
+  }))
+  const current = warehouse?.manager
+  if (current && !options.some((o) => o.value === current.slug)) {
     options.unshift({
-      value: warehouse.managerSlug,
-      label: warehouse.managerPhonenumber ?? warehouse.managerSlug,
+      value: current.slug,
+      label: formatPersonLabel(current),
     })
   }
 
@@ -129,7 +134,7 @@ export function AssignWarehouseManagerDialog({ warehouse, onOpenChange }: Props)
           >
             {t('common:cancel')}
           </Button>
-          {warehouse?.managerSlug !== undefined && (
+          {warehouse?.manager !== undefined && (
             <Button
               type="button"
               variant="outline"

@@ -45,7 +45,12 @@ export function useManagerCandidates(): {
   // Backend từ chối gán người đang bị khoá (100515) — đừng mời người dùng chọn rồi mới báo lỗi.
   const candidates = (usersQuery.data?.items ?? [])
     .filter((user) => user.isActive)
-    .map((user) => ({ slug: user.slug, phonenumber: user.phonenumber }))
+    .map((user) => ({
+      slug: user.slug,
+      phonenumber: user.phonenumber,
+      firstName: user.firstName,
+      lastName: user.lastName,
+    }))
 
   return {
     candidates,

@@ -33,7 +33,7 @@ describe('PermissionsPage', () => {
     renderWithProviders(<PermissionsPage />, { route: '/permissions', auth: ADMIN_USER as never })
 
     expect(await screen.findByText('Quản trị phân quyền')).toBeInTheDocument()
-    expect(screen.getByText('ADMIN')).toBeInTheDocument()
+    expect(screen.getByText('Quản trị viên')).toBeInTheDocument()
   })
 
   it('một trong hai query lỗi → báo lỗi tại chỗ, không vỡ màn', async () => {

@@ -23,5 +23,6 @@ export type {
   StoreUpdateInput,
   StoreFilters,
   AssignStoreWarehouseInput,
+  StoreManager,
 } from './model/types'
 export type { DetailLink } from './ui/columns'

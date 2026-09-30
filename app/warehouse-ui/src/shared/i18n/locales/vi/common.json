@@ -19,6 +19,8 @@
   "clearSelection": "Xoá lựa chọn",
   "pickDate": "Chọn ngày",
   "empty": "Chưa có dữ liệu.",
+  "notSet": "Chưa có",
+  "unnamedUser": "Người dùng",
   "pageInfo": "Trang {{page}} / {{totalPages}} — {{total}} bản ghi",
   "prevPage": "Trang trước",
   "nextPage": "Trang sau",
@@ -33,5 +35,11 @@
   "moreActions": "Thao tác khác",
   "sectionOverview": "Tổng quan",
   "createdAt": "Tạo lúc",
-  "updatedAt": "Cập nhật lúc"
+  "updatedAt": "Cập nhật lúc",
+  "roles": {
+    "SUPER_ADMIN": "Quản trị cấp cao",
+    "ADMIN": "Quản trị viên",
+    "MANAGER": "Quản lý",
+    "SUPERVISOR": "Giám sát"
+  }
 }
