@@ -29,14 +29,16 @@ export function AppShell({ nav }: Props) {
       <SidebarProvider defaultOpen={defaultOpen}>
         <AppSidebar nav={nav} />
 
-        <SidebarInset>
-          <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-3 border-b px-4">
+        {/* min-w-0: con của flex mặc định min-width:auto — bảng rộng sẽ đẩy cả trang tràn ngang
+            thay vì cuộn trong khung của nó. */}
+        <SidebarInset className="min-w-0">
+          <header className="bg-background sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-4 sm:gap-3">
             {/* Ctrl/⌘ + B cũng bật/tắt (SidebarProvider tự bắt phím). */}
             <SidebarTrigger aria-label={t('nav:toggleSidebar')} />
             <div className="min-w-0 flex-1">
               <AppBreadcrumb />
             </div>
-            <div className="flex items-center gap-3">
+            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
               <LanguageToggle />
               <ModeToggle />
               <AccountMenu />
@@ -44,7 +46,7 @@ export function AppShell({ nav }: Props) {
           </header>
 
           {/* SidebarInset là <div>: <main> chỉ bọc vùng nội dung, header (banner) nằm ngoài. */}
-          <main className="relative flex-1 p-6">
+          <main className="relative flex-1 p-4 sm:p-6">
             <RouteProgress />
             <Outlet />
           </main>

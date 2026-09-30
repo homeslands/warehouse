@@ -2,8 +2,16 @@ import { MutationObserver } from '@tanstack/react-query'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
+// Chỉ thay `refreshCurrentUser` để khẳng định ĐƯỢC GỌI hay không một cách tất định (handler gọi nó
+// kiểu bắn-rồi-quên). Đường chạy thật tới `/auth/me` + chuyển `/forbidden` do
+// `app/permission-revoked.test.tsx` giữ.
+vi.mock('@/entities/session', async (importOriginal) => ({
+  ...(await importOriginal<typeof import('@/entities/session')>()),
+  refreshCurrentUser: vi.fn(() => Promise.resolve()),
+}))
 
 import { toast } from 'sonner'
+import { refreshCurrentUser } from '@/entities/session'
 import { queryClient } from './query-client'
 
 const apiError = (statusCode: number, extra: Record<string, unknown> = {}) => ({
@@ -23,7 +31,10 @@ async function runMutation(error: unknown, meta?: { suppressErrorToast?: boolean
   await observer.mutate().catch(() => {})
 }
 
-beforeEach(() => vi.mocked(toast.error).mockClear())
+beforeEach(() => {
+  vi.mocked(toast.error).mockClear()
+  vi.mocked(refreshCurrentUser).mockClear()
+})
 afterEach(() => queryClient.clear())
 
 describe('lỗi mutation', () => {
@@ -90,5 +101,38 @@ describe('lỗi query', () => {
       })
       .catch(() => {})
     expect(toast.error).not.toHaveBeenCalled()
+  })
+})
+
+describe('403 do thiếu quyền → nạp lại quyền', () => {
+  // Hình dạng backend trả khi guard phân quyền từ chối: không `code`, câu mặc định của Nest.
+  const denied = apiError(403, { message: 'Forbidden resource' })
+
+  it('mutation bị từ chối → nạp lại quyền', async () => {
+    await runMutation(denied)
+    expect(refreshCurrentUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('mutation tự lo lỗi (suppressErrorToast) vẫn nạp lại quyền — tắt TOAST, không tắt việc làm mới', async () => {
+    await runMutation(denied, { suppressErrorToast: true })
+    expect(refreshCurrentUser).toHaveBeenCalledTimes(1)
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('403 nghiệp vụ có mã (tài khoản bị khoá) → KHÔNG nạp lại', async () => {
+    await runMutation(apiError(403, { code: 100002 }))
+    expect(refreshCurrentUser).not.toHaveBeenCalled()
+  })
+
+  it('query bị từ chối ngay lần tải đầu → vẫn nạp lại (để RoleGate đưa đi nếu mất quyền vào màn)', async () => {
+    await queryClient
+      .fetchQuery({ queryKey: ['d1'], queryFn: () => Promise.reject(denied), retry: false })
+      .catch(() => {})
+    expect(refreshCurrentUser).toHaveBeenCalledTimes(1)
+  })
+
+  it('lỗi khác (500) → KHÔNG nạp lại', async () => {
+    await runMutation(apiError(500))
+    expect(refreshCurrentUser).not.toHaveBeenCalled()
   })
 })

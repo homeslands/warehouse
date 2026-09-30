@@ -1,5 +1,7 @@
-import { FlaskConical } from 'lucide-react'
+import { FlaskConical, ShieldCheck, Store, Warehouse } from 'lucide-react'
 import { Outlet, createBrowserRouter, type RouteObject } from 'react-router-dom'
+import { ROLES } from '@/entities/session'
+import { BACKEND_SUPPORTS, type BackendCapabilities } from '@/shared/api/backend-capabilities'
 import { LoginPage } from '@/pages/login'
 import { ErrorPage } from '@/pages/error'
 import { ForbiddenPage } from '@/pages/forbidden'
@@ -33,6 +35,11 @@ function devScreens(): RouteObject[] {
 export type CreateRoutesOptions = {
   /** `true` = thêm màn chỉ dành cho dev (Example). App thật truyền `import.meta.env.DEV`. */
   dev: boolean
+  /**
+   * Backend đã gác màn nào bằng authority — mặc định lấy từ `BACKEND_SUPPORTS`. Là tham số (không
+   * đọc thẳng) để test dựng được cây route với cờ bật mà không phải mock module.
+   */
+  capabilities?: Pick<BackendCapabilities, 'authorityGuards' | 'storeAuthorityGuards'>
 }
 
 /**
@@ -43,7 +50,10 @@ export type CreateRoutesOptions = {
  * Màn trong layout chính dùng `lazy` (mỗi màn một chunk JS). Login / 403 / 404 / trang lỗi giữ
  * import tĩnh: chúng phải hiện được cả khi tải chunk lỗi.
  */
-export function createRoutes({ dev }: CreateRoutesOptions): RouteObject[] {
+export function createRoutes({
+  dev,
+  capabilities = BACKEND_SUPPORTS,
+}: CreateRoutesOptions): RouteObject[] {
   // Thứ tự khai báo = thứ tự trong nhóm menu.
   const screens: RouteObject[] = [
     {
@@ -56,6 +66,76 @@ export function createRoutes({ dev }: CreateRoutesOptions): RouteObject[] {
           },
         })),
       handle: { crumb: 'nav:home' } satisfies AppRouteHandle,
+    },
+    {
+      path: '/warehouses',
+      // Gác theo đúng thứ backend kiểm ở `GET /warehouses`: `@HasRole(Admin, Manager, Supervisor)`
+      // hiện tại, hoặc `WAREHOUSE_READ` khi backend chuyển sang authority. Các nút ghi gác riêng
+      // trong màn (`pages/warehouses/model/abilities.ts`). SUPER_ADMIN luôn qua.
+      handle: {
+        ...(capabilities.authorityGuards
+          ? { authority: 'WAREHOUSE_READ' as const }
+          : { roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.SUPERVISOR] }),
+        nav: { group: 'catalog', labelKey: 'nav:warehouses', icon: Warehouse },
+        crumb: 'nav:warehouses',
+      } satisfies AppRouteHandle,
+      // Route cha không khai element → react-router render <Outlet />. Route con thừa hưởng gác
+      // quyền (RoleGate lấy match sâu nhất có khai) và crumb "Kho".
+      children: [
+        {
+          index: true,
+          lazy: () => import('@/pages/warehouses').then((m) => ({ Component: m.WarehousesPage })),
+        },
+        {
+          path: ':slug',
+          lazy: () =>
+            import('@/pages/warehouses').then((m) => ({ Component: m.WarehouseDetailPage })),
+          handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
+        },
+      ],
+    },
+    {
+      path: '/stores',
+      // Như /warehouses nhưng theo cờ riêng: backend chưa có mã STORE_* nào (xem backend-capabilities).
+      handle: {
+        ...(capabilities.storeAuthorityGuards
+          ? { authority: 'STORE_READ' as const }
+          : { roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.SUPERVISOR] }),
+        nav: { group: 'catalog', labelKey: 'nav:stores', icon: Store },
+        crumb: 'nav:stores',
+      } satisfies AppRouteHandle,
+      // Route cha không khai element → react-router render <Outlet />. Route con thừa hưởng gác
+      // quyền (RoleGate lấy match sâu nhất có khai) và crumb "Cửa hàng".
+      children: [
+        {
+          index: true,
+          lazy: () => import('@/pages/stores').then((m) => ({ Component: m.StoresPage })),
+        },
+        {
+          path: ':slug',
+          lazy: () => import('@/pages/stores').then((m) => ({ Component: m.StoreDetailPage })),
+          handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
+        },
+      ],
+    },
+    {
+      path: '/account',
+      lazy: () => import('@/pages/account').then((m) => ({ Component: m.AccountPage })),
+      // Không khai `roles`: ai đăng nhập cũng xem được tài khoản của chính mình.
+      // Không khai `nav`: vào từ menu tài khoản góc phải, không nằm trên sidebar.
+      handle: { crumb: 'nav:account' } satisfies AppRouteHandle,
+    },
+    {
+      path: '/permissions',
+      lazy: () => import('@/pages/permissions').then((m) => ({ Component: m.PermissionsPage })),
+      // Gác bằng authority, KHÔNG bằng role: backend gác endpoint bật/tắt bằng
+      // @RequireAuthority(MANAGE_PERMISSIONS). Gác bằng role thì admin bị thu hồi quyền vẫn vào
+      // được màn rồi bấm gì cũng 403. Màn tải `GET /roles` — cần thêm `ROLE_READ` (`WMS-10-be(5)`).
+      handle: {
+        authority: ['MANAGE_PERMISSIONS', 'ROLE_READ'],
+        nav: { group: 'admin', labelKey: 'nav:permissions', icon: ShieldCheck },
+        crumb: 'nav:permissions',
+      } satisfies AppRouteHandle,
     },
   ]
 

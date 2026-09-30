@@ -1,27 +1,32 @@
+import type { AuthorityCode } from '@/shared/api/authority-codes'
 import { ROLES, type Role } from './roles'
 
 export type CurrentUser = {
   userId: string
   userName: string
   roleName: string
-  scope: string
+  /**
+   * Mã authority mà role của user đang được cấp. `GET /auth/me` trả MẢNG (không phải chuỗi JSON).
+   * Backend không ký `scope` vào JWT — mỗi request nó đọc lại từ Redis `rbac:user:{userId}`, nên
+   * quyền admin vừa bật/tắt có hiệu lực ngay, không cần đăng nhập lại.
+   */
+  scope: string[]
+  /**
+   * Hồ sơ `GET /auth/me` trả thêm từ khi backend có cột hồ sơ. Tài khoản chưa khai tên để chuỗi rỗng
+   * (`firstName: ''`), `email`/`dob`/`address` là `null` — hiển thị luôn phải lùi về `userName`.
+   */
+  phonenumber?: string
+  firstName?: string
+  lastName?: string
+  email?: string | null
+  dob?: string | null
+  address?: string | null
 }
 
-/**
- * Backend gom authority names rồi JSON.stringify thủ công vào `scope` (auth.utils.ts).
- * Không migration nào seed authority/permission, nên trên thực tế `scope` LUÔN là "[]".
- * Suy biến về mảng rỗng thay vì ném lỗi: một chuỗi hỏng không được phép làm trắng màn hình.
- */
-export function safeParseScope(scope: string | null | undefined): string[] {
-  if (!scope) return []
-
-  try {
-    const parsed: unknown = JSON.parse(scope)
-    if (!Array.isArray(parsed)) return []
-    return parsed.filter((x): x is string => typeof x === 'string')
-  } catch {
-    return []
-  }
+/** Chặn dữ liệu lạ từ API; không parse gì — `scope` vốn đã là mảng. */
+export function safeParseScope(scope: unknown): string[] {
+  if (!Array.isArray(scope)) return []
+  return scope.filter((x): x is string => typeof x === 'string')
 }
 
 /**
@@ -35,10 +40,11 @@ export function hasRole(user: CurrentUser | null, ...roles: Role[]): boolean {
 }
 
 /**
- * LUÔN trả false ở thời điểm hiện tại — backend chưa seed authority nào.
- * Không dùng làm cổng gác duy nhất cho bất kỳ thành phần UI nào. Dùng hasRole().
+ * Có `authority` trong `scope` không. `SUPER_ADMIN` luôn true — `AuthorityGuard` của backend cho nó
+ * qua TRƯỚC khi nhìn `scope`, và migration cố tình không cấp row `permission_tbl` nào cho nó.
  */
-export function can(user: CurrentUser | null, authority: string): boolean {
+export function can(user: CurrentUser | null, authority: AuthorityCode): boolean {
   if (!user) return false
+  if (user.roleName === ROLES.SUPER_ADMIN) return true
   return safeParseScope(user.scope).includes(authority)
 }

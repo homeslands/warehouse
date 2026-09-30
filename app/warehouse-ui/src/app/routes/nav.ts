@@ -1,7 +1,13 @@
 import type { RouteObject } from 'react-router-dom'
 import { hasRole, type CurrentUser, type Role } from '@/entities/session'
 import type { NavGroup, NavItem } from '@/shared/lib/nav'
-import { NAV_GROUP_ORDER, readHandle, type NavGroupKey } from './handle'
+import {
+  hasAuthority,
+  NAV_GROUP_ORDER,
+  readHandle,
+  type AppRouteHandle,
+  type NavGroupKey,
+} from './handle'
 
 function joinPath(parent: string, path: string | undefined): string {
   if (path === undefined) return parent
@@ -17,21 +23,29 @@ function joinPath(parent: string, path: string | undefined): string {
 export function buildNav(routes: RouteObject[], user: CurrentUser | null): NavGroup[] {
   const byGroup = new Map<NavGroupKey, NavItem[]>()
 
-  const visit = (list: RouteObject[], parentPath: string, parentRoles: Role[] | undefined) => {
+  const visit = (
+    list: RouteObject[],
+    parentPath: string,
+    parentRoles: Role[] | undefined,
+    parentAuthority: AppRouteHandle['authority'],
+  ) => {
     for (const route of list) {
       const handle = readHandle(route.handle)
       const roles = handle.roles ?? parentRoles
+      const authority = handle.authority ?? parentAuthority
       const path = joinPath(parentPath, route.path)
 
-      if (handle.nav && (!roles || hasRole(user, ...roles))) {
+      const allowed =
+        (!roles || hasRole(user, ...roles)) && (!authority || hasAuthority(user, authority))
+      if (handle.nav && allowed) {
         const items = byGroup.get(handle.nav.group) ?? []
         items.push({ to: path, labelKey: handle.nav.labelKey, icon: handle.nav.icon })
         byGroup.set(handle.nav.group, items)
       }
-      if (route.children) visit(route.children, path, roles)
+      if (route.children) visit(route.children, path, roles, authority)
     }
   }
-  visit(routes, '/', undefined)
+  visit(routes, '/', undefined, undefined)
 
   return NAV_GROUP_ORDER.flatMap((key) => {
     const items = byGroup.get(key)

@@ -62,7 +62,7 @@ beforeEach(() => {
 
   useAuthStore.setState({
     hasSession: true,
-    user: { userId: 'u', userName: 'root', roleName: 'SUPER_ADMIN', scope: '[]' },
+    user: { userId: 'u', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] },
     status: 'authenticated',
   })
 })

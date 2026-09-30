@@ -1,7 +1,9 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
+import { createPortal } from 'react-dom'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
+import type { SortState } from '@/shared/lib/list-params'
 import { DataTable, type DataTablePagination } from './DataTable'
 
 type Row = { id: string; name: string }
@@ -136,19 +138,177 @@ describe('DataTable — phân trang', () => {
   it('chọn số dòng 10/20/50 → onSizeChange(number)', async () => {
     const p = pagination()
     render(<DataTable columns={columns} data={rows} isLoading={false} pagination={p} />)
-    const select = screen.getByLabelText('Số dòng mỗi trang')
+    const user = userEvent.setup()
 
-    expect(Array.from(select.querySelectorAll('option')).map((o) => o.textContent)).toEqual([
+    await user.click(screen.getByRole('combobox', { name: 'Số dòng mỗi trang' }))
+    expect((await screen.findAllByRole('option')).map((o) => o.textContent)).toEqual([
       '10',
       '20',
       '50',
     ])
-    await userEvent.setup().selectOptions(select, '20')
+
+    await user.click(screen.getByRole('option', { name: '20' }))
     expect(p.onSizeChange).toHaveBeenLastCalledWith(20)
   })
 
   it('không truyền pagination → không có chân bảng', () => {
     render(<DataTable columns={columns} data={rows} isLoading={false} />)
     expect(screen.queryByRole('button', { name: 'Trang sau' })).not.toBeInTheDocument()
+  })
+})
+
+describe('DataTable — sắp xếp theo cột', () => {
+  const sortableColumns = [
+    { accessorKey: 'name', header: 'Tên', meta: { sortField: 'name' } },
+    { accessorKey: 'note', header: 'Ghi chú' },
+  ] as ColumnDef<{ name: string; note: string }>[]
+
+  function renderSortable(value: SortState | undefined) {
+    const onChange = vi.fn()
+    render(
+      <DataTable
+        columns={sortableColumns}
+        data={[{ name: 'A', note: 'x' }]}
+        isLoading={false}
+        sorting={{ value, onChange }}
+      />,
+    )
+    return { onChange, user: userEvent.setup() }
+  }
+
+  it('không truyền `sorting` → header là chữ thường, không bấm được', () => {
+    render(<DataTable columns={sortableColumns} data={[]} isLoading={false} />)
+
+    expect(screen.queryByRole('button', { name: /Tên/ })).not.toBeInTheDocument()
+  })
+
+  it('chỉ cột khai meta.sortField mới bấm được', () => {
+    renderSortable(undefined)
+
+    expect(screen.getByRole('button', { name: /Tên/ })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /Ghi chú/ })).not.toBeInTheDocument()
+  })
+
+  it('bấm lần lượt: chưa sắp → tăng → giảm → thôi sắp', async () => {
+    const first = renderSortable(undefined)
+    await first.user.click(screen.getByRole('button', { name: /Tên/ }))
+    expect(first.onChange).toHaveBeenCalledWith({ field: 'name', dir: 'ASC' })
+    cleanup()
+
+    const second = renderSortable({ field: 'name', dir: 'ASC' })
+    await second.user.click(screen.getByRole('button', { name: /Tên/ }))
+    expect(second.onChange).toHaveBeenCalledWith({ field: 'name', dir: 'DESC' })
+    cleanup()
+
+    const third = renderSortable({ field: 'name', dir: 'DESC' })
+    await third.user.click(screen.getByRole('button', { name: /Tên/ }))
+    expect(third.onChange).toHaveBeenCalledWith(undefined)
+  })
+
+  it('đang sắp cột khác → bấm cột này bắt đầu lại từ tăng', async () => {
+    const { onChange, user } = renderSortable({ field: 'createdAt', dir: 'DESC' })
+
+    await user.click(screen.getByRole('button', { name: /Tên/ }))
+
+    expect(onChange).toHaveBeenCalledWith({ field: 'name', dir: 'ASC' })
+  })
+
+  it('trạng thái sắp xếp báo cho trình đọc màn hình qua aria-sort', () => {
+    renderSortable({ field: 'name', dir: 'DESC' })
+
+    expect(screen.getByRole('columnheader', { name: /Tên/ })).toHaveAttribute(
+      'aria-sort',
+      'descending',
+    )
+    expect(screen.getByRole('columnheader', { name: 'Ghi chú' })).not.toHaveAttribute('aria-sort')
+  })
+})
+
+describe('DataTable — bấm vào hàng', () => {
+  const withButton: ColumnDef<Row>[] = [
+    ...columns,
+    {
+      id: 'actions',
+      header: 'Thao tác',
+      cell: ({ row }) => <button type="button">Menu {row.original.name}</button>,
+    },
+  ]
+
+  it('bấm vào ô của hàng → gọi onRowClick với dữ liệu hàng đó; hàng có con trỏ bấm', async () => {
+    const onRowClick = vi.fn()
+    render(<DataTable columns={withButton} data={rows} isLoading={false} onRowClick={onRowClick} />)
+
+    await userEvent.click(screen.getByText('Bu lông'))
+
+    expect(onRowClick).toHaveBeenCalledExactlyOnceWith(rows[1])
+    expect(screen.getByText('Bu lông').closest('tr')).toHaveClass('cursor-pointer')
+  })
+
+  it('bấm vào nút trong hàng → không gọi onRowClick', async () => {
+    const onRowClick = vi.fn()
+    render(<DataTable columns={withButton} data={rows} isLoading={false} onRowClick={onRowClick} />)
+
+    await userEvent.click(screen.getByRole('button', { name: 'Menu Ốc vít' }))
+
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('bấm vào nội dung portal của một ô (popover, menu) → không gọi onRowClick', async () => {
+    // Portal nằm ngoài <tr> trong DOM nhưng sự kiện React vẫn nổi lên hàng.
+    const withPortal: ColumnDef<Row>[] = [
+      ...columns,
+      { id: 'portal', header: '', cell: () => createPortal(<p>Nội dung nổi</p>, document.body) },
+    ]
+    const onRowClick = vi.fn()
+    render(
+      <DataTable
+        columns={withPortal}
+        data={rows.slice(0, 1)}
+        isLoading={false}
+        onRowClick={onRowClick}
+      />,
+    )
+
+    await userEvent.click(screen.getByText('Nội dung nổi'))
+
+    expect(onRowClick).not.toHaveBeenCalled()
+  })
+
+  it('không truyền onRowClick → hàng không có con trỏ bấm', () => {
+    render(<DataTable columns={columns} data={rows} isLoading={false} />)
+    expect(screen.getByText('Ốc vít').closest('tr')).not.toHaveClass('cursor-pointer')
+  })
+})
+
+describe('DataTable — ẩn cột phụ khi khung bảng hẹp (container query)', () => {
+  it('meta.hideBelow → header và ô của cột đó mang class ẩn theo mốc container; cột khác giữ nguyên; khung bảng là @container', () => {
+    const responsive: ColumnDef<Row>[] = [
+      { accessorKey: 'id', header: 'Mã' },
+      { accessorKey: 'name', header: 'Tên', meta: { hideBelow: '@2xl' } },
+    ]
+    render(<DataTable columns={responsive} data={rows.slice(0, 1)} isLoading={false} />)
+
+    expect(screen.getByRole('columnheader', { name: 'Tên' })).toHaveClass(
+      'hidden',
+      '@2xl:table-cell',
+    )
+    expect(screen.getByRole('cell', { name: 'Ốc vít' })).toHaveClass('hidden', '@2xl:table-cell')
+    expect(screen.getByRole('columnheader', { name: 'Mã' })).not.toHaveClass('hidden')
+    expect(screen.getByRole('cell', { name: '1' })).not.toHaveClass('hidden')
+    expect(screen.getByRole('table').closest('.\\@container')).not.toBeNull()
+  })
+})
+
+describe('DataTable — tiêu đề gọn cho cột icon', () => {
+  it('meta.compactHeader → chữ tiêu đề chỉ còn cho trình đọc màn hình khi khung < @sm', () => {
+    const compact: ColumnDef<Row>[] = [
+      { accessorKey: 'name', header: 'Tên' },
+      { id: 'actions', header: 'Thao tác', meta: { compactHeader: true }, cell: () => '⋯' },
+    ]
+    render(<DataTable columns={compact} data={rows.slice(0, 1)} isLoading={false} />)
+
+    expect(screen.getByText('Thao tác')).toHaveClass('sr-only', '@sm:not-sr-only')
+    expect(screen.getByRole('columnheader', { name: 'Thao tác' })).toBeInTheDocument()
+    expect(screen.getByText('Tên')).not.toHaveClass('sr-only')
   })
 })

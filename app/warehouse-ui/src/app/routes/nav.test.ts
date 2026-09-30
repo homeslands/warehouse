@@ -1,4 +1,4 @@
-import { Boxes, FlaskConical, Package, Users } from 'lucide-react'
+import { Boxes, FlaskConical, Package, ShieldIcon, Users } from 'lucide-react'
 import type { RouteObject } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { ROLES, type CurrentUser } from '@/entities/session'
@@ -11,7 +11,7 @@ const asUser = (roleName: string): CurrentUser => ({
   userId: 'u1',
   userName: 'tester',
   roleName,
-  scope: '[]',
+  scope: [],
 })
 
 // Cây giả: khai lẫn thứ tự nhóm (dev trước catalog) để kiểm buildNav tự xếp lại.
@@ -117,5 +117,33 @@ describe('buildNav', () => {
     const root = asUser('SUPER_ADMIN')
     expect(buildNav(createRoutes({ dev: true }), root).map((g) => g.key)).toContain('dev')
     expect(buildNav(createRoutes({ dev: false }), root).map((g) => g.key)).not.toContain('dev')
+  })
+
+  it('ẩn mục menu khi thiếu authority', () => {
+    const routes = [
+      {
+        path: '/permissions',
+        handle: {
+          authority: 'MANAGE_PERMISSIONS',
+          nav: { group: 'admin', labelKey: 'nav:permissions', icon: ShieldIcon },
+        } satisfies AppRouteHandle,
+      },
+    ]
+
+    const without = buildNav(routes, {
+      userId: 'u1',
+      userName: 'a',
+      roleName: 'ADMIN',
+      scope: [],
+    })
+    expect(without).toEqual([])
+
+    const withIt = buildNav(routes, {
+      userId: 'u1',
+      userName: 'a',
+      roleName: 'ADMIN',
+      scope: ['MANAGE_PERMISSIONS'],
+    })
+    expect(withIt.flatMap((group) => group.items).map((item) => item.to)).toEqual(['/permissions'])
   })
 })

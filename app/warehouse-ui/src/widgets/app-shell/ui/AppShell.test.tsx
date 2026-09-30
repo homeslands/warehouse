@@ -14,7 +14,7 @@ import { useAuthStore } from '@/entities/session'
 import { AppShell } from './AppShell'
 
 const BASE = 'http://localhost:8085/api/v1'
-const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: '[]' }
+const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
 
 // Nhãn mượn khoá i18n có sẵn ("Example", "Giao diện") — AppShell dịch khoá, không quan tâm nghĩa.
 const nav: NavGroup[] = [
@@ -51,7 +51,7 @@ function clearSidebarCookie() {
 
 async function openMenu() {
   const u = userEvent.setup()
-  await u.click(screen.getByRole('button', { name: /root/ }))
+  await u.click(screen.getByRole('button', { name: /Người dùng/ }))
   return u
 }
 
@@ -66,7 +66,7 @@ afterEach(() => {
 })
 
 describe('AppShell — menu tài khoản', () => {
-  it('Đăng xuất → gọi /auth/logout và kết thúc phiên', async () => {
+  it('Đăng xuất → xác nhận → gọi /auth/logout và kết thúc phiên', async () => {
     const logoutCalled = vi.fn()
     server.use(
       mswHttp.post(`${BASE}/auth/logout`, () => {
@@ -78,9 +78,34 @@ describe('AppShell — menu tài khoản', () => {
     const u = await openMenu()
     await u.click(await screen.findByRole('menuitem', { name: 'Đăng xuất' }))
 
+    // Hỏi lại trước đã — bấm nhầm mục trong menu không được làm mất phiên ngay.
+    const box = await screen.findByRole('alertdialog')
+    expect(logoutCalled).not.toHaveBeenCalled()
+
+    await u.click(within(box).getByRole('button', { name: 'Đăng xuất' }))
+
     await vi.waitFor(() => expect(useAuthStore.getState().endReason).toBe('loggedOut'))
     expect(logoutCalled).toHaveBeenCalledOnce()
     expect(getTokens()).toBeNull()
+  })
+
+  it('Đăng xuất → bấm Huỷ thì KHÔNG gọi /auth/logout', async () => {
+    const logoutCalled = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/auth/logout`, () => {
+        logoutCalled()
+        return ok({ revokedSessions: 1 })
+      }),
+    )
+    renderShell()
+    const u = await openMenu()
+    await u.click(await screen.findByRole('menuitem', { name: 'Đăng xuất' }))
+    await u.click(
+      within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Huỷ' }),
+    )
+
+    expect(logoutCalled).not.toHaveBeenCalled()
+    expect(useAuthStore.getState().endReason).not.toBe('loggedOut')
   })
 
   it('Đăng xuất mọi thiết bị → xác nhận → gọi /auth/logout-all và kết thúc phiên', async () => {
@@ -95,7 +120,8 @@ describe('AppShell — menu tài khoản', () => {
     const u = await openMenu()
     await u.click(await screen.findByRole('menuitem', { name: 'Đăng xuất mọi thiết bị' }))
 
-    const dialog = await screen.findByRole('dialog')
+    // Hộp xác nhận dùng ConfirmDialog (AlertDialog) → role là 'alertdialog', không phải 'dialog'.
+    const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('Đăng xuất khỏi mọi thiết bị, kể cả thiết bị này?')
     // Chưa xác nhận thì chưa gọi gì.
     expect(logoutAllCalled).not.toHaveBeenCalled()
@@ -121,7 +147,7 @@ describe('AppShell — menu tài khoản', () => {
     renderShell()
     const u = await openMenu()
     await u.click(await screen.findByRole('menuitem', { name: 'Đăng xuất mọi thiết bị' }))
-    await screen.findByRole('dialog')
+    await screen.findByRole('alertdialog')
     await u.click(screen.getByRole('button', { name: 'Đăng xuất mọi thiết bị' }))
 
     // Request đã tới server VÀ nút đã hết trạng thái "Đang đăng xuất..." — lỗi đã được xử lý xong.
@@ -301,6 +327,41 @@ describe('AppShell — landmark', () => {
     const menu = screen.getByRole('navigation', { name: 'Menu chính' })
     expect(within(menu).getByRole('link', { name: 'Tổng quan' })).toHaveAttribute('href', '/')
     expect(within(menu).getByRole('link', { name: 'Example' })).toHaveAttribute('href', '/examples')
+  })
+})
+
+describe('AppShell — màn hẹp (class responsive; jsdom không áp media query nên kiểm cấu trúc)', () => {
+  it('vùng nội dung có min-w-0 — thiếu nó bảng rộng đẩy cả trang tràn ngang (lỗi thấy ở 768px)', () => {
+    renderShell()
+    expect(screen.getByRole('main').parentElement).toHaveClass('min-w-0')
+  })
+
+  it('nút tài khoản: dưới sm chỉ còn ảnh đại diện, tên khả truy cập vẫn đủ tên + vai trò', () => {
+    renderShell()
+    // Tài khoản test không có họ tên → "Người dùng", không phải tên đăng nhập.
+    const button = screen.getByRole('button', { name: 'Người dùng (Quản trị cấp cao)' })
+    // Khối tên + vai trò chỉ hiện từ sm; ảnh đại diện luôn hiện.
+    expect(within(button).getByText('Người dùng').parentElement).toHaveClass('hidden', 'sm:flex')
+  })
+
+  it('breadcrumb dưới sm chỉ còn mục cuối (cắt "…"); mục trước và dấu phân cách ẩn', () => {
+    renderShell(
+      [{ path: '/examples', element: <div />, handle: { crumb: 'nav:examples' } }],
+      '/examples',
+    )
+    const trail = screen.getByRole('navigation', { name: 'Vị trí hiện tại' })
+
+    expect(within(trail).getByRole('link', { name: 'Tổng quan' }).closest('li')).toHaveClass(
+      'hidden',
+      'sm:inline-flex',
+    )
+    const separators = trail.querySelectorAll('[data-slot="breadcrumb-separator"]')
+    expect(separators).toHaveLength(1)
+    for (const separator of Array.from(separators))
+      expect(separator).toHaveClass('hidden', 'sm:inline-flex')
+    const current = within(trail).getByText('Example')
+    expect(current).toHaveClass('truncate')
+    expect(current.closest('li')).not.toHaveClass('hidden')
   })
 })
 

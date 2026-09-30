@@ -3,6 +3,7 @@
   "logout": "Sign out",
   "loading": "Loading...",
   "cancel": "Cancel",
+  "close": "Close",
   "save": "Save",
   "saving": "Saving...",
   "theme": "Theme",
@@ -18,10 +19,27 @@
   "clearSelection": "Clear selection",
   "pickDate": "Pick a date",
   "empty": "No data yet.",
+  "notSet": "Not set",
+  "unnamedUser": "User",
   "pageInfo": "Page {{page}} / {{totalPages}} — {{total}} records",
   "prevPage": "Previous",
   "nextPage": "Next",
   "pageSize": "Rows per page",
   "search": "Search",
-  "clearSearch": "Clear search"
+  "clearSearch": "Clear search",
+  "filters": "Filters",
+  "filtersDescription": "Changes apply to the list right away.",
+  "filtersActive": "{{count}} filters applied",
+  "backToList": "Back to list",
+  "retry": "Try again",
+  "moreActions": "More actions",
+  "sectionOverview": "Overview",
+  "createdAt": "Created",
+  "updatedAt": "Updated",
+  "roles": {
+    "SUPER_ADMIN": "Super admin",
+    "ADMIN": "Administrator",
+    "MANAGER": "Manager",
+    "SUPERVISOR": "Supervisor"
+  }
 }

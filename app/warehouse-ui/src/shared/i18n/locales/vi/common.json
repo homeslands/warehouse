@@ -3,6 +3,7 @@
   "logout": "Đăng xuất",
   "loading": "Đang tải...",
   "cancel": "Huỷ",
+  "close": "Đóng",
   "save": "Lưu",
   "saving": "Đang lưu...",
   "theme": "Giao diện",
@@ -18,10 +19,27 @@
   "clearSelection": "Xoá lựa chọn",
   "pickDate": "Chọn ngày",
   "empty": "Chưa có dữ liệu.",
+  "notSet": "Chưa có",
+  "unnamedUser": "Người dùng",
   "pageInfo": "Trang {{page}} / {{totalPages}} — {{total}} bản ghi",
   "prevPage": "Trang trước",
   "nextPage": "Trang sau",
   "pageSize": "Số dòng mỗi trang",
   "search": "Tìm kiếm",
-  "clearSearch": "Xoá tìm kiếm"
+  "clearSearch": "Xoá tìm kiếm",
+  "filters": "Bộ lọc",
+  "filtersDescription": "Thay đổi áp dụng ngay cho danh sách.",
+  "filtersActive": "{{count}} bộ lọc đang áp dụng",
+  "backToList": "Quay lại danh sách",
+  "retry": "Thử lại",
+  "moreActions": "Thao tác khác",
+  "sectionOverview": "Tổng quan",
+  "createdAt": "Tạo lúc",
+  "updatedAt": "Cập nhật lúc",
+  "roles": {
+    "SUPER_ADMIN": "Quản trị cấp cao",
+    "ADMIN": "Quản trị viên",
+    "MANAGER": "Quản lý",
+    "SUPERVISOR": "Giám sát"
+  }
 }
