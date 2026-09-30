@@ -47,18 +47,20 @@ describe('warehouseAbilities — cờ BẬT (backend gác bằng @RequireAuthori
     expect(warehouseAbilities(user('MANAGER', ['WAREHOUSE_DELETE']), flags).delete).toBe(true)
   })
 
-  it('gán quản lý cần CẢ WAREHOUSE_ASSIGN_MANAGER lẫn USER_READ — hộp gán phải tải danh sách người', () => {
-    expect(
-      warehouseAbilities(user('MANAGER', ['WAREHOUSE_ASSIGN_MANAGER']), flags).assignManager,
-    ).toBe(false)
-    expect(
-      warehouseAbilities(user('MANAGER', ['WAREHOUSE_ASSIGN_MANAGER', 'USER_READ']), flags)
-        .assignManager,
-    ).toBe(true)
+  it('gán quản lý cần WAREHOUSE_ASSIGN_MANAGER + USER_READ + ROLE_READ — hộp gán tải GET /roles rồi GET /users', () => {
+    const assign = (scope: string[]) =>
+      warehouseAbilities(user('MANAGER', scope), flags).assignManager
+    expect(assign(['WAREHOUSE_ASSIGN_MANAGER'])).toBe(false)
+    expect(assign(['WAREHOUSE_ASSIGN_MANAGER', 'USER_READ'])).toBe(false)
+    expect(assign(['WAREHOUSE_ASSIGN_MANAGER', 'ROLE_READ'])).toBe(false)
+    expect(assign(['WAREHOUSE_ASSIGN_MANAGER', 'USER_READ', 'ROLE_READ'])).toBe(true)
   })
 
-  it('lọc theo quản lý cần USER_READ (ô lọc gọi GET /users)', () => {
-    expect(warehouseAbilities(user('SUPERVISOR', ['USER_READ']), flags).filterByManager).toBe(true)
+  it('lọc theo quản lý cần USER_READ + ROLE_READ (ô lọc gọi GET /roles và GET /users)', () => {
+    const filter = (scope: string[]) =>
+      warehouseAbilities(user('SUPERVISOR', scope), flags).filterByManager
+    expect(filter(['USER_READ'])).toBe(false)
+    expect(filter(['USER_READ', 'ROLE_READ'])).toBe(true)
   })
 
   it('SUPER_ADMIN làm được mọi thứ dù scope rỗng', () => {

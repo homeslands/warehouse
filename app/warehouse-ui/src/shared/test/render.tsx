@@ -15,7 +15,17 @@ import {
  * Cùng hình dạng với `CurrentUser` của `entities/session`. `shared` không được import `entities`,
  * nên khai lại ở đây; TypeScript so theo cấu trúc nên truyền `CurrentUser` vào vẫn hợp lệ.
  */
-export type TestUser = { userId: string; userName: string; roleName: string; scope: string[] }
+export type TestUser = {
+  userId: string
+  userName: string
+  roleName: string
+  scope: string[]
+  /** Hồ sơ `GET /auth/me` — tuỳ chọn, như payload thật. */
+  phonenumber?: string
+  firstName?: string
+  lastName?: string
+  email?: string | null
+}
 
 /** `'none'` = chưa đăng nhập. Không đụng `endReason` để test màn login tự đặt lý do trước khi render. */
 export type TestAuth = 'admin' | 'customer' | 'none' | TestUser

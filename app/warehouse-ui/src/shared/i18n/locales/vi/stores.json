@@ -50,5 +50,8 @@
   "sectionLegal": "Pháp nhân & hoá đơn",
   "sectionWarehouse": "Kho liên kết",
   "noWarehouse": "Chưa gán kho",
-  "notFound": "Không tìm thấy cửa hàng này — có thể đã bị xoá."
+  "notFound": "Không tìm thấy cửa hàng này — có thể đã bị xoá.",
+  "fieldManager": "Người quản lý",
+  "noManager": "Chưa có quản lý",
+  "mineEmpty": "Chưa có cửa hàng nào gắn với kho bạn quản lý."
 }

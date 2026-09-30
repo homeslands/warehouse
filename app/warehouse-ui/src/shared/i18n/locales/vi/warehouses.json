@@ -47,8 +47,5 @@
   "managerFilter": "Lọc theo quản lý",
   "noManager": "Chưa có quản lý",
   "notFound": "Không tìm thấy kho này — có thể đã bị xoá.",
-  "scopeLabel": "Phạm vi danh sách",
-  "scopeAll": "Tất cả kho",
-  "scopeMine": "Kho tôi quản lý",
   "mineEmpty": "Bạn chưa được phân công quản lý kho nào."
 }

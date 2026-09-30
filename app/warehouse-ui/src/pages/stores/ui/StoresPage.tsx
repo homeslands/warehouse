@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
-import { useAuthStore } from '@/entities/session'
+import { useAuthStore, ROLES } from '@/entities/session'
 import {
   buildStoreColumns,
   useDeleteStore,
@@ -211,6 +211,8 @@ export function StoresPage() {
 
       <DataTable
         columns={columns}
+        // MANAGER: backend chỉ trả cửa hàng gắn với kho mình phụ trách (`WMS-10-be(7)`).
+        emptyText={user?.roleName === ROLES.MANAGER ? t('stores:mineEmpty') : undefined}
         onRowClick={(row) => {
           const { to, state } = detailLink(row)
           navigate(to, { state })

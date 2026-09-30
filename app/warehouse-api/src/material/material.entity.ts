@@ -4,6 +4,7 @@ import { Base } from 'src/app/base.entity';
 import { MaterialType } from 'src/material-type/material-type.entity';
 import { Unit } from 'src/unit/unit.entity';
 import { MaterialUnit } from './material-unit.entity';
+import { Supplier } from 'src/supplier/supplier.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 
 @Entity('material_tbl')
@@ -20,6 +21,15 @@ export class Material extends Base {
   @ManyToOne(() => MaterialType, { nullable: false })
   @JoinColumn({ name: 'type_id_column' })
   type: MaterialType;
+
+  /**
+   * Nhà cung cấp của vật tư (1 nhà cung cấp - n vật tư). NULL = chưa gắn. Chỉ ghi qua
+   * `PUT|DELETE /suppliers/:slug/materials/:materialSlug` — `Create/UpdateMaterialRequestDto` không
+   * nhận field này.
+   */
+  @ManyToOne(() => Supplier, (supplier) => supplier.materials, { nullable: true })
+  @JoinColumn({ name: 'supplier_id_column' })
+  supplier?: Supplier | null;
 
   /**
    * Đơn vị CƠ SỞ của vật tư — mốc quy đổi cho mọi đơn vị khác trong `unitsCanHave`

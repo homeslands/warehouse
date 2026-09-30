@@ -1,122 +1,136 @@
-# Checklist test UI — nhánh `feature/WMS-9-fe-warehouse-store-management`
+# Checklist test UI — WMS-9 (kho, cửa hàng) và WMS-10 (phân quyền)
 
-Phạm vi: WMS-9-fe (kho, cửa hàng, trang chi tiết, "Kho tôi quản lý") và WMS-10-fe (phân quyền, gác
-quyền theo authority). Mỗi dòng là **thao tác → kết quả cần thấy**; chữ trong ngoặc kép là chữ thật
-trên màn hình.
+Mỗi dòng: **làm gì → phải thấy gì**. Chữ trong ngoặc kép là chữ hiện trên màn hình.
 
 ## Chuẩn bị
 
-- [ ] Chạy app: `cd app/warehouse-ui && npm run dev` (Node 24), trỏ tới sandbox.
-- [ ] Có sẵn 4 tài khoản: **SUPER_ADMIN**, **ADMIN**, **MANAGER** (nên đang quản lý ít nhất 1 kho),
-      **SUPERVISOR**.
-- [ ] Dùng kho/cửa hàng riêng để thử — sửa/xoá trên sandbox là dữ liệu thật.
+- [ ] Có 4 tài khoản: **SUPER_ADMIN**, **ADMIN**, **MANAGER** (đang quản lý ít nhất 1 kho), **SUPERVISOR**.
+- Trên giao diện vai trò hiện bằng **tên**, không phải mã: SUPER_ADMIN = "Quản trị cấp cao", ADMIN = "Quản trị viên",
+  MANAGER = "Quản lý", SUPERVISOR = "Giám sát". Checklist này dùng mã cho ngắn.
+- [ ] Dùng kho/cửa hàng tạo riêng để thử — sửa/xoá là dữ liệu thật.
 
-## 1. Đăng nhập và giao diện chung
+## 1. Đăng nhập, giao diện chung
 
-- [ ] Màn đăng nhập có nền ảnh, khung mờ trong suốt; trình duyệt tự điền mật khẩu thì ô nhập không bị
-      nền trắng/vàng.
-- [ ] Bật Caps Lock khi gõ mật khẩu → hiện "Caps Lock đang bật"; nút con mắt ẩn/hiện mật khẩu.
-- [ ] Đăng nhập đúng → toast "Đăng nhập thành công".
-- [ ] Menu Ngôn ngữ có cờ Việt/Anh tròn; menu Ngôn ngữ và Giao diện rộng rãi, không chật.
-- [ ] Đổi sang English → toàn bộ chữ đổi, kể cả tên quyền ở màn Phân quyền.
-- [ ] Đăng xuất → toast "Đã đăng xuất".
+- [ ] Đăng nhập đúng → toast "Đăng nhập thành công". Đăng xuất → toast "Đã đăng xuất".
+- [ ] Trình duyệt tự điền mật khẩu → ô nhập không bị nền trắng/vàng.
+- [ ] Bật Caps Lock khi gõ mật khẩu → hiện "Caps Lock đang bật".
+- [ ] Menu Ngôn ngữ có cờ Việt/Anh. Đổi sang English → mọi chữ đổi theo.
+- [ ] Góc phải header: ảnh đại diện chữ viết tắt + **họ tên** + **tên vai trò** (vd "Quản trị viên", không phải
+      `ADMIN`). Tài khoản chưa có họ tên → hiện "Người dùng" kèm icon (không hiện số điện thoại làm tên). Điện thoại: chỉ còn ảnh đại diện.
+- [ ] Bấm vào → đầu menu **luôn** có họ tên (hoặc "Người dùng"), số điện thoại, email (nếu có), vai trò. Trang Tài khoản hiện giống vậy.
+- [ ] Đổi sang English → tên vai trò thành "Administrator", "Manager"…
 
-## 2. Danh sách Kho (`/warehouses`) — đăng nhập ADMIN
+## 2. Danh sách Kho (`/warehouses`) — tài khoản ADMIN
 
-- [ ] "Tạo kho" → form; bỏ trống Mã/Tên/Địa chỉ rồi Lưu → báo lỗi tại từng ô.
-- [ ] Tạo thành công → toast "Đã tạo kho", kho mới hiện trong bảng.
-- [ ] Menu `⋯` của một dòng có: Sửa, Gán quản lý, Ngừng/Mở hoạt động, Xoá.
-- [ ] Sửa → toast "Đã cập nhật kho", bảng cập nhật.
-- [ ] Gán quản lý: chọn người → toast; "Bỏ gán" → cột Quản lý trống.
-- [ ] Ngừng hoạt động → hộp xác nhận → trạng thái đổi.
-- [ ] Kho **đang hoạt động** thì mục Xoá bị mờ, rê chuột thấy "Phải ngừng hoạt động kho trước khi xoá".
-- [ ] Ngừng hoạt động rồi Xoá → hộp xác nhận → toast "Đã xoá kho".
-- [ ] Bộ lọc Trạng thái, "Lọc theo quản lý", "Chỉ kho chưa có quản lý" lọc đúng; URL đổi theo, F5 vẫn
-      giữ bộ lọc.
+- [ ] Thanh trên bảng: nút "Tạo kho" ở **ngoài cùng bên phải**, các bộ lọc nằm ngay bên trái nút.
+- [ ] Tạo kho: bỏ trống Mã/Tên/Địa chỉ → báo lỗi dưới từng ô. Tạo đúng → toast "Đã tạo kho".
+- [ ] Menu `⋯` của một hàng có: Sửa, Gán quản lý, Ngừng/Mở hoạt động, Xoá.
+- [ ] Kho **đang hoạt động** → mục Xoá mờ, rê chuột thấy "Phải ngừng hoạt động kho trước khi xoá".
+- [ ] Ngừng hoạt động → Xoá → xác nhận → toast "Đã xoá kho".
+- [ ] Bộ lọc Trạng thái / "Lọc theo quản lý" / "Chỉ kho chưa có quản lý" lọc đúng; F5 vẫn giữ bộ lọc.
+- [ ] "Lọc theo quản lý" và hộp "Gán quản lý" hiện **Họ tên (số điện thoại)**, vd "Nguyễn Văn A (0901234567)";
+      người chưa có tên chỉ hiện số điện thoại. Gõ tên hoặc số điện thoại đều tìm được.
+- [ ] **Bấm vào bất kỳ chỗ nào trên hàng** → mở trang chi tiết kho.
+- [ ] Bấm nút `⋯` hoặc mục trong menu → **không** mở trang chi tiết.
 
 ## 3. Chi tiết Kho (`/warehouses/:slug`)
 
-- [ ] Lọc danh sách trước (vd Ngừng hoạt động), bấm **tên kho** → mở trang chi tiết.
-- [ ] Breadcrumb và tiêu đề tab trình duyệt hiện **tên kho** (không phải chữ "Chi tiết").
-- [ ] Header: tên, huy hiệu trạng thái, mã, nút **Sửa** và `⋯`.
-- [ ] Chỉ có **một card "Tổng quan"**: Mã, Người quản lý, Điện thoại, Địa chỉ, Mô tả; trường trống hiện
-      "—"; đáy card có dòng nhỏ "Tạo lúc … · Cập nhật lúc …".
-- [ ] Có số điện thoại → số đó bấm được và mở ứng dụng gọi (`tel:`).
-- [ ] Thu nhỏ cửa sổ: desktop 3 cột → tablet 2 cột → điện thoại 1 cột, không tràn ngang.
-- [ ] Sửa từ trang chi tiết → lưu xong trang hiện ngay giá trị mới.
-- [ ] "Quay lại danh sách" → về đúng danh sách với **bộ lọc cũ**.
-- [ ] Xoá từ trang chi tiết (ngừng hoạt động trước) → quay về danh sách, **không** có toast lỗi 404.
-- [ ] Gõ URL slug không tồn tại → "Không tìm thấy kho này — có thể đã bị xoá." kèm nút về danh sách.
+- [ ] Lọc danh sách trước, rồi mở một kho → breadcrumb và tên tab hiện **tên kho**.
+- [ ] Chỉ có **một khung "Tổng quan"**: Mã, Người quản lý, Điện thoại, Địa chỉ, Mô tả. Ô trống hiện chữ xám "Chưa có".
+- [ ] Cột "Quản lý" (danh sách) và "Người quản lý" (chi tiết) hiện **Họ tên (số điện thoại)**; chưa có → "Chưa có" / "Chưa có quản lý".
+      Dòng nhỏ ở đáy khung: "Tạo lúc … · Cập nhật lúc …".
+- [ ] Số điện thoại bấm được (mở ứng dụng gọi).
+- [ ] "Sửa" → lưu → trang hiện ngay giá trị mới.
+- [ ] "Quay lại danh sách" → về đúng danh sách, **giữ bộ lọc cũ**.
+- [ ] Xoá từ trang chi tiết → quay về danh sách, **không** hiện lỗi 404.
+- [ ] Gõ địa chỉ kho không tồn tại → "Không tìm thấy kho này — có thể đã bị xoá."
 
-## 4. "Kho tôi quản lý" — đăng nhập MANAGER
+## 4. MANAGER chỉ thấy phần của mình — tài khoản MANAGER
 
-- [ ] `/warehouses` có hai nút "Tất cả kho" / "Kho tôi quản lý".
-- [ ] Bấm "Kho tôi quản lý" → URL có `?scope=mine`, chỉ hiện kho MANAGER đó quản lý.
-- [ ] Ở chế độ này, bộ lọc quản lý và ô "Chỉ kho chưa có quản lý" bị ẩn.
-- [ ] MANAGER chưa quản lý kho nào → "Bạn chưa được phân công quản lý kho nào."
-- [ ] Vào chi tiết một kho rồi quay lại → vẫn ở chế độ "Kho tôi quản lý".
-- [ ] Đăng nhập ADMIN / SUPER_ADMIN → **không** thấy hai nút; tự gõ `?scope=mine` cũng không tác dụng.
+- [ ] Màn Kho chỉ có các kho **mình được gán làm quản lý**; không có nút "Tất cả kho / Kho tôi quản lý".
+- [ ] Không có bộ lọc "Lọc theo quản lý" và ô "Chỉ kho chưa có quản lý" (chỉ còn lọc Trạng thái).
+- [ ] Chưa được gán kho nào → "Bạn chưa được phân công quản lý kho nào."
+- [ ] Màn Cửa hàng chỉ có cửa hàng **gắn với kho mình quản lý**; không có → "Chưa có cửa hàng nào gắn với kho bạn quản lý."
+- [ ] ADMIN gán MANAGER đó làm quản lý một kho khác → MANAGER tải lại danh sách thấy thêm kho đó (và cửa hàng gắn với nó).
 
-## 5. Danh sách Cửa hàng (`/stores`) — đăng nhập ADMIN
+## 5. Danh sách và chi tiết Cửa hàng (`/stores`) — tài khoản ADMIN
 
-- [ ] Tạo cửa hàng: bỏ trống Mã/Tên/Tên pháp lý/Mã số thuế → báo lỗi; mã số thuế sai →
-      "Mã số thuế gồm 10 chữ số…".
-- [ ] Sửa, Ngừng/Mở hoạt động, Xoá: có hộp xác nhận, có toast; đang hoạt động thì khoá Xoá.
-- [ ] "Gán kho" → chọn kho → toast "Đã cập nhật kho của cửa hàng"; "Bỏ gán" → cột Kho liên kết trống.
-- [ ] Bộ lọc Trạng thái lọc đúng.
+- [ ] Tạo cửa hàng: bỏ trống Mã/Tên/Tên pháp lý/Mã số thuế → báo lỗi; mã số thuế sai → báo lỗi định dạng.
+- [ ] Sửa, Ngừng/Mở hoạt động, Xoá, Gán kho / Bỏ gán → có hộp xác nhận và toast.
+- [ ] Bấm vào hàng → mở chi tiết. Khung "Tổng quan" có thêm nhóm **"Pháp nhân & hoá đơn"** bên dưới.
+- [ ] Chi tiết cửa hàng có "Người quản lý" = quản lý của kho đang gắn; chưa gắn kho / kho chưa có quản lý → "Chưa có quản lý".
+- [ ] Điện thoại và email bấm được. Kho liên kết là link sang trang kho; chưa gán → "Chưa gán kho".
+- [ ] Role có xem cửa hàng nhưng **không** xem được kho → tên kho hiện dạng chữ, không bấm được.
 
-## 6. Chi tiết Cửa hàng (`/stores/:slug`)
+## 6. Mỗi vai trò thấy gì (quyền mặc định)
 
-- [ ] Bấm tên cửa hàng → trang chi tiết, breadcrumb và tab hiện tên cửa hàng.
-- [ ] Card "Tổng quan": Mã, Kho liên kết, Điện thoại, Email, Địa chỉ; bên dưới có đường kẻ và nhóm
-      **"Pháp nhân & hoá đơn"** (Tên pháp lý, Mã số thuế, Địa chỉ xuất hoá đơn).
-- [ ] Điện thoại bấm được (`tel:`), email bấm được (`mailto:`).
-- [ ] Kho liên kết là link → mở trang chi tiết kho đó; chưa gán thì hiện "Chưa gán kho".
-- [ ] Sửa / Gán kho / Ngừng hoạt động / Xoá chạy được từ trang chi tiết; xoá xong về danh sách, không
-      toast 404.
-- [ ] Role có Xem cửa hàng nhưng **không** có Xem kho → tên kho hiện dạng chữ thường, không bấm được
-      (không bị đưa tới trang "Không đủ quyền").
+Trước khi test, mở màn Phân quyền xem đang cấp gì — môi trường đã có người chỉnh thì kết quả khác bảng dưới.
 
-## 7. Màn Phân quyền (`/permissions`)
+| Vai trò | Kho / Cửa hàng |
+|---|---|
+| SUPER_ADMIN | Làm được mọi thứ, kể cả khi không có ô nào được bật |
+| ADMIN | Xem, tạo, sửa, xoá, gán quản lý, gán kho |
+| MANAGER, SUPERVISOR | Chỉ xem |
 
-- [ ] Cột xếp theo cấp: SUPER_ADMIN → ADMIN → MANAGER → SUPERVISOR; cột SUPER_ADMIN ghi "Toàn quyền",
-      không bấm được.
-- [ ] Tên quyền hiện tiếng Việt (English cũng dịch); mã gốc (vd `WAREHOUSE_CREATE`) vẫn giữ để đối
-      chiếu.
-- [ ] Rê chuột trên một dòng → cả dòng đổi nền đều nhau, kể cả cột đầu.
-- [ ] Bấm một ô → hộp "Cấp quyền này cho vai trò?" / "Gỡ quyền này khỏi vai trò?"; xác nhận → toast
-      "Đã cấp quyền" / "Đã gỡ quyền"; backend lỗi → toast lỗi, ô giữ nguyên.
-- [ ] Ô bị khoá có lý do khi rê chuột (chỉ khi cờ `permissionDelegationRules` bật):
-  - vai trò cao hơn mình → "Bạn chỉ chỉnh được quyền của vai trò cấp thấp hơn mình";
-  - mình không có quyền đó → "Bạn không có quyền này nên không cấp/gỡ được…";
-  - quyền hệ thống (Quản trị phân quyền, Sao lưu CSDL, Xem nhật ký, Tạo người dùng…) →
-    "Quyền này chỉ quản trị viên cấp cao nhất cấp được".
-- [ ] Tự gỡ "Quản trị phân quyền" của role mình → cảnh báo riêng "Tự bỏ quyền quản trị phân quyền?".
+- [ ] Đăng nhập từng vai trò → nút hiện đúng như bảng.
+- [ ] MANAGER / SUPERVISOR: không có nút "Tạo", không có cột Thao tác (nút `⋯`), không có menu "Phân quyền".
+- [ ] Mỗi nút đi theo **một quyền riêng** — tắt đúng quyền đó thì chỉ nút đó biến mất:
 
-## 8. Gác quyền theo authority và đổi quyền khi đang dùng
+| Nút | Cần quyền |
+|---|---|
+| Menu "Kho" và xem danh sách/chi tiết kho | Xem danh sách/chi tiết kho |
+| "Tạo kho" | Tạo kho |
+| "Sửa", "Ngừng/Mở hoạt động" (kho) | Sửa thông tin kho |
+| "Gán quản lý" | Phân công quản lý kho **và** Xem danh sách người dùng **và** Xem vai trò |
+| Bộ lọc "Lọc theo quản lý" | Xem danh sách người dùng **và** Xem vai trò |
+| "Xoá" (kho) | Xoá kho |
+| Menu "Cửa hàng", "Tạo", "Sửa", "Xoá" (cửa hàng) | Xem / Tạo / Sửa / Xoá cửa hàng |
+| "Gán kho" (cửa hàng) | Sửa cửa hàng **và** Sửa thông tin kho **và** Xem kho |
+| Menu "Phân quyền" | Quản trị phân quyền **và** Xem vai trò |
 
-Mở hai trình duyệt: **A** = ADMIN hoặc SUPER_ADMIN, **B** = MANAGER.
+- [ ] Không có quyền mà gõ thẳng địa chỉ (vd `/permissions`) → trang "Không đủ quyền".
 
-- [ ] A cấp `WAREHOUSE_CREATE` cho MANAGER → B quay lại tab hoặc sang màn khác → nút "Tạo kho" xuất
-      hiện.
-- [ ] A gỡ quyền đó → nút "Tạo kho" ở B biến mất; nếu B đang mở form và bấm Lưu → 403, UI tự nạp lại
-      quyền và báo "Quyền của bạn vừa được cập nhật."
-- [ ] A gỡ `WAREHOUSE_READ` của MANAGER khi B đang ở `/warehouses` → B chuyển tới trang
-      "Quyền truy cập đã thay đổi".
-- [ ] Menu bên trái của B chỉ hiện các màn B có quyền xem.
-- [ ] Nút "Gán kho" ở màn Cửa hàng chỉ hiện khi có đủ Sửa cửa hàng + Sửa thông tin kho + Xem kho.
+## 7. Luật khi chỉnh quyền (màn `/permissions`)
+
+- [ ] Bấm một ô → hộp xác nhận → toast "Đã cấp quyền" / "Đã gỡ quyền".
+- [ ] **Chỉ chỉnh được vai trò thấp hơn mình.** ADMIN: cột ADMIN ghi "Chỉ xem" (dấu ✓/—, không có công tắc),
+      chỉnh được MANAGER và SUPERVISOR. SUPER_ADMIN chỉnh được mọi cột.
+- [ ] **Chỉ cấp/gỡ được quyền mình đang có.** Ô của quyền mình không có bị khoá, rê chuột thấy
+      "Bạn không có quyền này nên không cấp/gỡ được…".
+- [ ] **Quyền hệ thống chỉ SUPER_ADMIN cấp:** Quản trị phân quyền, Sao lưu cơ sở dữ liệu, Xem nhật ký hệ thống,
+      Tạo người dùng, Đặt lại mật khẩu người dùng → với ADMIN các ô này bị khoá.
+- [ ] **Gỡ quyền lan xuống cấp dưới:** SUPER_ADMIN gỡ "Xem danh sách/chi tiết kho" của ADMIN → ô đó của
+      MANAGER và SUPERVISOR cũng tự tắt. **Cấp quyền thì không lan** — chỉ vai trò được chọn có thêm.
+- [ ] Không gỡ được "Quản trị phân quyền" khỏi vai trò **cuối cùng** còn giữ nó (ô bị khoá, có lý do).
+- [ ] Tự gỡ "Quản trị phân quyền" của vai trò mình → cảnh báo "Tự bỏ quyền quản trị phân quyền?"; xác nhận
+      → mất menu Phân quyền ngay.
+
+## 8. Đổi quyền khi người dùng đang mở app
+
+Hai trình duyệt: **A** = ADMIN hoặc SUPER_ADMIN, **B** = MANAGER.
+
+- [ ] A cấp "Tạo kho" cho MANAGER → B quay lại tab → thấy nút "Tạo kho", tạo được thật.
+- [ ] A gỡ quyền đó → nút ở B biến mất; nếu B đang mở form và bấm Lưu → báo "Quyền của bạn vừa được cập nhật."
+- [ ] A gỡ "Xem danh sách/chi tiết kho" khi B đang ở `/warehouses` → B chuyển tới "Quyền truy cập đã thay đổi",
+      menu "Kho" biến mất.
+- [ ] B **không cần đăng nhập lại** trong mọi trường hợp trên.
 
 ## 9. Tài khoản (`/account`)
 
-- [ ] Hiện Tên đăng nhập và Vai trò.
-- [ ] "Đổi mật khẩu": nhập lại không khớp → báo lỗi; thành công → toast
-      "Đã đổi mật khẩu. Các thiết bị khác đã bị đăng xuất."
-- [ ] "Đăng xuất khỏi mọi thiết bị" → hộp xác nhận → toast "Đã đăng xuất khỏi mọi thiết bị", phải đăng
-      nhập lại.
+- [ ] Đổi mật khẩu: nhập lại không khớp → báo lỗi; thành công → toast, các thiết bị khác bị đăng xuất.
+- [ ] "Đăng xuất khỏi mọi thiết bị" → xác nhận → phải đăng nhập lại.
 
-## Không cần test (đang tắt vì backend chưa có)
+## 10. Màn hình nhỏ (DevTools → chế độ thiết bị, thử 375px và 768px)
 
-- Sắp xếp theo cột, ô tìm kiếm ở danh sách kho/cửa hàng (cờ `sort`, `search`).
-- Mục Hồ sơ (họ tên, email) và Thiết bị đang đăng nhập ở trang Tài khoản (cờ `profileEdit`,
-  `sessionList`).
-- Vật tư trong kho — chưa làm, ngoài phạm vi nhánh này.
+- [ ] Không trang nào có thanh cuộn ngang ở cả trang.
+- [ ] Điện thoại: header chỉ còn tên trang hiện tại và icon tài khoản, không chữ nào chồng lên nhau.
+- [ ] Điện thoại: bảng Kho/Cửa hàng chỉ còn Tên, Trạng thái, nút `⋯` — nút `⋯` nhìn thấy, không bị khuất.
+- [ ] Màn rộng dần → các cột Mã, Địa chỉ, Quản lý, Ngày tạo… hiện lại dần. Mở/thu gọn sidebar cũng vậy.
+- [ ] Điện thoại, màn Kho: bộ lọc gom vào nút "Bộ lọc" (có số bộ lọc đang bật) → bấm mở ngăn từ dưới lên.
+- [ ] Điện thoại: form Sửa mở toàn màn; menu `⋯` và hộp xác nhận hiện đủ.
+- [ ] Điện thoại, màn Phân quyền: bảng cuộn ngang trong khung, cột tên quyền đứng yên bên trái.
+
+## Không cần test (backend chưa có)
+
+- Sắp xếp theo cột, ô tìm kiếm.
+- Mục Hồ sơ và Thiết bị đang đăng nhập ở trang Tài khoản.

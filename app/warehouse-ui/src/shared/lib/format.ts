@@ -1,6 +1,9 @@
 import i18n from '@/shared/i18n'
 
-/** Hiện cho giá trị rỗng/không hợp lệ — một ô trống trông như lỗi hiển thị. */
+/**
+ * Chuỗi trả về của các hàm `format*` khi giá trị rỗng/không hợp lệ (hàm thuần, không có `t`). Ô bảng / trang
+ * chi tiết hiện giá trị THIẾU thì dùng `<EmptyValue />` (`shared/ui/EmptyValue.tsx`) — chữ "Chưa có" có dịch.
+ */
 export const EMPTY_VALUE = '—'
 
 type DateInput = string | number | Date | null | undefined

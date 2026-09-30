@@ -60,13 +60,32 @@ describe('WarehouseDetailPage — hiển thị', () => {
     expect(within(field('Cập nhật lúc')).getByText(/02\/09\/2026/)).toBeInTheDocument()
   })
 
-  it('trường trống hiện "—"; chưa có quản lý hiện "Chưa có quản lý"', async () => {
+  it('trường trống hiện "Chưa có"; chưa có quản lý hiện "Chưa có quản lý"', async () => {
     renderPage()
     await screen.findByRole('heading', { level: 1 })
 
-    expect(within(field('Điện thoại')).getByText('—')).toBeInTheDocument()
-    expect(within(field('Mô tả')).getByText('—')).toBeInTheDocument()
+    expect(within(field('Điện thoại')).getByText('Chưa có')).toBeInTheDocument()
+    expect(within(field('Mô tả')).getByText('Chưa có')).toBeInTheDocument()
     expect(within(field('Người quản lý')).getByText('Chưa có quản lý')).toBeInTheDocument()
+  })
+
+  it('có quản lý → "Họ tên (số điện thoại)" từ object manager', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/kho-ha-noi`, () =>
+        ok({
+          ...warehouse,
+          manager: {
+            slug: 'u-m',
+            phonenumber: '0901234567',
+            firstName: 'Văn A',
+            lastName: 'Nguyễn',
+          },
+        }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByText('Nguyễn Văn A (0901234567)')).toBeInTheDocument()
   })
 
   it('có số điện thoại → link tel:', async () => {

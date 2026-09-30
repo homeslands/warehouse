@@ -7,7 +7,9 @@ import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { readBackTo } from '@/shared/lib/back-link'
-import { EMPTY_VALUE, formatDateTime } from '@/shared/lib/format'
+import { formatDateTime } from '@/shared/lib/format'
+import { EmptyValue } from '@/shared/ui/EmptyValue'
+import { formatPersonLabel } from '@/shared/lib/person-name'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { DetailCard, DetailContact, DetailField, DetailGroup, DetailMeta } from '@/shared/ui/detail'
@@ -171,7 +173,7 @@ export function WarehouseDetailPage() {
         <DetailGroup>
           <DetailField label={t('warehouses:columnCode')}>{warehouse.code}</DetailField>
           <DetailField label={t('warehouses:fieldManager')}>
-            {warehouse.managerPhonenumber || t('warehouses:noManager')}
+            {warehouse.manager ? formatPersonLabel(warehouse.manager) : t('warehouses:noManager')}
           </DetailField>
           <DetailField label={t('warehouses:columnPhonenumber')}>
             <DetailContact kind="tel" value={warehouse.phonenumber} />
@@ -180,7 +182,7 @@ export function WarehouseDetailPage() {
             {warehouse.address}
           </DetailField>
           <DetailField label={t('warehouses:fieldDescription')} span="full">
-            {warehouse.description || EMPTY_VALUE}
+            {warehouse.description || <EmptyValue />}
           </DetailField>
         </DetailGroup>
       </DetailCard>

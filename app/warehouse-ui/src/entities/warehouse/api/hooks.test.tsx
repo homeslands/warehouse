@@ -13,7 +13,6 @@ import {
   useAssignWarehouseManager,
   useCreateWarehouse,
   useDeleteWarehouse,
-  useMyWarehouses,
   useUpdateWarehouse,
   useWarehouse,
   useWarehouses,
@@ -160,12 +159,7 @@ function DetailProbe({ slug }: { slug: string }) {
   return <output data-testid="detail">{detail.data?.name ?? detail.status}</output>
 }
 
-function MineProbe({ enabled }: { enabled: boolean }) {
-  const mine = useMyWarehouses({ page: 1, size: 10 }, { enabled })
-  return <output data-testid="mine">{(mine.data?.items ?? []).map((w) => w.name).join(',')}</output>
-}
-
-describe('useWarehouse / useMyWarehouses', () => {
+describe('useWarehouse', () => {
   it('useWarehouse tải chi tiết theo slug', async () => {
     server.use(mswHttp.get(`${BASE}/warehouses/kho-ha-noi`, () => ok(warehouse)))
     renderWithProviders(<DetailProbe slug="kho-ha-noi" />)
@@ -193,23 +187,5 @@ describe('useWarehouse / useMyWarehouses', () => {
     await user.click(screen.getByRole('button', { name: 'update' }))
 
     expect(await screen.findByText('Kho Hà Nội 1B')).toBeInTheDocument()
-  })
-
-  it('useMyWarehouses gọi /warehouses/mine; enabled: false thì không gọi', async () => {
-    let calls = 0
-    server.use(
-      mswHttp.get(`${BASE}/warehouses/mine`, () => {
-        calls += 1
-        return paginated([warehouse])
-      }),
-    )
-    const { rerender } = renderWithProviders(<MineProbe enabled={false} />)
-    await new Promise((resolve) => setTimeout(resolve, 20))
-    expect(calls).toBe(0)
-
-    rerender(<MineProbe enabled />)
-
-    expect(await screen.findByText('Kho Hà Nội 1')).toBeInTheDocument()
-    expect(calls).toBe(1)
   })
 })

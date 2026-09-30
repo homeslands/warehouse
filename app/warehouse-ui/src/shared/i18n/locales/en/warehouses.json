@@ -47,8 +47,5 @@
   "managerFilter": "Filter by manager",
   "noManager": "No manager assigned",
   "notFound": "This warehouse was not found — it may have been deleted.",
-  "scopeLabel": "List scope",
-  "scopeAll": "All warehouses",
-  "scopeMine": "Warehouses I manage",
   "mineEmpty": "You have not been assigned to manage any warehouse."
 }

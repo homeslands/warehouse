@@ -24,10 +24,10 @@ import {
 import { Label } from '@/shared/ui/label'
 import { ROLES, useAuthStore } from '@/entities/session'
 import { useManagerCandidates } from '@/entities/user'
+import { formatPersonLabel } from '@/shared/lib/person-name'
 import {
   buildWarehouseColumns,
   useDeleteWarehouse,
-  useMyWarehouses,
   useUpdateWarehouse,
   useWarehouses,
   type Warehouse,
@@ -48,9 +48,7 @@ const FILTERS = z.object({
   hasManager: z.stringbool().optional(),
   // Chỉ gửi đi khi BACKEND_SUPPORTS.search — xem shared/api/backend-capabilities.ts.
   search: z.string().optional(),
-  // "Kho tôi quản lý" — nguồn dữ liệu là GET /warehouses/mine. Không có = "Tất cả kho".
-  scope: z.enum(['mine']).optional(),
-}) satisfies z.ZodType<WarehouseFilters & { scope?: 'mine' }>
+}) satisfies z.ZodType<WarehouseFilters>
 
 /**
  * Ô lọc theo quản lý. Tách thành component riêng (chứ không gọi hook ở `WarehousesPage`) để hai
@@ -69,7 +67,7 @@ function ManagerFilter({
 
   const options: ComboboxOption[] = candidates.map((c) => ({
     value: c.slug,
-    label: c.phonenumber,
+    label: formatPersonLabel(c),
   }))
   // Giá trị trên URL có thể không nằm trong danh sách ứng viên (quản lý đã bị khoá, link người khác
   // gửi): vẫn phải hiện ra — nếu không ô lọc trông như đang trống mà danh sách thì vẫn bị lọc, và
@@ -115,33 +113,22 @@ export function WarehousesPage() {
   const [togglingActive, setTogglingActive] = useState<Warehouse | null>(null)
   const [assigning, setAssigning] = useState<Warehouse | null>(null)
 
-  // Chỉ vai trò MANAGER mới được gán làm quản lý kho (backend chặn bằng mã 100516), nên với vai trò
-  // khác công tắc luôn ra danh sách trống. Đây là LUẬT DỮ LIỆU của backend, không phải chuyện cấp
-  // quyền — vì vậy so `roleName` trực tiếp, KHÔNG dùng `hasRole` (hàm đó cho SUPER_ADMIN qua).
-  const canViewMine = user?.roleName === ROLES.MANAGER
-  const mine = canViewMine && filters.scope === 'mine'
+  // MANAGER: backend tự lọc `GET /warehouses` chỉ còn kho mình phụ trách và BỎ QUA `managerSlug` /
+  // `hasManager` (`WMS-10-be(7)`) — nên không có công tắc "kho của tôi", không gọi `/warehouses/mine`,
+  // và hai bộ lọc theo quản lý bị ẩn. Backend so vai trò bằng `hasRole(Manager)` KHÔNG miễn SUPER_ADMIN,
+  // nên ở đây cũng so `roleName` trực tiếp, không dùng `hasRole` của FE (hàm đó cho SUPER_ADMIN qua).
+  const isManager = user?.roleName === ROLES.MANAGER
 
-  // `search` và `sort` chỉ rời khỏi FE khi backend làm xong — xem backend-capabilities. `scope`
-  // không gửi cho `/warehouses` (đây là bộ lọc quyết định GỌI API nào, không phải tham số của nó).
-  const { search, scope: _scope, ...backendFilters } = filters
-  void _scope
-  const sortParam = BACKEND_SUPPORTS.sort ? sortToParam(sort) : undefined
-  const allQuery = useWarehouses(
-    {
-      page,
-      size,
-      ...backendFilters,
-      ...(BACKEND_SUPPORTS.search && search !== undefined ? { search } : {}),
-      sort: sortParam,
-    },
-    { enabled: !mine },
-  )
-  // `/mine` chỉ nhận `isActive` — không gửi managerSlug/hasManager/search.
-  const mineQuery = useMyWarehouses(
-    { page, size, isActive: filters.isActive, sort: sortParam },
-    { enabled: mine },
-  )
-  const { data, isPending, error, isPlaceholderData } = mine ? mineQuery : allQuery
+  // `search` và `sort` chỉ rời khỏi FE khi backend làm xong — xem backend-capabilities.
+  const { search, managerSlug, hasManager, ...rest } = filters
+  const { data, isPending, error, isPlaceholderData } = useWarehouses({
+    page,
+    size,
+    ...rest,
+    ...(isManager ? {} : { managerSlug, hasManager }),
+    ...(BACKEND_SUPPORTS.search && search !== undefined ? { search } : {}),
+    sort: BACKEND_SUPPORTS.sort ? sortToParam(sort) : undefined,
+  })
   const remove = useDeleteWarehouse()
   const update = useUpdateWarehouse()
 
@@ -237,18 +224,17 @@ export function WarehousesPage() {
       <h1 className="text-xl font-semibold">{t('warehouses:title')}</h1>
 
       <ListToolbar
-        collapseFiltersOnMobile
+        // MANAGER chỉ còn một bộ lọc (Trạng thái) — gom vào nút "Bộ lọc" chỉ thêm một cú bấm.
+        collapseFiltersOnMobile={!isManager}
         activeFilterCount={
           [
-            mine,
             filters.isActive !== undefined,
             filters.managerSlug,
             filters.hasManager === false,
           ].filter(Boolean).length
         }
         search={
-          BACKEND_SUPPORTS.search &&
-          !mine && (
+          BACKEND_SUPPORTS.search && (
             <SearchInput
               value={filters.search ?? ''}
               onChange={(value) => setFilters({ search: value === '' ? undefined : value })}
@@ -258,41 +244,6 @@ export function WarehousesPage() {
         }
         filters={
           <>
-            {canViewMine && (
-              <div
-                role="group"
-                aria-label={t('warehouses:scopeLabel')}
-                className="bg-muted inline-flex rounded-lg p-1"
-              >
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={mine ? 'ghost' : 'secondary'}
-                  aria-pressed={!mine}
-                  onClick={() => setFilters({ scope: undefined })}
-                >
-                  {t('warehouses:scopeAll')}
-                </Button>
-                <Button
-                  type="button"
-                  size="sm"
-                  variant={mine ? 'secondary' : 'ghost'}
-                  aria-pressed={mine}
-                  // `/mine` không nhận các bộ lọc này (và `search` — backend bỏ qua) — vô nghĩa ở
-                  // đây nên xoá luôn khỏi URL, không để search cũ còn đọng lại khi bật cờ sau này.
-                  onClick={() =>
-                    setFilters({
-                      scope: 'mine',
-                      managerSlug: undefined,
-                      hasManager: undefined,
-                      search: undefined,
-                    })
-                  }
-                >
-                  {t('warehouses:scopeMine')}
-                </Button>
-              </div>
-            )}
             <SelectFilter
               label={t('warehouses:columnStatus')}
               value={filters.isActive === undefined ? '' : String(filters.isActive)}
@@ -305,7 +256,7 @@ export function WarehousesPage() {
                 { value: 'false', label: t('warehouses:inactive') },
               ]}
             />
-            {ability.filterByManager && !mine && (
+            {ability.filterByManager && !isManager && (
               <ManagerFilter
                 value={filters.managerSlug}
                 // Backend BỎ QUA `hasManager` khi đã có `managerSlug` — để cả hai cùng bật thì
@@ -313,7 +264,7 @@ export function WarehousesPage() {
                 onChange={(value) => setFilters({ managerSlug: value, hasManager: undefined })}
               />
             )}
-            {!mine && (
+            {!isManager && (
               <Label className="text-sm font-normal">
                 <Checkbox
                   checked={filters.hasManager === false}
@@ -352,7 +303,7 @@ export function WarehousesPage() {
         data={data?.items}
         isLoading={isPending}
         error={error}
-        emptyText={mine ? t('warehouses:mineEmpty') : undefined}
+        emptyText={isManager ? t('warehouses:mineEmpty') : undefined}
         sorting={BACKEND_SUPPORTS.sort ? { value: sort, onChange: setSort } : undefined}
         pagination={{
           page: data?.page ?? page,

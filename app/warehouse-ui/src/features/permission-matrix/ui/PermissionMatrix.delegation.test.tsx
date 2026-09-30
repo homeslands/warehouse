@@ -64,7 +64,7 @@ describe('PermissionMatrix — luật ủy quyền (cờ bật), đăng nhập M
   it('R1: cột ADMIN và MANAGER chỉ xem — không có switch nào', () => {
     renderAs('MANAGER', MANAGER_SCOPE)
 
-    for (const name of ['ADMIN', 'MANAGER'])
+    for (const name of ['Quản trị viên', 'Quản lý'])
       for (const a of authorities)
         expect(
           screen.queryByRole('switch', { name: `${a.name} — ${name}` }),
@@ -87,22 +87,22 @@ describe('PermissionMatrix — luật ủy quyền (cờ bật), đăng nhập M
     renderAs('MANAGER', MANAGER_SCOPE)
 
     expect(
-      screen.getByRole('img', { name: 'Tạo phiếu nhập kho — ADMIN: Đã cấp' }),
+      screen.getByRole('img', { name: 'Tạo phiếu nhập kho — Quản trị viên: Đã cấp' }),
     ).toBeInTheDocument()
     expect(
-      screen.getByRole('img', { name: 'Xác nhận phiếu nhập kho — ADMIN: Chưa cấp' }),
+      screen.getByRole('img', { name: 'Xác nhận phiếu nhập kho — Quản trị viên: Chưa cấp' }),
     ).toBeInTheDocument()
   })
 
   it('cột SUPERVISOR: mã MANAGER có → bấm được', () => {
     renderAs('MANAGER', MANAGER_SCOPE)
 
-    expect(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — SUPERVISOR' })).toBeEnabled()
+    expect(screen.getByRole('switch', { name: 'Tạo phiếu nhập kho — Giám sát' })).toBeEnabled()
   })
 
   it('R2: mã MANAGER không có → khoá, rê chuột thấy lý do', () => {
     renderAs('MANAGER', MANAGER_SCOPE)
-    const cell = screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — SUPERVISOR' })
+    const cell = screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — Giám sát' })
 
     expect(cell).toBeDisabled()
     expect(cell.closest('span[title]')).toHaveAttribute(
@@ -113,7 +113,7 @@ describe('PermissionMatrix — luật ủy quyền (cờ bật), đăng nhập M
 
   it('R3: MANAGE_PERMISSIONS khoá dù MANAGER đang có nó', () => {
     renderAs('MANAGER', MANAGER_SCOPE)
-    const cell = screen.getByRole('switch', { name: 'Quản trị phân quyền — SUPERVISOR' })
+    const cell = screen.getByRole('switch', { name: 'Quản trị phân quyền — Giám sát' })
 
     expect(cell).toBeDisabled()
     expect(cell.closest('span[title]')).toHaveAttribute(
@@ -128,7 +128,9 @@ describe('PermissionMatrix — luật ủy quyền (cờ bật), đăng nhập S
     renderAs('SUPER_ADMIN', [])
 
     expect(screen.queryByText('Chỉ xem')).not.toBeInTheDocument()
-    expect(screen.getByRole('switch', { name: 'Quản trị phân quyền — SUPERVISOR' })).toBeEnabled()
-    expect(screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — ADMIN' })).toBeEnabled()
+    expect(screen.getByRole('switch', { name: 'Quản trị phân quyền — Giám sát' })).toBeEnabled()
+    expect(
+      screen.getByRole('switch', { name: 'Xác nhận phiếu nhập kho — Quản trị viên' }),
+    ).toBeEnabled()
   })
 })

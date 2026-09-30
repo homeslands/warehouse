@@ -32,7 +32,7 @@ const ADMIN = {
   userId: 'u1',
   userName: 'a',
   roleName: 'ADMIN',
-  scope: ['MANAGE_PERMISSIONS'],
+  scope: ['MANAGE_PERMISSIONS', 'ROLE_READ'],
 }
 
 let revoked = false
@@ -77,7 +77,7 @@ describe('bị thu quyền giữa phiên', () => {
       queryClient,
     })
 
-    await user.click(await screen.findByRole('switch', { name: 'Xem nhật ký hệ thống — MANAGER' }))
+    await user.click(await screen.findByRole('switch', { name: 'Xem nhật ký hệ thống — Quản lý' }))
     const box = await screen.findByRole('alertdialog')
     await user.click(within(box).getByRole('button', { name: 'Cấp quyền' }))
 
