@@ -33,7 +33,9 @@ export function warehouseAbilities(
     }
   }
 
-  const readUsers = can(user, 'USER_READ')
+  // Danh sách ứng viên quản lý = `GET /roles` (tìm slug vai trò MANAGER, cần `ROLE_READ` từ `WMS-10-be(5)`)
+  // + `GET /users?roleSlug=` (cần `USER_READ`). Thiếu một trong hai là ô chọn rỗng kèm 403.
+  const readUsers = can(user, 'USER_READ') && can(user, 'ROLE_READ')
   return {
     create: can(user, 'WAREHOUSE_CREATE'),
     update: can(user, 'WAREHOUSE_UPDATE'),

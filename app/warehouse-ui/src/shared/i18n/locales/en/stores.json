@@ -50,5 +50,8 @@
   "sectionLegal": "Legal entity & invoicing",
   "sectionWarehouse": "Linked warehouse",
   "noWarehouse": "No warehouse assigned",
-  "notFound": "This store was not found — it may have been deleted."
+  "notFound": "This store was not found — it may have been deleted.",
+  "fieldManager": "Manager",
+  "noManager": "No manager assigned",
+  "mineEmpty": "No store is linked to a warehouse you manage."
 }

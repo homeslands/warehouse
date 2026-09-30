@@ -3,6 +3,7 @@ import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
+import { formatFullName, initialsOf } from '@/shared/lib/person-name'
 import { formatDateTime } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -14,6 +15,7 @@ import {
   useAuthStore,
   useProfile,
   useRevokeSession,
+  useRoleLabel,
   type AuthSession,
 } from '@/entities/session'
 import { ChangePasswordDialog } from '@/features/change-password'
@@ -59,13 +61,6 @@ function Section({
 }
 
 /** Chữ cái đầu của tên đăng nhập, dùng làm ảnh đại diện tạm — backend chưa có avatar. */
-function initials(name: string): string {
-  const parts = name.trim().split(/\s+/).filter(Boolean)
-  if (parts.length === 0) return '?'
-  if (parts.length === 1) return parts[0].slice(0, 2).toUpperCase()
-  return (parts[0][0] + parts[parts.length - 1][0]).toUpperCase()
-}
-
 function DeviceRow({
   device,
   onRevoke,
@@ -106,6 +101,7 @@ export function AccountPage() {
   const profileQuery = useProfile()
   const devicesQuery = useAuthSessions(BACKEND_SUPPORTS.sessionList)
   const revoke = useRevokeSession()
+  const roleLabel = useRoleLabel()
 
   const [changePasswordOpen, setChangePasswordOpen] = useState(false)
   const [logoutAllOpen, setLogoutAllOpen] = useState(false)
@@ -114,23 +110,30 @@ export function AccountPage() {
 
   // Token đã mang sẵn số điện thoại và vai trò → hiện ngay, không bắt chờ GET /auth/me.
   const profile = profileQuery.data
-  const loginName = profile?.userName ?? tokenUser?.userName ?? ''
-  const roleName = profile?.roleName ?? tokenUser?.roleName ?? ''
+  const person = profile ?? tokenUser
+  const loginName = person?.userName ?? ''
+  const fullName = person ? formatFullName(person) : ''
+  const displayName = fullName || t('common:unnamedUser')
+  const role = roleLabel(person?.roleName)
 
   return (
     <div className="grid gap-5 sm:max-w-2xl">
-      {/* Hero: ảnh đại diện tạm bằng chữ cái đầu (backend chưa có avatar) + tên + vai trò. */}
+      {/* Hero: ảnh đại diện tạm bằng chữ cái đầu (backend chưa có avatar) + họ tên + vai trò. */}
       <div className="flex items-center gap-4 rounded-xl border bg-muted/30 p-5">
         <span
           aria-hidden
           className="bg-primary text-primary-foreground font-heading flex size-14 shrink-0 items-center justify-center rounded-full text-lg font-semibold"
         >
-          {initials(loginName)}
+          {fullName ? initialsOf(fullName) : <UserIcon className="size-1/2" />}
         </span>
         <div className="grid min-w-0 gap-1.5">
-          <h1 className="truncate text-xl font-semibold">{loginName}</h1>
+          <h1 className="truncate text-xl font-semibold">{displayName}</h1>
+          {/* Tiêu đề là họ tên (chưa có → "Người dùng"); tên đăng nhập (và email nếu có) luôn ở dòng dưới. */}
+          <p className="text-muted-foreground truncate text-sm">
+            {[loginName, person?.email].filter(Boolean).join(' · ')}
+          </p>
           <div className="flex flex-wrap items-center gap-2">
-            <Badge variant="secondary">{roleName}</Badge>
+            <Badge variant="secondary">{role}</Badge>
             {profile?.isActive === false && (
               <Badge variant="destructive">{t('account:inactive')}</Badge>
             )}

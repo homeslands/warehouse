@@ -1,9 +1,14 @@
-/** `UserResponseDto` của backend. Không có tên người dùng — chỉ số điện thoại. */
+/**
+ * `UserResponseDto` của backend. `firstName` / `lastName` có từ migration thêm hồ sơ — tài khoản cũ để
+ * chuỗi rỗng (cột mặc định `''`), nên luôn phải có đường lùi về số điện thoại (`formatPersonLabel`, `shared/lib/person-name.ts`).
+ */
 export type User = {
   slug: string
   createdAt: string
   updatedAt: string
   phonenumber: string
+  firstName?: string
+  lastName?: string
   isActive: boolean
   roleSlug: string
   roleName: string
@@ -22,4 +27,4 @@ export type Role = {
 export type UserFilters = { roleSlug?: string }
 
 /** Người có thể làm quản lý kho: đang hoạt động và mang vai trò MANAGER. */
-export type ManagerCandidate = { slug: string; phonenumber: string }
+export type ManagerCandidate = Pick<User, 'slug' | 'phonenumber' | 'firstName' | 'lastName'>

@@ -31,6 +31,11 @@ const store: Store = {
   warehouseName: 'Kho Hà Nội 1',
 }
 
+/** Như `field` nhưng chờ trang tải xong. */
+async function findField(label: string) {
+  return (await screen.findByText(label, { selector: 'dt' })).parentElement!
+}
+
 /** Ô giá trị của một trường trong card, tìm theo nhãn (`<dt>`). */
 function field(label: string) {
   return screen.getByText(label, { selector: 'dt' }).parentElement!
@@ -69,6 +74,32 @@ describe('StoreDetailPage', () => {
     expect(within(field('Tên pháp lý')).getByText('Công ty TNHH ABC')).toBeInTheDocument()
     expect(within(field('Mã số thuế')).getByText('0101234567')).toBeInTheDocument()
     expect(within(field('Tạo lúc')).getByText(/01\/09\/2026/)).toBeInTheDocument()
+  })
+
+  it('Người quản lý = quản lý của kho đang gắn, dạng "Họ tên (số điện thoại)"; chưa có → "Chưa có quản lý"', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/stores/ch-ha-noi`, () =>
+        ok({
+          ...store,
+          manager: {
+            slug: 'u-m',
+            phonenumber: '0901234567',
+            firstName: 'Văn A',
+            lastName: 'Nguyễn',
+          },
+        }),
+      ),
+    )
+    renderPage()
+
+    expect(await screen.findByText('Nguyễn Văn A (0901234567)')).toBeInTheDocument()
+  })
+
+  it('cửa hàng chưa có quản lý → "Chưa có quản lý"', async () => {
+    renderPage()
+    expect(
+      within(await findField('Người quản lý')).getByText('Chưa có quản lý'),
+    ).toBeInTheDocument()
   })
 
   it('điện thoại / email → link tel: / mailto:', async () => {
@@ -134,12 +165,12 @@ describe('StoreDetailPage', () => {
     expect(within(section).queryByRole('link')).not.toBeInTheDocument()
   })
 
-  it('trường tuỳ chọn trống hiện "—"', async () => {
+  it('trường tuỳ chọn trống hiện "Chưa có"', async () => {
     renderPage()
     await screen.findByRole('heading', { level: 1 })
 
     for (const label of ['Điện thoại', 'Email', 'Địa chỉ', 'Địa chỉ xuất hoá đơn'])
-      expect(within(field(label)).getByText('—')).toBeInTheDocument()
+      expect(within(field(label)).getByText('Chưa có')).toBeInTheDocument()
   })
 
   it('404 → báo không tìm thấy', async () => {

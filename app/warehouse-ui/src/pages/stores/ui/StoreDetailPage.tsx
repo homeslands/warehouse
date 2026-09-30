@@ -7,7 +7,9 @@ import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { readBackTo } from '@/shared/lib/back-link'
-import { EMPTY_VALUE, formatDateTime } from '@/shared/lib/format'
+import { formatDateTime } from '@/shared/lib/format'
+import { EmptyValue } from '@/shared/ui/EmptyValue'
+import { formatPersonLabel } from '@/shared/lib/person-name'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { DetailCard, DetailContact, DetailField, DetailGroup, DetailMeta } from '@/shared/ui/detail'
@@ -184,19 +186,25 @@ export function StoreDetailPage() {
               t('stores:noWarehouse')
             )}
           </DetailField>
+          {/* Quản lý của kho đang gắn — cửa hàng không có người quản lý riêng. */}
+          <DetailField label={t('stores:fieldManager')}>
+            {store.manager ? formatPersonLabel(store.manager) : t('stores:noManager')}
+          </DetailField>
           <DetailField label={t('stores:fieldPhonenumber')}>
             <DetailContact kind="tel" value={store.phonenumber} />
           </DetailField>
           <DetailField label={t('stores:fieldEmail')}>
             <DetailContact kind="mailto" value={store.email} />
           </DetailField>
-          <DetailField label={t('stores:fieldAddress')}>{store.address || EMPTY_VALUE}</DetailField>
+          <DetailField label={t('stores:fieldAddress')}>
+            {store.address || <EmptyValue />}
+          </DetailField>
         </DetailGroup>
         <DetailGroup title={t('stores:sectionLegal')}>
           <DetailField label={t('stores:columnLegalName')}>{store.legalName}</DetailField>
           <DetailField label={t('stores:columnTaxCode')}>{store.taxCode}</DetailField>
           <DetailField label={t('stores:fieldInvoiceAddress')}>
-            {store.invoiceAddress || EMPTY_VALUE}
+            {store.invoiceAddress || <EmptyValue />}
           </DetailField>
         </DetailGroup>
       </DetailCard>

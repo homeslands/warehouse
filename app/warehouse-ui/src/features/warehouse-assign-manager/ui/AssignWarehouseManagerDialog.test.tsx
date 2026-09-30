@@ -87,12 +87,31 @@ describe('AssignWarehouseManagerDialog', () => {
     expect(within(list).queryByText('0902222222')).not.toBeInTheDocument()
   })
 
+  it('người có họ tên → "Họ Tên (số điện thoại)"; gõ tên để tìm được', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/users`, () =>
+        paginated([{ ...managers[0], lastName: 'Nguyễn', firstName: 'Văn A' }]),
+      ),
+    )
+    const { user } = renderDialog()
+
+    await user.click(await screen.findByRole('combobox'))
+    await user.keyboard('Văn A')
+
+    expect(
+      within(await screen.findByRole('listbox')).getByText('Nguyễn Văn A (0901111111)'),
+    ).toBeInTheDocument()
+  })
+
   it('chọn người rồi Lưu → PUT managerSlug', async () => {
     let body: unknown
     server.use(
       mswHttp.put(`${BASE}/warehouses/kho-ha-noi/manager`, async ({ request }) => {
         body = await request.json()
-        return ok({ ...warehouse, managerSlug: 'u-a' })
+        return ok({
+          ...warehouse,
+          manager: { slug: 'u-a', phonenumber: '0901111111', firstName: '', lastName: '' },
+        })
       }),
     )
     const { user, onOpenChange } = renderDialog()
@@ -124,8 +143,7 @@ describe('AssignWarehouseManagerDialog', () => {
     )
     const { user, onOpenChange } = renderDialog({
       ...warehouse,
-      managerSlug: 'u-a',
-      managerPhonenumber: '0901111111',
+      manager: { slug: 'u-a', phonenumber: '0901111111', firstName: '', lastName: '' },
     })
     await screen.findByText('Kho Hà Nội 1')
 
@@ -169,8 +187,7 @@ describe('AssignWarehouseManagerDialog', () => {
   it('quản lý đang giữ chức bị khoá vẫn hiện trong ô chọn', async () => {
     const { user } = renderDialog({
       ...warehouse,
-      managerSlug: 'u-locked',
-      managerPhonenumber: '0902222222',
+      manager: { slug: 'u-locked', phonenumber: '0902222222', firstName: '', lastName: '' },
     })
     await screen.findByText('Kho Hà Nội 1')
 
@@ -189,7 +206,10 @@ describe('AssignWarehouseManagerDialog', () => {
     server.use(
       mswHttp.put(`${BASE}/warehouses/kho-ha-noi/manager`, async () => {
         await gate
-        return ok({ ...warehouse, managerSlug: 'u-a' })
+        return ok({
+          ...warehouse,
+          manager: { slug: 'u-a', phonenumber: '0901111111', firstName: '', lastName: '' },
+        })
       }),
     )
     const { user, onOpenChange } = renderDialog()

@@ -51,7 +51,7 @@ function clearSidebarCookie() {
 
 async function openMenu() {
   const u = userEvent.setup()
-  await u.click(screen.getByRole('button', { name: /root/ }))
+  await u.click(screen.getByRole('button', { name: /Người dùng/ }))
   return u
 }
 
@@ -336,10 +336,12 @@ describe('AppShell — màn hẹp (class responsive; jsdom không áp media quer
     expect(screen.getByRole('main').parentElement).toHaveClass('min-w-0')
   })
 
-  it('nút tài khoản: dưới sm chỉ còn icon, tên khả truy cập vẫn đủ tên + vai trò', () => {
+  it('nút tài khoản: dưới sm chỉ còn ảnh đại diện, tên khả truy cập vẫn đủ tên + vai trò', () => {
     renderShell()
-    const button = screen.getByRole('button', { name: 'root (SUPER_ADMIN)' })
-    expect(within(button).getByText('root').closest('span')).toHaveClass('hidden', 'sm:inline')
+    // Tài khoản test không có họ tên → "Người dùng", không phải tên đăng nhập.
+    const button = screen.getByRole('button', { name: 'Người dùng (Quản trị cấp cao)' })
+    // Khối tên + vai trò chỉ hiện từ sm; ảnh đại diện luôn hiện.
+    expect(within(button).getByText('Người dùng').parentElement).toHaveClass('hidden', 'sm:flex')
   })
 
   it('breadcrumb dưới sm chỉ còn mục cuối (cắt "…"); mục trước và dấu phân cách ẩn', () => {

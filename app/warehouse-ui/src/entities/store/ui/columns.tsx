@@ -1,7 +1,8 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import type { TFunction } from 'i18next'
 import { Link } from 'react-router-dom'
-import { EMPTY_VALUE, formatDateTime } from '@/shared/lib/format'
+import { formatDateTime } from '@/shared/lib/format'
+import { EmptyValue } from '@/shared/ui/EmptyValue'
 import type { Store } from '../model/types'
 import { StoreStatusBadge } from './StoreStatusBadge'
 
@@ -56,7 +57,7 @@ export function buildStoreColumns(
       id: 'warehouse',
       meta: { hideBelow: '@2xl' },
       header: t('stores:columnWarehouse'),
-      cell: ({ row }) => row.original.warehouseName || EMPTY_VALUE,
+      cell: ({ row }) => row.original.warehouseName || <EmptyValue />,
     },
     {
       id: 'status',

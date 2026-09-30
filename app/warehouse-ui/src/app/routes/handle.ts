@@ -1,6 +1,6 @@
 import type { ParseKeys } from 'i18next'
 import type { LucideIcon } from 'lucide-react'
-import type { Role } from '@/entities/session'
+import { can, type CurrentUser, type Role } from '@/entities/session'
 import type { AuthorityCode } from '@/shared/api/authority-codes'
 
 /** Thứ tự nhóm trên sidebar. Thêm nhóm = thêm vào đây + khoá `nav:groups.<key>`. */
@@ -21,10 +21,11 @@ export type NavKey = `nav:${ParseKeys<'nav'>}`
 export type AppRouteHandle = {
   roles?: Role[]
   /**
-   * `Authority.code` mà route này đòi (vd `'MANAGE_PERMISSIONS'`). Khai cùng `roles` thì phải qua
-   * CẢ HAI — khớp backend, nơi `@HasRole` và `@RequireAuthority` là hai guard độc lập.
+   * `Authority.code` mà route này đòi (vd `'MANAGE_PERMISSIONS'`). Mảng = phải có **tất cả** (AND, như
+   * `@RequireAuthority(A, B)`) — dùng khi màn gọi nhiều endpoint gác bằng mã khác nhau. Khai cùng
+   * `roles` thì phải qua CẢ HAI — khớp backend, nơi `@HasRole` và `@RequireAuthority` là hai guard độc lập.
    */
-  authority?: AuthorityCode
+  authority?: AuthorityCode | readonly AuthorityCode[]
   nav?: { group: NavGroupKey; labelKey: NavKey; icon: LucideIcon }
   crumb?: NavKey
 }
@@ -48,6 +49,10 @@ export function readHandle(handle: unknown): AppRouteHandle {
   // Mã lạ lúc chạy vẫn giữ nguyên (không bỏ đi): `can()` trả `false` → đóng, không mở toang route.
   if (typeof authority === 'string' && authority !== '')
     result.authority = authority as AuthorityCode
+  if (Array.isArray(authority)) {
+    const codes = authority.filter((a): a is AuthorityCode => typeof a === 'string' && a !== '')
+    if (codes.length > 0) result.authority = codes
+  }
   if (typeof nav === 'object' && nav !== null) {
     const { group, labelKey, icon } = nav as Record<string, unknown>
     if (isNavGroupKey(group) && typeof labelKey === 'string' && icon) {
@@ -56,4 +61,13 @@ export function readHandle(handle: unknown): AppRouteHandle {
   }
   if (typeof crumb === 'string') result.crumb = crumb as NavKey
   return result
+}
+
+/** Người dùng có đủ (mọi) mã mà `handle.authority` đòi không. */
+export function hasAuthority(
+  user: CurrentUser | null,
+  authority: AuthorityCode | readonly AuthorityCode[],
+): boolean {
+  const codes: readonly AuthorityCode[] = typeof authority === 'string' ? [authority] : authority
+  return codes.every((code) => can(user, code))
 }

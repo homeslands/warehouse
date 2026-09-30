@@ -2,7 +2,7 @@ import { Fragment, useState } from 'react'
 import { CheckIcon, MinusIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Authority } from '@/entities/authority'
-import { ROLES, useAuthStore } from '@/entities/session'
+import { ROLES, useAuthStore, useRoleLabel } from '@/entities/session'
 import type { Role } from '@/entities/user'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
@@ -60,6 +60,7 @@ export function PermissionMatrix({
 }) {
   const { t } = useTranslation(['permissions', 'common'])
   const currentUser = useAuthStore((s) => s.user)
+  const roleLabel = useRoleLabel()
   const currentRoleName = currentUser?.roleName
   // Luật ủy quyền R1–R4 — xem `model/cell-rules.ts`. Tắt thì chỉ còn khoá "vai trò cuối cùng".
   const delegationRules = BACKEND_SUPPORTS.permissionDelegationRules
@@ -138,7 +139,7 @@ export function PermissionMatrix({
           tone: 'success' as const,
           title: t('permissions:grantTitle'),
           description: t('permissions:grantConfirm', {
-            role: confirming.roleName,
+            role: roleLabel(confirming.roleName),
             authority: confirming.authorityName,
           }),
           confirmLabel: t('permissions:grantAction'),
@@ -148,7 +149,7 @@ export function PermissionMatrix({
           tone: 'destructive' as const,
           title: t('permissions:revokeTitle'),
           description: t('permissions:revokeConfirm', {
-            role: confirming?.roleName ?? '',
+            role: roleLabel(confirming?.roleName),
             authority: confirming?.authorityName ?? '',
           }),
           confirmLabel: t('permissions:revokeAction'),
@@ -176,12 +177,14 @@ export function PermissionMatrix({
                   {/* Khung bảng hẹp ẩn cột SUPER_ADMIN: nó chỉ là lời nhắc "Toàn quyền", không bấm được — nhường
                       chỗ cho các cột vai trò chỉnh được. */}
                   {superAdmin && (
-                    <TableHead className="hidden @xl:table-cell">{superAdmin.name}</TableHead>
+                    <TableHead className="hidden @xl:table-cell">
+                      {roleLabel(superAdmin.name)}
+                    </TableHead>
                   )}
                   {editableRoles.map((role) => (
                     <TableHead key={role.slug}>
                       <div className="grid">
-                        <span>{role.name}</span>
+                        <span>{roleLabel(role.name)}</span>
                         {/* R1: vai trò ngang/cao hơn mình → cả cột chỉ xem. Nói ra ngay ở tiêu đề,
                             thay vì để người dùng tự đoán từ một hàng switch xám. */}
                         {isRankLocked(currentUser, role, delegationRules) && (
@@ -225,7 +228,7 @@ export function PermissionMatrix({
                     )}
                     {editableRoles.map((role) => {
                       const granted = role.authorityCodes.includes(authority.code)
-                      const label = `${authorityName(authority)} — ${role.name}`
+                      const label = `${authorityName(authority)} — ${roleLabel(role.name)}`
 
                       // Cột chỉ xem (R1): dấu ✓/— thay cho switch — vẫn cho biết đã cấp hay chưa.
                       if (isRankLocked(currentUser, role, delegationRules)) {

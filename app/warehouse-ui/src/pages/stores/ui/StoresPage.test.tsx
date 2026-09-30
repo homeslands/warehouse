@@ -161,12 +161,12 @@ describe('StoresPage — bảng', () => {
     expect(router.state.location.state).toEqual({ backTo: '/stores?isActive=true' })
   })
 
-  it('cửa hàng chưa gán kho hiện "—"', async () => {
+  it('cửa hàng chưa gán kho hiện "Chưa có"', async () => {
     captureQuery([{ ...store, warehouseSlug: undefined, warehouseName: undefined }])
     renderPage()
 
     const row = (await screen.findByText('Cửa hàng Hà Nội 1')).closest('tr')!
-    expect(within(row).getAllByRole('cell')[4]).toHaveTextContent(/^—$/)
+    expect(within(row).getAllByRole('cell')[4]).toHaveTextContent(/^Chưa có$/)
   })
 
   it('cửa hàng đã ngừng hoạt động hiện badge "Ngừng hoạt động"', async () => {
@@ -185,6 +185,24 @@ describe('StoresPage — bảng', () => {
     server.use(mswHttp.get(`${BASE}/stores`, () => apiError(500, undefined, 'Boom')))
     renderPage()
     expect(await screen.findByRole('alert')).toHaveTextContent('Boom')
+  })
+})
+
+describe('StoresPage — MANAGER', () => {
+  it('backend chỉ trả cửa hàng gắn với kho mình quản lý → danh sách trống có câu báo riêng', async () => {
+    captureQuery([])
+    renderPage({ auth: { userId: 'u2', userName: 'ql', roleName: 'MANAGER', scope: READ_SCOPE } })
+
+    expect(
+      await screen.findByText('Chưa có cửa hàng nào gắn với kho bạn quản lý.'),
+    ).toBeInTheDocument()
+  })
+
+  it('vai trò khác → câu trống chung', async () => {
+    captureQuery([])
+    renderPage()
+
+    expect(await screen.findByText('Chưa có dữ liệu.')).toBeInTheDocument()
   })
 })
 

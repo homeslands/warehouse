@@ -5,7 +5,6 @@ import { server } from '@/shared/test/msw'
 import {
   assignWarehouseManager,
   createWarehouse,
-  fetchMyWarehouses,
   fetchWarehouse,
   fetchWarehouses,
   removeWarehouse,
@@ -143,7 +142,7 @@ describe('assignWarehouseManager', () => {
     server.use(
       mswHttp.put(`${BASE}/warehouses/kho-ha-noi/manager`, async ({ request }) => {
         body = await request.json()
-        return ok({ ...warehouse, managerSlug: undefined })
+        return ok({ ...warehouse, manager: undefined })
       }),
     )
 
@@ -153,27 +152,10 @@ describe('assignWarehouseManager', () => {
   })
 })
 
-describe('fetchWarehouse / fetchMyWarehouses', () => {
+describe('fetchWarehouse', () => {
   it('GET /warehouses/:slug trả đúng bản ghi', async () => {
     server.use(mswHttp.get(`${BASE}/warehouses/kho-ha-noi`, () => ok(warehouse)))
 
     await expect(fetchWarehouse('kho-ha-noi')).resolves.toEqual(warehouse)
-  })
-
-  it('GET /warehouses/mine gửi page/size/isActive', async () => {
-    let query = new URLSearchParams()
-    server.use(
-      mswHttp.get(`${BASE}/warehouses/mine`, ({ request }) => {
-        query = new URL(request.url).searchParams
-        return paginated([warehouse], { page: 2, size: 20 })
-      }),
-    )
-
-    const result = await fetchMyWarehouses({ page: 2, size: 20, isActive: true })
-
-    expect(query.get('page')).toBe('2')
-    expect(query.get('size')).toBe('20')
-    expect(query.get('isActive')).toBe('true')
-    expect(result.items).toEqual([warehouse])
   })
 })
