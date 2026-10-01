@@ -65,6 +65,7 @@ describe('WarehouseService', () => {
     create: jest.fn(),
     save: jest.fn(),
     recover: jest.fn(),
+    softRemove: jest.fn(),
   };
   const userService = { findBySlug: jest.fn() };
 
@@ -525,6 +526,46 @@ describe('WarehouseService', () => {
         service.addMember('wh-slug-1', { userSlug: 'member-slug-1' }),
         WarehouseValidation.WAREHOUSE_MEMBER_USER_INACTIVE.code,
       );
+    });
+  });
+
+  describe('removeMember', () => {
+    beforeEach(() => {
+      warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
+    });
+
+    it('soft removes the membership row of that user in that warehouse', async () => {
+      const member = { id: 'm-id-1', slug: 'm-slug-1' };
+      warehouseMemberRepository.findOne.mockResolvedValue(member);
+
+      const result = await service.removeMember('wh-slug-1', 'member-slug-1');
+
+      expect(warehouseMemberRepository.findOne).toHaveBeenCalledWith({
+        where: { warehouse: { id: 'warehouse-id-1' }, user: { slug: 'member-slug-1' } },
+      });
+      expect(warehouseMemberRepository.softRemove).toHaveBeenCalledWith(member);
+      expect(warehouseRepository.save).not.toHaveBeenCalled();
+      expect(result).toBe(1);
+    });
+
+    it('throws when the warehouse does not exist', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(null);
+
+      await expectWarehouseError(
+        service.removeMember('ghost', 'member-slug-1'),
+        WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      );
+      expect(warehouseMemberRepository.softRemove).not.toHaveBeenCalled();
+    });
+
+    it('throws when the user is not a member of the warehouse', async () => {
+      warehouseMemberRepository.findOne.mockResolvedValue(null);
+
+      await expectWarehouseError(
+        service.removeMember('wh-slug-1', 'member-slug-1'),
+        WarehouseValidation.WAREHOUSE_MEMBER_NOT_FOUND.code,
+      );
+      expect(warehouseMemberRepository.softRemove).not.toHaveBeenCalled();
     });
   });
 

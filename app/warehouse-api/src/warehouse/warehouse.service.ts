@@ -179,6 +179,25 @@ export class WarehouseService {
     return this.mapper.map(member, WarehouseMember, WarehouseMemberResponseDto);
   }
 
+  /**
+   * Gỡ user khỏi kho = xoá mềm row thành viên; `addMember` sau đó `recover()` lại đúng row này.
+   * Không check `user.isActive`: user đã bị khoá vẫn phải gỡ được khỏi kho.
+   */
+  async removeMember(slug: string, userSlug: string): Promise<number> {
+    const context = `${WarehouseService.name}.${this.removeMember.name}`;
+    const warehouse = await this.warehouseRepository.findOneBy({ slug });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    const member = await this.warehouseMemberRepository.findOne({
+      where: { warehouse: { id: warehouse.id }, user: { slug: userSlug } },
+    });
+    if (!member) throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_NOT_FOUND);
+
+    await this.warehouseMemberRepository.softRemove(member);
+    this.logger.log(`Member ${member.id} removed from warehouse ${warehouse.id}`, context);
+    return 1;
+  }
+
   async deleteWarehouse(slug: string): Promise<number> {
     const context = `${WarehouseService.name}.${this.deleteWarehouse.name}`;
     const warehouse = await this.warehouseRepository.findOneBy({ slug });
