@@ -5,7 +5,7 @@ import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
-  AddWarehouseMemberRequestDto,
+  AssignWarehouseMemberRequestDto,
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
@@ -142,17 +142,18 @@ export class WarehouseService {
   }
 
   /**
-   * Thêm 1 user làm thành viên kho. Không đụng `Warehouse.manager` và không chặn chính manager —
+   * Gán 1 user làm thành viên kho (`PUT`, idempotent): đã là thành viên thì trả row hiện có, không
+   * ghi gì. Không đụng `Warehouse.manager` và không chặn chính manager —
    * quản lý vẫn là slot riêng trên `warehouse_tbl`.
    *
    * `UQ_warehouse_member` tính cả row đã xoá mềm (xem `warehouse-member.entity.ts`), nên user từng bị
    * gỡ khỏi kho được `recover()` lại row cũ thay vì `insert` row mới (sẽ dính `ER_DUP_ENTRY` → 500).
    */
-  async addMember(
+  async assignMember(
     slug: string,
-    dto: AddWarehouseMemberRequestDto,
+    dto: AssignWarehouseMemberRequestDto,
   ): Promise<WarehouseMemberResponseDto> {
-    const context = `${WarehouseService.name}.${this.addMember.name}`;
+    const context = `${WarehouseService.name}.${this.assignMember.name}`;
     const warehouse = await this.warehouseRepository.findOneBy({ slug });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
 
@@ -165,22 +166,21 @@ export class WarehouseService {
       where: { warehouse: { id: warehouse.id }, user: { id: user.id } },
       withDeleted: true,
     });
-    if (existed && !existed.deletedAt)
-      throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_ALREADY_EXISTS);
-
-    const member = existed
-      ? await this.warehouseMemberRepository.recover(existed)
-      : await this.warehouseMemberRepository.save(
-          this.warehouseMemberRepository.create({ warehouse, user }),
-        );
+    let member: WarehouseMember;
+    if (existed && !existed.deletedAt) member = existed;
+    else if (existed) member = await this.warehouseMemberRepository.recover(existed);
+    else
+      member = await this.warehouseMemberRepository.save(
+        this.warehouseMemberRepository.create({ warehouse, user }),
+      );
     member.user = user;
 
-    this.logger.log(`User ${user.id} added to warehouse ${warehouse.id}`, context);
+    this.logger.log(`User ${user.id} assigned to warehouse ${warehouse.id}`, context);
     return this.mapper.map(member, WarehouseMember, WarehouseMemberResponseDto);
   }
 
   /**
-   * Gỡ user khỏi kho = xoá mềm row thành viên; `addMember` sau đó `recover()` lại đúng row này.
+   * Gỡ user khỏi kho = xoá mềm row thành viên; `assignMember` sau đó `recover()` lại đúng row này.
    * Không check `user.isActive`: user đã bị khoá vẫn phải gỡ được khỏi kho.
    */
   async removeMember(slug: string, userSlug: string): Promise<number> {

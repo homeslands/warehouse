@@ -14,7 +14,7 @@ import {
   Query,
 } from '@nestjs/common';
 import {
-  AddWarehouseMemberRequestDto,
+  AssignWarehouseMemberRequestDto,
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
@@ -172,25 +172,27 @@ export class WarehouseController {
   }
 
   // Nối 2 tài nguyên nên không đẻ authority mới: sửa kho (`WarehouseUpdate`) + tra user (`UserRead`).
-  @Post(':slug/members')
+  // `PUT` giống `PUT :slug/manager`: idempotent — gán lại user đã là thành viên trả 200 với row cũ,
+  // không 409.
+  @Put(':slug/members')
   @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Add a user as a member of a warehouse' })
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Assign a user as a member of a warehouse (idempotent)' })
   @ApiResponseWithType({
-    status: HttpStatus.CREATED,
-    description: 'Added',
+    status: HttpStatus.OK,
+    description: 'Assigned',
     type: WarehouseMemberResponseDto,
   })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  async addMember(
+  async assignMember(
     @Param('slug') slug: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    requestData: AddWarehouseMemberRequestDto,
+    requestData: AssignWarehouseMemberRequestDto,
   ) {
-    const result = await this.warehouseService.addMember(slug, requestData);
+    const result = await this.warehouseService.assignMember(slug, requestData);
     return {
-      message: 'Warehouse member has been added successfully',
-      statusCode: HttpStatus.CREATED,
+      message: 'Warehouse member has been assigned successfully',
+      statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<WarehouseMemberResponseDto>;
