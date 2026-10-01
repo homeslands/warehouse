@@ -5,14 +5,17 @@ import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
+  AddWarehouseMemberRequestDto,
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
   GetMyWarehouseRequestDto,
   UpdateWarehouseRequestDto,
+  WarehouseMemberResponseDto,
   WarehouseResponseDto,
 } from './warehouse.dto';
 import { Warehouse } from './warehouse.entity';
+import { WarehouseMember } from './warehouse-member.entity';
 import { WarehouseException } from './warehouse.exception';
 import { WarehouseValidation } from './warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
@@ -34,6 +37,8 @@ const WAREHOUSE_RELATIONS: FindOptionsRelations<Warehouse> = { manager: true, st
 export class WarehouseService {
   constructor(
     @InjectRepository(Warehouse) private readonly warehouseRepository: Repository<Warehouse>,
+    @InjectRepository(WarehouseMember)
+    private readonly warehouseMemberRepository: Repository<WarehouseMember>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly userService: UserService,
@@ -134,6 +139,44 @@ export class WarehouseService {
       context,
     );
     return this.mapper.map(updated, Warehouse, WarehouseResponseDto);
+  }
+
+  /**
+   * Thêm 1 user làm thành viên kho. Không đụng `Warehouse.manager` và không chặn chính manager —
+   * quản lý vẫn là slot riêng trên `warehouse_tbl`.
+   *
+   * `UQ_warehouse_member` tính cả row đã xoá mềm (xem `warehouse-member.entity.ts`), nên user từng bị
+   * gỡ khỏi kho được `recover()` lại row cũ thay vì `insert` row mới (sẽ dính `ER_DUP_ENTRY` → 500).
+   */
+  async addMember(
+    slug: string,
+    dto: AddWarehouseMemberRequestDto,
+  ): Promise<WarehouseMemberResponseDto> {
+    const context = `${WarehouseService.name}.${this.addMember.name}`;
+    const warehouse = await this.warehouseRepository.findOneBy({ slug });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    const user = await this.userService.findBySlug(dto.userSlug);
+    if (!user) throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_NOT_FOUND);
+    if (!user.isActive)
+      throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_INACTIVE);
+
+    const existed = await this.warehouseMemberRepository.findOne({
+      where: { warehouse: { id: warehouse.id }, user: { id: user.id } },
+      withDeleted: true,
+    });
+    if (existed && !existed.deletedAt)
+      throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_ALREADY_EXISTS);
+
+    const member = existed
+      ? await this.warehouseMemberRepository.recover(existed)
+      : await this.warehouseMemberRepository.save(
+          this.warehouseMemberRepository.create({ warehouse, user }),
+        );
+    member.user = user;
+
+    this.logger.log(`User ${user.id} added to warehouse ${warehouse.id}`, context);
+    return this.mapper.map(member, WarehouseMember, WarehouseMemberResponseDto);
   }
 
   async deleteWarehouse(slug: string): Promise<number> {
