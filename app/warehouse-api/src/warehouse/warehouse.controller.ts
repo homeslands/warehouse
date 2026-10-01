@@ -14,11 +14,13 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  AddWarehouseMemberRequestDto,
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
   GetMyWarehouseRequestDto,
   UpdateWarehouseRequestDto,
+  WarehouseMemberResponseDto,
   WarehouseResponseDto,
 } from './warehouse.dto';
 import { WarehouseService } from './warehouse.service';
@@ -167,6 +169,31 @@ export class WarehouseController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<WarehouseResponseDto>;
+  }
+
+  // Nối 2 tài nguyên nên không đẻ authority mới: sửa kho (`WarehouseUpdate`) + tra user (`UserRead`).
+  @Post(':slug/members')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({ summary: 'Add a user as a member of a warehouse' })
+  @ApiResponseWithType({
+    status: HttpStatus.CREATED,
+    description: 'Added',
+    type: WarehouseMemberResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async addMember(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: AddWarehouseMemberRequestDto,
+  ) {
+    const result = await this.warehouseService.addMember(slug, requestData);
+    return {
+      message: 'Warehouse member has been added successfully',
+      statusCode: HttpStatus.CREATED,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<WarehouseMemberResponseDto>;
   }
 
   @Delete(':slug')

@@ -4,9 +4,13 @@ import { Injectable } from '@nestjs/common';
 import {
   CreateWarehouseRequestDto,
   UpdateWarehouseRequestDto,
+  WarehouseManagerDto,
+  WarehouseMemberResponseDto,
   WarehouseResponseDto,
 } from './warehouse.dto';
 import { Warehouse } from './warehouse.entity';
+import { WarehouseMember } from './warehouse-member.entity';
+import { User } from 'src/user/user.entity';
 import { baseMapper } from 'src/app/base.mapper';
 
 /**
@@ -35,6 +39,16 @@ const normalizeWarehouse = <T extends Partial<CreateWarehouseRequestDto>>() =>
     ),
   ] as const;
 
+const toWarehouseUser = (user?: User | null): WarehouseManagerDto | undefined =>
+  user
+    ? {
+        slug: user.slug,
+        phonenumber: user.phonenumber,
+        firstName: user.firstName,
+        lastName: user.lastName,
+      }
+    : undefined;
+
 @Injectable()
 export class WarehouseProfile extends AutomapperProfile {
   constructor(@InjectMapper() mapper: Mapper) {
@@ -50,16 +64,18 @@ export class WarehouseProfile extends AutomapperProfile {
         extend(baseMapper(mapper)),
         forMember(
           (d) => d.manager,
-          mapFrom((s) =>
-            s.manager
-              ? {
-                  slug: s.manager.slug,
-                  phonenumber: s.manager.phonenumber,
-                  firstName: s.manager.firstName,
-                  lastName: s.manager.lastName,
-                }
-              : undefined,
-          ),
+          mapFrom((s) => toWarehouseUser(s.manager)),
+        ),
+      );
+
+      createMap(
+        mapper,
+        WarehouseMember,
+        WarehouseMemberResponseDto,
+        extend(baseMapper(mapper)),
+        forMember(
+          (d) => d.user,
+          mapFrom((s) => toWarehouseUser(s.user)),
         ),
       );
 

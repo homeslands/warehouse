@@ -1,8 +1,9 @@
-import { Entity, Column, ManyToOne, JoinColumn, OneToOne } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToOne, OneToMany } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { Base } from 'src/app/base.entity';
 import { User } from 'src/user/user.entity';
 import { Store } from 'src/store/store.entity';
+import { WarehouseMember } from './warehouse-member.entity';
 
 @Entity('warehouse_tbl')
 export class Warehouse extends Base {
@@ -41,4 +42,11 @@ export class Warehouse extends Base {
    */
   @OneToOne(() => Store, (store) => store.warehouse, { nullable: true })
   store?: Store | null;
+
+  /**
+   * Inverse side — FK nằm ở `warehouse_member_tbl.warehouse_id_column`. Không gồm `manager` (quản
+   * lý vẫn là cột riêng ở trên). Không eager, muốn lấy phải truyền `relations: { members: { user: true } }`.
+   */
+  @OneToMany(() => WarehouseMember, (member) => member.warehouse)
+  members?: WarehouseMember[];
 }
