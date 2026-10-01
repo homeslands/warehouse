@@ -17,6 +17,7 @@ describe('WarehouseController', () => {
     updateWarehouse: jest.fn(),
     assignManager: jest.fn(),
     addMember: jest.fn(),
+    removeMember: jest.fn(),
     deleteWarehouse: jest.fn(),
   };
 
@@ -131,6 +132,16 @@ describe('WarehouseController', () => {
     expect(response.result).toEqual({ slug: 'm-slug-1' });
   });
 
+  it('removeMember passes both slugs and wraps the result', async () => {
+    warehouseService.removeMember.mockResolvedValue(1);
+
+    const response = await controller.removeMember('wh-slug-1', 'member-slug-1');
+
+    expect(warehouseService.removeMember).toHaveBeenCalledWith('wh-slug-1', 'member-slug-1');
+    expect(response.statusCode).toBe(200);
+    expect(response.result).toBe('1 warehouse member have been removed successfully');
+  });
+
   // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
   // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
   describe('@RequireAuthority metadata', () => {
@@ -144,6 +155,10 @@ describe('WarehouseController', () => {
       expect(authority(controller.updateWarehouse)).toEqual([AuthorityCode.WarehouseUpdate]);
       expect(authority(controller.assignManager)).toEqual([AuthorityCode.WarehouseAssignManager]);
       expect(authority(controller.addMember)).toEqual([
+        AuthorityCode.WarehouseUpdate,
+        AuthorityCode.UserRead,
+      ]);
+      expect(authority(controller.removeMember)).toEqual([
         AuthorityCode.WarehouseUpdate,
         AuthorityCode.UserRead,
       ]);

@@ -196,6 +196,23 @@ export class WarehouseController {
     } as AppResponseDto<WarehouseMemberResponseDto>;
   }
 
+  @Delete(':slug/members/:userSlug')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a user from the members of a warehouse' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Removed', type: String })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  @ApiParam({ name: 'userSlug', required: true, example: 'u3kd8m2pqz' })
+  async removeMember(@Param('slug') slug: string, @Param('userSlug') userSlug: string) {
+    const result = await this.warehouseService.removeMember(slug, userSlug);
+    return {
+      message: 'Warehouse member has been removed successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result: `${result} warehouse member have been removed successfully`,
+    } as AppResponseDto<string>;
+  }
+
   @Delete(':slug')
   @RequireAuthority(AuthorityCode.WarehouseDelete)
   @HttpCode(HttpStatus.OK)
