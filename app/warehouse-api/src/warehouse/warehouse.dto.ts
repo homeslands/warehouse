@@ -84,7 +84,7 @@ export class AssignWarehouseManagerRequestDto {
   managerSlug: string | null;
 }
 
-export class AddWarehouseMemberRequestDto {
+export class AssignWarehouseMemberRequestDto {
   @ApiProperty({ description: 'Slug của user được thêm làm thành viên kho', example: 'x7fk2p9qab' })
   @Transform(trim)
   @IsNotEmpty({ message: 'WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED' })

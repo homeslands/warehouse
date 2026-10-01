@@ -432,7 +432,7 @@ describe('WarehouseService', () => {
     });
   });
 
-  describe('addMember', () => {
+  describe('assignMember', () => {
     const memberUser = () =>
       managerUser({ slug: 'member-slug-1', role: { name: RoleEnum.Supervisor } });
 
@@ -452,7 +452,7 @@ describe('WarehouseService', () => {
     });
 
     it('creates a membership row and never touches the warehouse manager', async () => {
-      const result = await service.addMember('wh-slug-1', { userSlug: 'member-slug-1' });
+      const result = await service.assignMember('wh-slug-1', { userSlug: 'member-slug-1' });
 
       expect(warehouseMemberRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -471,7 +471,7 @@ describe('WarehouseService', () => {
     });
 
     it('looks the existing row up including soft-deleted ones', async () => {
-      await service.addMember('wh-slug-1', { userSlug: 'member-slug-1' });
+      await service.assignMember('wh-slug-1', { userSlug: 'member-slug-1' });
 
       expect(warehouseMemberRepository.findOne).toHaveBeenCalledWith({
         where: { warehouse: { id: 'warehouse-id-1' }, user: { id: 'user-id-1' } },
@@ -484,28 +484,34 @@ describe('WarehouseService', () => {
       const removed = { id: 'm-id-1', slug: 'm-slug-old', deletedAt: new Date() };
       warehouseMemberRepository.findOne.mockResolvedValue(removed);
 
-      const result = await service.addMember('wh-slug-1', { userSlug: 'member-slug-1' });
+      const result = await service.assignMember('wh-slug-1', { userSlug: 'member-slug-1' });
 
       expect(warehouseMemberRepository.recover).toHaveBeenCalledWith(removed);
       expect(warehouseMemberRepository.save).not.toHaveBeenCalled();
       expect(result.slug).toBe('m-slug-old');
     });
 
-    it('throws when the user is already an active member', async () => {
-      warehouseMemberRepository.findOne.mockResolvedValue({ id: 'm-id-1', deletedAt: null });
+    // PUT idempotent: gán lại không 409, không ghi gì, trả đúng row đang có.
+    it('returns the existing membership without writing when already a member', async () => {
+      warehouseMemberRepository.findOne.mockResolvedValue({
+        id: 'm-id-1',
+        slug: 'm-slug-1',
+        deletedAt: null,
+      });
 
-      await expectWarehouseError(
-        service.addMember('wh-slug-1', { userSlug: 'member-slug-1' }),
-        WarehouseValidation.WAREHOUSE_MEMBER_ALREADY_EXISTS.code,
-      );
+      const result = await service.assignMember('wh-slug-1', { userSlug: 'member-slug-1' });
+
       expect(warehouseMemberRepository.save).not.toHaveBeenCalled();
+      expect(warehouseMemberRepository.recover).not.toHaveBeenCalled();
+      expect(result.slug).toBe('m-slug-1');
+      expect(result.user.slug).toBe('member-slug-1');
     });
 
     it('throws when the warehouse does not exist', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(null);
 
       await expectWarehouseError(
-        service.addMember('ghost', { userSlug: 'member-slug-1' }),
+        service.assignMember('ghost', { userSlug: 'member-slug-1' }),
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
       );
     });
@@ -514,7 +520,7 @@ describe('WarehouseService', () => {
       userService.findBySlug.mockResolvedValue(null);
 
       await expectWarehouseError(
-        service.addMember('wh-slug-1', { userSlug: 'ghost' }),
+        service.assignMember('wh-slug-1', { userSlug: 'ghost' }),
         WarehouseValidation.WAREHOUSE_MEMBER_USER_NOT_FOUND.code,
       );
     });
@@ -523,7 +529,7 @@ describe('WarehouseService', () => {
       userService.findBySlug.mockResolvedValue(managerUser({ isActive: false }));
 
       await expectWarehouseError(
-        service.addMember('wh-slug-1', { userSlug: 'member-slug-1' }),
+        service.assignMember('wh-slug-1', { userSlug: 'member-slug-1' }),
         WarehouseValidation.WAREHOUSE_MEMBER_USER_INACTIVE.code,
       );
     });

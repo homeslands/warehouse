@@ -16,7 +16,7 @@ describe('WarehouseController', () => {
     findOne: jest.fn(),
     updateWarehouse: jest.fn(),
     assignManager: jest.fn(),
-    addMember: jest.fn(),
+    assignMember: jest.fn(),
     removeMember: jest.fn(),
     deleteWarehouse: jest.fn(),
   };
@@ -120,15 +120,15 @@ describe('WarehouseController', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it('addMember wraps the service result with 201', async () => {
-    warehouseService.addMember.mockResolvedValue({ slug: 'm-slug-1' });
+  it('assignMember wraps the service result with 200', async () => {
+    warehouseService.assignMember.mockResolvedValue({ slug: 'm-slug-1' });
 
-    const response = await controller.addMember('wh-slug-1', { userSlug: 'member-slug-1' });
+    const response = await controller.assignMember('wh-slug-1', { userSlug: 'member-slug-1' });
 
-    expect(warehouseService.addMember).toHaveBeenCalledWith('wh-slug-1', {
+    expect(warehouseService.assignMember).toHaveBeenCalledWith('wh-slug-1', {
       userSlug: 'member-slug-1',
     });
-    expect(response.statusCode).toBe(201);
+    expect(response.statusCode).toBe(200);
     expect(response.result).toEqual({ slug: 'm-slug-1' });
   });
 
@@ -154,7 +154,7 @@ describe('WarehouseController', () => {
       expect(authority(controller.findOne)).toEqual([AuthorityCode.WarehouseRead]);
       expect(authority(controller.updateWarehouse)).toEqual([AuthorityCode.WarehouseUpdate]);
       expect(authority(controller.assignManager)).toEqual([AuthorityCode.WarehouseAssignManager]);
-      expect(authority(controller.addMember)).toEqual([
+      expect(authority(controller.assignMember)).toEqual([
         AuthorityCode.WarehouseUpdate,
         AuthorityCode.UserRead,
       ]);
