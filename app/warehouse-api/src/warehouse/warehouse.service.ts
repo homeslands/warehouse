@@ -44,6 +44,26 @@ export class WarehouseService {
     private readonly userService: UserService,
   ) {}
 
+  /**
+   * User `userId` có phải manager hoặc member (row chưa xoá mềm) của kho `slug` không; `null` = kho
+   * không tồn tại. Dùng bởi `WarehouseScopeGuard`. Manager trả ngay sau 1 query, chỉ tra bảng thành
+   * viên khi không phải manager.
+   */
+  async isManagerOrMember(slug: string, userId: string): Promise<boolean | null> {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { slug },
+      relations: { manager: true },
+    });
+    if (!warehouse) return null;
+    if (warehouse.manager?.id === userId) return true;
+
+    // `existsBy` mặc định đã loại row xoá mềm ⇒ member đã bị gỡ không còn quyền.
+    return this.warehouseMemberRepository.existsBy({
+      warehouse: { id: warehouse.id },
+      user: { id: userId },
+    });
+  }
+
   async createWarehouse(dto: CreateWarehouseRequestDto): Promise<WarehouseResponseDto> {
     const context = `${WarehouseService.name}.${this.createWarehouse.name}`;
     const data = this.mapper.map(dto, CreateWarehouseRequestDto, Warehouse);

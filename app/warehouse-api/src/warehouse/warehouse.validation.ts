@@ -22,6 +22,7 @@ export const WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED = 'WAREHOUSE_MEMBER_USER_SLU
 export const WAREHOUSE_MEMBER_USER_NOT_FOUND = 'WAREHOUSE_MEMBER_USER_NOT_FOUND';
 export const WAREHOUSE_MEMBER_USER_INACTIVE = 'WAREHOUSE_MEMBER_USER_INACTIVE';
 export const WAREHOUSE_MEMBER_NOT_FOUND = 'WAREHOUSE_MEMBER_NOT_FOUND';
+export const WAREHOUSE_ACCESS_DENIED = 'WAREHOUSE_ACCESS_DENIED';
 
 export type TWarehouseErrorCodeKey =
   | typeof WAREHOUSE_NOT_FOUND
@@ -43,7 +44,8 @@ export type TWarehouseErrorCodeKey =
   | typeof WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED
   | typeof WAREHOUSE_MEMBER_USER_NOT_FOUND
   | typeof WAREHOUSE_MEMBER_USER_INACTIVE
-  | typeof WAREHOUSE_MEMBER_NOT_FOUND;
+  | typeof WAREHOUSE_MEMBER_NOT_FOUND
+  | typeof WAREHOUSE_ACCESS_DENIED;
 
 export type TWarehouseErrorCode = Record<TWarehouseErrorCodeKey, TErrorCodeValue>;
 
@@ -126,5 +128,10 @@ export const WarehouseValidation: TWarehouseErrorCode = {
     100522,
     'User is not a member of this warehouse',
     HttpStatus.NOT_FOUND,
+  ),
+  WAREHOUSE_ACCESS_DENIED: createErrorCode(
+    100523,
+    'You are not a manager or member of this warehouse',
+    HttpStatus.FORBIDDEN,
   ),
 };
