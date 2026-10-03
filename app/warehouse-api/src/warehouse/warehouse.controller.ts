@@ -64,7 +64,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'Get all warehouses (paginated)',
     description:
-      'MANAGER chỉ nhận về kho mình phụ trách (bỏ qua `managerSlug`/`hasManager`); role khác thấy toàn bộ.',
+      'MANAGER/SUPERVISOR chỉ nhận về kho mình là manager hoặc thành viên (bỏ qua ' +
+      '`managerSlug`/`hasManager`); ADMIN/SUPER_ADMIN thấy toàn bộ.',
   })
   @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
   async findAll(

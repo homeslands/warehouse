@@ -9,8 +9,10 @@ import { User } from './user.entity';
 import {
   ChangeUserPasswordRequestDto,
   ChangeUserPasswordResponseDto,
+  ChangeUserRoleRequestDto,
   CreateUserRequestDto,
   GetAllUserRequestDto,
+  UpdateUserRequestDto,
   UserResponseDto,
 } from './user.dto';
 import { UserException } from './user.exception';
@@ -22,6 +24,8 @@ import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
 import { CurrentUserDto } from './user.decorator';
 import { TokenRevocationService } from 'src/auth/token-revocation.service';
+import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { pickDefined } from 'src/shared/utils/obj.util';
 
 @Injectable()
 export class UserService {
@@ -29,6 +33,7 @@ export class UserService {
 
   constructor(
     @InjectRepository(User) private readonly userRepository: Repository<User>,
+    @InjectRepository(Warehouse) private readonly warehouseRepository: Repository<Warehouse>,
     @InjectMapper() private readonly mapper: Mapper,
     private readonly configService: ConfigService,
     private readonly roleService: RoleService,
@@ -157,5 +162,92 @@ export class UserService {
     if (target.role?.name === RoleEnum.SuperAdmin) {
       throw new UserException(UserValidation.CHANGE_PASSWORD_FORBIDDEN);
     }
+  }
+
+  /**
+   * `PATCH /users/{userSlug}` — partial update hồ sơ. Chỉ sửa được user có role THẤP HƠN mình
+   * (giống `createUser`), nếu không ADMIN sửa được số điện thoại đăng nhập của SUPER_ADMIN.
+   */
+  async updateUser(
+    currentUser: CurrentUserDto,
+    userSlug: string,
+    dto: UpdateUserRequestDto,
+  ): Promise<UserResponseDto> {
+    const target = await this.findTargetOrFail(userSlug);
+    if (target.id !== currentUser.userId) await this.assertCanManageUser(currentUser, target);
+
+    const data = pickDefined(this.mapper.map(dto, UpdateUserRequestDto, User));
+    if (data.phonenumber !== undefined && data.phonenumber !== target.phonenumber) {
+      const existed = await this.userRepository.findOneBy({ phonenumber: data.phonenumber });
+      if (existed) throw new UserException(UserValidation.USER_PHONENUMBER_DOES_EXIST);
+    }
+
+    Object.assign(target, data);
+    const updated = await this.userRepository.save(target);
+    return this.mapper.map(updated, User, UserResponseDto);
+  }
+
+  /**
+   * `POST /users/{userSlug}/lock` — `isActive = false` + thu hồi mọi phiên (login/`RbacService`
+   * đã chặn user `!isActive`, thu hồi là để token đang còn hạn chết ngay ở request kế tiếp).
+   * Không khoá được manager của kho nào: phải đổi manager kho trước. Khoá lại user đã khoá là no-op.
+   */
+  async lockUser(currentUser: CurrentUserDto, userSlug: string): Promise<UserResponseDto> {
+    const target = await this.findTargetOrFail(userSlug);
+    if (target.id === currentUser.userId) {
+      throw new UserException(UserValidation.LOCK_OWN_ACCOUNT_NOT_ALLOWED);
+    }
+    await this.assertCanManageUser(currentUser, target);
+
+    const managedWarehouses = await this.warehouseRepository.count({
+      where: { manager: { id: target.id } },
+    });
+    if (managedWarehouses > 0) throw new UserException(UserValidation.USER_IS_WAREHOUSE_MANAGER);
+
+    if (target.isActive) {
+      target.isActive = false;
+      await this.userRepository.save(target);
+    }
+    await this.tokenRevocationService.revokeAllTokensForUser(target.id);
+    return this.mapper.map(target, User, UserResponseDto);
+  }
+
+  /**
+   * `POST /users/{userSlug}/change-role` — cả role hiện tại lẫn role mới đều phải thấp hơn role của
+   * người gọi. Thu hồi mọi phiên vì `role` là claim trong JWT: token cũ vẫn mang role cũ tới khi hết
+   * hạn; login lại sẽ ký role mới và ghi đè cache quyền `rbac:user:{id}`.
+   */
+  async changeUserRole(
+    currentUser: CurrentUserDto,
+    userSlug: string,
+    dto: ChangeUserRoleRequestDto,
+  ): Promise<UserResponseDto> {
+    const target = await this.findTargetOrFail(userSlug);
+    if (target.id === currentUser.userId) {
+      throw new UserException(UserValidation.CHANGE_OWN_ROLE_NOT_ALLOWED);
+    }
+    await this.assertCanManageUser(currentUser, target);
+
+    const role = await this.roleService.findBySlug(dto.roleSlug);
+    if (!role) throw new RoleException(RoleValidation.ROLE_NOT_FOUND);
+    await this.roleService.assertCanManage(currentUser, role);
+
+    if (target.role?.id !== role.id) {
+      target.role = role;
+      await this.userRepository.save(target);
+      await this.tokenRevocationService.revokeAllTokensForUser(target.id);
+    }
+    return this.mapper.map(target, User, UserResponseDto);
+  }
+
+  private async findTargetOrFail(userSlug: string): Promise<User> {
+    const target = await this.findBySlug(userSlug);
+    if (!target) throw new UserException(UserValidation.USER_NOT_FOUND);
+    return target;
+  }
+
+  // User không có role (dữ liệu rác) thì coi như cấp thấp nhất — vẫn quản lý được để sửa lại.
+  private async assertCanManageUser(currentUser: CurrentUserDto, target: User): Promise<void> {
+    if (target.role) await this.roleService.assertCanManage(currentUser, target.role);
   }
 }

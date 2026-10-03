@@ -21,6 +21,7 @@ import { WarehouseValidation } from './warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { WAREHOUSE_SCOPED_ROLES } from './warehouse.constants';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
@@ -87,8 +88,10 @@ export class WarehouseService {
   }
 
   /**
-   * `MANAGER` chỉ thấy kho mình phụ trách: filter `managerSlug`/`hasManager` của query bị bỏ qua để
-   * không mở rộng được ra kho của người khác. Role khác (kể cả `SUPER_ADMIN`) thấy toàn bộ.
+   * `MANAGER`/`SUPERVISOR` chỉ thấy kho mình là manager HOẶC là thành viên (`warehouse_member_tbl`,
+   * member đã gỡ — xoá mềm — không tính: TypeORM tự thêm `deleted_at IS NULL` vào join). Filter
+   * `managerSlug`/`hasManager` của query bị bỏ qua để không mở rộng được ra kho của người khác.
+   * `ADMIN`/`SUPER_ADMIN` thấy toàn bộ.
    */
   async findAll(
     query: GetAllWarehouseRequestDto,
@@ -96,8 +99,18 @@ export class WarehouseService {
   ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
     const where: FindOptionsWhere<Warehouse> = {};
     if (query.isActive !== undefined) where.isActive = query.isActive;
-    if (hasRole(currentUser, RoleEnum.Manager)) where.manager = { id: currentUser.userId };
-    else if (query.managerSlug) where.manager = { slug: query.managerSlug };
+    if (hasRole(currentUser, ...WAREHOUSE_SCOPED_ROLES)) {
+      const userId = currentUser.userId;
+      // Mảng `where` = OR; mỗi nhánh phải mang lại filter chung (`isActive`).
+      return this.paginate(
+        [
+          { ...where, manager: { id: userId } },
+          { ...where, members: { user: { id: userId } } },
+        ],
+        query,
+      );
+    }
+    if (query.managerSlug) where.manager = { slug: query.managerSlug };
     else if (query.hasManager === true) where.manager = Not(IsNull());
     else if (query.hasManager === false) where.manager = IsNull();
 
@@ -242,7 +255,7 @@ export class WarehouseService {
   }
 
   private async paginate(
-    where: FindOptionsWhere<Warehouse>,
+    where: FindOptionsWhere<Warehouse> | FindOptionsWhere<Warehouse>[],
     query: GetMyWarehouseRequestDto,
   ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
     const [items, total] = await this.warehouseRepository.findAndCount({
