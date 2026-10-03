@@ -9,13 +9,16 @@ import {
   Get,
   Param,
   Query,
+  Patch,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
   ChangeUserPasswordRequestDto,
   ChangeUserPasswordResponseDto,
+  ChangeUserRoleRequestDto,
   CreateUserRequestDto,
   GetAllUserRequestDto,
+  UpdateUserRequestDto,
   UserResponseDto,
 } from './user.dto';
 import { UserService } from './user.service';
@@ -104,5 +107,82 @@ export class UserController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<ChangeUserPasswordResponseDto>;
+  }
+
+  @Patch(':userSlug')
+  @RequireAuthority(AuthorityCode.UserUpdate)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Update user profile (partial)',
+    description:
+      'Chỉ field gửi lên mới bị đổi. Không đổi được mật khẩu/role ở đây (dùng `.../change-password`, ' +
+      '`.../change-role`). Sửa user khác thì role của họ phải thấp hơn role của người gọi.',
+  })
+  @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: UserResponseDto })
+  async updateUser(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param('userSlug') userSlug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: UpdateUserRequestDto,
+  ) {
+    const result = await this.userService.updateUser(currentUser, userSlug, requestData);
+    return {
+      message: 'User has been updated successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<UserResponseDto>;
+  }
+
+  @Post(':userSlug/lock')
+  @RequireAuthority(AuthorityCode.UserUpdate)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Lock a user account',
+    description:
+      'Đặt `isActive = false` và thu hồi mọi phiên của user. Không khoá được chính mình, user có ' +
+      'role ngang/cao hơn mình, hoặc user đang là manager của một kho (đổi manager kho trước).',
+  })
+  @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Locked', type: UserResponseDto })
+  async lockUser(@CurrentUser() currentUser: CurrentUserDto, @Param('userSlug') userSlug: string) {
+    const result = await this.userService.lockUser(currentUser, userSlug);
+    return {
+      message: 'User has been locked successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<UserResponseDto>;
+  }
+
+  @Post(':userSlug/change-role')
+  @RequireAuthority(AuthorityCode.UserUpdate)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Change the role of another user',
+    description:
+      'Cả role hiện tại lẫn role mới của user phải thấp hơn role của người gọi; không đổi được role ' +
+      'của chính mình. Đổi xong, mọi phiên của user bị thu hồi để token mang role cũ hết hiệu lực.',
+  })
+  @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Role changed',
+    type: UserResponseDto,
+  })
+  async changeUserRole(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param('userSlug') userSlug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: ChangeUserRoleRequestDto,
+  ) {
+    const result = await this.userService.changeUserRole(currentUser, userSlug, requestData);
+    return {
+      message: 'User role has been changed successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<UserResponseDto>;
   }
 }

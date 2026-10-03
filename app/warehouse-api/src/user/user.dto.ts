@@ -1,6 +1,6 @@
 import { IsEmail, IsISO8601, IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { VN_PHONENUMBER_REGEX } from './user.constants';
@@ -60,6 +60,20 @@ export class CreateUserRequestDto {
   password: string;
 
   @ApiProperty({ description: 'Role slug to assign', example: 'admin' })
+  @IsNotEmpty({ message: 'USER_ROLE_SLUG_IS_REQUIRED' })
+  roleSlug: string;
+}
+
+/**
+ * `PATCH /users/{userSlug}` — chỉ hồ sơ. Mật khẩu và role có endpoint riêng (`.../change-password`,
+ * `.../change-role`) vì cả hai phải thu hồi phiên của user; `isActive` đi qua `.../lock`.
+ */
+export class UpdateUserRequestDto extends PartialType(
+  OmitType(CreateUserRequestDto, ['password', 'roleSlug'] as const),
+) {}
+
+export class ChangeUserRoleRequestDto {
+  @ApiProperty({ description: 'Slug của role mới', example: 'supervisor' })
   @IsNotEmpty({ message: 'USER_ROLE_SLUG_IS_REQUIRED' })
   roleSlug: string;
 }
