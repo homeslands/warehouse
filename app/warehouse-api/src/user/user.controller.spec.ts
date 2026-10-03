@@ -59,5 +59,8 @@ describe('UserController', () => {
     expect(authority(controller.createUser)).toEqual([AuthorityCode.UserCreate]);
     expect(authority(controller.findAll)).toEqual([AuthorityCode.UserRead]);
     expect(authority(controller.changeUserPassword)).toEqual([AuthorityCode.UserChangePassword]);
+    expect(authority(controller.updateUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.lockUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.changeUserRole)).toEqual([AuthorityCode.UserUpdate]);
   });
 });

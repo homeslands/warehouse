@@ -1,7 +1,7 @@
 import { AutomapperProfile, InjectMapper } from '@automapper/nestjs';
 import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core';
 import { Injectable } from '@nestjs/common';
-import { CreateUserRequestDto, UserResponseDto } from './user.dto';
+import { CreateUserRequestDto, UpdateUserRequestDto, UserResponseDto } from './user.dto';
 import { User } from './user.entity';
 import { baseMapper } from 'src/app/base.mapper';
 
@@ -35,6 +35,38 @@ export class UserProfile extends AutomapperProfile {
         forMember(
           (d) => d.phonenumber,
           mapFrom((s) => s.phonenumber?.trim()),
+        ),
+      );
+
+      // `PartialType`/`OmitType` không mang theo metadata `@AutoMap()` của DTO cha (map tự động ra
+      // object rỗng) — phải khai từng field. Field vắng mặt ra `undefined` cho `pickDefined` lọc.
+      createMap(
+        mapper,
+        UpdateUserRequestDto,
+        User,
+        forMember(
+          (d) => d.phonenumber,
+          mapFrom((s) => s.phonenumber?.trim()),
+        ),
+        forMember(
+          (d) => d.firstName,
+          mapFrom((s) => s.firstName),
+        ),
+        forMember(
+          (d) => d.lastName,
+          mapFrom((s) => s.lastName),
+        ),
+        forMember(
+          (d) => d.dob,
+          mapFrom((s) => s.dob),
+        ),
+        forMember(
+          (d) => d.email,
+          mapFrom((s) => s.email),
+        ),
+        forMember(
+          (d) => d.address,
+          mapFrom((s) => s.address),
         ),
       );
     };
