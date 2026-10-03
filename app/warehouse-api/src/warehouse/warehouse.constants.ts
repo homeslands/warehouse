@@ -1,3 +1,5 @@
+import { RoleEnum } from 'src/role/role.enum';
+
 export const WAREHOUSE_PHONENUMBER_REGEX = /^0\d{8,10}$/;
 
 /**
@@ -5,3 +7,9 @@ export const WAREHOUSE_PHONENUMBER_REGEX = /^0\d{8,10}$/;
  * gạch ngang. Nhận cả chữ thường vì DTO tự `toUpperCase()` trước khi lưu.
  */
 export const WAREHOUSE_CODE_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,30}[a-zA-Z0-9])$/;
+
+/**
+ * Role chỉ được thấy kho mình là manager hoặc thành viên ở `GET /warehouses` và `GET /stores`
+ * (cửa hàng gắn với các kho đó). Role không nằm đây thấy toàn bộ.
+ */
+export const WAREHOUSE_SCOPED_ROLES = [RoleEnum.Manager, RoleEnum.Supervisor];
