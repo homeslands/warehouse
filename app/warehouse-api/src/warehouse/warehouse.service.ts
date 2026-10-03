@@ -22,7 +22,7 @@ import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
 import { hasRole } from 'src/role/role.decorator';
-import { CurrentUserDto } from 'src/user/user.decorator';
+import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
 
 /**
@@ -45,23 +45,33 @@ export class WarehouseService {
   ) {}
 
   /**
-   * User `userId` có phải manager hoặc member (row chưa xoá mềm) của kho `slug` không; `null` = kho
-   * không tồn tại. Dùng bởi `WarehouseScopeGuard`. Manager trả ngay sau 1 query, chỉ tra bảng thành
-   * viên khi không phải manager.
+   * Thông tin kho `slug` kèm vai trò của user `userId` trong đó; `null` = kho không tồn tại, `false`
+   * = user không phải manager lẫn member (row chưa xoá mềm). Dùng bởi `WarehouseScopeGuard`. Manager
+   * trả ngay sau 1 query, chỉ tra bảng thành viên khi không phải manager.
    */
-  async isManagerOrMember(slug: string, userId: string): Promise<boolean | null> {
+  async findUserWarehouse(
+    slug: string,
+    userId: string,
+  ): Promise<CurrentUserWarehouseDto | false | null> {
     const warehouse = await this.warehouseRepository.findOne({
       where: { slug },
       relations: { manager: true },
     });
     if (!warehouse) return null;
-    if (warehouse.manager?.id === userId) return true;
 
+    const isManager = warehouse.manager?.id === userId;
     // `existsBy` mặc định đã loại row xoá mềm ⇒ member đã bị gỡ không còn quyền.
-    return this.warehouseMemberRepository.existsBy({
-      warehouse: { id: warehouse.id },
-      user: { id: userId },
-    });
+    if (
+      !isManager &&
+      !(await this.warehouseMemberRepository.existsBy({
+        warehouse: { id: warehouse.id },
+        user: { id: userId },
+      }))
+    )
+      return false;
+
+    const { id, code, name } = warehouse;
+    return { id, slug: warehouse.slug, code, name, isManager };
   }
 
   async createWarehouse(dto: CreateWarehouseRequestDto): Promise<WarehouseResponseDto> {

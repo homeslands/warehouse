@@ -23,7 +23,10 @@ export class WarehouseMember extends Base {
   @JoinColumn({ name: 'warehouse_id_column' })
   warehouse: Warehouse;
 
-  @ManyToOne(() => User, { nullable: false, onDelete: 'CASCADE' })
+  @ManyToOne(() => User, (user) => user.warehouseMembers, {
+    nullable: false,
+    onDelete: 'CASCADE',
+  })
   @JoinColumn({ name: 'user_id_column' })
   user: User;
 }
