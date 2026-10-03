@@ -536,26 +536,40 @@ describe('WarehouseService', () => {
     });
   });
 
-  describe('isManagerOrMember', () => {
+  describe('findUserWarehouse', () => {
     it('returns null when the warehouse does not exist', async () => {
       warehouseRepository.findOne.mockResolvedValue(null);
 
-      await expect(service.isManagerOrMember('ghost', 'user-id-1')).resolves.toBeNull();
+      await expect(service.findUserWarehouse('ghost', 'user-id-1')).resolves.toBeNull();
       expect(warehouseMemberRepository.existsBy).not.toHaveBeenCalled();
     });
 
-    it('returns true for the manager without querying the member table', async () => {
-      warehouseRepository.findOne.mockResolvedValue(baseWarehouse({ manager: managerUser() }));
+    it('returns the warehouse as manager without querying the member table', async () => {
+      const warehouse = baseWarehouse({ manager: managerUser() });
+      warehouseRepository.findOne.mockResolvedValue(warehouse);
 
-      await expect(service.isManagerOrMember('wh-slug-1', 'user-id-1')).resolves.toBe(true);
+      await expect(service.findUserWarehouse('wh-slug-1', 'user-id-1')).resolves.toEqual({
+        id: warehouse.id,
+        slug: warehouse.slug,
+        code: warehouse.code,
+        name: warehouse.name,
+        isManager: true,
+      });
       expect(warehouseMemberRepository.existsBy).not.toHaveBeenCalled();
     });
 
-    it('checks the member table for anyone else', async () => {
-      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+    it('checks the member table for anyone else and returns the warehouse as member', async () => {
+      const warehouse = baseWarehouse();
+      warehouseRepository.findOne.mockResolvedValue(warehouse);
       warehouseMemberRepository.existsBy.mockResolvedValue(true);
 
-      await expect(service.isManagerOrMember('wh-slug-1', 'user-id-2')).resolves.toBe(true);
+      await expect(service.findUserWarehouse('wh-slug-1', 'user-id-2')).resolves.toEqual({
+        id: warehouse.id,
+        slug: warehouse.slug,
+        code: warehouse.code,
+        name: warehouse.name,
+        isManager: false,
+      });
       expect(warehouseMemberRepository.existsBy).toHaveBeenCalledWith({
         warehouse: { id: 'warehouse-id-1' },
         user: { id: 'user-id-2' },
@@ -566,7 +580,7 @@ describe('WarehouseService', () => {
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
       warehouseMemberRepository.existsBy.mockResolvedValue(false);
 
-      await expect(service.isManagerOrMember('wh-slug-1', 'user-id-2')).resolves.toBe(false);
+      await expect(service.findUserWarehouse('wh-slug-1', 'user-id-2')).resolves.toBe(false);
     });
   });
 

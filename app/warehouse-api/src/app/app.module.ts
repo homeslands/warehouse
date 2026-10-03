@@ -37,7 +37,7 @@ import { PermissionModule } from 'src/permission/permission.module';
 import { ExampleModule } from 'src/example/example.module';
 import { UserModule } from 'src/user/user.module';
 import { WarehouseModule } from 'src/warehouse/warehouse.module';
-import { WarehouseScopeGuard } from 'src/warehouse/warehouse-scope.guard';
+import { WarehouseScopeGuard } from 'src/warehouse/guard/warehouse-scope.guard';
 import { MaterialTypeModule } from 'src/material-type/material-type.module';
 import { MaterialModule } from 'src/material/material.module';
 import { UnitModule } from 'src/unit/unit.module';
