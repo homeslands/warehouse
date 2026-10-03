@@ -14,11 +14,13 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  AssignWarehouseMemberRequestDto,
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
   GetMyWarehouseRequestDto,
   UpdateWarehouseRequestDto,
+  WarehouseMemberResponseDto,
   WarehouseResponseDto,
 } from './warehouse.dto';
 import { WarehouseService } from './warehouse.service';
@@ -167,6 +169,50 @@ export class WarehouseController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<WarehouseResponseDto>;
+  }
+
+  // Nối 2 tài nguyên nên không đẻ authority mới: sửa kho (`WarehouseUpdate`) + tra user (`UserRead`).
+  // `PUT` giống `PUT :slug/manager`: idempotent — gán lại user đã là thành viên trả 200 với row cũ,
+  // không 409.
+  @Put(':slug/members')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Assign a user as a member of a warehouse (idempotent)' })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Assigned',
+    type: WarehouseMemberResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async assignMember(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: AssignWarehouseMemberRequestDto,
+  ) {
+    const result = await this.warehouseService.assignMember(slug, requestData);
+    return {
+      message: 'Warehouse member has been assigned successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<WarehouseMemberResponseDto>;
+  }
+
+  @Delete(':slug/members/:userSlug')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a user from the members of a warehouse' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Removed', type: String })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  @ApiParam({ name: 'userSlug', required: true, example: 'u3kd8m2pqz' })
+  async removeMember(@Param('slug') slug: string, @Param('userSlug') userSlug: string) {
+    const result = await this.warehouseService.removeMember(slug, userSlug);
+    return {
+      message: 'Warehouse member has been removed successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result: `${result} warehouse member have been removed successfully`,
+    } as AppResponseDto<string>;
   }
 
   @Delete(':slug')

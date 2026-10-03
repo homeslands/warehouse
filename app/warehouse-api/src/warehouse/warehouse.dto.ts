@@ -84,6 +84,13 @@ export class AssignWarehouseManagerRequestDto {
   managerSlug: string | null;
 }
 
+export class AssignWarehouseMemberRequestDto {
+  @ApiProperty({ description: 'Slug của user được thêm làm thành viên kho', example: 'x7fk2p9qab' })
+  @Transform(trim)
+  @IsNotEmpty({ message: 'WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED' })
+  userSlug: string;
+}
+
 export class GetMyWarehouseRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by active state', example: true })
   @IsOptional()
@@ -152,4 +159,10 @@ export class WarehouseResponseDto extends BaseResponseDto {
     type: () => WarehouseManagerDto,
   })
   manager?: WarehouseManagerDto;
+}
+
+export class WarehouseMemberResponseDto extends BaseResponseDto {
+  // Cùng shape rút gọn với `manager` — dựng bằng `forMember`, không `@AutoMap()`.
+  @ApiProperty({ type: () => WarehouseManagerDto })
+  user: WarehouseManagerDto;
 }

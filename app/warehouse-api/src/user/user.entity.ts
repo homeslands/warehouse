@@ -1,7 +1,8 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { Base } from 'src/app/base.entity';
 import { Role } from 'src/role/role.entity';
+import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 
 @Entity('user_tbl')
 export class User extends Base {
@@ -40,4 +41,12 @@ export class User extends Base {
   @ManyToOne(() => Role, { eager: true })
   @JoinColumn({ name: 'role_id_column' })
   role: Role;
+
+  /**
+   * Inverse side — FK nằm ở `warehouse_member_tbl.user_id_column`. Chỉ gồm kho user là member
+   * thường, KHÔNG gồm kho user làm manager (`warehouse_tbl.manager_id_column`). Không eager, muốn
+   * lấy phải truyền `relations: { warehouseMembers: { warehouse: true } }`.
+   */
+  @OneToMany(() => WarehouseMember, (member) => member.user)
+  warehouseMembers?: WarehouseMember[];
 }

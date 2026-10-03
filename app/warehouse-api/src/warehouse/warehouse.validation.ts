@@ -18,6 +18,11 @@ export const WAREHOUSE_MANAGER_NOT_FOUND = 'WAREHOUSE_MANAGER_NOT_FOUND';
 export const WAREHOUSE_MANAGER_INACTIVE = 'WAREHOUSE_MANAGER_INACTIVE';
 export const WAREHOUSE_MANAGER_ROLE_INVALID = 'WAREHOUSE_MANAGER_ROLE_INVALID';
 export const WAREHOUSE_ACTIVE_CANNOT_BE_DELETED = 'WAREHOUSE_ACTIVE_CANNOT_BE_DELETED';
+export const WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED = 'WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED';
+export const WAREHOUSE_MEMBER_USER_NOT_FOUND = 'WAREHOUSE_MEMBER_USER_NOT_FOUND';
+export const WAREHOUSE_MEMBER_USER_INACTIVE = 'WAREHOUSE_MEMBER_USER_INACTIVE';
+export const WAREHOUSE_MEMBER_NOT_FOUND = 'WAREHOUSE_MEMBER_NOT_FOUND';
+export const WAREHOUSE_ACCESS_DENIED = 'WAREHOUSE_ACCESS_DENIED';
 
 export type TWarehouseErrorCodeKey =
   | typeof WAREHOUSE_NOT_FOUND
@@ -35,7 +40,12 @@ export type TWarehouseErrorCodeKey =
   | typeof WAREHOUSE_MANAGER_NOT_FOUND
   | typeof WAREHOUSE_MANAGER_INACTIVE
   | typeof WAREHOUSE_MANAGER_ROLE_INVALID
-  | typeof WAREHOUSE_ACTIVE_CANNOT_BE_DELETED;
+  | typeof WAREHOUSE_ACTIVE_CANNOT_BE_DELETED
+  | typeof WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED
+  | typeof WAREHOUSE_MEMBER_USER_NOT_FOUND
+  | typeof WAREHOUSE_MEMBER_USER_INACTIVE
+  | typeof WAREHOUSE_MEMBER_NOT_FOUND
+  | typeof WAREHOUSE_ACCESS_DENIED;
 
 export type TWarehouseErrorCode = Record<TWarehouseErrorCodeKey, TErrorCodeValue>;
 
@@ -102,5 +112,26 @@ export const WarehouseValidation: TWarehouseErrorCode = {
   WAREHOUSE_ACTIVE_CANNOT_BE_DELETED: createErrorCode(
     100517,
     'Deactivate the warehouse before deleting it',
+  ),
+  WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED: createErrorCode(
+    100518,
+    'userSlug is required',
+    HttpStatus.BAD_REQUEST,
+  ),
+  WAREHOUSE_MEMBER_USER_NOT_FOUND: createErrorCode(
+    100519,
+    'Member user not found',
+    HttpStatus.NOT_FOUND,
+  ),
+  WAREHOUSE_MEMBER_USER_INACTIVE: createErrorCode(100520, 'Member user is inactive'),
+  WAREHOUSE_MEMBER_NOT_FOUND: createErrorCode(
+    100522,
+    'User is not a member of this warehouse',
+    HttpStatus.NOT_FOUND,
+  ),
+  WAREHOUSE_ACCESS_DENIED: createErrorCode(
+    100523,
+    'You are not a manager or member of this warehouse',
+    HttpStatus.FORBIDDEN,
   ),
 };
