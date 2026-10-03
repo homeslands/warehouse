@@ -37,6 +37,7 @@ import { PermissionModule } from 'src/permission/permission.module';
 import { ExampleModule } from 'src/example/example.module';
 import { UserModule } from 'src/user/user.module';
 import { WarehouseModule } from 'src/warehouse/warehouse.module';
+import { WarehouseScopeGuard } from 'src/warehouse/guard/warehouse-scope.guard';
 import { MaterialTypeModule } from 'src/material-type/material-type.module';
 import { MaterialModule } from 'src/material/material.module';
 import { UnitModule } from 'src/unit/unit.module';
@@ -104,6 +105,8 @@ import { NotificationModule } from 'src/notification/notification.module';
     { provide: APP_FILTER, useClass: OptimisticLockExceptionFilter },
     { provide: APP_GUARD, useClass: JwtOptionalAuthGuard },
     { provide: APP_GUARD, useClass: AuthorityGuard },
+    // Sau `AuthorityGuard`: check rẻ (không DB) chạy trước, chỉ đọc DB khi đã qua authority.
+    { provide: APP_GUARD, useClass: WarehouseScopeGuard },
     { provide: APP_GUARD, useClass: HasRoleGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },
