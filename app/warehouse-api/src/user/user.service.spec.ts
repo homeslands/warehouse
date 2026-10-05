@@ -281,6 +281,53 @@ describe('UserService', () => {
     });
   });
 
+  // ADMIN không được sửa/khoá/đổi role của ADMIN khác — chặn bằng mã lỗi riêng, trước cả check cấp
+  // role, và không bao giờ chạm DB ghi.
+  describe('admin managing another admin', () => {
+    const admin = caller({ roleName: RoleEnum.Admin });
+    const otherAdmin = { ...other, role: { name: RoleEnum.Admin, level: 30 } } as unknown as User;
+
+    beforeEach(() => {
+      userRepository.findOneBy.mockResolvedValue({ ...otherAdmin });
+      warehouseRepository.count.mockResolvedValue(0);
+    });
+
+    it.each([
+      ['updateUser', () => service.updateUser(admin, 'other-slug', { firstName: 'X' })],
+      ['lockUser', () => service.lockUser(admin, 'other-slug')],
+      [
+        'changeUserRole',
+        () => service.changeUserRole(admin, 'other-slug', { roleSlug: 'manager' }),
+      ],
+    ])('%s rejects with ADMIN_CANNOT_MANAGE_ADMIN', async (_name, run) => {
+      await expectUserError(run(), UserValidation.ADMIN_CANNOT_MANAGE_ADMIN.code);
+      expect(roleService.assertCanManage).not.toHaveBeenCalled();
+      expect(userRepository.save).not.toHaveBeenCalled();
+      expect(tokenRevocationService.revokeAllTokensForUser).not.toHaveBeenCalled();
+    });
+
+    it('still lets an admin edit their own profile', async () => {
+      userRepository.findOneBy.mockReset();
+      userRepository.findOneBy.mockResolvedValueOnce({ ...otherAdmin, id: 'user-id' });
+      userRepository.save.mockImplementation(async (data) => data);
+
+      const result = await service.updateUser(admin, 'my-slug', { firstName: 'Me' });
+
+      expect(result.firstName).toBe('Me');
+    });
+
+    it('lets SUPER_ADMIN lock an admin', async () => {
+      userRepository.save.mockImplementation(async (data) => data);
+
+      const result = await service.lockUser(
+        caller({ roleName: RoleEnum.SuperAdmin }),
+        'other-slug',
+      );
+
+      expect(result.isActive).toBe(false);
+    });
+  });
+
   describe('changeUserRole', () => {
     const newRole = { id: 'manager-role-id', slug: 'manager', name: RoleEnum.Manager, level: 20 };
 

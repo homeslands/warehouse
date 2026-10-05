@@ -10,6 +10,7 @@ import {
   Param,
   Query,
   Patch,
+  Delete,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -116,7 +117,8 @@ export class UserController {
     summary: 'Update user profile (partial)',
     description:
       'Chỉ field gửi lên mới bị đổi. Không đổi được mật khẩu/role ở đây (dùng `.../change-password`, ' +
-      '`.../change-role`). Sửa user khác thì role của họ phải thấp hơn role của người gọi.',
+      '`.../change-role`). Sửa user khác thì role của họ phải thấp hơn role của người gọi; ADMIN ' +
+      'không sửa được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`).',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: UserResponseDto })
@@ -135,14 +137,15 @@ export class UserController {
     } as AppResponseDto<UserResponseDto>;
   }
 
-  @Post(':userSlug/lock')
+  @Delete(':userSlug')
   @RequireAuthority(AuthorityCode.UserUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Lock a user account',
+    summary: 'Lock a user account (soft — the record is kept)',
     description:
-      'Đặt `isActive = false` và thu hồi mọi phiên của user. Không khoá được chính mình, user có ' +
-      'role ngang/cao hơn mình, hoặc user đang là manager của một kho (đổi manager kho trước).',
+      'KHÔNG xoá user: đặt `isActive = false` và thu hồi mọi phiên của user. Không khoá được chính ' +
+      'mình, user có role ngang/cao hơn mình (ADMIN không khoá được ADMIN khác — ' +
+      '`ADMIN_CANNOT_MANAGE_ADMIN`), hoặc user đang là manager của một kho (đổi manager kho trước).',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Locked', type: UserResponseDto })
