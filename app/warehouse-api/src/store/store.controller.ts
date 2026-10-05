@@ -62,7 +62,9 @@ export class StoreController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get all stores (paginated)',
-    description: 'MANAGER chỉ nhận về cửa hàng gắn với kho mình phụ trách; role khác thấy toàn bộ.',
+    description:
+      'MANAGER/SUPERVISOR chỉ nhận về cửa hàng gắn với kho mình là manager hoặc thành viên; ' +
+      'ADMIN/SUPER_ADMIN thấy toàn bộ.',
   })
   @ApiPaginatedResponse(StoreResponseDto, 'Retrieved')
   async findAll(

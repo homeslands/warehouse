@@ -26,7 +26,7 @@ import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { hasRole } from 'src/role/role.decorator';
-import { RoleEnum } from 'src/role/role.enum';
+import { WAREHOUSE_SCOPED_ROLES } from 'src/warehouse/warehouse.constants';
 import { User } from 'src/user/user.entity';
 
 /**
@@ -82,21 +82,30 @@ export class StoreService {
   }
 
   /**
-   * `MANAGER` chỉ thấy cửa hàng thuộc về mình — tức cửa hàng đang gắn với kho mà user đó phụ trách
-   * (`Store` không có cột người quản lý riêng, quyền sở hữu đi qua `Warehouse.manager`). Cửa hàng
-   * chưa gắn kho vì vậy không hiện với `MANAGER`. Role khác (kể cả `SUPER_ADMIN`) thấy toàn bộ.
+   * `MANAGER`/`SUPERVISOR` chỉ thấy cửa hàng gắn với kho mà user đó là manager HOẶC thành viên
+   * (`Store` không có cột người quản lý riêng, quyền đi qua kho — cùng phạm vi với `GET /warehouses`).
+   * Cửa hàng chưa gắn kho vì vậy không hiện với họ. `ADMIN`/`SUPER_ADMIN` thấy toàn bộ.
    */
   async findAll(
     query: GetAllStoreRequestDto,
     currentUser?: CurrentUserDto,
   ): Promise<AppPaginatedResponseDto<StoreResponseDto>> {
-    const where: FindOptionsWhere<Store> = {};
-    if (hasRole(currentUser, RoleEnum.Manager))
-      where.warehouse = { manager: { id: currentUser.userId } };
+    const base: FindOptionsWhere<Store> = {};
     // `typeof === 'boolean'` chứ không `!== undefined`: giá trị lạ (`?isActive=notabool`) phải bị
     // coi là KHÔNG lọc, không được lọt xuống `where` rồi lọc ngược tập dữ liệu. `@IsBoolean` ở DTO
     // đã chặn từ tầng HTTP, đây là rào thứ hai cho lời gọi service trực tiếp.
-    if (typeof query.isActive === 'boolean') where.isActive = query.isActive;
+    if (typeof query.isActive === 'boolean') base.isActive = query.isActive;
+
+    // Mảng `where` = OR; member đã gỡ (xoá mềm) tự bị loại vì TypeORM thêm `deleted_at IS NULL` vào join.
+    const where: FindOptionsWhere<Store> | FindOptionsWhere<Store>[] = hasRole(
+      currentUser,
+      ...WAREHOUSE_SCOPED_ROLES,
+    )
+      ? [
+          { ...base, warehouse: { manager: { id: currentUser.userId } } },
+          { ...base, warehouse: { members: { user: { id: currentUser.userId } } } },
+        ]
+      : base;
 
     const [items, total] = await this.storeRepository.findAndCount({
       where,

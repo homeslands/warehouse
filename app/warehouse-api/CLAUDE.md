@@ -140,6 +140,7 @@ Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route n
 |---|---|---|
 | `POST /users` / `GET /users` | `USER_CREATE` / `USER_READ` | `ADMIN` |
 | `POST /users/{userSlug}/change-password` | `USER_CHANGE_PASSWORD` | `ADMIN`, `MANAGER` |
+| `PATCH /users/{userSlug}`, `DELETE /users/{userSlug}` (khoá, không xoá), `POST /users/{userSlug}/change-role` | `USER_UPDATE` | `ADMIN` — ADMIN không sửa/khoá/đổi role được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`) |
 | `POST` / `PATCH` / `DELETE /warehouses...` / `PUT .../manager` | `WAREHOUSE_CREATE` / `_UPDATE` / `_DELETE` / `_ASSIGN_MANAGER` | `ADMIN` |
 | `GET /warehouses`, `GET /warehouses/{slug}` | `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` — `GET /warehouses` với `MANAGER` bị service lọc về kho mình phụ trách |
 | `GET /warehouses/mine` | — (mọi user đã đăng nhập, service tự lọc theo `userId`) | |
