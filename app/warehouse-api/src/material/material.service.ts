@@ -24,7 +24,7 @@ import { MaterialTypeService } from 'src/material-type/material-type.service';
 import { UnitService } from 'src/unit/unit.service';
 import { UnitResponseDto } from 'src/unit/unit.dto';
 import { Unit } from 'src/unit/unit.entity';
-import { WarehouseMaterial } from 'src/warehouse-material/warehouse-material.entity';
+import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
@@ -41,9 +41,9 @@ export class MaterialService {
   constructor(
     @InjectRepository(Material) private readonly materialRepository: Repository<Material>,
     // Chỉ để đếm tham chiếu lúc xoá — inject Repository chứ không inject service của module kia,
-    // tránh vòng phụ thuộc `Material <-> WarehouseMaterial`.
-    @InjectRepository(WarehouseMaterial)
-    private readonly warehouseMaterialRepository: Repository<WarehouseMaterial>,
+    // tránh vòng phụ thuộc `Material <-> Inventory`.
+    @InjectRepository(Inventory)
+    private readonly inventoryRepository: Repository<Inventory>,
     // Bảng join material <-> unit: chứa CẢ đơn vị cơ sở (rate = 1) lẫn các đơn vị quy đổi.
     @InjectRepository(MaterialUnit)
     private readonly materialUnitRepository: Repository<MaterialUnit>,
@@ -127,7 +127,7 @@ export class MaterialService {
     return this.mapper.map(material, Material, MaterialResponseDto);
   }
 
-  /** Dùng bởi `WarehouseMaterialService` để resolve `materialSlug` -> entity. */
+  /** Dùng bởi `InventoryService` để resolve `materialSlug` -> entity. */
   async findEntityBySlug(slug: string): Promise<Material> {
     const material = await this.materialRepository.findOne({
       where: { slug },
@@ -214,7 +214,7 @@ export class MaterialService {
     if (!material.baseUnit) return;
 
     const [withStock, attached] = await Promise.all([
-      this.warehouseMaterialRepository
+      this.inventoryRepository
         .createQueryBuilder('wm')
         .where('wm.material_id_column = :materialId', { materialId: material.id })
         .andWhere('wm.quantity_column > 0')
@@ -230,8 +230,8 @@ export class MaterialService {
     const context = `${MaterialService.name}.${this.deleteMaterial.name}`;
     const material = await this.findEntityBySlug(slug);
 
-    // Xoá mềm nên FK không chặn giúp: row `warehouse_material_tbl` vẫn trỏ vào vật tư đã "xoá".
-    const assigned = await this.warehouseMaterialRepository.countBy({
+    // Xoá mềm nên FK không chặn giúp: row `inventory_tbl` vẫn trỏ vào vật tư đã "xoá".
+    const assigned = await this.inventoryRepository.countBy({
       material: { id: material.id },
     });
     if (assigned > 0) throw new MaterialException(MaterialValidation.MATERIAL_IN_USE);

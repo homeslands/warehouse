@@ -41,7 +41,7 @@ import { WarehouseScopeGuard } from 'src/warehouse/guard/warehouse-scope.guard';
 import { MaterialTypeModule } from 'src/material-type/material-type.module';
 import { MaterialModule } from 'src/material/material.module';
 import { UnitModule } from 'src/unit/unit.module';
-import { WarehouseMaterialModule } from 'src/warehouse-material/warehouse-material.module';
+import { InventoryModule } from 'src/inventory/inventory.module';
 import { StoreModule } from 'src/store/store.module';
 import { SupplierModule } from 'src/supplier/supplier.module';
 import { TaxProfileModule } from 'src/tax-profile/tax-profile.module';
@@ -88,7 +88,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     MaterialTypeModule,
     MaterialModule,
     UnitModule,
-    WarehouseMaterialModule,
+    InventoryModule,
     StoreModule,
     SupplierModule,
     TaxProfileModule,
