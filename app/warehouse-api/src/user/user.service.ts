@@ -22,6 +22,7 @@ import { RoleValidation } from 'src/role/role.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto } from './user.decorator';
 import { TokenRevocationService } from 'src/auth/token-revocation.service';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
@@ -165,8 +166,9 @@ export class UserService {
   }
 
   /**
-   * `PATCH /users/{userSlug}` — partial update hồ sơ. Chỉ sửa được user có role THẤP HƠN mình
-   * (giống `createUser`), nếu không ADMIN sửa được số điện thoại đăng nhập của SUPER_ADMIN.
+   * `PATCH /users/{userSlug}` — partial update hồ sơ. Tự sửa hồ sơ của mình thì luôn được; sửa user
+   * khác thì role của họ phải THẤP HƠN mình (giống `createUser`), nếu không ADMIN sửa được số điện
+   * thoại đăng nhập của SUPER_ADMIN — và ADMIN không sửa được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`).
    */
   async updateUser(
     currentUser: CurrentUserDto,
@@ -188,9 +190,10 @@ export class UserService {
   }
 
   /**
-   * `POST /users/{userSlug}/lock` — `isActive = false` + thu hồi mọi phiên (login/`RbacService`
+   * `DELETE /users/{userSlug}` — KHÔNG xoá bản ghi, chỉ khoá: `isActive = false` + thu hồi mọi phiên (login/`RbacService`
    * đã chặn user `!isActive`, thu hồi là để token đang còn hạn chết ngay ở request kế tiếp).
-   * Không khoá được manager của kho nào: phải đổi manager kho trước. Khoá lại user đã khoá là no-op.
+   * Không khoá được chính mình, ADMIN không khoá được ADMIN khác, không khoá được manager của kho
+   * nào (phải đổi manager kho trước). Khoá lại user đã khoá là no-op.
    */
   async lockUser(currentUser: CurrentUserDto, userSlug: string): Promise<UserResponseDto> {
     const target = await this.findTargetOrFail(userSlug);
@@ -246,8 +249,16 @@ export class UserService {
     return target;
   }
 
-  // User không có role (dữ liệu rác) thì coi như cấp thấp nhất — vẫn quản lý được để sửa lại.
+  /**
+   * Rào cho mọi thao tác trên user KHÁC (sửa / khoá / đổi role). ADMIN đụng ADMIN khác bị chặn
+   * bằng mã lỗi riêng (`ADMIN_CANNOT_MANAGE_ADMIN`) trước cả check cấp role, để client phân biệt
+   * được với `ROLE_LEVEL_FORBIDDEN` chung chung — chỉ `SUPER_ADMIN` mới sửa/khoá được tài khoản ADMIN.
+   * User không có role (dữ liệu rác) thì coi như cấp thấp nhất — vẫn quản lý được để sửa lại.
+   */
   private async assertCanManageUser(currentUser: CurrentUserDto, target: User): Promise<void> {
+    if (hasRole(currentUser, RoleEnum.Admin) && target.role?.name === RoleEnum.Admin) {
+      throw new UserException(UserValidation.ADMIN_CANNOT_MANAGE_ADMIN);
+    }
     if (target.role) await this.roleService.assertCanManage(currentUser, target.role);
   }
 }
