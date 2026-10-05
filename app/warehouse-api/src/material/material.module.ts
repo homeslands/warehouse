@@ -8,11 +8,11 @@ import { MaterialUnit } from './material-unit.entity';
 import { MaterialTypeModule } from 'src/material-type/material-type.module';
 import { UnitModule } from 'src/unit/unit.module';
 import { DbModule } from 'src/db/db.module';
-import { WarehouseMaterial } from 'src/warehouse-material/warehouse-material.entity';
+import { Inventory } from 'src/inventory/inventory.entity';
 
 @Module({
-  // `WarehouseMaterial` chỉ đăng ký để lấy Repository đếm tham chiếu lúc xoá — import entity
-  // (1 class), KHÔNG import `WarehouseMaterialModule` (module đó mới là bên import ngược lại).
+  // `Inventory` chỉ đăng ký để lấy Repository đếm tham chiếu lúc xoá — import entity
+  // (1 class), KHÔNG import `InventoryModule` (module đó mới là bên import ngược lại).
   //
   // `UnitModule` thì import cả module (cần `UnitService` để resolve `baseUnitSlug` và để list đơn
   // vị quy đổi): không tạo vòng vì `UnitModule` chỉ import ENTITY `Material`, không import
@@ -20,7 +20,7 @@ import { WarehouseMaterial } from 'src/warehouse-material/warehouse-material.ent
   // `DbModule` cho `TransactionManagerService` — đặt/đổi đơn vị cơ sở ghi 2 bảng theo thứ tự bắt
   // buộc bởi FK tổ hợp, không thể để nửa chừng.
   imports: [
-    TypeOrmModule.forFeature([Material, MaterialUnit, WarehouseMaterial]),
+    TypeOrmModule.forFeature([Material, MaterialUnit, Inventory]),
     MaterialTypeModule,
     UnitModule,
     DbModule,

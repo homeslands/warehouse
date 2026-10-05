@@ -287,7 +287,7 @@ export class StoreService {
     const target =
       warehouseSlug === null
         ? null
-        : // Tra kho qua `manager` (không import `WarehouseModule`, giống `WarehouseMaterialService`).
+        : // Tra kho qua `manager` (không import `WarehouseModule`, giống `InventoryService`).
           await this.resolveWarehouse(manager.getRepository(Warehouse), warehouseSlug);
     const previous = store.warehouse ?? null;
     // Gán `target` (đã kèm `manager`) cho cả nhánh idempotent: bản khoá ở trên không join `manager`.

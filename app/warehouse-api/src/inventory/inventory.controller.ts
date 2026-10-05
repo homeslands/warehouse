@@ -13,24 +13,27 @@ import {
   Query,
 } from '@nestjs/common';
 import {
-  AdjustWarehouseMaterialQuantityRequestDto,
-  AssignWarehouseMaterialRequestDto,
-  GetWarehouseMaterialRequestDto,
-  UpdateWarehouseMaterialRequestDto,
-  WarehouseMaterialResponseDto,
-} from './warehouse-material.dto';
-import { WarehouseMaterialService } from './warehouse-material.service';
+  AdjustInventoryQuantityRequestDto,
+  AssignInventoryRequestDto,
+  GetInventoryHistoryRequestDto,
+  GetInventoryRequestDto,
+  InventoryHistoryResponseDto,
+  UpdateInventoryRequestDto,
+  InventoryResponseDto,
+} from './inventory.dto';
+import { InventoryService } from './inventory.service';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
+import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 
-@ApiTags('Warehouse Material')
+@ApiTags('Inventory')
 @Controller('warehouses/:warehouseSlug/materials')
 @ApiBearerAuth()
 @ApiParam({ name: 'warehouseSlug', required: true, example: 'x7fk2p9qab' })
-export class WarehouseMaterialController {
-  constructor(private readonly warehouseMaterialService: WarehouseMaterialService) {}
+export class InventoryController {
+  constructor(private readonly inventoryService: InventoryService) {}
 
   @Post()
   @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
@@ -39,39 +42,44 @@ export class WarehouseMaterialController {
   @ApiResponseWithType({
     status: HttpStatus.CREATED,
     description: 'Assigned',
-    type: WarehouseMaterialResponseDto,
+    type: InventoryResponseDto,
   })
   async assignMaterial(
     @Param('warehouseSlug') warehouseSlug: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    requestData: AssignWarehouseMaterialRequestDto,
+    requestData: AssignInventoryRequestDto,
+    @CurrentUser() currentUser: CurrentUserDto,
   ) {
-    const result = await this.warehouseMaterialService.assignMaterial(warehouseSlug, requestData);
+    const result = await this.inventoryService.assignMaterial(
+      warehouseSlug,
+      requestData,
+      currentUser,
+    );
     return {
       message: 'Material has been assigned to the warehouse successfully',
       statusCode: HttpStatus.CREATED,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<WarehouseMaterialResponseDto>;
+    } as AppResponseDto<InventoryResponseDto>;
   }
 
   @Get()
   @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get the materials of this warehouse with their stock (paginated)' })
-  @ApiPaginatedResponse(WarehouseMaterialResponseDto, 'Retrieved')
+  @ApiPaginatedResponse(InventoryResponseDto, 'Retrieved')
   async findAll(
     @Param('warehouseSlug') warehouseSlug: string,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
-    query: GetWarehouseMaterialRequestDto,
+    query: GetInventoryRequestDto,
   ) {
-    const result = await this.warehouseMaterialService.findAll(warehouseSlug, query);
+    const result = await this.inventoryService.findAll(warehouseSlug, query);
     return {
-      message: 'Warehouse materials have been retrieved successfully',
+      message: 'Inventories have been retrieved successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<AppPaginatedResponseDto<WarehouseMaterialResponseDto>>;
+    } as AppResponseDto<AppPaginatedResponseDto<InventoryResponseDto>>;
   }
 
   @Patch(':materialSlug')
@@ -86,26 +94,26 @@ export class WarehouseMaterialController {
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Updated',
-    type: WarehouseMaterialResponseDto,
+    type: InventoryResponseDto,
   })
   @ApiParam({ name: 'materialSlug', required: true, example: 'x7fk2p9qab' })
   async updateThresholds(
     @Param('warehouseSlug') warehouseSlug: string,
     @Param('materialSlug') materialSlug: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    requestData: UpdateWarehouseMaterialRequestDto,
+    requestData: UpdateInventoryRequestDto,
   ) {
-    const result = await this.warehouseMaterialService.updateThresholds(
+    const result = await this.inventoryService.updateThresholds(
       warehouseSlug,
       materialSlug,
       requestData,
     );
     return {
-      message: 'Warehouse material thresholds have been updated successfully',
+      message: 'Inventory thresholds have been updated successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<WarehouseMaterialResponseDto>;
+    } as AppResponseDto<InventoryResponseDto>;
   }
 
   @Patch(':materialSlug/quantity')
@@ -114,51 +122,82 @@ export class WarehouseMaterialController {
   @ApiOperation({
     summary: 'Adjust the stock quantity by a delta',
     description:
-      'Cộng/trừ tồn bằng 1 câu UPDATE nguyên tử — 2 lần điều chỉnh đồng thời không ghi đè nhau. ' +
-      '`delta` là số nguyên khác 0; nếu làm tồn âm thì bị từ chối. Đây là cửa TẠM khi chưa có ' +
-      'phiếu nhập/xuất kho.',
+      'Cộng/trừ tồn dưới khoá `SELECT ... FOR UPDATE` — 2 lần điều chỉnh đồng thời chạy nối tiếp, ' +
+      'không ghi đè nhau; mỗi lần ghi 1 dòng lịch sử `ADJUST`. `delta` là số khác 0 (tối đa 6 chữ ' +
+      'số thập phân); làm tồn âm hoặc thấp hơn lượng đã giữ chỗ thì bị từ chối. Đây là cửa TẠM ' +
+      'khi chưa có phiếu nhập/xuất kho.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Adjusted',
-    type: WarehouseMaterialResponseDto,
+    type: InventoryResponseDto,
   })
   @ApiParam({ name: 'materialSlug', required: true, example: 'x7fk2p9qab' })
   async adjustQuantity(
     @Param('warehouseSlug') warehouseSlug: string,
     @Param('materialSlug') materialSlug: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    requestData: AdjustWarehouseMaterialQuantityRequestDto,
+    requestData: AdjustInventoryQuantityRequestDto,
+    @CurrentUser() currentUser: CurrentUserDto,
   ) {
-    const result = await this.warehouseMaterialService.adjustQuantity(
+    const result = await this.inventoryService.adjustQuantity(
       warehouseSlug,
       materialSlug,
       requestData,
+      currentUser,
     );
     return {
       message: 'Stock quantity has been adjusted successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<WarehouseMaterialResponseDto>;
+    } as AppResponseDto<InventoryResponseDto>;
   }
 
   @Delete(':materialSlug')
   @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Remove a material from this warehouse (chặn nếu tồn > 0)' })
+  @ApiOperation({
+    summary: 'Remove a material from this warehouse (chặn nếu tồn > 0 hoặc còn giữ chỗ)',
+  })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Removed', type: String })
   @ApiParam({ name: 'materialSlug', required: true, example: 'x7fk2p9qab' })
   async removeMaterial(
     @Param('warehouseSlug') warehouseSlug: string,
     @Param('materialSlug') materialSlug: string,
+    @CurrentUser() currentUser: CurrentUserDto,
   ) {
-    const result = await this.warehouseMaterialService.removeMaterial(warehouseSlug, materialSlug);
+    const result = await this.inventoryService.removeMaterial(
+      warehouseSlug,
+      materialSlug,
+      currentUser,
+    );
     return {
       message: 'Material has been removed from the warehouse successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
-      result: `${result} warehouse material have been removed successfully`,
+      result: `${result} inventory have been removed successfully`,
     } as AppResponseDto<string>;
+  }
+
+  @Get(':materialSlug/histories')
+  @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.WarehouseRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Get the stock change history of a material in this warehouse' })
+  @ApiPaginatedResponse(InventoryHistoryResponseDto, 'Retrieved')
+  @ApiParam({ name: 'materialSlug', required: true, example: 'x7fk2p9qab' })
+  async findHistories(
+    @Param('warehouseSlug') warehouseSlug: string,
+    @Param('materialSlug') materialSlug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: GetInventoryHistoryRequestDto,
+  ) {
+    const result = await this.inventoryService.findHistories(warehouseSlug, materialSlug, query);
+    return {
+      message: 'Inventory histories have been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<InventoryHistoryResponseDto>>;
   }
 }
