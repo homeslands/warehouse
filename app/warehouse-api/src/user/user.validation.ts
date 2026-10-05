@@ -14,6 +14,10 @@ export const USER_NOT_FOUND = 'USER_NOT_FOUND';
 export const USER_NEW_PASSWORD_IS_REQUIRED = 'USER_NEW_PASSWORD_IS_REQUIRED';
 export const CHANGE_PASSWORD_FORBIDDEN = 'CHANGE_PASSWORD_FORBIDDEN';
 export const CHANGE_OWN_PASSWORD_NOT_ALLOWED = 'CHANGE_OWN_PASSWORD_NOT_ALLOWED';
+export const LOCK_OWN_ACCOUNT_NOT_ALLOWED = 'LOCK_OWN_ACCOUNT_NOT_ALLOWED';
+export const USER_IS_WAREHOUSE_MANAGER = 'USER_IS_WAREHOUSE_MANAGER';
+export const CHANGE_OWN_ROLE_NOT_ALLOWED = 'CHANGE_OWN_ROLE_NOT_ALLOWED';
+export const ADMIN_CANNOT_MANAGE_ADMIN = 'ADMIN_CANNOT_MANAGE_ADMIN';
 
 export type TUserErrorCodeKey =
   | typeof USER_PHONENUMBER_DOES_EXIST
@@ -28,7 +32,11 @@ export type TUserErrorCodeKey =
   | typeof USER_NOT_FOUND
   | typeof USER_NEW_PASSWORD_IS_REQUIRED
   | typeof CHANGE_PASSWORD_FORBIDDEN
-  | typeof CHANGE_OWN_PASSWORD_NOT_ALLOWED;
+  | typeof CHANGE_OWN_PASSWORD_NOT_ALLOWED
+  | typeof LOCK_OWN_ACCOUNT_NOT_ALLOWED
+  | typeof USER_IS_WAREHOUSE_MANAGER
+  | typeof CHANGE_OWN_ROLE_NOT_ALLOWED
+  | typeof ADMIN_CANNOT_MANAGE_ADMIN;
 
 export type TUserErrorCode = Record<TUserErrorCodeKey, TErrorCodeValue>;
 
@@ -88,5 +96,28 @@ export const UserValidation: TUserErrorCode = {
     100408,
     'Use POST /auth/change-password to change your own password',
     HttpStatus.BAD_REQUEST,
+  ),
+  LOCK_OWN_ACCOUNT_NOT_ALLOWED: createErrorCode(
+    100414,
+    'You cannot lock your own account',
+    HttpStatus.BAD_REQUEST,
+  ),
+  // Khoá manager là bỏ kho lại không người phụ trách — phải đổi manager kho trước
+  // (`PUT /warehouses/{slug}/manager`) rồi mới khoá được.
+  USER_IS_WAREHOUSE_MANAGER: createErrorCode(
+    100415,
+    'User is the manager of a warehouse — reassign the warehouse manager before locking',
+    HttpStatus.CONFLICT,
+  ),
+  CHANGE_OWN_ROLE_NOT_ALLOWED: createErrorCode(
+    100416,
+    'You cannot change your own role',
+    HttpStatus.BAD_REQUEST,
+  ),
+  // ADMIN không được sửa/khoá/đổi role của ADMIN khác — chỉ SUPER_ADMIN mới đụng được tài khoản ADMIN.
+  ADMIN_CANNOT_MANAGE_ADMIN: createErrorCode(
+    100417,
+    'An admin cannot modify or lock another admin account',
+    HttpStatus.FORBIDDEN,
   ),
 };

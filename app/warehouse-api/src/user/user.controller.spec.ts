@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { UserController } from './user.controller';
@@ -59,5 +61,15 @@ describe('UserController', () => {
     expect(authority(controller.createUser)).toEqual([AuthorityCode.UserCreate]);
     expect(authority(controller.findAll)).toEqual([AuthorityCode.UserRead]);
     expect(authority(controller.changeUserPassword)).toEqual([AuthorityCode.UserChangePassword]);
+    expect(authority(controller.updateUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.lockUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.changeUserRole)).toEqual([AuthorityCode.UserUpdate]);
+  });
+
+  // `DELETE /users/{slug}` là KHOÁ (isActive = false), không phải xoá bản ghi.
+  it('maps lockUser to DELETE /users/:userSlug', () => {
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.lockUser)).toBe(RequestMethod.DELETE);
+    expect(Reflect.getMetadata(PATH_METADATA, controller.lockUser)).toBe(':userSlug');
+    expect(Reflect.getMetadata(METHOD_METADATA, controller.updateUser)).toBe(RequestMethod.PATCH);
   });
 });
