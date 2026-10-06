@@ -18,6 +18,9 @@ export const LOCK_OWN_ACCOUNT_NOT_ALLOWED = 'LOCK_OWN_ACCOUNT_NOT_ALLOWED';
 export const USER_IS_WAREHOUSE_MANAGER = 'USER_IS_WAREHOUSE_MANAGER';
 export const CHANGE_OWN_ROLE_NOT_ALLOWED = 'CHANGE_OWN_ROLE_NOT_ALLOWED';
 export const ADMIN_CANNOT_MANAGE_ADMIN = 'ADMIN_CANNOT_MANAGE_ADMIN';
+export const DELETE_OWN_ACCOUNT_NOT_ALLOWED = 'DELETE_OWN_ACCOUNT_NOT_ALLOWED';
+export const USER_PHONENUMBER_RESERVED_BY_DELETED_USER =
+  'USER_PHONENUMBER_RESERVED_BY_DELETED_USER';
 
 export type TUserErrorCodeKey =
   | typeof USER_PHONENUMBER_DOES_EXIST
@@ -36,7 +39,9 @@ export type TUserErrorCodeKey =
   | typeof LOCK_OWN_ACCOUNT_NOT_ALLOWED
   | typeof USER_IS_WAREHOUSE_MANAGER
   | typeof CHANGE_OWN_ROLE_NOT_ALLOWED
-  | typeof ADMIN_CANNOT_MANAGE_ADMIN;
+  | typeof ADMIN_CANNOT_MANAGE_ADMIN
+  | typeof DELETE_OWN_ACCOUNT_NOT_ALLOWED
+  | typeof USER_PHONENUMBER_RESERVED_BY_DELETED_USER;
 
 export type TUserErrorCode = Record<TUserErrorCodeKey, TErrorCodeValue>;
 
@@ -102,11 +107,11 @@ export const UserValidation: TUserErrorCode = {
     'You cannot lock your own account',
     HttpStatus.BAD_REQUEST,
   ),
-  // Khoá manager là bỏ kho lại không người phụ trách — phải đổi manager kho trước
-  // (`PUT /warehouses/{slug}/manager`) rồi mới khoá được.
+  // Khoá/xoá manager là bỏ kho lại không người phụ trách — phải đổi manager kho trước
+  // (`PUT /warehouses/{slug}/manager`) rồi mới khoá/xoá được.
   USER_IS_WAREHOUSE_MANAGER: createErrorCode(
     100415,
-    'User is the manager of a warehouse — reassign the warehouse manager before locking',
+    'User is the manager of a warehouse — reassign the warehouse manager before locking or deleting',
     HttpStatus.CONFLICT,
   ),
   CHANGE_OWN_ROLE_NOT_ALLOWED: createErrorCode(
@@ -119,5 +124,15 @@ export const UserValidation: TUserErrorCode = {
     100417,
     'An admin cannot modify or lock another admin account',
     HttpStatus.FORBIDDEN,
+  ),
+  DELETE_OWN_ACCOUNT_NOT_ALLOWED: createErrorCode(
+    100418,
+    'You cannot delete your own account',
+    HttpStatus.BAD_REQUEST,
+  ),
+  // UNIQUE index của `phonenumber_column` tính cả user đã xoá mềm (MySQL không có partial index).
+  USER_PHONENUMBER_RESERVED_BY_DELETED_USER: createErrorCode(
+    100419,
+    'Phone number is still held by a deleted user',
   ),
 };

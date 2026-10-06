@@ -22,7 +22,7 @@ export type TUnitErrorCodeKey =
 
 export type TUnitErrorCode = Record<TUnitErrorCodeKey, TErrorCodeValue>;
 
-// Unit Error Code 1009xx (1008xx đã thuộc warehouse-material)
+// Unit Error Code 1009xx (1008xx đã thuộc inventory)
 
 export const UnitValidation: TUnitErrorCode = {
   UNIT_NOT_FOUND: createErrorCode(100901, 'Unit not found', HttpStatus.NOT_FOUND),

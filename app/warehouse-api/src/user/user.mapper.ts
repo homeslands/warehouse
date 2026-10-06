@@ -26,6 +26,33 @@ export class UserProfile extends AutomapperProfile {
           (d) => d.roleName,
           mapFrom((s) => s.role?.name),
         ),
+        forMember(
+          (d) => d.role,
+          mapFrom((s) =>
+            s.role
+              ? {
+                  slug: s.role.slug,
+                  name: s.role.name,
+                  description: s.role.description,
+                  level: s.role.level,
+                }
+              : undefined,
+          ),
+        ),
+        // `undefined` khi relation chưa nạp, để không trả `[]` sai lệch là "không thuộc kho nào".
+        // Member/kho đã xoá mềm đã bị TypeORM loại khỏi join; lọc thêm `warehouse` null cho chắc.
+        forMember(
+          (d) => d.warehouses,
+          mapFrom((s) =>
+            s.warehouseMembers
+              ?.filter((member) => member.warehouse)
+              .map(({ warehouse }) => ({
+                slug: warehouse.slug,
+                code: warehouse.code,
+                name: warehouse.name,
+              })),
+          ),
+        ),
       );
 
       createMap(

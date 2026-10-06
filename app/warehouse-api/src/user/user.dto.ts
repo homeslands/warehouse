@@ -66,7 +66,7 @@ export class CreateUserRequestDto {
 
 /**
  * `PATCH /users/{userSlug}` — chỉ hồ sơ. Mật khẩu và role có endpoint riêng (`.../change-password`,
- * `.../change-role`) vì cả hai phải thu hồi phiên của user; `isActive` đi qua `DELETE /users/{slug}` (khoá).
+ * `.../change-role`) vì cả hai phải thu hồi phiên của user; `isActive` đi qua `PUT /users/{slug}/lock|unlock`.
  */
 export class UpdateUserRequestDto extends PartialType(
   OmitType(CreateUserRequestDto, ['password', 'roleSlug'] as const),
@@ -82,6 +82,32 @@ export class GetAllUserRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by role slug', example: 'admin' })
   @IsOptional()
   roleSlug?: string;
+}
+
+export class UserRoleDto {
+  @ApiProperty({ example: 'x7fk2p9q' })
+  slug: string;
+
+  @ApiProperty({ example: 'SUPERVISOR' })
+  name: string;
+
+  @ApiPropertyOptional()
+  description?: string;
+
+  @ApiProperty({ description: 'Cấp của role — số lớn = cấp cao', example: 10 })
+  level: number;
+}
+
+// Kho mà user là THÀNH VIÊN (`warehouse_member_tbl`) — không gồm kho user làm manager.
+export class UserWarehouseDto {
+  @ApiProperty({ example: 'x7fk2p9qab' })
+  slug: string;
+
+  @ApiProperty({ example: 'WH-HN-01' })
+  code: string;
+
+  @ApiProperty({ example: 'Kho Hà Nội 1' })
+  name: string;
 }
 
 export class UserResponseDto extends BaseResponseDto {
@@ -120,6 +146,17 @@ export class UserResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty()
   roleName: string;
+
+  // Dựng bằng `forMember` trong `user.mapper.ts` — không `@AutoMap()`.
+  @ApiPropertyOptional({ type: () => UserRoleDto })
+  role?: UserRoleDto;
+
+  /**
+   * Chỉ có khi query nạp `warehouseMembers.warehouse` (hiện là `GET /users` và
+   * `GET /warehouses/{slug}/available-members`); các endpoint khác không trả field này.
+   */
+  @ApiPropertyOptional({ type: () => UserWarehouseDto, isArray: true })
+  warehouses?: UserWarehouseDto[];
 }
 
 export class ChangeUserPasswordRequestDto {
