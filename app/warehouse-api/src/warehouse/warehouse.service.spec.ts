@@ -1,3 +1,4 @@
+import { GetAllUserRequestDto } from 'src/user/user.dto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
@@ -67,8 +68,9 @@ describe('WarehouseService', () => {
     recover: jest.fn(),
     softRemove: jest.fn(),
     existsBy: jest.fn(),
+    find: jest.fn(),
   };
-  const userService = { findBySlug: jest.fn() };
+  const userService = { findBySlug: jest.fn(), findAll: jest.fn() };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -584,6 +586,52 @@ describe('WarehouseService', () => {
       warehouseMemberRepository.existsBy.mockResolvedValue(false);
 
       await expect(service.findUserWarehouse('wh-slug-1', 'user-id-2')).resolves.toBe(false);
+    });
+  });
+
+  describe('findAvailableMembers', () => {
+    const query = { page: 1, size: 10 } as GetAllUserRequestDto;
+
+    it('excludes current members and the manager, and only lists active users', async () => {
+      warehouseRepository.findOne.mockResolvedValue({ id: 'wh-id', manager: { id: 'mgr-id' } });
+      warehouseMemberRepository.find.mockResolvedValue([
+        { user: { id: 'u1' } },
+        { user: { id: 'u2' } },
+      ]);
+      const page = { items: [], total: 0 };
+      userService.findAll.mockResolvedValue(page);
+
+      await expect(service.findAvailableMembers('wh-slug', query)).resolves.toBe(page);
+
+      expect(warehouseMemberRepository.find).toHaveBeenCalledWith({
+        where: { warehouse: { id: 'wh-id' } },
+        relations: { user: true },
+      });
+      expect(userService.findAll).toHaveBeenCalledWith(query, {
+        excludedIds: ['u1', 'u2', 'mgr-id'],
+        onlyActive: true,
+      });
+    });
+
+    it('works for a warehouse without manager or members', async () => {
+      warehouseRepository.findOne.mockResolvedValue({ id: 'wh-id', manager: null });
+      warehouseMemberRepository.find.mockResolvedValue([]);
+
+      await service.findAvailableMembers('wh-slug', query);
+
+      expect(userService.findAll).toHaveBeenCalledWith(query, {
+        excludedIds: [],
+        onlyActive: true,
+      });
+    });
+
+    it('rejects an unknown warehouse', async () => {
+      warehouseRepository.findOne.mockResolvedValue(null);
+
+      await expect(service.findAvailableMembers('missing', query)).rejects.toMatchObject({
+        code: WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      });
+      expect(userService.findAll).not.toHaveBeenCalled();
     });
   });
 

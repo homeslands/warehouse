@@ -29,6 +29,7 @@ import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
+import { GetAllUserRequestDto, UserResponseDto } from 'src/user/user.dto';
 
 @ApiTags('Warehouse')
 @Controller('warehouses')
@@ -197,6 +198,31 @@ export class WarehouseController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<WarehouseMemberResponseDto>;
+  }
+
+  // Cùng cặp quyền với `PUT :slug/members` — đây là danh sách để chọn user khi gán.
+  @Get(':slug/available-members')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'List users that can be assigned as members of a warehouse (paginated)',
+    description:
+      'Chỉ user đang hoạt động, chưa là thành viên của kho và không phải manager hiện tại của kho.',
+  })
+  @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async findAvailableMembers(
+    @Param('slug') slug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: GetAllUserRequestDto,
+  ) {
+    const result = await this.warehouseService.findAvailableMembers(slug, query);
+    return {
+      message: 'Available warehouse members have been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<UserResponseDto>>;
   }
 
   @Delete(':slug/members/:userSlug')

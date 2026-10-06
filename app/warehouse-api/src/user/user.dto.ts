@@ -66,7 +66,7 @@ export class CreateUserRequestDto {
 
 /**
  * `PATCH /users/{userSlug}` — chỉ hồ sơ. Mật khẩu và role có endpoint riêng (`.../change-password`,
- * `.../change-role`) vì cả hai phải thu hồi phiên của user; `isActive` đi qua `DELETE /users/{slug}` (khoá).
+ * `.../change-role`) vì cả hai phải thu hồi phiên của user; `isActive` đi qua `PUT /users/{slug}/lock|unlock`.
  */
 export class UpdateUserRequestDto extends PartialType(
   OmitType(CreateUserRequestDto, ['password', 'roleSlug'] as const),

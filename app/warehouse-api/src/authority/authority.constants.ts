@@ -29,8 +29,11 @@ export const AuthorityCode = {
   // --- Seed ở migration 1783728000011 ---
   UserChangePassword: 'USER_CHANGE_PASSWORD',
 
-  // --- Seed ở migration 1783728000035 — `PATCH /users/{slug}`, `DELETE /users/{slug}` (khoá), `.../change-role` ---
+  // --- Seed ở migration 1783728000035 — `PATCH /users/{slug}`, `PUT /users/{slug}/lock|unlock`, `.../change-role` ---
   UserUpdate: 'USER_UPDATE',
+
+  // --- Seed ở migration 1783728000038 — `DELETE /users/{slug}` (xoá mềm) ---
+  UserDelete: 'USER_DELETE',
 
   // --- Phiếu nhập kho (ImportForm) ---
   ImportFormCreate: 'IMPORT_FORM_CREATE',

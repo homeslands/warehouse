@@ -1,3 +1,4 @@
+import { In, Not } from 'typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
@@ -14,6 +15,7 @@ import { UserException } from './user.exception';
 import { UserValidation } from './user.validation';
 import { CurrentUserDto } from './user.decorator';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 
 describe('UserService', () => {
   let service: UserService;
@@ -25,7 +27,10 @@ describe('UserService', () => {
     findAndCount: jest.fn(),
     update: jest.fn(),
     find: jest.fn(),
+    findOne: jest.fn(),
+    manager: { transaction: jest.fn() },
   };
+  const transactionManager = { softDelete: jest.fn() };
   const tokenRevocationService = {
     revokeSession: jest.fn(),
     revokeAllTokensForUser: jest.fn(),
@@ -208,7 +213,7 @@ describe('UserService', () => {
     });
 
     it('rejects a phone number already used by someone else', async () => {
-      userRepository.findOneBy.mockResolvedValueOnce({ id: 'third-id' });
+      userRepository.findOne.mockResolvedValueOnce({ id: 'third-id' });
 
       await expectUserError(
         service.updateUser(caller(), 'other-slug', { phonenumber: '0911111111' }),
@@ -281,6 +286,141 @@ describe('UserService', () => {
     });
   });
 
+  describe('findAll', () => {
+    beforeEach(() => userRepository.findAndCount.mockResolvedValue([[], 0]));
+
+    it('applies the internal exclusion / active-only filter', async () => {
+      await service.findAll({ page: 1, size: 10, roleSlug: 'supervisor' } as never, {
+        excludedIds: ['a', 'b'],
+        onlyActive: true,
+      });
+
+      expect(userRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { role: { slug: 'supervisor' }, isActive: true, id: Not(In(['a', 'b'])) },
+        }),
+      );
+    });
+
+    // `In([])` thành `IN ()` — lỗi cú pháp MySQL.
+    it('skips the id filter when nothing is excluded', async () => {
+      await service.findAll({ page: 1, size: 10 } as never, { excludedIds: [] });
+
+      expect(userRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+  });
+
+  describe('unlockUser', () => {
+    beforeEach(() => {
+      userRepository.save.mockImplementation(async (data) => data);
+    });
+
+    it('re-activates a locked user without touching their sessions', async () => {
+      userRepository.findOneBy.mockResolvedValue({ ...other, isActive: false });
+
+      const result = await service.unlockUser(caller(), 'other-slug');
+
+      expect(userRepository.save).toHaveBeenCalledWith(expect.objectContaining({ isActive: true }));
+      expect(tokenRevocationService.revokeAllTokensForUser).not.toHaveBeenCalled();
+      expect(result.isActive).toBe(true);
+    });
+
+    it('is a no-op for an active user', async () => {
+      userRepository.findOneBy.mockResolvedValue({ ...other });
+
+      await service.unlockUser(caller(), 'other-slug');
+
+      expect(userRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects unlocking a user the caller cannot manage', async () => {
+      userRepository.findOneBy.mockResolvedValue({ ...other, isActive: false });
+      const forbidden = new Error('ROLE_LEVEL_FORBIDDEN');
+      roleService.assertCanManage.mockRejectedValueOnce(forbidden);
+
+      await expect(service.unlockUser(caller(), 'other-slug')).rejects.toBe(forbidden);
+      expect(userRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('deleteUser', () => {
+    beforeEach(() => {
+      warehouseRepository.count.mockResolvedValue(0);
+      userRepository.manager.transaction.mockImplementation(async (run) => run(transactionManager));
+    });
+
+    // Membership phải xoá cùng transaction, không thì user đã xoá vẫn nằm trong danh sách kho.
+    it('soft-deletes the user with their memberships, then revokes all sessions', async () => {
+      userRepository.findOneBy.mockResolvedValue({ ...other });
+
+      await expect(service.deleteUser(caller(), 'other-slug')).resolves.toBe(1);
+
+      expect(transactionManager.softDelete).toHaveBeenCalledWith(WarehouseMember, {
+        user: { id: 'other-id' },
+      });
+      expect(transactionManager.softDelete).toHaveBeenCalledWith(User, { id: 'other-id' });
+      expect(tokenRevocationService.revokeAllTokensForUser).toHaveBeenCalledWith('other-id');
+    });
+
+    it('rejects deleting your own account', async () => {
+      userRepository.findOneBy.mockResolvedValue({ ...other, id: 'user-id' });
+
+      await expectUserError(
+        service.deleteUser(caller(), 'my-slug'),
+        UserValidation.DELETE_OWN_ACCOUNT_NOT_ALLOWED.code,
+      );
+      expect(userRepository.manager.transaction).not.toHaveBeenCalled();
+    });
+
+    it('rejects deleting a warehouse manager', async () => {
+      userRepository.findOneBy.mockResolvedValue({ ...other });
+      warehouseRepository.count.mockResolvedValue(1);
+
+      await expectUserError(
+        service.deleteUser(caller(), 'other-slug'),
+        UserValidation.USER_IS_WAREHOUSE_MANAGER.code,
+      );
+      expect(userRepository.manager.transaction).not.toHaveBeenCalled();
+      expect(tokenRevocationService.revokeAllTokensForUser).not.toHaveBeenCalled();
+    });
+
+    it('rejects deleting an unknown user', async () => {
+      userRepository.findOneBy.mockResolvedValue(null);
+
+      await expectUserError(
+        service.deleteUser(caller(), 'missing'),
+        UserValidation.USER_NOT_FOUND.code,
+      );
+    });
+  });
+
+  // UNIQUE index trên `phonenumber_column` tính cả user đã xoá mềm.
+  describe('phone number held by a deleted user', () => {
+    it('createUser rejects with USER_PHONENUMBER_RESERVED_BY_DELETED_USER', async () => {
+      userRepository.findOne.mockResolvedValue({ id: 'gone', deletedAt: new Date() });
+
+      await expectUserError(
+        service.createUser(
+          {
+            phonenumber: '0900000000',
+            firstName: 'A',
+            lastName: 'B',
+            password: 'secret',
+            roleSlug: 'admin',
+          },
+          null,
+        ),
+        UserValidation.USER_PHONENUMBER_RESERVED_BY_DELETED_USER.code,
+      );
+      expect(userRepository.findOne).toHaveBeenCalledWith({
+        where: { phonenumber: '0900000000' },
+        withDeleted: true,
+      });
+    });
+  });
+
   // ADMIN không được sửa/khoá/đổi role của ADMIN khác — chặn bằng mã lỗi riêng, trước cả check cấp
   // role, và không bao giờ chạm DB ghi.
   describe('admin managing another admin', () => {
@@ -295,6 +435,8 @@ describe('UserService', () => {
     it.each([
       ['updateUser', () => service.updateUser(admin, 'other-slug', { firstName: 'X' })],
       ['lockUser', () => service.lockUser(admin, 'other-slug')],
+      ['unlockUser', () => service.unlockUser(admin, 'other-slug')],
+      ['deleteUser', () => service.deleteUser(admin, 'other-slug')],
       [
         'changeUserRole',
         () => service.changeUserRole(admin, 'other-slug', { roleSlug: 'manager' }),
