@@ -15,7 +15,7 @@ import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { UnitService } from 'src/unit/unit.service';
 import { Unit } from 'src/unit/unit.entity';
 import { MaterialType } from 'src/material-type/material-type.entity';
-import { WarehouseMaterial } from 'src/warehouse-material/warehouse-material.entity';
+import { Inventory } from 'src/inventory/inventory.entity';
 
 const materialType = () =>
   ({ id: 'type-id-1', slug: 'type-slug-1', code: 'MT-01', name: 'Tiêu hao' }) as MaterialType;
@@ -66,7 +66,7 @@ describe('MaterialService', () => {
     findAndCount: jest.fn(),
     softRemove: jest.fn(),
   };
-  const warehouseMaterialRepository = { countBy: jest.fn(), createQueryBuilder: jest.fn() };
+  const inventoryRepository = { countBy: jest.fn(), createQueryBuilder: jest.fn() };
   // Manager giả của transaction: chạy thẳng callback, ghi nhận lời gọi để kiểm THỨ TỰ ghi 2 bảng
   // (FK tổ hợp bắt buộc: tạo dòng join trước, trỏ base_unit_id sau, xoá dòng cũ cuối cùng).
   const manager = {
@@ -99,7 +99,7 @@ describe('MaterialService', () => {
         MaterialService,
         MaterialProfile,
         { provide: getRepositoryToken(Material), useValue: materialRepository },
-        { provide: getRepositoryToken(WarehouseMaterial), useValue: warehouseMaterialRepository },
+        { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: getRepositoryToken(MaterialUnit), useValue: materialUnitRepository },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
@@ -221,7 +221,7 @@ describe('MaterialService', () => {
   describe('deleteMaterial', () => {
     it('refuses to delete a material still assigned to a warehouse', async () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial());
-      warehouseMaterialRepository.countBy.mockResolvedValue(1);
+      inventoryRepository.countBy.mockResolvedValue(1);
 
       await expectError(
         service.deleteMaterial('mat-slug-1'),
@@ -232,7 +232,7 @@ describe('MaterialService', () => {
 
     it('soft removes a material assigned to no warehouse', async () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial());
-      warehouseMaterialRepository.countBy.mockResolvedValue(0);
+      inventoryRepository.countBy.mockResolvedValue(0);
 
       await expect(service.deleteMaterial('mat-slug-1')).resolves.toBe(1);
       expect(materialRepository.softRemove).toHaveBeenCalled();
@@ -305,7 +305,7 @@ describe('MaterialService', () => {
       unitService.findEntityBySlug.mockResolvedValue(
         unit({ id: 'unit-id-9', slug: 'unit-slug-9', code: 'BAO' }),
       );
-      warehouseMaterialRepository.createQueryBuilder.mockReturnValue(qbCount(0));
+      inventoryRepository.createQueryBuilder.mockReturnValue(qbCount(0));
       materialUnitRepository.countBy.mockResolvedValue(1); // chỉ có đúng dòng base
       manager.countBy.mockResolvedValue(0);
       materialRepository.save.mockImplementation((data) => data);
@@ -329,7 +329,7 @@ describe('MaterialService', () => {
       unitService.findEntityBySlug.mockResolvedValue(
         unit({ id: 'unit-id-9', slug: 'unit-slug-9' }),
       );
-      warehouseMaterialRepository.createQueryBuilder.mockReturnValue(qbCount(1));
+      inventoryRepository.createQueryBuilder.mockReturnValue(qbCount(1));
       materialUnitRepository.countBy.mockResolvedValue(1);
 
       await expectError(
@@ -344,7 +344,7 @@ describe('MaterialService', () => {
       unitService.findEntityBySlug.mockResolvedValue(
         unit({ id: 'unit-id-9', slug: 'unit-slug-9' }),
       );
-      warehouseMaterialRepository.createQueryBuilder.mockReturnValue(qbCount(0));
+      inventoryRepository.createQueryBuilder.mockReturnValue(qbCount(0));
       materialUnitRepository.countBy.mockResolvedValue(3);
 
       await expectError(

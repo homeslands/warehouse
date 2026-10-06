@@ -11,6 +11,7 @@ import {
   Query,
   Patch,
   Delete,
+  Put,
 } from '@nestjs/common';
 import { Throttle } from '@nestjs/throttler';
 import {
@@ -61,7 +62,12 @@ export class UserController {
   @Get()
   @RequireAuthority(AuthorityCode.UserRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all users (paginated, filter by role)' })
+  @ApiOperation({
+    summary: 'Get all users (paginated, filter by role)',
+    description:
+      'Mỗi user kèm `role` (slug/name/description/level) và `warehouses` — các kho user là thành ' +
+      'viên (không gồm kho user làm manager).',
+  })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
   async findAll(
     @Query(new ValidationPipe({ transform: true, whitelist: true })) query: GetAllUserRequestDto,
@@ -137,13 +143,13 @@ export class UserController {
     } as AppResponseDto<UserResponseDto>;
   }
 
-  @Delete(':userSlug')
+  @Put(':userSlug/lock')
   @RequireAuthority(AuthorityCode.UserUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Lock a user account (soft — the record is kept)',
+    summary: 'Lock a user account',
     description:
-      'KHÔNG xoá user: đặt `isActive = false` và thu hồi mọi phiên của user. Không khoá được chính ' +
+      'Đặt `isActive = false` và thu hồi mọi phiên của user (idempotent). Không khoá được chính ' +
       'mình, user có role ngang/cao hơn mình (ADMIN không khoá được ADMIN khác — ' +
       '`ADMIN_CANNOT_MANAGE_ADMIN`), hoặc user đang là manager của một kho (đổi manager kho trước).',
   })
@@ -157,6 +163,55 @@ export class UserController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<UserResponseDto>;
+  }
+
+  @Put(':userSlug/unlock')
+  @RequireAuthority(AuthorityCode.UserUpdate)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Unlock a user account',
+    description:
+      'Đặt `isActive = true` (idempotent) — user phải đăng nhập lại. Cùng rào cấp role với khoá ' +
+      '(`ADMIN_CANNOT_MANAGE_ADMIN`).',
+  })
+  @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Unlocked', type: UserResponseDto })
+  async unlockUser(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param('userSlug') userSlug: string,
+  ) {
+    const result = await this.userService.unlockUser(currentUser, userSlug);
+    return {
+      message: 'User has been unlocked successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<UserResponseDto>;
+  }
+
+  @Delete(':userSlug')
+  @RequireAuthority(AuthorityCode.UserDelete)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Delete a user',
+    description:
+      'Xoá mềm user cùng mọi tư cách thành viên kho của họ, thu hồi mọi phiên. Rào giống khoá: ' +
+      'không xoá được chính mình, user có role ngang/cao hơn mình, hoặc manager của một kho. ' +
+      'Số điện thoại vẫn bị giữ (`USER_PHONENUMBER_RESERVED_BY_DELETED_USER`).',
+  })
+  @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
+  async deleteUser(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param('userSlug') userSlug: string,
+  ) {
+    const result = await this.userService.deleteUser(currentUser, userSlug);
+    return {
+      message: 'User has been deleted successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result: `${result} user have been deleted successfully`,
+    } as AppResponseDto<string>;
   }
 
   @Post(':userSlug/change-role')

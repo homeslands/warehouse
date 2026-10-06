@@ -23,6 +23,7 @@ export const WAREHOUSE_MEMBER_USER_NOT_FOUND = 'WAREHOUSE_MEMBER_USER_NOT_FOUND'
 export const WAREHOUSE_MEMBER_USER_INACTIVE = 'WAREHOUSE_MEMBER_USER_INACTIVE';
 export const WAREHOUSE_MEMBER_NOT_FOUND = 'WAREHOUSE_MEMBER_NOT_FOUND';
 export const WAREHOUSE_ACCESS_DENIED = 'WAREHOUSE_ACCESS_DENIED';
+export const WAREHOUSE_MEMBER_USER_IS_ADMIN = 'WAREHOUSE_MEMBER_USER_IS_ADMIN';
 
 export type TWarehouseErrorCodeKey =
   | typeof WAREHOUSE_NOT_FOUND
@@ -45,7 +46,8 @@ export type TWarehouseErrorCodeKey =
   | typeof WAREHOUSE_MEMBER_USER_NOT_FOUND
   | typeof WAREHOUSE_MEMBER_USER_INACTIVE
   | typeof WAREHOUSE_MEMBER_NOT_FOUND
-  | typeof WAREHOUSE_ACCESS_DENIED;
+  | typeof WAREHOUSE_ACCESS_DENIED
+  | typeof WAREHOUSE_MEMBER_USER_IS_ADMIN;
 
 export type TWarehouseErrorCode = Record<TWarehouseErrorCodeKey, TErrorCodeValue>;
 
@@ -133,5 +135,10 @@ export const WarehouseValidation: TWarehouseErrorCode = {
     100523,
     'You are not a manager or member of this warehouse',
     HttpStatus.FORBIDDEN,
+  ),
+  // ADMIN/SUPER_ADMIN đã thấy và thao tác được mọi kho — gán làm thành viên là thừa và gây hiểu lầm.
+  WAREHOUSE_MEMBER_USER_IS_ADMIN: createErrorCode(
+    100524,
+    'User is an admin and cannot be assigned as a warehouse member',
   ),
 };

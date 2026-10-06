@@ -13,3 +13,9 @@ export const WAREHOUSE_CODE_REGEX = /^[a-zA-Z0-9]([a-zA-Z0-9-]{0,30}[a-zA-Z0-9])
  * (cửa hàng gắn với các kho đó). Role không nằm đây thấy toàn bộ.
  */
 export const WAREHOUSE_SCOPED_ROLES = [RoleEnum.Manager, RoleEnum.Supervisor];
+
+/**
+ * Role KHÔNG được gán làm thành viên kho (`PUT /warehouses/{slug}/members`) và bị loại khỏi
+ * `GET .../available-members`: ADMIN/SUPER_ADMIN đã thấy và thao tác được mọi kho.
+ */
+export const WAREHOUSE_MEMBER_EXCLUDED_ROLES = [RoleEnum.Admin, RoleEnum.SuperAdmin];

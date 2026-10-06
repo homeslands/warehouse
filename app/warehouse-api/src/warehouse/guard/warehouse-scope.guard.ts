@@ -12,7 +12,7 @@ import { WarehouseValidation } from '../warehouse.validation';
 /**
  * Guard cho `@WarehouseScope`. Đăng ký global qua `APP_GUARD` (sau `AuthorityGuard`, xem
  * `app.module.ts`) thay vì `@UseGuards`: `@UseGuards` dựng guard trong module của controller, buộc
- * module nào dùng (vd. `warehouse-material`) cũng phải tự có `WarehouseService`.
+ * module nào dùng (vd. `inventory`) cũng phải tự có `WarehouseService`.
  *
  * Khác `AuthorityGuard`, guard này đọc DB (1-2 query), nhưng chỉ khi endpoint có gắn decorator.
  * Qua được thì gắn kho vào `request.user.userWarehouse` — handler lấy qua `@CurrentUser()`, không

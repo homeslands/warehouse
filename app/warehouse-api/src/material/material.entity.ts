@@ -49,7 +49,7 @@ export class Material extends Base {
   baseUnit?: Unit;
 
   /**
-   * Ngưỡng MẶC ĐỊNH chung mọi kho — từng kho override được qua `WarehouseMaterial`.
+   * Ngưỡng MẶC ĐỊNH chung mọi kho — từng kho override được qua `Inventory`.
    *
    * `DECIMAL(18,6)` chứ không `int`: ngưỡng được so sánh trực tiếp với tồn kho, mà tồn kho sinh ra
    * từ phép quy đổi nên có phần lẻ (xem migration `1783728000021`).

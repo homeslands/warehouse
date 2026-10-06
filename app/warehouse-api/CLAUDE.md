@@ -2,7 +2,7 @@
 
 NestJS 10 + TypeORM/MySQL. `setup.md` trong thư mục này là ghi chú thủ công về các bước setup ban đầu (env, DB, chạy app lần đầu) — không phải tài liệu convention cho Claude, không cần đọc trừ khi cần setup môi trường từ đầu.
 
-> `src/` hiện có: `app/`, `auth/`, `authority/`, `authority-group/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `material/`, `material-type/`, `migrations/`, `notification/firebase/`, `permission/`, `rbac/`, `redis/`, `role/`, `shared/`, `unit/`, `user/`, `warehouse/`, `warehouse-material/`. Module nghiệp vụ đã có: kho (`warehouse`), danh mục vật tư (`material-type`/`material`) và tồn kho theo kho (`warehouse-material`) — xem `docs/specs/material.md`. Chưa có phiếu nhập/xuất/kiểm kho; tạo mới theo template `example/`.
+> `src/` hiện có: `app/`, `auth/`, `authority/`, `authority-group/`, `config/`, `db/`, `example/` (module mẫu), `feature-flag-system/`, `file/` (S3), `health/`, `logger/`, `material/`, `material-type/`, `migrations/`, `notification/firebase/`, `permission/`, `rbac/`, `redis/`, `role/`, `shared/`, `unit/`, `user/`, `warehouse/`, `inventory/`. Module nghiệp vụ đã có: kho (`warehouse`), danh mục vật tư (`material-type`/`material`) và tồn kho theo kho (`inventory`, bảng `inventory_tbl` — trước migration `1783728000036` tên là `warehouse_material`) — xem `docs/specs/material.md` và mục "Tồn kho" bên dưới. Chưa có phiếu nhập/xuất/kiểm kho; tạo mới theo template `example/`.
 
 ## Quy trình làm feature mới
 
@@ -87,7 +87,7 @@ async create(@Body(new ValidationPipe({ transform: true, whitelist: true })) dto
 
 Nếu mapper có `mapFrom((s) => s.field ?? <default>)` thì phải tách map của Create và Update: Create giữ default, Update để `undefined` chảy qua cho `pickDefined` lọc (xem `material.mapper.ts`: `inventoryDefaults()` vs `inventoryPassthrough()`).
 
-`null` được coi như "không gửi" (`pickDefined` lọc cả `undefined` lẫn `null`) — hiện **chưa có** cách xoá 1 field optional về NULL qua PATCH. Ngoại lệ có chủ ý: `warehouse-material` dùng `null` nghĩa là "bỏ override, quay về ngưỡng của Material" và tự xử lý riêng, không đi qua `pickDefined`.
+`null` được coi như "không gửi" (`pickDefined` lọc cả `undefined` lẫn `null`) — hiện **chưa có** cách xoá 1 field optional về NULL qua PATCH. Ngoại lệ có chủ ý: `inventory` dùng `null` nghĩa là "bỏ override, quay về ngưỡng của Material" và tự xử lý riêng, không đi qua `pickDefined`.
 
 Test khoá 3 điểm trên nằm ở `<module>.dto.spec.ts` (body rỗng phải hợp lệ; initializer đã bị huỷ) và `<module>.service.spec.ts` (`describe('update<X> — partial (PATCH)')`).
 
@@ -117,7 +117,7 @@ Thứ tự: `JwtOptionalAuthGuard` → `AuthorityGuard` → `HasRoleGuard` → `
 
 Có **2 cơ chế phân quyền chạy song song**, độc lập nhau (gắn cả 2 trên 1 endpoint là AND — phải qua cả hai):
 
-1. **Authority động** (`@RequireAuthority`) — bảng `Role`/`Authority`/`AuthorityGroup`/`Permission`, admin bật/tắt lúc chạy, xem `docs/specs/authority-permission.md`. **Mặc định cho MỌI endpoint** — toàn bộ controller nghiệp vụ (`user`/`warehouse`/`material-type`/`unit`/`material`/`warehouse-material`/`store`/`tax-profile`) lẫn hạ tầng (`example`/`role`/`authority`/`permission`/`logger`/`db`) đều dùng nó.
+1. **Authority động** (`@RequireAuthority`) — bảng `Role`/`Authority`/`AuthorityGroup`/`Permission`, admin bật/tắt lúc chạy, xem `docs/specs/authority-permission.md`. **Mặc định cho MỌI endpoint** — toàn bộ controller nghiệp vụ (`user`/`warehouse`/`material-type`/`unit`/`material`/`inventory`/`store`/`tax-profile`) lẫn hạ tầng (`example`/`role`/`authority`/`permission`/`logger`/`db`) đều dùng nó.
 2. **RBAC cơ bản theo role tĩnh** (`@HasRole`) — decorator/guard **vẫn giữ và vẫn đăng ký** nhưng **hiện không endpoint nào dùng**. Đừng gắn nó cho endpoint mới; dùng `@RequireAuthority` + migration seed.
 
 Decorator:
@@ -140,15 +140,18 @@ Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route n
 |---|---|---|
 | `POST /users` / `GET /users` | `USER_CREATE` / `USER_READ` | `ADMIN` |
 | `POST /users/{userSlug}/change-password` | `USER_CHANGE_PASSWORD` | `ADMIN`, `MANAGER` |
-| `PATCH /users/{userSlug}`, `DELETE /users/{userSlug}` (khoá, không xoá), `POST /users/{userSlug}/change-role` | `USER_UPDATE` | `ADMIN` — ADMIN không sửa/khoá/đổi role được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`) |
+| `PATCH /users/{userSlug}`, `PUT /users/{userSlug}/lock`, `PUT /users/{userSlug}/unlock`, `POST /users/{userSlug}/change-role` | `USER_UPDATE` | `ADMIN` — ADMIN không sửa/khoá/đổi role được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`) |
+| `DELETE /users/{userSlug}` (xoá mềm user + membership kho, thu hồi phiên) | `USER_DELETE` | `ADMIN` (seed `1783728000038`) |
 | `POST` / `PATCH` / `DELETE /warehouses...` / `PUT .../manager` | `WAREHOUSE_CREATE` / `_UPDATE` / `_DELETE` / `_ASSIGN_MANAGER` | `ADMIN` |
 | `GET /warehouses`, `GET /warehouses/{slug}` | `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` — `GET /warehouses` với `MANAGER` bị service lọc về kho mình phụ trách |
+| `PUT /warehouses/{slug}/members`, `DELETE .../members/{userSlug}`, `GET /warehouses/{slug}/available-members` | `WAREHOUSE_UPDATE` + `USER_READ` | `ADMIN` |
 | `GET /warehouses/mine` | — (mọi user đã đăng nhập, service tự lọc theo `userId`) | |
 | `POST` / `GET` / `PATCH` / `DELETE /material-types...` và `/materials/{slug}` | `MATERIAL_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
 | `GET /materials/{slug}/conversion-units...`, `POST /materials/{slug}/convert` | `MATERIAL_READ` + `UNIT_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 | `POST` / `PATCH` / `DELETE /materials/{slug}/conversion-units...` | `MATERIAL_UPDATE` + `UNIT_UPDATE` | `ADMIN` |
 | `POST` / `GET` / `PATCH` / `DELETE /units...` | `UNIT_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
 | `GET /warehouses/{slug}/materials` | `MATERIAL_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
+| `GET /warehouses/{slug}/materials/{materialSlug}/histories` | `MATERIAL_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 | `POST` / `PATCH` / `DELETE /warehouses/{slug}/materials...` (kể cả `.../quantity`) | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
 | `POST` / `GET` / `PATCH` / `DELETE /stores...` | `STORE_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) — `GET /stores` với `MANAGER` bị service lọc về cửa hàng gắn kho mình phụ trách |
 | `PUT /stores/{slug}/warehouse`, `POST /stores/{slug}/warehouse-histories/{historySlug}/restore` | `STORE_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
@@ -200,7 +203,7 @@ export class ExampleController {
 | Key | Value | Ghi khi |
 |---|---|---|
 | `BLACK_LIST_{uid}_{sid}` | `"1"` | `POST /auth/logout` |
-| `TOKEN_IAT_AVAILABLE_{uid}` | mốc epoch giây | `POST /auth/logout-all`, cả 2 endpoint đổi mật khẩu (`/auth/change-password`, `/users/{userSlug}/change-password`) (sau này: xoá tài khoản) |
+| `TOKEN_IAT_AVAILABLE_{uid}` | mốc epoch giây | `POST /auth/logout-all`, cả 2 endpoint đổi mật khẩu (`/auth/change-password`, `/users/{userSlug}/change-password`), `PUT /users/{userSlug}/lock`, `DELETE /users/{userSlug}` |
 
 `logout-all` ghi **cả 2 key**: cutoff cho mọi thiết bị, cộng `BLACK_LIST` cho chính phiên đang gọi — vì `iat` chỉ có độ phân giải 1 giây nên token ký cùng giây với lần thu hồi sẽ lọt qua cutoff, và token đó chính là token của người vừa bấm nút.
 
@@ -243,12 +246,20 @@ FK tổ hợp đó cho sẵn 4 thứ, không cần service gác: base unit chắ
 
 ## Số lượng là DECIMAL(18,6), không phải INT
 
-Từ migration `1783728000021`: `warehouse_material_tbl.quantity_column`, `minimum/maximum_inventory_column` (cả `material_tbl` lẫn override theo kho) đều là `DECIMAL(18,6)` — cùng scale với `conversion_rate`. Lý do: nhập theo đơn vị nhỏ hơn đơn vị cơ sở luôn ra số lẻ (1 KG của vật tư base = BAO ⇒ 0.02 BAO), cột `int` cũ làm tròn về 0 và mất hàng im lặng.
+Từ migration `1783728000021`: `inventory_tbl.quantity_column` (lúc đó còn tên `warehouse_material_tbl`), `reserved_quantity_column`, `minimum/maximum_inventory_column` (cả `material_tbl` lẫn override theo kho) đều là `DECIMAL(18,6)` — cùng scale với `conversion_rate`. Lý do: nhập theo đơn vị nhỏ hơn đơn vị cơ sở luôn ra số lẻ (1 KG của vật tư base = BAO ⇒ 0.02 BAO), cột `int` cũ làm tròn về 0 và mất hàng im lặng.
 
 - MySQL driver trả `DECIMAL` về dạng **string** ⇒ mọi cột DECIMAL phải gắn `decimalToNumber` (`src/shared/utils/decimal.transformer.ts`), không thì `quantity > 0` là so sánh chuỗi. Cùng file có `roundToScale()` — dùng nó thay vì `Math.round(x * 1e6) / 1e6`.
 - DTO dùng `IsDecimalWithScale(6)` (`src/shared/utils/decimal.validator.ts`) chứ KHÔNG `@IsNumber({ maxDecimalPlaces })`: decorator có sẵn của class-validator **crash thành 500** với số dạng mũ (`(1e-7).toString()` không có dấu chấm ⇒ `undefined.length`).
-- `adjustQuantity` vẫn là 1 câu UPDATE nguyên tử `quantity_column + (delta) >= 0`; `delta` đi qua `roundToScale(Number(...))` chứ **không** `Math.trunc` nữa (trunc sẽ nuốt lượng nhập lẻ).
+- `adjustQuantity` đọc-rồi-ghi dưới pessimistic lock (xem mục "Tồn kho"); `delta` và kết quả đi qua `roundToScale(Number(...))` chứ **không** `Math.trunc` (trunc sẽ nuốt lượng nhập lẻ).
 - Tồn kho luôn tính theo **đơn vị cơ sở** của vật tư. Phiếu nhập/xuất sau này ghi đơn vị nào cũng phải quy về base trước khi cộng, và phải **snapshot `conversion_rate` vào dòng phiếu** — tỉ lệ trên `MaterialUnit` sửa được bất cứ lúc nào, join sang nó lúc đọc là viết lại quá khứ.
+
+## Tồn kho (`src/inventory/`) — pessimistic lock + lịch sử
+
+- `Inventory` (`inventory_tbl`, 1 dòng = 1 vật tư trong 1 kho) kế thừa `Base`, **không** `VersionedBase`: chống ghi đè đồng thời bằng **pessimistic lock**, không bằng cột version — client không gửi `version`.
+- Mọi thay đổi `quantity`/`reservedQuantity` đi qua `InventoryService.mutate()` trong `TransactionManagerService.execute`: `findOne({ where: { id }, lock: { mode: 'pessimistic_write' } })` **không kèm relations** (MySQL `FOR UPDATE` khoá luôn dòng của bảng JOIN) → rào riêng của luồng trên bản đã khoá → bất biến → `update` → ghi 1 dòng `InventoryHistory`. Đừng quay lại kiểu UPDATE nguyên tử không khoá: snapshot before/after của lịch sử sẽ sai khi có request chen giữa.
+- Bất biến `0 <= reservedQuantity <= quantity` chỉ do service gác (không có CHECK dưới DB): adjust kéo tồn xuống dưới mức giữ chỗ → `INVENTORY_QUANTITY_BELOW_RESERVED`; gỡ vật tư khi còn giữ chỗ → `INVENTORY_RESERVED_NOT_EMPTY`. `availableQuantity` trong response = `quantity - reservedQuantity`.
+- `InventoryHistory` (`inventory_history_tbl`, migration `1783728000037`) append-only: `action` (`InventoryHistoryAction`: `ASSIGN`/`ADJUST`/`REMOVE`; `RESERVE`/`RELEASE` khai sẵn cho phiếu xuất, **chưa có luồng ghi**), delta + before/after của cả `quantity` lẫn `reserved`, `note`, `changedBy`. FK tới `inventory_tbl` là RESTRICT. Không backfill cho tồn có trước migration. Đọc qua `GET /warehouses/{slug}/materials/{materialSlug}/histories`.
+- Route giữ nguyên `/warehouses/:warehouseSlug/materials`; mã lỗi giữ dải `1008xx` nhưng key đổi `WAREHOUSE_MATERIAL_*` → `INVENTORY_*`.
 
 ## Common/shared code
 
@@ -276,4 +287,4 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 - **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là **mọi request có JWT đều 401** (check thu hồi token fail-closed) — nặng hơn trước, xem mục "Thu hồi token". `/health` đã có indicator Redis.
 - `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.
 - Không còn phát hiện refresh token bị đánh cắp (reuse detection đã bỏ cùng allow-list): token bị lộ dùng được tới khi hết hạn hoặc user logout.
-- Chưa có endpoint xoá tài khoản / khoá-mở khoá (`isActive`) / đổi role user khác, dù primitive `TokenRevocationService.revokeAllTokensForUser()` đã sẵn sàng cho chúng. Đổi mật khẩu thì đã có (2 endpoint, xem mục "Auth flow").
+- Xoá user là **xoá mềm**: `phonenumber_column` UNIQUE tính cả row đã xoá ⇒ không tạo lại được user cùng số (`USER_PHONENUMBER_RESERVED_BY_DELETED_USER`), chưa có API khôi phục user đã xoá.

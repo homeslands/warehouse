@@ -13,6 +13,7 @@ describe('UserController', () => {
     createUser: jest.fn(),
     findAll: jest.fn(),
     changeUserPassword: jest.fn(),
+    deleteUser: jest.fn(),
   };
 
   const currentUser: CurrentUserDto = {
@@ -63,13 +64,28 @@ describe('UserController', () => {
     expect(authority(controller.changeUserPassword)).toEqual([AuthorityCode.UserChangePassword]);
     expect(authority(controller.updateUser)).toEqual([AuthorityCode.UserUpdate]);
     expect(authority(controller.lockUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.unlockUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.deleteUser)).toEqual([AuthorityCode.UserDelete]);
     expect(authority(controller.changeUserRole)).toEqual([AuthorityCode.UserUpdate]);
   });
 
-  // `DELETE /users/{slug}` là KHOÁ (isActive = false), không phải xoá bản ghi.
-  it('maps lockUser to DELETE /users/:userSlug', () => {
-    expect(Reflect.getMetadata(METHOD_METADATA, controller.lockUser)).toBe(RequestMethod.DELETE);
-    expect(Reflect.getMetadata(PATH_METADATA, controller.lockUser)).toBe(':userSlug');
-    expect(Reflect.getMetadata(METHOD_METADATA, controller.updateUser)).toBe(RequestMethod.PATCH);
+  // Khoá/mở khoá là `PUT .../lock|unlock`; `DELETE /users/{slug}` là xoá (mềm) user.
+  it.each([
+    ['lockUser', RequestMethod.PUT, ':userSlug/lock'],
+    ['unlockUser', RequestMethod.PUT, ':userSlug/unlock'],
+    ['deleteUser', RequestMethod.DELETE, ':userSlug'],
+    ['updateUser', RequestMethod.PATCH, ':userSlug'],
+  ] as const)('maps %s to %s %s', (handler, method, path) => {
+    expect(Reflect.getMetadata(METHOD_METADATA, controller[handler])).toBe(method);
+    expect(Reflect.getMetadata(PATH_METADATA, controller[handler])).toBe(path);
+  });
+
+  it('renders the delete count as a message string', async () => {
+    userService.deleteUser.mockResolvedValue(1);
+
+    const response = await controller.deleteUser(currentUser, 'other-slug');
+
+    expect(userService.deleteUser).toHaveBeenCalledWith(currentUser, 'other-slug');
+    expect(response.result).toBe('1 user have been deleted successfully');
   });
 });

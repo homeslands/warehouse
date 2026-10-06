@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindManyOptions, Repository } from 'typeorm';
+import { FindOptionsWhere, In, Not, Repository } from 'typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
 import { ConfigService } from '@nestjs/config';
@@ -17,15 +17,18 @@ import {
 } from './user.dto';
 import { UserException } from './user.exception';
 import { UserValidation } from './user.validation';
+import { TErrorCodeValue } from 'src/app/app.validation';
 import { RoleException } from 'src/role/role.exception';
 import { RoleValidation } from 'src/role/role.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { Role } from 'src/role/role.entity';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto } from './user.decorator';
 import { TokenRevocationService } from 'src/auth/token-revocation.service';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 import { pickDefined } from 'src/shared/utils/obj.util';
 
 @Injectable()
@@ -52,8 +55,7 @@ export class UserService {
     dto: CreateUserRequestDto,
     actor: CurrentUserDto | null,
   ): Promise<UserResponseDto> {
-    const existed = await this.userRepository.findOneBy({ phonenumber: dto.phonenumber });
-    if (existed) throw new UserException(UserValidation.USER_PHONENUMBER_DOES_EXIST);
+    await this.assertPhonenumberIsFree(dto.phonenumber);
 
     const role = await this.roleService.findBySlug(dto.roleSlug);
     if (!role) throw new RoleException(RoleValidation.ROLE_NOT_FOUND);
@@ -71,14 +73,33 @@ export class UserService {
     return this.mapper.map(created, User, UserResponseDto);
   }
 
-  async findAll(query: GetAllUserRequestDto): Promise<AppPaginatedResponseDto<UserResponseDto>> {
-    const options: FindManyOptions<User> = {
-      where: query.roleSlug ? { role: { slug: query.roleSlug } } : undefined,
+  /**
+   * `filter` chỉ dành cho caller nội bộ (vd `GET /warehouses/{slug}/available-members`), không lộ ra
+   * query string: `excludedIds` loại user đã gắn, `onlyActive` bỏ user đang bị khoá,
+   * `excludedRoleNames` loại user theo tên role.
+   *
+   * Mỗi user kèm `role` (eager) và danh sách kho user là thành viên (`warehouseMembers.warehouse`).
+   */
+  async findAll(
+    query: GetAllUserRequestDto,
+    filter: { excludedIds?: string[]; onlyActive?: boolean; excludedRoleNames?: string[] } = {},
+  ): Promise<AppPaginatedResponseDto<UserResponseDto>> {
+    const where: FindOptionsWhere<User> = {};
+    const roleWhere: FindOptionsWhere<Role> = {};
+    if (query.roleSlug) roleWhere.slug = query.roleSlug;
+    if (filter.excludedRoleNames?.length) roleWhere.name = Not(In(filter.excludedRoleNames));
+    if (Object.keys(roleWhere).length) where.role = roleWhere;
+    if (filter.onlyActive) where.isActive = true;
+    // `In([])` sinh SQL `IN ()` lỗi cú pháp trên MySQL ⇒ chỉ thêm khi mảng có phần tử.
+    if (filter.excludedIds?.length) where.id = Not(In(filter.excludedIds));
+
+    const [items, total] = await this.userRepository.findAndCount({
+      where,
+      relations: { warehouseMembers: { warehouse: true } },
       order: { createdAt: 'DESC' },
       skip: (query.page - 1) * query.size,
       take: query.size,
-    };
-    const [items, total] = await this.userRepository.findAndCount(options);
+    });
     const totalPages = Math.ceil(total / query.size);
 
     return {
@@ -179,10 +200,8 @@ export class UserService {
     if (target.id !== currentUser.userId) await this.assertCanManageUser(currentUser, target);
 
     const data = pickDefined(this.mapper.map(dto, UpdateUserRequestDto, User));
-    if (data.phonenumber !== undefined && data.phonenumber !== target.phonenumber) {
-      const existed = await this.userRepository.findOneBy({ phonenumber: data.phonenumber });
-      if (existed) throw new UserException(UserValidation.USER_PHONENUMBER_DOES_EXIST);
-    }
+    if (data.phonenumber !== undefined && data.phonenumber !== target.phonenumber)
+      await this.assertPhonenumberIsFree(data.phonenumber);
 
     Object.assign(target, data);
     const updated = await this.userRepository.save(target);
@@ -190,22 +209,17 @@ export class UserService {
   }
 
   /**
-   * `DELETE /users/{userSlug}` — KHÔNG xoá bản ghi, chỉ khoá: `isActive = false` + thu hồi mọi phiên (login/`RbacService`
-   * đã chặn user `!isActive`, thu hồi là để token đang còn hạn chết ngay ở request kế tiếp).
-   * Không khoá được chính mình, ADMIN không khoá được ADMIN khác, không khoá được manager của kho
-   * nào (phải đổi manager kho trước). Khoá lại user đã khoá là no-op.
+   * `PUT /users/{userSlug}/lock` — `isActive = false` + thu hồi mọi phiên (login/`RbacService` đã chặn
+   * user `!isActive`, thu hồi là để token đang còn hạn chết ngay ở request kế tiếp). Khoá lại user đã
+   * khoá là no-op (vẫn thu hồi phiên).
    */
   async lockUser(currentUser: CurrentUserDto, userSlug: string): Promise<UserResponseDto> {
     const target = await this.findTargetOrFail(userSlug);
-    if (target.id === currentUser.userId) {
-      throw new UserException(UserValidation.LOCK_OWN_ACCOUNT_NOT_ALLOWED);
-    }
-    await this.assertCanManageUser(currentUser, target);
-
-    const managedWarehouses = await this.warehouseRepository.count({
-      where: { manager: { id: target.id } },
-    });
-    if (managedWarehouses > 0) throw new UserException(UserValidation.USER_IS_WAREHOUSE_MANAGER);
+    await this.assertCanDeactivate(
+      currentUser,
+      target,
+      UserValidation.LOCK_OWN_ACCOUNT_NOT_ALLOWED,
+    );
 
     if (target.isActive) {
       target.isActive = false;
@@ -213,6 +227,43 @@ export class UserService {
     }
     await this.tokenRevocationService.revokeAllTokensForUser(target.id);
     return this.mapper.map(target, User, UserResponseDto);
+  }
+
+  /**
+   * `PUT /users/{userSlug}/unlock` — `isActive = true`. Không cần đụng Redis: phiên cũ đã bị thu hồi
+   * lúc khoá (user phải login lại), còn `RbacService.resolve` không cache user bị khoá nên lần login
+   * kế tiếp tự nạp lại quyền. Mở khoá user đang hoạt động là no-op.
+   */
+  async unlockUser(currentUser: CurrentUserDto, userSlug: string): Promise<UserResponseDto> {
+    const target = await this.findTargetOrFail(userSlug);
+    await this.assertCanManageUser(currentUser, target);
+
+    if (!target.isActive) {
+      target.isActive = true;
+      await this.userRepository.save(target);
+    }
+    return this.mapper.map(target, User, UserResponseDto);
+  }
+
+  /**
+   * `DELETE /users/{userSlug}` — xoá mềm user (`deletedAt`) cùng mọi row thành viên kho của họ trong
+   * 1 transaction, rồi thu hồi mọi phiên. Rào giống `lockUser`. `phonenumber` vẫn bị giữ bởi UNIQUE
+   * index (tính cả row xoá mềm) — tạo lại user cùng số trả `USER_PHONENUMBER_RESERVED_BY_DELETED_USER`.
+   */
+  async deleteUser(currentUser: CurrentUserDto, userSlug: string): Promise<number> {
+    const target = await this.findTargetOrFail(userSlug);
+    await this.assertCanDeactivate(
+      currentUser,
+      target,
+      UserValidation.DELETE_OWN_ACCOUNT_NOT_ALLOWED,
+    );
+
+    await this.userRepository.manager.transaction(async (manager) => {
+      await manager.softDelete(WarehouseMember, { user: { id: target.id } });
+      await manager.softDelete(User, { id: target.id });
+    });
+    await this.tokenRevocationService.revokeAllTokensForUser(target.id);
+    return 1;
   }
 
   /**
@@ -241,6 +292,41 @@ export class UserService {
       await this.tokenRevocationService.revokeAllTokensForUser(target.id);
     }
     return this.mapper.map(target, User, UserResponseDto);
+  }
+
+  /**
+   * Rào chung cho khoá/xoá: không tự khoá/xoá chính mình, phải quản lý được target, và target không
+   * được đang là manager của kho nào — bỏ kho lại không người phụ trách, phải đổi manager kho trước.
+   */
+  private async assertCanDeactivate(
+    currentUser: CurrentUserDto,
+    target: User,
+    ownAccountError: TErrorCodeValue,
+  ): Promise<void> {
+    if (target.id === currentUser.userId) throw new UserException(ownAccountError);
+    await this.assertCanManageUser(currentUser, target);
+
+    const managedWarehouses = await this.warehouseRepository.count({
+      where: { manager: { id: target.id } },
+    });
+    if (managedWarehouses > 0) throw new UserException(UserValidation.USER_IS_WAREHOUSE_MANAGER);
+  }
+
+  /**
+   * UNIQUE index của `phonenumber_column` KHÔNG bỏ qua row xoá mềm ⇒ tra kèm `withDeleted` và tách 2
+   * mã lỗi, thay vì để MySQL ném `ER_DUP_ENTRY` thành 500.
+   */
+  private async assertPhonenumberIsFree(phonenumber: string): Promise<void> {
+    const existed = await this.userRepository.findOne({
+      where: { phonenumber },
+      withDeleted: true,
+    });
+    if (!existed) return;
+    throw new UserException(
+      existed.deletedAt
+        ? UserValidation.USER_PHONENUMBER_RESERVED_BY_DELETED_USER
+        : UserValidation.USER_PHONENUMBER_DOES_EXIST,
+    );
   }
 
   private async findTargetOrFail(userSlug: string): Promise<User> {
