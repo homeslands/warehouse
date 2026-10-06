@@ -1,9 +1,17 @@
-import { IsEmail, IsISO8601, IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import {
+  IsArray,
+  IsDateString,
+  IsEmail,
+  IsISO8601,
+  IsNotEmpty,
+  IsOptional,
+  Matches,
+} from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
-import { VN_PHONENUMBER_REGEX } from './user.constants';
+import { USER_SORT_FIELDS, USER_SORT_REGEX, VN_PHONENUMBER_REGEX } from './user.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -78,10 +86,72 @@ export class ChangeUserRoleRequestDto {
   roleSlug: string;
 }
 
+// Query string `?sort=a` ra string, `?sort=a&sort=b` mới ra mảng — gói lại cho `@IsArray`.
+const toArray = ({ value }: { value: unknown }) =>
+  value === undefined || Array.isArray(value) ? value : [value];
+
 export class GetAllUserRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by role slug', example: 'admin' })
   @IsOptional()
   roleSlug?: string;
+
+  @ApiPropertyOptional({
+    description: 'Tìm theo tên (chứa chuỗi, khớp họ, tên hoặc "họ tên")',
+    example: 'Nguyễn Văn',
+  })
+  @IsOptional()
+  @Transform(trim)
+  name?: string;
+
+  @ApiPropertyOptional({ description: 'Tìm theo số điện thoại (chứa chuỗi)', example: '0900' })
+  @IsOptional()
+  @Transform(trim)
+  phonenumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Chỉ user là THÀNH VIÊN của kho này (không tính kho user làm manager)',
+    example: 'x7fk2p9qab',
+  })
+  @IsOptional()
+  warehouseSlug?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Ngày tạo tài khoản từ (bao gồm). `YYYY-MM-DD` tính từ 00:00 giờ server, hoặc ISO 8601 đầy đủ.',
+    example: '2026-09-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'USER_START_DATE_INVALID' })
+  startDate?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Ngày tạo tài khoản đến (bao gồm). `YYYY-MM-DD` tính hết ngày đó, hoặc ISO 8601 đầy đủ.',
+    example: '2026-09-30',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'USER_END_DATE_INVALID' })
+  endDate?: string;
+
+  @ApiPropertyOptional({ description: 'Ngày sinh (khớp đúng, YYYY-MM-DD)', example: '1990-05-20' })
+  @IsOptional()
+  @Transform(trim)
+  @IsISO8601({ strict: true, strictSeparator: true }, { message: 'USER_BIRTHDAY_INVALID' })
+  @Matches(DOB_REGEX, { message: 'USER_BIRTHDAY_INVALID' })
+  birthday?: string;
+
+  @ApiPropertyOptional({
+    description: `Sort \`field:ASC|DESC\`, lặp lại để sort nhiều cấp. Field: ${Object.keys(
+      USER_SORT_FIELDS,
+    ).join(', ')}. Mặc định \`createdAt:DESC\`.`,
+    example: ['lastName:ASC', 'firstName:ASC'],
+    isArray: true,
+  })
+  @IsOptional()
+  @Transform(toArray)
+  @IsArray({ message: 'USER_SORT_INVALID' })
+  @Matches(USER_SORT_REGEX, { each: true, message: 'USER_SORT_INVALID' })
+  sort?: string[];
 }
 
 export class UserRoleDto {
