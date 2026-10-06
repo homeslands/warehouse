@@ -140,9 +140,11 @@ Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route n
 |---|---|---|
 | `POST /users` / `GET /users` | `USER_CREATE` / `USER_READ` | `ADMIN` |
 | `POST /users/{userSlug}/change-password` | `USER_CHANGE_PASSWORD` | `ADMIN`, `MANAGER` |
-| `PATCH /users/{userSlug}`, `DELETE /users/{userSlug}` (khoá, không xoá), `POST /users/{userSlug}/change-role` | `USER_UPDATE` | `ADMIN` — ADMIN không sửa/khoá/đổi role được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`) |
+| `PATCH /users/{userSlug}`, `PUT /users/{userSlug}/lock`, `PUT /users/{userSlug}/unlock`, `POST /users/{userSlug}/change-role` | `USER_UPDATE` | `ADMIN` — ADMIN không sửa/khoá/đổi role được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`) |
+| `DELETE /users/{userSlug}` (xoá mềm user + membership kho, thu hồi phiên) | `USER_DELETE` | `ADMIN` (seed `1783728000038`) |
 | `POST` / `PATCH` / `DELETE /warehouses...` / `PUT .../manager` | `WAREHOUSE_CREATE` / `_UPDATE` / `_DELETE` / `_ASSIGN_MANAGER` | `ADMIN` |
 | `GET /warehouses`, `GET /warehouses/{slug}` | `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` — `GET /warehouses` với `MANAGER` bị service lọc về kho mình phụ trách |
+| `PUT /warehouses/{slug}/members`, `DELETE .../members/{userSlug}`, `GET /warehouses/{slug}/available-members` | `WAREHOUSE_UPDATE` + `USER_READ` | `ADMIN` |
 | `GET /warehouses/mine` | — (mọi user đã đăng nhập, service tự lọc theo `userId`) | |
 | `POST` / `GET` / `PATCH` / `DELETE /material-types...` và `/materials/{slug}` | `MATERIAL_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
 | `GET /materials/{slug}/conversion-units...`, `POST /materials/{slug}/convert` | `MATERIAL_READ` + `UNIT_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
@@ -201,7 +203,7 @@ export class ExampleController {
 | Key | Value | Ghi khi |
 |---|---|---|
 | `BLACK_LIST_{uid}_{sid}` | `"1"` | `POST /auth/logout` |
-| `TOKEN_IAT_AVAILABLE_{uid}` | mốc epoch giây | `POST /auth/logout-all`, cả 2 endpoint đổi mật khẩu (`/auth/change-password`, `/users/{userSlug}/change-password`) (sau này: xoá tài khoản) |
+| `TOKEN_IAT_AVAILABLE_{uid}` | mốc epoch giây | `POST /auth/logout-all`, cả 2 endpoint đổi mật khẩu (`/auth/change-password`, `/users/{userSlug}/change-password`), `PUT /users/{userSlug}/lock`, `DELETE /users/{userSlug}` |
 
 `logout-all` ghi **cả 2 key**: cutoff cho mọi thiết bị, cộng `BLACK_LIST` cho chính phiên đang gọi — vì `iat` chỉ có độ phân giải 1 giây nên token ký cùng giây với lần thu hồi sẽ lọt qua cutoff, và token đó chính là token của người vừa bấm nút.
 
@@ -285,4 +287,4 @@ Mục đích: skill tự tích luỹ kinh nghiệm thực tế (case lạ, bẫy
 - **Redis là thành phần BẮT BUỘC** (không còn tuỳ chọn): `REDIS_HOST`/`REDIS_PORT` đã nằm trong `env.validation.ts`, thiếu là app không boot; Redis chết là **mọi request có JWT đều 401** (check thu hồi token fail-closed) — nặng hơn trước, xem mục "Thu hồi token". `/health` đã có indicator Redis.
 - `ROOT_PHONENUMBER`/`ROOT_PASSWORD`, `REDIS_PASSWORD`, `AWS_*` không nằm trong `env.validation.ts` — đọc thẳng bằng `configService.get`, không được validate.
 - Không còn phát hiện refresh token bị đánh cắp (reuse detection đã bỏ cùng allow-list): token bị lộ dùng được tới khi hết hạn hoặc user logout.
-- Chưa có endpoint xoá tài khoản / khoá-mở khoá (`isActive`) / đổi role user khác, dù primitive `TokenRevocationService.revokeAllTokensForUser()` đã sẵn sàng cho chúng. Đổi mật khẩu thì đã có (2 endpoint, xem mục "Auth flow").
+- Xoá user là **xoá mềm**: `phonenumber_column` UNIQUE tính cả row đã xoá ⇒ không tạo lại được user cùng số (`USER_PHONENUMBER_RESERVED_BY_DELETED_USER`), chưa có API khôi phục user đã xoá.

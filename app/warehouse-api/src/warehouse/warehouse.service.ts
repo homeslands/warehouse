@@ -25,6 +25,7 @@ import { WAREHOUSE_SCOPED_ROLES } from './warehouse.constants';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import { GetAllUserRequestDto, UserResponseDto } from 'src/user/user.dto';
 
 /**
  * `manager`/`store` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path
@@ -220,6 +221,31 @@ export class WarehouseService {
 
     this.logger.log(`User ${user.id} assigned to warehouse ${warehouse.id}`, context);
     return this.mapper.map(member, WarehouseMember, WarehouseMemberResponseDto);
+  }
+
+  /**
+   * User gán được vào kho qua `PUT :slug/members`: đang hoạt động (`assignMember` chặn user bị khoá),
+   * chưa là thành viên (row xoá mềm — đã bị gỡ — vẫn tính là gán được), và không phải manager hiện
+   * tại của kho (manager đã có slot riêng).
+   */
+  async findAvailableMembers(
+    slug: string,
+    query: GetAllUserRequestDto,
+  ): Promise<AppPaginatedResponseDto<UserResponseDto>> {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { slug },
+      relations: { manager: true },
+    });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    const members = await this.warehouseMemberRepository.find({
+      where: { warehouse: { id: warehouse.id } },
+      relations: { user: true },
+    });
+    const excludedIds = members.map((member) => member.user?.id).filter(Boolean);
+    if (warehouse.manager) excludedIds.push(warehouse.manager.id);
+
+    return this.userService.findAll(query, { excludedIds, onlyActive: true });
   }
 
   /**
