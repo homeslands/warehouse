@@ -539,6 +539,20 @@ describe('WarehouseService', () => {
         WarehouseValidation.WAREHOUSE_MEMBER_USER_INACTIVE.code,
       );
     });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin])(
+      'rejects assigning a %s user as a member',
+      async (roleName) => {
+        userService.findBySlug.mockResolvedValue(managerUser({ role: { name: roleName } }));
+
+        await expectWarehouseError(
+          service.assignMember('wh-slug-1', { userSlug: 'member-slug-1' }),
+          WarehouseValidation.WAREHOUSE_MEMBER_USER_IS_ADMIN.code,
+        );
+        expect(warehouseMemberRepository.save).not.toHaveBeenCalled();
+        expect(warehouseMemberRepository.recover).not.toHaveBeenCalled();
+      },
+    );
   });
 
   describe('findUserWarehouse', () => {
@@ -610,6 +624,7 @@ describe('WarehouseService', () => {
       expect(userService.findAll).toHaveBeenCalledWith(query, {
         excludedIds: ['u1', 'u2', 'mgr-id'],
         onlyActive: true,
+        excludedRoleNames: [RoleEnum.Admin, RoleEnum.SuperAdmin],
       });
     });
 
@@ -622,6 +637,7 @@ describe('WarehouseService', () => {
       expect(userService.findAll).toHaveBeenCalledWith(query, {
         excludedIds: [],
         onlyActive: true,
+        excludedRoleNames: [RoleEnum.Admin, RoleEnum.SuperAdmin],
       });
     });
 
