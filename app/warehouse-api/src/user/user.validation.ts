@@ -22,6 +22,12 @@ export const DELETE_OWN_ACCOUNT_NOT_ALLOWED = 'DELETE_OWN_ACCOUNT_NOT_ALLOWED';
 export const USER_PHONENUMBER_RESERVED_BY_DELETED_USER =
   'USER_PHONENUMBER_RESERVED_BY_DELETED_USER';
 
+export const USER_START_DATE_INVALID = 'USER_START_DATE_INVALID';
+export const USER_END_DATE_INVALID = 'USER_END_DATE_INVALID';
+export const USER_DATE_RANGE_INVALID = 'USER_DATE_RANGE_INVALID';
+export const USER_BIRTHDAY_INVALID = 'USER_BIRTHDAY_INVALID';
+export const USER_SORT_INVALID = 'USER_SORT_INVALID';
+
 export type TUserErrorCodeKey =
   | typeof USER_PHONENUMBER_DOES_EXIST
   | typeof USER_PHONENUMBER_IS_REQUIRED
@@ -41,7 +47,12 @@ export type TUserErrorCodeKey =
   | typeof CHANGE_OWN_ROLE_NOT_ALLOWED
   | typeof ADMIN_CANNOT_MANAGE_ADMIN
   | typeof DELETE_OWN_ACCOUNT_NOT_ALLOWED
-  | typeof USER_PHONENUMBER_RESERVED_BY_DELETED_USER;
+  | typeof USER_PHONENUMBER_RESERVED_BY_DELETED_USER
+  | typeof USER_START_DATE_INVALID
+  | typeof USER_END_DATE_INVALID
+  | typeof USER_DATE_RANGE_INVALID
+  | typeof USER_BIRTHDAY_INVALID
+  | typeof USER_SORT_INVALID;
 
 export type TUserErrorCode = Record<TUserErrorCodeKey, TErrorCodeValue>;
 
@@ -134,5 +145,30 @@ export const UserValidation: TUserErrorCode = {
   USER_PHONENUMBER_RESERVED_BY_DELETED_USER: createErrorCode(
     100419,
     'Phone number is still held by a deleted user',
+  ),
+  USER_START_DATE_INVALID: createErrorCode(
+    100420,
+    'startDate must be a valid date (YYYY-MM-DD or ISO 8601)',
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_END_DATE_INVALID: createErrorCode(
+    100421,
+    'endDate must be a valid date (YYYY-MM-DD or ISO 8601)',
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_DATE_RANGE_INVALID: createErrorCode(
+    100422,
+    'startDate must not be after endDate',
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_BIRTHDAY_INVALID: createErrorCode(
+    100423,
+    'birthday must be a valid date in YYYY-MM-DD format',
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_SORT_INVALID: createErrorCode(
+    100424,
+    `sort must be field:ASC|DESC, field one of: createdAt, updatedAt, firstName, lastName, phonenumber, dob`,
+    HttpStatus.BAD_REQUEST,
   ),
 };
