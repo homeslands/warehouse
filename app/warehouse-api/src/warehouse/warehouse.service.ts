@@ -21,7 +21,7 @@ import { WarehouseValidation } from './warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
-import { WAREHOUSE_SCOPED_ROLES } from './warehouse.constants';
+import { WAREHOUSE_MEMBER_EXCLUDED_ROLES, WAREHOUSE_SCOPED_ROLES } from './warehouse.constants';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
@@ -205,6 +205,8 @@ export class WarehouseService {
     if (!user) throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_NOT_FOUND);
     if (!user.isActive)
       throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_INACTIVE);
+    if (WAREHOUSE_MEMBER_EXCLUDED_ROLES.includes(user.role?.name as RoleEnum))
+      throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_IS_ADMIN);
 
     const existed = await this.warehouseMemberRepository.findOne({
       where: { warehouse: { id: warehouse.id }, user: { id: user.id } },
@@ -225,8 +227,8 @@ export class WarehouseService {
 
   /**
    * User gán được vào kho qua `PUT :slug/members`: đang hoạt động (`assignMember` chặn user bị khoá),
-   * chưa là thành viên (row xoá mềm — đã bị gỡ — vẫn tính là gán được), và không phải manager hiện
-   * tại của kho (manager đã có slot riêng).
+   * chưa là thành viên (row xoá mềm — đã bị gỡ — vẫn tính là gán được), không phải manager hiện
+   * tại của kho (manager đã có slot riêng), và không phải ADMIN/SUPER_ADMIN (`assignMember` chặn).
    */
   async findAvailableMembers(
     slug: string,
@@ -245,7 +247,11 @@ export class WarehouseService {
     const excludedIds = members.map((member) => member.user?.id).filter(Boolean);
     if (warehouse.manager) excludedIds.push(warehouse.manager.id);
 
-    return this.userService.findAll(query, { excludedIds, onlyActive: true });
+    return this.userService.findAll(query, {
+      excludedIds,
+      onlyActive: true,
+      excludedRoleNames: WAREHOUSE_MEMBER_EXCLUDED_ROLES,
+    });
   }
 
   /**

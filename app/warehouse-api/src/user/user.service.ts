@@ -23,6 +23,7 @@ import { RoleValidation } from 'src/role/role.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { Role } from 'src/role/role.entity';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto } from './user.decorator';
 import { TokenRevocationService } from 'src/auth/token-revocation.service';
@@ -74,20 +75,27 @@ export class UserService {
 
   /**
    * `filter` chỉ dành cho caller nội bộ (vd `GET /warehouses/{slug}/available-members`), không lộ ra
-   * query string: `excludedIds` loại user đã gắn, `onlyActive` bỏ user đang bị khoá.
+   * query string: `excludedIds` loại user đã gắn, `onlyActive` bỏ user đang bị khoá,
+   * `excludedRoleNames` loại user theo tên role.
+   *
+   * Mỗi user kèm `role` (eager) và danh sách kho user là thành viên (`warehouseMembers.warehouse`).
    */
   async findAll(
     query: GetAllUserRequestDto,
-    filter: { excludedIds?: string[]; onlyActive?: boolean } = {},
+    filter: { excludedIds?: string[]; onlyActive?: boolean; excludedRoleNames?: string[] } = {},
   ): Promise<AppPaginatedResponseDto<UserResponseDto>> {
     const where: FindOptionsWhere<User> = {};
-    if (query.roleSlug) where.role = { slug: query.roleSlug };
+    const roleWhere: FindOptionsWhere<Role> = {};
+    if (query.roleSlug) roleWhere.slug = query.roleSlug;
+    if (filter.excludedRoleNames?.length) roleWhere.name = Not(In(filter.excludedRoleNames));
+    if (Object.keys(roleWhere).length) where.role = roleWhere;
     if (filter.onlyActive) where.isActive = true;
     // `In([])` sinh SQL `IN ()` lỗi cú pháp trên MySQL ⇒ chỉ thêm khi mảng có phần tử.
     if (filter.excludedIds?.length) where.id = Not(In(filter.excludedIds));
 
     const [items, total] = await this.userRepository.findAndCount({
       where,
+      relations: { warehouseMembers: { warehouse: true } },
       order: { createdAt: 'DESC' },
       skip: (query.page - 1) * query.size,
       take: query.size,

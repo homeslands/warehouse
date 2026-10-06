@@ -289,17 +289,51 @@ describe('UserService', () => {
   describe('findAll', () => {
     beforeEach(() => userRepository.findAndCount.mockResolvedValue([[], 0]));
 
-    it('applies the internal exclusion / active-only filter', async () => {
+    it('applies the internal exclusion / active-only / role filter', async () => {
       await service.findAll({ page: 1, size: 10, roleSlug: 'supervisor' } as never, {
         excludedIds: ['a', 'b'],
         onlyActive: true,
+        excludedRoleNames: [RoleEnum.Admin],
       });
 
       expect(userRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          where: { role: { slug: 'supervisor' }, isActive: true, id: Not(In(['a', 'b'])) },
+          where: {
+            role: { slug: 'supervisor', name: Not(In([RoleEnum.Admin])) },
+            isActive: true,
+            id: Not(In(['a', 'b'])),
+          },
         }),
       );
+    });
+
+    it('loads member warehouses and maps role + warehouses onto each user', async () => {
+      userRepository.findAndCount.mockResolvedValue([
+        [
+          {
+            ...other,
+            role: { slug: 'sup', name: RoleEnum.Supervisor, description: 'Giám sát', level: 10 },
+            warehouseMembers: [
+              { warehouse: { id: 'wh-id', slug: 'wh-1', code: 'WH-01', name: 'Kho 1' } },
+              { warehouse: null },
+            ],
+          },
+        ],
+        1,
+      ]);
+
+      const result = await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(userRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ relations: { warehouseMembers: { warehouse: true } } }),
+      );
+      expect(result.items[0].role).toEqual({
+        slug: 'sup',
+        name: RoleEnum.Supervisor,
+        description: 'Giám sát',
+        level: 10,
+      });
+      expect(result.items[0].warehouses).toEqual([{ slug: 'wh-1', code: 'WH-01', name: 'Kho 1' }]);
     });
 
     // `In([])` thành `IN ()` — lỗi cú pháp MySQL.

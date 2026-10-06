@@ -179,7 +179,11 @@ export class WarehouseController {
   @Put(':slug/members')
   @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Assign a user as a member of a warehouse (idempotent)' })
+  @ApiOperation({
+    summary: 'Assign a user as a member of a warehouse (idempotent)',
+    description:
+      'User phải đang hoạt động và không phải ADMIN/SUPER_ADMIN (`WAREHOUSE_MEMBER_USER_IS_ADMIN`).',
+  })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Assigned',
@@ -207,7 +211,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'List users that can be assigned as members of a warehouse (paginated)',
     description:
-      'Chỉ user đang hoạt động, chưa là thành viên của kho và không phải manager hiện tại của kho.',
+      'Chỉ user đang hoạt động, chưa là thành viên của kho, không phải manager hiện tại của kho và ' +
+      'không phải ADMIN/SUPER_ADMIN.',
   })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
