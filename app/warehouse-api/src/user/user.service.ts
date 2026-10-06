@@ -1,6 +1,6 @@
 import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
-import { FindOptionsWhere, In, Not, Repository } from 'typeorm';
+import { Brackets, Repository, SelectQueryBuilder } from 'typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
 import { ConfigService } from '@nestjs/config';
@@ -23,9 +23,9 @@ import { RoleValidation } from 'src/role/role.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
-import { Role } from 'src/role/role.entity';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto } from './user.decorator';
+import { USER_SORT_FIELDS } from './user.constants';
 import { TokenRevocationService } from 'src/auth/token-revocation.service';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
@@ -74,32 +74,82 @@ export class UserService {
   }
 
   /**
-   * `filter` chỉ dành cho caller nội bộ (vd `GET /warehouses/{slug}/available-members`), không lộ ra
-   * query string: `excludedIds` loại user đã gắn, `onlyActive` bỏ user đang bị khoá,
-   * `excludedRoleNames` loại user theo tên role.
+   * `GET /users` (và `GET /warehouses/{slug}/available-members`). Mỗi user kèm `role` và danh sách
+   * kho user là thành viên.
    *
-   * Mỗi user kèm `role` (eager) và danh sách kho user là thành viên (`warehouseMembers.warehouse`).
+   * `filter` chỉ dành cho caller nội bộ, không lộ ra query string: `excludedIds` loại user đã gắn,
+   * `onlyActive` bỏ user đang bị khoá, `excludedRoleNames` loại user theo tên role.
+   *
+   * Dùng QueryBuilder thay vì find options vì 2 chỗ find options không làm được: lọc theo kho bằng
+   * `EXISTS` (lọc thẳng trên join `warehouseMembers` sẽ cắt luôn danh sách `warehouses` trả về chỉ
+   * còn đúng kho đang lọc) và tìm theo "họ tên" ghép 2 cột. Join tự viết nên phải tự thêm
+   * `deletedAt IS NULL` cho bảng join — TypeORM chỉ tự lọc xoá mềm cho alias chính.
    */
   async findAll(
     query: GetAllUserRequestDto,
     filter: { excludedIds?: string[]; onlyActive?: boolean; excludedRoleNames?: string[] } = {},
   ): Promise<AppPaginatedResponseDto<UserResponseDto>> {
-    const where: FindOptionsWhere<User> = {};
-    const roleWhere: FindOptionsWhere<Role> = {};
-    if (query.roleSlug) roleWhere.slug = query.roleSlug;
-    if (filter.excludedRoleNames?.length) roleWhere.name = Not(In(filter.excludedRoleNames));
-    if (Object.keys(roleWhere).length) where.role = roleWhere;
-    if (filter.onlyActive) where.isActive = true;
-    // `In([])` sinh SQL `IN ()` lỗi cú pháp trên MySQL ⇒ chỉ thêm khi mảng có phần tử.
-    if (filter.excludedIds?.length) where.id = Not(In(filter.excludedIds));
+    const { start, end } = this.resolveCreatedAtRange(query);
 
-    const [items, total] = await this.userRepository.findAndCount({
-      where,
-      relations: { warehouseMembers: { warehouse: true } },
-      order: { createdAt: 'DESC' },
-      skip: (query.page - 1) * query.size,
-      take: query.size,
-    });
+    const qb = this.userRepository
+      .createQueryBuilder('user')
+      .leftJoinAndSelect('user.role', 'role')
+      .leftJoinAndSelect('user.warehouseMembers', 'member', 'member.deletedAt IS NULL')
+      .leftJoinAndSelect('member.warehouse', 'warehouse', 'warehouse.deletedAt IS NULL');
+
+    if (query.roleSlug) qb.andWhere('role.slug = :roleSlug', { roleSlug: query.roleSlug });
+    if (query.name) {
+      qb.andWhere(
+        new Brackets((sub) =>
+          sub
+            .where('user.firstName LIKE :name')
+            .orWhere('user.lastName LIKE :name')
+            .orWhere("CONCAT(user.lastName, ' ', user.firstName) LIKE :name"),
+        ),
+        { name: `%${query.name}%` },
+      );
+    }
+    if (query.phonenumber)
+      qb.andWhere('user.phonenumber LIKE :phonenumber', {
+        phonenumber: `%${query.phonenumber}%`,
+      });
+    if (query.birthday) qb.andWhere('user.dob = :birthday', { birthday: query.birthday });
+    if (start) qb.andWhere('user.createdAt >= :start', { start });
+    if (end) qb.andWhere('user.createdAt < :end', { end });
+    if (query.warehouseSlug) {
+      qb.andWhere(
+        (outer) =>
+          'EXISTS ' +
+          outer
+            .subQuery()
+            .select('1')
+            .from(WarehouseMember, 'wm')
+            .innerJoin('wm.warehouse', 'wmWarehouse', 'wmWarehouse.deletedAt IS NULL')
+            .where('wm.user = user.id')
+            .andWhere('wm.deletedAt IS NULL')
+            .andWhere('wmWarehouse.slug = :warehouseSlug')
+            .getQuery(),
+        { warehouseSlug: query.warehouseSlug },
+      );
+    }
+
+    if (filter.onlyActive) qb.andWhere('user.isActive = :isActive', { isActive: true });
+    // `IN ()` rỗng là lỗi cú pháp MySQL ⇒ chỉ thêm khi mảng có phần tử.
+    if (filter.excludedIds?.length)
+      qb.andWhere('user.id NOT IN (:...excludedIds)', { excludedIds: filter.excludedIds });
+    if (filter.excludedRoleNames?.length)
+      qb.andWhere('role.name NOT IN (:...excludedRoleNames)', {
+        excludedRoleNames: filter.excludedRoleNames,
+      });
+
+    this.applySort(qb, query.sort);
+
+    // `skip`/`take` (không phải `offset`/`limit`): có join 1-N nên TypeORM phải phân trang theo id
+    // user trước, nếu không 1 user nhiều kho chiếm nhiều dòng và trang bị thiếu.
+    const [items, total] = await qb
+      .skip((query.page - 1) * query.size)
+      .take(query.size)
+      .getManyAndCount();
     const totalPages = Math.ceil(total / query.size);
 
     return {
@@ -327,6 +377,54 @@ export class UserService {
         ? UserValidation.USER_PHONENUMBER_RESERVED_BY_DELETED_USER
         : UserValidation.USER_PHONENUMBER_DOES_EXIST,
     );
+  }
+
+  /**
+   * `YYYY-MM-DD` = trọn ngày theo giờ server: `startDate` từ 00:00, `endDate` tới hết ngày (so sánh
+   * `< 00:00 ngày kế`). ISO 8601 đầy đủ thì dùng nguyên mốc, `endDate` vẫn bao gồm.
+   */
+  private resolveCreatedAtRange(query: GetAllUserRequestDto): { start?: Date; end?: Date } {
+    const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
+    const toLocalMidnight = (value: string) => {
+      const [y, m, d] = value.split('-').map(Number);
+      return new Date(y, m - 1, d);
+    };
+
+    let start: Date | undefined;
+    let end: Date | undefined;
+    if (query.startDate)
+      start = isDateOnly(query.startDate)
+        ? toLocalMidnight(query.startDate)
+        : new Date(query.startDate);
+    if (query.endDate) {
+      if (isDateOnly(query.endDate)) {
+        end = toLocalMidnight(query.endDate);
+        end.setDate(end.getDate() + 1);
+      } else {
+        end = new Date(new Date(query.endDate).getTime() + 1);
+      }
+    }
+    if (start && end && start >= end)
+      throw new UserException(UserValidation.USER_DATE_RANGE_INVALID);
+    return { start, end };
+  }
+
+  /**
+   * `sort` đã được DTO whitelist (`USER_SORT_REGEX`); map qua `USER_SORT_FIELDS` thêm 1 lần nữa để
+   * không bao giờ nối chuỗi client vào `ORDER BY`. Luôn thêm `user.id` cuối cùng cho thứ tự ổn định
+   * giữa các trang khi nhiều user trùng giá trị sort.
+   */
+  private applySort(qb: SelectQueryBuilder<User>, sort: string[] = []): void {
+    const orders = sort.length ? sort : ['createdAt:DESC'];
+    orders.forEach((item, index) => {
+      const [field, direction] = item.split(':');
+      const column = USER_SORT_FIELDS[field as keyof typeof USER_SORT_FIELDS];
+      if (!column) return;
+      const order = direction.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
+      if (index === 0) qb.orderBy(column, order);
+      else qb.addOrderBy(column, order);
+    });
+    qb.addOrderBy('user.id', 'ASC');
   }
 
   private async findTargetOrFail(userSlug: string): Promise<User> {

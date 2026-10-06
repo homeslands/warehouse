@@ -1,4 +1,3 @@
-import { In, Not } from 'typeorm';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
@@ -14,6 +13,7 @@ import { User } from './user.entity';
 import { UserException } from './user.exception';
 import { UserValidation } from './user.validation';
 import { CurrentUserDto } from './user.decorator';
+import { GetAllUserRequestDto } from './user.dto';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 
@@ -29,6 +29,7 @@ describe('UserService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     manager: { transaction: jest.fn() },
+    createQueryBuilder: jest.fn(),
   };
   const transactionManager = { softDelete: jest.fn() };
   const tokenRevocationService = {
@@ -287,28 +288,141 @@ describe('UserService', () => {
   });
 
   describe('findAll', () => {
-    beforeEach(() => userRepository.findAndCount.mockResolvedValue([[], 0]));
+    // QueryBuilder giả: mọi method chain trả lại chính nó, ghi lại toàn bộ lời gọi để assert.
+    let qb: Record<string, jest.Mock>;
+    const wheres = () => qb.andWhere.mock.calls.map(([condition]) => condition);
+    const params = () => Object.assign({}, ...qb.andWhere.mock.calls.map(([, p]) => p ?? {}));
+    const query = (overrides: Partial<GetAllUserRequestDto> = {}) =>
+      ({ page: 1, size: 10, ...overrides }) as GetAllUserRequestDto;
+
+    beforeEach(() => {
+      qb = {};
+      for (const method of [
+        'leftJoinAndSelect',
+        'andWhere',
+        'orderBy',
+        'addOrderBy',
+        'skip',
+        'take',
+      ])
+        qb[method] = jest.fn().mockReturnValue(qb);
+      qb.getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
+      userRepository.createQueryBuilder.mockReturnValue(qb);
+    });
+
+    it('joins role and live member warehouses, sorts by createdAt DESC by default', async () => {
+      await service.findAll(query({ page: 3, size: 5 }));
+
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.role', 'role');
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'user.warehouseMembers',
+        'member',
+        'member.deletedAt IS NULL',
+      );
+      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
+        'member.warehouse',
+        'warehouse',
+        'warehouse.deletedAt IS NULL',
+      );
+      expect(qb.andWhere).not.toHaveBeenCalled();
+      expect(qb.orderBy).toHaveBeenCalledWith('user.createdAt', 'DESC');
+      expect(qb.addOrderBy).toHaveBeenLastCalledWith('user.id', 'ASC');
+      expect(qb.skip).toHaveBeenCalledWith(10);
+      expect(qb.take).toHaveBeenCalledWith(5);
+    });
+
+    it('applies role / name / phone / birthday filters as bound parameters', async () => {
+      await service.findAll(
+        query({
+          roleSlug: 'supervisor',
+          name: 'Nguyễn Văn',
+          phonenumber: '0900',
+          birthday: '1990-05-20',
+        }),
+      );
+
+      expect(wheres()).toEqual(
+        expect.arrayContaining([
+          'role.slug = :roleSlug',
+          'user.phonenumber LIKE :phonenumber',
+          'user.dob = :birthday',
+        ]),
+      );
+      expect(params()).toMatchObject({
+        roleSlug: 'supervisor',
+        name: '%Nguyễn Văn%',
+        phonenumber: '%0900%',
+        birthday: '1990-05-20',
+      });
+    });
+
+    // `YYYY-MM-DD` = trọn ngày: endDate so `<` 00:00 ngày kế tiếp.
+    it('turns a date-only range into [start 00:00, day after end 00:00)', async () => {
+      await service.findAll(query({ startDate: '2026-09-01', endDate: '2026-09-30' }));
+
+      expect(wheres()).toEqual(
+        expect.arrayContaining(['user.createdAt >= :start', 'user.createdAt < :end']),
+      );
+      expect(params().start).toEqual(new Date(2026, 8, 1));
+      expect(params().end).toEqual(new Date(2026, 9, 1));
+    });
+
+    it('accepts a single-day range', async () => {
+      await service.findAll(query({ startDate: '2026-09-01', endDate: '2026-09-01' }));
+
+      expect(params().end).toEqual(new Date(2026, 8, 2));
+    });
+
+    it('rejects startDate after endDate', async () => {
+      await expectUserError(
+        service.findAll(query({ startDate: '2026-09-02', endDate: '2026-09-01' })),
+        UserValidation.USER_DATE_RANGE_INVALID.code,
+      );
+      expect(qb.getManyAndCount).not.toHaveBeenCalled();
+    });
+
+    // Lọc kho bằng EXISTS, không lọc trên join — nếu không `warehouses` trả về bị cắt còn 1 kho.
+    it('filters by warehouse through an EXISTS subquery', async () => {
+      await service.findAll(query({ warehouseSlug: 'wh-1' }));
+
+      const [condition, bound] = qb.andWhere.mock.calls[0];
+      expect(typeof condition).toBe('function');
+      expect(bound).toEqual({ warehouseSlug: 'wh-1' });
+    });
+
+    it('applies multi-level sort in order', async () => {
+      await service.findAll(query({ sort: ['lastName:asc', 'dob:DESC'] }));
+
+      expect(qb.orderBy).toHaveBeenCalledWith('user.lastName', 'ASC');
+      expect(qb.addOrderBy.mock.calls).toEqual([
+        ['user.dob', 'DESC'],
+        ['user.id', 'ASC'],
+      ]);
+    });
 
     it('applies the internal exclusion / active-only / role filter', async () => {
-      await service.findAll({ page: 1, size: 10, roleSlug: 'supervisor' } as never, {
+      await service.findAll(query(), {
         excludedIds: ['a', 'b'],
         onlyActive: true,
         excludedRoleNames: [RoleEnum.Admin],
       });
 
-      expect(userRepository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({
-          where: {
-            role: { slug: 'supervisor', name: Not(In([RoleEnum.Admin])) },
-            isActive: true,
-            id: Not(In(['a', 'b'])),
-          },
-        }),
-      );
+      expect(params()).toMatchObject({
+        isActive: true,
+        excludedIds: ['a', 'b'],
+        excludedRoleNames: [RoleEnum.Admin],
+      });
     });
 
-    it('loads member warehouses and maps role + warehouses onto each user', async () => {
-      userRepository.findAndCount.mockResolvedValue([
+    // `IN ()` rỗng là lỗi cú pháp MySQL.
+    it('skips the id filter when nothing is excluded', async () => {
+      await service.findAll(query(), { excludedIds: [] });
+
+      expect(qb.andWhere).not.toHaveBeenCalled();
+    });
+
+    it('maps role + member warehouses onto each user', async () => {
+      qb.getManyAndCount.mockResolvedValue([
         [
           {
             ...other,
@@ -322,11 +436,9 @@ describe('UserService', () => {
         1,
       ]);
 
-      const result = await service.findAll({ page: 1, size: 10 } as never);
+      const result = await service.findAll(query());
 
-      expect(userRepository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({ relations: { warehouseMembers: { warehouse: true } } }),
-      );
+      expect(result.total).toBe(1);
       expect(result.items[0].role).toEqual({
         slug: 'sup',
         name: RoleEnum.Supervisor,
@@ -334,15 +446,6 @@ describe('UserService', () => {
         level: 10,
       });
       expect(result.items[0].warehouses).toEqual([{ slug: 'wh-1', code: 'WH-01', name: 'Kho 1' }]);
-    });
-
-    // `In([])` thành `IN ()` — lỗi cú pháp MySQL.
-    it('skips the id filter when nothing is excluded', async () => {
-      await service.findAll({ page: 1, size: 10 } as never, { excludedIds: [] });
-
-      expect(userRepository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({ where: {} }),
-      );
     });
   });
 
