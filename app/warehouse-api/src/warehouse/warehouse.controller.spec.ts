@@ -18,6 +18,7 @@ describe('WarehouseController', () => {
     assignMember: jest.fn(),
     removeMember: jest.fn(),
     findAvailableMembers: jest.fn(),
+    findMembers: jest.fn(),
     deleteWarehouse: jest.fn(),
   };
 
@@ -133,6 +134,16 @@ describe('WarehouseController', () => {
     expect(response.result).toBe('1 warehouse member have been removed successfully');
   });
 
+  it('forwards slug, query and current user to findMembers', async () => {
+    const query = { page: 1, size: 10 };
+    warehouseService.findMembers.mockResolvedValue({ items: [], total: 0 });
+
+    const response = await controller.findMembers(currentUser, 'wh-slug-1', query);
+
+    expect(warehouseService.findMembers).toHaveBeenCalledWith('wh-slug-1', query, currentUser);
+    expect(response.statusCode).toBe(200);
+  });
+
   it('forwards slug and query to findAvailableMembers', async () => {
     const query = { page: 1, size: 10, roleSlug: 'supervisor' };
     warehouseService.findAvailableMembers.mockResolvedValue({ items: [], total: 0 });
@@ -159,6 +170,7 @@ describe('WarehouseController', () => {
         AuthorityCode.WarehouseUpdate,
         AuthorityCode.UserRead,
       ]);
+      expect(authority(controller.findMembers)).toEqual([AuthorityCode.WarehouseRead]);
       expect(authority(controller.findAvailableMembers)).toEqual([
         AuthorityCode.WarehouseUpdate,
         AuthorityCode.UserRead,
