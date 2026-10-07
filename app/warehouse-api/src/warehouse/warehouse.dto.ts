@@ -1,9 +1,10 @@
 import { IsBoolean, IsDefined, IsNotEmpty, IsOptional, Matches, ValidateIf } from 'class-validator';
 import { Transform } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { WAREHOUSE_CODE_REGEX, WAREHOUSE_PHONENUMBER_REGEX } from './warehouse.constants';
+import { GetAllUserRequestDto } from 'src/user/user.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -166,3 +167,9 @@ export class WarehouseMemberResponseDto extends BaseResponseDto {
   @ApiProperty({ type: () => WarehouseManagerDto })
   user: WarehouseManagerDto;
 }
+
+// Bỏ `warehouseSlug` của `GET /users`: kho đã nằm trên path, và lọc "là thành viên của kho" ngược
+// nghĩa với "chưa là thành viên" nên luôn ra rỗng. `whitelist: true` sẽ lột field này nếu client gửi.
+export class GetAvailableWarehouseMemberRequestDto extends OmitType(GetAllUserRequestDto, [
+  'warehouseSlug',
+] as const) {}
