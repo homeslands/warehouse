@@ -16,10 +16,12 @@ import {
  * nên khai lại ở đây; TypeScript so theo cấu trúc nên truyền `CurrentUser` vào vẫn hợp lệ.
  */
 export type TestUser = {
-  userId: string
+  userSlug?: string
   userName: string
   roleName: string
   scope: string[]
+  role?: { slug: string; name: string; description?: string; level: number }
+  warehouses?: { slug: string; code: string; name: string; isManager: boolean }[]
   /** Hồ sơ `GET /auth/me` — tuỳ chọn, như payload thật. */
   phonenumber?: string
   firstName?: string
@@ -31,8 +33,8 @@ export type TestUser = {
 export type TestAuth = 'admin' | 'customer' | 'none' | TestUser
 
 const TEST_USERS = {
-  admin: { userId: 'u-admin', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] },
-  customer: { userId: 'u-customer', userName: 'khach', roleName: 'CUSTOMER', scope: [] },
+  admin: { userName: 'root', roleName: 'SUPER_ADMIN', scope: [] },
+  customer: { userName: 'khach', roleName: 'CUSTOMER', scope: [] },
 } as const satisfies Record<'admin' | 'customer', TestUser>
 
 let applyAuth: (user: TestUser | null) => void = () => {

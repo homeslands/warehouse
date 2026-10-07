@@ -7,6 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('@/shared/api/backend-capabilities', () => ({
   BACKEND_SUPPORTS: {
     sort: false,
+    userSort: false,
     search: false,
     profileEdit: false,
     sessionList: false,
@@ -28,7 +29,7 @@ const store = { slug: 'ch-a', name: 'Cửa hàng A', isActive: false } as unknow
 function renderAs(roleName: string, scope: string[]) {
   return renderWithProviders(<StoresPage />, {
     route: '/stores',
-    auth: { userId: 'u1', userName: 't', roleName, scope },
+    auth: { userName: 't', roleName, scope },
   })
 }
 

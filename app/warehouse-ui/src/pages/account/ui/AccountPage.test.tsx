@@ -14,7 +14,6 @@ beforeEach(() => {
       // Đúng payload thật của /auth/me hôm nay: `scope` là MẢNG, KHÔNG có `version`,
       // và `userName` là định danh đăng nhập chứ không chắc là số điện thoại.
       ok({
-        userId: '7513f603',
         userName: 'root',
         roleName: 'SUPER_ADMIN',
         sessionId: '37f5eb91',
@@ -36,7 +35,6 @@ describe('AccountPage — cờ mặc định (backend chưa hỗ trợ)', () => 
     server.use(
       mswHttp.get(`${BASE}/auth/me`, () =>
         ok({
-          userId: 'u1',
           userName: '0901234567',
           roleName: 'MANAGER',
           scope: [],

@@ -43,6 +43,7 @@ export function ExampleFormDialog({ open, onOpenChange, example }: Props) {
   const isPending = create.isPending || update.isPending
   const form = useForm<ExampleInput>({
     resolver: zodResolver(schema),
+    mode: 'onTouched',
     defaultValues: { name: '', description: '' },
   })
   // Sửa: khoá Lưu tới khi khác giá trị đã `reset` lúc mở dialog (baseline là bản ghi đang sửa,

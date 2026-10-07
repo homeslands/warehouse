@@ -13,7 +13,7 @@ import { useAuthStore } from '@/entities/session'
 import { ChangePasswordDialog } from './ChangePasswordDialog'
 
 const BASE = 'http://localhost:8085/api/v1'
-const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
+const user = { userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
 
 function renderDialog() {
   const onOpenChange = vi.fn()
@@ -42,6 +42,19 @@ beforeEach(() => {
 })
 
 describe('ChangePasswordDialog', () => {
+  it('cả 3 ô mật khẩu có icon mắt trong ô; bấm icon ô nào chỉ hiện ô đó', async () => {
+    const u = userEvent.setup()
+    renderDialog()
+    const toggles = screen.getAllByRole('button', { name: 'Hiện mật khẩu' })
+    expect(toggles).toHaveLength(3)
+
+    await u.click(toggles[1])
+
+    expect(screen.getByLabelText(/^Mật khẩu hiện tại/)).toHaveAttribute('type', 'password')
+    expect(screen.getByLabelText(/^Mật khẩu mới/)).toHaveAttribute('type', 'text')
+    expect(screen.getByLabelText(/^Nhập lại mật khẩu mới/)).toHaveAttribute('type', 'password')
+  })
+
   it('bỏ trống cả 3 ô → focus vào Mật khẩu hiện tại, không gửi request', async () => {
     let called = false
     server.use(
@@ -71,7 +84,7 @@ describe('ChangePasswordDialog', () => {
     const u = userEvent.setup()
     renderDialog()
 
-    await fill(u, 'old', 'new-1', 'new-2')
+    await fill(u, 'old', 'matkhau-1', 'matkhau-2')
 
     expect(await screen.findByText('Mật khẩu nhập lại không khớp')).toBeInTheDocument()
     expect(called).not.toHaveBeenCalled()
@@ -96,7 +109,7 @@ describe('ChangePasswordDialog', () => {
     const u = userEvent.setup()
     renderDialog()
 
-    await fill(u, 'wrong', 'new', 'new')
+    await fill(u, 'wrong', 'matkhau-moi', 'matkhau-moi')
 
     expect(await screen.findByText('Mật khẩu hiện tại không đúng')).toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()
@@ -115,7 +128,7 @@ describe('ChangePasswordDialog', () => {
     const u = userEvent.setup()
     renderDialog()
 
-    await fill(u, 'old', 'new', 'new')
+    await fill(u, 'old', 'matkhau-moi', 'matkhau-moi')
 
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
   })
@@ -136,11 +149,11 @@ describe('ChangePasswordDialog', () => {
     const u = userEvent.setup()
     const { onOpenChange } = renderDialog()
 
-    await fill(u, 'old', 'new', 'new')
+    await fill(u, 'old', 'matkhau-moi', 'matkhau-moi')
 
     await vi.waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     // confirmNewPassword chỉ kiểm ở client, không gửi lên.
-    expect(body).toEqual({ currentPassword: 'old', newPassword: 'new' })
+    expect(body).toEqual({ currentPassword: 'old', newPassword: 'matkhau-moi' })
     expect(getTokens()).toEqual({ accessToken: 'acc-new', refreshToken: 'ref-new' })
     expect(useAuthStore.getState()).toMatchObject({
       user,

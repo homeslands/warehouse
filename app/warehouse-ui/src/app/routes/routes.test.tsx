@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { isValidElement } from 'react'
 import type { RouteObject } from 'react-router-dom'
-import { beforeEach, describe, expect, it } from 'vitest'
+import { beforeAll, beforeEach, describe, expect, it } from 'vitest'
 import { ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter } from '@/shared/test/render'
@@ -115,20 +115,13 @@ describe('createRoutes — màn Kho', () => {
     [
       'ADMIN',
       {
-        userId: 'u1',
         userName: 'admin',
         roleName: 'ADMIN',
         scope: ['WAREHOUSE_READ', 'USER_READ'],
       },
     ],
-    [
-      'MANAGER',
-      { userId: 'u2', userName: 'quanly', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] },
-    ],
-    [
-      'SUPERVISOR',
-      { userId: 'u3', userName: 'giamsat', roleName: 'SUPERVISOR', scope: ['WAREHOUSE_READ'] },
-    ],
+    ['MANAGER', { userName: 'quanly', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] }],
+    ['SUPERVISOR', { userName: 'giamsat', roleName: 'SUPERVISOR', scope: ['WAREHOUSE_READ'] }],
   ])('%s (scope mặc định) xem được /warehouses và thấy mục menu "Kho"', async (_role, auth) => {
     renderWithRouter(createRoutes({ dev: false }), { route: '/warehouses', auth })
 
@@ -170,7 +163,7 @@ describe('createRoutes — màn Cửa hàng', () => {
     const links = menu.getAllByRole('link').map((a) => a.getAttribute('href'))
     // `auth: 'admin'` tiêm SUPER_ADMIN (xem `shared/test/render.tsx`), nó bypass mọi authority nên
     // cũng thấy `/permissions` (nhóm `admin`) — đúng hành vi, không phải hồi quy.
-    expect(links).toEqual(['/', '/warehouses', '/stores', '/permissions'])
+    expect(links).toEqual(['/', '/warehouses', '/stores', '/users', '/permissions'])
   })
 
   it('thiếu STORE_READ gõ thẳng /stores → /forbidden', async () => {
@@ -191,7 +184,7 @@ describe('createRoutes — màn Phân quyền cần MANAGE_PERMISSIONS và ROLE_
       mswHttp.get(`${BASE}/authorities`, () => ok([])),
     )
   })
-  const admin = (scope: string[]) => ({ userId: 'u', userName: 'a', roleName: 'ADMIN', scope })
+  const admin = (scope: string[]) => ({ userName: 'a', roleName: 'ADMIN', scope })
 
   it('chỉ có MANAGE_PERMISSIONS (màn sẽ 403 ở GET /roles) → /forbidden, không có mục menu', async () => {
     const { router } = renderWithRouter(createRoutes({ dev: false }), {
@@ -224,7 +217,7 @@ describe('gác /warehouses theo authority (cờ authorityGuards bật)', () => {
   it('MANAGER thiếu WAREHOUSE_READ → /forbidden', async () => {
     const { router } = renderWithRouter(routes(), {
       route: '/warehouses',
-      auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: [] },
+      auth: { userName: 'm', roleName: 'MANAGER', scope: [] },
     })
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
@@ -234,7 +227,7 @@ describe('gác /warehouses theo authority (cờ authorityGuards bật)', () => {
     server.use(mswHttp.get(`${BASE}/warehouses`, () => paginated([])))
     const { router } = renderWithRouter(routes(), {
       route: '/warehouses',
-      auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] },
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] },
     })
 
     expect(await screen.findByRole('heading', { name: 'Kho' })).toBeInTheDocument()
@@ -252,7 +245,7 @@ describe('gác /stores theo authority (cờ storeAuthorityGuards bật)', () => 
   it('MANAGER thiếu STORE_READ → /forbidden', async () => {
     const { router } = renderWithRouter(routes(), {
       route: '/stores',
-      auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: [] },
+      auth: { userName: 'm', roleName: 'MANAGER', scope: [] },
     })
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
@@ -262,7 +255,7 @@ describe('gác /stores theo authority (cờ storeAuthorityGuards bật)', () => 
     server.use(mswHttp.get(`${BASE}/stores`, () => paginated([])))
     renderWithRouter(routes(), {
       route: '/stores',
-      auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: ['STORE_READ'] },
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['STORE_READ'] },
     })
 
     expect(await screen.findByRole('heading', { name: 'Cửa hàng' })).toBeInTheDocument()
@@ -303,7 +296,7 @@ describe('createRoutes — trang chi tiết kho', () => {
   it('thiếu quyền xem kho → /forbidden', async () => {
     const { router } = renderWithRouter(createRoutes({ dev: false }), {
       route: '/warehouses/kho-ha-noi',
-      auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: [] },
+      auth: { userName: 'm', roleName: 'MANAGER', scope: [] },
     })
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
@@ -337,7 +330,7 @@ describe('createRoutes — trang chi tiết cửa hàng', () => {
   it('thiếu quyền xem cửa hàng → /forbidden', async () => {
     const { router } = renderWithRouter(createRoutes({ dev: false }), {
       route: '/stores/ch-ha-noi',
-      auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: [] },
+      auth: { userName: 'm', roleName: 'MANAGER', scope: [] },
     })
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
@@ -360,11 +353,58 @@ describe('cờ TẮT (môi trường còn backend cũ, gác bằng @HasRole)', (
       )
       const { router } = renderWithRouter(routes(), {
         route: path,
-        auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: [] },
+        auth: { userName: 'm', roleName: 'MANAGER', scope: [] },
       })
 
       expect(await screen.findByRole('heading', { level: 1 })).toBeInTheDocument()
       expect(router.state.location.pathname).toBe(path)
     },
   )
+})
+
+describe('createRoutes — màn Người dùng cần USER_READ', () => {
+  // Cây import của `@/pages/users` nặng hơn hẳn `@/pages/warehouses`/`@/pages/stores` (kéo theo
+  // `UserFormSheet` + ba hộp thoại reset/khoá/xoá, mỗi cái một cụm zod/react-hook-form riêng) — lần
+  // transform NGUỘI đầu tiên của Vitest có thể vượt quá 1000ms mặc định của `waitFor`/`findBy*`.
+  // Nạp module một lần ở đây (ngoài mọi test) để cả hai test dưới đều chạy với timeout mặc định,
+  // kể cả khi chạy MỘT MÌNH bằng `-t` (thứ tự chạy không còn quyết định kết quả).
+  beforeAll(() => import('@/pages/users'), 15000)
+
+  beforeEach(() => {
+    server.use(
+      mswHttp.get(`${BASE}/users`, () => paginated([])),
+      mswHttp.get(`${BASE}/roles`, () => ok([])),
+    )
+  })
+
+  it('SUPERVISOR (không USER_READ) gõ thẳng /users → /forbidden, không có mục menu, không gọi GET /users', async () => {
+    let userCalls = 0
+    server.use(
+      mswHttp.get(`${BASE}/users`, () => {
+        userCalls += 1
+        return paginated([])
+      }),
+    )
+
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/users',
+      auth: { userName: '0330000000', roleName: 'SUPERVISOR', scope: [] },
+    })
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+    expect(screen.queryByRole('link', { name: 'Người dùng' })).not.toBeInTheDocument()
+    // RoleGate chặn TRƯỚC khi UsersPage mount — trang không bao giờ gọi `useUsers`.
+    expect(userCalls).toBe(0)
+  })
+
+  it('MANAGER có USER_READ → vào được, menu có "Người dùng" trong nhóm Quản trị', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/users',
+      auth: { userName: '0340000000', roleName: 'MANAGER', scope: ['USER_READ'] },
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Người dùng', level: 1 })).toBeInTheDocument()
+    const adminGroup = within(screen.getByRole('group', { name: 'Quản trị' }))
+    expect(adminGroup.getByRole('link', { name: 'Người dùng' })).toHaveAttribute('href', '/users')
+  })
 })

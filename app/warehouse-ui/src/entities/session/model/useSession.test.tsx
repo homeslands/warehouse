@@ -8,7 +8,7 @@ import { useAuthStore } from './auth.store'
 import { useSession } from './useSession'
 
 const BASE = 'http://localhost:8085/api/v1'
-const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
+const user = { userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
 
 beforeEach(() => {
   // Như bootstrap.tsx thật.

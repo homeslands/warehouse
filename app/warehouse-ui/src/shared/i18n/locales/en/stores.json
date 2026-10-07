@@ -15,6 +15,9 @@
   "deleted": "Store deleted",
   "warehouseSaved": "Store warehouse updated",
   "create": "Create store",
+  "createConfirmTitle": "Create this store?",
+  "createConfirmDescription": "Review the details before creating.",
+  "createConfirmAction": "Create",
   "edit": "Edit store",
   "delete": "Delete store",
   "actions": "Actions",
@@ -36,11 +39,13 @@
   "fieldEmail": "Email",
   "fieldIsActive": "Active",
   "codeRequired": "Store code is required",
-  "codeInvalid": "Store code must be 2-32 letters, digits or hyphens",
+  "codeInvalid": "Invalid store code format",
+  "codeHint": "2–32 letters, digits or hyphens",
   "nameRequired": "Store name is required",
   "legalNameRequired": "Legal name is required",
   "taxCodeRequired": "Tax code is required",
-  "taxCodeInvalid": "Tax code must be 10 digits with an optional 3-digit branch suffix",
+  "taxCodeInvalid": "Invalid tax code format",
+  "taxCodeHint": "10 digits, optionally with a 3-digit branch suffix (e.g. 0101234567-001)",
   "assignWarehouseAction": "Assign warehouse",
   "assignWarehouseTitle": "Assign a warehouse to the store",
   "fieldWarehouse": "Warehouse",
@@ -53,5 +58,5 @@
   "notFound": "This store was not found — it may have been deleted.",
   "fieldManager": "Manager",
   "noManager": "No manager assigned",
-  "mineEmpty": "No store is linked to a warehouse you manage."
+  "mineEmpty": "No store is linked to your warehouses yet."
 }

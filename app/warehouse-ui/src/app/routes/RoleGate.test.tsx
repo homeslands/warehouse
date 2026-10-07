@@ -50,7 +50,7 @@ function renderAt(path: string, roleName: string, scope: string[] = []) {
   useAuthStore.setState({
     hasSession: true,
     status: 'authenticated',
-    user: { userId: 'u1', userName: 'tester', roleName, scope },
+    user: { userName: 'tester', roleName, scope },
   })
   render(<RouterProvider router={createMemoryRouter(tree, { initialEntries: [path] })} />)
 }
@@ -137,7 +137,7 @@ describe('RoleGate — quyền đổi GIỮA PHIÊN', () => {
     useAuthStore.setState({
       hasSession: true,
       status: 'authenticated',
-      user: { userId: 'u1', userName: 'tester', roleName, scope },
+      user: { userName: 'tester', roleName, scope },
     })
     const router = createMemoryRouter(tree, { initialEntries: [path] })
     render(<RouterProvider router={router} />)
@@ -150,7 +150,7 @@ describe('RoleGate — quyền đổi GIỮA PHIÊN', () => {
 
     act(() => {
       useAuthStore.setState({
-        user: { userId: 'u1', userName: 'tester', roleName: 'ADMIN', scope: [] },
+        user: { userName: 'tester', roleName: 'ADMIN', scope: [] },
       })
     })
 

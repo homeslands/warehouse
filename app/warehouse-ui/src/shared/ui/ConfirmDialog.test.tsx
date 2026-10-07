@@ -32,6 +32,12 @@ describe('ConfirmDialog', () => {
     expect(within(box).getByText('Không khôi phục được.')).toBeInTheDocument()
   })
 
+  it('details → khối tóm tắt nằm giữa phần đầu và các nút', () => {
+    renderDialog({ details: <div data-testid="summary">Mã: HN</div> })
+    const box = screen.getByRole('alertdialog')
+    expect(within(box).getByTestId('summary')).toHaveTextContent('Mã: HN')
+  })
+
   it('bấm xác nhận gọi onConfirm mà KHÔNG tự đóng hộp', async () => {
     const { user, onConfirm, onOpenChange } = renderDialog()
 
@@ -85,5 +91,56 @@ describe('ConfirmDialog', () => {
     renderDialog({ isPending: true, confirmLabel: 'Đang xoá...' })
 
     expect(screen.getByRole('button', { name: 'Đang xoá...' })).toBeDisabled()
+  })
+
+  describe('confirmPhrase — gõ đúng chữ mới xác nhận được', () => {
+    it('không truyền confirmPhrase → không có ô nhập, nút bấm được ngay', () => {
+      renderDialog()
+
+      expect(screen.queryByRole('textbox')).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Xoá' })).toBeEnabled()
+    })
+
+    it('hiện hướng dẫn kèm chữ cần gõ; chưa gõ hoặc gõ sai thì nút xác nhận khoá', async () => {
+      const { user, onConfirm } = renderDialog({ confirmPhrase: '0310000000' })
+
+      const input = screen.getByLabelText('Nhập 0310000000 để xác nhận')
+      expect(screen.getByRole('button', { name: 'Xoá' })).toBeDisabled()
+
+      await user.type(input, '031000000')
+      expect(screen.getByRole('button', { name: 'Xoá' })).toBeDisabled()
+      await user.click(screen.getByRole('button', { name: 'Xoá' }))
+      expect(onConfirm).not.toHaveBeenCalled()
+    })
+
+    it('gõ đúng (bỏ khoảng trắng hai đầu) → nút mở, bấm gọi onConfirm', async () => {
+      const { user, onConfirm } = renderDialog({ confirmPhrase: '0310000000' })
+
+      await user.type(screen.getByLabelText('Nhập 0310000000 để xác nhận'), '  0310000000 ')
+      await user.click(screen.getByRole('button', { name: 'Xoá' }))
+
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+    })
+
+    it('đóng rồi mở lại → ô nhập trống, nút lại khoá', async () => {
+      const user = userEvent.setup()
+      const props = {
+        onOpenChange: () => {},
+        icon: <TrashIcon />,
+        title: 'Xoá kho?',
+        description: 'Không khôi phục được.',
+        confirmLabel: 'Xoá',
+        onConfirm: () => {},
+        confirmPhrase: 'root',
+      }
+      const { rerender } = render(<ConfirmDialog open {...props} />)
+      await user.type(screen.getByLabelText('Nhập root để xác nhận'), 'root')
+
+      rerender(<ConfirmDialog open={false} {...props} />)
+      rerender(<ConfirmDialog open {...props} />)
+
+      expect(screen.getByLabelText('Nhập root để xác nhận')).toHaveValue('')
+      expect(screen.getByRole('button', { name: 'Xoá' })).toBeDisabled()
+    })
   })
 })

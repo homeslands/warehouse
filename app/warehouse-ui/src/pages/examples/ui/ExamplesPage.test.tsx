@@ -134,7 +134,6 @@ describe('ExamplesPage — quyền theo AUTHORITY, không theo vai trò', () => 
   // Backend gác ba endpoint ghi bằng @RequireAuthority(EXAMPLE_CREATE / _UPDATE / _DELETE), không
   // bằng @HasRole — nên FE hỏi đúng từng mã, và vai trò không còn ý nghĩa gì ở đây.
   const withScope = (roleName: string, scope: string[]) => ({
-    userId: 'u1',
     userName: 'tester',
     roleName,
     scope,
