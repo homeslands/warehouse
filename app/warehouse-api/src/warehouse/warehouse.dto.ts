@@ -92,15 +92,23 @@ export class AssignWarehouseMemberRequestDto {
   userSlug: string;
 }
 
-export class GetMyWarehouseRequestDto extends BaseQueryDto {
+// Tạm ẩn cùng `GET /warehouses/mine` (đã comment ở controller). `isActive` chuyển thẳng vào
+// `GetAllWarehouseRequestDto`.
+// export class GetMyWarehouseRequestDto extends BaseQueryDto {
+//   @ApiPropertyOptional({ description: 'Filter by active state', example: true })
+//   @IsOptional()
+//   @Transform(toBoolean)
+//   @IsBoolean({ message: 'WAREHOUSE_IS_ACTIVE_INVALID' })
+//   isActive?: boolean;
+// }
+
+export class GetAllWarehouseRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by active state', example: true })
   @IsOptional()
   @Transform(toBoolean)
   @IsBoolean({ message: 'WAREHOUSE_IS_ACTIVE_INVALID' })
   isActive?: boolean;
-}
 
-export class GetAllWarehouseRequestDto extends GetMyWarehouseRequestDto {
   @ApiPropertyOptional({ description: 'Filter by the slug of the warehouse manager' })
   @IsOptional()
   managerSlug?: string;

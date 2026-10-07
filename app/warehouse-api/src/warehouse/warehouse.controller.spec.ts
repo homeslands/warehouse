@@ -12,7 +12,6 @@ describe('WarehouseController', () => {
   const warehouseService = {
     createWarehouse: jest.fn(),
     findAll: jest.fn(),
-    findMine: jest.fn(),
     findOne: jest.fn(),
     updateWarehouse: jest.fn(),
     assignManager: jest.fn(),
@@ -60,16 +59,6 @@ describe('WarehouseController', () => {
     const response = await controller.findAll(currentUser, query);
 
     expect(warehouseService.findAll).toHaveBeenCalledWith(query, currentUser);
-    expect(response.statusCode).toBe(200);
-  });
-
-  it('scopes findMine to the current user id', async () => {
-    const query = { page: 1, size: 10 };
-    warehouseService.findMine.mockResolvedValue({ items: [], total: 0 });
-
-    const response = await controller.findMine(currentUser, query);
-
-    expect(warehouseService.findMine).toHaveBeenCalledWith('user-id-1', query);
     expect(response.statusCode).toBe(200);
   });
 
@@ -179,11 +168,6 @@ describe('WarehouseController', () => {
         AuthorityCode.UserRead,
       ]);
       expect(authority(controller.deleteWarehouse)).toEqual([AuthorityCode.WarehouseDelete]);
-    });
-
-    // `mine` cố tình không gắn decorator: service đã giới hạn theo `userId` của chính người gọi.
-    it('leaves /mine open to any authenticated user', () => {
-      expect(authority(controller.findMine)).toBeUndefined();
     });
   });
 });

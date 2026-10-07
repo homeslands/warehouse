@@ -19,7 +19,6 @@ import {
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
   GetAvailableWarehouseMemberRequestDto,
-  GetMyWarehouseRequestDto,
   UpdateWarehouseRequestDto,
   WarehouseMemberResponseDto,
   WarehouseResponseDto,
