@@ -66,8 +66,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'Get all warehouses (paginated)',
     description:
-      'MANAGER/SUPERVISOR chỉ nhận về kho mình là manager hoặc thành viên (bỏ qua ' +
-      '`managerSlug`/`hasManager`); ADMIN/SUPER_ADMIN thấy toàn bộ.',
+      'ADMIN/SUPER_ADMIN thấy toàn bộ. Mọi role thấp hơn chỉ nhận về kho mình là manager hoặc ' +
+      'thành viên (bỏ qua `managerSlug`/`hasManager`).',
   })
   @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
   async findAll(
@@ -86,36 +86,43 @@ export class WarehouseController {
 
   // PHẢI khai TRƯỚC `@Get(':slug')`, nếu không route `:slug` nuốt mất đường dẫn `mine`.
   // Không gắn `@RequireAuthority`: chỉ cần JWT hợp lệ, và service đã tự giới hạn theo `userId`.
-  @Get('mine')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get warehouses managed by the current user (paginated)' })
-  @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
-  async findMine(
-    @CurrentUser() user: CurrentUserDto,
-    @Query(new ValidationPipe({ transform: true, whitelist: true }))
-    query: GetMyWarehouseRequestDto,
-  ) {
-    const result = await this.warehouseService.findMine(user.userId, query);
-    return {
-      message: 'Managed warehouses have been retrieved successfully',
-      statusCode: HttpStatus.OK,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<AppPaginatedResponseDto<WarehouseResponseDto>>;
-  }
+  // @Get('mine')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'Get warehouses managed by the current user (paginated)' })
+  // @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
+  // async findMine(
+  //   @CurrentUser() user: CurrentUserDto,
+  //   @Query(new ValidationPipe({ transform: true, whitelist: true }))
+  //   query: GetMyWarehouseRequestDto,
+  // ) {
+  //   const result = await this.warehouseService.findMine(user.userId, query);
+  //   return {
+  //     message: 'Managed warehouses have been retrieved successfully',
+  //     statusCode: HttpStatus.OK,
+  //     timestamp: new Date().toISOString(),
+  //     result,
+  //   } as AppResponseDto<AppPaginatedResponseDto<WarehouseResponseDto>>;
+  // }
 
+  // Cùng phạm vi với `GET /warehouses`: dưới ADMIN chỉ đọc được kho mình là manager hoặc thành viên
+  // — service tự check (xem `WarehouseService.findOne`).
   @Get(':slug')
   @RequireAuthority(AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get a warehouse by slug' })
+  @ApiOperation({
+    summary: 'Get a warehouse by slug',
+    description:
+      'ADMIN/SUPER_ADMIN đọc được mọi kho. Role khác chỉ đọc được kho mình là manager hoặc thành ' +
+      'viên, ngược lại trả `WAREHOUSE_ACCESS_DENIED` (403).',
+  })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Retrieved',
     type: WarehouseResponseDto,
   })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  async findOne(@Param('slug') slug: string) {
-    const result = await this.warehouseService.findOne(slug);
+  async findOne(@CurrentUser() currentUser: CurrentUserDto, @Param('slug') slug: string) {
+    const result = await this.warehouseService.findOne(slug, currentUser);
     return {
       message: 'Warehouse has been retrieved successfully',
       statusCode: HttpStatus.OK,

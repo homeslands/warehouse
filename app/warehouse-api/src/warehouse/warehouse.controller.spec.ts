@@ -73,12 +73,13 @@ describe('WarehouseController', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it('forwards the slug to findOne', async () => {
+  it('forwards the slug and current user to findOne', async () => {
     warehouseService.findOne.mockResolvedValue({ slug: 'wh-slug-1' });
+    const user = { userId: 'user-id-1', roleName: 'MANAGER', scope: [] };
 
-    const response = await controller.findOne('wh-slug-1');
+    const response = await controller.findOne(user, 'wh-slug-1');
 
-    expect(warehouseService.findOne).toHaveBeenCalledWith('wh-slug-1');
+    expect(warehouseService.findOne).toHaveBeenCalledWith('wh-slug-1', user);
     expect(response.result).toEqual({ slug: 'wh-slug-1' });
   });
 
