@@ -22,7 +22,7 @@ import { WarehouseValidation } from './warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
-import { WAREHOUSE_MEMBER_EXCLUDED_ROLES, WAREHOUSE_SCOPED_ROLES } from './warehouse.constants';
+import { WAREHOUSE_MEMBER_EXCLUDED_ROLES, WAREHOUSE_UNSCOPED_ROLES } from './warehouse.constants';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
@@ -90,18 +90,18 @@ export class WarehouseService {
   }
 
   /**
-   * `MANAGER`/`SUPERVISOR` chỉ thấy kho mình là manager HOẶC là thành viên (`warehouse_member_tbl`,
-   * member đã gỡ — xoá mềm — không tính: TypeORM tự thêm `deleted_at IS NULL` vào join). Filter
+   * Chỉ `ADMIN`/`SUPER_ADMIN` thấy toàn bộ. Mọi role thấp hơn (kể cả role tự tạo, token không có
+   * claim `role`) chỉ thấy kho mình là manager HOẶC là thành viên (`warehouse_member_tbl`, member đã
+   * gỡ — xoá mềm — không tính: TypeORM tự thêm `deleted_at IS NULL` vào join). Filter
    * `managerSlug`/`hasManager` của query bị bỏ qua để không mở rộng được ra kho của người khác.
-   * `ADMIN`/`SUPER_ADMIN` thấy toàn bộ.
    */
   async findAll(
     query: GetAllWarehouseRequestDto,
-    currentUser?: CurrentUserDto,
+    currentUser: CurrentUserDto,
   ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
     const where: FindOptionsWhere<Warehouse> = {};
     if (query.isActive !== undefined) where.isActive = query.isActive;
-    if (hasRole(currentUser, ...WAREHOUSE_SCOPED_ROLES)) {
+    if (!hasRole(currentUser, ...WAREHOUSE_UNSCOPED_ROLES)) {
       const userId = currentUser.userId;
       // Mảng `where` = OR; mỗi nhánh phải mang lại filter chung (`isActive`).
       return this.paginate(
@@ -129,12 +129,30 @@ export class WarehouseService {
     return this.paginate(where, query);
   }
 
-  async findOne(slug: string): Promise<WarehouseResponseDto> {
+  /**
+   * `ADMIN`/`SUPER_ADMIN` đọc được mọi kho. Role khác (kể cả role tự tạo, token thiếu claim `role`)
+   * chỉ đọc được kho mình là manager HOẶC thành viên — ngược lại `WAREHOUSE_ACCESS_DENIED` (403).
+   * `existsBy` mặc định loại row xoá mềm ⇒ member đã bị gỡ không còn đọc được.
+   */
+  async findOne(slug: string, currentUser: CurrentUserDto): Promise<WarehouseResponseDto> {
     const warehouse = await this.warehouseRepository.findOne({
       where: { slug },
       relations: WAREHOUSE_RELATIONS,
     });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    if (!hasRole(currentUser, ...WAREHOUSE_UNSCOPED_ROLES)) {
+      const isManager = warehouse.manager?.id === currentUser.userId;
+      const isMember =
+        !isManager &&
+        (await this.warehouseMemberRepository.existsBy({
+          warehouse: { id: warehouse.id },
+          user: { id: currentUser.userId },
+        }));
+      if (!isManager && !isMember)
+        throw new WarehouseException(WarehouseValidation.WAREHOUSE_ACCESS_DENIED);
+    }
+
     return this.mapper.map(warehouse, Warehouse, WarehouseResponseDto);
   }
 

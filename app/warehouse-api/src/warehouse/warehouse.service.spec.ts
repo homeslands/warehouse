@@ -1,3 +1,4 @@
+import { CurrentUserDto } from 'src/user/user.decorator';
 import { GetAvailableWarehouseMemberRequestDto } from './warehouse.dto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -178,9 +179,10 @@ describe('WarehouseService', () => {
     });
 
     const whereOf = () => warehouseRepository.findAndCount.mock.calls[0][0].where;
+    const admin: CurrentUserDto = { userId: 'admin-id', roleName: RoleEnum.Admin, scope: [] };
 
     it('always loads the manager relation', async () => {
-      await service.findAll({ page: 1, size: 10 });
+      await service.findAll({ page: 1, size: 10 }, admin);
 
       expect(warehouseRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
@@ -193,29 +195,30 @@ describe('WarehouseService', () => {
     });
 
     it('filters by isActive, including the false case', async () => {
-      await service.findAll({ page: 1, size: 10, isActive: false });
+      await service.findAll({ page: 1, size: 10, isActive: false }, admin);
 
       expect(whereOf()).toEqual({ isActive: false });
     });
 
     it('filters by managerSlug through the relation', async () => {
-      await service.findAll({ page: 1, size: 10, managerSlug: 'manager-slug-1' });
+      await service.findAll({ page: 1, size: 10, managerSlug: 'manager-slug-1' }, admin);
 
       expect(whereOf()).toEqual({ manager: { slug: 'manager-slug-1' } });
     });
 
     it('maps hasManager=false to IsNull and hasManager=true to Not(IsNull)', async () => {
-      await service.findAll({ page: 1, size: 10, hasManager: false });
+      await service.findAll({ page: 1, size: 10, hasManager: false }, admin);
       expect(whereOf()).toEqual({ manager: IsNull() });
 
       warehouseRepository.findAndCount.mockClear();
-      await service.findAll({ page: 1, size: 10, hasManager: true });
+      await service.findAll({ page: 1, size: 10, hasManager: true }, admin);
       expect(whereOf()).toEqual({ manager: Not(IsNull()) });
     });
 
-    // MANAGER/SUPERVISOR chỉ thấy kho mình là manager HOẶC thành viên; filter manager trong query
-    // không mở rộng được phạm vi.
-    it.each([RoleEnum.Manager, RoleEnum.Supervisor])(
+    // Mọi role dưới ADMIN chỉ thấy kho mình là manager HOẶC thành viên; filter manager trong query
+    // không mở rộng được phạm vi. Fail-closed: role tự tạo hay token thiếu claim `role` cũng bị giới
+    // hạn, không rơi sang nhánh "thấy toàn bộ".
+    it.each([RoleEnum.Manager, RoleEnum.Supervisor, 'CUSTOM_ROLE', undefined])(
       'scopes %s to warehouses they manage or are a member of, ignoring manager filters',
       async (roleName) => {
         await service.findAll(
@@ -239,18 +242,16 @@ describe('WarehouseService', () => {
     it('treats an unparseable hasManager as absent rather than false', async () => {
       // DTO trả nguyên chuỗi lạ cho `@IsBoolean` bắt; service không được coi nó là `false` và
       // lọc ngược tập dữ liệu.
-      await service.findAll({ page: 1, size: 10, hasManager: 'notabool' } as never);
+      await service.findAll({ page: 1, size: 10, hasManager: 'notabool' } as never, admin);
 
       expect(whereOf()).toEqual({});
     });
 
     it('ignores hasManager when managerSlug is given', async () => {
-      await service.findAll({
-        page: 1,
-        size: 10,
-        managerSlug: 'manager-slug-1',
-        hasManager: false,
-      });
+      await service.findAll(
+        { page: 1, size: 10, managerSlug: 'manager-slug-1', hasManager: false },
+        admin,
+      );
 
       expect(whereOf()).toEqual({ manager: { slug: 'manager-slug-1' } });
     });
@@ -266,7 +267,7 @@ describe('WarehouseService', () => {
         3,
       ]);
 
-      const result = await service.findAll({ page: 2, size: 1 });
+      const result = await service.findAll({ page: 2, size: 1 }, admin);
 
       expect(result).toMatchObject({
         total: 3,
@@ -289,7 +290,7 @@ describe('WarehouseService', () => {
     it('leaves manager and store fields empty when neither is linked', async () => {
       warehouseRepository.findAndCount.mockResolvedValue([[baseWarehouse()], 1]);
 
-      const result = await service.findAll({ page: 1, size: 10 });
+      const result = await service.findAll({ page: 1, size: 10 }, admin);
 
       expect(result.items[0].managerSlug).toBeUndefined();
       expect(result.items[0].storeSlug).toBeUndefined();
@@ -315,11 +316,18 @@ describe('WarehouseService', () => {
   });
 
   describe('findOne', () => {
+    const admin: CurrentUserDto = { userId: 'admin-id', roleName: RoleEnum.Admin, scope: [] };
+    const user = (roleName?: string): CurrentUserDto => ({
+      userId: 'user-id-1',
+      roleName,
+      scope: [],
+    });
+
     it('throws when the warehouse is not found', async () => {
       warehouseRepository.findOne.mockResolvedValue(null);
 
       await expectWarehouseError(
-        service.findOne('missing-slug'),
+        service.findOne('missing-slug', admin),
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
       );
     });
@@ -327,13 +335,61 @@ describe('WarehouseService', () => {
     it('loads the manager relation', async () => {
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
 
-      await service.findOne('wh-slug-1');
+      await service.findOne('wh-slug-1', admin);
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
         where: { slug: 'wh-slug-1' },
         relations: { manager: true, store: true },
       });
     });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin])(
+      'lets %s read any warehouse without a membership lookup',
+      async (roleName) => {
+        warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+
+        await expect(service.findOne('wh-slug-1', user(roleName))).resolves.toBeDefined();
+        expect(warehouseMemberRepository.existsBy).not.toHaveBeenCalled();
+      },
+    );
+
+    it('lets the manager of the warehouse read it', async () => {
+      warehouseRepository.findOne.mockResolvedValue({
+        ...baseWarehouse(),
+        manager: { id: 'user-id-1' },
+      });
+
+      await expect(service.findOne('wh-slug-1', user(RoleEnum.Manager))).resolves.toBeDefined();
+      expect(warehouseMemberRepository.existsBy).not.toHaveBeenCalled();
+    });
+
+    it('lets a member of the warehouse read it', async () => {
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+      warehouseMemberRepository.existsBy.mockResolvedValue(true);
+
+      await expect(service.findOne('wh-slug-1', user(RoleEnum.Supervisor))).resolves.toBeDefined();
+      expect(warehouseMemberRepository.existsBy).toHaveBeenCalledWith({
+        warehouse: { id: baseWarehouse().id },
+        user: { id: 'user-id-1' },
+      });
+    });
+
+    // Fail-closed: role tự tạo hay token thiếu claim `role` cũng phải là manager/thành viên.
+    it.each([RoleEnum.Manager, RoleEnum.Supervisor, 'CUSTOM_ROLE', undefined])(
+      'rejects %s who is neither manager nor member',
+      async (roleName) => {
+        warehouseRepository.findOne.mockResolvedValue({
+          ...baseWarehouse(),
+          manager: { id: 'someone-else' },
+        });
+        warehouseMemberRepository.existsBy.mockResolvedValue(false);
+
+        await expectWarehouseError(
+          service.findOne('wh-slug-1', user(roleName)),
+          WarehouseValidation.WAREHOUSE_ACCESS_DENIED.code,
+        );
+      },
+    );
   });
 
   // PATCH phải là partial update đúng nghĩa REST: field không gửi giữ nguyên giá trị cũ.
