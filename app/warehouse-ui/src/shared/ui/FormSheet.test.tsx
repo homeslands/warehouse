@@ -1,4 +1,5 @@
-import { screen } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
+import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { renderWithProviders } from '@/shared/test/render'
 import { FormSheet } from './FormSheet'
@@ -145,5 +146,156 @@ describe('FormSheet', () => {
     renderSheet({ isPending: true })
 
     expect(screen.queryByRole('button', { name: 'Đóng' })).not.toBeInTheDocument()
+  })
+
+  describe('đã sửa mà chưa lưu (isDirty)', () => {
+    const closePaths = [
+      [
+        'nút Huỷ',
+        async (user: ReturnType<typeof renderSheet>['user']) =>
+          user.click(screen.getByRole('button', { name: 'Huỷ' })),
+      ],
+      [
+        'nút × ở góc',
+        async (user: ReturnType<typeof renderSheet>['user']) =>
+          user.click(screen.getByRole('button', { name: 'Đóng' })),
+      ],
+      ['Escape', async (user: ReturnType<typeof renderSheet>['user']) => user.keyboard('{Escape}')],
+      [
+        'bấm ra ngoài',
+        async (user: ReturnType<typeof renderSheet>['user']) =>
+          user.click(document.querySelector('[data-slot="sheet-overlay"]') as HTMLElement),
+      ],
+    ] as const
+
+    it.each(closePaths)('%s → hỏi "Bỏ thay đổi chưa lưu?", chưa đóng sheet', async (_, close) => {
+      const { user, onOpenChange } = renderSheet({ isDirty: true })
+
+      await close(user)
+
+      expect(await screen.findByRole('alertdialog')).toHaveTextContent('Bỏ thay đổi chưa lưu?')
+      expect(onOpenChange).not.toHaveBeenCalled()
+    })
+
+    it('"Tiếp tục sửa" → đóng hộp hỏi, sheet vẫn mở, form giữ nguyên', async () => {
+      const { user, onOpenChange } = renderSheet({ isDirty: true })
+      await user.type(screen.getByLabelText('Tên'), 'Kho A')
+      await user.click(screen.getByRole('button', { name: 'Huỷ' }))
+
+      await user.click(await screen.findByRole('button', { name: 'Tiếp tục sửa' }))
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(onOpenChange).not.toHaveBeenCalled()
+      expect(screen.getByLabelText('Tên')).toHaveValue('Kho A')
+    })
+
+    it('Escape trong hộp hỏi chỉ đóng hộp hỏi, không đóng sheet', async () => {
+      const { user, onOpenChange } = renderSheet({ isDirty: true })
+      await user.click(screen.getByRole('button', { name: 'Huỷ' }))
+      await screen.findByRole('alertdialog')
+
+      await user.keyboard('{Escape}')
+
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(onOpenChange).not.toHaveBeenCalled()
+    })
+
+    it('"Bỏ thay đổi" → đóng sheet', async () => {
+      const { user, onOpenChange } = renderSheet({ isDirty: true })
+      await user.click(screen.getByRole('button', { name: 'Huỷ' }))
+
+      await user.click(await screen.findByRole('button', { name: 'Bỏ thay đổi' }))
+
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('chưa sửa gì → đóng thẳng, không hỏi', async () => {
+      const { user, onOpenChange } = renderSheet({ isDirty: false })
+      await user.click(screen.getByRole('button', { name: 'Huỷ' }))
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('bấm Lưu không hỏi — submit thẳng', async () => {
+      const { user, onSubmit } = renderSheet({ isDirty: true })
+      await user.click(screen.getByRole('button', { name: 'Lưu' }))
+      expect(onSubmit).toHaveBeenCalledTimes(1)
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
+  })
+
+  describe('xác nhận trước khi gửi (confirmation)', () => {
+    // Như luồng thật: sheet mở trước, hộp xác nhận mở SAU (khi form hợp lệ và bấm gửi).
+    function renderConfirm(overrides: { isPending?: boolean } = {}) {
+      const onConfirm = vi.fn()
+      const onConfirmOpenChange = vi.fn()
+      const onOpenChange = vi.fn()
+      function Harness() {
+        const [confirmOpen, setConfirmOpen] = useState(false)
+        return (
+          <FormSheet
+            open
+            onOpenChange={onOpenChange}
+            title="Tạo kho"
+            submitLabel="Tạo kho"
+            isPending={overrides.isPending ?? false}
+            onSubmit={(event) => {
+              event.preventDefault()
+              setConfirmOpen(true)
+            }}
+            confirmation={{
+              open: confirmOpen,
+              onOpenChange: (next) => {
+                onConfirmOpenChange(next)
+                setConfirmOpen(next)
+              },
+              icon: <span />,
+              title: 'Xác nhận tạo kho',
+              description: 'Tạo kho HN – Kho Hà Nội.',
+              confirmLabel: 'Xác nhận',
+              onConfirm,
+            }}
+          >
+            <input aria-label="Tên" />
+          </FormSheet>
+        )
+      }
+      const result = renderWithProviders(<Harness />)
+      return { ...result, onConfirm, onConfirmOpenChange, onOpenChange }
+    }
+
+    async function openConfirm(user: ReturnType<typeof renderWithProviders>['user']) {
+      await user.click(screen.getByRole('button', { name: 'Tạo kho' }))
+      return screen.findByRole('alertdialog')
+    }
+
+    it('bấm gửi (form hợp lệ) → hiện hộp xác nhận với tiêu đề, mô tả', async () => {
+      const { user } = renderConfirm()
+      const dialog = await openConfirm(user)
+      expect(dialog).toHaveTextContent('Xác nhận tạo kho')
+      expect(dialog).toHaveTextContent('Tạo kho HN – Kho Hà Nội.')
+    })
+
+    it('bấm nút xác nhận → onConfirm', async () => {
+      const { user, onConfirm } = renderConfirm()
+      const dialog = await openConfirm(user)
+      await user.click(within(dialog).getByRole('button', { name: 'Xác nhận' }))
+      expect(onConfirm).toHaveBeenCalledTimes(1)
+    })
+
+    it('Huỷ trong hộp xác nhận → chỉ đóng hộp, không đóng sheet', async () => {
+      const { user, onConfirmOpenChange, onOpenChange } = renderConfirm()
+      const dialog = await openConfirm(user)
+      await user.click(within(dialog).getByRole('button', { name: 'Huỷ' }))
+      expect(onConfirmOpenChange).toHaveBeenCalledWith(false)
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+      expect(onOpenChange).not.toHaveBeenCalled()
+      expect(screen.getByRole('dialog')).toBeInTheDocument()
+    })
+
+    it('chưa bấm gửi → không có hộp xác nhận', () => {
+      renderConfirm()
+      expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    })
   })
 })

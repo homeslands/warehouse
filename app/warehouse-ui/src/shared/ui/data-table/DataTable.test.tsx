@@ -312,3 +312,35 @@ describe('DataTable — tiêu đề gọn cho cột icon', () => {
     expect(screen.getByText('Tên')).not.toHaveClass('sr-only')
   })
 })
+
+describe('DataTable — dữ liệu xấu (break-ui)', () => {
+  it('cột id "actions" luôn ghim mép phải: header và ô mang data-pinned="right"', () => {
+    const withActions: ColumnDef<Row>[] = [
+      { accessorKey: 'name', header: 'Tên' },
+      { id: 'actions', header: 'Thao tác', cell: () => <button type="button">⋯</button> },
+    ]
+    render(<DataTable columns={withActions} data={rows.slice(0, 1)} isLoading={false} />)
+
+    expect(screen.getByRole('columnheader', { name: 'Thao tác' })).toHaveAttribute(
+      'data-pinned',
+      'right',
+    )
+    expect(screen.getByRole('button', { name: '⋯' }).closest('td')).toHaveAttribute(
+      'data-pinned',
+      'right',
+    )
+    expect(screen.getByRole('columnheader', { name: 'Tên' })).not.toHaveAttribute('data-pinned')
+  })
+
+  it('tổng số bản ghi có dấu phân cách hàng nghìn theo ngôn ngữ', () => {
+    render(
+      <DataTable
+        columns={columns}
+        data={rows}
+        isLoading={false}
+        pagination={pagination({ page: 1, total: 1284, totalPages: 129 })}
+      />,
+    )
+    expect(screen.getByText('Trang 1 / 129 — 1.284 bản ghi')).toBeInTheDocument()
+  })
+})

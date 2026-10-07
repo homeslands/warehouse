@@ -7,7 +7,7 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // thật sự chạy — nếu không, code sau cờ không bao giờ được thực thi và sẽ hỏng âm thầm cho tới
 // ngày ai đó bật nó lên.
 vi.mock('@/shared/api/backend-capabilities', () => ({
-  BACKEND_SUPPORTS: { sort: true, search: true },
+  BACKEND_SUPPORTS: { sort: true, search: true, userSort: false },
 }))
 
 import { paginated } from '@/shared/test/api'

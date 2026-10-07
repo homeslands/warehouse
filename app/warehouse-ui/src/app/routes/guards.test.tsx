@@ -6,7 +6,6 @@ import { ProtectedRoute } from '@/app/routes/guards'
 import { useAuthStore, type CurrentUser } from '@/entities/session'
 
 const asUser = (roleName: string): CurrentUser => ({
-  userId: 'u1',
   userName: 'tester',
   roleName,
   scope: [],

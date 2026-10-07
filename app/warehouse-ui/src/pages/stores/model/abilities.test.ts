@@ -3,7 +3,6 @@ import type { CurrentUser } from '@/entities/session'
 import { storeAbilities } from './abilities'
 
 const user = (roleName: string, scope: string[] = []): CurrentUser => ({
-  userId: 'u1',
   userName: 't',
   roleName,
   scope,

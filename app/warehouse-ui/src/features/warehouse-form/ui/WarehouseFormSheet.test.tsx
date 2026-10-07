@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -7,6 +7,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 import { toast } from 'sonner'
 import { apiError, ok } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
+import { confirmDialog } from '@/shared/test/confirm'
 import { renderWithProviders } from '@/shared/test/render'
 import type { Warehouse } from '@/entities/warehouse'
 import { WarehouseFormSheet } from '../index'
@@ -85,9 +86,7 @@ describe('WarehouseFormSheet — tạo mới', () => {
     await user.type(screen.getByLabelText(/^Địa chỉ/), 'Hà Nội')
     await user.click(screen.getByRole('button', { name: 'Tạo kho' }))
 
-    expect(
-      await screen.findByText('Mã kho gồm 2-32 ký tự chữ, số hoặc gạch ngang'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Mã kho không đúng định dạng')).toBeInTheDocument()
   })
 
   it('gửi đúng body; ô tuỳ chọn có format (điện thoại) để trống thì KHÔNG gửi', async () => {
@@ -102,6 +101,7 @@ describe('WarehouseFormSheet — tạo mới', () => {
 
     await fillRequired(user)
     await user.click(screen.getByRole('button', { name: 'Tạo kho' }))
+    await confirmDialog(user, 'Tạo')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({
@@ -113,12 +113,40 @@ describe('WarehouseFormSheet — tạo mới', () => {
     })
   })
 
+  it('form hợp lệ → hỏi "Tạo kho mới?" kèm tóm tắt mã, tên, địa chỉ; Huỷ thì KHÔNG gửi', async () => {
+    let called = false
+    server.use(
+      mswHttp.post(`${BASE}/warehouses`, () => {
+        called = true
+        return ok(warehouse)
+      }),
+    )
+    const { user } = renderSheet()
+
+    await fillRequired(user)
+    await user.click(screen.getByRole('button', { name: 'Tạo kho' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Tạo kho mới?')
+    const rows = within(dialog)
+      .getAllByRole('term')
+      .map((term) => [term.textContent, term.nextElementSibling?.textContent])
+    expect(rows).toEqual([
+      ['Mã', 'WH-HN-02'],
+      ['Tên', 'Kho Hà Nội 2'],
+      ['Địa chỉ', 'Số 2, Ba Đình, Hà Nội'],
+    ])
+    await user.click(within(dialog).getByRole('button', { name: 'Huỷ' }))
+    expect(called).toBe(false)
+  })
+
   it('mã trùng (100506) hiện dưới ô Mã, không toast, sheet vẫn mở', async () => {
     server.use(mswHttp.post(`${BASE}/warehouses`, () => apiError(422, 100506)))
     const { user, onOpenChange } = renderSheet()
 
     await fillRequired(user)
     await user.click(screen.getByRole('button', { name: 'Tạo kho' }))
+    await confirmDialog(user, 'Tạo')
 
     expect(await screen.findByText('Mã kho đã tồn tại')).toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()
@@ -131,6 +159,7 @@ describe('WarehouseFormSheet — tạo mới', () => {
 
     await fillRequired(user)
     await user.click(screen.getByRole('button', { name: 'Tạo kho' }))
+    await confirmDialog(user, 'Tạo')
 
     expect(await screen.findByText('Mã kho đang bị một kho đã xoá giữ chỗ')).toBeInTheDocument()
   })
@@ -141,6 +170,7 @@ describe('WarehouseFormSheet — tạo mới', () => {
 
     await fillRequired(user)
     await user.click(screen.getByRole('button', { name: 'Tạo kho' }))
+    await confirmDialog(user, 'Tạo')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledWith('Boom'))
     expect(onOpenChange).not.toHaveBeenCalled()

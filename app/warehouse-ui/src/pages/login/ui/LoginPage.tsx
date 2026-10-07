@@ -78,6 +78,7 @@ export function LoginPage() {
 
   const form = useForm<LoginInput>({
     resolver: zodResolver(loginSchema),
+    mode: 'onTouched',
     defaultValues: { phonenumber: '', password: '' },
   })
   const errors = form.formState.errors

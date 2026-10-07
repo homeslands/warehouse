@@ -57,3 +57,62 @@ describe('resolveApiErrorMessage — mã mới đã dịch, không rơi về mes
     expect(resolveApiErrorMessage(error)).toBe(expected)
   })
 })
+
+describe('ERROR_CODE_KEYS — người dùng và vai trò (WMS-12)', () => {
+  it.each([
+    [100410, 'firstNameIsRequired'],
+    [100411, 'lastNameIsRequired'],
+    [100412, 'dobInvalid'],
+    [100413, 'emailInvalid'],
+    [100104, 'roleLevelForbidden'],
+    [100414, 'lockOwnAccountNotAllowed'],
+    [100415, 'userIsWarehouseManager'],
+    [100416, 'changeOwnRoleNotAllowed'],
+    [100417, 'adminCannotManageAdmin'],
+  ] as const)('mã %i → khoá %s, có bản dịch vi và en', (code, key) => {
+    expect(ERROR_CODE_KEYS[code]).toBe(key)
+    expect(viErrors[key]).toBeTruthy()
+    expect(enErrors[key]).toBeTruthy()
+  })
+
+  it('mã 100413 hiện câu tiếng Việt, không rơi về message tiếng Anh của backend', () => {
+    const body = {
+      statusCode: 400,
+      code: 100413,
+      timestamp: '',
+      path: '',
+      method: '',
+      message: 'Email is invalid',
+    }
+    expect(resolveApiErrorMessage(body)).toBe('Email không hợp lệ')
+  })
+})
+
+describe('ERROR_CODE_KEYS — người dùng + thành viên kho (PR #78)', () => {
+  it.each([
+    [100418, 'deleteOwnAccountNotAllowed'],
+    [100419, 'phonenumberReservedByDeletedUser'],
+    [100420, 'userStartDateInvalid'],
+    [100421, 'userEndDateInvalid'],
+    [100422, 'userDateRangeInvalid'],
+    [100423, 'userBirthdayInvalid'],
+    [100424, 'userSortInvalid'],
+    [100425, 'userIsActiveInvalid'],
+    [100518, 'warehouseMemberUserSlugIsRequired'],
+    [100519, 'warehouseMemberUserNotFound'],
+    [100520, 'warehouseMemberUserInactive'],
+    [100522, 'warehouseMemberNotFound'],
+    [100523, 'warehouseAccessDenied'],
+    [100524, 'warehouseMemberUserIsAdmin'],
+  ] as const)('mã %i → khoá %s, có bản dịch vi và en', (code, key) => {
+    expect(ERROR_CODE_KEYS[code]).toBe(key)
+    expect(viErrors[key]).toBeTruthy()
+    expect(enErrors[key]).toBeTruthy()
+  })
+
+  it('100415 chỉ nói khoá (FE không xoá người dùng)', () => {
+    expect(viErrors.userIsWarehouseManager).toBe(
+      'Người này đang quản lý một kho — hãy đổi quản lý kho trước khi khoá',
+    )
+  })
+})

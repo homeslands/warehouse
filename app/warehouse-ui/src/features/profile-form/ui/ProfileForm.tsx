@@ -36,6 +36,7 @@ export function ProfileForm({ profile }: { profile: Profile }) {
   const update = useUpdateProfile()
   const form = useForm<Values>({
     resolver: zodResolver(SCHEMA),
+    mode: 'onTouched',
     defaultValues: { fullName: profile.fullName ?? '', email: profile.email ?? '' },
   })
 

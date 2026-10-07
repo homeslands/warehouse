@@ -1,9 +1,10 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react'
-import type { MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { cn } from '@/shared/lib/cn'
+import { formatNumber } from '@/shared/lib/format'
 import { PAGE_SIZE_OPTIONS, type SortState } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
@@ -87,6 +88,39 @@ function hiddenClass(meta: unknown): string | undefined {
   return hideBelow && HIDE_BELOW[hideBelow]
 }
 
+/**
+ * Cột `id: 'actions'` (menu `⋯`) luôn ghim mép phải: một ô quá rộng (email dài, nhiều kho, vai trò tự tạo
+ * tên dài) làm bảng cuộn ngang thì nút thao tác vẫn thấy và bấm được, không bị đẩy ra ngoài khung. Nền đục
+ * để chữ cuộn bên dưới không lộ qua; khi bảng thực sự cuộn ngang thì thêm bóng mép trái để báo còn nội dung
+ * phía dưới. Màu nền khi hover/mở menu pha sẵn cho khớp `hover:bg-muted/50` của hàng.
+ */
+const PINNED_RIGHT =
+  'sticky right-0 z-[1] bg-background [tr:hover>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] [tr:has([aria-expanded=true])>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-data-[overflowing=true]/table:shadow-[-6px_0_6px_-6px_rgb(0_0_0/0.2)]'
+
+function pinnedProps(columnId: string) {
+  return columnId === 'actions'
+    ? ({ 'data-pinned': 'right', className: PINNED_RIGHT } as const)
+    : undefined
+}
+
+/** Bảng có đang tràn ngang không — chỉ để bật bóng mép của cột ghim. */
+function useOverflowing() {
+  const ref = useRef<HTMLDivElement>(null)
+  const [overflowing, setOverflowing] = useState(false)
+  useEffect(() => {
+    const scroller = ref.current?.querySelector<HTMLElement>('[data-slot="table-container"]')
+    if (!scroller || typeof ResizeObserver === 'undefined') return
+    const update = () => setOverflowing(scroller.scrollWidth > scroller.clientWidth + 1)
+    const observer = new ResizeObserver(update)
+    observer.observe(scroller)
+    const table = scroller.querySelector('table')
+    if (table) observer.observe(table)
+    update()
+    return () => observer.disconnect()
+  }, [])
+  return { ref, overflowing }
+}
+
 const SKELETON_ROWS = 5
 
 const INTERACTIVE =
@@ -121,6 +155,7 @@ export function DataTable<TData>({
   })
   const rows = table.getRowModel().rows
   const colSpan = Math.max(columns.length, 1)
+  const { ref: frameRef, overflowing } = useOverflowing()
 
   const body = (() => {
     if (data === undefined && error != null) {
@@ -166,7 +201,14 @@ export function DataTable<TData>({
         }
       >
         {row.getVisibleCells().map((cell) => (
-          <TableCell key={cell.id} className={hiddenClass(cell.column.columnDef.meta)}>
+          <TableCell
+            key={cell.id}
+            {...pinnedProps(cell.column.id)}
+            className={cn(
+              hiddenClass(cell.column.columnDef.meta),
+              pinnedProps(cell.column.id)?.className,
+            )}
+          >
             {flexRender(cell.column.columnDef.cell, cell.getContext())}
           </TableCell>
         ))}
@@ -176,7 +218,11 @@ export function DataTable<TData>({
 
   return (
     <div className="space-y-4">
-      <div className="@container rounded-md border">
+      <div
+        ref={frameRef}
+        data-overflowing={overflowing}
+        className="group/table @container rounded-md border"
+      >
         <Table>
           <TableHeader>
             {table.getHeaderGroups().map((headerGroup) => (
@@ -189,7 +235,10 @@ export function DataTable<TData>({
                     : flexRender(header.column.columnDef.header, header.getContext())
                   const label = (header.column.columnDef.meta as DataTableColumnMeta | undefined)
                     ?.compactHeader ? (
-                    <span className="sr-only @sm:not-sr-only">{rendered}</span>
+                    // `not-sr-only` đặt lại `white-space: normal` → giữ một dòng như mọi tiêu đề khác.
+                    <span className="sr-only @sm:not-sr-only @sm:whitespace-nowrap">
+                      {rendered}
+                    </span>
                   ) : (
                     rendered
                   )
@@ -198,11 +247,12 @@ export function DataTable<TData>({
                       ? sorting.value.dir
                       : undefined
 
-                  const hidden = hiddenClass(header.column.columnDef.meta)
+                  const pinned = pinnedProps(header.column.id)
+                  const hidden = cn(hiddenClass(header.column.columnDef.meta), pinned?.className)
 
                   if (sorting === undefined || field === undefined) {
                     return (
-                      <TableHead key={header.id} className={hidden}>
+                      <TableHead key={header.id} {...pinned} className={hidden}>
                         {label}
                       </TableHead>
                     )
@@ -210,6 +260,7 @@ export function DataTable<TData>({
                   return (
                     <TableHead
                       key={header.id}
+                      {...pinned}
                       className={hidden}
                       aria-sort={
                         active === 'ASC' ? 'ascending' : active === 'DESC' ? 'descending' : 'none'
@@ -265,7 +316,7 @@ export function DataTable<TData>({
             {t('common:pageInfo', {
               page: pagination.page,
               totalPages: Math.max(pagination.totalPages, 1),
-              total: pagination.total,
+              total: formatNumber(pagination.total),
             })}
           </span>
           {/* Hai nút đi cùng nhau: màn hẹp xuống dòng cả cặp, không tách "Trang sau" ra dòng riêng. */}

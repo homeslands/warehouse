@@ -274,9 +274,22 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   Khung bảng hẹp: cột phụ khai `meta: { hideBelow: '@sm' | '@2xl' | '@4xl' }` trong `ColumnDef` — **container
   query** theo bề rộng thật của khung bảng (breakpoint theo cửa sổ sai khi sidebar đang mở); xem đủ ở trang
   chi tiết. Cột tên, trạng thái, thao tác không khai. Cột chỉ có icon (menu `⋯`) khai `meta: { compactHeader: true }` — chữ tiêu
-  đề chỉ còn cho trình đọc màn hình khi khung hẹp.
-  Từ hai bộ lọc trở lên: `collapseFiltersOnMobile` + `activeFilterCount` — màn < 768px gom bộ lọc vào nút
-  "Bộ lọc" mở ngăn trượt (bộ lọc đổi URL ngay, không có nút Áp dụng).
+  đề chỉ còn cho trình đọc màn hình khi khung hẹp. Cột `id: 'actions'` được `DataTable` **ghim mép phải**
+  (`data-pinned="right"`, nền đục, bóng mép khi bảng tràn) — một ô quá rộng không đẩy được nút `⋯` ra ngoài.
+  Ô mặc định không xuống dòng (`TableCell` của shadcn). Cột chữ dài do người dùng nhập: bọc
+  `block max-w-* whitespace-normal`; chuỗi không có khoảng trắng (email) thêm `break-words` — **đừng dùng
+  `[overflow-wrap:anywhere]`**: nó hạ min-content về 1 ký tự nên bảng bóp cột, email ngắn cũng gãy giữa chữ.
+  Nhãn ngắn mà có thể dài (vai trò tự tạo): `truncate` + `title`. Danh sách trong ô: 2 mục + "+N", đủ ở
+  `title` và `sr-only`. Kiểm bằng skill `break-ui` (dữ liệu xấu thật, nhiều khổ màn) trước khi báo xong.
+  Bộ lọc trên thanh (`ListToolbar`), không cần khai gì thêm:
+  - **Desktop vừa một hàng**: ô tìm trái, bộ lọc + nút hành động phải.
+  - **Desktop không vừa** (laptop có sidebar — `toolbar-fit.ts` đo chỗ thật của thanh, không theo cửa sổ): gom
+    vào nút "Bộ lọc (n)" mở popover; thanh luôn một hàng, nút hành động không rơi xuống hàng riêng.
+  - **Mobile < 768px**: hàng 1 ô tìm + nút hành động, hàng 2 **chip lướt ngang** (không có ô tìm thì nút hành
+    động đứng cuối hàng chip). `SelectFilter`/`DateRangeFilter` tự đổi sang dạng chip qua `filter-display.ts`:
+    chưa chọn ghi tên bộ lọc, đã chọn ghi giá trị + ✕. Bộ lọc khác loại (Combobox, ô tick) được hàng chip bo tròn.
+  - Nút hành động trên mobile chỉ còn icon (`<span className="max-md:sr-only">` cho chữ) để ô tìm không bị cắt.
+  - Truyền `activeFilterCount` (số trên nút "Bộ lọc") và `onClearFilters` (nút "Xoá bộ lọc").
 - **Form**: `Form`/`FormField`/`FormItem`/`FormLabel`/`FormControl`/`FormMessage` (`shared/ui/form.tsx`).
   Message của schema Zod là **khoá i18n có namespace** (`'examples:nameRequired'`) — `FormMessage` tự dịch;
   chuỗi không phải khoá hiện nguyên. **Mọi** rule cần message là khoá, kể cả lỗi sai kiểu:
@@ -294,6 +307,16 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   bong bóng validate trình duyệt). Form sửa khoá nút Lưu khi form chưa đổi so với giá trị lúc mở
   (`!formState.isDirty`); **không** khoá nút vì form chưa hợp lệ — bấm Lưu vẫn phải báo lỗi tại từng ô và
   focus vào ô lỗi đầu tiên (`handleSubmit` mặc định `shouldFocusError`).
+- **Kiểm ngay khi nhập xong**: mọi `useForm` khai `mode: 'onTouched'` — một ô được kiểm khi rời ô lần đầu,
+  sau đó kiểm lại mỗi lần gõ (lỗi tự mất khi sửa đúng); không la lỗi khi mới gõ chữ đầu. Ô **trống** chỉ đi
+  ngang qua chưa bị la "bắt buộc" — lỗi đó hiện sau lần bấm gửi đầu (ô đang sửa bị xoá trắng thì báo ngay);
+  luật nằm ở `visibleError` trong `shared/ui/form.tsx`, không giấu lỗi backend (`type: 'server'`). Ô có
+  ràng buộc định dạng (SĐT, mã, MST, độ dài mật khẩu) có `FormDescription` gợi ý hiện sẵn; có lỗi thì câu
+  lỗi thay chỗ gợi ý — câu lỗi vì thế ngắn ("… không đúng định dạng"), chi tiết nằm ở gợi ý. Luật nối hai ô
+  (`refine` cấp object, vd "Nhập lại mật khẩu" khớp "Mật khẩu") cần thêm
+  `useRevalidateWhenTouched(form, nguồn, đích)` (`shared/lib/form-validation.ts`) — RHF chỉ kiểm lại ô
+  đang gõ nên lỗi ở ô đích đứng yên khi sửa ô nguồn. Ô chọn (`Select`, `Combobox`, `DatePicker`, `Switch`)
+  không nối `onBlur` nên chỉ báo lỗi khi bấm Lưu — chấp nhận được vì chọn xong là hợp lệ.
 - **409 (`isVersionConflict`) thì đóng hộp** — chỉ áp cho thứ còn `version` (màn Example, và các loại
   phiếu sau này): khi mutation trả 409 vì `version` lệch, bên gọi tự đóng hộp thay vì giữ nó mở — giữ
   mở chỉ tạo vòng lặp thử lại vì `version` trong tay đã cũ.
@@ -304,7 +327,12 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   - **form nhiều ô → `FormSheet`** (`shared/ui/FormSheet.tsx`): ngăn trượt bên phải ~480px (full width
     dưới 640px), tiêu đề cố định, vùng nội dung cuộn được, chân sheet cố định chứa Huỷ/Lưu. Props:
     `open`, `onOpenChange`, `title`, `description?`, `submitLabel`, `isPending`, `submitDisabled?`,
-    `onSubmit`, `children`. Nút Lưu nằm TRONG `<form>` (không dùng thuộc tính `form=` — jsdom không nối
+    `isDirty?`, `confirmation?`, `onSubmit`, `children`. Truyền `isDirty={form.formState.isDirty}`: đóng
+    form đã sửa mà chưa lưu (Huỷ, ×, Esc, bấm ra ngoài) thì hỏi "Bỏ thay đổi chưa lưu?" trước.
+    **Thao tác TẠO phải xác nhận** (nghiệp vụ chốt): `handleSubmit` chỉ giữ giá trị đã hợp lệ vào state
+    rồi mở `confirmation` ("Xác nhận tạo …", tóm tắt mã/tên); bấm xác nhận mới gọi API; gửi lỗi thì đóng
+    hộp để lỗi tại ô hiện ra. **Sửa thì lưu thẳng**, không hỏi. Mẫu: `features/warehouse-form`. Test
+    bấm qua hộp bằng `confirmDialog(user, nhãn)` (`shared/test/confirm.ts`). Nút Lưu nằm TRONG `<form>` (không dùng thuộc tính `form=` — jsdom không nối
     nó qua portal của Radix). Mẫu: `features/warehouse-form`, `features/store-form`.
     Bẫy CSS: class ghi đè chiều rộng phải dùng cùng tiền tố biến thể
     (`data-[side=right]:sm:max-w-[480px]`), vì `sheet.tsx` gốc có `data-[side=right]:w-3/4` — class
@@ -442,7 +470,8 @@ backend cho nó qua trước khi nhìn `scope`):
   FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
   nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
-  `/examples`, `/warehouses`, `/stores` (hai màn sau qua `pages/*/model/abilities.ts`). Đếm bằng `grep
+  `/examples`, `/warehouses`, `/stores`, `/users` (ba màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
+  `AUTHORITY_CODES` (để `/permissions` không báo lệch) nhưng **không có nút nào dùng** — chỉ khoá, không xoá. Đếm bằng `grep
   AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
   chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
   `authority.constants.ts`, không phải cách migration tham chiếu tới chúng.
@@ -493,12 +522,13 @@ xác nhận ở `/permissions`). Vai trò lạ → hiện nguyên mã. Họ tên
 (`shared/lib/person-name.ts`), họ trước tên. Người đăng nhập chưa có tên → hiện "Người dùng" (`common:unnamedUser`) kèm
 icon, **không** lấy số điện thoại làm tên (số điện thoại ở dòng phụ).
 
-**MANAGER chỉ thấy phần của mình — backend lọc** (`WMS-10-be(7)`): `GET /warehouses` trả kho mình được gán làm
-quản lý, `GET /stores` trả cửa hàng gắn với các kho đó; `managerSlug`/`hasManager` bị bỏ qua. FE vì vậy **không**
-có công tắc "kho của tôi", không gọi `/warehouses/mine`, ẩn hai bộ lọc theo quản lý và dùng câu báo trống riêng
-(`warehouses:mineEmpty`, `stores:mineEmpty`). Backend so vai trò bằng `hasRole(Manager)` **không** miễn
-SUPER_ADMIN → FE so `user.roleName === ROLES.MANAGER`, không dùng `hasRole` của FE. Chi tiết `GET /…/:slug`
-backend **chưa** lọc (MANAGER mở link kho khác vẫn xem được).
+**MANAGER và SUPERVISOR chỉ thấy phần của mình — backend lọc** (`WMS-10-be(7)`, mở rộng cho SUPERVISOR ở PR #72):
+`GET /warehouses` trả kho mình quản lý **hoặc là thành viên** (`warehouse_member_tbl`), `GET /stores` trả cửa hàng
+gắn với các kho đó; `managerSlug`/`hasManager` bị bỏ qua. FE vì vậy **không** có công tắc "kho của tôi", không gọi
+`/warehouses/mine`, ẩn hai bộ lọc theo quản lý và dùng câu báo trống riêng (`warehouses:mineEmpty`,
+`stores:mineEmpty`). Backend so tên vai trò (`WAREHOUSE_SCOPED_ROLES`) **không** miễn SUPER_ADMIN → FE dùng
+`isWarehouseScoped(user.roleName)` (`entities/session`), không dùng `hasRole` của FE. Chi tiết `GET /…/:slug`
+backend **chưa** lọc (mở link kho khác vẫn xem được).
 
 ## Đa ngôn ngữ
 
@@ -574,6 +604,33 @@ mất công tìm cách sửa nó.
 
 ## Nợ kỹ thuật đang treo
 
+- **Màn Người dùng (`/users`, WMS-12): FE chặn tạm thay backend ở vài chỗ — đừng gỡ trước khi backend làm.**
+  Đã dùng API thật (PR #72, #78; 2026-10-07): tạo, sửa hồ sơ (`PATCH`), đổi vai trò (`.../change-role`), khoá /
+  mở khoá (`PUT .../lock`, `PUT .../unlock`), đặt lại mật khẩu hộ; sửa / đổi vai trò / khoá / mở khoá cùng mã
+  `USER_UPDATE`. **`DELETE /users/{slug}` giờ là XOÁ thật (`USER_DELETE`) — FE không gọi, không có nút xoá**
+  (nghiệp vụ đã chốt **chỉ khoá**; đề nghị backend gỡ endpoint — proposal mục 3.7). Cờ `userSearch`, `userSort`
+  đã bật (nhập toàn chữ số → `phonenumber`, còn lại → `name`: `pages/users/model/search-query.ts`). Thành viên kho ở
+  `widgets/warehouse-members` (trang chi tiết kho; xem cần `USER_READ`, thêm/gỡ cần `WAREHOUSE_UPDATE` + `USER_READ`). Khối này cố ý KHÔNG áp lớp lọc tạm `ability.visible` của `/users` (thành viên kho đều dưới ADMIN; người xem cần `USER_READ`) và đi theo cờ `userSearch` — cờ tắt thì đóng cả khối (backend cũ bỏ qua `warehouseSlug`).
+  Còn chờ backend
+  (`docs/proposals/2026-09-30-user-management-api.md`):
+  - **Lớp chặn tạm ở FE** (giao diện thôi, gọi thẳng API vẫn vượt được):
+    - `ability.visible` (`pages/users/model/abilities.ts`): người dưới ADMIN chỉ thấy chính mình + người cấp thấp
+      hơn, lọc ở client — phân trang theo backend nên một trang có thể ít dòng hơn (có dòng ghi chú
+      `users:rowsHidden`). Gỡ khi backend lọc `GET /users` theo phạm vi kho.
+    - Mật khẩu ≥ 8 ký tự (`shared/lib/password-policy.ts`) ở `user-form`, `user-reset-password`, `change-password`.
+      Backend chốt chính sách thì giữ luật cho khớp và map mã lỗi của backend vào ô.
+    - Nút "Đặt lại mật khẩu" ẩn trên người ngang/cao hơn: backend (PR #80) mới chặn người cấp CAO hơn, vẫn cho
+      đặt lại người CÙNG cấp và chưa kiểm phạm vi kho — đừng "sửa" abilities cho khớp backend.
+  - `PATCH` chưa nhận `null` → form sửa **không xoá trống** được email/ngày sinh/địa chỉ: ô trống bị bỏ qua (giữ
+    nguyên, có gợi ý `users:keepWhenEmpty`), chỉ gửi trường đã đổi (`toUpdateInput`).
+  - Luật cấp dùng `role.level` của cả hai bên: người bị tác động (`UserResponseDto`) và chính mình (`GET /auth/me`
+    trả `role.level` từ PR #80). Phiên cũ chưa có `me.role` mới lùi về `BUILT_IN_ROLE_LEVELS`
+    (`entities/user/model/role-level.ts`) — phải khớp `level` backend seed.
+  - "Chính mình" so bằng `userSlug` của `/auth/me` (PR #80, bỏ `userId`) qua `isSameUser` (`entities/user`);
+    phiên cũ chưa có `userSlug` lùi về so định danh đăng nhập.
+  - `warehouses` trong `UserResponseDto` chỉ là kho làm **thành viên**, không gồm kho người đó quản lý. Bộ lọc kho
+    chỉ hiện khi có `WAREHOUSE_READ`; MANAGER chỉ có `USER_READ` xem được thành viên của mọi kho (backend chưa lọc phạm vi).
+  - `AUTHORITY_CODES` chưa có 4 mã `SUPPLIER_*` (WMS-11) — màn `/permissions` sẽ cảnh báo lệch danh mục khi dev.
 - **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
   bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
   nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,

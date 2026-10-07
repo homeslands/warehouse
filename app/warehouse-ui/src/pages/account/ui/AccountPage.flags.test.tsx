@@ -5,7 +5,13 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 // Hai tính năng này backend CHƯA có nên mặc định tắt. File này bật để kiểm phần dựng sẵn thật sự
 // chạy — nếu không, code sau cờ chỉ nằm im và sẽ hỏng âm thầm tới ngày ai đó bật lên.
 vi.mock('@/shared/api/backend-capabilities', () => ({
-  BACKEND_SUPPORTS: { sort: false, search: false, profileEdit: true, sessionList: true },
+  BACKEND_SUPPORTS: {
+    sort: false,
+    search: false,
+    userSort: false,
+    profileEdit: true,
+    sessionList: true,
+  },
 }))
 
 import { ok } from '@/shared/test/api'
@@ -16,7 +22,6 @@ import { AccountPage } from '@/pages/account'
 const BASE = 'http://localhost:8085/api/v1'
 
 const profile = {
-  userId: 'u1',
   userName: '0901234567',
   roleName: 'ADMIN',
   scope: [],

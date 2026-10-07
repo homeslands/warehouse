@@ -37,7 +37,6 @@ describe('shouldRecheck — khi nào quay lại tab thì kiểm tra quyền', ()
 })
 
 const MANAGER: CurrentUser = {
-  userId: 'u1',
   userName: 'm',
   roleName: 'MANAGER',
   scope: ['IMPORT_FORM_CONFIRM'],

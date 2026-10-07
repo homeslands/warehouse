@@ -4,6 +4,9 @@ import { toast } from 'sonner'
 import type { ApiError, ListParams } from '@/shared/api/types'
 import {
   assignWarehouseManager,
+  assignWarehouseMember,
+  fetchAvailableMembers,
+  removeWarehouseMember,
   createWarehouse,
   fetchWarehouse,
   fetchWarehouses,
@@ -107,6 +110,47 @@ export function useAssignWarehouseManager() {
     onSuccess: () => {
       toast.success(t('warehouses:managerSaved'))
       invalidate()
+    },
+  })
+}
+
+/** Ứng viên thành viên: tải trang 1, `size: 100`; `enabled` để chỉ tải khi mở hộp thoại. */
+export function useAvailableMembers(slug: string, options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: warehouseKeys.availableMembers(slug),
+    queryFn: () => fetchAvailableMembers(slug, { page: 1, size: 100 }),
+    enabled: options.enabled ?? true,
+    // Ứng viên đổi sau mỗi lần gán/gỡ (kể cả từ tab khác) — luôn tải lại khi mở hộp.
+    staleTime: 0,
+  })
+}
+
+type MemberVars = { slug: string; userSlug: string }
+
+export function useAssignWarehouseMember() {
+  const qc = useQueryClient()
+  const { t } = useTranslation(['warehouses'])
+
+  return useMutation<unknown, ApiError, MemberVars>({
+    mutationFn: ({ slug, userSlug }) => assignWarehouseMember(slug, userSlug),
+    // Dialog thêm thành viên hiện lỗi theo field ngay tại ô chọn.
+    meta: { suppressErrorToast: true },
+    onSuccess: (_data, { slug }) => {
+      toast.success(t('warehouses:memberAdded'))
+      qc.invalidateQueries({ queryKey: warehouseKeys.availableMembers(slug) })
+    },
+  })
+}
+
+export function useRemoveWarehouseMember() {
+  const qc = useQueryClient()
+  const { t } = useTranslation(['warehouses'])
+
+  return useMutation<unknown, ApiError, MemberVars>({
+    mutationFn: ({ slug, userSlug }) => removeWarehouseMember(slug, userSlug),
+    onSuccess: (_data, { slug }) => {
+      toast.success(t('warehouses:memberRemoved'))
+      qc.invalidateQueries({ queryKey: warehouseKeys.availableMembers(slug) })
     },
   })
 }

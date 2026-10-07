@@ -3,6 +3,21 @@ import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ListToolbar } from './ListToolbar'
 
+// jsdom không đo kích thước — giả kết quả đo "vừa / không vừa một hàng". Mặc định: vừa.
+const fit = vi.hoisted(() => ({ fits: true }))
+vi.mock('./toolbar-fit', async (importOriginal) => {
+  const actual = await importOriginal<typeof import('./toolbar-fit')>()
+  return {
+    ...actual,
+    useToolbarFit: () => ({
+      rowRef: { current: null },
+      filtersRef: { current: null },
+      actionsRef: { current: null },
+      fits: fit.fits,
+    }),
+  }
+})
+
 /** useIsMobile đọc matchMedia('(max-width: 767px)'). */
 function fakeMobile() {
   const realMatchMedia = window.matchMedia
@@ -14,6 +29,7 @@ function fakeMobile() {
 
 afterEach(() => {
   vi.restoreAllMocks()
+  fit.fits = true
 })
 
 describe('ListToolbar — bố cục', () => {
@@ -29,10 +45,12 @@ describe('ListToolbar — bố cục', () => {
     const filter = screen.getByLabelText('Trạng thái')
     const create = screen.getByRole('button', { name: 'Tạo' })
 
-    expect(search.parentElement).not.toBe(filter.parentElement)
-    expect(filter.parentElement).toBe(create.parentElement)
-    expect(filter.parentElement).toHaveClass('ml-auto')
-    expect(create.parentElement!.lastElementChild).toBe(create)
+    // Cụm phải (ml-auto) chứa bộ lọc rồi nút hành động — mỗi phần bọc một lớp để đo bề rộng.
+    const right = filter.closest('.ml-auto')
+    expect(right).not.toBeNull()
+    expect(search.closest('.ml-auto')).toBeNull()
+    expect(right).toContainElement(create)
+    expect(right!.lastElementChild).toContainElement(create)
   })
 
   it('không có ô tìm → không dựng cụm trái, bộ lọc và nút vẫn dồn phải', () => {
@@ -43,11 +61,13 @@ describe('ListToolbar — bố cục', () => {
       />,
     )
     expect(container.firstElementChild!.children).toHaveLength(1)
-    expect(screen.getByLabelText('Trạng thái').parentElement).toHaveClass('ml-auto')
+    expect(screen.getByLabelText('Trạng thái').closest('.ml-auto')).toBe(
+      container.firstElementChild!.firstElementChild,
+    )
   })
 })
 
-describe('ListToolbar — gom bộ lọc trên màn < 768px', () => {
+describe('ListToolbar — mobile: chip lướt ngang', () => {
   const filters = (
     <>
       <select aria-label="Trạng thái" />
@@ -55,45 +75,95 @@ describe('ListToolbar — gom bộ lọc trên màn < 768px', () => {
     </>
   )
 
-  it('màn hẹp + collapseFiltersOnMobile → nút "Bộ lọc" kèm số đang áp dụng; bấm mở ngăn chứa bộ lọc', async () => {
+  it('hàng 1: ô tìm + nút hành động; hàng 2: nhóm "Bộ lọc" lướt ngang chứa mọi bộ lọc — không có nút/ngăn "Bộ lọc"', () => {
     fakeMobile()
     render(
       <ListToolbar
-        collapseFiltersOnMobile
-        activeFilterCount={2}
+        search={<input aria-label="Tìm kiếm" />}
         filters={filters}
         actions={<button type="button">Tạo</button>}
       />,
     )
+    const group = screen.getByRole('group', { name: 'Bộ lọc' })
+    expect(within(group).getByLabelText('Trạng thái')).toBeInTheDocument()
+    expect(within(group).getByLabelText('Quản lý')).toBeInTheDocument()
+    expect(group).toHaveClass('overflow-x-auto')
+    expect(screen.queryByRole('button', { name: /Bộ lọc/ })).not.toBeInTheDocument()
 
-    expect(screen.queryByLabelText('Trạng thái')).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Tạo' })).toBeInTheDocument()
-    const trigger = screen.getByRole('button', { name: /Bộ lọc/ })
-    expect(within(trigger).getByLabelText('2 bộ lọc đang áp dụng')).toHaveTextContent('2')
-
-    await userEvent.click(trigger)
-
-    const sheet = await screen.findByRole('dialog', { name: 'Bộ lọc' })
-    expect(within(sheet).getByLabelText('Trạng thái')).toBeInTheDocument()
-    expect(within(sheet).getByLabelText('Quản lý')).toBeInTheDocument()
+    const firstRow = screen.getByLabelText('Tìm kiếm').closest('[data-slot="toolbar-row"]')
+    expect(firstRow).toContainElement(screen.getByRole('button', { name: 'Tạo' }))
+    expect(firstRow).not.toContainElement(group)
   })
 
-  it('không có bộ lọc nào đang áp dụng → nút không hiện số', () => {
+  it('có bộ lọc đang áp dụng + onClearFilters → chip "Xoá bộ lọc" cuối hàng', async () => {
     fakeMobile()
-    render(<ListToolbar collapseFiltersOnMobile filters={filters} />)
-    expect(screen.getByRole('button', { name: 'Bộ lọc' })).toBeInTheDocument()
+    const onClear = vi.fn()
+    render(<ListToolbar activeFilterCount={1} onClearFilters={onClear} filters={filters} />)
+    const group = screen.getByRole('group', { name: 'Bộ lọc' })
+    await userEvent.click(within(group).getByRole('button', { name: 'Xoá bộ lọc' }))
+    expect(onClear).toHaveBeenCalledTimes(1)
   })
 
-  it('màn rộng → bộ lọc nằm thẳng trên thanh, không có nút "Bộ lọc"', () => {
-    render(<ListToolbar collapseFiltersOnMobile filters={filters} />)
+  it('không có bộ lọc đang áp dụng → không có chip "Xoá bộ lọc"', () => {
+    fakeMobile()
+    render(<ListToolbar activeFilterCount={0} onClearFilters={vi.fn()} filters={filters} />)
+    expect(screen.queryByRole('button', { name: 'Xoá bộ lọc' })).not.toBeInTheDocument()
+  })
+
+  it('màn rộng → bộ lọc nằm thẳng trên thanh, không có nhóm chip', () => {
+    render(<ListToolbar filters={filters} />)
     expect(screen.getByLabelText('Trạng thái')).toBeInTheDocument()
+    expect(screen.queryByRole('group', { name: 'Bộ lọc' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ListToolbar — tự gom khi không vừa một hàng (desktop)', () => {
+  const filters = (
+    <>
+      <select aria-label="Vai trò" />
+      <select aria-label="Kho" />
+    </>
+  )
+
+  it('vừa một hàng → bộ lọc nằm thẳng trên thanh', () => {
+    render(<ListToolbar filters={filters} actions={<button type="button">Thêm</button>} />)
+    expect(screen.getByLabelText('Vai trò')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: /Bộ lọc/ })).not.toBeInTheDocument()
   })
 
-  it('màn hẹp nhưng không bật collapseFiltersOnMobile (vd chỉ một ô lọc) → vẫn để thẳng', () => {
-    fakeMobile()
-    render(<ListToolbar filters={<select aria-label="Trạng thái" />} />)
-    expect(screen.getByLabelText('Trạng thái')).toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /Bộ lọc/ })).not.toBeInTheDocument()
+  it('không vừa → nút "Bộ lọc (n)" cạnh nút hành động; bấm mở popover chứa đủ bộ lọc', async () => {
+    fit.fits = false
+    render(
+      <ListToolbar
+        activeFilterCount={1}
+        filters={filters}
+        actions={<button type="button">Thêm</button>}
+      />,
+    )
+    expect(screen.queryByLabelText('Vai trò')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Thêm' })).toBeInTheDocument()
+
+    await userEvent.click(screen.getByRole('button', { name: /Bộ lọc/ }))
+
+    const panel = await screen.findByRole('dialog', { name: 'Bộ lọc' })
+    expect(within(panel).getByLabelText('Vai trò')).toBeInTheDocument()
+    expect(within(panel).getByLabelText('Kho')).toBeInTheDocument()
+  })
+
+  it('có bộ lọc đang áp dụng + onClearFilters → nút "Xoá bộ lọc" trong popover', async () => {
+    fit.fits = false
+    const onClear = vi.fn()
+    render(<ListToolbar activeFilterCount={2} onClearFilters={onClear} filters={filters} />)
+    await userEvent.click(screen.getByRole('button', { name: /Bộ lọc/ }))
+    await userEvent.click(await screen.findByRole('button', { name: 'Xoá bộ lọc' }))
+    expect(onClear).toHaveBeenCalledTimes(1)
+  })
+
+  it('không có bộ lọc nào đang áp dụng → không có nút "Xoá bộ lọc"', async () => {
+    fit.fits = false
+    render(<ListToolbar activeFilterCount={0} onClearFilters={vi.fn()} filters={filters} />)
+    await userEvent.click(screen.getByRole('button', { name: /Bộ lọc/ }))
+    await screen.findByRole('dialog', { name: 'Bộ lọc' })
+    expect(screen.queryByRole('button', { name: 'Xoá bộ lọc' })).not.toBeInTheDocument()
   })
 })

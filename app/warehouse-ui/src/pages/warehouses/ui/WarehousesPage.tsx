@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontalIcon } from 'lucide-react'
+import { MoreHorizontalIcon, PlusIcon } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -22,7 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
 import { Label } from '@/shared/ui/label'
-import { ROLES, useAuthStore } from '@/entities/session'
+import { useAuthStore, isWarehouseScoped } from '@/entities/session'
 import { useManagerCandidates } from '@/entities/user'
 import { formatPersonLabel } from '@/shared/lib/person-name'
 import {
@@ -117,7 +117,8 @@ export function WarehousesPage() {
   // `hasManager` (`WMS-10-be(7)`) — nên không có công tắc "kho của tôi", không gọi `/warehouses/mine`,
   // và hai bộ lọc theo quản lý bị ẩn. Backend so vai trò bằng `hasRole(Manager)` KHÔNG miễn SUPER_ADMIN,
   // nên ở đây cũng so `roleName` trực tiếp, không dùng `hasRole` của FE (hàm đó cho SUPER_ADMIN qua).
-  const isManager = user?.roleName === ROLES.MANAGER
+  // MANAGER/SUPERVISOR: backend tự lọc theo kho của mình và bỏ qua `managerSlug`/`hasManager`.
+  const scopedToOwnWarehouses = isWarehouseScoped(user?.roleName)
 
   // `search` và `sort` chỉ rời khỏi FE khi backend làm xong — xem backend-capabilities.
   const { search, managerSlug, hasManager, ...rest } = filters
@@ -125,7 +126,7 @@ export function WarehousesPage() {
     page,
     size,
     ...rest,
-    ...(isManager ? {} : { managerSlug, hasManager }),
+    ...(scopedToOwnWarehouses ? {} : { managerSlug, hasManager }),
     ...(BACKEND_SUPPORTS.search && search !== undefined ? { search } : {}),
     sort: BACKEND_SUPPORTS.sort ? sortToParam(sort) : undefined,
   })
@@ -224,8 +225,9 @@ export function WarehousesPage() {
       <h1 className="text-xl font-semibold">{t('warehouses:title')}</h1>
 
       <ListToolbar
-        // MANAGER chỉ còn một bộ lọc (Trạng thái) — gom vào nút "Bộ lọc" chỉ thêm một cú bấm.
-        collapseFiltersOnMobile={!isManager}
+        onClearFilters={() =>
+          setFilters({ isActive: undefined, managerSlug: undefined, hasManager: undefined })
+        }
         activeFilterCount={
           [
             filters.isActive !== undefined,
@@ -256,7 +258,7 @@ export function WarehousesPage() {
                 { value: 'false', label: t('warehouses:inactive') },
               ]}
             />
-            {ability.filterByManager && !isManager && (
+            {ability.filterByManager && !scopedToOwnWarehouses && (
               <ManagerFilter
                 value={filters.managerSlug}
                 // Backend BỎ QUA `hasManager` khi đã có `managerSlug` — để cả hai cùng bật thì
@@ -264,7 +266,7 @@ export function WarehousesPage() {
                 onChange={(value) => setFilters({ managerSlug: value, hasManager: undefined })}
               />
             )}
-            {!isManager && (
+            {!scopedToOwnWarehouses && (
               <Label className="text-sm font-normal">
                 <Checkbox
                   checked={filters.hasManager === false}
@@ -288,7 +290,9 @@ export function WarehousesPage() {
                 setFormOpen(true)
               }}
             >
-              {t('warehouses:create')}
+              <PlusIcon aria-hidden />
+              {/* Mobile: chỉ còn dấu ＋ để ô tìm cùng hàng không bị cắt chữ; tên nút vẫn đọc được. */}
+              <span className="max-md:sr-only">{t('warehouses:create')}</span>
             </Button>
           )
         }
@@ -303,7 +307,7 @@ export function WarehousesPage() {
         data={data?.items}
         isLoading={isPending}
         error={error}
-        emptyText={isManager ? t('warehouses:mineEmpty') : undefined}
+        emptyText={scopedToOwnWarehouses ? t('warehouses:mineEmpty') : undefined}
         sorting={BACKEND_SUPPORTS.sort ? { value: sort, onChange: setSort } : undefined}
         pagination={{
           page: data?.page ?? page,

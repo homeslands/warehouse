@@ -9,5 +9,6 @@ export const warehouseKeys = {
   all: ['warehouses'] as const,
   lists: () => [...warehouseKeys.all, 'list'] as const,
   list: (params: ListParams<WarehouseFilters>) => [...warehouseKeys.lists(), params] as const,
+  availableMembers: (slug: string) => [...warehouseKeys.all, 'available-members', slug] as const,
   detail: (slug: string) => [...warehouseKeys.all, 'detail', slug] as const,
 }

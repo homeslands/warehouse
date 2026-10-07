@@ -1,12 +1,22 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { WarehouseIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { SummaryList } from '@/shared/ui/SummaryList'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { Switch } from '@/shared/ui/switch'
 import { Textarea } from '@/shared/ui/textarea'
@@ -90,7 +100,11 @@ export function WarehouseFormSheet({ open, onOpenChange, warehouse }: Props) {
   const update = useUpdateWarehouse()
   const isPending = create.isPending || update.isPending
 
-  const form = useForm<WarehouseInput>({ resolver: zodResolver(schema), defaultValues: EMPTY_FORM })
+  const form = useForm<WarehouseInput>({
+    resolver: zodResolver(schema),
+    mode: 'onTouched',
+    defaultValues: EMPTY_FORM,
+  })
   // Sửa: khoá Lưu tới khi khác giá trị đã `reset` lúc mở sheet. KHÔNG khoá vì form chưa hợp lệ —
   // bấm Lưu vẫn phải báo lỗi tại từng ô và focus ô lỗi đầu tiên.
   const submitDisabled = warehouse ? !form.formState.isDirty : false
@@ -117,14 +131,31 @@ export function WarehouseFormSheet({ open, onOpenChange, warehouse }: Props) {
     toastApiError(error)
   }
 
+  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận tạo …" rồi mới gửi. Sửa: lưu thẳng.
+  const [toCreate, setToCreate] = useState<WarehouseInput | null>(null)
+  if (!open && toCreate) setToCreate(null)
+
+  const confirmCreate = () => {
+    if (!toCreate) return
+    create.mutate(toApiInput(toCreate), {
+      onSuccess: () => onOpenChange(false),
+      onError: (error) => {
+        // Đóng hộp xác nhận để lỗi tại ô (vd mã đã tồn tại) hiện ra.
+        setToCreate(null)
+        handleError(error)
+      },
+    })
+  }
+
   const onSubmit = (values: WarehouseInput) => {
-    const input = toApiInput(values)
-    const options = { onSuccess: () => onOpenChange(false), onError: handleError }
-    if (warehouse) {
-      update.mutate({ slug: warehouse.slug, input }, options)
-    } else {
-      create.mutate(input, options)
+    if (!warehouse) {
+      setToCreate(values)
+      return
     }
+    update.mutate(
+      { slug: warehouse.slug, input: toApiInput(values) },
+      { onSuccess: () => onOpenChange(false), onError: handleError },
+    )
   }
 
   return (
@@ -135,6 +166,31 @@ export function WarehouseFormSheet({ open, onOpenChange, warehouse }: Props) {
       submitLabel={warehouse ? t('common:save') : t('warehouses:create')}
       isPending={isPending}
       submitDisabled={submitDisabled}
+      isDirty={form.formState.isDirty}
+      confirmation={
+        warehouse
+          ? undefined
+          : {
+              open: toCreate !== null,
+              onOpenChange: (next) => {
+                if (!next) setToCreate(null)
+              },
+              icon: <WarehouseIcon />,
+              title: t('warehouses:createConfirmTitle'),
+              description: t('warehouses:createConfirmDescription'),
+              details: toCreate && (
+                <SummaryList
+                  items={[
+                    { label: t('warehouses:columnCode'), value: toCreate.code.trim() },
+                    { label: t('warehouses:columnName'), value: toCreate.name.trim() },
+                    { label: t('warehouses:columnAddress'), value: toCreate.address.trim() },
+                  ]}
+                />
+              ),
+              confirmLabel: t('warehouses:createConfirmAction'),
+              onConfirm: confirmCreate,
+            }
+      }
       onSubmit={form.handleSubmit(onSubmit)}
     >
       <Form {...form}>
@@ -147,6 +203,7 @@ export function WarehouseFormSheet({ open, onOpenChange, warehouse }: Props) {
               <FormControl>
                 <Input {...field} />
               </FormControl>
+              <FormDescription>{t('warehouses:codeHint')}</FormDescription>
               <FormMessage />
             </FormItem>
           )}
