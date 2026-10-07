@@ -8,7 +8,9 @@ export enum TokenType {
   Refresh = 'refresh',
 }
 
-export interface ProfileResponseDto extends CurrentUserDto {
+// Không trả `userId` (uuid PK) — giống mọi response khác, `slug` là định danh public duy nhất.
+export interface ProfileResponseDto extends Omit<CurrentUserDto, 'userId'> {
+  userSlug: string;
   /** Giữ lại cho client cũ — cùng giá trị với `phonenumber`. */
   userName: string;
   phonenumber: string;
