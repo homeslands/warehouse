@@ -12,10 +12,12 @@ describe('WarehouseController', () => {
   const warehouseService = {
     createWarehouse: jest.fn(),
     findAll: jest.fn(),
-    findMine: jest.fn(),
     findOne: jest.fn(),
     updateWarehouse: jest.fn(),
     assignManager: jest.fn(),
+    assignMember: jest.fn(),
+    removeMember: jest.fn(),
+    findAvailableMembers: jest.fn(),
     deleteWarehouse: jest.fn(),
   };
 
@@ -60,22 +62,13 @@ describe('WarehouseController', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it('scopes findMine to the current user id', async () => {
-    const query = { page: 1, size: 10 };
-    warehouseService.findMine.mockResolvedValue({ items: [], total: 0 });
-
-    const response = await controller.findMine(currentUser, query);
-
-    expect(warehouseService.findMine).toHaveBeenCalledWith('user-id-1', query);
-    expect(response.statusCode).toBe(200);
-  });
-
-  it('forwards the slug to findOne', async () => {
+  it('forwards the slug and current user to findOne', async () => {
     warehouseService.findOne.mockResolvedValue({ slug: 'wh-slug-1' });
+    const user = { userId: 'user-id-1', roleName: 'MANAGER', scope: [] };
 
-    const response = await controller.findOne('wh-slug-1');
+    const response = await controller.findOne(user, 'wh-slug-1');
 
-    expect(warehouseService.findOne).toHaveBeenCalledWith('wh-slug-1');
+    expect(warehouseService.findOne).toHaveBeenCalledWith('wh-slug-1', user);
     expect(response.result).toEqual({ slug: 'wh-slug-1' });
   });
 
@@ -118,6 +111,38 @@ describe('WarehouseController', () => {
     expect(response.statusCode).toBe(200);
   });
 
+  it('assignMember wraps the service result with 200', async () => {
+    warehouseService.assignMember.mockResolvedValue({ slug: 'm-slug-1' });
+
+    const response = await controller.assignMember('wh-slug-1', { userSlug: 'member-slug-1' });
+
+    expect(warehouseService.assignMember).toHaveBeenCalledWith('wh-slug-1', {
+      userSlug: 'member-slug-1',
+    });
+    expect(response.statusCode).toBe(200);
+    expect(response.result).toEqual({ slug: 'm-slug-1' });
+  });
+
+  it('removeMember passes both slugs and wraps the result', async () => {
+    warehouseService.removeMember.mockResolvedValue(1);
+
+    const response = await controller.removeMember('wh-slug-1', 'member-slug-1');
+
+    expect(warehouseService.removeMember).toHaveBeenCalledWith('wh-slug-1', 'member-slug-1');
+    expect(response.statusCode).toBe(200);
+    expect(response.result).toBe('1 warehouse member have been removed successfully');
+  });
+
+  it('forwards slug and query to findAvailableMembers', async () => {
+    const query = { page: 1, size: 10, roleSlug: 'supervisor' };
+    warehouseService.findAvailableMembers.mockResolvedValue({ items: [], total: 0 });
+
+    const response = await controller.findAvailableMembers('wh-slug-1', query);
+
+    expect(warehouseService.findAvailableMembers).toHaveBeenCalledWith('wh-slug-1', query);
+    expect(response.statusCode).toBe(200);
+  });
+
   // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
   // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
   describe('@RequireAuthority metadata', () => {
@@ -130,12 +155,19 @@ describe('WarehouseController', () => {
       expect(authority(controller.findOne)).toEqual([AuthorityCode.WarehouseRead]);
       expect(authority(controller.updateWarehouse)).toEqual([AuthorityCode.WarehouseUpdate]);
       expect(authority(controller.assignManager)).toEqual([AuthorityCode.WarehouseAssignManager]);
+      expect(authority(controller.assignMember)).toEqual([
+        AuthorityCode.WarehouseUpdate,
+        AuthorityCode.UserRead,
+      ]);
+      expect(authority(controller.findAvailableMembers)).toEqual([
+        AuthorityCode.WarehouseUpdate,
+        AuthorityCode.UserRead,
+      ]);
+      expect(authority(controller.removeMember)).toEqual([
+        AuthorityCode.WarehouseUpdate,
+        AuthorityCode.UserRead,
+      ]);
       expect(authority(controller.deleteWarehouse)).toEqual([AuthorityCode.WarehouseDelete]);
-    });
-
-    // `mine` cố tình không gắn decorator: service đã giới hạn theo `userId` của chính người gọi.
-    it('leaves /mine open to any authenticated user', () => {
-      expect(authority(controller.findMine)).toBeUndefined();
     });
   });
 });

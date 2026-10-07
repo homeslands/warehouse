@@ -15,11 +15,9 @@ import {
 } from 'src/material-type/material-type.validation';
 import { MaterialValidation, TMaterialErrorCode } from 'src/material/material.validation';
 import { UnitValidation, TUnitErrorCode } from 'src/unit/unit.validation';
-import {
-  WarehouseMaterialValidation,
-  TWarehouseMaterialErrorCode,
-} from 'src/warehouse-material/warehouse-material.validation';
+import { InventoryValidation, TInventoryErrorCode } from 'src/inventory/inventory.validation';
 import { StoreValidation, TStoreErrorCode } from 'src/store/store.validation';
+import { SupplierValidation, TSupplierErrorCode } from 'src/supplier/supplier.validation';
 import { TaxProfileValidation, TTaxProfileErrorCode } from 'src/tax-profile/tax-profile.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
@@ -53,8 +51,9 @@ export const AppValidation: TAuthErrorCode &
   TMaterialTypeErrorCode &
   TMaterialErrorCode &
   TUnitErrorCode &
-  TWarehouseMaterialErrorCode &
+  TInventoryErrorCode &
   TStoreErrorCode &
+  TSupplierErrorCode &
   TTaxProfileErrorCode &
   TDbErrorCode &
   TFileErrorCode &
@@ -70,8 +69,9 @@ export const AppValidation: TAuthErrorCode &
   ...MaterialTypeValidation,
   ...MaterialValidation,
   ...UnitValidation,
-  ...WarehouseMaterialValidation,
+  ...InventoryValidation,
   ...StoreValidation,
+  ...SupplierValidation,
   ...TaxProfileValidation,
   ...DbValidation,
   ...FileValidation,

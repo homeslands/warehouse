@@ -24,7 +24,7 @@ Khai báo danh mục vật tư (`MaterialType` → `Material`) và quản lý **
 | minimumInventory | int | có | ngưỡng MẶC ĐỊNH chung mọi kho, `>= 0`, default 0 |
 | maximumInventory | int | có | ngưỡng MẶC ĐỊNH chung mọi kho, `>= minimumInventory` |
 
-### `WarehouseMaterial` (`warehouse_material_tbl`) — kế thừa `Base`
+### `Inventory` (`inventory_tbl`, trước migration `1783728000036` là `WarehouseMaterial`/`warehouse_material_tbl`) — kế thừa `Base`
 
 Bảng nối kho ↔ vật tư, 1 row = 1 vật tư trong 1 kho.
 
@@ -32,31 +32,32 @@ Bảng nối kho ↔ vật tư, 1 row = 1 vật tư trong 1 kho.
 |---|---|---|---|
 | warehouse | FK `Warehouse` | có | `ManyToOne` |
 | material | FK `Material` | có | `ManyToOne` |
-| quantity | int | có | tồn thực tế **của kho này**, `>= 0`, default 0 |
+| quantity | decimal(18,6) | có | tồn thực tế **của kho này**, `>= 0`, default 0 |
+| reservedQuantity | decimal(18,6) | có | lượng đã giữ chỗ cho phiếu xuất, `0 <= reserved <= quantity`, default 0 |
 | minimumInventory | int | không | `null` = dùng ngưỡng của `Material` |
 | maximumInventory | int | không | `null` = dùng ngưỡng của `Material` |
 
 `UNIQUE(warehouse_id_column, material_id_column)` — 1 vật tư chỉ có đúng 1 row trong 1 kho.
 
-**`Base` chứ không `VersionedBase`:** `quantity` là đại lượng cộng/trừ nguyên tử (sau này do phiếu nhập/xuất ghi), đúng trường hợp CLAUDE.md nói **không** dùng optimistic locking. `MaterialType`/`Material` cũng dùng `Base` (bỏ `VersionedBase` từ migration `1783728000024`): `VersionedBase` chỉ dành cho phiếu nhập/xuất/kiểm kho.
+**`Base` chứ không `VersionedBase`:** chống ghi đè đồng thời lên `quantity`/`reservedQuantity` bằng **pessimistic lock** (`SELECT ... FOR UPDATE` trong transaction), không dùng optimistic locking — client không gửi `version`. `MaterialType`/`Material` cũng dùng `Base` (bỏ `VersionedBase` từ migration `1783728000024`): `VersionedBase` chỉ dành cho phiếu nhập/xuất/kiểm kho.
 
 ## Quy tắc nghiệp vụ
 
-**Ngưỡng tồn (effective threshold):** ngưỡng thật sự áp cho 1 vật tư trong 1 kho = override trên `WarehouseMaterial` nếu khác `null`, ngược lại lấy của `Material`. Tính riêng từng vế: override `minimumInventory` mà không override `maximumInventory` là hợp lệ. Response luôn trả kèm `effectiveMinimumInventory`/`effectiveMaximumInventory` + 2 cờ `isBelowMinimum`/`isAboveMaximum` để client không phải tự tính lại.
+**Ngưỡng tồn (effective threshold):** ngưỡng thật sự áp cho 1 vật tư trong 1 kho = override trên `Inventory` nếu khác `null`, ngược lại lấy của `Material`. Tính riêng từng vế: override `minimumInventory` mà không override `maximumInventory` là hợp lệ. Response luôn trả kèm `effectiveMinimumInventory`/`effectiveMaximumInventory` + 2 cờ `isBelowMinimum`/`isAboveMaximum` để client không phải tự tính lại.
 
 **Ràng buộc ngưỡng:** `minimumInventory >= 0` và `maximumInventory >= minimumInventory`, kiểm ở cả `Material` lẫn override. Với override chỉ truyền 1 vế, so vế còn lại với giá trị **effective** (vế kia của `Material`) — không cho tạo ra cặp ngưỡng mâu thuẫn qua đường override.
 
-**Tồn kho:** `quantity >= 0` mọi lúc. Điều chỉnh tồn đi qua endpoint riêng `PATCH .../quantity` với `delta` (số nguyên, âm/dương, khác 0) và ghi bằng **1 câu UPDATE có điều kiện** (`quantity = quantity + delta WHERE quantity + delta >= 0`), không đọc-rồi-ghi — 2 người điều chỉnh cùng lúc không ghi đè nhau. `delta` làm tồn âm → `WAREHOUSE_MATERIAL_QUANTITY_NEGATIVE`. Endpoint sửa ngưỡng (`PATCH`) **không** đụng `quantity`.
+**Tồn kho:** `0 <= reservedQuantity <= quantity` mọi lúc. Điều chỉnh tồn đi qua endpoint riêng `PATCH .../quantity` với `delta` (âm/dương, khác 0, tối đa 6 chữ số thập phân) + `note?`; service khoá dòng tồn (`pessimistic_write`) trong transaction rồi mới đọc-ghi — 2 người điều chỉnh cùng lúc chạy nối tiếp, không ghi đè nhau — và ghi 1 dòng `InventoryHistory` (`ADJUST`, before/after) cùng transaction. `delta` làm tồn âm → `INVENTORY_QUANTITY_NEGATIVE`; làm tồn thấp hơn lượng đã giữ chỗ → `INVENTORY_QUANTITY_BELOW_RESERVED`. Endpoint sửa ngưỡng (`PATCH`) **không** đụng `quantity`.
 
 **Xoá / gỡ:**
 - Không xoá `MaterialType` còn `Material` tham chiếu → `MATERIAL_TYPE_IN_USE`.
 - Không xoá `Material` còn được gán vào bất kỳ kho nào → `MATERIAL_IN_USE`. Gỡ khỏi hết các kho rồi mới xoá được.
-- Không gỡ vật tư khỏi kho khi `quantity > 0` → `WAREHOUSE_MATERIAL_QUANTITY_NOT_EMPTY`. Rào chống mất dấu tồn, giống tinh thần "không xoá kho đang `isActive`" của `warehouse`.
+- Không gỡ vật tư khỏi kho khi `quantity > 0` → `INVENTORY_QUANTITY_NOT_EMPTY`, hoặc khi `reservedQuantity > 0` → `INVENTORY_RESERVED_NOT_EMPTY`. Rào chống mất dấu tồn, giống tinh thần "không xoá kho đang `isActive`" của `warehouse`.
 - Cả 3 đều là soft-delete (`Base.deletedAt`).
 
 **Khoá nghiệp vụ `code`:** unique, tự `toUpperCase()` ở mapper (giống `Warehouse.code`) để `mt-01` và `MT-01` va nhau ở tầng check trùng thay vì thành 2 row. UNIQUE index của MySQL không bỏ qua row xoá mềm, nên check trùng phải `withDeleted` và phân biệt "đang dùng" với "bị bản ghi đã xoá giữ chỗ" — cùng pattern `assertCodeIsFree` của `warehouse.service.ts`.
 
-**Gán vật tư vào kho:** kho phải tồn tại và `isActive`; vật tư phải tồn tại. Gán trùng (đã có row, kể cả row xoá mềm) → `WAREHOUSE_MATERIAL_DOES_EXIST`.
+**Gán vật tư vào kho:** kho phải tồn tại và `isActive`; vật tư phải tồn tại. Gán trùng (đã có row, kể cả row xoá mềm) → `INVENTORY_DOES_EXIST`.
 
 ## Quyền truy cập
 
@@ -88,7 +89,8 @@ Dùng `@HasRole` (RBAC cơ bản), giống `/warehouses`. `SUPER_ADMIN` bypass.
 - `POST /warehouses/:warehouseSlug/materials` — gán vật tư vào kho (`materialSlug`, `quantity?`, `minimumInventory?`, `maximumInventory?`)
 - `GET /warehouses/:warehouseSlug/materials` — list phân trang (filter `typeSlug`, `belowMinimum`, `aboveMaximum`)
 - `PATCH /warehouses/:warehouseSlug/materials/:materialSlug` — sửa override ngưỡng
-- `PATCH /warehouses/:warehouseSlug/materials/:materialSlug/quantity` — điều chỉnh tồn theo `delta`
+- `PATCH /warehouses/:warehouseSlug/materials/:materialSlug/quantity` — điều chỉnh tồn theo `delta` (+ `note?`)
+- `GET /warehouses/:warehouseSlug/materials/:materialSlug/histories` — lịch sử thay đổi tồn (`ASSIGN`/`ADJUST`/`REMOVE`, sau này `RESERVE`/`RELEASE`), phân trang, mới nhất trước
 - `DELETE /warehouses/:warehouseSlug/materials/:materialSlug` — gỡ vật tư khỏi kho
 
 

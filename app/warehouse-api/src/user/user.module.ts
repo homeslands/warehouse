@@ -3,12 +3,13 @@ import { TypeOrmModule } from '@nestjs/typeorm';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { User } from './user.entity';
+import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { UserProfile } from './user.mapper';
 import { RoleModule } from 'src/role/role.module';
 import { TokenRevocationModule } from 'src/auth/token-revocation.module';
 
 @Module({
-  imports: [TypeOrmModule.forFeature([User]), RoleModule, TokenRevocationModule],
+  imports: [TypeOrmModule.forFeature([User, Warehouse]), RoleModule, TokenRevocationModule],
   controllers: [UserController],
   providers: [UserService, UserProfile],
   exports: [UserService],

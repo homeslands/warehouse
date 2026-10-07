@@ -1,4 +1,4 @@
-import { WarehouseMaterial } from './warehouse-material.entity';
+import { Inventory } from './inventory.entity';
 
 /**
  * Ngưỡng THẬT SỰ đang áp cho 1 vật tư trong 1 kho: override của kho nếu khác `null`/`undefined`,
@@ -17,7 +17,4 @@ export const effectiveMaximum = (row: {
   material?: { maximumInventory?: number } | null;
 }): number => row.maximumInventory ?? row.material?.maximumInventory ?? 0;
 
-export type WarehouseMaterialRow = Pick<
-  WarehouseMaterial,
-  'minimumInventory' | 'maximumInventory' | 'material'
->;
+export type InventoryRow = Pick<Inventory, 'minimumInventory' | 'maximumInventory' | 'material'>;

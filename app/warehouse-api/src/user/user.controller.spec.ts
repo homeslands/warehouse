@@ -1,4 +1,6 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA, PATH_METADATA } from '@nestjs/common/constants';
 import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { UserController } from './user.controller';
@@ -11,6 +13,7 @@ describe('UserController', () => {
     createUser: jest.fn(),
     findAll: jest.fn(),
     changeUserPassword: jest.fn(),
+    deleteUser: jest.fn(),
   };
 
   const currentUser: CurrentUserDto = {
@@ -59,5 +62,30 @@ describe('UserController', () => {
     expect(authority(controller.createUser)).toEqual([AuthorityCode.UserCreate]);
     expect(authority(controller.findAll)).toEqual([AuthorityCode.UserRead]);
     expect(authority(controller.changeUserPassword)).toEqual([AuthorityCode.UserChangePassword]);
+    expect(authority(controller.updateUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.lockUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.unlockUser)).toEqual([AuthorityCode.UserUpdate]);
+    expect(authority(controller.deleteUser)).toEqual([AuthorityCode.UserDelete]);
+    expect(authority(controller.changeUserRole)).toEqual([AuthorityCode.UserUpdate]);
+  });
+
+  // Khoá/mở khoá là `PUT .../lock|unlock`; `DELETE /users/{slug}` là xoá (mềm) user.
+  it.each([
+    ['lockUser', RequestMethod.PUT, ':userSlug/lock'],
+    ['unlockUser', RequestMethod.PUT, ':userSlug/unlock'],
+    ['deleteUser', RequestMethod.DELETE, ':userSlug'],
+    ['updateUser', RequestMethod.PATCH, ':userSlug'],
+  ] as const)('maps %s to %s %s', (handler, method, path) => {
+    expect(Reflect.getMetadata(METHOD_METADATA, controller[handler])).toBe(method);
+    expect(Reflect.getMetadata(PATH_METADATA, controller[handler])).toBe(path);
+  });
+
+  it('renders the delete count as a message string', async () => {
+    userService.deleteUser.mockResolvedValue(1);
+
+    const response = await controller.deleteUser(currentUser, 'other-slug');
+
+    expect(userService.deleteUser).toHaveBeenCalledWith(currentUser, 'other-slug');
+    expect(response.result).toBe('1 user have been deleted successfully');
   });
 });

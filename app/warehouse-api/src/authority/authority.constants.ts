@@ -29,6 +29,12 @@ export const AuthorityCode = {
   // --- Seed ở migration 1783728000011 ---
   UserChangePassword: 'USER_CHANGE_PASSWORD',
 
+  // --- Seed ở migration 1783728000035 — `PATCH /users/{slug}`, `PUT /users/{slug}/lock|unlock`, `.../change-role` ---
+  UserUpdate: 'USER_UPDATE',
+
+  // --- Seed ở migration 1783728000038 — `DELETE /users/{slug}` (xoá mềm) ---
+  UserDelete: 'USER_DELETE',
+
   // --- Phiếu nhập kho (ImportForm) ---
   ImportFormCreate: 'IMPORT_FORM_CREATE',
   ImportFormRead: 'IMPORT_FORM_READ',
@@ -109,6 +115,13 @@ export const AuthorityCode = {
   RoleRead: 'ROLE_READ',
   RoleUpdate: 'ROLE_UPDATE',
   RoleDelete: 'ROLE_DELETE',
+
+  // ===== Seed ở migration 1783728000032 (Supplier — gồm cả giao dịch nhà cung cấp) =====
+  // Ghi giao dịch = `SupplierUpdate`; gắn/gỡ vật tư = `SupplierUpdate` + `MaterialUpdate`.
+  SupplierCreate: 'SUPPLIER_CREATE',
+  SupplierRead: 'SUPPLIER_READ',
+  SupplierUpdate: 'SUPPLIER_UPDATE',
+  SupplierDelete: 'SUPPLIER_DELETE',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];
 

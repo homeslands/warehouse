@@ -37,11 +37,13 @@ import { PermissionModule } from 'src/permission/permission.module';
 import { ExampleModule } from 'src/example/example.module';
 import { UserModule } from 'src/user/user.module';
 import { WarehouseModule } from 'src/warehouse/warehouse.module';
+import { WarehouseScopeGuard } from 'src/warehouse/guard/warehouse-scope.guard';
 import { MaterialTypeModule } from 'src/material-type/material-type.module';
 import { MaterialModule } from 'src/material/material.module';
 import { UnitModule } from 'src/unit/unit.module';
-import { WarehouseMaterialModule } from 'src/warehouse-material/warehouse-material.module';
+import { InventoryModule } from 'src/inventory/inventory.module';
 import { StoreModule } from 'src/store/store.module';
+import { SupplierModule } from 'src/supplier/supplier.module';
 import { TaxProfileModule } from 'src/tax-profile/tax-profile.module';
 import { DbModule } from 'src/db/db.module';
 import { HealthModule } from 'src/health/health.module';
@@ -86,8 +88,9 @@ import { NotificationModule } from 'src/notification/notification.module';
     MaterialTypeModule,
     MaterialModule,
     UnitModule,
-    WarehouseMaterialModule,
+    InventoryModule,
     StoreModule,
+    SupplierModule,
     TaxProfileModule,
     DbModule,
     HealthModule,
@@ -102,6 +105,8 @@ import { NotificationModule } from 'src/notification/notification.module';
     { provide: APP_FILTER, useClass: OptimisticLockExceptionFilter },
     { provide: APP_GUARD, useClass: JwtOptionalAuthGuard },
     { provide: APP_GUARD, useClass: AuthorityGuard },
+    // Sau `AuthorityGuard`: check rẻ (không DB) chạy trước, chỉ đọc DB khi đã qua authority.
+    { provide: APP_GUARD, useClass: WarehouseScopeGuard },
     { provide: APP_GUARD, useClass: HasRoleGuard },
     { provide: APP_GUARD, useClass: ThrottlerGuard },
     { provide: APP_GUARD, useClass: FeatureGuard },

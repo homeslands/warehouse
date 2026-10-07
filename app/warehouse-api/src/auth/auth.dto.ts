@@ -1,13 +1,16 @@
 import { ApiProperty } from '@nestjs/swagger';
 import { IsNotEmpty } from 'class-validator';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import { UserProfileWarehouseDto, UserRoleDto } from 'src/user/user.dto';
 
 export enum TokenType {
   Access = 'access',
   Refresh = 'refresh',
 }
 
-export interface ProfileResponseDto extends CurrentUserDto {
+// Không trả `userId` (uuid PK) — giống mọi response khác, `slug` là định danh public duy nhất.
+export interface ProfileResponseDto extends Omit<CurrentUserDto, 'userId'> {
+  userSlug: string;
   /** Giữ lại cho client cũ — cùng giá trị với `phonenumber`. */
   userName: string;
   phonenumber: string;
@@ -16,6 +19,10 @@ export interface ProfileResponseDto extends CurrentUserDto {
   email?: string;
   dob?: string;
   address?: string;
+  /** `undefined` khi user không có role (dữ liệu rác). */
+  role?: UserRoleDto;
+  /** Kho user làm manager hoặc là thành viên; rỗng với user chưa gắn kho nào (vd ADMIN). */
+  warehouses: UserProfileWarehouseDto[];
 }
 
 export interface AuthJwtPayload {

@@ -14,11 +14,13 @@ import {
   Query,
 } from '@nestjs/common';
 import {
+  AssignWarehouseMemberRequestDto,
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
-  GetMyWarehouseRequestDto,
+  GetAvailableWarehouseMemberRequestDto,
   UpdateWarehouseRequestDto,
+  WarehouseMemberResponseDto,
   WarehouseResponseDto,
 } from './warehouse.dto';
 import { WarehouseService } from './warehouse.service';
@@ -27,6 +29,7 @@ import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
+import { UserResponseDto } from 'src/user/user.dto';
 
 @ApiTags('Warehouse')
 @Controller('warehouses')
@@ -62,7 +65,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'Get all warehouses (paginated)',
     description:
-      'MANAGER chỉ nhận về kho mình phụ trách (bỏ qua `managerSlug`/`hasManager`); role khác thấy toàn bộ.',
+      'ADMIN/SUPER_ADMIN thấy toàn bộ. Mọi role thấp hơn chỉ nhận về kho mình là manager hoặc ' +
+      'thành viên (bỏ qua `managerSlug`/`hasManager`).',
   })
   @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
   async findAll(
@@ -81,36 +85,43 @@ export class WarehouseController {
 
   // PHẢI khai TRƯỚC `@Get(':slug')`, nếu không route `:slug` nuốt mất đường dẫn `mine`.
   // Không gắn `@RequireAuthority`: chỉ cần JWT hợp lệ, và service đã tự giới hạn theo `userId`.
-  @Get('mine')
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get warehouses managed by the current user (paginated)' })
-  @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
-  async findMine(
-    @CurrentUser() user: CurrentUserDto,
-    @Query(new ValidationPipe({ transform: true, whitelist: true }))
-    query: GetMyWarehouseRequestDto,
-  ) {
-    const result = await this.warehouseService.findMine(user.userId, query);
-    return {
-      message: 'Managed warehouses have been retrieved successfully',
-      statusCode: HttpStatus.OK,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<AppPaginatedResponseDto<WarehouseResponseDto>>;
-  }
+  // @Get('mine')
+  // @HttpCode(HttpStatus.OK)
+  // @ApiOperation({ summary: 'Get warehouses managed by the current user (paginated)' })
+  // @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
+  // async findMine(
+  //   @CurrentUser() user: CurrentUserDto,
+  //   @Query(new ValidationPipe({ transform: true, whitelist: true }))
+  //   query: GetMyWarehouseRequestDto,
+  // ) {
+  //   const result = await this.warehouseService.findMine(user.userId, query);
+  //   return {
+  //     message: 'Managed warehouses have been retrieved successfully',
+  //     statusCode: HttpStatus.OK,
+  //     timestamp: new Date().toISOString(),
+  //     result,
+  //   } as AppResponseDto<AppPaginatedResponseDto<WarehouseResponseDto>>;
+  // }
 
+  // Cùng phạm vi với `GET /warehouses`: dưới ADMIN chỉ đọc được kho mình là manager hoặc thành viên
+  // — service tự check (xem `WarehouseService.findOne`).
   @Get(':slug')
   @RequireAuthority(AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get a warehouse by slug' })
+  @ApiOperation({
+    summary: 'Get a warehouse by slug',
+    description:
+      'ADMIN/SUPER_ADMIN đọc được mọi kho. Role khác chỉ đọc được kho mình là manager hoặc thành ' +
+      'viên, ngược lại trả `WAREHOUSE_ACCESS_DENIED` (403).',
+  })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Retrieved',
     type: WarehouseResponseDto,
   })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  async findOne(@Param('slug') slug: string) {
-    const result = await this.warehouseService.findOne(slug);
+  async findOne(@CurrentUser() currentUser: CurrentUserDto, @Param('slug') slug: string) {
+    const result = await this.warehouseService.findOne(slug, currentUser);
     return {
       message: 'Warehouse has been retrieved successfully',
       statusCode: HttpStatus.OK,
@@ -167,6 +178,80 @@ export class WarehouseController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<WarehouseResponseDto>;
+  }
+
+  // Nối 2 tài nguyên nên không đẻ authority mới: sửa kho (`WarehouseUpdate`) + tra user (`UserRead`).
+  // `PUT` giống `PUT :slug/manager`: idempotent — gán lại user đã là thành viên trả 200 với row cũ,
+  // không 409.
+  @Put(':slug/members')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Assign a user as a member of a warehouse (idempotent)',
+    description:
+      'User phải đang hoạt động và không phải ADMIN/SUPER_ADMIN (`WAREHOUSE_MEMBER_USER_IS_ADMIN`).',
+  })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Assigned',
+    type: WarehouseMemberResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async assignMember(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: AssignWarehouseMemberRequestDto,
+  ) {
+    const result = await this.warehouseService.assignMember(slug, requestData);
+    return {
+      message: 'Warehouse member has been assigned successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<WarehouseMemberResponseDto>;
+  }
+
+  // Cùng cặp quyền với `PUT :slug/members` — đây là danh sách để chọn user khi gán.
+  @Get(':slug/available-members')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'List users that can be assigned as members of a warehouse (paginated)',
+    description:
+      'Chỉ user đang hoạt động, chưa là thành viên của kho, không phải manager hiện tại của kho và ' +
+      'không phải ADMIN/SUPER_ADMIN.',
+  })
+  @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async findAvailableMembers(
+    @Param('slug') slug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: GetAvailableWarehouseMemberRequestDto,
+  ) {
+    const result = await this.warehouseService.findAvailableMembers(slug, query);
+    return {
+      message: 'Available warehouse members have been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<UserResponseDto>>;
+  }
+
+  @Delete(':slug/members/:userSlug')
+  @RequireAuthority(AuthorityCode.WarehouseUpdate, AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({ summary: 'Remove a user from the members of a warehouse' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Removed', type: String })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  @ApiParam({ name: 'userSlug', required: true, example: 'u3kd8m2pqz' })
+  async removeMember(@Param('slug') slug: string, @Param('userSlug') userSlug: string) {
+    const result = await this.warehouseService.removeMember(slug, userSlug);
+    return {
+      message: 'Warehouse member has been removed successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result: `${result} warehouse member have been removed successfully`,
+    } as AppResponseDto<string>;
   }
 
   @Delete(':slug')

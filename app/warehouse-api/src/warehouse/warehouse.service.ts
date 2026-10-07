@@ -5,22 +5,28 @@ import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
+  AssignWarehouseMemberRequestDto,
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
-  GetMyWarehouseRequestDto,
+  GetAvailableWarehouseMemberRequestDto,
   UpdateWarehouseRequestDto,
+  WarehouseMemberResponseDto,
   WarehouseResponseDto,
 } from './warehouse.dto';
 import { Warehouse } from './warehouse.entity';
+import { WarehouseMember } from './warehouse-member.entity';
 import { WarehouseException } from './warehouse.exception';
 import { WarehouseValidation } from './warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { WAREHOUSE_MEMBER_EXCLUDED_ROLES, WAREHOUSE_UNSCOPED_ROLES } from './warehouse.constants';
 import { hasRole } from 'src/role/role.decorator';
-import { CurrentUserDto } from 'src/user/user.decorator';
+import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import { UserResponseDto } from 'src/user/user.dto';
+import { BaseQueryDto } from 'src/app/base.dto';
 
 /**
  * `manager`/`store` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path
@@ -34,10 +40,42 @@ const WAREHOUSE_RELATIONS: FindOptionsRelations<Warehouse> = { manager: true, st
 export class WarehouseService {
   constructor(
     @InjectRepository(Warehouse) private readonly warehouseRepository: Repository<Warehouse>,
+    @InjectRepository(WarehouseMember)
+    private readonly warehouseMemberRepository: Repository<WarehouseMember>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly userService: UserService,
   ) {}
+
+  /**
+   * Thông tin kho `slug` kèm vai trò của user `userId` trong đó; `null` = kho không tồn tại, `false`
+   * = user không phải manager lẫn member (row chưa xoá mềm). Dùng bởi `WarehouseScopeGuard`. Manager
+   * trả ngay sau 1 query, chỉ tra bảng thành viên khi không phải manager.
+   */
+  async findUserWarehouse(
+    slug: string,
+    userId: string,
+  ): Promise<CurrentUserWarehouseDto | false | null> {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { slug },
+      relations: { manager: true },
+    });
+    if (!warehouse) return null;
+
+    const isManager = warehouse.manager?.id === userId;
+    // `existsBy` mặc định đã loại row xoá mềm ⇒ member đã bị gỡ không còn quyền.
+    if (
+      !isManager &&
+      !(await this.warehouseMemberRepository.existsBy({
+        warehouse: { id: warehouse.id },
+        user: { id: userId },
+      }))
+    )
+      return false;
+
+    const { id, code, name } = warehouse;
+    return { id, slug: warehouse.slug, code, name, isManager };
+  }
 
   async createWarehouse(dto: CreateWarehouseRequestDto): Promise<WarehouseResponseDto> {
     const context = `${WarehouseService.name}.${this.createWarehouse.name}`;
@@ -52,39 +90,70 @@ export class WarehouseService {
   }
 
   /**
-   * `MANAGER` chỉ thấy kho mình phụ trách: filter `managerSlug`/`hasManager` của query bị bỏ qua để
-   * không mở rộng được ra kho của người khác. Role khác (kể cả `SUPER_ADMIN`) thấy toàn bộ.
+   * Chỉ `ADMIN`/`SUPER_ADMIN` thấy toàn bộ. Mọi role thấp hơn (kể cả role tự tạo, token không có
+   * claim `role`) chỉ thấy kho mình là manager HOẶC là thành viên (`warehouse_member_tbl`, member đã
+   * gỡ — xoá mềm — không tính: TypeORM tự thêm `deleted_at IS NULL` vào join). Filter
+   * `managerSlug`/`hasManager` của query bị bỏ qua để không mở rộng được ra kho của người khác.
    */
   async findAll(
     query: GetAllWarehouseRequestDto,
-    currentUser?: CurrentUserDto,
+    currentUser: CurrentUserDto,
   ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
     const where: FindOptionsWhere<Warehouse> = {};
     if (query.isActive !== undefined) where.isActive = query.isActive;
-    if (hasRole(currentUser, RoleEnum.Manager)) where.manager = { id: currentUser.userId };
-    else if (query.managerSlug) where.manager = { slug: query.managerSlug };
+    if (!hasRole(currentUser, ...WAREHOUSE_UNSCOPED_ROLES)) {
+      const userId = currentUser.userId;
+      // Mảng `where` = OR; mỗi nhánh phải mang lại filter chung (`isActive`).
+      return this.paginate(
+        [
+          { ...where, manager: { id: userId } },
+          { ...where, members: { user: { id: userId } } },
+        ],
+        query,
+      );
+    }
+    if (query.managerSlug) where.manager = { slug: query.managerSlug };
     else if (query.hasManager === true) where.manager = Not(IsNull());
     else if (query.hasManager === false) where.manager = IsNull();
 
     return this.paginate(where, query);
   }
 
-  async findMine(
-    userId: string,
-    query: GetMyWarehouseRequestDto,
-  ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
-    const where: FindOptionsWhere<Warehouse> = { manager: { id: userId } };
-    if (query.isActive !== undefined) where.isActive = query.isActive;
+  // Tạm ẩn cùng `GET /warehouses/mine` (đã comment ở controller).
+  // async findMine(
+  //   userId: string,
+  //   query: GetMyWarehouseRequestDto,
+  // ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
+  //   const where: FindOptionsWhere<Warehouse> = { manager: { id: userId } };
+  //   if (query.isActive !== undefined) where.isActive = query.isActive;
+  //
+  //   return this.paginate(where, query);
+  // }
 
-    return this.paginate(where, query);
-  }
-
-  async findOne(slug: string): Promise<WarehouseResponseDto> {
+  /**
+   * `ADMIN`/`SUPER_ADMIN` đọc được mọi kho. Role khác (kể cả role tự tạo, token thiếu claim `role`)
+   * chỉ đọc được kho mình là manager HOẶC thành viên — ngược lại `WAREHOUSE_ACCESS_DENIED` (403).
+   * `existsBy` mặc định loại row xoá mềm ⇒ member đã bị gỡ không còn đọc được.
+   */
+  async findOne(slug: string, currentUser: CurrentUserDto): Promise<WarehouseResponseDto> {
     const warehouse = await this.warehouseRepository.findOne({
       where: { slug },
       relations: WAREHOUSE_RELATIONS,
     });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    if (!hasRole(currentUser, ...WAREHOUSE_UNSCOPED_ROLES)) {
+      const isManager = warehouse.manager?.id === currentUser.userId;
+      const isMember =
+        !isManager &&
+        (await this.warehouseMemberRepository.existsBy({
+          warehouse: { id: warehouse.id },
+          user: { id: currentUser.userId },
+        }));
+      if (!isManager && !isMember)
+        throw new WarehouseException(WarehouseValidation.WAREHOUSE_ACCESS_DENIED);
+    }
+
     return this.mapper.map(warehouse, Warehouse, WarehouseResponseDto);
   }
 
@@ -136,6 +205,94 @@ export class WarehouseService {
     return this.mapper.map(updated, Warehouse, WarehouseResponseDto);
   }
 
+  /**
+   * Gán 1 user làm thành viên kho (`PUT`, idempotent): đã là thành viên thì trả row hiện có, không
+   * ghi gì. Không đụng `Warehouse.manager` và không chặn chính manager —
+   * quản lý vẫn là slot riêng trên `warehouse_tbl`.
+   *
+   * `UQ_warehouse_member` tính cả row đã xoá mềm (xem `warehouse-member.entity.ts`), nên user từng bị
+   * gỡ khỏi kho được `recover()` lại row cũ thay vì `insert` row mới (sẽ dính `ER_DUP_ENTRY` → 500).
+   */
+  async assignMember(
+    slug: string,
+    dto: AssignWarehouseMemberRequestDto,
+  ): Promise<WarehouseMemberResponseDto> {
+    const context = `${WarehouseService.name}.${this.assignMember.name}`;
+    const warehouse = await this.warehouseRepository.findOneBy({ slug });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    const user = await this.userService.findBySlug(dto.userSlug);
+    if (!user) throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_NOT_FOUND);
+    if (!user.isActive)
+      throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_INACTIVE);
+    if (WAREHOUSE_MEMBER_EXCLUDED_ROLES.includes(user.role?.name as RoleEnum))
+      throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_USER_IS_ADMIN);
+
+    const existed = await this.warehouseMemberRepository.findOne({
+      where: { warehouse: { id: warehouse.id }, user: { id: user.id } },
+      withDeleted: true,
+    });
+    let member: WarehouseMember;
+    if (existed && !existed.deletedAt) member = existed;
+    else if (existed) member = await this.warehouseMemberRepository.recover(existed);
+    else
+      member = await this.warehouseMemberRepository.save(
+        this.warehouseMemberRepository.create({ warehouse, user }),
+      );
+    member.user = user;
+
+    this.logger.log(`User ${user.id} assigned to warehouse ${warehouse.id}`, context);
+    return this.mapper.map(member, WarehouseMember, WarehouseMemberResponseDto);
+  }
+
+  /**
+   * User gán được vào kho qua `PUT :slug/members`: đang hoạt động (`assignMember` chặn user bị khoá),
+   * chưa là thành viên (row xoá mềm — đã bị gỡ — vẫn tính là gán được), không phải manager hiện
+   * tại của kho (manager đã có slot riêng), và không phải ADMIN/SUPER_ADMIN (`assignMember` chặn).
+   */
+  async findAvailableMembers(
+    slug: string,
+    query: GetAvailableWarehouseMemberRequestDto,
+  ): Promise<AppPaginatedResponseDto<UserResponseDto>> {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { slug },
+      relations: { manager: true },
+    });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    const members = await this.warehouseMemberRepository.find({
+      where: { warehouse: { id: warehouse.id } },
+      relations: { user: true },
+    });
+    const excludedIds = members.map((member) => member.user?.id).filter(Boolean);
+    if (warehouse.manager) excludedIds.push(warehouse.manager.id);
+
+    return this.userService.findAll(query, {
+      excludedIds,
+      onlyActive: true,
+      excludedRoleNames: WAREHOUSE_MEMBER_EXCLUDED_ROLES,
+    });
+  }
+
+  /**
+   * Gỡ user khỏi kho = xoá mềm row thành viên; `assignMember` sau đó `recover()` lại đúng row này.
+   * Không check `user.isActive`: user đã bị khoá vẫn phải gỡ được khỏi kho.
+   */
+  async removeMember(slug: string, userSlug: string): Promise<number> {
+    const context = `${WarehouseService.name}.${this.removeMember.name}`;
+    const warehouse = await this.warehouseRepository.findOneBy({ slug });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+
+    const member = await this.warehouseMemberRepository.findOne({
+      where: { warehouse: { id: warehouse.id }, user: { slug: userSlug } },
+    });
+    if (!member) throw new WarehouseException(WarehouseValidation.WAREHOUSE_MEMBER_NOT_FOUND);
+
+    await this.warehouseMemberRepository.softRemove(member);
+    this.logger.log(`Member ${member.id} removed from warehouse ${warehouse.id}`, context);
+    return 1;
+  }
+
   async deleteWarehouse(slug: string): Promise<number> {
     const context = `${WarehouseService.name}.${this.deleteWarehouse.name}`;
     const warehouse = await this.warehouseRepository.findOneBy({ slug });
@@ -150,8 +307,8 @@ export class WarehouseService {
   }
 
   private async paginate(
-    where: FindOptionsWhere<Warehouse>,
-    query: GetMyWarehouseRequestDto,
+    where: FindOptionsWhere<Warehouse> | FindOptionsWhere<Warehouse>[],
+    query: BaseQueryDto,
   ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
     const [items, total] = await this.warehouseRepository.findAndCount({
       where,

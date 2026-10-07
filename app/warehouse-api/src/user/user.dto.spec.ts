@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { CreateUserRequestDto } from './user.dto';
+import { CreateUserRequestDto, GetAllUserRequestDto } from './user.dto';
 
 const messagesFor = (phonenumber: unknown): string[] => {
   const dto = plainToInstance(CreateUserRequestDto, {
@@ -122,5 +122,72 @@ describe('CreateUserRequestDto profile fields', () => {
     expect(messagesOf('email', { ...validBody, email: 'not-an-email' })).toContain(
       'USER_EMAIL_INVALID',
     );
+  });
+});
+
+describe('GetAllUserRequestDto', () => {
+  const build = (query: Record<string, unknown>) =>
+    plainToInstance(GetAllUserRequestDto, query, { enableImplicitConversion: false });
+  const messages = (query: Record<string, unknown>, property: string): string[] =>
+    Object.values(
+      validateSync(build(query), { whitelist: true }).find((e) => e.property === property)
+        ?.constraints ?? {},
+    );
+
+  it('accepts an empty query', () => {
+    expect(validateSync(build({}), { whitelist: true })).toEqual([]);
+  });
+
+  // `?sort=a` ra string chứ không phải mảng.
+  it('wraps a single sort value into an array', () => {
+    const dto = build({ sort: 'firstName:ASC' });
+
+    expect(dto.sort).toEqual(['firstName:ASC']);
+    expect(messages({ sort: 'firstName:ASC' }, 'sort')).toEqual([]);
+  });
+
+  it.each(['createdAt:desc', 'lastName:ASC', 'dob:DESC', 'phonenumber:asc'])(
+    'accepts whitelisted sort %s',
+    (sort) => {
+      expect(messages({ sort: [sort] }, 'sort')).toEqual([]);
+    },
+  );
+
+  // Whitelist là rào chống SQL injection qua ORDER BY.
+  it.each(['password:ASC', 'firstName', 'firstName:UP', 'firstName:ASC; DROP TABLE user_tbl'])(
+    'rejects sort %s',
+    (sort) => {
+      expect(messages({ sort: [sort] }, 'sort')).toContain('USER_SORT_INVALID');
+    },
+  );
+
+  it.each([
+    ['startDate', 'USER_START_DATE_INVALID'],
+    ['endDate', 'USER_END_DATE_INVALID'],
+  ])('rejects an invalid %s', (property, code) => {
+    expect(messages({ [property]: 'not-a-date' }, property)).toContain(code);
+    expect(messages({ [property]: '2026-09-01' }, property)).toEqual([]);
+    expect(messages({ [property]: '2026-09-01T10:00:00.000Z' }, property)).toEqual([]);
+  });
+
+  // Query string luôn là chuỗi: `'false'` phải thành `false`, không phải truthy.
+  it.each([
+    ['true', true],
+    ['false', false],
+  ])('parses isActive=%s into a boolean', (raw, parsed) => {
+    expect(build({ isActive: raw }).isActive).toBe(parsed);
+    expect(messages({ isActive: raw }, 'isActive')).toEqual([]);
+  });
+
+  it('rejects a non-boolean isActive', () => {
+    expect(messages({ isActive: 'yes' }, 'isActive')).toContain('USER_IS_ACTIVE_INVALID');
+  });
+
+  it('only accepts birthday as YYYY-MM-DD', () => {
+    expect(messages({ birthday: '1990-05-20' }, 'birthday')).toEqual([]);
+    expect(messages({ birthday: '1990-05-20T00:00:00Z' }, 'birthday')).toContain(
+      'USER_BIRTHDAY_INVALID',
+    );
+    expect(messages({ birthday: '20/05/1990' }, 'birthday')).toContain('USER_BIRTHDAY_INVALID');
   });
 });
