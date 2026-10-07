@@ -1,12 +1,22 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useEffect } from 'react'
+import { StoreIcon } from 'lucide-react'
+import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import { SummaryList } from '@/shared/ui/SummaryList'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { Switch } from '@/shared/ui/switch'
 import { useCreateStore, useUpdateStore, type Store, type StoreInput } from '@/entities/store'
@@ -97,7 +107,11 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
   const update = useUpdateStore()
   const isPending = create.isPending || update.isPending
 
-  const form = useForm<StoreInput>({ resolver: zodResolver(schema), defaultValues: EMPTY_FORM })
+  const form = useForm<StoreInput>({
+    resolver: zodResolver(schema),
+    mode: 'onTouched',
+    defaultValues: EMPTY_FORM,
+  })
   const submitDisabled = store ? !form.formState.isDirty : false
 
   useEffect(() => {
@@ -124,14 +138,31 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
     toastApiError(error)
   }
 
+  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận tạo …" rồi mới gửi. Sửa: lưu thẳng.
+  const [toCreate, setToCreate] = useState<StoreInput | null>(null)
+  if (!open && toCreate) setToCreate(null)
+
+  const confirmCreate = () => {
+    if (!toCreate) return
+    create.mutate(toApiInput(toCreate), {
+      onSuccess: () => onOpenChange(false),
+      onError: (error) => {
+        // Đóng hộp xác nhận để lỗi tại ô (vd mã đã tồn tại) hiện ra.
+        setToCreate(null)
+        handleError(error)
+      },
+    })
+  }
+
   const onSubmit = (values: StoreInput) => {
-    const input = toApiInput(values)
-    const options = { onSuccess: () => onOpenChange(false), onError: handleError }
-    if (store) {
-      update.mutate({ slug: store.slug, input }, options)
-    } else {
-      create.mutate(input, options)
+    if (!store) {
+      setToCreate(values)
+      return
     }
+    update.mutate(
+      { slug: store.slug, input: toApiInput(values) },
+      { onSuccess: () => onOpenChange(false), onError: handleError },
+    )
   }
 
   const textField = (
@@ -146,6 +177,7 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
       | 'address',
     label: string,
     required = false,
+    hint?: string,
   ) => (
     <FormField
       control={form.control}
@@ -156,6 +188,7 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
           <FormControl>
             <Input {...field} value={field.value ?? ''} />
           </FormControl>
+          {hint && <FormDescription>{hint}</FormDescription>}
           <FormMessage />
         </FormItem>
       )}
@@ -170,13 +203,38 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
       submitLabel={store ? t('common:save') : t('stores:create')}
       isPending={isPending}
       submitDisabled={submitDisabled}
+      isDirty={form.formState.isDirty}
+      confirmation={
+        store
+          ? undefined
+          : {
+              open: toCreate !== null,
+              onOpenChange: (next) => {
+                if (!next) setToCreate(null)
+              },
+              icon: <StoreIcon />,
+              title: t('stores:createConfirmTitle'),
+              description: t('stores:createConfirmDescription'),
+              details: toCreate && (
+                <SummaryList
+                  items={[
+                    { label: t('stores:columnCode'), value: toCreate.code.trim() },
+                    { label: t('stores:columnName'), value: toCreate.name.trim() },
+                    { label: t('stores:columnTaxCode'), value: toCreate.taxCode.trim() },
+                  ]}
+                />
+              ),
+              confirmLabel: t('stores:createConfirmAction'),
+              onConfirm: confirmCreate,
+            }
+      }
       onSubmit={form.handleSubmit(onSubmit)}
     >
       <Form {...form}>
-        {textField('code', t('stores:columnCode'), true)}
+        {textField('code', t('stores:columnCode'), true, t('stores:codeHint'))}
         {textField('name', t('stores:columnName'), true)}
         {textField('legalName', t('stores:columnLegalName'), true)}
-        {textField('taxCode', t('stores:columnTaxCode'), true)}
+        {textField('taxCode', t('stores:columnTaxCode'), true, t('stores:taxCodeHint'))}
         {textField('invoiceAddress', t('stores:fieldInvoiceAddress'))}
         {textField('address', t('stores:fieldAddress'))}
         {textField('phonenumber', t('stores:fieldPhonenumber'))}

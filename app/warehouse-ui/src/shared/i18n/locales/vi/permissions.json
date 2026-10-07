@@ -51,6 +51,8 @@
     "ROLE_DELETE": "Xoá vai trò",
     "USER_CREATE": "Tạo người dùng",
     "USER_READ": "Xem danh sách người dùng",
+    "USER_UPDATE": "Sửa, khoá và đổi vai trò người dùng",
+    "USER_DELETE": "Xoá người dùng",
     "USER_CHANGE_PASSWORD": "Đặt lại mật khẩu người dùng",
     "IMPORT_FORM_CREATE": "Tạo phiếu nhập kho",
     "IMPORT_FORM_READ": "Xem phiếu nhập kho",

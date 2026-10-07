@@ -1,4 +1,6 @@
+import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { isPhraseConfirmed } from '@/shared/lib/confirm-phrase'
 import { Button } from '@/shared/ui/button'
 import {
   Dialog,
@@ -8,6 +10,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { ConfirmPhraseField } from '@/shared/ui/ConfirmPhraseField'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 
 type ConfirmDialogProps = {
@@ -17,10 +20,19 @@ type ConfirmDialogProps = {
   icon: React.ReactNode
   title: React.ReactNode
   description: React.ReactNode
+  /** Khối nằm giữa phần đầu và các nút, vd `SummaryList` tóm tắt bản ghi sắp tạo. */
+  details?: React.ReactNode
   confirmLabel: string
+  /** Mặc định "Huỷ". Đổi khi "Huỷ" dễ hiểu nhầm (vd hộp "Bỏ thay đổi?" → "Tiếp tục sửa"). */
+  cancelLabel?: string
   /** `destructive` (mặc định) cho hành động phá huỷ; `success` cho hành động tích cực. */
   tone?: 'destructive' | 'success' | 'default'
   isPending?: boolean
+  /**
+   * Có = hiện ô "Nhập <X> để xác nhận", nút xác nhận khoá tới khi gõ khớp. Dành cho hành động khó đảo ngược
+   * (đăng xuất mọi thiết bị…). Nút khoá (thay vì bấm rồi báo lỗi) là cố ý: câu hướng dẫn nằm ngay trên nút.
+   */
+  confirmPhrase?: string
   onConfirm: () => void
 }
 
@@ -42,12 +54,19 @@ export function ConfirmDialog({
   icon,
   title,
   description,
+  details,
   confirmLabel,
+  cancelLabel,
   tone = 'destructive',
   isPending = false,
+  confirmPhrase,
   onConfirm,
 }: ConfirmDialogProps) {
   const { t } = useTranslation('common')
+  const [typed, setTyped] = useState('')
+  // Đóng hộp = xoá chữ đã gõ, mở lại phải gõ lại từ đầu.
+  if (!open && typed !== '') setTyped('')
+  const confirmed = confirmPhrase === undefined || isPhraseConfirmed(typed, confirmPhrase)
 
   return (
     <Dialog open={open} onOpenChange={onOpenChange}>
@@ -70,6 +89,17 @@ export function ConfirmDialog({
           <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
+        {details}
+
+        {confirmPhrase !== undefined && (
+          <ConfirmPhraseField
+            phrase={confirmPhrase}
+            value={typed}
+            onChange={setTyped}
+            disabled={isPending}
+          />
+        )}
+
         <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
           <Button
             type="button"
@@ -79,7 +109,7 @@ export function ConfirmDialog({
             disabled={isPending}
             onClick={() => onOpenChange(false)}
           >
-            {t('cancel')}
+            {cancelLabel ?? t('cancel')}
           </Button>
           <Button
             type="button"
@@ -92,7 +122,7 @@ export function ConfirmDialog({
             }
             size="xl"
             className="rounded-xl"
-            disabled={isPending}
+            disabled={isPending || !confirmed}
             onClick={onConfirm}
           >
             {confirmLabel}

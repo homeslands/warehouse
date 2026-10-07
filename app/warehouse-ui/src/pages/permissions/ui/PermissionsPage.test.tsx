@@ -8,7 +8,7 @@ import { PermissionsPage } from '@/pages/permissions'
 
 const BASE = 'http://localhost:8085/api/v1'
 
-const ADMIN_USER = { userId: 'u1', userName: 'a', roleName: 'ADMIN', scope: ['MANAGE_PERMISSIONS'] }
+const ADMIN_USER = { userName: 'a', roleName: 'ADMIN', scope: ['MANAGE_PERMISSIONS'] }
 
 beforeEach(() => {
   server.use(

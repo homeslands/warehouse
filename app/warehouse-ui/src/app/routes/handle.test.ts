@@ -28,7 +28,7 @@ describe('readHandle', () => {
 })
 
 describe('hasAuthority', () => {
-  const user = (scope: string[]) => ({ userId: 'u', userName: 'a', roleName: 'ADMIN', scope })
+  const user = (scope: string[]) => ({ userName: 'a', roleName: 'ADMIN', scope })
 
   it('một mã → có mã đó; mảng → phải có TẤT CẢ (AND)', () => {
     expect(hasAuthority(user(['MANAGE_PERMISSIONS']), 'MANAGE_PERMISSIONS')).toBe(true)

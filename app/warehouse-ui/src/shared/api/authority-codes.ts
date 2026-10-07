@@ -3,8 +3,10 @@
  * lỗi biên dịch — không có danh sách này thì `can(user, 'WAREHOUSE_CREAT')` lặng lẽ trả `false`.
  *
  * Nguồn gốc: `app/warehouse-api/src/authority/authority.constants.ts` (đồng bộ 2026-09-30 với
- * `WMS-10-be(8)`, 64 mã). Danh sách là BẢN SAO nên có thể lệch: màn `/permissions` so với
- * `GET /authorities` và `console.warn` khi dev (`authorityCodeDrift`). Thấy cảnh báo thì sửa ở đây.
+ * `WMS-10-be(8)`, 64 mã; thêm `USER_UPDATE` 2026-10-05 theo PR #72; thêm `USER_DELETE` 2026-10-07 (PR #78)
+ * — FE KHÔNG có nút xoá: nghiệp vụ chỉ khoá). CHƯA đồng bộ 4 mã `SUPPLIER_*` (WMS-11) — FE chưa có màn nhà
+ * cung cấp. Danh sách là BẢN SAO nên có thể lệch: màn `/permissions` so với `GET /authorities` và
+ * `console.warn` khi dev (`authorityCodeDrift`). Thấy cảnh báo thì sửa ở đây.
  *
  * Route nối hai tài nguyên KHÔNG có mã riêng — backend gắn `@RequireAuthority(A, B)` (AND), vd gán
  * kho cho cửa hàng = `STORE_UPDATE` + `WAREHOUSE_UPDATE`. FE gác bằng `can(A) && can(B)`.
@@ -25,6 +27,8 @@ export const AUTHORITY_CODES = [
   // Người dùng
   'USER_CREATE',
   'USER_READ',
+  'USER_UPDATE',
+  'USER_DELETE',
   'USER_CHANGE_PASSWORD',
   // Phiếu nhập kho
   'IMPORT_FORM_CREATE',

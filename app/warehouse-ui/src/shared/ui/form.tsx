@@ -6,7 +6,9 @@ import {
   FormProvider,
   useFormContext,
   useFormState,
+  useWatch,
   type ControllerProps,
+  type FieldError,
   type FieldPath,
   type FieldValues,
 } from 'react-hook-form'
@@ -18,7 +20,8 @@ import { Label } from '@/shared/ui/label'
 
 // Chép từ registry shadcn `new-york-v4/form` (style `radix-nova` không còn phát `form`), sửa:
 // - FormMessage tự dịch message là khoá i18n (xem translateFormMessage);
-// - KHÔNG export useFormField (react-refresh/only-export-components — giữ lint baseline 1 warning).
+// - KHÔNG export useFormField (react-refresh/only-export-components — giữ lint baseline 1 warning);
+// - lỗi "phạt muộn" cho ô trống (xem visibleError); FormDescription nhường chỗ cho FormMessage khi có lỗi.
 
 const Form = FormProvider
 
@@ -56,12 +59,35 @@ type FormItemContextValue = {
 
 const FormItemContext = React.createContext<FormItemContextValue>({} as FormItemContextValue)
 
+const isEmptyValue = (value: unknown) =>
+  value === undefined ||
+  value === null ||
+  (typeof value === 'string' && value.trim() === '') ||
+  (Array.isArray(value) && value.length === 0)
+
+/**
+ * "Báo lỗi muộn, xác nhận đúng sớm": ô TRỐNG mà người dùng chỉ đi ngang qua (focus rồi rời, `mode:
+ * 'onTouched'`) chưa bị la "bắt buộc" — lỗi đó chỉ hiện sau lần bấm gửi đầu tiên. Ô đã có nội dung thì
+ * báo ngay khi rời ô; ô đang sửa bị xoá trắng (khác giá trị lúc mở → `isDirty`) cũng báo ngay. Chỉ giấu lỗi
+ * của validate — lỗi backend (`type: 'server'`, `applyApiErrorToForm`) và lỗi `setError` tay luôn hiện.
+ */
+function visibleError(
+  error: FieldError | undefined,
+  { isSubmitted, isDirty, value }: { isSubmitted: boolean; isDirty: boolean; value: unknown },
+) {
+  if (!error) return undefined
+  const fromValidation = error.type !== undefined && error.type !== 'server'
+  if (fromValidation && !isSubmitted && !isDirty && isEmptyValue(value)) return undefined
+  return error
+}
+
 const useFormField = () => {
   const fieldContext = React.useContext(FormFieldContext)
   const itemContext = React.useContext(FormItemContext)
   const { getFieldState } = useFormContext()
   const formState = useFormState({ name: fieldContext.name })
   const fieldState = getFieldState(fieldContext.name, formState)
+  const value = useWatch({ name: fieldContext.name })
 
   if (!fieldContext) {
     throw new Error('useFormField should be used within <FormField>')
@@ -77,6 +103,11 @@ const useFormField = () => {
     formDescriptionId: `${id}-form-item-description`,
     formMessageId: `${id}-form-item-message`,
     ...fieldState,
+    error: visibleError(fieldState.error, {
+      isSubmitted: formState.isSubmitted,
+      isDirty: fieldState.isDirty,
+      value,
+    }),
   }
 }
 
@@ -140,7 +171,8 @@ function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
     <Slot.Root
       data-slot="form-control"
       id={formItemId}
-      aria-describedby={!error ? `${formDescriptionId}` : `${formDescriptionId} ${formMessageId}`}
+      // Có lỗi thì FormDescription ẩn (câu lỗi thay chỗ gợi ý) — chỉ trỏ tới câu lỗi.
+      aria-describedby={error ? formMessageId : formDescriptionId}
       aria-invalid={!!error}
       aria-required={required || undefined}
       {...props}
@@ -148,8 +180,13 @@ function FormControl({ ...props }: React.ComponentProps<typeof Slot.Root>) {
   )
 }
 
+/**
+ * Gợi ý dưới ô (định dạng, yêu cầu) — hiện sẵn TRƯỚC khi nhập để người dùng không phải đoán. Khi ô có lỗi,
+ * câu lỗi (`FormMessage`) thay chỗ gợi ý: một dòng dưới ô, không chồng hai câu.
+ */
 function FormDescription({ className, ...props }: React.ComponentProps<'p'>) {
-  const { formDescriptionId } = useFormField()
+  const { formDescriptionId, error } = useFormField()
+  if (error) return null
 
   return (
     <p

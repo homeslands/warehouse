@@ -36,7 +36,28 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100407: 'changePasswordForbidden',
   100408: 'changeOwnPasswordNotAllowed',
   100409: 'phonenumberInvalid',
+  // warehouse-api src/user/user.validation.ts — hồ sơ người dùng (2026-09-30).
+  100410: 'firstNameIsRequired',
+  100411: 'lastNameIsRequired',
+  100412: 'dobInvalid',
+  100413: 'emailInvalid',
+  // warehouse-api src/user/user.validation.ts — sửa / khoá / đổi vai trò (PR #72, 2026-10-05).
+  100414: 'lockOwnAccountNotAllowed',
+  100415: 'userIsWarehouseManager',
+  100416: 'changeOwnRoleNotAllowed',
+  100417: 'adminCannotManageAdmin',
+  // PR #78 (2026-10-07).
+  100418: 'deleteOwnAccountNotAllowed',
+  100419: 'phonenumberReservedByDeletedUser',
+  100420: 'userStartDateInvalid',
+  100421: 'userEndDateInvalid',
+  100422: 'userDateRangeInvalid',
+  100423: 'userBirthdayInvalid',
+  100424: 'userSortInvalid',
+  100425: 'userIsActiveInvalid',
   100101: 'roleNotFound',
+  // warehouse-api src/role/role.validation.ts — gán/quản lý vai trò cùng cấp hoặc cao hơn mình.
+  100104: 'roleLevelForbidden',
   109000: 'exportDatabaseError',
   121000: 'fileNotFound',
   121001: 'fileSizeExceedsLimitAllowed',
@@ -75,6 +96,13 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100515: 'warehouseManagerInactive',
   100516: 'warehouseManagerRoleInvalid',
   100517: 'warehouseActiveCannotBeDeleted',
+  // Thành viên kho (WMS-11 / PR #78). 100521 backend không dùng.
+  100518: 'warehouseMemberUserSlugIsRequired',
+  100519: 'warehouseMemberUserNotFound',
+  100520: 'warehouseMemberUserInactive',
+  100522: 'warehouseMemberNotFound',
+  100523: 'warehouseAccessDenied',
+  100524: 'warehouseMemberUserIsAdmin',
   // warehouse-api src/store/store.validation.ts (2026-09-22).
   101001: 'storeNotFound',
   101002: 'storeNameIsRequired',

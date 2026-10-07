@@ -8,7 +8,6 @@ import type { AppRouteHandle } from './handle'
 import { buildNav } from './nav'
 
 const asUser = (roleName: string): CurrentUser => ({
-  userId: 'u1',
   userName: 'tester',
   roleName,
   scope: [],
@@ -131,7 +130,6 @@ describe('buildNav', () => {
     ]
 
     const without = buildNav(routes, {
-      userId: 'u1',
       userName: 'a',
       roleName: 'ADMIN',
       scope: [],
@@ -139,7 +137,6 @@ describe('buildNav', () => {
     expect(without).toEqual([])
 
     const withIt = buildNav(routes, {
-      userId: 'u1',
       userName: 'a',
       roleName: 'ADMIN',
       scope: ['MANAGE_PERMISSIONS'],

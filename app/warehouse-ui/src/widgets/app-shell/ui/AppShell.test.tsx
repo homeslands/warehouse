@@ -14,7 +14,7 @@ import { useAuthStore } from '@/entities/session'
 import { AppShell } from './AppShell'
 
 const BASE = 'http://localhost:8085/api/v1'
-const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
+const user = { userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
 
 // Nhãn mượn khoá i18n có sẵn ("Example", "Giao diện") — AppShell dịch khoá, không quan tâm nghĩa.
 const nav: NavGroup[] = [
@@ -126,6 +126,8 @@ describe('AppShell — menu tài khoản', () => {
     // Chưa xác nhận thì chưa gọi gì.
     expect(logoutAllCalled).not.toHaveBeenCalled()
 
+    // Hộp bắt gõ tên đăng nhập của chính mình (`root`) mới mở nút xác nhận.
+    await u.type(screen.getByLabelText('Nhập root để xác nhận'), 'root')
     await u.click(screen.getByRole('button', { name: 'Đăng xuất mọi thiết bị' }))
 
     await vi.waitFor(() => expect(useAuthStore.getState().endReason).toBe('loggedOut'))
@@ -148,6 +150,8 @@ describe('AppShell — menu tài khoản', () => {
     const u = await openMenu()
     await u.click(await screen.findByRole('menuitem', { name: 'Đăng xuất mọi thiết bị' }))
     await screen.findByRole('alertdialog')
+    // Hộp bắt gõ tên đăng nhập của chính mình (`root`) mới mở nút xác nhận.
+    await u.type(screen.getByLabelText('Nhập root để xác nhận'), 'root')
     await u.click(screen.getByRole('button', { name: 'Đăng xuất mọi thiết bị' }))
 
     // Request đã tới server VÀ nút đã hết trạng thái "Đang đăng xuất..." — lỗi đã được xử lý xong.

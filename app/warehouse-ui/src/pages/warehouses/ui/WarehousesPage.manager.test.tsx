@@ -9,6 +9,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/shared/api/backend-capabilities', () => ({
   BACKEND_SUPPORTS: {
     sort: false,
+    userSort: false,
     search: false,
     profileEdit: false,
     sessionList: false,
@@ -38,13 +39,12 @@ const warehouse: Warehouse = {
 }
 
 const MANAGER: TestAuth = {
-  userId: 'u-m',
   userName: 'm',
   roleName: 'MANAGER',
   scope: ['WAREHOUSE_READ'],
 }
+const SUPERVISOR: TestAuth = { ...MANAGER, userName: 's', roleName: 'SUPERVISOR' }
 const ADMIN: TestAuth = {
-  userId: 'u-a',
   userName: 'a',
   roleName: 'ADMIN',
   scope: ['WAREHOUSE_READ', 'USER_READ', 'ROLE_READ'],
@@ -115,12 +115,30 @@ describe('WarehousesPage — MANAGER (backend tự lọc kho mình phụ trách)
     server.use(mswHttp.get(`${BASE}/warehouses`, () => paginated([])))
     renderPage(MANAGER)
 
-    expect(await screen.findByText('Bạn chưa được phân công quản lý kho nào.')).toBeInTheDocument()
+    expect(await screen.findByText('Bạn chưa quản lý hay thuộc kho nào.')).toBeInTheDocument()
   })
 
   it('cột Quản lý hiện "Họ tên (số điện thoại)" từ object manager', async () => {
     renderPage(MANAGER)
     expect(await screen.findByText('Nguyễn Văn A (0901234567)')).toBeInTheDocument()
+  })
+})
+
+describe('WarehousesPage — SUPERVISOR (backend lọc theo kho mình là thành viên, PR #72)', () => {
+  it('ẩn bộ lọc theo quản lý và không gửi managerSlug/hasManager dù có trên URL', async () => {
+    renderPage(SUPERVISOR, '/warehouses?managerSlug=u-x&hasManager=false')
+    await screen.findByText('Kho của tôi')
+
+    expect(screen.queryByLabelText('Chỉ kho chưa có quản lý')).not.toBeInTheDocument()
+    expect(listQueries.at(-1)).not.toContain('managerSlug')
+    expect(listQueries.at(-1)).not.toContain('hasManager')
+  })
+
+  it('chưa thuộc kho nào → câu báo riêng', async () => {
+    server.use(mswHttp.get(`${BASE}/warehouses`, () => paginated([])))
+    renderPage(SUPERVISOR)
+
+    expect(await screen.findByText('Bạn chưa quản lý hay thuộc kho nào.')).toBeInTheDocument()
   })
 })
 

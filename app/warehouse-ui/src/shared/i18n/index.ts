@@ -9,6 +9,7 @@ import viAccount from './locales/vi/account.json'
 import viPermissions from './locales/vi/permissions.json'
 import viWarehouses from './locales/vi/warehouses.json'
 import viStores from './locales/vi/stores.json'
+import viUsers from './locales/vi/users.json'
 import viErrors from './locales/vi/errors.json'
 import viErrorPages from './locales/vi/errorPages.json'
 import viNav from './locales/vi/nav.json'
@@ -19,6 +20,7 @@ import enAccount from './locales/en/account.json'
 import enPermissions from './locales/en/permissions.json'
 import enWarehouses from './locales/en/warehouses.json'
 import enStores from './locales/en/stores.json'
+import enUsers from './locales/en/users.json'
 import enErrors from './locales/en/errors.json'
 import enErrorPages from './locales/en/errorPages.json'
 import enNav from './locales/en/nav.json'
@@ -31,6 +33,7 @@ export const defaultNS = 'common'
 // `warehouses` — chuỗi của màn Kho (cột, form, dialog, toast).
 // `account` — màn Tài khoản: hồ sơ, bảo mật, thiết bị đang đăng nhập.
 // `stores` — chuỗi của màn Cửa hàng.
+// `users` — chuỗi của màn Người dùng (bảng, form tạo/sửa, reset mật khẩu, khoá/xoá).
 // `permissions` — bảng ma trận phân quyền role × authority.
 export const resources = {
   vi: {
@@ -40,6 +43,7 @@ export const resources = {
     warehouses: viWarehouses,
     account: viAccount,
     stores: viStores,
+    users: viUsers,
     errors: viErrors,
     errorPages: viErrorPages,
     nav: viNav,
@@ -52,6 +56,7 @@ export const resources = {
     warehouses: enWarehouses,
     account: enAccount,
     stores: enStores,
+    users: enUsers,
     errors: enErrors,
     errorPages: enErrorPages,
     nav: enNav,
@@ -74,6 +79,7 @@ void i18n
       'examples',
       'warehouses',
       'stores',
+      'users',
       'account',
       'errors',
       'errorPages',

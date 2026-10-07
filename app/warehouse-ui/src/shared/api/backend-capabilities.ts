@@ -68,6 +68,32 @@ export const BACKEND_SUPPORTS = {
    * nhưng người dùng không làm được việc backend đang cho phép.
    */
   permissionDelegationRules: true,
+
+  /**
+   * Sửa hồ sơ (`PATCH /users/{slug}`) + đổi vai trò (`POST /users/{slug}/change-role`), mã `USER_UPDATE` —
+   * ĐÃ BẬT: backend deploy ở PR #72 (2026-10-05). `PATCH` chưa nhận `null` nên form không xoá trống được
+   * trường tuỳ chọn.
+   */
+  userUpdate: true,
+
+  /**
+   * Khoá `PUT /users/{slug}/lock` + mở khoá `PUT /users/{slug}/unlock` (PR #78), mã `USER_UPDATE` — ĐÃ BẬT.
+   * `DELETE /users/{slug}` giờ là XOÁ — FE không dùng.
+   */
+  userStatus: true,
+
+  /**
+   * PR #78 — `GET /users` nhận `name` / `phonenumber` / `isActive` / `warehouseSlug`; FE tách một ô tìm kiếm
+   * thành `name`/`phonenumber` (`pages/users/model/search-query.ts`). Tách khỏi cờ `search` của kho/cửa hàng
+   * vì hai module deploy khác đợt.
+   */
+  userSearch: true,
+
+  /**
+   * Sắp xếp theo cột RIÊNG màn Người dùng — backend `GET /users` đã đọc `sort` (PR #78; field: createdAt,
+   * updatedAt, firstName, lastName, phonenumber, dob). Cờ `sort` chung vẫn tắt vì Kho/Cửa hàng chưa có.
+   */
+  userSort: true,
 } as const
 
 /** Kiểu của một bộ cờ — để hàm nhận cờ làm tham số (test truyền `true` được; `as const` ghim `false`). */

@@ -2,9 +2,17 @@ import type { AuthorityCode } from '@/shared/api/authority-codes'
 import { ROLES, type Role } from './roles'
 
 export type CurrentUser = {
-  userId: string
+  /**
+   * Slug của chính mình — `GET /auth/me` trả từ PR #80 (bỏ `userId` UUID). Optional: phiên cũ còn lưu trong
+   * trình duyệt chưa có; so "chính mình" dùng `isSameUser` của `entities/user` (có đường lùi).
+   */
+  userSlug?: string
   userName: string
   roleName: string
+  /** Vai trò kèm `level` (PR #80) — luật cấp dùng thẳng, không phải tra bảng. Optional như `userSlug`. */
+  role?: { slug: string; name: string; description?: string; level: number }
+  /** Kho mình làm quản lý (`isManager`) hoặc là thành viên (PR #80). Rỗng với ADMIN chưa gắn kho. */
+  warehouses?: { slug: string; code: string; name: string; isManager: boolean }[]
   /**
    * Mã authority mà role của user đang được cấp. `GET /auth/me` trả MẢNG (không phải chuỗi JSON).
    * Backend không ký `scope` vào JWT — mỗi request nó đọc lại từ Redis `rbac:user:{userId}`, nên

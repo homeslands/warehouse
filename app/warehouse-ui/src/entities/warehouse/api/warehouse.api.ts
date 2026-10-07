@@ -5,6 +5,7 @@ import type {
   Warehouse,
   WarehouseFilters,
   WarehouseInput,
+  WarehouseMemberCandidate,
   WarehouseUpdateInput,
 } from '../model/types'
 
@@ -33,3 +34,16 @@ export const assignWarehouseManager = (
 
 export const fetchWarehouse = (slug: string): Promise<Warehouse> =>
   getData<Warehouse>(`/warehouses/${slug}`)
+
+/** Người dùng chưa là thành viên kho — nguồn cho ô chọn ở hộp thoại thêm thành viên. */
+export const fetchAvailableMembers = (
+  slug: string,
+  params: ListParams,
+): Promise<Paginated<WarehouseMemberCandidate>> =>
+  getPaginated<WarehouseMemberCandidate>(`/warehouses/${slug}/available-members`, params)
+
+export const assignWarehouseMember = (slug: string, userSlug: string): Promise<unknown> =>
+  putData<unknown>(`/warehouses/${slug}/members`, { userSlug })
+
+export const removeWarehouseMember = (slug: string, userSlug: string): Promise<unknown> =>
+  deleteData<unknown>(`/warehouses/${slug}/members/${userSlug}`)

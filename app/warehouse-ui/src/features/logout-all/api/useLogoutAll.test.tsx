@@ -29,7 +29,7 @@ describe('useLogoutAll', () => {
       ),
     )
     const { user } = renderWithProviders(<Probe />, {
-      auth: { userId: 'u', userName: 'a', roleName: 'ADMIN', scope: [] },
+      auth: { userName: 'a', roleName: 'ADMIN', scope: [] },
     })
 
     await user.click(screen.getByRole('button', { name: 'go' }))

@@ -2,14 +2,24 @@ import { zodResolver } from '@hookform/resolvers/zod'
 import { useEffect } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { MIN_PASSWORD_LENGTH } from '@/shared/lib/password-policy'
+import { useRevalidateWhenTouched } from '@/shared/lib/form-validation'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { KeyRoundIcon } from 'lucide-react'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
-import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
-import { Input } from '@/shared/ui/input'
+import {
+  Form,
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/form'
+import { PasswordInput } from '@/shared/ui/PasswordInput'
 import { useChangePassword } from '../api/useChangePassword'
 import {
   CURRENT_PASSWORD_INCORRECT_CODE,
@@ -36,8 +46,10 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
   const changePassword = useChangePassword()
   const form = useForm<ChangePasswordInput>({
     resolver: zodResolver(changePasswordSchema),
+    mode: 'onTouched',
     defaultValues: EMPTY,
   })
+  useRevalidateWhenTouched(form, 'newPassword', 'confirmNewPassword')
 
   // Mở lại dialog không được còn mật khẩu của lần trước.
   useEffect(() => {
@@ -76,8 +88,13 @@ export function ChangePasswordDialog({ open, onOpenChange }: Props) {
                   <FormItem required>
                     <FormLabel>{t(`auth:changePassword.${name}`)}</FormLabel>
                     <FormControl>
-                      <Input type="password" autoComplete={AUTOCOMPLETE[name]} {...field} />
+                      <PasswordInput autoComplete={AUTOCOMPLETE[name]} {...field} />
                     </FormControl>
+                    {name === 'newPassword' && (
+                      <FormDescription>
+                        {t('common:passwordHint', { count: MIN_PASSWORD_LENGTH })}
+                      </FormDescription>
+                    )}
                     <FormMessage />
                   </FormItem>
                 )}

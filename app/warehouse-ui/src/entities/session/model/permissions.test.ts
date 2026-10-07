@@ -2,7 +2,6 @@ import { describe, expect, it } from 'vitest'
 import { ROLES, can, hasRole, safeParseScope, type CurrentUser } from '@/entities/session'
 
 const user = (over: Partial<CurrentUser> = {}): CurrentUser => ({
-  userId: 'u1',
   userName: 'root',
   roleName: 'SUPER_ADMIN',
   scope: [],

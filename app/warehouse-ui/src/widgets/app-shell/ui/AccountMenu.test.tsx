@@ -5,7 +5,6 @@ import { renderWithProviders } from '@/shared/test/render'
 import { AccountMenu } from './AccountMenu'
 
 const named = {
-  userId: 'u1',
   userName: '0901234567',
   roleName: 'ADMIN',
   scope: [],
@@ -34,7 +33,6 @@ describe('AccountMenu', () => {
   it('chưa có họ tên → hiện "Người dùng" kèm icon (không lấy số điện thoại làm tên); menu vẫn có tên đăng nhập và vai trò', async () => {
     const { user } = renderWithProviders(<AccountMenu />, {
       auth: {
-        userId: 'u2',
         userName: 'root',
         roleName: 'SUPER_ADMIN',
         scope: [],
@@ -57,7 +55,7 @@ describe('AccountMenu', () => {
 
   it('vai trò backend mới mà FE chưa biết → hiện nguyên mã', () => {
     renderWithProviders(<AccountMenu />, {
-      auth: { userId: 'u3', userName: 'kt', roleName: 'ACCOUNTANT', scope: [] },
+      auth: { userName: 'kt', roleName: 'ACCOUNTANT', scope: [] },
     })
     expect(screen.getByRole('button', { name: 'Người dùng (ACCOUNTANT)' })).toBeInTheDocument()
   })

@@ -35,6 +35,7 @@ import { ToggleWarehouseActiveDialog } from '@/features/warehouse-toggle-active'
 import { DeleteWarehouseDialog } from '@/features/warehouse-delete'
 import { WarehouseFormSheet } from '@/features/warehouse-form'
 import { useCrumbTitle } from '@/widgets/app-shell'
+import { WarehouseMembers } from '@/widgets/warehouse-members'
 import { warehouseAbilities } from '../model/abilities'
 
 const LIST_PATH = '/warehouses'
@@ -186,6 +187,14 @@ export function WarehouseDetailPage() {
           </DetailField>
         </DetailGroup>
       </DetailCard>
+
+      {ability.viewMembers && (
+        <WarehouseMembers
+          key={warehouse.slug}
+          warehouse={warehouse}
+          canManage={ability.manageMembers}
+        />
+      )}
 
       <WarehouseFormSheet open={formOpen} onOpenChange={setFormOpen} warehouse={warehouse} />
       {ability.assignManager && (

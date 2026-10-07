@@ -132,7 +132,6 @@ describe('StoreDetailPage', () => {
   it('có STORE_READ và WAREHOUSE_READ → kho liên kết vẫn là link', async () => {
     renderPage({
       auth: {
-        userId: 'u',
         userName: 'm',
         roleName: 'MANAGER',
         scope: ['STORE_READ', 'WAREHOUSE_READ'],
@@ -144,7 +143,7 @@ describe('StoreDetailPage', () => {
   })
 
   it('chỉ STORE_READ, không có WAREHOUSE_READ → tên kho hiện dạng chữ, không phải link (tránh 403 → /forbidden)', async () => {
-    renderPage({ auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: ['STORE_READ'] } })
+    renderPage({ auth: { userName: 'm', roleName: 'MANAGER', scope: ['STORE_READ'] } })
     await screen.findByRole('heading', { level: 1 })
 
     const section = field('Kho liên kết')
@@ -183,7 +182,7 @@ describe('StoreDetailPage', () => {
   })
 
   it('không có quyền ghi (chỉ STORE_READ) → không nút Sửa, không menu ⋯', async () => {
-    renderPage({ auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: ['STORE_READ'] } })
+    renderPage({ auth: { userName: 'm', roleName: 'MANAGER', scope: ['STORE_READ'] } })
     await screen.findByRole('heading', { level: 1 })
 
     expect(screen.queryByRole('button', { name: 'Sửa' })).not.toBeInTheDocument()
