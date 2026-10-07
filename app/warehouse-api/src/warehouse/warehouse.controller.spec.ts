@@ -12,7 +12,6 @@ describe('WarehouseController', () => {
   const warehouseService = {
     createWarehouse: jest.fn(),
     findAll: jest.fn(),
-    findMine: jest.fn(),
     findOne: jest.fn(),
     updateWarehouse: jest.fn(),
     assignManager: jest.fn(),
@@ -63,22 +62,13 @@ describe('WarehouseController', () => {
     expect(response.statusCode).toBe(200);
   });
 
-  it('scopes findMine to the current user id', async () => {
-    const query = { page: 1, size: 10 };
-    warehouseService.findMine.mockResolvedValue({ items: [], total: 0 });
-
-    const response = await controller.findMine(currentUser, query);
-
-    expect(warehouseService.findMine).toHaveBeenCalledWith('user-id-1', query);
-    expect(response.statusCode).toBe(200);
-  });
-
-  it('forwards the slug to findOne', async () => {
+  it('forwards the slug and current user to findOne', async () => {
     warehouseService.findOne.mockResolvedValue({ slug: 'wh-slug-1' });
+    const user = { userId: 'user-id-1', roleName: 'MANAGER', scope: [] };
 
-    const response = await controller.findOne('wh-slug-1');
+    const response = await controller.findOne(user, 'wh-slug-1');
 
-    expect(warehouseService.findOne).toHaveBeenCalledWith('wh-slug-1');
+    expect(warehouseService.findOne).toHaveBeenCalledWith('wh-slug-1', user);
     expect(response.result).toEqual({ slug: 'wh-slug-1' });
   });
 
@@ -178,11 +168,6 @@ describe('WarehouseController', () => {
         AuthorityCode.UserRead,
       ]);
       expect(authority(controller.deleteWarehouse)).toEqual([AuthorityCode.WarehouseDelete]);
-    });
-
-    // `mine` cố tình không gắn decorator: service đã giới hạn theo `userId` của chính người gọi.
-    it('leaves /mine open to any authenticated user', () => {
-      expect(authority(controller.findMine)).toBeUndefined();
     });
   });
 });
