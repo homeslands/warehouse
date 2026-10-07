@@ -298,23 +298,6 @@ describe('WarehouseService', () => {
     });
   });
 
-  describe('findMine', () => {
-    it('scopes to the current user id and ignores manager filters from the query', async () => {
-      warehouseRepository.findAndCount.mockResolvedValue([[], 0]);
-
-      await service.findMine('user-id-1', {
-        page: 1,
-        size: 10,
-        managerSlug: 'someone-else',
-        hasManager: false,
-      } as never);
-
-      expect(warehouseRepository.findAndCount.mock.calls[0][0].where).toEqual({
-        manager: { id: 'user-id-1' },
-      });
-    });
-  });
-
   describe('findOne', () => {
     const admin: CurrentUserDto = { userId: 'admin-id', roleName: RoleEnum.Admin, scope: [] };
     const user = (roleName?: string): CurrentUserDto => ({

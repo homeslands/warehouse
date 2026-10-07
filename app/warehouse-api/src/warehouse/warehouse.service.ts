@@ -10,7 +10,6 @@ import {
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
   GetAvailableWarehouseMemberRequestDto,
-  GetMyWarehouseRequestDto,
   UpdateWarehouseRequestDto,
   WarehouseMemberResponseDto,
   WarehouseResponseDto,
@@ -27,6 +26,7 @@ import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
 import { UserResponseDto } from 'src/user/user.dto';
+import { BaseQueryDto } from 'src/app/base.dto';
 
 /**
  * `manager`/`store` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path
@@ -119,15 +119,16 @@ export class WarehouseService {
     return this.paginate(where, query);
   }
 
-  async findMine(
-    userId: string,
-    query: GetMyWarehouseRequestDto,
-  ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
-    const where: FindOptionsWhere<Warehouse> = { manager: { id: userId } };
-    if (query.isActive !== undefined) where.isActive = query.isActive;
-
-    return this.paginate(where, query);
-  }
+  // Tạm ẩn cùng `GET /warehouses/mine` (đã comment ở controller).
+  // async findMine(
+  //   userId: string,
+  //   query: GetMyWarehouseRequestDto,
+  // ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
+  //   const where: FindOptionsWhere<Warehouse> = { manager: { id: userId } };
+  //   if (query.isActive !== undefined) where.isActive = query.isActive;
+  //
+  //   return this.paginate(where, query);
+  // }
 
   /**
    * `ADMIN`/`SUPER_ADMIN` đọc được mọi kho. Role khác (kể cả role tự tạo, token thiếu claim `role`)
@@ -307,7 +308,7 @@ export class WarehouseService {
 
   private async paginate(
     where: FindOptionsWhere<Warehouse> | FindOptionsWhere<Warehouse>[],
-    query: GetMyWarehouseRequestDto,
+    query: BaseQueryDto,
   ): Promise<AppPaginatedResponseDto<WarehouseResponseDto>> {
     const [items, total] = await this.warehouseRepository.findAndCount({
       where,
