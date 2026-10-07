@@ -335,6 +335,7 @@ describe('AuthService', () => {
     it('merges the personal info from the database into the current user', async () => {
       userService.findById.mockResolvedValue({
         ...activeUser,
+        slug: 'user-slug',
         phonenumber: '0376295216',
         firstName: 'Minh',
         lastName: 'Nguyen',
@@ -359,7 +360,7 @@ describe('AuthService', () => {
       const profile = await service.getProfile(caller());
 
       expect(profile).toEqual({
-        userId: 'user-id',
+        userSlug: 'user-slug',
         userName: '0376295216',
         phonenumber: '0376295216',
         firstName: 'Minh',
@@ -380,6 +381,7 @@ describe('AuthService', () => {
         warehouses,
       });
       expect(profile).not.toHaveProperty('password');
+      expect(profile).not.toHaveProperty('userId');
       expect(userService.findById).toHaveBeenCalledWith('user-id');
       expect(userService.findWarehousesOfUser).toHaveBeenCalledWith('user-id');
     });
