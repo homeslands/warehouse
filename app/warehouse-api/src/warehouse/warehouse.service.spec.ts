@@ -70,6 +70,7 @@ describe('WarehouseService', () => {
     softRemove: jest.fn(),
     existsBy: jest.fn(),
     find: jest.fn(),
+    findAndCount: jest.fn(),
   };
   const userService = { findBySlug: jest.fn(), findAll: jest.fn() };
 
@@ -639,6 +640,86 @@ describe('WarehouseService', () => {
       warehouseMemberRepository.existsBy.mockResolvedValue(false);
 
       await expect(service.findUserWarehouse('wh-slug-1', 'user-id-2')).resolves.toBe(false);
+    });
+  });
+
+  describe('findMembers', () => {
+    const query = { page: 2, size: 1 };
+    const admin: CurrentUserDto = { userId: 'admin-id', roleName: RoleEnum.Admin, scope: [] };
+    const supervisor: CurrentUserDto = {
+      userId: 'user-id-1',
+      roleName: RoleEnum.Supervisor,
+      scope: [],
+    };
+
+    it('returns a page of members mapped to the short user shape', async () => {
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+      warehouseMemberRepository.findAndCount.mockResolvedValue([
+        [{ slug: 'm-slug-1', user: managerUser({ slug: 'u-slug-1' }) }],
+        3,
+      ]);
+
+      const result = await service.findMembers('wh-slug-1', query, admin);
+
+      expect(warehouseMemberRepository.findAndCount).toHaveBeenCalledWith({
+        where: { warehouse: { id: baseWarehouse().id } },
+        relations: { user: true },
+        order: { createdAt: 'DESC' },
+        skip: 1,
+        take: 1,
+      });
+      expect(result).toMatchObject({
+        total: 3,
+        page: 2,
+        pageSize: 1,
+        totalPages: 3,
+        hasNext: true,
+        hasPrevios: true,
+      });
+      expect(result.items).toEqual([
+        expect.objectContaining({
+          slug: 'm-slug-1',
+          user: {
+            slug: 'u-slug-1',
+            phonenumber: '0900000000',
+            firstName: 'Minh',
+            lastName: 'Nguyen',
+          },
+        }),
+      ]);
+      expect(warehouseMemberRepository.existsBy).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown warehouse', async () => {
+      warehouseRepository.findOne.mockResolvedValue(null);
+
+      await expectWarehouseError(
+        service.findMembers('missing', query, admin),
+        WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      );
+      expect(warehouseMemberRepository.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it('lets a member of the warehouse list its members', async () => {
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+      warehouseMemberRepository.existsBy.mockResolvedValue(true);
+      warehouseMemberRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await expect(service.findMembers('wh-slug-1', query, supervisor)).resolves.toBeDefined();
+    });
+
+    it('rejects a user who is neither manager nor member', async () => {
+      warehouseRepository.findOne.mockResolvedValue({
+        ...baseWarehouse(),
+        manager: { id: 'someone-else' },
+      });
+      warehouseMemberRepository.existsBy.mockResolvedValue(false);
+
+      await expectWarehouseError(
+        service.findMembers('wh-slug-1', query, supervisor),
+        WarehouseValidation.WAREHOUSE_ACCESS_DENIED.code,
+      );
+      expect(warehouseMemberRepository.findAndCount).not.toHaveBeenCalled();
     });
   });
 

@@ -143,7 +143,7 @@ Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route n
 | `PATCH /users/{userSlug}`, `PUT /users/{userSlug}/lock`, `PUT /users/{userSlug}/unlock`, `POST /users/{userSlug}/change-role` | `USER_UPDATE` | `ADMIN` — ADMIN không sửa/khoá/đổi role được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`) |
 | `DELETE /users/{userSlug}` (xoá mềm user + membership kho, thu hồi phiên) | `USER_DELETE` | `ADMIN` (seed `1783728000038`) |
 | `POST` / `PATCH` / `DELETE /warehouses...` / `PUT .../manager` | `WAREHOUSE_CREATE` / `_UPDATE` / `_DELETE` / `_ASSIGN_MANAGER` | `ADMIN` |
-| `GET /warehouses`, `GET /warehouses/{slug}` | `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` — `GET /warehouses` với `MANAGER` bị service lọc về kho mình phụ trách |
+| `GET /warehouses`, `GET /warehouses/{slug}`, `GET /warehouses/{slug}/members` | `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` — `GET /warehouses` với `MANAGER` bị service lọc về kho mình phụ trách; `{slug}` và `{slug}/members` dưới ADMIN chỉ đọc được kho mình là manager/thành viên |
 | `PUT /warehouses/{slug}/members`, `DELETE .../members/{userSlug}`, `GET /warehouses/{slug}/available-members` | `WAREHOUSE_UPDATE` + `USER_READ` | `ADMIN` |
 | `GET /warehouses/mine` | — (mọi user đã đăng nhập, service tự lọc theo `userId`) | |
 | `POST` / `GET` / `PATCH` / `DELETE /material-types...` và `/materials/{slug}` | `MATERIAL_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
