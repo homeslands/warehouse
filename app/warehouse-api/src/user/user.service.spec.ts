@@ -36,7 +36,7 @@ describe('UserService', () => {
     revokeSession: jest.fn(),
     revokeAllTokensForUser: jest.fn(),
   };
-  const warehouseRepository = { count: jest.fn() };
+  const warehouseRepository = { count: jest.fn(), createQueryBuilder: jest.fn() };
   const roleService = { findBySlug: jest.fn(), assertCanManage: jest.fn(), actorLevel: jest.fn() };
   const config: Record<string, string> = { SALT_ROUNDS: '4' };
   const configService = { get: (key: string) => config[key] };
@@ -316,6 +316,38 @@ describe('UserService', () => {
 
       await expect(service.lockUser(caller(), 'other-slug')).rejects.toBe(forbidden);
       expect(userRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findWarehousesOfUser', () => {
+    let qb: Record<string, jest.Mock>;
+
+    beforeEach(() => {
+      qb = {};
+      for (const method of ['leftJoinAndSelect', 'leftJoin', 'where', 'orderBy'])
+        qb[method] = jest.fn().mockReturnValue(qb);
+      warehouseRepository.createQueryBuilder.mockReturnValue(qb);
+    });
+
+    it('returns managed and member warehouses flagged by isManager, without ids', async () => {
+      qb.getMany = jest.fn().mockResolvedValue([
+        { id: 'wh-id-1', slug: 'wh-1', code: 'WH-01', name: 'Kho 1', manager: { id: 'user-id' } },
+        { id: 'wh-id-2', slug: 'wh-2', code: 'WH-02', name: 'Kho 2', manager: { id: 'boss' } },
+        { id: 'wh-id-3', slug: 'wh-3', code: 'WH-03', name: 'Kho 3', manager: null },
+      ]);
+
+      await expect(service.findWarehousesOfUser('user-id')).resolves.toEqual([
+        { slug: 'wh-1', code: 'WH-01', name: 'Kho 1', isManager: true },
+        { slug: 'wh-2', code: 'WH-02', name: 'Kho 2', isManager: false },
+        { slug: 'wh-3', code: 'WH-03', name: 'Kho 3', isManager: false },
+      ]);
+      // Thành viên đã bị gỡ (xoá mềm) không được tính.
+      expect(qb.leftJoin).toHaveBeenCalledWith(
+        'warehouse.members',
+        'member',
+        expect.stringContaining('member.deletedAt IS NULL'),
+        { userId: 'user-id' },
+      );
     });
   });
 

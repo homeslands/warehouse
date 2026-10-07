@@ -30,6 +30,7 @@ describe('AuthService', () => {
     findByPhoneNumber: jest.fn(),
     findById: jest.fn(),
     findBySlug: jest.fn(),
+    findWarehousesOfUser: jest.fn(),
     updatePassword: jest.fn(),
   };
   const tokenRevocationService = {
@@ -341,7 +342,19 @@ describe('AuthService', () => {
         dob: '1990-01-31',
         address: 'Cầu Giấy, Hà Nội',
         password: 'hashed',
+        role: {
+          id: 'role-id',
+          slug: 'manager-slug',
+          name: RoleEnum.Manager,
+          description: 'Quản lý kho',
+          level: 20,
+        },
       } as User);
+      const warehouses = [
+        { slug: 'wh-1', code: 'WH-01', name: 'Kho 1', isManager: true },
+        { slug: 'wh-2', code: 'WH-02', name: 'Kho 2', isManager: false },
+      ];
+      userService.findWarehousesOfUser.mockResolvedValue(warehouses);
 
       const profile = await service.getProfile(caller());
 
@@ -357,9 +370,18 @@ describe('AuthService', () => {
         roleName: RoleEnum.Manager,
         sessionId: 'sid-1',
         scope: [],
+        // Không lộ `id` (uuid PK) của role ra response.
+        role: {
+          slug: 'manager-slug',
+          name: RoleEnum.Manager,
+          description: 'Quản lý kho',
+          level: 20,
+        },
+        warehouses,
       });
       expect(profile).not.toHaveProperty('password');
       expect(userService.findById).toHaveBeenCalledWith('user-id');
+      expect(userService.findWarehousesOfUser).toHaveBeenCalledWith('user-id');
     });
 
     // Cache hit không load entity, nên token vẫn hợp lệ sau khi user bị xoá khỏi DB.

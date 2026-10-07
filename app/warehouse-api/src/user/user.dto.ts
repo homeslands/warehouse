@@ -196,6 +196,12 @@ export class UserWarehouseDto {
   name: string;
 }
 
+// Kho trong `GET /auth/me`: gồm cả kho user làm manager lẫn kho user là thành viên.
+export class UserProfileWarehouseDto extends UserWarehouseDto {
+  @ApiProperty({ description: '`true` = manager của kho, `false` = thành viên thường' })
+  isManager: boolean;
+}
+
 export class UserResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty()
