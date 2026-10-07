@@ -61,6 +61,15 @@ export class AuthService {
       email: user.email,
       dob: user.dob,
       address: user.address,
+      role: user.role
+        ? {
+            slug: user.role.slug,
+            name: user.role.name,
+            description: user.role.description,
+            level: user.role.level,
+          }
+        : undefined,
+      warehouses: await this.userService.findWarehousesOfUser(user.id),
     };
   }
 

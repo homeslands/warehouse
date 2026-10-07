@@ -13,6 +13,7 @@ import {
   CreateUserRequestDto,
   GetAllUserRequestDto,
   UpdateUserRequestDto,
+  UserProfileWarehouseDto,
   UserResponseDto,
 } from './user.dto';
 import { UserException } from './user.exception';
@@ -189,6 +190,36 @@ export class UserService {
 
   async findById(id: string): Promise<User | null> {
     return this.userRepository.findOneBy({ id });
+  }
+
+  /**
+   * Kho của user cho `GET /auth/me`: kho user làm manager + kho user là thành viên (row chưa xoá
+   * mềm). Join tự viết nên phải tự lọc `member.deletedAt`; kho xoá mềm thì TypeORM tự loại.
+   */
+  async findWarehousesOfUser(userId: string): Promise<UserProfileWarehouseDto[]> {
+    const warehouses = await this.warehouseRepository
+      .createQueryBuilder('warehouse')
+      .leftJoinAndSelect('warehouse.manager', 'manager')
+      .leftJoin(
+        'warehouse.members',
+        'member',
+        'member.deletedAt IS NULL AND member.user = :userId',
+        { userId },
+      )
+      .where(
+        new Brackets((sub) =>
+          sub.where('manager.id = :userId', { userId }).orWhere('member.id IS NOT NULL'),
+        ),
+      )
+      .orderBy('warehouse.name', 'ASC')
+      .getMany();
+
+    return warehouses.map((warehouse) => ({
+      slug: warehouse.slug,
+      code: warehouse.code,
+      name: warehouse.name,
+      isManager: warehouse.manager?.id === userId,
+    }));
   }
 
   async updatePassword(id: string, newPassword: string): Promise<void> {
