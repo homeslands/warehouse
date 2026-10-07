@@ -63,7 +63,7 @@ export class UserController {
   @RequireAuthority(AuthorityCode.UserRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Get all users (paginated, filter by role)',
+    summary: 'Get all users (paginated, filter by role / isActive)',
     description:
       'Mỗi user kèm `role` (slug/name/description/level) và `warehouses` — các kho user là thành ' +
       'viên (không gồm kho user làm manager).',
