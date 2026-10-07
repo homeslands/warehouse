@@ -18,6 +18,7 @@ import {
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
+  GetAvailableWarehouseMemberRequestDto,
   GetMyWarehouseRequestDto,
   UpdateWarehouseRequestDto,
   WarehouseMemberResponseDto,
@@ -29,7 +30,7 @@ import { AuthorityCode } from 'src/authority/authority.constants';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
-import { GetAllUserRequestDto, UserResponseDto } from 'src/user/user.dto';
+import { UserResponseDto } from 'src/user/user.dto';
 
 @ApiTags('Warehouse')
 @Controller('warehouses')
@@ -219,7 +220,7 @@ export class WarehouseController {
   async findAvailableMembers(
     @Param('slug') slug: string,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
-    query: GetAllUserRequestDto,
+    query: GetAvailableWarehouseMemberRequestDto,
   ) {
     const result = await this.warehouseService.findAvailableMembers(slug, query);
     return {

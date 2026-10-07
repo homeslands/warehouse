@@ -1,4 +1,4 @@
-import { GetAllUserRequestDto } from 'src/user/user.dto';
+import { GetAvailableWarehouseMemberRequestDto } from './warehouse.dto';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
@@ -604,7 +604,7 @@ describe('WarehouseService', () => {
   });
 
   describe('findAvailableMembers', () => {
-    const query = { page: 1, size: 10 } as GetAllUserRequestDto;
+    const query = { page: 1, size: 10 } as GetAvailableWarehouseMemberRequestDto;
 
     it('excludes current members and the manager, and only lists active users', async () => {
       warehouseRepository.findOne.mockResolvedValue({ id: 'wh-id', manager: { id: 'mgr-id' } });

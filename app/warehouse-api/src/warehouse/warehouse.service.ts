@@ -9,6 +9,7 @@ import {
   AssignWarehouseManagerRequestDto,
   CreateWarehouseRequestDto,
   GetAllWarehouseRequestDto,
+  GetAvailableWarehouseMemberRequestDto,
   GetMyWarehouseRequestDto,
   UpdateWarehouseRequestDto,
   WarehouseMemberResponseDto,
@@ -25,7 +26,7 @@ import { WAREHOUSE_MEMBER_EXCLUDED_ROLES, WAREHOUSE_SCOPED_ROLES } from './wareh
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { GetAllUserRequestDto, UserResponseDto } from 'src/user/user.dto';
+import { UserResponseDto } from 'src/user/user.dto';
 
 /**
  * `manager`/`store` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path
@@ -232,7 +233,7 @@ export class WarehouseService {
    */
   async findAvailableMembers(
     slug: string,
-    query: GetAllUserRequestDto,
+    query: GetAvailableWarehouseMemberRequestDto,
   ): Promise<AppPaginatedResponseDto<UserResponseDto>> {
     const warehouse = await this.warehouseRepository.findOne({
       where: { slug },
