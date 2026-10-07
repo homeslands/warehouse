@@ -9,6 +9,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/shared/api/backend-capabilities', () => ({
   BACKEND_SUPPORTS: {
     sort: false,
+    userSort: false,
     search: false,
     profileEdit: false,
     sessionList: false,
@@ -29,7 +30,6 @@ import { createRoutes } from '@/app/routes'
 const BASE = 'http://localhost:8085/api/v1'
 
 const ADMIN = {
-  userId: 'u1',
   userName: 'a',
   roleName: 'ADMIN',
   scope: ['MANAGE_PERMISSIONS', 'ROLE_READ'],

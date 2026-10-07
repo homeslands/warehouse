@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('@/shared/api/backend-capabilities', () => ({
   BACKEND_SUPPORTS: {
     sort: false,
+    userSort: false,
     search: false,
     profileEdit: false,
     sessionList: false,
@@ -54,7 +55,7 @@ const roles: Role[] = [
 function renderAs(roleName: string, scope: string[]) {
   return renderWithProviders(<PermissionMatrix roles={roles} authorities={authorities} />, {
     route: '/permissions',
-    auth: { userId: 'u1', userName: 't', roleName, scope },
+    auth: { userName: 't', roleName, scope },
   })
 }
 

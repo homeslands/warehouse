@@ -12,7 +12,7 @@
  * sửa hồ sơ (`PATCH /auth/me`) thì chưa — xem `docs/proposals/2026-09-23-account-profile-and-sessions.md`.
  */
 export type Profile = {
-  userId: string
+  userSlug?: string
   userName: string
   roleName: string
   scope: string[]

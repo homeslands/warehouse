@@ -1,7 +1,27 @@
-import { useQuery } from '@tanstack/react-query'
-import { fetchRoles, fetchUsers } from './user.api'
+import { keepPreviousData, useMutation, useQuery, useQueryClient } from '@tanstack/react-query'
+import { useTranslation } from 'react-i18next'
+import { toast } from 'sonner'
+import { isApiError } from '@/shared/api/http'
+import type { ApiError, ListParams } from '@/shared/api/types'
+import {
+  createUser,
+  fetchRoles,
+  fetchUsers,
+  resetUserPassword,
+  changeUserRole,
+  lockUser,
+  unlockUser,
+  updateUser,
+} from './user.api'
 import { roleKeys, userKeys } from './query-keys'
-import type { ManagerCandidate } from '../model/types'
+import type {
+  ManagerCandidate,
+  ResetUserPasswordInput,
+  User,
+  UserFilters,
+  UserInput,
+  UserUpdateInput,
+} from '../model/types'
 
 /** Tên vai trò quản lý kho ở backend (`RoleEnum.Manager`). */
 const MANAGER_ROLE_NAME = 'MANAGER'
@@ -62,7 +82,112 @@ export function useManagerCandidates(): {
 /**
  * Danh sách role kèm `authorityCodes` đang được cấp. `GET /roles` trả **mọi** role kèm quyền trong
  * MỘT request, nên ma trận phân quyền không phải gọi `GET /roles/:slug` từng cái.
+ *
+ * `enabled: false` khi người xem không có `ROLE_READ` (vd MANAGER ở màn người dùng) — không bắn request
+ * chắc chắn 403.
  */
-export function useRoles() {
-  return useQuery({ queryKey: roleKeys.all, queryFn: fetchRoles, staleTime: ROLES_STALE_TIME })
+export function useRoles(options: { enabled?: boolean } = {}) {
+  return useQuery({
+    queryKey: roleKeys.all,
+    queryFn: fetchRoles,
+    staleTime: ROLES_STALE_TIME,
+    enabled: options.enabled ?? true,
+  })
+}
+
+/** Một trang người dùng. Chuyển trang vẫn hiện trang cũ tới khi trang mới về. */
+export function useUsers(params: ListParams<UserFilters>) {
+  return useQuery({
+    queryKey: userKeys.list(params),
+    queryFn: () => fetchUsers(params),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** Cũng làm mới `useManagerCandidates` (ô chọn quản lý kho) — cùng gốc `userKeys.all`. */
+function useInvalidateUsers() {
+  const qc = useQueryClient()
+  return () => qc.invalidateQueries({ queryKey: userKeys.all })
+}
+
+export function useCreateUser() {
+  const invalidate = useInvalidateUsers()
+  const { t } = useTranslation(['users'])
+
+  return useMutation<User, ApiError, UserInput>({
+    mutationFn: createUser,
+    // Form tự báo lỗi tại ô (SĐT trùng / sai, email, ngày sinh, vai trò).
+    meta: { suppressErrorToast: true },
+    onSuccess: () => {
+      toast.success(t('users:created'))
+      invalidate()
+    },
+  })
+}
+
+/** Mã backend khi người đích không còn (bị xoá ở nơi khác). */
+const USER_NOT_FOUND_CODE = 100405
+
+export function useResetUserPassword() {
+  const invalidate = useInvalidateUsers()
+  const { t } = useTranslation(['users'])
+
+  return useMutation<
+    { userSlug: string },
+    ApiError,
+    { slug: string; input: ResetUserPasswordInput }
+  >({
+    mutationFn: ({ slug, input }) => resetUserPassword(slug, input),
+    // Dialog tự báo lỗi (ô mật khẩu hoặc toast).
+    meta: { suppressErrorToast: true },
+    // Danh sách không đổi khi đổi mật khẩu — không tải lại.
+    onSuccess: () => toast.success(t('users:passwordReset')),
+    // Người đích đã biến mất → dòng đang hiện là dữ liệu cũ.
+    onError: (error) => {
+      if (isApiError(error) && error.code === USER_NOT_FOUND_CODE) invalidate()
+    },
+  })
+}
+
+export function useUpdateUser() {
+  const invalidate = useInvalidateUsers()
+  const { t } = useTranslation(['users'])
+
+  return useMutation<User, ApiError, { slug: string; input: UserUpdateInput }>({
+    mutationFn: ({ slug, input }) => updateUser(slug, input),
+    meta: { suppressErrorToast: true },
+    onSuccess: () => {
+      toast.success(t('users:updated'))
+      invalidate()
+    },
+  })
+}
+
+/** Lỗi (tự khoá, đang quản lý kho, ADMIN↔ADMIN) để chốt toast chung báo — hộp xác nhận không có ô gắn lỗi. */
+export function useSetUserActive() {
+  const invalidate = useInvalidateUsers()
+  const { t } = useTranslation(['users'])
+
+  return useMutation<User, ApiError, { slug: string; isActive: boolean }>({
+    mutationFn: ({ slug, isActive }) => (isActive ? unlockUser(slug) : lockUser(slug)),
+    onSuccess: (_user, { isActive }) => {
+      toast.success(t(isActive ? 'users:unlocked' : 'users:locked'))
+      invalidate()
+    },
+  })
+}
+
+export function useChangeUserRole() {
+  const invalidate = useInvalidateUsers()
+  const { t } = useTranslation(['users'])
+
+  return useMutation<User, ApiError, { slug: string; roleSlug: string }>({
+    mutationFn: ({ slug, roleSlug }) => changeUserRole(slug, { roleSlug }),
+    // Dialog tự báo lỗi tại ô chọn vai trò (100104 / 100101 / 100417).
+    meta: { suppressErrorToast: true },
+    onSuccess: () => {
+      toast.success(t('users:roleChanged'))
+      invalidate()
+    },
+  })
 }

@@ -289,7 +289,7 @@ describe('WarehousesPage — quyền ghi', () => {
   // "như cũ" khi admin chưa chỉnh gì ở màn phân quyền. Luật chi tiết theo từng mã:
   // `WarehousesPage.authority.test.tsx` và `model/abilities.test.ts`.
   it('ADMIN (scope mặc định) thấy nút Tạo kho và menu thao tác từng dòng', async () => {
-    renderPage({ auth: { userId: 'u1', userName: 'ad', roleName: 'ADMIN', scope: ADMIN_SCOPE } })
+    renderPage({ auth: { userName: 'ad', roleName: 'ADMIN', scope: ADMIN_SCOPE } })
     await screen.findByText('Kho Hà Nội 1')
 
     expect(screen.getByRole('button', { name: 'Tạo kho' })).toBeInTheDocument()
@@ -297,11 +297,8 @@ describe('WarehousesPage — quyền ghi', () => {
   })
 
   it.each([
-    ['MANAGER', { userId: 'u2', userName: 'ql', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] }],
-    [
-      'SUPERVISOR',
-      { userId: 'u3', userName: 'gs', roleName: 'SUPERVISOR', scope: ['WAREHOUSE_READ'] },
-    ],
+    ['MANAGER', { userName: 'ql', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] }],
+    ['SUPERVISOR', { userName: 'gs', roleName: 'SUPERVISOR', scope: ['WAREHOUSE_READ'] }],
   ])(
     '%s (scope mặc định) chỉ xem: không có nút Tạo, không có cột thao tác',
     async (_role, auth) => {
@@ -577,7 +574,7 @@ describe('WarehousesPage — lọc theo quản lý và gán quản lý', () => {
         return paginated(managers)
       }),
     )
-    renderPage({ auth: { userId: 'u2', userName: 'quanly', roleName: 'MANAGER', scope: [] } })
+    renderPage({ auth: { userName: 'quanly', roleName: 'MANAGER', scope: [] } })
     await screen.findByText('Kho Hà Nội 1')
 
     expect(screen.queryByRole('combobox', { name: 'Lọc theo quản lý' })).not.toBeInTheDocument()

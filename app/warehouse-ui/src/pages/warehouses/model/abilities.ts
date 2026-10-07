@@ -9,6 +9,10 @@ export type WarehouseAbilities = {
   delete: boolean
   /** Ô lọc theo quản lý gọi `GET /users`. */
   filterByManager: boolean
+  /** Khối Thành viên = `GET /users?warehouseSlug=`. */
+  viewMembers: boolean
+  /** Thêm/gỡ thành viên: `WAREHOUSE_UPDATE` + `USER_READ` (hộp thêm tải danh sách ứng viên). */
+  manageMembers: boolean
 }
 
 /**
@@ -19,8 +23,11 @@ export type WarehouseAbilities = {
  */
 export function warehouseAbilities(
   user: CurrentUser | null,
-  flags: Pick<BackendCapabilities, 'authorityGuards'>,
+  flags: Pick<BackendCapabilities, 'authorityGuards' | 'userSearch'>,
 ): WarehouseAbilities {
+  // Khối Thành viên dùng `GET /users?warehouseSlug=`; backend cũ bỏ qua tham số này và trả mọi người
+  // dùng → phải đóng cả khối khi cờ `userSearch` tắt.
+  const membersOpen = flags.userSearch
   if (!flags.authorityGuards) {
     // Backend còn `@HasRole(RoleEnum.Admin)` cho mọi endpoint ghi của kho và `GET /users`.
     const admin = hasRole(user, ROLES.ADMIN)
@@ -30,6 +37,8 @@ export function warehouseAbilities(
       assignManager: admin,
       delete: admin,
       filterByManager: admin,
+      viewMembers: membersOpen && admin,
+      manageMembers: membersOpen && admin,
     }
   }
 
@@ -44,5 +53,7 @@ export function warehouseAbilities(
     assignManager: can(user, 'WAREHOUSE_ASSIGN_MANAGER') && readUsers,
     delete: can(user, 'WAREHOUSE_DELETE'),
     filterByManager: readUsers,
+    viewMembers: membersOpen && can(user, 'USER_READ'),
+    manageMembers: membersOpen && can(user, 'WAREHOUSE_UPDATE') && can(user, 'USER_READ'),
   }
 }

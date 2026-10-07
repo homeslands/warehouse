@@ -21,7 +21,7 @@ export type ListFilters<S extends z.ZodObject> = KnownKeys<z.output<S>>
 /**
  * Một cột đang sắp xếp. Backend nhận `sort?: string[]` dạng `['createdAt:DESC']`
  * (`BaseQueryDto`), nên URL cũng dùng đúng dạng `?sort=createdAt:DESC` — một nơi một định dạng.
- * Chỉ hỗ trợ MỘT cột: backend chưa xử lý `sort` nên đa cột là bịa hợp đồng.
+ * Chỉ hỗ trợ MỘT cột: mới `GET /users` xử lý `sort` (cờ `userSort`); giữ một cột cho khớp `BaseQueryDto`.
  */
 export type SortState = { field: string; dir: 'ASC' | 'DESC' }
 

@@ -4,8 +4,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
+import type { User } from '@/entities/user'
 import type { Warehouse } from '@/entities/warehouse'
-import { apiError, ok } from '@/shared/test/api'
+import { apiError, ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import type { InitialEntry } from 'react-router-dom'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
@@ -43,7 +44,7 @@ beforeEach(() => {
 })
 
 describe('WarehouseDetailPage — hiển thị', () => {
-  it('tiêu đề, mã, trạng thái và một card Tổng quan (thời gian ở chân card)', async () => {
+  it('tiêu đề, mã, trạng thái và card Tổng quan (thời gian ở chân card) + khối Thành viên', async () => {
     renderPage()
 
     expect(
@@ -53,6 +54,7 @@ describe('WarehouseDetailPage — hiển thị', () => {
     expect(screen.getByText('Đang hoạt động')).toBeInTheDocument()
     expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
       'Tổng quan',
+      'Thành viên',
     ])
     // Tên đã là tiêu đề trang — không lặp lại trong card.
     expect(screen.getAllByText('Kho Hà Nội 1')).toHaveLength(1)
@@ -148,7 +150,7 @@ describe('WarehouseDetailPage — quay lại và thao tác', () => {
 
   it('không có quyền ghi (MANAGER, chỉ WAREHOUSE_READ) → không nút Sửa, không menu ⋯', async () => {
     renderPage({
-      auth: { userId: 'u', userName: 'm', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] },
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] },
     })
     await screen.findByRole('heading', { level: 1 })
 
@@ -203,5 +205,63 @@ describe('WarehouseDetailPage — quay lại và thao tác', () => {
     await user.click(within(box).getByRole('button', { name: 'Xoá' }))
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/warehouses'))
+  })
+})
+
+describe('WarehouseDetailPage — khối Thành viên', () => {
+  const member = {
+    slug: 'u-lan',
+    phonenumber: '0384940599',
+    firstName: 'Lan',
+    lastName: 'Trần',
+    roleName: 'STAFF',
+    role: { slug: 'staff', name: 'STAFF', level: 1 },
+    isActive: true,
+  } as unknown as User
+
+  function mockUsers() {
+    const calls: string[] = []
+    server.use(
+      mswHttp.get(`${BASE}/users`, ({ request }) => {
+        calls.push(request.url)
+        return paginated([member])
+      }),
+    )
+    return calls
+  }
+
+  it('ADMIN thấy khối Thành viên và nút Thêm thành viên', async () => {
+    mockUsers()
+    renderPage()
+
+    expect(await screen.findByText('Trần Lan')).toBeInTheDocument()
+    expect(screen.getByRole('heading', { level: 2, name: 'Thành viên' })).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Thêm thành viên' })).toBeInTheDocument()
+  })
+
+  it('chỉ USER_READ → thấy danh sách, KHÔNG nút Thêm / Gỡ (Review Focus #5)', async () => {
+    mockUsers()
+    renderPage({
+      auth: {
+        userName: 'm',
+        roleName: 'MANAGER',
+        scope: ['WAREHOUSE_READ', 'USER_READ'],
+      },
+    })
+
+    expect(await screen.findByText('Trần Lan')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Thêm thành viên' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Gỡ / })).not.toBeInTheDocument()
+  })
+
+  it('thiếu USER_READ → không có khối và không gọi GET /users', async () => {
+    const calls = mockUsers()
+    renderPage({
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] },
+    })
+    await screen.findByRole('heading', { level: 1 })
+
+    expect(screen.queryByRole('heading', { level: 2, name: 'Thành viên' })).not.toBeInTheDocument()
+    expect(calls).toEqual([])
   })
 })

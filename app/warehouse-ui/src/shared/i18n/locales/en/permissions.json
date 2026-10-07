@@ -51,6 +51,8 @@
     "ROLE_DELETE": "Delete roles",
     "USER_CREATE": "Create users",
     "USER_READ": "View users",
+    "USER_UPDATE": "Edit, lock and change the role of users",
+    "USER_DELETE": "Delete users",
     "USER_CHANGE_PASSWORD": "Reset user passwords",
     "IMPORT_FORM_CREATE": "Create import forms",
     "IMPORT_FORM_READ": "View import forms",

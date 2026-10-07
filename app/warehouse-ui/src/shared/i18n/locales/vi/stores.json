@@ -15,6 +15,9 @@
   "deleted": "Đã xoá cửa hàng",
   "warehouseSaved": "Đã cập nhật kho của cửa hàng",
   "create": "Tạo cửa hàng",
+  "createConfirmTitle": "Tạo cửa hàng mới?",
+  "createConfirmDescription": "Kiểm tra lại thông tin trước khi tạo.",
+  "createConfirmAction": "Tạo",
   "edit": "Sửa cửa hàng",
   "delete": "Xoá cửa hàng",
   "actions": "Thao tác",
@@ -36,11 +39,13 @@
   "fieldEmail": "Email",
   "fieldIsActive": "Đang hoạt động",
   "codeRequired": "Vui lòng nhập mã cửa hàng",
-  "codeInvalid": "Mã cửa hàng gồm 2-32 ký tự chữ, số hoặc gạch ngang",
+  "codeInvalid": "Mã cửa hàng không đúng định dạng",
+  "codeHint": "2–32 ký tự: chữ, số hoặc gạch ngang",
   "nameRequired": "Vui lòng nhập tên cửa hàng",
   "legalNameRequired": "Vui lòng nhập tên pháp lý",
   "taxCodeRequired": "Vui lòng nhập mã số thuế",
-  "taxCodeInvalid": "Mã số thuế gồm 10 chữ số, có thể kèm 3 chữ số chi nhánh",
+  "taxCodeInvalid": "Mã số thuế không đúng định dạng",
+  "taxCodeHint": "10 chữ số, có thể kèm 3 chữ số chi nhánh (vd 0101234567-001)",
   "assignWarehouseAction": "Gán kho",
   "assignWarehouseTitle": "Gán kho cho cửa hàng",
   "fieldWarehouse": "Kho",
@@ -53,5 +58,5 @@
   "notFound": "Không tìm thấy cửa hàng này — có thể đã bị xoá.",
   "fieldManager": "Người quản lý",
   "noManager": "Chưa có quản lý",
-  "mineEmpty": "Chưa có cửa hàng nào gắn với kho bạn quản lý."
+  "mineEmpty": "Chưa có cửa hàng nào gắn với kho của bạn."
 }

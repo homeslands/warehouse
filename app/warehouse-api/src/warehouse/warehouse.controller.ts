@@ -30,6 +30,7 @@ import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 import { UserResponseDto } from 'src/user/user.dto';
+import { BaseQueryDto } from 'src/app/base.dto';
 
 @ApiTags('Warehouse')
 @Controller('warehouses')
@@ -209,6 +210,35 @@ export class WarehouseController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<WarehouseMemberResponseDto>;
+  }
+
+  // Chỉ cần `WarehouseRead` (không `UserRead`): MANAGER/SUPERVISOR xem được thành viên kho mình,
+  // service giới hạn phạm vi giống `GET :slug`.
+  @Get(':slug/members')
+  @RequireAuthority(AuthorityCode.WarehouseRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'List members of a warehouse (paginated)',
+    description:
+      'Không gồm manager của kho (xem `GET /warehouses/{slug}`). ADMIN/SUPER_ADMIN xem được mọi ' +
+      'kho; role khác chỉ xem được kho mình là manager hoặc thành viên, ngược lại trả ' +
+      '`WAREHOUSE_ACCESS_DENIED` (403).',
+  })
+  @ApiPaginatedResponse(WarehouseMemberResponseDto, 'Retrieved')
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async findMembers(
+    @CurrentUser() currentUser: CurrentUserDto,
+    @Param('slug') slug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: BaseQueryDto,
+  ) {
+    const result = await this.warehouseService.findMembers(slug, query, currentUser);
+    return {
+      message: 'Warehouse members have been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<WarehouseMemberResponseDto>>;
   }
 
   // Cùng cặp quyền với `PUT :slug/members` — đây là danh sách để chọn user khi gán.
