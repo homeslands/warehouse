@@ -27,6 +27,7 @@ export const USER_END_DATE_INVALID = 'USER_END_DATE_INVALID';
 export const USER_DATE_RANGE_INVALID = 'USER_DATE_RANGE_INVALID';
 export const USER_BIRTHDAY_INVALID = 'USER_BIRTHDAY_INVALID';
 export const USER_SORT_INVALID = 'USER_SORT_INVALID';
+export const USER_IS_ACTIVE_INVALID = 'USER_IS_ACTIVE_INVALID';
 
 export type TUserErrorCodeKey =
   | typeof USER_PHONENUMBER_DOES_EXIST
@@ -52,7 +53,8 @@ export type TUserErrorCodeKey =
   | typeof USER_END_DATE_INVALID
   | typeof USER_DATE_RANGE_INVALID
   | typeof USER_BIRTHDAY_INVALID
-  | typeof USER_SORT_INVALID;
+  | typeof USER_SORT_INVALID
+  | typeof USER_IS_ACTIVE_INVALID;
 
 export type TUserErrorCode = Record<TUserErrorCodeKey, TErrorCodeValue>;
 
@@ -169,6 +171,11 @@ export const UserValidation: TUserErrorCode = {
   USER_SORT_INVALID: createErrorCode(
     100424,
     `sort must be field:ASC|DESC, field one of: createdAt, updatedAt, firstName, lastName, phonenumber, dob`,
+    HttpStatus.BAD_REQUEST,
+  ),
+  USER_IS_ACTIVE_INVALID: createErrorCode(
+    100425,
+    'isActive must be true or false',
     HttpStatus.BAD_REQUEST,
   ),
 };

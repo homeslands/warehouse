@@ -133,7 +133,10 @@ export class UserService {
       );
     }
 
-    if (filter.onlyActive) qb.andWhere('user.isActive = :isActive', { isActive: true });
+    // `onlyActive` (lời gọi nội bộ, vd `available-members`) thắng `query.isActive` của client.
+    // `typeof === 'boolean'`: giá trị lạ lọt qua lời gọi service trực tiếp bị coi là KHÔNG lọc.
+    const isActive = filter.onlyActive ? true : query.isActive;
+    if (typeof isActive === 'boolean') qb.andWhere('user.isActive = :isActive', { isActive });
     // `IN ()` rỗng là lỗi cú pháp MySQL ⇒ chỉ thêm khi mảng có phần tử.
     if (filter.excludedIds?.length)
       qb.andWhere('user.id NOT IN (:...excludedIds)', { excludedIds: filter.excludedIds });

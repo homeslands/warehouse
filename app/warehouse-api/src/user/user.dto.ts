@@ -1,5 +1,6 @@
 import {
   IsArray,
+  IsBoolean,
   IsDateString,
   IsEmail,
   IsISO8601,
@@ -14,6 +15,12 @@ import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { USER_SORT_FIELDS, USER_SORT_REGEX, VN_PHONENUMBER_REGEX } from './user.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+
+const toBoolean = ({ value }: { value: unknown }) => {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+};
 
 // `IsISO8601` một mình còn nhận cả `2024-01-01T10:00:00Z`; cột là DATE nên chỉ nhận đúng ngày.
 const DOB_REGEX = /^\d{4}-\d{2}-\d{2}$/;
@@ -139,6 +146,15 @@ export class GetAllUserRequestDto extends BaseQueryDto {
   @IsISO8601({ strict: true, strictSeparator: true }, { message: 'USER_BIRTHDAY_INVALID' })
   @Matches(DOB_REGEX, { message: 'USER_BIRTHDAY_INVALID' })
   birthday?: string;
+
+  @ApiPropertyOptional({
+    description: 'Lọc theo trạng thái tài khoản (`true` = đang hoạt động, `false` = đã khoá)',
+    example: true,
+  })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean({ message: 'USER_IS_ACTIVE_INVALID' })
+  isActive?: boolean;
 
   @ApiPropertyOptional({
     description: `Sort \`field:ASC|DESC\`, lặp lại để sort nhiều cấp. Field: ${Object.keys(

@@ -170,6 +170,19 @@ describe('GetAllUserRequestDto', () => {
     expect(messages({ [property]: '2026-09-01T10:00:00.000Z' }, property)).toEqual([]);
   });
 
+  // Query string luôn là chuỗi: `'false'` phải thành `false`, không phải truthy.
+  it.each([
+    ['true', true],
+    ['false', false],
+  ])('parses isActive=%s into a boolean', (raw, parsed) => {
+    expect(build({ isActive: raw }).isActive).toBe(parsed);
+    expect(messages({ isActive: raw }, 'isActive')).toEqual([]);
+  });
+
+  it('rejects a non-boolean isActive', () => {
+    expect(messages({ isActive: 'yes' }, 'isActive')).toContain('USER_IS_ACTIVE_INVALID');
+  });
+
   it('only accepts birthday as YYYY-MM-DD', () => {
     expect(messages({ birthday: '1990-05-20' }, 'birthday')).toEqual([]);
     expect(messages({ birthday: '1990-05-20T00:00:00Z' }, 'birthday')).toContain(

@@ -400,6 +400,21 @@ describe('UserService', () => {
       ]);
     });
 
+    it.each([true, false])('filters by isActive=%s from the query', async (isActive) => {
+      await service.findAll(query({ isActive }));
+
+      expect(wheres()).toEqual(['user.isActive = :isActive']);
+      expect(params()).toEqual({ isActive });
+    });
+
+    // `available-members` dùng chung query DTO: client gửi `isActive=false` không được mở lại user đã khoá.
+    it('lets the internal onlyActive flag override query.isActive', async () => {
+      await service.findAll(query({ isActive: false }), { onlyActive: true });
+
+      expect(wheres()).toEqual(['user.isActive = :isActive']);
+      expect(params()).toEqual({ isActive: true });
+    });
+
     it('applies the internal exclusion / active-only / role filter', async () => {
       await service.findAll(query(), {
         excludedIds: ['a', 'b'],
