@@ -88,12 +88,9 @@ export class UserController {
   @ApiOperation({
     summary: 'Change the password of another user (requires USER_CHANGE_PASSWORD)',
     description:
-      'Đổi mật khẩu HỘ user khác — cần authority `USER_CHANGE_PASSWORD` (`SUPER_ADMIN` bypass), ' +
-      'KHÔNG cần `currentPassword`. Riêng tài khoản `SUPER_ADMIN` thì ' +
-      'chỉ `SUPER_ADMIN` khác mới đổi được, và không được trỏ `userSlug` vào chính mình — tự đổi ' +
+      'Đổi mật khẩu HỘ user khác, chỉđược đổi user có quyền thấp hơn mình ' +
       'mật khẩu của mình thì gọi `POST /auth/change-password`.\n\n' +
-      'Đổi xong, MỌI phiên của user bị đổi bị thu hồi ngay ở request kế tiếp và họ phải đăng nhập ' +
-      'lại; token của người gọi không bị đụng tới.',
+      'Đổi xong, MỌI phiên của user bị đổi bị thu hồi ngay và họ phải đăng nhập lại',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({

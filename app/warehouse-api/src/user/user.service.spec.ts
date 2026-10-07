@@ -36,8 +36,8 @@ describe('UserService', () => {
     revokeSession: jest.fn(),
     revokeAllTokensForUser: jest.fn(),
   };
-  const warehouseRepository = { count: jest.fn() };
-  const roleService = { findBySlug: jest.fn(), assertCanManage: jest.fn() };
+  const warehouseRepository = { count: jest.fn(), createQueryBuilder: jest.fn() };
+  const roleService = { findBySlug: jest.fn(), assertCanManage: jest.fn(), actorLevel: jest.fn() };
   const config: Record<string, string> = { SALT_ROUNDS: '4' };
   const configService = { get: (key: string) => config[key] };
 
@@ -123,8 +123,8 @@ describe('UserService', () => {
   });
 
   // Check authority `USER_CHANGE_PASSWORD` nằm ở `@RequireAuthority` trên controller (quyền tĩnh,
-  // `AuthorityGuard` chặn trước khi vào service) — ở đây chỉ còn 2 rào phụ thuộc dữ liệu: không
-  // được tự trỏ vào mình, và không được đụng tới `SUPER_ADMIN`.
+  // `AuthorityGuard` chặn trước khi vào service) — ở đây chỉ còn các rào phụ thuộc dữ liệu: không
+  // được tự trỏ vào mình, không được đụng tới `SUPER_ADMIN`, và không đổi hộ user cấp role cao hơn.
   describe('changeUserPassword', () => {
     it('changes another account without asking for the current password', async () => {
       userRepository.findOneBy.mockResolvedValue(other);
@@ -185,6 +185,38 @@ describe('UserService', () => {
 
       expect(userRepository.update).toHaveBeenCalled();
       expect(tokenRevocationService.revokeAllTokensForUser).toHaveBeenCalledWith('other-id');
+    });
+
+    // MANAGER (cấp thấp hơn) có USER_CHANGE_PASSWORD vẫn không được reset mật khẩu của ADMIN.
+    it('rejects when the caller role level is lower than the target role level', async () => {
+      roleService.actorLevel.mockResolvedValue(2);
+      userRepository.findOneBy.mockResolvedValue({
+        ...other,
+        role: { name: RoleEnum.Admin, level: 3 },
+      } as unknown as User);
+
+      await expectUserError(
+        service.changeUserPassword(caller(), 'other-slug', { newPassword: 'new-password' }),
+        UserValidation.CHANGE_PASSWORD_FORBIDDEN.code,
+      );
+      expect(roleService.actorLevel).toHaveBeenCalledWith(caller());
+      expect(userRepository.update).not.toHaveBeenCalled();
+      expect(tokenRevocationService.revokeAllTokensForUser).not.toHaveBeenCalled();
+    });
+
+    it.each([
+      ['lower', 1],
+      ['equal', 2],
+    ])('allows a target with a %s role level', async (_label, targetLevel) => {
+      roleService.actorLevel.mockResolvedValue(2);
+      userRepository.findOneBy.mockResolvedValue({
+        ...other,
+        role: { name: RoleEnum.Supervisor, level: targetLevel },
+      } as unknown as User);
+
+      await service.changeUserPassword(caller(), 'other-slug', { newPassword: 'new-password' });
+
+      expect(userRepository.update).toHaveBeenCalled();
     });
 
     it('rejects an unknown target user', async () => {
@@ -284,6 +316,38 @@ describe('UserService', () => {
 
       await expect(service.lockUser(caller(), 'other-slug')).rejects.toBe(forbidden);
       expect(userRepository.save).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findWarehousesOfUser', () => {
+    let qb: Record<string, jest.Mock>;
+
+    beforeEach(() => {
+      qb = {};
+      for (const method of ['leftJoinAndSelect', 'leftJoin', 'where', 'orderBy'])
+        qb[method] = jest.fn().mockReturnValue(qb);
+      warehouseRepository.createQueryBuilder.mockReturnValue(qb);
+    });
+
+    it('returns managed and member warehouses flagged by isManager, without ids', async () => {
+      qb.getMany = jest.fn().mockResolvedValue([
+        { id: 'wh-id-1', slug: 'wh-1', code: 'WH-01', name: 'Kho 1', manager: { id: 'user-id' } },
+        { id: 'wh-id-2', slug: 'wh-2', code: 'WH-02', name: 'Kho 2', manager: { id: 'boss' } },
+        { id: 'wh-id-3', slug: 'wh-3', code: 'WH-03', name: 'Kho 3', manager: null },
+      ]);
+
+      await expect(service.findWarehousesOfUser('user-id')).resolves.toEqual([
+        { slug: 'wh-1', code: 'WH-01', name: 'Kho 1', isManager: true },
+        { slug: 'wh-2', code: 'WH-02', name: 'Kho 2', isManager: false },
+        { slug: 'wh-3', code: 'WH-03', name: 'Kho 3', isManager: false },
+      ]);
+      // Thành viên đã bị gỡ (xoá mềm) không được tính.
+      expect(qb.leftJoin).toHaveBeenCalledWith(
+        'warehouse.members',
+        'member',
+        expect.stringContaining('member.deletedAt IS NULL'),
+        { userId: 'user-id' },
+      );
     });
   });
 

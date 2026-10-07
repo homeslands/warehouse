@@ -52,8 +52,11 @@ export class AuthService {
     const user = await this.userService.findById(currentUser.userId);
     if (!user) throw new UserException(UserValidation.USER_NOT_FOUND);
 
+    // eslint-disable-next-line @typescript-eslint/no-unused-vars
+    const { userId, ...rest } = currentUser;
     return {
-      ...currentUser,
+      ...rest,
+      userSlug: user.slug,
       userName: user.phonenumber,
       phonenumber: user.phonenumber,
       firstName: user.firstName,
@@ -61,6 +64,15 @@ export class AuthService {
       email: user.email,
       dob: user.dob,
       address: user.address,
+      role: user.role
+        ? {
+            slug: user.role.slug,
+            name: user.role.name,
+            description: user.role.description,
+            level: user.role.level,
+          }
+        : undefined,
+      warehouses: await this.userService.findWarehousesOfUser(user.id),
     };
   }
 

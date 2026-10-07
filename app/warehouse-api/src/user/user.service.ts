@@ -13,6 +13,7 @@ import {
   CreateUserRequestDto,
   GetAllUserRequestDto,
   UpdateUserRequestDto,
+  UserProfileWarehouseDto,
   UserResponseDto,
 } from './user.dto';
 import { UserException } from './user.exception';
@@ -191,6 +192,36 @@ export class UserService {
     return this.userRepository.findOneBy({ id });
   }
 
+  /**
+   * Kho của user cho `GET /auth/me`: kho user làm manager + kho user là thành viên (row chưa xoá
+   * mềm). Join tự viết nên phải tự lọc `member.deletedAt`; kho xoá mềm thì TypeORM tự loại.
+   */
+  async findWarehousesOfUser(userId: string): Promise<UserProfileWarehouseDto[]> {
+    const warehouses = await this.warehouseRepository
+      .createQueryBuilder('warehouse')
+      .leftJoinAndSelect('warehouse.manager', 'manager')
+      .leftJoin(
+        'warehouse.members',
+        'member',
+        'member.deletedAt IS NULL AND member.user = :userId',
+        { userId },
+      )
+      .where(
+        new Brackets((sub) =>
+          sub.where('manager.id = :userId', { userId }).orWhere('member.id IS NOT NULL'),
+        ),
+      )
+      .orderBy('warehouse.name', 'ASC')
+      .getMany();
+
+    return warehouses.map((warehouse) => ({
+      slug: warehouse.slug,
+      code: warehouse.code,
+      name: warehouse.name,
+      isManager: warehouse.manager?.id === userId,
+    }));
+  }
+
   async updatePassword(id: string, newPassword: string): Promise<void> {
     const hashedPassword = await bcrypt.hash(newPassword, this.saltRounds);
     await this.userRepository.update({ id }, { password: hashedPassword });
@@ -212,7 +243,7 @@ export class UserService {
     const target = await this.findBySlug(userSlug);
     if (!target) throw new UserException(UserValidation.USER_NOT_FOUND);
 
-    this.assertCanChangeOtherPassword(currentUser, target);
+    await this.assertCanChangeOtherPassword(currentUser, target);
 
     await this.updatePassword(target.id, dto.newPassword);
     await this.tokenRevocationService.revokeAllTokensForUser(target.id);
@@ -227,14 +258,22 @@ export class UserService {
    *
    * Chặn thêm leo thang đặc quyền: người không phải `SUPER_ADMIN` không được đổi mật khẩu của một
    * `SUPER_ADMIN` — nếu không, bất kỳ `ADMIN`/`MANAGER` nào đều có thể reset mật khẩu tài khoản
-   * root rồi đăng nhập bằng chính nó.
+   * root rồi đăng nhập bằng chính nó. Tổng quát hơn: role của người gọi có cấp THẤP HƠN role của
+   * target cũng bị chặn (vd `MANAGER` đổi mật khẩu `ADMIN`). Ngang cấp vẫn cho đổi. User không có
+   * role (dữ liệu rác) coi như cấp thấp nhất.
    */
-  private assertCanChangeOtherPassword(currentUser: CurrentUserDto, target: User): void {
+  private async assertCanChangeOtherPassword(
+    currentUser: CurrentUserDto,
+    target: User,
+  ): Promise<void> {
     if (target.id === currentUser.userId) {
       throw new UserException(UserValidation.CHANGE_OWN_PASSWORD_NOT_ALLOWED);
     }
     if (currentUser.roleName === RoleEnum.SuperAdmin) return;
     if (target.role?.name === RoleEnum.SuperAdmin) {
+      throw new UserException(UserValidation.CHANGE_PASSWORD_FORBIDDEN);
+    }
+    if (target.role && target.role.level > (await this.roleService.actorLevel(currentUser))) {
       throw new UserException(UserValidation.CHANGE_PASSWORD_FORBIDDEN);
     }
   }
