@@ -24,6 +24,8 @@ import {
 } from './supplier.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+const upper = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toUpperCase() : value;
 
 export class CreateSupplierRequestDto {
   @AutoMap()
@@ -85,7 +87,30 @@ export class CreateSupplierRequestDto {
  */
 export class UpdateSupplierRequestDto extends PartialType(CreateSupplierRequestDto) {}
 
-export class GetAllSupplierRequestDto extends BaseQueryDto {}
+export class GetAllSupplierRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'NCC-HN-01' })
+  @IsOptional()
+  @Transform(upper)
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by exact tax code (MST)', example: '0101234567' })
+  @IsOptional()
+  @Transform(trim)
+  taxCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search keyword (chứa chuỗi con) — khớp 1 trong name / contactPerson / email (OR)',
+    example: 'abc',
+  })
+  @IsOptional()
+  @Transform(trim)
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by phone number (chứa chuỗi con)', example: '0241' })
+  @IsOptional()
+  @Transform(trim)
+  phonenumber?: string;
+}
 
 export class SupplierResponseDto extends BaseResponseDto {
   @AutoMap()
@@ -121,7 +146,38 @@ export class SupplierResponseDto extends BaseResponseDto {
   note?: string;
 }
 
-export class GetSupplierMaterialRequestDto extends BaseQueryDto {}
+export class GetSupplierMaterialRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
+  @IsOptional()
+  @Transform(trim)
+  typeSlug?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by exact material code', example: 'MAT-001' })
+  @IsOptional()
+  @Transform(upper)
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by material name (chứa chuỗi con)' })
+  @IsOptional()
+  @Transform(trim)
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Từ thời điểm (ISO 8601, tính theo createdAt của vật tư, bao gồm)',
+    example: '2026-09-01T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'SUPPLIER_MATERIAL_DATE_INVALID' })
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đến thời điểm (ISO 8601, tính theo createdAt của vật tư, bao gồm)',
+    example: '2026-09-30T23:59:59.999Z',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'SUPPLIER_MATERIAL_DATE_INVALID' })
+  to?: string;
+}
 
 /** Vật tư gắn với nhà cung cấp — bản rút gọn, flatten quan hệ ra `slug`/`name` (không lộ `id`). */
 export class SupplierMaterialResponseDto extends BaseResponseDto {

@@ -3,8 +3,6 @@ import { SupplierController } from './supplier.controller';
 import { SupplierService } from './supplier.service';
 import { REQUIRE_AUTHORITY_KEY } from 'src/authority/authority.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
-import { SupplierTransactionType } from './supplier.constants';
-import { CurrentUserDto } from 'src/user/user.decorator';
 
 describe('SupplierController', () => {
   let controller: SupplierController;
@@ -17,8 +15,6 @@ describe('SupplierController', () => {
     findMaterials: jest.fn(),
     attachMaterial: jest.fn(),
     detachMaterial: jest.fn(),
-    findTransactions: jest.fn(),
-    createTransaction: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -54,17 +50,6 @@ describe('SupplierController', () => {
     expect(response.result).toEqual({ slug: 's1', code: 'NCC-01' });
   });
 
-  it('passes the current user to createTransaction', async () => {
-    const user = { userId: 'u1' } as CurrentUserDto;
-    const dto = { type: SupplierTransactionType.Payment, amount: 1000 };
-    supplierService.createTransaction.mockResolvedValue({ slug: 't1' });
-
-    const response = await controller.createTransaction(user, 's1', dto);
-
-    expect(supplierService.createTransaction).toHaveBeenCalledWith(user, 's1', dto);
-    expect(response.statusCode).toBe(201);
-  });
-
   describe('@RequireAuthority metadata', () => {
     const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
       Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
@@ -87,8 +72,6 @@ describe('SupplierController', () => {
         AuthorityCode.SupplierUpdate,
         AuthorityCode.MaterialUpdate,
       ]);
-      expect(authority(controller.findTransactions)).toEqual([AuthorityCode.SupplierRead]);
-      expect(authority(controller.createTransaction)).toEqual([AuthorityCode.SupplierUpdate]);
     });
   });
 });

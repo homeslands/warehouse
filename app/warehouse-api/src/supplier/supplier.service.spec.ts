@@ -4,6 +4,7 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Between, LessThanOrEqual, Like, MoreThanOrEqual } from 'typeorm';
 import { SupplierService } from './supplier.service';
 import { SupplierProfile } from './supplier.mapper';
 import { Supplier } from './supplier.entity';
@@ -64,6 +65,58 @@ describe('SupplierService', () => {
     expect(service).toBeDefined();
   });
 
+  describe('findAll', () => {
+    it('does not filter when code is omitted', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 });
+
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
+    it('filters by exact code', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[supplier], 1]);
+
+      const result = await service.findAll({ page: 1, size: 10, code: 'NCC-01' });
+
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { code: 'NCC-01' } }),
+      );
+      expect(result).toMatchObject({ total: 1, items: [{ code: 'NCC-01' }] });
+    });
+
+    it('ANDs exact taxCode / substring phonenumber without search', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, taxCode: '0101234567', phonenumber: '0241' });
+
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { taxCode: '0101234567', phonenumber: Like('%0241%') },
+        }),
+      );
+    });
+
+    it('ORs search across name / contactPerson / email, each branch keeping the other filters', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, code: 'NCC-01', search: 'abc' });
+
+      const keyword = Like('%abc%');
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: [
+            { code: 'NCC-01', name: keyword },
+            { code: 'NCC-01', contactPerson: keyword },
+            { code: 'NCC-01', email: keyword },
+          ],
+        }),
+      );
+    });
+  });
+
   describe('createSupplier', () => {
     it('upper-cases code and saves when code is free', async () => {
       supplierRepository.findOne.mockResolvedValue(null);
@@ -120,6 +173,70 @@ describe('SupplierService', () => {
 
       await expect(service.deleteSupplier('s1')).resolves.toBe(1);
       expect(supplierRepository.softRemove).toHaveBeenCalledWith(supplier);
+    });
+  });
+
+  describe('findMaterials', () => {
+    beforeEach(() => supplierRepository.findOneBy.mockResolvedValue(supplier));
+
+    it('scopes to the supplier and paginates when no filter is given', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 25]);
+
+      const result = await service.findMaterials('s1', { page: 2, size: 10 });
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { supplier: { id: 'sup-1' } }, skip: 10, take: 10 }),
+      );
+      expect(result).toMatchObject({ total: 25, page: 2, totalPages: 3, hasNext: true });
+    });
+
+    it('ANDs typeSlug / exact code / substring name with the supplier scope', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findMaterials('s1', {
+        page: 1,
+        size: 10,
+        typeSlug: 'tp1',
+        code: 'MAT-001',
+        name: 'thep',
+      });
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            supplier: { id: 'sup-1' },
+            type: { slug: 'tp1' },
+            code: 'MAT-001',
+            name: Like('%thep%'),
+          },
+        }),
+      );
+    });
+
+    it('filters createdAt by an inclusive from/to range', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+      const from = '2026-09-01T00:00:00.000Z';
+      const to = '2026-09-30T23:59:59.999Z';
+
+      await service.findMaterials('s1', { page: 1, size: 10, from, to });
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { supplier: { id: 'sup-1' }, createdAt: Between(new Date(from), new Date(to)) },
+        }),
+      );
+    });
+
+    it('uses an open-ended bound when only from or only to is given', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+      const date = '2026-09-01T00:00:00.000Z';
+
+      await service.findMaterials('s1', { page: 1, size: 10, from: date });
+      await service.findMaterials('s1', { page: 1, size: 10, to: date });
+
+      const [first, second] = materialRepository.findAndCount.mock.calls;
+      expect(first[0].where.createdAt).toEqual(MoreThanOrEqual(new Date(date)));
+      expect(second[0].where.createdAt).toEqual(LessThanOrEqual(new Date(date)));
     });
   });
 
