@@ -62,7 +62,10 @@ export class SupplierController {
   @Get()
   @RequireAuthority(AuthorityCode.SupplierRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all suppliers (paginated)' })
+  @ApiOperation({
+    summary:
+      'Get all suppliers (paginated, filter by code / taxCode / search(name|contactPerson|email) / phonenumber)',
+  })
   @ApiPaginatedResponse(SupplierResponseDto, 'Retrieved')
   async findAll(
     @Query(new ValidationPipe({ transform: true, whitelist: true }))

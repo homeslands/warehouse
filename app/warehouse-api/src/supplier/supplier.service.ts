@@ -4,6 +4,7 @@ import {
   FindOptionsRelations,
   FindOptionsWhere,
   LessThanOrEqual,
+  Like,
   MoreThanOrEqual,
   Repository,
 } from 'typeorm';
@@ -71,7 +72,24 @@ export class SupplierService {
   async findAll(
     query: GetAllSupplierRequestDto,
   ): Promise<AppPaginatedResponseDto<SupplierResponseDto>> {
+    const filters: FindOptionsWhere<Supplier> = {};
+    if (query.code) filters.code = query.code;
+    if (query.taxCode) filters.taxCode = query.taxCode;
+    if (query.phonenumber) filters.phonenumber = Like(`%${query.phonenumber}%`);
+
+    // `where` dạng mảng ⇒ TypeORM nối các phần tử bằng OR, mỗi phần tử bọc trong ngoặc riêng. Lặp
+    // lại `filters` trong từng nhánh để ra: filters AND (name LIKE OR contactPerson LIKE OR email LIKE).
+    const keyword = query.search ? Like(`%${query.search}%`) : undefined;
+    const where: FindOptionsWhere<Supplier> | FindOptionsWhere<Supplier>[] = keyword
+      ? [
+          { ...filters, name: keyword },
+          { ...filters, contactPerson: keyword },
+          { ...filters, email: keyword },
+        ]
+      : filters;
+
     const [items, total] = await this.supplierRepository.findAndCount({
+      where,
       order: { createdAt: 'DESC' },
       skip: (query.page - 1) * query.size,
       take: query.size,

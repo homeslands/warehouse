@@ -24,6 +24,8 @@ import {
 } from './supplier.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+const upper = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toUpperCase() : value;
 
 export class CreateSupplierRequestDto {
   @AutoMap()
@@ -85,7 +87,30 @@ export class CreateSupplierRequestDto {
  */
 export class UpdateSupplierRequestDto extends PartialType(CreateSupplierRequestDto) {}
 
-export class GetAllSupplierRequestDto extends BaseQueryDto {}
+export class GetAllSupplierRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'NCC-HN-01' })
+  @IsOptional()
+  @Transform(upper)
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by exact tax code (MST)', example: '0101234567' })
+  @IsOptional()
+  @Transform(trim)
+  taxCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Search keyword (chứa chuỗi con) — khớp 1 trong name / contactPerson / email (OR)',
+    example: 'abc',
+  })
+  @IsOptional()
+  @Transform(trim)
+  search?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by phone number (chứa chuỗi con)', example: '0241' })
+  @IsOptional()
+  @Transform(trim)
+  phonenumber?: string;
+}
 
 export class SupplierResponseDto extends BaseResponseDto {
   @AutoMap()
