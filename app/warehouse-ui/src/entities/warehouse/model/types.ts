@@ -61,3 +61,15 @@ export type WarehouseFilters = {
    */
   search?: string
 }
+
+/**
+ * Ứng viên thành viên kho (`GET /warehouses/:slug/available-members`). Khai riêng vì `entities/warehouse`
+ * không import `entities/user`.
+ */
+export type WarehouseMemberCandidate = {
+  slug: string
+  phonenumber: string
+  firstName?: string
+  lastName?: string
+  roleName: string
+}

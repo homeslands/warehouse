@@ -18,8 +18,18 @@ describe('changePasswordSchema', () => {
   })
 
   it('nhập lại không khớp → lỗi ở confirmNewPassword', () => {
-    expect(messages({ currentPassword: 'a', newPassword: 'b', confirmNewPassword: 'c' })).toEqual({
+    expect(
+      messages({ currentPassword: 'a', newPassword: 'matkhau-b', confirmNewPassword: 'matkhau-c' }),
+    ).toEqual({
       confirmNewPassword: 'auth:changePassword.mismatch',
+    })
+  })
+
+  it('mật khẩu mới dưới 8 ký tự → báo tại ô; mật khẩu hiện tại không bị luật độ dài', () => {
+    expect(
+      messages({ currentPassword: 'a', newPassword: '1234567', confirmNewPassword: '1234567' }),
+    ).toEqual({
+      newPassword: 'auth:changePassword.newPasswordTooShort',
     })
   })
 
@@ -27,8 +37,8 @@ describe('changePasswordSchema', () => {
     expect(
       changePasswordSchema.safeParse({
         currentPassword: 'a',
-        newPassword: 'b',
-        confirmNewPassword: 'b',
+        newPassword: 'matkhau-b',
+        confirmNewPassword: 'matkhau-b',
       }).success,
     ).toBe(true)
   })

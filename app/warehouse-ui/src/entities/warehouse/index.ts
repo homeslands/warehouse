@@ -5,6 +5,9 @@ export {
   removeWarehouse,
   assignWarehouseManager,
   fetchWarehouse,
+  fetchAvailableMembers,
+  assignWarehouseMember,
+  removeWarehouseMember,
 } from './api/warehouse.api'
 export {
   useWarehouses,
@@ -13,6 +16,9 @@ export {
   useDeleteWarehouse,
   useAssignWarehouseManager,
   useWarehouse,
+  useAvailableMembers,
+  useAssignWarehouseMember,
+  useRemoveWarehouseMember,
 } from './api/hooks'
 export { warehouseKeys } from './api/query-keys'
 export { buildWarehouseColumns } from './ui/columns'
@@ -24,5 +30,6 @@ export type {
   WarehouseFilters,
   AssignWarehouseManagerInput,
   WarehouseManager,
+  WarehouseMemberCandidate,
 } from './model/types'
 export type { DetailLink } from './ui/columns'

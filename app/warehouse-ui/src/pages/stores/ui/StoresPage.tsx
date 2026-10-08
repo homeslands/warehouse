@@ -1,5 +1,5 @@
 import type { ColumnDef } from '@tanstack/react-table'
-import { MoreHorizontalIcon } from 'lucide-react'
+import { MoreHorizontalIcon, PlusIcon } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
@@ -19,7 +19,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
-import { useAuthStore, ROLES } from '@/entities/session'
+import { useAuthStore, isWarehouseScoped } from '@/entities/session'
 import {
   buildStoreColumns,
   useDeleteStore,
@@ -203,7 +203,9 @@ export function StoresPage() {
                 setFormOpen(true)
               }}
             >
-              {t('stores:create')}
+              <PlusIcon aria-hidden />
+              {/* Mobile: chỉ còn dấu ＋ để ô tìm cùng hàng không bị cắt chữ; tên nút vẫn đọc được. */}
+              <span className="max-md:sr-only">{t('stores:create')}</span>
             </Button>
           )
         }
@@ -212,7 +214,7 @@ export function StoresPage() {
       <DataTable
         columns={columns}
         // MANAGER: backend chỉ trả cửa hàng gắn với kho mình phụ trách (`WMS-10-be(7)`).
-        emptyText={user?.roleName === ROLES.MANAGER ? t('stores:mineEmpty') : undefined}
+        emptyText={isWarehouseScoped(user?.roleName) ? t('stores:mineEmpty') : undefined}
         onRowClick={(row) => {
           const { to, state } = detailLink(row)
           navigate(to, { state })

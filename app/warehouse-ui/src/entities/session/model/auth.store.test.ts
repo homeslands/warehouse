@@ -8,7 +8,7 @@ import { LOGOUT_TIMEOUT_MS, setCacheCleaner, useAuthStore } from './auth.store'
 
 const BASE = 'http://localhost:8085/api/v1'
 const pair = { accessToken: 'acc-1', refreshToken: 'ref-1' }
-const user = { userId: 'u1', userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
+const user = { userName: 'root', roleName: 'SUPER_ADMIN', scope: [] }
 
 let cleaner: ReturnType<typeof vi.fn<() => void>>
 

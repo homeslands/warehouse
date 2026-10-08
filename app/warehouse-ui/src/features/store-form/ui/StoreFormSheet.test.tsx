@@ -7,6 +7,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 import { toast } from 'sonner'
 import { apiError, ok } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
+import { confirmDialog } from '@/shared/test/confirm'
 import { renderWithProviders } from '@/shared/test/render'
 import type { Store } from '@/entities/store'
 import { StoreFormSheet } from '../index'
@@ -88,9 +89,7 @@ describe('StoreFormSheet — tạo mới', () => {
     await user.type(screen.getByLabelText(/^Mã số thuế/), '0101234567')
     await user.click(screen.getByRole('button', { name: 'Tạo cửa hàng' }))
 
-    expect(
-      await screen.findByText('Mã cửa hàng gồm 2-32 ký tự chữ, số hoặc gạch ngang'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Mã cửa hàng không đúng định dạng')).toBeInTheDocument()
   })
 
   it.each(['12345', '01012345678', '0101234567-01'])(
@@ -101,9 +100,7 @@ describe('StoreFormSheet — tạo mới', () => {
       await fillRequired(user, taxCode)
       await user.click(screen.getByRole('button', { name: 'Tạo cửa hàng' }))
 
-      expect(
-        await screen.findByText('Mã số thuế gồm 10 chữ số, có thể kèm 3 chữ số chi nhánh'),
-      ).toBeInTheDocument()
+      expect(await screen.findByText('Mã số thuế không đúng định dạng')).toBeInTheDocument()
     },
   )
 
@@ -119,6 +116,7 @@ describe('StoreFormSheet — tạo mới', () => {
 
     await fillRequired(user)
     await user.click(screen.getByRole('button', { name: 'Tạo cửa hàng' }))
+    await confirmDialog(user, 'Tạo')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({
@@ -142,6 +140,7 @@ describe('StoreFormSheet — tạo mới', () => {
 
     await fillRequired(user)
     await user.click(screen.getByRole('button', { name: 'Tạo cửa hàng' }))
+    await confirmDialog(user, 'Tạo')
 
     expect(await screen.findByText(message)).toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()

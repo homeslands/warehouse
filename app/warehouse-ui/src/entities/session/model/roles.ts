@@ -19,3 +19,14 @@ export const ROLE_RANK: Record<Role, number> = {
   MANAGER: 2,
   SUPERVISOR: 1,
 }
+
+/**
+ * Vai trò bị backend giới hạn trong phạm vi kho: `GET /warehouses` / `GET /stores` chỉ trả kho mình quản lý HOẶC là
+ * thành viên (và cửa hàng gắn các kho đó); `managerSlug`/`hasManager` bị bỏ qua. Khớp `WAREHOUSE_SCOPED_ROLES`
+ * (`warehouse-api/src/warehouse/warehouse.constants.ts`, PR #72). Backend so tên vai trò, KHÔNG miễn SUPER_ADMIN.
+ */
+export const WAREHOUSE_SCOPED_ROLES: readonly Role[] = [ROLES.MANAGER, ROLES.SUPERVISOR]
+
+export function isWarehouseScoped(roleName: string | undefined): boolean {
+  return WAREHOUSE_SCOPED_ROLES.some((role) => role === roleName)
+}

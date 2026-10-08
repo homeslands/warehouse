@@ -7,7 +7,6 @@ import { cellLock } from './cell-rules'
 // FE phải khoá đúng những ô backend sẽ từ chối.
 
 const actor = (roleName: string, scope: string[] = []): CurrentUser => ({
-  userId: 'u1',
   userName: 't',
   roleName,
   scope,

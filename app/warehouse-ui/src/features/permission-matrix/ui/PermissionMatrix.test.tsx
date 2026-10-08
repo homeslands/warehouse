@@ -9,6 +9,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 vi.mock('@/shared/api/backend-capabilities', () => ({
   BACKEND_SUPPORTS: {
     sort: false,
+    userSort: false,
     search: false,
     profileEdit: false,
     sessionList: false,
@@ -56,7 +57,7 @@ const roles: Role[] = [
   { slug: 'manager', name: 'MANAGER', authorityCodes: ['IMPORT_FORM_CONFIRM'] },
 ]
 
-const ADMIN_USER = { userId: 'u1', userName: 'a', roleName: 'ADMIN', scope: ['MANAGE_PERMISSIONS'] }
+const ADMIN_USER = { userName: 'a', roleName: 'ADMIN', scope: ['MANAGE_PERMISSIONS'] }
 
 function renderMatrix(
   auth: unknown = ADMIN_USER,
@@ -486,7 +487,7 @@ describe('PermissionMatrix — chốt an toàn', () => {
     // với chốt "tự thu hồi" (chỉ phụ thuộc role của MÌNH). Ca này đăng nhập bằng SUPER_ADMIN — một
     // role không giữ quyền này — để chứng minh switch của ADMIN khoá vì nó là chìa khoá cuối, không
     // phải vì trùng role đang đăng nhập.
-    const SUPER_ADMIN_USER = { userId: 'u2', userName: 's', roleName: 'SUPER_ADMIN', scope: [] }
+    const SUPER_ADMIN_USER = { userName: 's', roleName: 'SUPER_ADMIN', scope: [] }
     renderMatrix(SUPER_ADMIN_USER)
 
     expect(

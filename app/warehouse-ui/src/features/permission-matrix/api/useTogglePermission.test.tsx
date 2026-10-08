@@ -22,7 +22,7 @@ function Probe({ input }: { input: TogglePermissionInput }) {
   )
 }
 
-const ADMIN_USER = { userId: 'u1', userName: 'a', roleName: 'ADMIN', scope: [] }
+const ADMIN_USER = { userName: 'a', roleName: 'ADMIN', scope: [] }
 
 describe('useTogglePermission', () => {
   it('bật → PUT đúng đường dẫn', async () => {
@@ -82,7 +82,7 @@ describe('useTogglePermission', () => {
       mswHttp.put(`${BASE}/roles/:roleSlug/authorities/:code`, () => ok('granted')),
       mswHttp.get(`${BASE}/auth/me`, () => {
         meCalls += 1
-        return ok({ userId: 'u1', userName: 'a', roleName: 'ADMIN', scope: [] })
+        return ok({ userName: 'a', roleName: 'ADMIN', scope: [] })
       }),
     )
     const { user } = renderWithProviders(
@@ -109,7 +109,7 @@ describe('useTogglePermission', () => {
       mswHttp.put(`${BASE}/roles/:roleSlug/authorities/:code`, () => ok('granted')),
       mswHttp.get(`${BASE}/auth/me`, () => {
         meCalls += 1
-        return ok({ userId: 'u1', userName: 'a', roleName: 'ADMIN', scope: [] })
+        return ok({ userName: 'a', roleName: 'ADMIN', scope: [] })
       }),
     )
     const { user } = renderWithProviders(

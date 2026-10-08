@@ -191,11 +191,18 @@ describe('StoresPage — bảng', () => {
 describe('StoresPage — MANAGER', () => {
   it('backend chỉ trả cửa hàng gắn với kho mình quản lý → danh sách trống có câu báo riêng', async () => {
     captureQuery([])
-    renderPage({ auth: { userId: 'u2', userName: 'ql', roleName: 'MANAGER', scope: READ_SCOPE } })
+    renderPage({ auth: { userName: 'ql', roleName: 'MANAGER', scope: READ_SCOPE } })
 
-    expect(
-      await screen.findByText('Chưa có cửa hàng nào gắn với kho bạn quản lý.'),
-    ).toBeInTheDocument()
+    expect(await screen.findByText('Chưa có cửa hàng nào gắn với kho của bạn.')).toBeInTheDocument()
+  })
+
+  it('SUPERVISOR cũng bị backend lọc theo kho (PR #72) → cùng câu báo riêng', async () => {
+    captureQuery([])
+    renderPage({
+      auth: { userName: 'gs', roleName: 'SUPERVISOR', scope: READ_SCOPE },
+    })
+
+    expect(await screen.findByText('Chưa có cửa hàng nào gắn với kho của bạn.')).toBeInTheDocument()
   })
 
   it('vai trò khác → câu trống chung', async () => {
@@ -260,7 +267,7 @@ describe('StoresPage — quyền ghi và thao tác', () => {
   // Quyền đến từ `scope`. Fixture mang đúng các mã seed mặc định cấp cho từng vai trò (migration
   // 1783728000026 / 014). Luật chi tiết: `StoresPage.authority.test.tsx`, `model/abilities.test.ts`.
   it('ADMIN (scope mặc định) thấy nút Tạo cửa hàng và menu thao tác từng dòng', async () => {
-    renderPage({ auth: { userId: 'u1', userName: 'ad', roleName: 'ADMIN', scope: ADMIN_SCOPE } })
+    renderPage({ auth: { userName: 'ad', roleName: 'ADMIN', scope: ADMIN_SCOPE } })
     await screen.findByText('Cửa hàng Hà Nội 1')
 
     expect(screen.getByRole('button', { name: 'Tạo cửa hàng' })).toBeInTheDocument()
@@ -270,8 +277,8 @@ describe('StoresPage — quyền ghi và thao tác', () => {
   })
 
   it.each([
-    ['MANAGER', { userId: 'u2', userName: 'ql', roleName: 'MANAGER', scope: READ_SCOPE }],
-    ['SUPERVISOR', { userId: 'u3', userName: 'gs', roleName: 'SUPERVISOR', scope: READ_SCOPE }],
+    ['MANAGER', { userName: 'ql', roleName: 'MANAGER', scope: READ_SCOPE }],
+    ['SUPERVISOR', { userName: 'gs', roleName: 'SUPERVISOR', scope: READ_SCOPE }],
   ])(
     '%s (scope mặc định) chỉ xem: không có nút Tạo, không có cột thao tác',
     async (_role, auth) => {

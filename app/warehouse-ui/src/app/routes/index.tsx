@@ -1,4 +1,4 @@
-import { FlaskConical, ShieldCheck, Store, Warehouse } from 'lucide-react'
+import { FlaskConical, ShieldCheck, Store, Users, Warehouse } from 'lucide-react'
 import { Outlet, createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { ROLES } from '@/entities/session'
 import { BACKEND_SUPPORTS, type BackendCapabilities } from '@/shared/api/backend-capabilities'
@@ -124,6 +124,17 @@ export function createRoutes({
       // Không khai `roles`: ai đăng nhập cũng xem được tài khoản của chính mình.
       // Không khai `nav`: vào từ menu tài khoản góc phải, không nằm trên sidebar.
       handle: { crumb: 'nav:account' } satisfies AppRouteHandle,
+    },
+    {
+      path: '/users',
+      lazy: () => import('@/pages/users').then((m) => ({ Component: m.UsersPage })),
+      // Gác bằng authority như backend (`@RequireAuthority(USER_READ)` ở `GET /users`). Nút trong màn gác
+      // riêng từng mã — `pages/users/model/abilities.ts`.
+      handle: {
+        authority: 'USER_READ',
+        nav: { group: 'admin', labelKey: 'nav:users', icon: Users },
+        crumb: 'nav:users',
+      } satisfies AppRouteHandle,
     },
     {
       path: '/permissions',

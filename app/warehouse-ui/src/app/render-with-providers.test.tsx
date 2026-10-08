@@ -50,7 +50,7 @@ describe('renderWithProviders', () => {
   })
 
   it('auth là CurrentUser → dùng đúng user đó', () => {
-    const user = { userId: 'u9', userName: 'kho', roleName: 'ADMIN', scope: [] }
+    const user = { userName: 'kho', roleName: 'ADMIN', scope: [] }
     renderWithProviders(<Probe />, { auth: user })
     expect(useAuthStore.getState().user).toEqual(user)
   })
