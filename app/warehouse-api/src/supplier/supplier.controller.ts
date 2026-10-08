@@ -15,13 +15,10 @@ import {
 } from '@nestjs/common';
 import {
   CreateSupplierRequestDto,
-  CreateSupplierTransactionRequestDto,
   GetAllSupplierRequestDto,
   GetSupplierMaterialRequestDto,
-  GetSupplierTransactionRequestDto,
   SupplierMaterialResponseDto,
   SupplierResponseDto,
-  SupplierTransactionResponseDto,
   UpdateSupplierRequestDto,
 } from './supplier.dto';
 import { SupplierService } from './supplier.service';
@@ -29,7 +26,6 @@ import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
-import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 
 @ApiTags('Supplier')
 @Controller('suppliers')
@@ -197,50 +193,7 @@ export class SupplierController {
   }
 
   // ---------- Lịch sử giao dịch (append-only) ----------
-
-  @Get(':slug/transactions')
-  @RequireAuthority(AuthorityCode.SupplierRead)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get the transaction history of a supplier (newest first)' })
-  @ApiPaginatedResponse(SupplierTransactionResponseDto, 'Retrieved')
-  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  async findTransactions(
-    @Param('slug') slug: string,
-    @Query(new ValidationPipe({ transform: true, whitelist: true }))
-    query: GetSupplierTransactionRequestDto,
-  ) {
-    const result = await this.supplierService.findTransactions(slug, query);
-    return {
-      message: 'Supplier transactions have been retrieved successfully',
-      statusCode: HttpStatus.OK,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<AppPaginatedResponseDto<SupplierTransactionResponseDto>>;
-  }
-
-  // Ghi vào sổ giao dịch của nhà cung cấp ⇒ cùng quyền với sửa nhà cung cấp.
-  @Post(':slug/transactions')
-  @RequireAuthority(AuthorityCode.SupplierUpdate)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Record a transaction (PURCHASE / RETURN / PAYMENT) with a supplier' })
-  @ApiResponseWithType({
-    status: HttpStatus.CREATED,
-    description: 'Created',
-    type: SupplierTransactionResponseDto,
-  })
-  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  async createTransaction(
-    @CurrentUser() currentUser: CurrentUserDto,
-    @Param('slug') slug: string,
-    @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    requestData: CreateSupplierTransactionRequestDto,
-  ) {
-    const result = await this.supplierService.createTransaction(currentUser, slug, requestData);
-    return {
-      message: 'Supplier transaction has been created successfully',
-      statusCode: HttpStatus.CREATED,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<SupplierTransactionResponseDto>;
-  }
+  // TODO(tech-debt): tạm ẩn `GET/POST :slug/transactions` — người dùng chưa được tự tạo giao dịch.
+  // Mở lại khi làm phần phân tích giao dịch của nhà cung cấp; service `findTransactions` /
+  // `createTransaction` + entity `SupplierTransaction` vẫn giữ nguyên để nối lại controller.
 }

@@ -146,7 +146,22 @@ export class SupplierResponseDto extends BaseResponseDto {
   note?: string;
 }
 
-export class GetSupplierMaterialRequestDto extends BaseQueryDto {}
+export class GetSupplierMaterialRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
+  @IsOptional()
+  @Transform(trim)
+  typeSlug?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by exact material code', example: 'MAT-001' })
+  @IsOptional()
+  @Transform(upper)
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by material name (chứa chuỗi con)' })
+  @IsOptional()
+  @Transform(trim)
+  name?: string;
+}
 
 /** Vật tư gắn với nhà cung cấp — bản rút gọn, flatten quan hệ ra `slug`/`name` (không lộ `id`). */
 export class SupplierMaterialResponseDto extends BaseResponseDto {

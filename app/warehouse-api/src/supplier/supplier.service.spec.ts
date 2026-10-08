@@ -176,6 +176,44 @@ describe('SupplierService', () => {
     });
   });
 
+  describe('findMaterials', () => {
+    beforeEach(() => supplierRepository.findOneBy.mockResolvedValue(supplier));
+
+    it('scopes to the supplier and paginates when no filter is given', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 25]);
+
+      const result = await service.findMaterials('s1', { page: 2, size: 10 });
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { supplier: { id: 'sup-1' } }, skip: 10, take: 10 }),
+      );
+      expect(result).toMatchObject({ total: 25, page: 2, totalPages: 3, hasNext: true });
+    });
+
+    it('ANDs typeSlug / exact code / substring name with the supplier scope', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findMaterials('s1', {
+        page: 1,
+        size: 10,
+        typeSlug: 'tp1',
+        code: 'MAT-001',
+        name: 'thep',
+      });
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            supplier: { id: 'sup-1' },
+            type: { slug: 'tp1' },
+            code: 'MAT-001',
+            name: Like('%thep%'),
+          },
+        }),
+      );
+    });
+  });
+
   describe('attach / detach material', () => {
     it('attaches a free material', async () => {
       supplierRepository.findOneBy.mockResolvedValue(supplier);
