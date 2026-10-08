@@ -141,8 +141,18 @@ export class SupplierService {
     query: GetSupplierMaterialRequestDto,
   ): Promise<AppPaginatedResponseDto<SupplierMaterialResponseDto>> {
     const supplier = await this.getSupplierOrThrow(slug);
+    const where: FindOptionsWhere<Material> = { supplier: { id: supplier.id } };
+    if (query.typeSlug) where.type = { slug: query.typeSlug };
+    if (query.code) where.code = query.code;
+    if (query.name) where.name = Like(`%${query.name}%`);
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    if (from && to) where.createdAt = Between(from, to);
+    else if (from) where.createdAt = MoreThanOrEqual(from);
+    else if (to) where.createdAt = LessThanOrEqual(to);
+
     const [items, total] = await this.materialRepository.findAndCount({
-      where: { supplier: { id: supplier.id } },
+      where,
       relations: MATERIAL_RELATIONS,
       order: { createdAt: 'DESC' },
       skip: (query.page - 1) * query.size,

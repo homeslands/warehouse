@@ -146,7 +146,38 @@ export class SupplierResponseDto extends BaseResponseDto {
   note?: string;
 }
 
-export class GetSupplierMaterialRequestDto extends BaseQueryDto {}
+export class GetSupplierMaterialRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
+  @IsOptional()
+  @Transform(trim)
+  typeSlug?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by exact material code', example: 'MAT-001' })
+  @IsOptional()
+  @Transform(upper)
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by material name (chứa chuỗi con)' })
+  @IsOptional()
+  @Transform(trim)
+  name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Từ thời điểm (ISO 8601, tính theo createdAt của vật tư, bao gồm)',
+    example: '2026-09-01T00:00:00.000Z',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'SUPPLIER_MATERIAL_DATE_INVALID' })
+  from?: string;
+
+  @ApiPropertyOptional({
+    description: 'Đến thời điểm (ISO 8601, tính theo createdAt của vật tư, bao gồm)',
+    example: '2026-09-30T23:59:59.999Z',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'SUPPLIER_MATERIAL_DATE_INVALID' })
+  to?: string;
+}
 
 /** Vật tư gắn với nhà cung cấp — bản rút gọn, flatten quan hệ ra `slug`/`name` (không lộ `id`). */
 export class SupplierMaterialResponseDto extends BaseResponseDto {
