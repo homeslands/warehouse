@@ -4,6 +4,7 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { Like } from 'typeorm';
 import { SupplierService } from './supplier.service';
 import { SupplierProfile } from './supplier.mapper';
 import { Supplier } from './supplier.entity';
@@ -62,6 +63,58 @@ describe('SupplierService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('findAll', () => {
+    it('does not filter when code is omitted', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 });
+
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
+
+    it('filters by exact code', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[supplier], 1]);
+
+      const result = await service.findAll({ page: 1, size: 10, code: 'NCC-01' });
+
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { code: 'NCC-01' } }),
+      );
+      expect(result).toMatchObject({ total: 1, items: [{ code: 'NCC-01' }] });
+    });
+
+    it('ANDs exact taxCode / substring phonenumber without search', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, taxCode: '0101234567', phonenumber: '0241' });
+
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { taxCode: '0101234567', phonenumber: Like('%0241%') },
+        }),
+      );
+    });
+
+    it('ORs search across name / contactPerson / email, each branch keeping the other filters', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, code: 'NCC-01', search: 'abc' });
+
+      const keyword = Like('%abc%');
+      expect(supplierRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: [
+            { code: 'NCC-01', name: keyword },
+            { code: 'NCC-01', contactPerson: keyword },
+            { code: 'NCC-01', email: keyword },
+          ],
+        }),
+      );
+    });
   });
 
   describe('createSupplier', () => {
