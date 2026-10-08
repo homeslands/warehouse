@@ -1,6 +1,10 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { CreateSupplierTransactionRequestDto, UpdateSupplierRequestDto } from './supplier.dto';
+import {
+  CreateSupplierTransactionRequestDto,
+  GetSupplierMaterialRequestDto,
+  UpdateSupplierRequestDto,
+} from './supplier.dto';
 import { SupplierTransactionType } from './supplier.constants';
 
 const messages = <T extends object>(cls: new () => T, payload: object): string[] =>
@@ -80,5 +84,22 @@ describe('CreateSupplierTransactionRequestDto', () => {
     expect(
       messages(CreateSupplierTransactionRequestDto, { ...purchase, transactionDate: 'hôm qua' }),
     ).toContain('SUPPLIER_TRANSACTION_DATE_INVALID');
+  });
+});
+
+describe('GetSupplierMaterialRequestDto', () => {
+  it('chấp nhận from/to dạng ISO 8601', () => {
+    expect(
+      messages(GetSupplierMaterialRequestDto, {
+        from: '2026-09-01T00:00:00.000Z',
+        to: '2026-09-30',
+      }),
+    ).toEqual([]);
+  });
+
+  it('từ chối from/to không phải ngày', () => {
+    expect(
+      messages(GetSupplierMaterialRequestDto, { from: 'yesterday', to: '2026-13-45' }),
+    ).toEqual(['SUPPLIER_MATERIAL_DATE_INVALID', 'SUPPLIER_MATERIAL_DATE_INVALID']);
   });
 });

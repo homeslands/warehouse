@@ -4,7 +4,7 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Like } from 'typeorm';
+import { Between, LessThanOrEqual, Like, MoreThanOrEqual } from 'typeorm';
 import { SupplierService } from './supplier.service';
 import { SupplierProfile } from './supplier.mapper';
 import { Supplier } from './supplier.entity';
@@ -211,6 +211,32 @@ describe('SupplierService', () => {
           },
         }),
       );
+    });
+
+    it('filters createdAt by an inclusive from/to range', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+      const from = '2026-09-01T00:00:00.000Z';
+      const to = '2026-09-30T23:59:59.999Z';
+
+      await service.findMaterials('s1', { page: 1, size: 10, from, to });
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: { supplier: { id: 'sup-1' }, createdAt: Between(new Date(from), new Date(to)) },
+        }),
+      );
+    });
+
+    it('uses an open-ended bound when only from or only to is given', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+      const date = '2026-09-01T00:00:00.000Z';
+
+      await service.findMaterials('s1', { page: 1, size: 10, from: date });
+      await service.findMaterials('s1', { page: 1, size: 10, to: date });
+
+      const [first, second] = materialRepository.findAndCount.mock.calls;
+      expect(first[0].where.createdAt).toEqual(MoreThanOrEqual(new Date(date)));
+      expect(second[0].where.createdAt).toEqual(LessThanOrEqual(new Date(date)));
     });
   });
 

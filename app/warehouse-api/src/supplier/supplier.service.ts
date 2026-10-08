@@ -145,6 +145,11 @@ export class SupplierService {
     if (query.typeSlug) where.type = { slug: query.typeSlug };
     if (query.code) where.code = query.code;
     if (query.name) where.name = Like(`%${query.name}%`);
+    const from = query.from ? new Date(query.from) : undefined;
+    const to = query.to ? new Date(query.to) : undefined;
+    if (from && to) where.createdAt = Between(from, to);
+    else if (from) where.createdAt = MoreThanOrEqual(from);
+    else if (to) where.createdAt = LessThanOrEqual(to);
 
     const [items, total] = await this.materialRepository.findAndCount({
       where,

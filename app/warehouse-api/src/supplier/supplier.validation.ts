@@ -26,6 +26,7 @@ export const SUPPLIER_TRANSACTION_AMOUNT_INVALID = 'SUPPLIER_TRANSACTION_AMOUNT_
 export const SUPPLIER_TRANSACTION_DATE_INVALID = 'SUPPLIER_TRANSACTION_DATE_INVALID';
 export const SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL =
   'SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL';
+export const SUPPLIER_MATERIAL_DATE_INVALID = 'SUPPLIER_MATERIAL_DATE_INVALID';
 
 export type TSupplierErrorCodeKey =
   | typeof SUPPLIER_NOT_FOUND
@@ -47,7 +48,8 @@ export type TSupplierErrorCodeKey =
   | typeof SUPPLIER_TRANSACTION_UNIT_PRICE_INVALID
   | typeof SUPPLIER_TRANSACTION_AMOUNT_INVALID
   | typeof SUPPLIER_TRANSACTION_DATE_INVALID
-  | typeof SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL;
+  | typeof SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL
+  | typeof SUPPLIER_MATERIAL_DATE_INVALID;
 
 export type TSupplierErrorCode = Record<TSupplierErrorCodeKey, TErrorCodeValue>;
 
@@ -107,5 +109,9 @@ export const SupplierValidation: TSupplierErrorCode = {
   SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL: createErrorCode(
     101220,
     'PAYMENT transactions must not carry material, quantity or unit price',
+  ),
+  SUPPLIER_MATERIAL_DATE_INVALID: createErrorCode(
+    101221,
+    'Material date filter (from/to) must be an ISO 8601 date',
   ),
 };
