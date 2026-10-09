@@ -94,6 +94,35 @@ export const BACKEND_SUPPORTS = {
    * updatedAt, firstName, lastName, phonenumber, dob). Cờ `sort` chung vẫn tắt vì Kho/Cửa hàng chưa có.
    */
   userSort: true,
+
+  /**
+   * `GET /suppliers` nhận `search` (chứa chuỗi, OR trên name / contactPerson / email), `code` (khớp đúng, BE tự
+   * viết hoa), `taxCode` (khớp đúng), `phonenumber` (chứa chuỗi) — ĐÃ BẬT: backend WMS-13 (PR #87/#88, `dev` qua
+   * PR #89), thử với sandbox 2026-10-08. `name` riêng bị bỏ qua — tên đi qua `search`; `search` KHÔNG khớp mã. Một ô
+   * tìm, FE đoán tham số theo dạng nhập (`pages/suppliers/model/search-query.ts`).
+   */
+  supplierSearch: true,
+
+  /**
+   * Sắp xếp theo cột màn Nhà cung cấp (FE gửi `sort[]=field:ASC|DESC`; cột khai `sortField`: code, name,
+   * taxCode, phonenumber, createdAt). Backend đang làm — 2026-10-08 sandbox nhận `sort[]` nhưng vẫn cứng
+   * `createdAt DESC`.
+   */
+  supplierSort: false,
+
+  /**
+   * Tab Giao dịch ở trang chi tiết nhà cung cấp (`GET`/`POST /suppliers/{slug}/transactions`). WMS-13 đã TẠM ẨN
+   * hai endpoint này ("người dùng chưa được tự tạo giao dịch") — tắt thì trang chỉ còn Hồ sơ + Vật tư; code
+   * tab vẫn giữ (`widgets/supplier-transactions`, `features/supplier-transaction-form`) để bật lại khi mở API.
+   */
+  supplierTransactions: false,
+
+  /**
+   * Tab Vật tư của trang chi tiết NCC: ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng ngày tạo vật tư —
+   * `GET /suppliers/{slug}/materials` nhận `code` / `name` / `from` / `to` — ĐÃ BẬT (WMS-13, thử với sandbox
+   * 2026-10-08; `from` sai định dạng → 101221).
+   */
+  supplierMaterialFilters: true,
 } as const
 
 /** Kiểu của một bộ cờ — để hàm nhận cờ làm tham số (test truyền `true` được; `as const` ghim `false`). */
