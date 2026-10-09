@@ -1,4 +1,4 @@
-import { FlaskConical, ShieldCheck, Store, Users, Warehouse } from 'lucide-react'
+import { FlaskConical, ShieldCheck, Store, Truck, Users, Warehouse } from 'lucide-react'
 import { Outlet, createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { ROLES } from '@/entities/session'
 import { BACKEND_SUPPORTS, type BackendCapabilities } from '@/shared/api/backend-capabilities'
@@ -114,6 +114,27 @@ export function createRoutes({
         {
           path: ':slug',
           lazy: () => import('@/pages/stores').then((m) => ({ Component: m.StoreDetailPage })),
+          handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
+        },
+      ],
+    },
+    {
+      path: '/suppliers',
+      // Backend nhà cung cấp gác bằng authority từ đầu — không có cờ lùi theo vai trò.
+      handle: {
+        authority: 'SUPPLIER_READ',
+        nav: { group: 'catalog', labelKey: 'nav:suppliers', icon: Truck },
+        crumb: 'nav:suppliers',
+      } satisfies AppRouteHandle,
+      children: [
+        {
+          index: true,
+          lazy: () => import('@/pages/suppliers').then((m) => ({ Component: m.SuppliersPage })),
+        },
+        {
+          path: ':slug',
+          lazy: () =>
+            import('@/pages/suppliers').then((m) => ({ Component: m.SupplierDetailPage })),
           handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
         },
       ],

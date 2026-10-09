@@ -95,6 +95,21 @@ describe('ListToolbar — mobile: chip lướt ngang', () => {
     expect(firstRow).not.toContainElement(group)
   })
 
+  it('không có bộ lọc: ô tìm + nút hành động cùng một hàng (nút không rơi xuống hàng riêng)', () => {
+    fakeMobile()
+    render(
+      <ListToolbar
+        search={<input aria-label="Tìm kiếm" />}
+        actions={<button type="button">Tạo</button>}
+      />,
+    )
+    const row = screen.getByLabelText('Tìm kiếm').closest('[data-slot="toolbar-row"]')
+    expect(row).toHaveClass('flex', 'items-center')
+    expect(row).not.toHaveClass('flex-wrap')
+    expect(row).toContainElement(screen.getByRole('button', { name: 'Tạo' }))
+    expect(screen.queryByRole('group', { name: 'Bộ lọc' })).not.toBeInTheDocument()
+  })
+
   it('có bộ lọc đang áp dụng + onClearFilters → chip "Xoá bộ lọc" cuối hàng', async () => {
     fakeMobile()
     const onClear = vi.fn()
