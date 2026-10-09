@@ -29,7 +29,7 @@ const toBoolean = ({ value }: { value: unknown }) => {
 
 export class CreateStoreRequestDto {
   @AutoMap()
-  @ApiProperty({ description: 'The display name of the store', example: 'Cửa hàng Hà Nội 1' })
+  @ApiProperty({ description: 'The display name of the store', example: 'Hanoi Store 1' })
   @Transform(trim)
   @IsNotEmpty({ message: 'STORE_NAME_IS_REQUIRED' })
   name: string;
@@ -44,14 +44,14 @@ export class CreateStoreRequestDto {
   @AutoMap()
   @ApiProperty({
     description: 'The full legal entity name printed on invoices',
-    example: 'Công ty TNHH ABC',
+    example: 'ABC Co., Ltd.',
   })
   @Transform(trim)
   @IsNotEmpty({ message: 'STORE_LEGAL_NAME_IS_REQUIRED' })
   legalName: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'The tax code (MST) of the store', example: '0101234567' })
+  @ApiProperty({ description: 'The tax code of the store', example: '0101234567' })
   @Transform(trim)
   @Matches(STORE_TAX_CODE_REGEX, { message: 'STORE_TAX_CODE_INVALID' })
   @IsNotEmpty({ message: 'STORE_TAX_CODE_IS_REQUIRED' })
@@ -60,7 +60,7 @@ export class CreateStoreRequestDto {
   @AutoMap()
   @ApiPropertyOptional({
     description: 'The registered address printed on invoices',
-    example: 'Số 1, Cầu Giấy, Hà Nội',
+    example: 'No. 1, Cau Giay, Hanoi',
   })
   @IsOptional()
   @Transform(trim)
@@ -74,7 +74,7 @@ export class CreateStoreRequestDto {
   phonenumber?: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'The contact email', example: 'lienhe@abc.vn' })
+  @ApiPropertyOptional({ description: 'The contact email', example: 'contact@abc.vn' })
   @IsOptional()
   @Transform(trim)
   @IsEmail({}, { message: 'STORE_EMAIL_INVALID' })
@@ -83,7 +83,7 @@ export class CreateStoreRequestDto {
   @AutoMap()
   @ApiPropertyOptional({
     description: 'The physical address of the store, may differ from invoiceAddress',
-    example: 'Số 2, Ba Đình, Hà Nội',
+    example: 'No. 2, Ba Dinh, Hanoi',
   })
   @IsOptional()
   @Transform(trim)
@@ -117,7 +117,7 @@ export class UpdateStoreRequestDto extends PartialType(CreateStoreRequestDto) {
 
 export class AssignStoreWarehouseRequestDto {
   @ApiProperty({
-    description: 'Slug của kho gắn với cửa hàng. Gửi `null` để gỡ gắn kết.',
+    description: 'Slug of the warehouse to attach to the store. Send `null` to detach.',
     example: 'x7fk2p9qab',
     nullable: true,
     type: String,
@@ -175,17 +175,17 @@ export class StoreResponseDto extends BaseResponseDto {
 
   // Flatten từ quan hệ `warehouse` bằng `forMember` (giống `WarehouseResponseDto.managerSlug`) —
   // không @AutoMap() để automapper không tự map nguyên entity `Warehouse` ra ngoài.
-  @ApiPropertyOptional({ description: 'Slug của kho gắn với cửa hàng' })
+  @ApiPropertyOptional({ description: 'Slug of the warehouse attached to the store' })
   warehouseSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Tên kho gắn với cửa hàng' })
+  @ApiPropertyOptional({ description: 'Name of the warehouse attached to the store' })
   warehouseName?: string;
 
   // Store không có cột quản lý riêng — đây là `warehouse.manager` của kho đang gắn, dựng object thủ
   // công bằng `forMember` (cùng shape với `WarehouseResponseDto.manager`). Trống nếu chưa gắn kho
   // hoặc kho chưa phân công quản lý.
   @ApiPropertyOptional({
-    description: 'Quản lý cửa hàng (quản lý của kho đang gắn)',
+    description: 'Store manager (the manager of the attached warehouse)',
     type: () => WarehouseManagerDto,
   })
   manager?: WarehouseManagerDto;
@@ -203,14 +203,14 @@ export class StoreWarehouseHistoryResponseDto extends BaseResponseDto {
   action: StoreWarehouseHistoryAction;
 
   @ApiPropertyOptional({
-    description: 'Kho trước thay đổi — đích của restore; trống = chưa có kho',
+    description: 'Warehouse before the change — the restore target; empty = no warehouse yet',
   })
   previousWarehouseSlug?: string;
 
   @ApiPropertyOptional()
   previousWarehouseName?: string;
 
-  @ApiPropertyOptional({ description: 'Kho sau thay đổi; trống = đã gỡ kho' })
+  @ApiPropertyOptional({ description: 'Warehouse after the change; empty = warehouse detached' })
   newWarehouseSlug?: string;
 
   @ApiPropertyOptional()
@@ -218,19 +218,20 @@ export class StoreWarehouseHistoryResponseDto extends BaseResponseDto {
 
   @ApiPropertyOptional({
     description:
-      'Cửa hàng còn lại trong lần chuyển kho: RELEASED = cửa hàng lấy kho đi; ASSIGN/RESTORE = cửa hàng bị lấy kho',
+      'The other store in the warehouse transfer: RELEASED = the store that took the warehouse; ' +
+      'ASSIGN/RESTORE = the store the warehouse was taken from',
   })
   relatedStoreSlug?: string;
 
   @ApiPropertyOptional()
   relatedStoreName?: string;
 
-  @ApiPropertyOptional({ description: 'Dòng lịch sử được khôi phục (chỉ với RESTORE)' })
+  @ApiPropertyOptional({ description: 'The history entry that was restored (RESTORE only)' })
   restoredFromSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Slug của người thao tác' })
+  @ApiPropertyOptional({ description: 'Slug of the user who made the change' })
   changedBySlug?: string;
 
-  @ApiPropertyOptional({ description: 'Họ tên người thao tác' })
+  @ApiPropertyOptional({ description: 'Full name of the user who made the change' })
   changedByName?: string;
 }

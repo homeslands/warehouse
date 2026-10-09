@@ -37,13 +37,16 @@ const OverrideThreshold = (message: string) => (target: object, key: string) => 
 };
 
 export class AssignInventoryRequestDto {
-  @ApiProperty({ description: 'Slug của vật tư cần gán vào kho', example: 'x7fk2p9qab' })
+  @ApiProperty({
+    description: 'Slug of the material to assign to the warehouse',
+    example: 'x7fk2p9qab',
+  })
   @Transform(trim)
   @IsNotEmpty({ message: 'INVENTORY_SLUG_IS_REQUIRED' })
   materialSlug: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Tồn ban đầu (theo đơn vị cơ sở)', default: 0, example: 0 })
+  @ApiPropertyOptional({ description: 'Initial stock (in the base unit)', default: 0, example: 0 })
   @IsOptional()
   @Type(() => Number)
   @IsDecimalWithScale(6, { message: 'INVENTORY_QUANTITY_INVALID' })
@@ -51,7 +54,8 @@ export class AssignInventoryRequestDto {
   quantity?: number = 0;
 
   @ApiPropertyOptional({
-    description: 'Ngưỡng tối thiểu riêng của kho này. `null`/bỏ trống = theo Material.',
+    description:
+      'Minimum threshold specific to this warehouse. `null`/omitted = use the Material value.',
     nullable: true,
     type: Number,
   })
@@ -59,7 +63,8 @@ export class AssignInventoryRequestDto {
   minimumInventory?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Ngưỡng tối đa riêng của kho này. `null`/bỏ trống = theo Material.',
+    description:
+      'Maximum threshold specific to this warehouse. `null`/omitted = use the Material value.',
     nullable: true,
     type: Number,
   })
@@ -70,7 +75,7 @@ export class AssignInventoryRequestDto {
 /** Chỉ sửa ngưỡng override — cố ý KHÔNG nhận `quantity` (đi qua `PATCH .../quantity`). */
 export class UpdateInventoryRequestDto {
   @ApiPropertyOptional({
-    description: 'Gửi `null` để bỏ override và quay về ngưỡng của Material.',
+    description: 'Send `null` to drop the override and fall back to the Material threshold.',
     nullable: true,
     type: Number,
   })
@@ -78,7 +83,7 @@ export class UpdateInventoryRequestDto {
   minimumInventory?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Gửi `null` để bỏ override và quay về ngưỡng của Material.',
+    description: 'Send `null` to drop the override and fall back to the Material threshold.',
     nullable: true,
     type: Number,
   })
@@ -89,7 +94,8 @@ export class UpdateInventoryRequestDto {
 export class AdjustInventoryQuantityRequestDto {
   @ApiProperty({
     description:
-      'Số lượng cộng (dương) hoặc trừ (âm) vào tồn hiện tại, theo ĐƠN VỊ CƠ SỞ. Không nhận 0.',
+      'Amount to add (positive) to or subtract (negative) from current stock, in the BASE UNIT. ' +
+      '0 is not accepted.',
     example: 5,
   })
   @Type(() => Number)
@@ -98,7 +104,7 @@ export class AdjustInventoryQuantityRequestDto {
   @IsNotEmpty({ message: 'INVENTORY_DELTA_INVALID' })
   delta: number;
 
-  @ApiPropertyOptional({ description: 'Ghi chú, lưu vào lịch sử tồn kho', maxLength: 255 })
+  @ApiPropertyOptional({ description: 'Note, saved to the inventory history', maxLength: 255 })
   @IsOptional()
   @Transform(trim)
   @IsString({ message: 'INVENTORY_NOTE_INVALID' })
@@ -107,18 +113,18 @@ export class AdjustInventoryQuantityRequestDto {
 }
 
 export class GetInventoryRequestDto extends BaseQueryDto {
-  @ApiPropertyOptional({ description: 'Lọc theo slug của loại vật tư' })
+  @ApiPropertyOptional({ description: 'Filter by material type slug' })
   @IsOptional()
   @Transform(trim)
   typeSlug?: string;
 
-  @ApiPropertyOptional({ description: 'true = chỉ lấy dòng đang dưới ngưỡng tối thiểu' })
+  @ApiPropertyOptional({ description: 'true = only rows currently below the minimum threshold' })
   @IsOptional()
   @Transform(toBoolean)
   @IsBoolean()
   belowMinimum?: boolean;
 
-  @ApiPropertyOptional({ description: 'true = chỉ lấy dòng đang vượt ngưỡng tối đa' })
+  @ApiPropertyOptional({ description: 'true = only rows currently above the maximum threshold' })
   @IsOptional()
   @Transform(toBoolean)
   @IsBoolean()
@@ -127,32 +133,32 @@ export class GetInventoryRequestDto extends BaseQueryDto {
 
 export class InventoryResponseDto extends BaseResponseDto {
   @AutoMap()
-  @ApiProperty({ description: 'Tồn thực tế trong kho này, theo đơn vị cơ sở của vật tư' })
+  @ApiProperty({ description: 'Actual stock in this warehouse, in the material base unit' })
   quantity: number;
 
   @AutoMap()
-  @ApiProperty({ description: 'Lượng đã giữ chỗ cho phiếu xuất chưa hoàn tất' })
+  @ApiProperty({ description: 'Quantity reserved for export forms not yet completed' })
   reservedQuantity: number;
 
-  @ApiProperty({ description: 'Lượng còn xuất được = quantity - reservedQuantity' })
+  @ApiProperty({ description: 'Quantity still available to export = quantity - reservedQuantity' })
   availableQuantity: number;
 
   @ApiPropertyOptional({
-    description: 'Override ngưỡng tối thiểu, null = theo Material',
+    description: 'Minimum threshold override, null = use the Material value',
     nullable: true,
   })
   minimumInventory?: number | null;
 
   @ApiPropertyOptional({
-    description: 'Override ngưỡng tối đa, null = theo Material',
+    description: 'Maximum threshold override, null = use the Material value',
     nullable: true,
   })
   maximumInventory?: number | null;
 
-  @ApiProperty({ description: 'Ngưỡng tối thiểu thật sự đang áp = override ?? của Material' })
+  @ApiProperty({ description: 'Minimum threshold actually in effect = override ?? Material value' })
   effectiveMinimumInventory: number;
 
-  @ApiProperty({ description: 'Ngưỡng tối đa thật sự đang áp = override ?? của Material' })
+  @ApiProperty({ description: 'Maximum threshold actually in effect = override ?? Material value' })
   effectiveMaximumInventory: number;
 
   @ApiProperty({ description: 'quantity < effectiveMinimumInventory' })
@@ -161,22 +167,22 @@ export class InventoryResponseDto extends BaseResponseDto {
   @ApiProperty({ description: 'quantity > effectiveMaximumInventory' })
   isAboveMaximum: boolean;
 
-  @ApiPropertyOptional({ description: 'Slug của kho' })
+  @ApiPropertyOptional({ description: 'Warehouse slug' })
   warehouseSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Slug của vật tư' })
+  @ApiPropertyOptional({ description: 'Material slug' })
   materialSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Mã vật tư' })
+  @ApiPropertyOptional({ description: 'Material code' })
   materialCode?: string;
 
-  @ApiPropertyOptional({ description: 'Tên vật tư' })
+  @ApiPropertyOptional({ description: 'Material name' })
   materialName?: string;
 
-  @ApiPropertyOptional({ description: 'Slug loại vật tư' })
+  @ApiPropertyOptional({ description: 'Material type slug' })
   typeSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Tên loại vật tư' })
+  @ApiPropertyOptional({ description: 'Material type name' })
   typeName?: string;
 }
 
@@ -189,7 +195,7 @@ export class InventoryHistoryResponseDto extends BaseResponseDto {
   action: InventoryHistoryAction;
 
   @AutoMap()
-  @ApiProperty({ description: 'Lượng cộng (dương) / trừ (âm) vào quantity' })
+  @ApiProperty({ description: 'Amount added (positive) to / subtracted (negative) from quantity' })
   quantityDelta: number;
 
   @AutoMap()
@@ -201,7 +207,9 @@ export class InventoryHistoryResponseDto extends BaseResponseDto {
   quantityAfter: number;
 
   @AutoMap()
-  @ApiProperty({ description: 'Lượng cộng (dương) / trừ (âm) vào reservedQuantity' })
+  @ApiProperty({
+    description: 'Amount added (positive) to / subtracted (negative) from reservedQuantity',
+  })
   reservedDelta: number;
 
   @AutoMap()
@@ -215,9 +223,9 @@ export class InventoryHistoryResponseDto extends BaseResponseDto {
   @ApiPropertyOptional({ nullable: true })
   note?: string | null;
 
-  @ApiPropertyOptional({ description: 'Slug của người thao tác' })
+  @ApiPropertyOptional({ description: 'Slug of the user who made the change' })
   changedBySlug?: string;
 
-  @ApiPropertyOptional({ description: 'Họ tên người thao tác' })
+  @ApiPropertyOptional({ description: 'Full name of the user who made the change' })
   changedByName?: string;
 }

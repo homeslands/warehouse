@@ -64,7 +64,7 @@ export class LoginAuthRequestDto {
 }
 
 export class RefreshAuthRequestDto {
-  @ApiProperty({ description: 'Refresh token nhận được từ lần login/refresh gần nhất' })
+  @ApiProperty({ description: 'Refresh token received from the most recent login/refresh' })
   @IsNotEmpty({ message: 'REFRESH_TOKEN_IS_REQUIRED' })
   refreshToken: string;
 }
@@ -72,7 +72,7 @@ export class RefreshAuthRequestDto {
 export class LogoutAuthResponseDto {
   // Deny-list không còn đếm được số phiên đang mở: `1` = đã ghi key thu hồi, `0` = không ghi được
   // (token không có claim `sid`). Giữ nguyên tên field để không phá client.
-  @ApiProperty({ description: 'Đã ghi key thu hồi hay chưa (1|0)' })
+  @ApiProperty({ description: 'Whether the revocation key was written (1|0)' })
   revokedSessions: number;
 }
 
@@ -93,14 +93,15 @@ export class LoginAuthResponseDto {
 export class ChangePasswordRequestDto {
   @ApiProperty({
     description:
-      'Mật khẩu hiện tại của chính mình. BẮT BUỘC — endpoint này chỉ dùng để tự đổi mật khẩu, ' +
-      'admin/manager đổi hộ người khác thì gọi `POST /users/{userSlug}/change-password`.',
+      'Your own current password. REQUIRED — this endpoint is only for changing your own ' +
+      'password; admins/managers changing it on behalf of others should call ' +
+      '`POST /users/{userSlug}/change-password`.',
     example: 'old-password',
   })
   @IsNotEmpty({ message: 'CURRENT_PASSWORD_IS_REQUIRED' })
   currentPassword: string;
 
-  @ApiProperty({ description: 'Mật khẩu mới', example: 'new-password' })
+  @ApiProperty({ description: 'New password', example: 'new-password' })
   @IsNotEmpty({ message: 'NEW_PASSWORD_IS_REQUIRED' })
   newPassword: string;
 }
@@ -109,8 +110,8 @@ export class ChangePasswordResponseDto {
   @ApiProperty({
     type: LoginAuthResponseDto,
     description:
-      'Cặp token mới (mang `sid` mới) — đổi mật khẩu thu hồi mọi phiên của chính mình, cặp token ' +
-      'này để không bị văng ra khỏi app ngay sau khi đổi.',
+      'New token pair (carrying a new `sid`) — changing the password revokes all of your own ' +
+      'sessions; this token pair keeps you from being logged out of the app right after.',
   })
   tokens: LoginAuthResponseDto;
 }

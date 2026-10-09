@@ -23,7 +23,7 @@ export class CreateExampleRequestDto {
  */
 export class UpdateExampleRequestDto extends PartialType(CreateExampleRequestDto) {
   @ApiProperty({
-    description: 'Version nhận được từ lần GET gần nhất, dùng để phát hiện xung đột',
+    description: 'Version received from the most recent GET, used to detect conflicts',
     minimum: 1,
   })
   @IsNotEmpty()

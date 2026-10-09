@@ -19,12 +19,12 @@ export class CreateMaterialRequestDto {
   code: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'The name of material', example: 'Găng tay cao su' })
+  @ApiProperty({ description: 'The name of material', example: 'Rubber gloves' })
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_NAME_IS_REQUIRED' })
   name: string;
 
-  @ApiProperty({ description: 'Slug của MaterialType', example: 'x7fk2p9qab' })
+  @ApiProperty({ description: 'Slug of the MaterialType', example: 'x7fk2p9qab' })
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_TYPE_SLUG_IS_REQUIRED' })
   typeSlug: string;
@@ -38,13 +38,17 @@ export class CreateMaterialRequestDto {
    * Cố ý KHÔNG `@AutoMap()`: quan hệ `baseUnit` do service resolve ra entity thật rồi gán, mapper
    * đụng vào sẽ ghi đè thành `undefined` (cùng cách xử lý `typeSlug`).
    */
-  @ApiProperty({ description: 'Slug của đơn vị cơ sở (Unit)', example: 'unit-abc123' })
+  @ApiProperty({ description: 'Slug of the base unit (Unit)', example: 'unit-abc123' })
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED' })
   baseUnitSlug: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Ngưỡng tồn tối thiểu mặc định', default: 0, example: 10 })
+  @ApiPropertyOptional({
+    description: 'Default minimum inventory threshold',
+    default: 0,
+    example: 10,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsDecimalWithScale(6, { message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
@@ -52,7 +56,11 @@ export class CreateMaterialRequestDto {
   minimumInventory?: number = 0;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Ngưỡng tồn tối đa mặc định', default: 0, example: 100 })
+  @ApiPropertyOptional({
+    description: 'Default maximum inventory threshold',
+    default: 0,
+    example: 100,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsDecimalWithScale(6, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
@@ -71,7 +79,7 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   // bỏ luôn field) và gán `undefined` để huỷ initializer — target ES2021 +
   // `useDefineForClassFields: false` ⇒ gán ở lớp con chạy sau constructor lớp cha.
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Ngưỡng tồn tối thiểu mặc định', example: 10 })
+  @ApiPropertyOptional({ description: 'Default minimum inventory threshold', example: 10 })
   @IsOptional()
   @Type(() => Number)
   @IsDecimalWithScale(6, { message: 'MATERIAL_MINIMUM_INVENTORY_INVALID' })
@@ -79,7 +87,7 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   override minimumInventory?: number = undefined;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Ngưỡng tồn tối đa mặc định', example: 100 })
+  @ApiPropertyOptional({ description: 'Default maximum inventory threshold', example: 100 })
   @IsOptional()
   @Type(() => Number)
   @IsDecimalWithScale(6, { message: 'MATERIAL_MAXIMUM_INVENTORY_INVALID' })
@@ -98,7 +106,7 @@ export class GetAllMaterialRequestDto extends BaseQueryDto {
   @Transform(upper)
   code?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by name (chứa chuỗi con)' })
+  @ApiPropertyOptional({ description: 'Filter by name (substring match)' })
   @IsOptional()
   @Transform(trim)
   name?: string;
@@ -122,23 +130,23 @@ export class MaterialResponseDto extends BaseResponseDto {
   maximumInventory: number;
 
   // Flatten từ quan hệ `type` bằng `forMember` — không lồng nguyên `MaterialTypeResponseDto` vào.
-  @ApiPropertyOptional({ description: 'Slug của loại vật tư' })
+  @ApiPropertyOptional({ description: 'Slug of the material type' })
   typeSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Mã loại vật tư' })
+  @ApiPropertyOptional({ description: 'Business code of the material type' })
   typeCode?: string;
 
-  @ApiPropertyOptional({ description: 'Tên loại vật tư' })
+  @ApiPropertyOptional({ description: 'Name of the material type' })
   typeName?: string;
 
   // Flatten từ quan hệ `baseUnit` — `undefined` khi vật tư chưa khai đơn vị cơ sở.
-  @ApiPropertyOptional({ description: 'Slug của đơn vị cơ sở' })
+  @ApiPropertyOptional({ description: 'Slug of the base unit' })
   baseUnitSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Mã đơn vị cơ sở' })
+  @ApiPropertyOptional({ description: 'Business code of the base unit' })
   baseUnitCode?: string;
 
-  @ApiPropertyOptional({ description: 'Tên đơn vị cơ sở' })
+  @ApiPropertyOptional({ description: 'Name of the base unit' })
   baseUnitName?: string;
 }
 
@@ -153,7 +161,7 @@ export class GetConversionUnitRequestDto extends BaseQueryDto {
   @Transform(upper)
   code?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by unit name (chứa chuỗi con)' })
+  @ApiPropertyOptional({ description: 'Filter by unit name (substring match)' })
   @IsOptional()
   @Transform(trim)
   name?: string;
@@ -166,13 +174,16 @@ export class GetConversionUnitRequestDto extends BaseQueryDto {
  * tự động vào entity có PK tổ hợp dễ ghi đè nhầm `materialId`/`unitId`, service gán tay rõ hơn.
  */
 export class CreateMaterialConversionUnitRequestDto {
-  @ApiProperty({ description: 'Slug của Unit làm đơn vị quy đổi', example: 'unit-abc123' })
+  @ApiProperty({
+    description: 'Slug of the Unit to use as the conversion unit',
+    example: 'unit-abc123',
+  })
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_UNIT_SLUG_IS_REQUIRED' })
   unitSlug: string;
 
   @ApiProperty({
-    description: 'Số ĐƠN VỊ CƠ SỞ trong 1 đơn vị này (1 BAO = 50 KG ⇒ 50)',
+    description: 'Number of BASE UNITS in 1 of this unit (1 BAG = 50 KG ⇒ 50)',
     example: 50,
     minimum: 0,
     exclusiveMinimum: true,
@@ -199,36 +210,40 @@ export class MaterialConversionUnitResponseDto {
   @ApiProperty({ example: 'unit-abc123' })
   unitSlug: string;
 
-  @ApiProperty({ example: 'BAO' })
+  @ApiProperty({ example: 'BAG' })
   unitCode: string;
 
-  @ApiProperty({ example: 'Bao 50kg' })
+  @ApiProperty({ example: 'Bag 50kg' })
   unitName: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'Số đơn vị cơ sở trong 1 đơn vị này', example: 50 })
+  @ApiProperty({ description: 'Number of base units in 1 of this unit', example: 50 })
   conversionRate: number;
 
   // Đơn vị cơ sở nay cũng là 1 dòng của bảng join (rate = 1) nên nó nằm trong CHÍNH danh sách này —
   // client cần cờ để hiển thị khác đi và để biết dòng nào không sửa/gỡ được.
-  @ApiProperty({ description: 'Dòng này có phải ĐƠN VỊ CƠ SỞ của vật tư không', example: false })
+  @ApiProperty({ description: 'Whether this row is the BASE UNIT of the material', example: false })
   isBaseUnit: boolean;
 }
 
 /** Body của `POST /materials/:slug/convert` — quy đổi số lượng giữa 2 đơn vị của cùng 1 vật tư. */
 export class ConvertMaterialQuantityRequestDto {
-  @ApiProperty({ description: 'Số lượng cần quy đổi', example: 5 })
+  @ApiProperty({ description: 'Quantity to convert', example: 5 })
   @Type(() => Number)
   @IsDecimalWithScale(6, { message: 'MATERIAL_CONVERT_QUANTITY_INVALID' })
   @Min(0, { message: 'MATERIAL_CONVERT_QUANTITY_INVALID' })
   quantity: number;
 
-  @ApiProperty({ description: 'Slug đơn vị NGUỒN (đơn vị cơ sở hoặc 1 đơn vị quy đổi đã gắn)' })
+  @ApiProperty({
+    description: 'Slug of the SOURCE unit (the base unit or an attached conversion unit)',
+  })
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_UNIT_SLUG_IS_REQUIRED' })
   fromUnitSlug: string;
 
-  @ApiProperty({ description: 'Slug đơn vị ĐÍCH (đơn vị cơ sở hoặc 1 đơn vị quy đổi đã gắn)' })
+  @ApiProperty({
+    description: 'Slug of the TARGET unit (the base unit or an attached conversion unit)',
+  })
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_UNIT_SLUG_IS_REQUIRED' })
   toUnitSlug: string;
@@ -242,16 +257,16 @@ export class MaterialConversionResultResponseDto {
   @ApiProperty({ example: 'x7fk2p9qab' })
   materialSlug: string;
 
-  @ApiProperty({ example: 'unit-bao' })
+  @ApiProperty({ example: 'unit-bag' })
   fromUnitSlug: string;
 
-  @ApiProperty({ example: 'BAO' })
+  @ApiProperty({ example: 'BAG' })
   fromUnitCode: string;
 
-  @ApiProperty({ description: 'Số lượng đầu vào', example: 5 })
+  @ApiProperty({ description: 'Input quantity', example: 5 })
   fromQuantity: number;
 
-  @ApiProperty({ description: 'Số đơn vị cơ sở trong 1 đơn vị nguồn', example: 50 })
+  @ApiProperty({ description: 'Number of base units in 1 source unit', example: 50 })
   fromConversionRate: number;
 
   @ApiProperty({ example: 'unit-kg' })
@@ -260,10 +275,10 @@ export class MaterialConversionResultResponseDto {
   @ApiProperty({ example: 'KG' })
   toUnitCode: string;
 
-  @ApiProperty({ description: 'Số lượng sau quy đổi (làm tròn 6 chữ số thập phân)', example: 250 })
+  @ApiProperty({ description: 'Converted quantity (rounded to 6 decimal places)', example: 250 })
   toQuantity: number;
 
-  @ApiProperty({ description: 'Số đơn vị cơ sở trong 1 đơn vị đích', example: 1 })
+  @ApiProperty({ description: 'Number of base units in 1 target unit', example: 1 })
   toConversionRate: number;
 
   @ApiProperty({ example: 'unit-kg' })
@@ -272,6 +287,6 @@ export class MaterialConversionResultResponseDto {
   @ApiProperty({ example: 'KG' })
   baseUnitCode: string;
 
-  @ApiProperty({ description: 'Số lượng quy về đơn vị cơ sở', example: 250 })
+  @ApiProperty({ description: 'Quantity expressed in the base unit', example: 250 })
   quantityInBaseUnit: number;
 }

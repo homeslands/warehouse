@@ -66,9 +66,10 @@ export class AuthController {
   @ApiOperation({
     summary: 'Refresh access token by refresh token',
     description:
-      'Phát lại CẢ access lẫn refresh token với hạn mới, giữ nguyên phiên. Không xoay vòng: ' +
-      'refresh token cũ vẫn dùng được tới khi tự hết hạn, không có phát hiện token bị đánh cắp. ' +
-      'Muốn vô hiệu hoá ngay thì gọi /auth/logout hoặc /auth/logout-all.',
+      'Reissues BOTH the access and refresh tokens with new expiry times, keeping the same ' +
+      'session. No rotation: the old refresh token remains usable until it expires on its own, ' +
+      'and there is no stolen-token detection. To invalidate immediately, call /auth/logout or ' +
+      '/auth/logout-all.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -94,8 +95,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Logout the current device',
     description:
-      'Thu hồi phiên hiện tại. Có hiệu lực NGAY ở request kế tiếp với cả access lẫn refresh ' +
-      'token, vì cả 2 mang cùng sid và sid đó bị đưa vào deny-list trên Redis.',
+      'Revokes the current session. Takes effect IMMEDIATELY on the next request for both the ' +
+      'access and refresh tokens, since both carry the same sid and that sid is added to the ' +
+      'deny-list in Redis.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -118,9 +120,9 @@ export class AuthController {
   @ApiOperation({
     summary: 'Logout every device of the current user',
     description:
-      'Thu hồi mọi token của user đã phát hành trước thời điểm gọi, trên mọi thiết bị — dùng khi ' +
-      'nghi ngờ token bị đánh cắp. Có hiệu lực ngay ở request kế tiếp. Đăng nhập lại sau đó vẫn ' +
-      'bình thường.',
+      "Revokes all of the user's tokens issued before the time of the call, on every device — " +
+      'use when a token is suspected to be stolen. Takes effect immediately on the next request. ' +
+      'Logging in again afterwards works normally.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -144,11 +146,11 @@ export class AuthController {
   @ApiOperation({
     summary: 'Change the password of your own account',
     description:
-      'Chỉ đổi mật khẩu của CHÍNH tài khoản đang đăng nhập, mọi user đã login đều gọi được nhưng ' +
-      'BẮT BUỘC gửi kèm `currentPassword`. Muốn đổi hộ người khác thì gọi ' +
-      '`POST /users/{userSlug}/change-password`.\n\n' +
-      'Đổi xong, MỌI phiên của chính mình bị thu hồi ngay ở request kế tiếp; `result.tokens` là ' +
-      'cặp token mới (`sid` mới) để không phải đăng nhập lại.',
+      'Only changes the password of the currently logged-in account ITSELF; any logged-in user ' +
+      'can call it but MUST include `currentPassword`. To change it on behalf of someone else, ' +
+      'call `POST /users/{userSlug}/change-password`.\n\n' +
+      'Afterwards, ALL of your own sessions are revoked starting from the next request; ' +
+      '`result.tokens` is a new token pair (new `sid`) so you do not have to log in again.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,

@@ -66,8 +66,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'Get all warehouses (paginated)',
     description:
-      'ADMIN/SUPER_ADMIN thấy toàn bộ. Mọi role thấp hơn chỉ nhận về kho mình là manager hoặc ' +
-      'thành viên (bỏ qua `managerSlug`/`hasManager`).',
+      'ADMIN/SUPER_ADMIN see all warehouses. Every lower role only gets warehouses where they ' +
+      'are the manager or a member (`managerSlug`/`hasManager` are ignored).',
   })
   @ApiPaginatedResponse(WarehouseResponseDto, 'Retrieved')
   async findAll(
@@ -112,8 +112,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'Get a warehouse by slug',
     description:
-      'ADMIN/SUPER_ADMIN đọc được mọi kho. Role khác chỉ đọc được kho mình là manager hoặc thành ' +
-      'viên, ngược lại trả `WAREHOUSE_ACCESS_DENIED` (403).',
+      'ADMIN/SUPER_ADMIN can read any warehouse. Other roles can only read warehouses where they ' +
+      'are the manager or a member; otherwise `WAREHOUSE_ACCESS_DENIED` (403) is returned.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -190,7 +190,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'Assign a user as a member of a warehouse (idempotent)',
     description:
-      'User phải đang hoạt động và không phải ADMIN/SUPER_ADMIN (`WAREHOUSE_MEMBER_USER_IS_ADMIN`).',
+      'The user must be active and must not be ADMIN/SUPER_ADMIN ' +
+      '(`WAREHOUSE_MEMBER_USER_IS_ADMIN`).',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -220,9 +221,9 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'List members of a warehouse (paginated)',
     description:
-      'Không gồm manager của kho (xem `GET /warehouses/{slug}`). ADMIN/SUPER_ADMIN xem được mọi ' +
-      'kho; role khác chỉ xem được kho mình là manager hoặc thành viên, ngược lại trả ' +
-      '`WAREHOUSE_ACCESS_DENIED` (403).',
+      'Does not include the warehouse manager (see `GET /warehouses/{slug}`). ADMIN/SUPER_ADMIN ' +
+      'can view any warehouse; other roles can only view warehouses where they are the manager ' +
+      'or a member; otherwise `WAREHOUSE_ACCESS_DENIED` (403) is returned.',
   })
   @ApiPaginatedResponse(WarehouseMemberResponseDto, 'Retrieved')
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
@@ -248,8 +249,8 @@ export class WarehouseController {
   @ApiOperation({
     summary: 'List users that can be assigned as members of a warehouse (paginated)',
     description:
-      'Chỉ user đang hoạt động, chưa là thành viên của kho, không phải manager hiện tại của kho và ' +
-      'không phải ADMIN/SUPER_ADMIN.',
+      'Only users who are active, not yet members of the warehouse, not its current manager, ' +
+      'and not ADMIN/SUPER_ADMIN.',
   })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
