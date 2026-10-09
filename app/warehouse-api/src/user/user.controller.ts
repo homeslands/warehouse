@@ -66,13 +66,16 @@ export class UserController {
     summary: 'Get all users (paginated, filter by role / isActive)',
     description:
       'Mỗi user kèm `role` (slug/name/description/level) và `warehouses` — các kho user là thành ' +
-      'viên (không gồm kho user làm manager).',
+      'viên (không gồm kho user làm manager).\n\n' +
+      '`ADMIN`/`SUPER_ADMIN` thấy toàn bộ. Role khác (kể cả `MANAGER`) chỉ thấy user là ' +
+      'manager/thành viên của (ít nhất 1) kho mà mình là manager/thành viên.',
   })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
   async findAll(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Query(new ValidationPipe({ transform: true, whitelist: true })) query: GetAllUserRequestDto,
   ) {
-    const result = await this.userService.findAll(query);
+    const result = await this.userService.findAll(query, {}, currentUser);
     return {
       message: 'All users have been retrieved successfully',
       statusCode: HttpStatus.OK,
