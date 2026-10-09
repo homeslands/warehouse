@@ -40,7 +40,7 @@ export class Supplier extends Base {
 
   /**
    * 1 nhà cung cấp - n vật tư: FK nằm ở `material_tbl.supplier_id_column` (NULL-able). Gắn/gỡ qua
-   * `PUT|DELETE /suppliers/:slug/materials/:materialSlug`, không qua DTO của vật tư.
+   * `PUT|DELETE /suppliers/:slug/materials` (body `materialSlugs`), không qua DTO của vật tư.
    */
   @OneToMany(() => Material, (material) => material.supplier)
   materials: Material[];

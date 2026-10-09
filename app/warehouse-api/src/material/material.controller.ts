@@ -101,7 +101,9 @@ export class MaterialController {
   @Get(':slug/conversion-units')
   @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Danh sách đơn vị quy đổi ĐÃ GẮN cho vật tư (kèm tỉ lệ quy đổi)' })
+  @ApiOperation({
+    summary: 'List conversion units ATTACHED to the material (with conversion rates)',
+  })
   @ApiPaginatedResponse(MaterialConversionUnitResponseDto, 'Retrieved')
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async findConversionUnits(
@@ -124,7 +126,7 @@ export class MaterialController {
   @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Đơn vị CHỌN ĐƯỢC làm đơn vị quy đổi',
+    summary: 'Units AVAILABLE to be attached as conversion units',
   })
   @ApiPaginatedResponse(UnitResponseDto, 'Retrieved')
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
@@ -145,7 +147,7 @@ export class MaterialController {
   @Post(':slug/conversion-units')
   @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.UnitUpdate)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Gắn 1 đơn vị quy đổi cho vật tư' })
+  @ApiOperation({ summary: 'Attach a conversion unit to the material' })
   @ApiResponseWithType({
     status: HttpStatus.CREATED,
     description: 'Created',
@@ -171,7 +173,9 @@ export class MaterialController {
   @Post(':slug/convert')
   @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.UnitRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Quy đổi số lượng giữa 2 đơn vị của vật tư (qua đơn vị cơ sở)' })
+  @ApiOperation({
+    summary: 'Convert a quantity between 2 units of the material (via the base unit)',
+  })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Converted',
@@ -195,7 +199,7 @@ export class MaterialController {
   @Patch(':slug/conversion-units/:unitSlug')
   @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.UnitUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Sửa tỉ lệ quy đổi của 1 đơn vị quy đổi' })
+  @ApiOperation({ summary: 'Update the conversion rate of a conversion unit' })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Updated',
@@ -221,7 +225,7 @@ export class MaterialController {
   @Delete(':slug/conversion-units/:unitSlug')
   @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.UnitUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Gỡ 1 đơn vị quy đổi khỏi vật tư' })
+  @ApiOperation({ summary: 'Detach a conversion unit from the material' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   @ApiParam({ name: 'unitSlug', required: true, example: 'unit-abc123' })
@@ -262,7 +266,7 @@ export class MaterialController {
   @Delete(':slug')
   @RequireAuthority(AuthorityCode.MaterialDelete)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a material (chặn nếu còn được gán vào kho)' })
+  @ApiOperation({ summary: 'Delete a material (blocked if still assigned to a warehouse)' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async deleteMaterial(@Param('slug') slug: string) {

@@ -15,6 +15,9 @@ export const SUPPLIER_TAX_CODE_REGEX = /^\d{10}(-\d{3})?$/;
 /** Số chữ số thập phân của cột tiền (`unit_price_column`, `amount_column`) — DECIMAL(18,2). */
 export const MONEY_SCALE = 2;
 
+/** Số vật tư tối đa trong 1 lần gắn/gỡ hàng loạt (`PUT|DELETE /suppliers/:slug/materials`). */
+export const SUPPLIER_MATERIAL_BATCH_MAX = 100;
+
 /**
  * Loại giao dịch với nhà cung cấp (`SupplierTransaction.type`).
  * - `PURCHASE`: mua hàng — bắt buộc vật tư + số lượng + đơn giá, `amount` do server tính.

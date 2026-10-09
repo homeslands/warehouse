@@ -4,7 +4,7 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Between, LessThanOrEqual, Like, MoreThanOrEqual } from 'typeorm';
+import { Between, In, IsNull, LessThanOrEqual, Like, MoreThanOrEqual } from 'typeorm';
 import { SupplierService } from './supplier.service';
 import { SupplierProfile } from './supplier.mapper';
 import { Supplier } from './supplier.entity';
@@ -36,8 +36,11 @@ describe('SupplierService', () => {
     findOne: jest.fn(),
     findAndCount: jest.fn(),
     countBy: jest.fn(),
+    find: jest.fn(),
     update: jest.fn(),
+    manager: { transaction: jest.fn() },
   };
+  const transactionManager = { update: jest.fn() };
 
   const supplier = { id: 'sup-1', slug: 's1', code: 'NCC-01', name: 'Supplier A' } as Supplier;
   const actor = { userId: 'u1' } as CurrentUserDto;
@@ -240,43 +243,115 @@ describe('SupplierService', () => {
     });
   });
 
-  describe('attach / detach material', () => {
-    it('attaches a free material', async () => {
+  describe('attach / detach materials (batch)', () => {
+    const body = (...materialSlugs: string[]) => ({ materialSlugs });
+    const update = () => transactionManager.update;
+
+    beforeEach(() => {
       supplierRepository.findOneBy.mockResolvedValue(supplier);
-      materialRepository.findOne.mockResolvedValue({ id: 'm-1', slug: 'm1', supplier: null });
+      materialRepository.manager.transaction.mockImplementation(async (run) =>
+        run(transactionManager),
+      );
+    });
 
-      await service.attachMaterial('s1', 'm1');
+    it('attaches only the free materials in one guarded UPDATE, skipping already-owned ones', async () => {
+      materialRepository.find.mockResolvedValue([
+        { id: 'm-1', slug: 'm1', supplier: null },
+        { id: 'm-2', slug: 'm2', supplier: { id: 'sup-1' } },
+        { id: 'm-3', slug: 'm3', supplier: null },
+      ]);
+      update().mockResolvedValue({ affected: 2 });
 
-      expect(materialRepository.update).toHaveBeenCalledWith(
-        { id: 'm-1' },
+      const result = await service.attachMaterials('s1', body('m1', 'm2', 'm3'));
+
+      expect(materialRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { slug: In(['m1', 'm2', 'm3']) } }),
+      );
+      expect(update()).toHaveBeenCalledWith(
+        Material,
+        { id: In(['m-1', 'm-3']), supplier: IsNull() },
         { supplier: { id: 'sup-1' } },
       );
+      expect(result.map((item) => item.slug)).toEqual(['m1', 'm2', 'm3']);
     });
 
-    it('refuses a material owned by another supplier', async () => {
-      supplierRepository.findOneBy.mockResolvedValue(supplier);
-      materialRepository.findOne.mockResolvedValue({ id: 'm-1', supplier: { id: 'other' } });
+    it('is a no-op when every material already belongs to this supplier', async () => {
+      materialRepository.find.mockResolvedValue([{ id: 'm-1', supplier: { id: 'sup-1' } }]);
 
-      await expect(service.attachMaterial('s1', 'm1')).rejects.toMatchObject({
+      await service.attachMaterials('s1', body('m1'));
+
+      expect(materialRepository.manager.transaction).not.toHaveBeenCalled();
+    });
+
+    it('refuses the whole batch if one material belongs to another supplier', async () => {
+      materialRepository.find.mockResolvedValue([
+        { id: 'm-1', supplier: null },
+        { id: 'm-2', supplier: { id: 'other' } },
+      ]);
+
+      await expect(service.attachMaterials('s1', body('m1', 'm2'))).rejects.toMatchObject({
         code: SupplierValidation.SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER.code,
       });
-      expect(materialRepository.update).not.toHaveBeenCalled();
+      expect(update()).not.toHaveBeenCalled();
     });
 
-    it('throws MATERIAL_NOT_FOUND for an unknown material', async () => {
-      supplierRepository.findOneBy.mockResolvedValue(supplier);
-      materialRepository.findOne.mockResolvedValue(null);
+    // Vật tư bị nhà cung cấp khác gắn chen giữa lúc đọc và lúc ghi: throw trong transaction ⇒ rollback.
+    it('rolls back when a material gets taken between read and write', async () => {
+      materialRepository.find.mockResolvedValue([
+        { id: 'm-1', supplier: null },
+        { id: 'm-2', supplier: null },
+      ]);
+      update().mockResolvedValue({ affected: 1 });
 
-      await expect(service.attachMaterial('s1', 'missing')).rejects.toBeInstanceOf(
-        MaterialException,
+      await expect(service.attachMaterials('s1', body('m1', 'm2'))).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER.code,
+      });
+    });
+
+    it('throws MATERIAL_NOT_FOUND when any slug is unknown, de-duplicating slugs first', async () => {
+      materialRepository.find.mockResolvedValue([{ id: 'm-1', supplier: null }]);
+
+      await expect(
+        service.attachMaterials('s1', body('m1', 'm1', 'missing')),
+      ).rejects.toBeInstanceOf(MaterialException);
+      expect(materialRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { slug: In(['m1', 'missing']) } }),
+      );
+      expect(update()).not.toHaveBeenCalled();
+    });
+
+    it('detaches every material with a guarded UPDATE and returns the count', async () => {
+      materialRepository.find.mockResolvedValue([
+        { id: 'm-1', supplier: { id: 'sup-1' } },
+        { id: 'm-2', supplier: { id: 'sup-1' } },
+      ]);
+      update().mockResolvedValue({ affected: 2 });
+
+      await expect(service.detachMaterials('s1', body('m1', 'm2'))).resolves.toBe(2);
+      expect(update()).toHaveBeenCalledWith(
+        Material,
+        { id: In(['m-1', 'm-2']), supplier: { id: 'sup-1' } },
+        { supplier: null },
       );
     });
 
-    it('detach refuses a material not attached to this supplier', async () => {
-      supplierRepository.findOneBy.mockResolvedValue(supplier);
-      materialRepository.findOne.mockResolvedValue({ id: 'm-1', supplier: null });
+    it('detach refuses the whole batch if one material is not attached to this supplier', async () => {
+      materialRepository.find.mockResolvedValue([
+        { id: 'm-1', supplier: { id: 'sup-1' } },
+        { id: 'm-2', supplier: null },
+      ]);
 
-      await expect(service.detachMaterial('s1', 'm1')).rejects.toMatchObject({
+      await expect(service.detachMaterials('s1', body('m1', 'm2'))).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED.code,
+      });
+      expect(update()).not.toHaveBeenCalled();
+    });
+
+    it('detach rolls back when a material changed between read and write', async () => {
+      materialRepository.find.mockResolvedValue([{ id: 'm-1', supplier: { id: 'sup-1' } }]);
+      update().mockResolvedValue({ affected: 0 });
+
+      await expect(service.detachMaterials('s1', body('m1'))).rejects.toMatchObject({
         code: SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED.code,
       });
     });

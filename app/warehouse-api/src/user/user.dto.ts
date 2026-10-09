@@ -38,13 +38,13 @@ export class CreateUserRequestDto {
   phonenumber: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'First name', example: 'Văn A' })
+  @ApiProperty({ description: 'First name', example: 'Van A' })
   @Transform(trim)
   @IsNotEmpty({ message: 'USER_FIRST_NAME_IS_REQUIRED' })
   firstName: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'Last name', example: 'Nguyễn' })
+  @ApiProperty({ description: 'Last name', example: 'Nguyen' })
   @Transform(trim)
   @IsNotEmpty({ message: 'USER_LAST_NAME_IS_REQUIRED' })
   lastName: string;
@@ -65,7 +65,7 @@ export class CreateUserRequestDto {
   email?: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Address', example: 'Số 2, Ba Đình, Hà Nội' })
+  @ApiPropertyOptional({ description: 'Address', example: 'No. 2, Ba Dinh, Ha Noi' })
   @IsOptional()
   @Transform(trim)
   address?: string;
@@ -88,7 +88,7 @@ export class UpdateUserRequestDto extends PartialType(
 ) {}
 
 export class ChangeUserRoleRequestDto {
-  @ApiProperty({ description: 'Slug của role mới', example: 'supervisor' })
+  @ApiProperty({ description: 'Slug of the new role', example: 'supervisor' })
   @IsNotEmpty({ message: 'USER_ROLE_SLUG_IS_REQUIRED' })
   roleSlug: string;
 }
@@ -103,20 +103,20 @@ export class GetAllUserRequestDto extends BaseQueryDto {
   roleSlug?: string;
 
   @ApiPropertyOptional({
-    description: 'Tìm theo tên (chứa chuỗi, khớp họ, tên hoặc "họ tên")',
-    example: 'Nguyễn Văn',
+    description: 'Search by name (substring match on last name, first name, or "last first")',
+    example: 'Nguyen Van',
   })
   @IsOptional()
   @Transform(trim)
   name?: string;
 
-  @ApiPropertyOptional({ description: 'Tìm theo số điện thoại (chứa chuỗi)', example: '0900' })
+  @ApiPropertyOptional({ description: 'Search by phone number (substring match)', example: '0900' })
   @IsOptional()
   @Transform(trim)
   phonenumber?: string;
 
   @ApiPropertyOptional({
-    description: 'Chỉ user là THÀNH VIÊN của kho này (không tính kho user làm manager)',
+    description: 'Only users who are MEMBERS of this warehouse (excluding the warehouse manager)',
     example: 'x7fk2p9qab',
   })
   @IsOptional()
@@ -124,7 +124,8 @@ export class GetAllUserRequestDto extends BaseQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Ngày tạo tài khoản từ (bao gồm). `YYYY-MM-DD` tính từ 00:00 giờ server, hoặc ISO 8601 đầy đủ.',
+      'Account creation date from (inclusive). `YYYY-MM-DD` counts from 00:00 server time, or a ' +
+      'full ISO 8601 timestamp.',
     example: '2026-09-01',
   })
   @IsOptional()
@@ -133,14 +134,18 @@ export class GetAllUserRequestDto extends BaseQueryDto {
 
   @ApiPropertyOptional({
     description:
-      'Ngày tạo tài khoản đến (bao gồm). `YYYY-MM-DD` tính hết ngày đó, hoặc ISO 8601 đầy đủ.',
+      'Account creation date to (inclusive). `YYYY-MM-DD` covers the whole day, or a full ' +
+      'ISO 8601 timestamp.',
     example: '2026-09-30',
   })
   @IsOptional()
   @IsDateString({}, { message: 'USER_END_DATE_INVALID' })
   endDate?: string;
 
-  @ApiPropertyOptional({ description: 'Ngày sinh (khớp đúng, YYYY-MM-DD)', example: '1990-05-20' })
+  @ApiPropertyOptional({
+    description: 'Date of birth (exact match, YYYY-MM-DD)',
+    example: '1990-05-20',
+  })
   @IsOptional()
   @Transform(trim)
   @IsISO8601({ strict: true, strictSeparator: true }, { message: 'USER_BIRTHDAY_INVALID' })
@@ -148,7 +153,7 @@ export class GetAllUserRequestDto extends BaseQueryDto {
   birthday?: string;
 
   @ApiPropertyOptional({
-    description: 'Lọc theo trạng thái tài khoản (`true` = đang hoạt động, `false` = đã khoá)',
+    description: 'Filter by account status (`true` = active, `false` = locked)',
     example: true,
   })
   @IsOptional()
@@ -157,9 +162,9 @@ export class GetAllUserRequestDto extends BaseQueryDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
-    description: `Sort \`field:ASC|DESC\`, lặp lại để sort nhiều cấp. Field: ${Object.keys(
+    description: `Sort \`field:ASC|DESC\`, repeat for multi-level sorting. Field: ${Object.keys(
       USER_SORT_FIELDS,
-    ).join(', ')}. Mặc định \`createdAt:DESC\`.`,
+    ).join(', ')}. Default \`createdAt:DESC\`.`,
     example: ['lastName:ASC', 'firstName:ASC'],
     isArray: true,
   })
@@ -180,7 +185,7 @@ export class UserRoleDto {
   @ApiPropertyOptional()
   description?: string;
 
-  @ApiProperty({ description: 'Cấp của role — số lớn = cấp cao', example: 10 })
+  @ApiProperty({ description: 'Role level — a larger number means a higher level', example: 10 })
   level: number;
 }
 
@@ -192,13 +197,13 @@ export class UserWarehouseDto {
   @ApiProperty({ example: 'WH-HN-01' })
   code: string;
 
-  @ApiProperty({ example: 'Kho Hà Nội 1' })
+  @ApiProperty({ example: 'Ha Noi Warehouse 1' })
   name: string;
 }
 
 // Kho trong `GET /auth/me`: gồm cả kho user làm manager lẫn kho user là thành viên.
 export class UserProfileWarehouseDto extends UserWarehouseDto {
-  @ApiProperty({ description: '`true` = manager của kho, `false` = thành viên thường' })
+  @ApiProperty({ description: '`true` = manager of the warehouse, `false` = regular member' })
   isManager: boolean;
 }
 
@@ -252,14 +257,16 @@ export class UserResponseDto extends BaseResponseDto {
 }
 
 export class ChangeUserPasswordRequestDto {
-  @ApiProperty({ description: 'Mật khẩu mới cấp cho user', example: 'new-password' })
+  @ApiProperty({ description: 'New password to assign to the user', example: 'new-password' })
   @IsNotEmpty({ message: 'USER_NEW_PASSWORD_IS_REQUIRED' })
   newPassword: string;
 }
 
 export class ChangeUserPasswordResponseDto {
   @ApiProperty({
-    description: 'Slug của user vừa bị đổi mật khẩu — mọi phiên của user đó đã bị thu hồi.',
+    description:
+      'Slug of the user whose password was just changed — all of their sessions have been ' +
+      'revoked.',
     example: 'x7fk2p9q',
   })
   userSlug: string;

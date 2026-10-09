@@ -24,7 +24,7 @@ export class Material extends Base {
 
   /**
    * Nhà cung cấp của vật tư (1 nhà cung cấp - n vật tư). NULL = chưa gắn. Chỉ ghi qua
-   * `PUT|DELETE /suppliers/:slug/materials/:materialSlug` — `Create/UpdateMaterialRequestDto` không
+   * `PUT|DELETE /suppliers/:slug/materials` (body `materialSlugs`) — `Create/UpdateMaterialRequestDto` không
    * nhận field này.
    */
   @ManyToOne(() => Supplier, (supplier) => supplier.materials, { nullable: true })

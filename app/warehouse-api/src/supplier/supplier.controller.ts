@@ -18,6 +18,7 @@ import {
   GetAllSupplierRequestDto,
   GetSupplierMaterialRequestDto,
   SupplierMaterialResponseDto,
+  SupplierMaterialSlugsRequestDto,
   SupplierResponseDto,
   UpdateSupplierRequestDto,
 } from './supplier.dto';
@@ -154,38 +155,57 @@ export class SupplierController {
     } as AppResponseDto<AppPaginatedResponseDto<SupplierMaterialResponseDto>>;
   }
 
-  @Put(':slug/materials/:materialSlug')
+  @Put(':slug/materials')
   @RequireAuthority(AuthorityCode.SupplierUpdate, AuthorityCode.MaterialUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Attach a material to a supplier' })
+  @ApiOperation({
+    summary: 'Attach materials to a supplier (batch)',
+    description:
+      'All-or-nothing: if any slug does not exist (`MATERIAL_NOT_FOUND`) or any material already ' +
+      'belongs to another supplier (`SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER`), the whole batch ' +
+      'is rejected. Materials already attached to this supplier are skipped. Returns every material ' +
+      'in the batch.',
+  })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Attached',
     type: SupplierMaterialResponseDto,
+    isArray: true,
   })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  @ApiParam({ name: 'materialSlug', required: true, example: 'm8kq2p9xab' })
-  async attachMaterial(@Param('slug') slug: string, @Param('materialSlug') materialSlug: string) {
-    const result = await this.supplierService.attachMaterial(slug, materialSlug);
+  async attachMaterials(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: SupplierMaterialSlugsRequestDto,
+  ) {
+    const result = await this.supplierService.attachMaterials(slug, requestData);
     return {
-      message: 'Material has been attached to supplier successfully',
+      message: 'Materials have been attached to supplier successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<SupplierMaterialResponseDto>;
+    } as AppResponseDto<SupplierMaterialResponseDto[]>;
   }
 
-  @Delete(':slug/materials/:materialSlug')
+  @Delete(':slug/materials')
   @RequireAuthority(AuthorityCode.SupplierUpdate, AuthorityCode.MaterialUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Detach a material from a supplier' })
+  @ApiOperation({
+    summary: 'Detach materials from a supplier (batch)',
+    description:
+      'All-or-nothing: every material in the batch must currently belong to this supplier, ' +
+      'otherwise the whole batch is rejected (`SUPPLIER_MATERIAL_NOT_ATTACHED`).',
+  })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Detached', type: String })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  @ApiParam({ name: 'materialSlug', required: true, example: 'm8kq2p9xab' })
-  async detachMaterial(@Param('slug') slug: string, @Param('materialSlug') materialSlug: string) {
-    const result = await this.supplierService.detachMaterial(slug, materialSlug);
+  async detachMaterials(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: SupplierMaterialSlugsRequestDto,
+  ) {
+    const result = await this.supplierService.detachMaterials(slug, requestData);
     return {
-      message: 'Material has been detached from supplier successfully',
+      message: 'Materials have been detached from supplier successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result: `${result} material have been detached successfully`,
