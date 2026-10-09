@@ -176,6 +176,28 @@ export class UserService {
   }
 
   /**
+   * `GET /users/{userSlug}` — 1 user kèm `role` và kho user là thành viên. Cùng phạm vi với `findAll`:
+   * role ngoài `WAREHOUSE_UNSCOPED_ROLES` chỉ xem được chính mình hoặc user chung kho; ngoài phạm vi
+   * trả `USER_NOT_FOUND` (không lộ việc user đó có tồn tại).
+   */
+  async findOne(currentUser: CurrentUserDto, userSlug: string): Promise<UserResponseDto> {
+    const user = await this.userRepository.findOne({
+      where: { slug: userSlug },
+      relations: { role: true, warehouseMembers: { warehouse: true } },
+    });
+    if (!user) throw new UserException(UserValidation.USER_NOT_FOUND);
+
+    if (
+      user.id !== currentUser.userId &&
+      !hasRole(currentUser, ...WAREHOUSE_UNSCOPED_ROLES) &&
+      !(await this.findUserIdsSharingWarehouse(currentUser.userId)).includes(user.id)
+    ) {
+      throw new UserException(UserValidation.USER_NOT_FOUND);
+    }
+    return this.mapper.map(user, User, UserResponseDto);
+  }
+
+  /**
    * Tìm theo tên khớp 1 trong 3: tên, họ, hoặc "họ tên" ghép 2 cột. Mảng `where` là OR giữa các
    * nhánh nên mỗi nhánh phải mang đủ điều kiện chung `base`.
    */

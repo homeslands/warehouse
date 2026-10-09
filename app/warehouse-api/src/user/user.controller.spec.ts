@@ -13,6 +13,7 @@ describe('UserController', () => {
   const userService = {
     createUser: jest.fn(),
     findAll: jest.fn(),
+    findOne: jest.fn(),
     changeUserPassword: jest.fn(),
     deleteUser: jest.fn(),
   };
@@ -62,6 +63,7 @@ describe('UserController', () => {
       Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
     expect(authority(controller.createUser)).toEqual([AuthorityCode.UserCreate]);
     expect(authority(controller.findAll)).toEqual([AuthorityCode.UserRead]);
+    expect(authority(controller.findOne)).toEqual([AuthorityCode.UserRead]);
     expect(authority(controller.changeUserPassword)).toEqual([AuthorityCode.UserChangePassword]);
     expect(authority(controller.updateUser)).toEqual([AuthorityCode.UserUpdate]);
     expect(authority(controller.lockUser)).toEqual([AuthorityCode.UserUpdate]);
@@ -76,6 +78,7 @@ describe('UserController', () => {
     ['unlockUser', RequestMethod.PUT, ':userSlug/unlock'],
     ['deleteUser', RequestMethod.DELETE, ':userSlug'],
     ['updateUser', RequestMethod.PATCH, ':userSlug'],
+    ['findOne', RequestMethod.GET, ':userSlug'],
   ] as const)('maps %s to %s %s', (handler, method, path) => {
     expect(Reflect.getMetadata(METHOD_METADATA, controller[handler])).toBe(method);
     expect(Reflect.getMetadata(PATH_METADATA, controller[handler])).toBe(path);
@@ -88,6 +91,16 @@ describe('UserController', () => {
     await controller.findAll(currentUser, query);
 
     expect(userService.findAll).toHaveBeenCalledWith(query, {}, currentUser);
+  });
+
+  it('forwards the caller to findOne so the service can scope by role', async () => {
+    userService.findOne.mockResolvedValue({ slug: 'other-slug' });
+
+    const response = await controller.findOne(currentUser, 'other-slug');
+
+    expect(userService.findOne).toHaveBeenCalledWith(currentUser, 'other-slug');
+    expect(response.result).toEqual({ slug: 'other-slug' });
+    expect(response.statusCode).toBe(200);
   });
 
   it('renders the delete count as a message string', async () => {

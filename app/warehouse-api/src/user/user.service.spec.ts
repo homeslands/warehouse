@@ -575,6 +575,68 @@ describe('UserService', () => {
     });
   });
 
+  describe('findOne', () => {
+    const target = {
+      ...other,
+      role: { slug: 'sup', name: RoleEnum.Supervisor },
+      warehouseMembers: [],
+    };
+
+    it('loads the user with role and member warehouses', async () => {
+      userRepository.findOne.mockResolvedValue(target);
+
+      const result = await service.findOne(caller({ roleName: RoleEnum.Admin }), 'other-slug');
+
+      expect(userRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'other-slug' },
+        relations: { role: true, warehouseMembers: { warehouse: true } },
+      });
+      expect(result.slug).toBe('other-slug');
+      expect(warehouseRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('throws USER_NOT_FOUND for an unknown slug', async () => {
+      userRepository.findOne.mockResolvedValue(null);
+
+      await expectUserError(
+        service.findOne(caller({ roleName: RoleEnum.Admin }), 'missing'),
+        UserValidation.USER_NOT_FOUND.code,
+      );
+    });
+
+    it('lets a scoped caller read a user sharing one of their warehouses', async () => {
+      userRepository.findOne.mockResolvedValue(target);
+      warehouseRepository.find
+        .mockResolvedValueOnce([{ id: 'wh-1' }])
+        .mockResolvedValueOnce([
+          { manager: { id: 'user-id' }, members: [{ user: { id: 'other-id' } }] },
+        ]);
+
+      await expect(service.findOne(caller(), 'other-slug')).resolves.toMatchObject({
+        slug: 'other-slug',
+      });
+    });
+
+    // Ngoài phạm vi trả NOT_FOUND chứ không FORBIDDEN — không lộ user đó có tồn tại.
+    it('hides a user outside the scoped caller warehouses as USER_NOT_FOUND', async () => {
+      userRepository.findOne.mockResolvedValue(target);
+      warehouseRepository.find.mockResolvedValueOnce([]);
+
+      await expectUserError(
+        service.findOne(caller(), 'other-slug'),
+        UserValidation.USER_NOT_FOUND.code,
+      );
+    });
+
+    it('always lets a scoped caller read themselves', async () => {
+      userRepository.findOne.mockResolvedValue({ ...target, id: 'user-id' });
+
+      await service.findOne(caller({ roleName: RoleEnum.Supervisor }), 'my-slug');
+
+      expect(warehouseRepository.find).not.toHaveBeenCalled();
+    });
+  });
+
   describe('unlockUser', () => {
     beforeEach(() => {
       userRepository.save.mockImplementation(async (data) => data);
