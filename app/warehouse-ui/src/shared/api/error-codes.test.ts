@@ -116,3 +116,19 @@ describe('ERROR_CODE_KEYS — người dùng + thành viên kho (PR #78)', () =>
     )
   })
 })
+
+const SUPPLIER_CODES = Array.from({ length: 20 }, (_, i) => 101201 + i)
+
+describe('ERROR_CODE_KEYS — nhà cung cấp (WMS-11)', () => {
+  it.each(SUPPLIER_CODES)('mã nhà cung cấp %i có khoá i18n', (code) => {
+    expect(ERROR_CODE_KEYS[code]).toBeDefined()
+  })
+
+  it('mã gắn với ô form đúng khoá', () => {
+    expect(ERROR_CODE_KEYS[101205]).toBe('supplierCodeDoesExist')
+    expect(ERROR_CODE_KEYS[101206]).toBe('supplierCodeReserved')
+    expect(ERROR_CODE_KEYS[101208]).toBe('supplierTaxCodeDoesExist')
+    expect(ERROR_CODE_KEYS[101211]).toBe('supplierHasMaterials')
+    expect(ERROR_CODE_KEYS[101212]).toBe('supplierMaterialBelongsToOther')
+  })
+})

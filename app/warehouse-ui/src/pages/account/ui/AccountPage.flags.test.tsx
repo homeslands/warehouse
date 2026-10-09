@@ -9,6 +9,7 @@ vi.mock('@/shared/api/backend-capabilities', () => ({
     sort: false,
     search: false,
     userSort: false,
+    supplierSearch: false,
     profileEdit: true,
     sessionList: true,
   },

@@ -4,8 +4,7 @@
  *
  * Nguồn gốc: `app/warehouse-api/src/authority/authority.constants.ts` (đồng bộ 2026-09-30 với
  * `WMS-10-be(8)`, 64 mã; thêm `USER_UPDATE` 2026-10-05 theo PR #72; thêm `USER_DELETE` 2026-10-07 (PR #78)
- * — FE KHÔNG có nút xoá: nghiệp vụ chỉ khoá). CHƯA đồng bộ 4 mã `SUPPLIER_*` (WMS-11) — FE chưa có màn nhà
- * cung cấp. Danh sách là BẢN SAO nên có thể lệch: màn `/permissions` so với `GET /authorities` và
+ * — FE KHÔNG có nút xoá: nghiệp vụ chỉ khoá). thêm 4 mã `SUPPLIER_*` 2026-10-08 (WMS-11). Danh sách là BẢN SAO nên có thể lệch: màn `/permissions` so với `GET /authorities` và
  * `console.warn` khi dev (`authorityCodeDrift`). Thấy cảnh báo thì sửa ở đây.
  *
  * Route nối hai tài nguyên KHÔNG có mã riêng — backend gắn `@RequireAuthority(A, B)` (AND), vd gán
@@ -87,6 +86,11 @@ export const AUTHORITY_CODES = [
   'STORE_READ',
   'STORE_UPDATE',
   'STORE_DELETE',
+  // Nhà cung cấp (WMS-11): ghi giao dịch = SUPPLIER_UPDATE; gắn/gỡ vật tư = SUPPLIER_UPDATE + MATERIAL_UPDATE
+  'SUPPLIER_CREATE',
+  'SUPPLIER_READ',
+  'SUPPLIER_UPDATE',
+  'SUPPLIER_DELETE',
   // Hồ sơ thuế
   'TAX_PROFILE_READ',
   'TAX_PROFILE_UPDATE',

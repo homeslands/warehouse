@@ -470,11 +470,13 @@ backend cho nó qua trước khi nhìn `scope`):
   FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
   nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
-  `/examples`, `/warehouses`, `/stores`, `/users` (ba màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
+  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers` (bốn màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
   `AUTHORITY_CODES` (để `/permissions` không báo lệch) nhưng **không có nút nào dùng** — chỉ khoá, không xoá. Đếm bằng `grep
   AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
   chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
   `authority.constants.ts`, không phải cách migration tham chiếu tới chúng.
+  `SUPPLIER_CREATE/READ/UPDATE/DELETE` (WMS-11) gác `/suppliers`: ghi giao dịch dùng `SUPPLIER_UPDATE`, gắn / gỡ vật tư
+  thêm `MATERIAL_UPDATE` (AND), tab Vật tư thêm `MATERIAL_READ` — chi tiết ở "Nợ kỹ thuật" → Nhà cung cấp.
 
 Chọn cái nào: **theo đúng thứ backend gác**. Endpoint gắn `@RequireAuthority(X)` → FE gác bằng
 `can(user, 'X')`. Endpoint gắn `@HasRole(...)` → gác bằng `hasRole`.
@@ -483,7 +485,7 @@ Mã authority có **kiểu**: `AuthorityCode` / `AUTHORITY_CODES` (`shared/api/a
 bản sao của `app/warehouse-api/src/authority/authority.constants.ts`. `can()` và `handle.authority`
 chỉ nhận mã trong danh sách — gõ sai là lỗi biên dịch (có test `@ts-expect-error` giữ điều này).
 Bản sao thì có thể lệch: màn `/permissions` so với `GET /authorities` và `console.warn` khi dev
-(`authorityCodeDrift`) — thấy cảnh báo thì sửa danh sách (đồng bộ lần cuối 2026-09-30, 64 mã).
+(`authorityCodeDrift`) — thấy cảnh báo thì sửa danh sách (đồng bộ lần cuối 2026-10-08, thêm 4 mã `SUPPLIER_*` của WMS-11).
 
 `scope` nạp một lần vào store lúc mở phiên, không tự làm mới. Người dùng tự đổi quyền của **chính
 role mình** (`features/permission-matrix`) thì phải gọi `refreshCurrentUser()`
@@ -630,7 +632,22 @@ mất công tìm cách sửa nó.
     phiên cũ chưa có `userSlug` lùi về so định danh đăng nhập.
   - `warehouses` trong `UserResponseDto` chỉ là kho làm **thành viên**, không gồm kho người đó quản lý. Bộ lọc kho
     chỉ hiện khi có `WAREHOUSE_READ`; MANAGER chỉ có `USER_READ` xem được thành viên của mọi kho (backend chưa lọc phạm vi).
-  - `AUTHORITY_CODES` chưa có 4 mã `SUPPLIER_*` (WMS-11) — màn `/permissions` sẽ cảnh báo lệch danh mục khi dev.
+- **Nhà cung cấp (`/suppliers`, WMS-14): đã dùng API thật của WMS-11; còn chờ backend**
+  (`docs/proposals/2026-10-08-supplier-api.md`). Test tay: `docs/test-checklists/WMS-14-fe-supplier-checklist.md`.
+
+  | Thiếu / chặn tạm | Hệ quả ở FE |
+  |---|---|
+  | Tìm `search`/`code`/`taxCode`/`phonenumber` (WMS-13, `dev` qua PR #89) **đã bật** `supplierSearch`; `sort` backend đang làm | `search` chỉ khớp tên / người liên hệ / email (KHÔNG khớp mã), `code` khớp đủ mã. Sắp xếp cột dựng sẵn sau `supplierSort` (**tắt**) — bật chỉ khi đã thử với API thật. Một ô tìm, đoán tham số theo dạng nhập (`pages/suppliers/model/search-query.ts`); 10 chữ số (MST hay SĐT) đoán sai thì câu báo trống có nút đổi (`?searchBy=`). Test với cờ bật: `SuppliersPage.sort-search.test.tsx` |
+  | Lọc `GET /suppliers/{slug}/materials` (`code` / `name` / `from` / `to`, WMS-13) | tab Vật tư có ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng "Ngày tạo vật tư", cờ `supplierMaterialFilters` **đã bật**. Bộ lọc giữ ở state của tab, không lên URL (tab Giao dịch đã dùng `page` / `startDate` / `endDate`). `from`/`to` theo ngày tạo VẬT TƯ, không phải ngày gắn |
+  | WMS-13 **tạm ẩn** `GET`/`POST /suppliers/{slug}/transactions` | tab Giao dịch sau cờ `supplierTransactions` (**tắt**): trang chỉ còn Hồ sơ + Vật tư, `?tab=transactions` rơi về Vật tư. Code tab / form ghi giao dịch giữ nguyên |
+  | `GET /materials` không trả nhà cung cấp | ô "Gắn vật tư" lấy **100 vật tư đầu**, chỉ loại vật tư đã gắn với chính NCC này; vật tư thuộc NCC khác chỉ biết qua 101212 hiện tại ô |
+  | `PATCH` dùng `pickDefined`, không nhận `null` | form sửa **không xoá trống** được ô tuỳ chọn: ô trống bị bỏ khỏi body (giữ nguyên, gợi ý `suppliers:keepWhenEmpty`) |
+  | Chưa có API công nợ | trang chi tiết không có tổng mua / trả / còn nợ — đừng tự cộng từ danh sách giao dịch (phân trang, có lọc) |
+  | Sổ giao dịch chỉ thêm | không có nút sửa / xoá giao dịch; luôn hỏi xác nhận trước khi ghi |
+
+  Quyền theo **authority**, không có nhánh lùi theo vai trò: xem = `SUPPLIER_READ`; thêm / sửa / xoá = `SUPPLIER_CREATE`
+  / `_UPDATE` / `_DELETE`; ghi giao dịch = `SUPPLIER_UPDATE` (khi cờ `supplierTransactions` bật); gắn / gỡ vật tư = `SUPPLIER_UPDATE` + `MATERIAL_UPDATE`; tab
+  Vật tư cần thêm `MATERIAL_READ`. Trên sandbox (2026-10-08) chỉ ADMIN có quyền ghi; MANAGER / SUPERVISOR chỉ xem.
 - **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
   bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
   nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,

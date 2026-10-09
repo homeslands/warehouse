@@ -8,11 +8,14 @@ describe('StatusIndicator', () => {
     expect(screen.getByText('Hoạt động')).toBeInTheDocument()
   })
 
-  it.each(['success', 'neutral'] as const)('tone %s → data-tone để test/CSS bám', (tone) => {
-    render(<StatusIndicator tone={tone}>Nhãn</StatusIndicator>)
-    const badge = screen.getByText('Nhãn').closest('[data-slot="status"]')
-    expect(badge).toHaveAttribute('data-tone', tone)
-  })
+  it.each(['success', 'neutral', 'warning', 'info'] as const)(
+    'tone %s → data-tone để test/CSS bám',
+    (tone) => {
+      render(<StatusIndicator tone={tone}>Nhãn</StatusIndicator>)
+      const badge = screen.getByText('Nhãn').closest('[data-slot="status"]')
+      expect(badge).toHaveAttribute('data-tone', tone)
+    },
+  )
 
   it('chấm màu chỉ để trang trí — screen reader không đọc', () => {
     render(<StatusIndicator tone="success">Hoạt động</StatusIndicator>)

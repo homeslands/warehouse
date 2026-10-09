@@ -103,6 +103,10 @@
     "STORE_READ": "Xem cửa hàng",
     "STORE_UPDATE": "Sửa cửa hàng",
     "STORE_DELETE": "Xoá cửa hàng",
+    "SUPPLIER_CREATE": "Tạo nhà cung cấp",
+    "SUPPLIER_READ": "Xem nhà cung cấp",
+    "SUPPLIER_UPDATE": "Sửa nhà cung cấp",
+    "SUPPLIER_DELETE": "Xoá nhà cung cấp",
     "TAX_PROFILE_READ": "Xem/tra cứu hồ sơ mã số thuế",
     "TAX_PROFILE_UPDATE": "Làm mới hồ sơ mã số thuế"
   }
