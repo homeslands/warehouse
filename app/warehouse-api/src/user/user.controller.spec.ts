@@ -6,6 +6,7 @@ import { AuthorityCode } from 'src/authority/authority.constants';
 import { UserController } from './user.controller';
 import { UserService } from './user.service';
 import { CurrentUserDto } from './user.decorator';
+import { GetAllUserRequestDto } from './user.dto';
 
 describe('UserController', () => {
   let controller: UserController;
@@ -78,6 +79,15 @@ describe('UserController', () => {
   ] as const)('maps %s to %s %s', (handler, method, path) => {
     expect(Reflect.getMetadata(METHOD_METADATA, controller[handler])).toBe(method);
     expect(Reflect.getMetadata(PATH_METADATA, controller[handler])).toBe(path);
+  });
+
+  it('forwards the caller to findAll so the service can scope by role', async () => {
+    userService.findAll.mockResolvedValue({ items: [] });
+    const query = { page: 1, size: 10 } as GetAllUserRequestDto;
+
+    await controller.findAll(currentUser, query);
+
+    expect(userService.findAll).toHaveBeenCalledWith(query, {}, currentUser);
   });
 
   it('renders the delete count as a message string', async () => {
