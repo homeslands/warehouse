@@ -1,9 +1,13 @@
 import {
+  ArrayMaxSize,
+  ArrayNotEmpty,
+  IsArray,
   IsDateString,
   IsEmail,
   IsEnum,
   IsNotEmpty,
   IsOptional,
+  IsString,
   Matches,
   Min,
   ValidateIf,
@@ -18,6 +22,7 @@ import {
   MATERIAL_TRANSACTION_TYPES,
   MONEY_SCALE,
   SUPPLIER_CODE_REGEX,
+  SUPPLIER_MATERIAL_BATCH_MAX,
   SUPPLIER_PHONENUMBER_REGEX,
   SUPPLIER_TAX_CODE_REGEX,
   SupplierTransactionType,
@@ -29,20 +34,20 @@ const upper = ({ value }: { value: unknown }) =>
 
 export class CreateSupplierRequestDto {
   @AutoMap()
-  @ApiProperty({ description: 'The business code of the supplier', example: 'NCC-HN-01' })
+  @ApiProperty({ description: 'The business code of the supplier', example: 'SUP-HN-01' })
   @Transform(trim)
   @Matches(SUPPLIER_CODE_REGEX, { message: 'SUPPLIER_CODE_INVALID' })
   @IsNotEmpty({ message: 'SUPPLIER_CODE_IS_REQUIRED' })
   code: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'The name of the supplier', example: 'Công ty TNHH Vật tư ABC' })
+  @ApiProperty({ description: 'The name of the supplier', example: 'ABC Materials Co., Ltd.' })
   @Transform(trim)
   @IsNotEmpty({ message: 'SUPPLIER_NAME_IS_REQUIRED' })
   name: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'The tax code (MST) of the supplier', example: '0101234567' })
+  @ApiPropertyOptional({ description: 'The tax code of the supplier', example: '0101234567' })
   @IsOptional()
   @Transform(trim)
   @Matches(SUPPLIER_TAX_CODE_REGEX, { message: 'SUPPLIER_TAX_CODE_INVALID' })
@@ -56,20 +61,20 @@ export class CreateSupplierRequestDto {
   phonenumber?: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'The contact email', example: 'lienhe@abc.vn' })
+  @ApiPropertyOptional({ description: 'The contact email', example: 'contact@abc.vn' })
   @IsOptional()
   @Transform(trim)
   @IsEmail({}, { message: 'SUPPLIER_EMAIL_INVALID' })
   email?: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'The address of the supplier', example: 'Số 1, Cầu Giấy' })
+  @ApiPropertyOptional({ description: 'The address of the supplier', example: 'No. 1, Cau Giay' })
   @IsOptional()
   @Transform(trim)
   address?: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'The contact person', example: 'Nguyễn Văn A' })
+  @ApiPropertyOptional({ description: 'The contact person', example: 'Nguyen Van A' })
   @IsOptional()
   @Transform(trim)
   contactPerson?: string;
@@ -88,25 +93,25 @@ export class CreateSupplierRequestDto {
 export class UpdateSupplierRequestDto extends PartialType(CreateSupplierRequestDto) {}
 
 export class GetAllSupplierRequestDto extends BaseQueryDto {
-  @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'NCC-HN-01' })
+  @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'SUP-HN-01' })
   @IsOptional()
   @Transform(upper)
   code?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by exact tax code (MST)', example: '0101234567' })
+  @ApiPropertyOptional({ description: 'Filter by exact tax code', example: '0101234567' })
   @IsOptional()
   @Transform(trim)
   taxCode?: string;
 
   @ApiPropertyOptional({
-    description: 'Search keyword (chứa chuỗi con) — khớp 1 trong name / contactPerson / email (OR)',
+    description: 'Search keyword (substring) — matches any of name / contactPerson / email (OR)',
     example: 'abc',
   })
   @IsOptional()
   @Transform(trim)
   search?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by phone number (chứa chuỗi con)', example: '0241' })
+  @ApiPropertyOptional({ description: 'Filter by phone number (substring)', example: '0241' })
   @IsOptional()
   @Transform(trim)
   phonenumber?: string;
@@ -157,13 +162,13 @@ export class GetSupplierMaterialRequestDto extends BaseQueryDto {
   @Transform(upper)
   code?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by material name (chứa chuỗi con)' })
+  @ApiPropertyOptional({ description: 'Filter by material name (substring)' })
   @IsOptional()
   @Transform(trim)
   name?: string;
 
   @ApiPropertyOptional({
-    description: 'Từ thời điểm (ISO 8601, tính theo createdAt của vật tư, bao gồm)',
+    description: 'From time (ISO 8601, based on the material createdAt, inclusive)',
     example: '2026-09-01T00:00:00.000Z',
   })
   @IsOptional()
@@ -171,12 +176,35 @@ export class GetSupplierMaterialRequestDto extends BaseQueryDto {
   from?: string;
 
   @ApiPropertyOptional({
-    description: 'Đến thời điểm (ISO 8601, tính theo createdAt của vật tư, bao gồm)',
+    description: 'To time (ISO 8601, based on the material createdAt, inclusive)',
     example: '2026-09-30T23:59:59.999Z',
   })
   @IsOptional()
   @IsDateString({}, { message: 'SUPPLIER_MATERIAL_DATE_INVALID' })
   to?: string;
+}
+
+/**
+ * Body của `PUT|DELETE /suppliers/:slug/materials` (gắn/gỡ hàng loạt). Slug được trim và khử trùng
+ * lặp trước khi validate, nên gửi trùng 1 slug không làm lô bị coi là thiếu vật tư.
+ */
+export class SupplierMaterialSlugsRequestDto {
+  @ApiProperty({
+    type: [String],
+    description: `Material slugs (1-${SUPPLIER_MATERIAL_BATCH_MAX})`,
+    example: ['m8kq2p9xab', 'k3ft7w1zcd'],
+  })
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? [...new Set(value.map((item) => (typeof item === 'string' ? item.trim() : item)))]
+      : value,
+  )
+  @IsArray({ message: 'SUPPLIER_MATERIAL_SLUGS_INVALID' })
+  @ArrayNotEmpty({ message: 'SUPPLIER_MATERIAL_SLUGS_INVALID' })
+  @ArrayMaxSize(SUPPLIER_MATERIAL_BATCH_MAX, { message: 'SUPPLIER_MATERIAL_SLUGS_INVALID' })
+  @IsString({ each: true, message: 'SUPPLIER_MATERIAL_SLUGS_INVALID' })
+  @IsNotEmpty({ each: true, message: 'SUPPLIER_MATERIAL_SLUGS_INVALID' })
+  materialSlugs: string[];
 }
 
 /** Vật tư gắn với nhà cung cấp — bản rút gọn, flatten quan hệ ra `slug`/`name` (không lộ `id`). */
@@ -189,16 +217,16 @@ export class SupplierMaterialResponseDto extends BaseResponseDto {
   @ApiProperty()
   name: string;
 
-  @ApiPropertyOptional({ description: 'Slug của loại vật tư' })
+  @ApiPropertyOptional({ description: 'Slug of the material type' })
   typeSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Tên loại vật tư' })
+  @ApiPropertyOptional({ description: 'Name of the material type' })
   typeName?: string;
 
-  @ApiPropertyOptional({ description: 'Slug của đơn vị cơ sở' })
+  @ApiPropertyOptional({ description: 'Slug of the base unit' })
   baseUnitSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Tên đơn vị cơ sở' })
+  @ApiPropertyOptional({ description: 'Name of the base unit' })
   baseUnitName?: string;
 }
 
@@ -218,7 +246,7 @@ export class CreateSupplierTransactionRequestDto {
   type: SupplierTransactionType;
 
   @ApiPropertyOptional({
-    description: 'Slug vật tư — bắt buộc với PURCHASE/RETURN, phải đang gắn với nhà cung cấp này',
+    description: 'Material slug — required for PURCHASE/RETURN, must be attached to this supplier',
     example: 'm8kq2p9xab',
   })
   @ValidateIf(isMaterialTransaction)
@@ -226,7 +254,7 @@ export class CreateSupplierTransactionRequestDto {
   materialSlug?: string;
 
   @ApiPropertyOptional({
-    description: 'Số lượng theo đơn vị cơ sở của vật tư — bắt buộc với PURCHASE/RETURN',
+    description: 'Quantity in the base unit of the material — required for PURCHASE/RETURN',
     example: 10.5,
   })
   @ValidateIf(isMaterialTransaction)
@@ -236,7 +264,7 @@ export class CreateSupplierTransactionRequestDto {
   quantity?: number;
 
   @ApiPropertyOptional({
-    description: 'Đơn giá trên 1 đơn vị cơ sở — bắt buộc với PURCHASE/RETURN',
+    description: 'Unit price per base unit — required for PURCHASE/RETURN',
     example: 125000,
   })
   @ValidateIf(isMaterialTransaction)
@@ -246,7 +274,7 @@ export class CreateSupplierTransactionRequestDto {
   unitPrice?: number;
 
   @ApiPropertyOptional({
-    description: 'Số tiền — bắt buộc với PAYMENT; với PURCHASE/RETURN bị bỏ qua (server tự tính)',
+    description: 'Amount — required for PAYMENT; ignored for PURCHASE/RETURN (server-computed)',
     example: 5000000,
   })
   @ValidateIf((o: CreateSupplierTransactionRequestDto) => !isMaterialTransaction(o))
@@ -256,31 +284,31 @@ export class CreateSupplierTransactionRequestDto {
   amount?: number;
 
   @ApiPropertyOptional({
-    description: 'Thời điểm giao dịch (ISO 8601), mặc định là thời điểm ghi',
+    description: 'Transaction time (ISO 8601), defaults to the time of recording',
     example: '2026-09-29T08:00:00.000Z',
   })
   @IsOptional()
   @IsDateString({}, { message: 'SUPPLIER_TRANSACTION_DATE_INVALID' })
   transactionDate?: string;
 
-  @ApiPropertyOptional({ description: 'Ghi chú' })
+  @ApiPropertyOptional({ description: 'Note' })
   @IsOptional()
   note?: string;
 }
 
 export class GetSupplierTransactionRequestDto extends BaseQueryDto {
-  @ApiPropertyOptional({ enum: SupplierTransactionType, description: 'Lọc theo loại giao dịch' })
+  @ApiPropertyOptional({ enum: SupplierTransactionType, description: 'Filter by transaction type' })
   @IsOptional()
   @IsEnum(SupplierTransactionType, { message: 'SUPPLIER_TRANSACTION_TYPE_INVALID' })
   type?: SupplierTransactionType;
 
-  @ApiPropertyOptional({ description: 'Lọc theo vật tư (slug)' })
+  @ApiPropertyOptional({ description: 'Filter by material (slug)' })
   @IsOptional()
   @IsNotEmpty()
   materialSlug?: string;
 
   @ApiPropertyOptional({
-    description: 'Từ thời điểm (ISO 8601, tính theo transactionDate, bao gồm)',
+    description: 'From time (ISO 8601, based on transactionDate, inclusive)',
     example: '2026-09-01T00:00:00.000Z',
   })
   @IsOptional()
@@ -288,7 +316,7 @@ export class GetSupplierTransactionRequestDto extends BaseQueryDto {
   from?: string;
 
   @ApiPropertyOptional({
-    description: 'Đến thời điểm (ISO 8601, tính theo transactionDate, bao gồm)',
+    description: 'To time (ISO 8601, based on transactionDate, inclusive)',
     example: '2026-09-30T23:59:59.999Z',
   })
   @IsOptional()
@@ -312,7 +340,7 @@ export class SupplierTransactionResponseDto extends BaseResponseDto {
   materialName?: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Số lượng theo đơn vị cơ sở' })
+  @ApiPropertyOptional({ description: 'Quantity in the base unit' })
   quantity?: number;
 
   @AutoMap()
@@ -330,9 +358,9 @@ export class SupplierTransactionResponseDto extends BaseResponseDto {
   @ApiPropertyOptional()
   note?: string;
 
-  @ApiPropertyOptional({ description: 'Slug của người ghi giao dịch' })
+  @ApiPropertyOptional({ description: 'Slug of the user who recorded the transaction' })
   performedBySlug?: string;
 
-  @ApiPropertyOptional({ description: 'Họ tên người ghi giao dịch' })
+  @ApiPropertyOptional({ description: 'Full name of the user who recorded the transaction' })
   performedByName?: string;
 }
