@@ -15,7 +15,8 @@ export class CreateRoleRequestDto {
 
   @AutoMap()
   @ApiProperty({
-    description: 'Cấp của role, số lớn = cấp cao; phải thấp hơn cấp của người tạo',
+    description:
+      "Role level, a larger number means a higher level; must be lower than the creator's level",
     example: 15,
   })
   @IsInt()
@@ -43,7 +44,7 @@ export class RoleResponseDto extends BaseResponseDto {
   name: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'Cấp của role, số lớn = cấp cao' })
+  @ApiProperty({ description: 'Role level, a larger number means a higher level' })
   level: number;
 
   @AutoMap()

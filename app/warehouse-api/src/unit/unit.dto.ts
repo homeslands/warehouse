@@ -44,7 +44,7 @@ export class GetAllUnitRequestDto extends BaseQueryDto {
   code?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by name (chứa chuỗi con, không phân biệt hoa/thường)',
+    description: 'Filter by name (case-insensitive substring match)',
   })
   @IsOptional()
   @Transform(trim)
@@ -52,14 +52,20 @@ export class GetAllUnitRequestDto extends BaseQueryDto {
 }
 
 export class UnitMaterialCountDto {
-  @ApiProperty({ description: 'Số vật tư lấy đơn vị này làm ĐƠN VỊ CƠ SỞ', example: 3 })
+  @ApiProperty({
+    description: 'Number of materials using this unit as their BASE UNIT',
+    example: 3,
+  })
   asBaseUnit: number;
 
-  @ApiProperty({ description: 'Số vật tư khai đơn vị này là ĐƠN VỊ QUY ĐỔI', example: 7 })
+  @ApiProperty({
+    description: 'Number of materials declaring this unit as a CONVERSION UNIT',
+    example: 7,
+  })
   asConversionUnit: number;
 
   @ApiProperty({
-    description: 'Tổng số vật tư DUY NHẤT dùng đơn vị này (theo bất kỳ đường nào)',
+    description: 'Total number of DISTINCT materials using this unit (in any way)',
     example: 9,
   })
   total: number;
@@ -80,7 +86,7 @@ export class UnitResponseDto extends BaseResponseDto {
 
   @ApiProperty({
     type: UnitMaterialCountDto,
-    description: 'Số vật tư đang dùng đơn vị này',
+    description: 'Number of materials currently using this unit',
   })
   materialCount?: UnitMaterialCountDto;
 }

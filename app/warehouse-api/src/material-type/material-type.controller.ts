@@ -117,7 +117,7 @@ export class MaterialTypeController {
   @Delete(':slug')
   @RequireAuthority(AuthorityCode.MaterialDelete)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Delete a material type (chặn nếu còn material tham chiếu)' })
+  @ApiOperation({ summary: 'Delete a material type (blocked if still referenced by a material)' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async deleteMaterialType(@Param('slug') slug: string) {
