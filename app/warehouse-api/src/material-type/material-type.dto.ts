@@ -9,7 +9,7 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
 
 export class CreateMaterialTypeRequestDto {
   @AutoMap()
-  @ApiProperty({ description: 'The name of material type', example: 'Vật tư tiêu hao' })
+  @ApiProperty({ description: 'The name of material type', example: 'Consumables' })
   @Transform(trim)
   @IsNotEmpty({ message: 'MATERIAL_TYPE_NAME_IS_REQUIRED' })
   name: string;
@@ -44,7 +44,7 @@ export class GetAllMaterialTypeRequestDto extends BaseQueryDto {
   code?: string;
 
   @ApiPropertyOptional({
-    description: 'Filter by name (chứa chuỗi con, không phân biệt hoa/thường)',
+    description: 'Filter by name (case-insensitive substring match)',
   })
   @IsOptional()
   @Transform(trim)

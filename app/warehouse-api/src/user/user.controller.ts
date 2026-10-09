@@ -65,20 +65,46 @@ export class UserController {
   @ApiOperation({
     summary: 'Get all users (paginated, filter by role / isActive)',
     description:
-      'Mỗi user kèm `role` (slug/name/description/level) và `warehouses` — các kho user là thành ' +
-      'viên (không gồm kho user làm manager).',
+      'Each user includes `role` (slug/name/description/level) and `warehouses` — the warehouses ' +
+      'the user is a member of (excluding warehouses the user manages).\n\n' +
+      '`ADMIN`/`SUPER_ADMIN` see everyone. Other roles (including `MANAGER`) only see users who ' +
+      'are a manager/member of (at least 1) warehouse the caller is a manager/member of.',
   })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
   async findAll(
+    @CurrentUser() currentUser: CurrentUserDto,
     @Query(new ValidationPipe({ transform: true, whitelist: true })) query: GetAllUserRequestDto,
   ) {
-    const result = await this.userService.findAll(query);
+    const result = await this.userService.findAll(query, {}, currentUser);
     return {
       message: 'All users have been retrieved successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<AppPaginatedResponseDto<UserResponseDto>>;
+  }
+
+  @Get(':userSlug')
+  @RequireAuthority(AuthorityCode.UserRead)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Get a user by slug',
+    description:
+      'Includes `role` and `warehouses` (warehouses the user is a member of). Same scope as ' +
+      '`GET /users`: `ADMIN`/`SUPER_ADMIN` can view any user; other roles can only view ' +
+      'themselves or users sharing a warehouse with them; out-of-scope users return ' +
+      '`USER_NOT_FOUND`.',
+  })
+  @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
+  @ApiResponseWithType({ status: HttpStatus.OK, description: 'Retrieved', type: UserResponseDto })
+  async findOne(@CurrentUser() currentUser: CurrentUserDto, @Param('userSlug') userSlug: string) {
+    const result = await this.userService.findOne(currentUser, userSlug);
+    return {
+      message: 'User has been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<UserResponseDto>;
   }
 
   @Post(':userSlug/change-password')
@@ -88,9 +114,12 @@ export class UserController {
   @ApiOperation({
     summary: 'Change the password of another user (requires USER_CHANGE_PASSWORD)',
     description:
-      'Đổi mật khẩu HỘ user khác, chỉđược đổi user có quyền thấp hơn mình ' +
-      'mật khẩu của mình thì gọi `POST /auth/change-password`.\n\n' +
-      'Đổi xong, MỌI phiên của user bị đổi bị thu hồi ngay và họ phải đăng nhập lại',
+      'Changes the password ON BEHALF OF another user. The target role must not be higher than ' +
+      "the caller's (same level is allowed), and only `SUPER_ADMIN` can change a `SUPER_ADMIN`'s " +
+      'password (`CHANGE_PASSWORD_FORBIDDEN`). Targeting yourself is rejected ' +
+      '(`CHANGE_OWN_PASSWORD_NOT_ALLOWED`) — call `POST /auth/change-password` instead.\n\n' +
+      'Afterwards, ALL sessions of the affected user are revoked immediately and they must log in ' +
+      'again.',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({
@@ -119,9 +148,10 @@ export class UserController {
   @ApiOperation({
     summary: 'Update user profile (partial)',
     description:
-      'Chỉ field gửi lên mới bị đổi. Không đổi được mật khẩu/role ở đây (dùng `.../change-password`, ' +
-      '`.../change-role`). Sửa user khác thì role của họ phải thấp hơn role của người gọi; ADMIN ' +
-      'không sửa được ADMIN khác (`ADMIN_CANNOT_MANAGE_ADMIN`).',
+      'Only the fields sent are changed. Password/role cannot be changed here (use ' +
+      '`.../change-password`, `.../change-role`). When editing another user, their role must be ' +
+      "lower than the caller's role; an ADMIN cannot edit another ADMIN " +
+      '(`ADMIN_CANNOT_MANAGE_ADMIN`).',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: UserResponseDto })
@@ -146,9 +176,10 @@ export class UserController {
   @ApiOperation({
     summary: 'Lock a user account',
     description:
-      'Đặt `isActive = false` và thu hồi mọi phiên của user (idempotent). Không khoá được chính ' +
-      'mình, user có role ngang/cao hơn mình (ADMIN không khoá được ADMIN khác — ' +
-      '`ADMIN_CANNOT_MANAGE_ADMIN`), hoặc user đang là manager của một kho (đổi manager kho trước).',
+      "Sets `isActive = false` and revokes all of the user's sessions (idempotent). Cannot lock " +
+      'yourself, a user with an equal/higher role (an ADMIN cannot lock another ADMIN — ' +
+      '`ADMIN_CANNOT_MANAGE_ADMIN`), or a user who is currently the manager of a warehouse ' +
+      "(change the warehouse's manager first).",
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Locked', type: UserResponseDto })
@@ -168,8 +199,8 @@ export class UserController {
   @ApiOperation({
     summary: 'Unlock a user account',
     description:
-      'Đặt `isActive = true` (idempotent) — user phải đăng nhập lại. Cùng rào cấp role với khoá ' +
-      '(`ADMIN_CANNOT_MANAGE_ADMIN`).',
+      'Sets `isActive = true` (idempotent) — the user must log in again. Same role-level ' +
+      'restrictions as locking (`ADMIN_CANNOT_MANAGE_ADMIN`).',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Unlocked', type: UserResponseDto })
@@ -192,9 +223,10 @@ export class UserController {
   @ApiOperation({
     summary: 'Delete a user',
     description:
-      'Xoá mềm user cùng mọi tư cách thành viên kho của họ, thu hồi mọi phiên. Rào giống khoá: ' +
-      'không xoá được chính mình, user có role ngang/cao hơn mình, hoặc manager của một kho. ' +
-      'Số điện thoại vẫn bị giữ (`USER_PHONENUMBER_RESERVED_BY_DELETED_USER`).',
+      'Soft-deletes the user along with all of their warehouse memberships and revokes all ' +
+      'sessions. Same restrictions as locking: cannot delete yourself, a user with an ' +
+      'equal/higher role, or the manager of a warehouse. The phone number remains reserved ' +
+      '(`USER_PHONENUMBER_RESERVED_BY_DELETED_USER`).',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Deleted', type: String })
@@ -217,8 +249,9 @@ export class UserController {
   @ApiOperation({
     summary: 'Change the role of another user',
     description:
-      'Cả role hiện tại lẫn role mới của user phải thấp hơn role của người gọi; không đổi được role ' +
-      'của chính mình. Đổi xong, mọi phiên của user bị thu hồi để token mang role cũ hết hiệu lực.',
+      "Both the user's current role and the new role must be lower than the caller's role; you " +
+      "cannot change your own role. Afterwards, all of the user's sessions are revoked so that " +
+      'tokens carrying the old role are no longer valid.',
   })
   @ApiParam({ name: 'userSlug', required: true, example: 'x7fk2p9q' })
   @ApiResponseWithType({

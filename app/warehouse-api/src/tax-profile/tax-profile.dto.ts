@@ -12,7 +12,10 @@ const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? val
  * bằng mã lỗi riêng — để thông báo nói đúng nguyên nhân thay vì "sai định dạng".
  */
 export class LookupTaxProfileParamDto {
-  @ApiProperty({ description: 'The tax code (MST) to look up', example: '0101245486' })
+  @ApiProperty({
+    description: 'The tax code (tax identification number) to look up',
+    example: '0101245486',
+  })
   @Transform(trim)
   @Matches(TAX_PROFILE_TAX_CODE_REGEX, { message: 'TAX_PROFILE_TAX_CODE_INVALID' })
   @IsNotEmpty({ message: 'TAX_PROFILE_TAX_CODE_IS_REQUIRED' })
@@ -43,13 +46,17 @@ export class TaxProfileResponseDto extends BaseResponseDto {
   address?: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Taxpayer status, e.g. "NNT đang hoạt động"' })
+  @ApiPropertyOptional({
+    description:
+      'Taxpayer status as returned verbatim by the tax authority (in Vietnamese), ' +
+      'e.g. the status of an active taxpayer',
+  })
   status?: string;
 
   @AutoMap()
   @ApiPropertyOptional({
     description:
-      'Khi nào dữ liệu được cập nhật BÊN cơ quan thuế (không phải mốc sync của hệ thống)',
+      'When the data was last updated ON THE tax authority side (not the sync time of this system)',
   })
   sourceUpdatedAt?: Date;
 }

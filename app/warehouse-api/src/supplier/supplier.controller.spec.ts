@@ -13,8 +13,8 @@ describe('SupplierController', () => {
     updateSupplier: jest.fn(),
     deleteSupplier: jest.fn(),
     findMaterials: jest.fn(),
-    attachMaterial: jest.fn(),
-    detachMaterial: jest.fn(),
+    attachMaterials: jest.fn(),
+    detachMaterials: jest.fn(),
   };
 
   beforeEach(async () => {
@@ -50,6 +50,20 @@ describe('SupplierController', () => {
     expect(response.result).toEqual({ slug: 's1', code: 'NCC-01' });
   });
 
+  it('forwards the batch body to attachMaterials / detachMaterials', async () => {
+    const body = { materialSlugs: ['m1', 'm2'] };
+    supplierService.attachMaterials.mockResolvedValue([{ slug: 'm1' }, { slug: 'm2' }]);
+    supplierService.detachMaterials.mockResolvedValue(2);
+
+    const attached = await controller.attachMaterials('s1', body);
+    const detached = await controller.detachMaterials('s1', body);
+
+    expect(supplierService.attachMaterials).toHaveBeenCalledWith('s1', body);
+    expect(attached.result).toEqual([{ slug: 'm1' }, { slug: 'm2' }]);
+    expect(supplierService.detachMaterials).toHaveBeenCalledWith('s1', body);
+    expect(detached.result).toBe('2 material have been detached successfully');
+  });
+
   describe('@RequireAuthority metadata', () => {
     const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
       Reflect.getMetadata(REQUIRE_AUTHORITY_KEY, handler);
@@ -64,11 +78,11 @@ describe('SupplierController', () => {
         AuthorityCode.SupplierRead,
         AuthorityCode.MaterialRead,
       ]);
-      expect(authority(controller.attachMaterial)).toEqual([
+      expect(authority(controller.attachMaterials)).toEqual([
         AuthorityCode.SupplierUpdate,
         AuthorityCode.MaterialUpdate,
       ]);
-      expect(authority(controller.detachMaterial)).toEqual([
+      expect(authority(controller.detachMaterials)).toEqual([
         AuthorityCode.SupplierUpdate,
         AuthorityCode.MaterialUpdate,
       ]);

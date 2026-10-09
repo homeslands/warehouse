@@ -16,7 +16,7 @@ const toBoolean = ({ value }: { value: unknown }) => {
 
 export class CreateWarehouseRequestDto {
   @AutoMap()
-  @ApiProperty({ description: 'The name of warehouse', example: 'Kho Hà Nội 1' })
+  @ApiProperty({ description: 'The name of warehouse', example: 'Hanoi Warehouse 1' })
   @Transform(trim)
   @IsNotEmpty({ message: 'WAREHOUSE_NAME_IS_REQUIRED' })
   name: string;
@@ -29,7 +29,7 @@ export class CreateWarehouseRequestDto {
   code: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'The address of warehouse', example: 'Số 1, Cầu Giấy, Hà Nội' })
+  @ApiProperty({ description: 'The address of warehouse', example: '1 Cau Giay Street, Hanoi' })
   @Transform(trim)
   @IsNotEmpty({ message: 'WAREHOUSE_ADDRESS_IS_REQUIRED' })
   address: string;
@@ -74,7 +74,7 @@ export class UpdateWarehouseRequestDto extends PartialType(CreateWarehouseReques
 
 export class AssignWarehouseManagerRequestDto {
   @ApiProperty({
-    description: 'Slug của user làm quản lý kho. Gửi `null` để bỏ phân công.',
+    description: 'Slug of the user to assign as warehouse manager. Send `null` to unassign.',
     example: 'x7fk2p9qab',
     nullable: true,
     type: String,
@@ -86,7 +86,10 @@ export class AssignWarehouseManagerRequestDto {
 }
 
 export class AssignWarehouseMemberRequestDto {
-  @ApiProperty({ description: 'Slug của user được thêm làm thành viên kho', example: 'x7fk2p9qab' })
+  @ApiProperty({
+    description: 'Slug of the user to add as a warehouse member',
+    example: 'x7fk2p9qab',
+  })
   @Transform(trim)
   @IsNotEmpty({ message: 'WAREHOUSE_MEMBER_USER_SLUG_IS_REQUIRED' })
   userSlug: string;
@@ -114,7 +117,7 @@ export class GetAllWarehouseRequestDto extends BaseQueryDto {
   managerSlug?: string;
 
   @ApiPropertyOptional({
-    description: 'true = đã có quản lý, false = chưa có. Bỏ qua nếu đã truyền `managerSlug`.',
+    description: 'true = has a manager, false = has none. Ignored if `managerSlug` is provided.',
   })
   @IsOptional()
   @Transform(toBoolean)
@@ -164,7 +167,7 @@ export class WarehouseResponseDto extends BaseResponseDto {
   // Dựng object thủ công từ quan hệ `manager` bằng `forMember` — không `@AutoMap()`, và không lồng
   // nguyên `UserResponseDto` (lộ role/dob/email... không cần thiết cho màn kho).
   @ApiPropertyOptional({
-    description: 'Quản lý kho, bỏ trống nếu chưa phân công',
+    description: 'Warehouse manager, omitted if not assigned',
     type: () => WarehouseManagerDto,
   })
   manager?: WarehouseManagerDto;
