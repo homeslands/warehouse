@@ -3,6 +3,8 @@ import {
   Between,
   FindOptionsRelations,
   FindOptionsWhere,
+  In,
+  IsNull,
   LessThanOrEqual,
   Like,
   MoreThanOrEqual,
@@ -19,6 +21,7 @@ import {
   GetSupplierMaterialRequestDto,
   GetSupplierTransactionRequestDto,
   SupplierMaterialResponseDto,
+  SupplierMaterialSlugsRequestDto,
   SupplierResponseDto,
   SupplierTransactionResponseDto,
   UpdateSupplierRequestDto,
@@ -169,28 +172,63 @@ export class SupplierService {
    * Gắn vật tư vào nhà cung cấp. Idempotent khi đã gắn đúng nhà cung cấp này; đã gắn nhà cung cấp
    * KHÁC thì báo lỗi thay vì âm thầm chuyển — muốn đổi phải gỡ khỏi bên cũ trước.
    */
-  async attachMaterial(slug: string, materialSlug: string): Promise<SupplierMaterialResponseDto> {
+  /**
+   * Gắn hàng loạt, tất-cả-hoặc-không: 1 vật tư không tồn tại / đang thuộc nhà cung cấp khác là cả lô
+   * bị từ chối. Vật tư đã thuộc chính nhà cung cấp này thì bỏ qua (idempotent). UPDATE kèm điều kiện
+   * `supplier IS NULL` trong transaction: vật tư bị nhà cung cấp khác gắn chen giữa lúc đọc và lúc
+   * ghi thì số dòng đổi lệch ⇒ rollback cả lô thay vì ghi đè.
+   */
+  async attachMaterials(
+    slug: string,
+    dto: SupplierMaterialSlugsRequestDto,
+  ): Promise<SupplierMaterialResponseDto[]> {
     const supplier = await this.getSupplierOrThrow(slug);
-    const material = await this.getMaterialOrThrow(materialSlug);
+    const materials = await this.getMaterialsOrThrow(dto.materialSlugs);
 
-    if (material.supplier && material.supplier.id !== supplier.id) {
+    if (materials.some((material) => material.supplier && material.supplier.id !== supplier.id)) {
       throw new SupplierException(SupplierValidation.SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER);
     }
-    if (!material.supplier) {
-      await this.materialRepository.update({ id: material.id }, { supplier: { id: supplier.id } });
+    const freeIds = materials.filter((material) => !material.supplier).map(({ id }) => id);
+    if (freeIds.length) {
+      await this.materialRepository.manager.transaction(async (manager) => {
+        const { affected } = await manager.update(
+          Material,
+          { id: In(freeIds), supplier: IsNull() },
+          { supplier: { id: supplier.id } },
+        );
+        if (affected !== freeIds.length) {
+          throw new SupplierException(
+            SupplierValidation.SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER,
+          );
+        }
+      });
     }
-    return this.mapper.map(material, Material, SupplierMaterialResponseDto);
+    return this.mapper.mapArray(materials, Material, SupplierMaterialResponseDto);
   }
 
-  async detachMaterial(slug: string, materialSlug: string): Promise<number> {
+  /**
+   * Gỡ hàng loạt, tất-cả-hoặc-không: mọi vật tư trong lô phải đang thuộc nhà cung cấp này. UPDATE
+   * kèm điều kiện `supplier = :id` vì cùng lý do với `attachMaterials`.
+   */
+  async detachMaterials(slug: string, dto: SupplierMaterialSlugsRequestDto): Promise<number> {
     const supplier = await this.getSupplierOrThrow(slug);
-    const material = await this.getMaterialOrThrow(materialSlug);
+    const materials = await this.getMaterialsOrThrow(dto.materialSlugs);
 
-    if (material.supplier?.id !== supplier.id) {
+    if (materials.some((material) => material.supplier?.id !== supplier.id)) {
       throw new SupplierException(SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED);
     }
-    await this.materialRepository.update({ id: material.id }, { supplier: null });
-    return 1;
+    const ids = materials.map(({ id }) => id);
+    await this.materialRepository.manager.transaction(async (manager) => {
+      const { affected } = await manager.update(
+        Material,
+        { id: In(ids), supplier: { id: supplier.id } },
+        { supplier: null },
+      );
+      if (affected !== ids.length) {
+        throw new SupplierException(SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED);
+      }
+    });
+    return ids.length;
   }
 
   // ---------- Giao dịch với nhà cung cấp (append-only) ----------
@@ -287,6 +325,18 @@ export class SupplierService {
     const supplier = await this.supplierRepository.findOneBy({ slug });
     if (!supplier) throw new SupplierException(SupplierValidation.SUPPLIER_NOT_FOUND);
     return supplier;
+  }
+
+  // Thiếu bất kỳ slug nào trong lô (không tồn tại / đã xoá mềm) ⇒ `MATERIAL_NOT_FOUND` cho cả lô.
+  private async getMaterialsOrThrow(slugs: string[]): Promise<Material[]> {
+    const unique = [...new Set(slugs)];
+    const materials = await this.materialRepository.find({
+      where: { slug: In(unique) },
+      relations: { ...MATERIAL_RELATIONS, supplier: true },
+    });
+    if (materials.length !== unique.length)
+      throw new MaterialException(MaterialValidation.MATERIAL_NOT_FOUND);
+    return materials;
   }
 
   private async getMaterialOrThrow(slug: string): Promise<Material> {
