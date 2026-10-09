@@ -1,6 +1,6 @@
 import { flexRender, getCoreRowModel, useReactTable, type ColumnDef } from '@tanstack/react-table'
 import { ArrowDownIcon, ArrowUpDownIcon, ArrowUpIcon } from 'lucide-react'
-import { useEffect, useRef, useState, type MouseEvent } from 'react'
+import { useEffect, useRef, useState, type MouseEvent, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { cn } from '@/shared/lib/cn'
@@ -29,7 +29,8 @@ type DataTableProps<TData> = {
   isLoading: boolean
   /** Chỉ hiện khi chưa có dữ liệu. Đã có dữ liệu thì giữ dữ liệu — handler global đã toast. */
   error?: unknown
-  emptyText?: string
+  /** Dòng báo trống — được phép kèm nút/link (vd "tìm theo trường khác"). */
+  emptyText?: ReactNode
   pagination?: DataTablePagination
   /**
    * Bật sắp xếp theo cột. Cột nào sắp xếp được thì khai `meta: { sortField: '<tên trường backend>' }`
@@ -64,11 +65,12 @@ function nextSort(current: SortState | undefined, field: string): SortState | un
  * `meta` của ColumnDef là `unknown` với TanStack — khai kiểu ở đây để đọc có kiểm.
  * `hideBelow`: ẩn cột phụ khi **khung bảng** hẹp hơn mốc (container query — tính theo chỗ thật còn
  * lại, kể cả khi sidebar đang mở; breakpoint theo cửa sổ thì sai ở tablet/laptop có sidebar).
- * Mốc: `@sm` 24rem · `@2xl` 42rem · `@4xl` 56rem. Cột tên, trạng thái, thao tác đừng khai.
+ * Mốc: `@sm` 24rem · `@2xl` 42rem · `@4xl` 56rem · `@5xl` 64rem · `@6xl` 72rem. Cột tên, trạng thái, thao tác
+ * đừng khai.
  */
 export type DataTableColumnMeta = {
   sortField?: string
-  hideBelow?: '@sm' | '@2xl' | '@4xl'
+  hideBelow?: '@sm' | '@2xl' | '@4xl' | '@5xl' | '@6xl'
   /**
    * Cột chỉ có icon (vd menu `⋯`): khung < `@sm` thì chữ tiêu đề chỉ còn cho trình đọc màn hình — chữ
    * "Thao tác" rộng gấp đôi cái nút, đủ đẩy cả cột ra khỏi khung trên điện thoại.
@@ -81,6 +83,8 @@ const HIDE_BELOW = {
   '@sm': 'hidden @sm:table-cell',
   '@2xl': 'hidden @2xl:table-cell',
   '@4xl': 'hidden @4xl:table-cell',
+  '@5xl': 'hidden @5xl:table-cell',
+  '@6xl': 'hidden @6xl:table-cell',
 } as const
 
 function hiddenClass(meta: unknown): string | undefined {
@@ -183,7 +187,8 @@ export function DataTable<TData>({
     if (rows.length === 0) {
       return (
         <TableRow>
-          <TableCell colSpan={colSpan} className="text-muted-foreground">
+          {/* Câu báo trống có thể dài (kèm từ khoá tìm) — cho xuống hàng, đừng kéo bảng tràn ngang. */}
+          <TableCell colSpan={colSpan} className="text-muted-foreground whitespace-normal">
             {emptyText ?? t('common:empty')}
           </TableCell>
         </TableRow>
@@ -221,7 +226,9 @@ export function DataTable<TData>({
       <div
         ref={frameRef}
         data-overflowing={overflowing}
-        className="group/table @container rounded-md border"
+        // overflow-hidden: cắt nội dung theo góc bo — không thì ô cột ghim (nền đặc, góc vuông) đè lên góc
+        // bo của viền. An toàn vì bảng không có gì sticky-top theo trang; menu/popover đều qua portal.
+        className="group/table @container overflow-hidden rounded-md border"
       >
         <Table>
           <TableHeader>

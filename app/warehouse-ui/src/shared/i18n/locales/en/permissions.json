@@ -103,6 +103,10 @@
     "STORE_READ": "View stores",
     "STORE_UPDATE": "Edit stores",
     "STORE_DELETE": "Delete stores",
+    "SUPPLIER_CREATE": "Create suppliers",
+    "SUPPLIER_READ": "View suppliers",
+    "SUPPLIER_UPDATE": "Edit suppliers",
+    "SUPPLIER_DELETE": "Delete suppliers",
     "TAX_PROFILE_READ": "View/look up tax profiles",
     "TAX_PROFILE_UPDATE": "Refresh tax profiles"
   }

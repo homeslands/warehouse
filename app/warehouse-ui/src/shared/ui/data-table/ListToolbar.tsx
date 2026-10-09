@@ -30,6 +30,7 @@ type ListToolbarProps = {
  *   mở popover; thanh luôn một hàng, nút hành động không rơi xuống hàng riêng.
  * - **Mobile < 768px**: hàng 1 ô tìm + nút hành động; hàng 2 bộ lọc dạng **chip lướt ngang** (kiểu
  *   Shopee/Google Maps) — thấy ngay đang lọc gì, đổi một bộ lọc chỉ một chạm. Mép phải mờ khi còn chip phía sau.
+ *   Không có bộ lọc thì chỉ còn hàng 1.
  */
 export function ListToolbar({
   search,
@@ -77,6 +78,16 @@ export function ListToolbar({
           {actions && <div className="ml-auto shrink-0">{actions}</div>}
         </div>
         {chips}
+      </div>
+    )
+  }
+
+  // Mobile, chỉ ô tìm + nút hành động (không bộ lọc): một hàng như khi có chip — đừng để nút rơi xuống hàng riêng.
+  if (isMobile && search && actions) {
+    return (
+      <div data-slot="toolbar-row" className="flex items-center gap-2">
+        <div className="min-w-0 flex-1">{search}</div>
+        <div className="shrink-0">{actions}</div>
       </div>
     )
   }
