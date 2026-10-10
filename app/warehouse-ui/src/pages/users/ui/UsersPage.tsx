@@ -2,6 +2,7 @@ import type { ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontalIcon, PlusIcon } from 'lucide-react'
 import { useCallback, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
+import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
@@ -21,8 +22,10 @@ import { can, useAuthStore, useRoleLabel } from '@/entities/session'
 import {
   assignableRoles,
   buildUserColumns,
+  UserDetailSheet,
   useSetUserActive,
   useRoles,
+  useUser,
   useUsers,
   userDisplayName,
   type User,
@@ -94,18 +97,44 @@ export function UsersPage() {
   const [resetting, setResetting] = useState<User | null>(null)
   const [changingRole, setChangingRole] = useState<User | null>(null)
   const [toggling, setToggling] = useState<User | null>(null)
+  // Sheet chi tiết: slug trên URL (`?user=`) — gửi link / F5 / Back mở lại đúng người, kể cả người không nằm ở
+  // trang đang xem. `useListParams` giữ nguyên khoá lạ nên đổi trang / lọc không làm mất nó.
+  const [searchParams, setSearchParams] = useSearchParams()
+  const viewingSlug = searchParams.get('user')
+  const setViewingSlug = useCallback(
+    (slug: string | null) =>
+      setSearchParams(
+        (prev) => {
+          const next = new URLSearchParams(prev)
+          if (slug === null) next.delete('user')
+          else next.set('user', slug)
+          return next
+        },
+        { replace: true },
+      ),
+    [setSearchParams],
+  )
   const setActive = useSetUserActive()
+  const openEdit = useCallback((user: User) => {
+    setEditing(user)
+    setFormOpen(true)
+  }, [])
 
   const selfCheck = useCallback((user: User) => isSelf(me, user), [me])
-  // TẠM: backend chưa lọc `GET /users` theo phạm vi — người dưới ADMIN chỉ thấy mình + người cấp thấp hơn
-  // (`ability.visible`). Phân trang vẫn theo backend nên một trang có thể ít dòng hơn số dòng mỗi trang.
-  const rows = useMemo(() => data?.items.filter((user) => ability.visible(user)), [data, ability])
-  const hiddenCount = (data?.items.length ?? 0) - (rows?.length ?? 0)
+  // Phạm vi do backend lọc (WMS-13-be: dưới ADMIN chỉ thấy manager + thành viên các kho mình thuộc về) — hiện
+  // đúng những gì trả về. Người ngang/cao hơn cùng kho vẫn hiện nhưng không có thao tác (luật cấp ở `ability.row`).
+  const rows = data?.items
+  // Dòng của danh sách hiện ngay làm placeholder; `GET /users/{slug}` nạp bản mới (và người ngoài trang hiện tại).
+  const detail = useUser(viewingSlug, {
+    placeholderData: rows?.find((user) => user.slug === viewingSlug),
+  })
+  const viewing = viewingSlug === null ? null : (detail.data ?? null)
+  const openDetail = useCallback((user: User) => setViewingSlug(user.slug), [setViewingSlug])
   // Không dòng nào có thao tác → không dựng cột, thay vì một cột toàn ô trống.
   const hasRowActions = (rows ?? []).some((user) => hasAnyRowAbility(ability.row(user)))
 
   const columns = useMemo<ColumnDef<User>[]>(() => {
-    const base = buildUserColumns(t, { roleLabel, isSelf: selfCheck })
+    const base = buildUserColumns(t, { roleLabel, isSelf: selfCheck, onOpen: openDetail })
     if (!hasRowActions) return base
 
     const actions: ColumnDef<User> = {
@@ -130,12 +159,7 @@ export function UsersPage() {
             </DropdownMenuTrigger>
             <DropdownMenuContent align="end">
               {can_.edit && (
-                <DropdownMenuItem
-                  onSelect={() => {
-                    setEditing(user)
-                    setFormOpen(true)
-                  }}
-                >
+                <DropdownMenuItem onSelect={() => openEdit(user)}>
                   {t('users:editAction')}
                 </DropdownMenuItem>
               )}
@@ -163,7 +187,35 @@ export function UsersPage() {
       },
     }
     return [...base, actions]
-  }, [t, roleLabel, selfCheck, hasRowActions, ability])
+  }, [t, roleLabel, selfCheck, hasRowActions, ability, openDetail, openEdit])
+
+  // Chân sheet chi tiết: đúng các thao tác của menu ⋯ trên dòng đó, cùng luật quyền `ability.row`.
+  const viewingCan = viewing ? ability.row(viewing) : null
+  const detailActions = viewing && viewingCan && hasAnyRowAbility(viewingCan) && (
+    <>
+      {viewingCan.toggleActive && (
+        <Button
+          variant={viewing.isActive ? 'destructive' : 'outline'}
+          onClick={() => setToggling(viewing)}
+        >
+          {viewing.isActive ? t('users:lockAction') : t('users:unlockAction')}
+        </Button>
+      )}
+      {viewingCan.resetPassword && (
+        <Button variant="outline" onClick={() => setResetting(viewing)}>
+          {t('users:resetPasswordAction')}
+        </Button>
+      )}
+      {viewingCan.changeRole && (
+        <Button variant="outline" onClick={() => setChangingRole(viewing)}>
+          {t('users:changeRoleAction')}
+        </Button>
+      )}
+      {viewingCan.edit && (
+        <Button onClick={() => openEdit(viewing)}>{t('users:editAction')}</Button>
+      )}
+    </>
+  )
 
   return (
     <div className="space-y-4">
@@ -275,6 +327,7 @@ export function UsersPage() {
         data={rows}
         isLoading={isPending}
         error={error}
+        onRowClick={openDetail}
         sorting={BACKEND_SUPPORTS.userSort ? { value: sort, onChange: setSort } : undefined}
         pagination={{
           page: data?.page ?? page,
@@ -286,7 +339,17 @@ export function UsersPage() {
           isFetching: isPlaceholderData,
         }}
       />
-      {hiddenCount > 0 && <p className="text-muted-foreground text-sm">{t('users:rowsHidden')}</p>}
+
+      {/* Khai TRƯỚC các hộp thao tác: hộp mở từ chân sheet phải nằm trên sheet. */}
+      <UserDetailSheet
+        open={viewingSlug !== null}
+        user={viewing ?? undefined}
+        error={detail.error}
+        onOpenChange={(open) => !open && setViewingSlug(null)}
+        roleLabel={roleLabel}
+        isSelf={selfCheck}
+        actions={detailActions || undefined}
+      />
 
       <UserFormSheet open={formOpen} onOpenChange={setFormOpen} user={editing} roles={assignable} />
 

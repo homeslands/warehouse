@@ -163,7 +163,7 @@ describe('createRoutes — màn Cửa hàng', () => {
     const links = menu.getAllByRole('link').map((a) => a.getAttribute('href'))
     // `auth: 'admin'` tiêm SUPER_ADMIN (xem `shared/test/render.tsx`), nó bypass mọi authority nên
     // cũng thấy `/permissions` (nhóm `admin`) — đúng hành vi, không phải hồi quy.
-    expect(links).toEqual(['/', '/warehouses', '/stores', '/users', '/permissions'])
+    expect(links).toEqual(['/', '/warehouses', '/stores', '/suppliers', '/users', '/permissions'])
   })
 
   it('thiếu STORE_READ gõ thẳng /stores → /forbidden', async () => {

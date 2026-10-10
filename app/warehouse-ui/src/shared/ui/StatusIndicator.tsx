@@ -1,7 +1,7 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
 
-export type StatusTone = 'success' | 'neutral'
+export type StatusTone = 'success' | 'neutral' | 'warning' | 'info'
 
 /**
  * Chấm + chữ cùng màu, không nền, không viền — nhẹ hơn badge, không lấn át cột tên khi quét bảng.
@@ -18,6 +18,8 @@ const TONES: Record<StatusTone, { text: string; dot: string }> = {
     text: 'text-muted-foreground',
     dot: 'bg-muted-foreground',
   },
+  warning: { text: 'text-warning', dot: 'bg-warning' },
+  info: { text: 'text-info', dot: 'bg-info' },
 }
 
 /**

@@ -16,6 +16,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuItemHint,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
@@ -146,15 +147,22 @@ export function StoresPage() {
                 <DropdownMenuSeparator />
               )}
               {ability.delete && (
-                <DropdownMenuItem
-                  variant="destructive"
-                  // Backend từ chối xoá cửa hàng đang hoạt động (101016).
-                  disabled={store.isActive}
-                  title={store.isActive ? t('stores:deleteNeedsInactive') : undefined}
-                  onSelect={() => setDeleting(store)}
-                >
-                  {t('stores:deleteAction')}
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    // Backend từ chối xoá cửa hàng đang hoạt động (101016).
+                    disabled={store.isActive}
+                    aria-describedby={store.isActive ? `delete-hint-${store.slug}` : undefined}
+                    onSelect={() => setDeleting(store)}
+                  >
+                    {t('stores:deleteAction')}
+                  </DropdownMenuItem>
+                  {store.isActive && (
+                    <DropdownMenuItemHint id={`delete-hint-${store.slug}`}>
+                      {t('stores:deleteNeedsInactive')}
+                    </DropdownMenuItemHint>
+                  )}
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

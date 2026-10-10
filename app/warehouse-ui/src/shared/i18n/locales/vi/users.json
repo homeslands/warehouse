@@ -25,6 +25,9 @@
   "passwordReset": "Đã đặt lại mật khẩu",
   "actions": "Thao tác",
   "rowActions": "Thao tác với {{name}}",
+  "viewDetail": "Xem chi tiết {{name}}",
+  "detailTitle": "Thông tin người dùng",
+  "detailNotFoundHint": "Người này có thể đã bị xoá, hoặc không thuộc kho nào của bạn.",
   "editAction": "Sửa",
   "resetPasswordAction": "Đặt lại mật khẩu",
   "lockAction": "Khoá",
@@ -49,6 +52,7 @@
   "fieldDob": "Ngày sinh",
   "fieldEmail": "Email",
   "fieldAddress": "Địa chỉ",
+  "fieldMemberWarehouses": "Thành viên kho",
   "phonenumberRequired": "Vui lòng nhập số điện thoại",
   "phonenumberInvalid": "Số điện thoại không đúng định dạng",
   "phonenumberHint": "10 chữ số, bắt đầu bằng 03, 05, 07, 08 hoặc 09",
@@ -68,6 +72,5 @@
   "changeRoleAction": "Đổi vai trò",
   "changeRoleTitle": "Đổi vai trò",
   "changeRoleWarning": "<1>{{name}}</1> đang là {{role}}. Đổi xong, người này sẽ bị đăng xuất khỏi mọi thiết bị và phải đăng nhập lại.",
-  "fieldNewRole": "Vai trò mới",
-  "rowsHidden": "Một số người dùng được ẩn theo quyền của bạn."
+  "fieldNewRole": "Vai trò mới"
 }

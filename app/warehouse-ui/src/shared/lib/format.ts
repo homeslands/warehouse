@@ -35,12 +35,22 @@ export function formatNumber(value: number | null | undefined): string {
   return new Intl.NumberFormat(currentLocale()).format(value)
 }
 
-export function formatCurrency(value: number | null | undefined): string {
+/** Số lượng vật tư: tối đa 6 số lẻ (backend lưu `decimal(…, 6)`), không làm tròn về 0 số lẻ như `formatNumber`. */
+export function formatQuantity(value: number | null | undefined): string {
+  if (value === null || value === undefined || !Number.isFinite(value)) return EMPTY_VALUE
+  return new Intl.NumberFormat(currentLocale(), { maximumFractionDigits: 6 }).format(value)
+}
+
+/** `maximumFractionDigits` mặc định 0 (tiền hiển thị tròn đồng); form giao dịch truyền 2 để không nuốt số lẻ. */
+export function formatCurrency(
+  value: number | null | undefined,
+  { maximumFractionDigits = 0 }: { maximumFractionDigits?: number } = {},
+): string {
   if (value === null || value === undefined || !Number.isFinite(value)) return EMPTY_VALUE
   return new Intl.NumberFormat(currentLocale(), {
     style: 'currency',
     currency: 'VND',
-    maximumFractionDigits: 0,
+    maximumFractionDigits,
   }).format(value)
 }
 

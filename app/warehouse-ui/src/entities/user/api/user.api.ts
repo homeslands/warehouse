@@ -13,6 +13,9 @@ import type {
 export const fetchUsers = (params: ListParams<UserFilters>): Promise<Paginated<User>> =>
   getPaginated<User>('/users', params)
 
+/** `GET /users/{slug}` (WMS-13-be). Cùng phạm vi với danh sách: ngoài phạm vi kho của người gọi → 100405. */
+export const fetchUser = (slug: string): Promise<User> => getData<User>(`/users/${slug}`)
+
 /** `GET /roles` không phân trang — `getData`, không `getPaginated`. */
 export const fetchRoles = (): Promise<Role[]> => getData<Role[]>('/roles')
 
