@@ -60,9 +60,9 @@
   "memberPlaceholder": "Chọn người dùng",
   "noMemberAvailable": "Không còn ai để thêm",
   "removeMemberAction": "Gỡ",
+  "removeMemberMenu": "Gỡ khỏi kho",
   "removeMemberTitle": "Gỡ thành viên",
   "removeMemberConfirm": "Gỡ <1>{{name}}</1> khỏi kho? Người này sẽ không còn thấy kho này nữa.",
   "sectionMembers": "Thành viên",
-  "noMembers": "Kho chưa có thành viên.",
-  "removeMemberAria": "Gỡ {{name}} khỏi kho"
+  "noMembers": "Kho chưa có thành viên."
 }

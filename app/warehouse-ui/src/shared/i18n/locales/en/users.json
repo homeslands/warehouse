@@ -25,6 +25,9 @@
   "passwordReset": "Password has been reset",
   "actions": "Actions",
   "rowActions": "Actions for {{name}}",
+  "viewDetail": "View details of {{name}}",
+  "detailTitle": "User details",
+  "detailNotFoundHint": "This user may have been deleted, or is not in any of your warehouses.",
   "editAction": "Edit",
   "resetPasswordAction": "Reset password",
   "lockAction": "Lock",
@@ -49,6 +52,7 @@
   "fieldDob": "Date of birth",
   "fieldEmail": "Email",
   "fieldAddress": "Address",
+  "fieldMemberWarehouses": "Member of",
   "phonenumberRequired": "Phone number is required",
   "phonenumberInvalid": "Invalid phone number format",
   "phonenumberHint": "10 digits, starting with 03, 05, 07, 08 or 09",
@@ -68,6 +72,5 @@
   "changeRoleAction": "Change role",
   "changeRoleTitle": "Change role",
   "changeRoleWarning": "<1>{{name}}</1> is currently {{role}}. After the change they will be signed out of every device and must sign in again.",
-  "fieldNewRole": "New role",
-  "rowsHidden": "Some users are hidden based on your permissions."
+  "fieldNewRole": "New role"
 }

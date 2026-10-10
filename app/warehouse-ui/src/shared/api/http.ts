@@ -212,8 +212,12 @@ export async function putData<T>(url: string, body?: unknown): Promise<T> {
   return res.data.result
 }
 
-export async function deleteData<T>(url: string): Promise<T> {
-  const res = await http.delete<ApiResponse<T>>(url)
+/** `body` cho các DELETE nhận danh sách (vd gỡ nhiều vật tư khỏi nhà cung cấp) — axios gửi qua `config.data`. */
+export async function deleteData<T>(url: string, body?: unknown): Promise<T> {
+  const res = await http.delete<ApiResponse<T>>(
+    url,
+    body === undefined ? undefined : { data: body },
+  )
   return res.data.result
 }
 

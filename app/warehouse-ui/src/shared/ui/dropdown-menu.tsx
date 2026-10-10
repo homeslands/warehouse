@@ -2,7 +2,7 @@ import * as React from 'react'
 import { DropdownMenu as DropdownMenuPrimitive } from 'radix-ui'
 
 import { cn } from '@/shared/lib/cn'
-import { CheckIcon, ChevronRightIcon } from 'lucide-react'
+import { CheckIcon, ChevronRightIcon, CircleAlertIcon } from 'lucide-react'
 
 function DropdownMenu({ ...props }: React.ComponentProps<typeof DropdownMenuPrimitive.Root>) {
   return <DropdownMenuPrimitive.Root data-slot="dropdown-menu" {...props} />
@@ -159,6 +159,27 @@ function DropdownMenuLabel({
   )
 }
 
+/**
+ * Lý do một mục đang bị khoá — dòng chữ nhỏ ngay dưới mục đó. Mục `disabled` không nhận hover (`pointer-events:
+ * none`) nên `title` không bao giờ hiện, và mobile không có hover. Đặt `id` rồi gắn `aria-describedby` lên mục.
+ */
+function DropdownMenuItemHint({ className, children, ...props }: React.ComponentProps<'p'>) {
+  return (
+    <p
+      data-slot="dropdown-menu-item-hint"
+      // `pt-2`: tách khỏi nền của mục phía trên; icon `!` cho biết đây là lưu ý, không phải một mục bấm được.
+      className={cn(
+        'text-muted-foreground flex max-w-60 items-start gap-1.5 px-2.5 pt-2 pb-1.5 text-xs whitespace-normal',
+        className,
+      )}
+      {...props}
+    >
+      <CircleAlertIcon aria-hidden="true" className="mt-px size-3.5 shrink-0" />
+      <span>{children}</span>
+    </p>
+  )
+}
+
 function DropdownMenuSeparator({
   className,
   ...props
@@ -237,6 +258,7 @@ export {
   DropdownMenuGroup,
   DropdownMenuLabel,
   DropdownMenuItem,
+  DropdownMenuItemHint,
   DropdownMenuCheckboxItem,
   DropdownMenuRadioGroup,
   DropdownMenuRadioItem,

@@ -37,10 +37,11 @@ function renderDialog(
   }
 }
 
-async function pickM2(user: ReturnType<typeof renderDialog>['user']) {
-  await user.click(screen.getByRole('combobox', { name: 'Vật tư' }))
-  await user.click(await screen.findByText('NL04 · Bột giặt · kg'))
-}
+const check = (user: ReturnType<typeof renderDialog>['user'], name: RegExp) =>
+  user.click(screen.getByRole('checkbox', { name }))
+
+/** Danh sách ứng viên đã tải xong (hết khung chờ). */
+const ready = () => screen.findByRole('checkbox', { name: /NL04/ })
 
 beforeEach(() => {
   vi.mocked(toast.error).mockClear()
@@ -60,50 +61,76 @@ beforeEach(() => {
 })
 
 describe('AttachSupplierMaterialDialog', () => {
-  it('liệt kê vật tư dạng "Mã · Tên · Đơn vị", loại vật tư đã gắn', async () => {
-    const { user } = renderDialog()
-    await screen.findByText('Gắn vật tư cho NCC-HN-01')
-    expect(screen.getByRole('button', { name: 'Gắn' })).toBeDisabled()
-
-    await user.click(screen.getByRole('combobox', { name: 'Vật tư' }))
-    const list = await screen.findByRole('listbox')
-    expect(within(list).getByText('NL04 · Bột giặt · kg')).toBeInTheDocument()
-    expect(within(list).getByText('NL05 · Nhãn')).toBeInTheDocument()
+  it('liệt kê "Mã · Tên · Đơn vị" có ô tick, loại vật tư đã gắn; nút Gắn khoá khi chưa chọn', async () => {
+    renderDialog()
+    await ready()
+    const list = screen.getByRole('group', { name: 'Vật tư chưa thuộc nhà cung cấp này' })
+    expect(within(list).getByRole('checkbox', { name: 'NL04 · Bột giặt · kg' })).toBeInTheDocument()
+    expect(within(list).getByRole('checkbox', { name: 'NL05 · Nhãn' })).toBeInTheDocument()
     expect(within(list).queryByText(/NL01/)).not.toBeInTheDocument()
-    expect(materialsUrl?.searchParams.get('page')).toBe('1')
+    expect(screen.getByRole('button', { name: 'Gắn' })).toBeDisabled()
+    expect(screen.getByText('Đã chọn 0')).toBeInTheDocument()
     expect(materialsUrl?.searchParams.get('size')).toBe('100')
-    expect(attachedUrl?.searchParams.get('page')).toBe('1')
     expect(attachedUrl?.searchParams.get('size')).toBe('100')
   })
 
-  it('chọn + Gắn → PUT, đóng hộp, tải lại vật tư NCC và vật tư toàn kho', async () => {
+  it('ô tìm lọc không phân biệt dấu (theo mã hoặc tên); không khớp → "Không có kết quả"', async () => {
+    const { user } = renderDialog()
+    await ready()
+    await user.type(screen.getByLabelText('Vật tư'), 'bot giat')
+    expect(screen.getByRole('checkbox', { name: /NL04/ })).toBeInTheDocument()
+    expect(screen.queryByRole('checkbox', { name: /NL05/ })).not.toBeInTheDocument()
+
+    await user.clear(screen.getByLabelText('Vật tư'))
+    await user.type(screen.getByLabelText('Vật tư'), 'zzz')
+    expect(screen.getByText('Không có kết quả.')).toBeInTheDocument()
+  })
+
+  it('chọn nhiều + "Gắn (2)" → PUT một lần với cả 2 slug, đóng hộp, tải lại vật tư NCC và toàn kho', async () => {
     let putUrl = ''
+    let body: unknown
     server.use(
-      mswHttp.put(`${BASE}/suppliers/s-1/materials/m-2`, ({ request }) => {
+      mswHttp.put(`${BASE}/suppliers/s-1/materials`, async ({ request }) => {
         putUrl = new URL(request.url).pathname
-        return ok(m2)
+        body = await request.json()
+        return ok([m2, m3])
       }),
     )
     const { user, queryClient, onOpenChange } = renderDialog()
-    await screen.findByText('Gắn vật tư cho NCC-HN-01')
+    await ready()
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
 
-    await pickM2(user)
-    await user.click(screen.getByRole('button', { name: 'Gắn' }))
+    await check(user, /NL04/)
+    await check(user, /NL05/)
+    expect(screen.getByText('Đã chọn 2')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Gắn (2)' }))
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
-    expect(putUrl).toBe('/api/v1/suppliers/s-1/materials/m-2')
+    expect(putUrl).toBe('/api/v1/suppliers/s-1/materials')
+    expect(body).toEqual({ materialSlugs: ['m-2', 'm-3'] })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: supplierKeys.materials('s-1') })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: materialKeys.all })
   })
 
-  it('101212 → role=alert dưới ô, hộp vẫn mở, không toast lỗi', async () => {
-    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials/m-2`, () => apiError(409, 101212)))
-    const { user, onOpenChange } = renderDialog(supplier, mutationToastQueryClient())
-    await screen.findByText('Gắn vật tư cho NCC-HN-01')
+  it('"Chọn tất cả" chọn / bỏ chọn mọi vật tư đang hiện; chọn một phần → trạng thái nửa', async () => {
+    const { user } = renderDialog()
+    await ready()
+    const all = screen.getByRole('checkbox', { name: 'Chọn tất cả (2)' })
 
-    await pickM2(user)
-    await user.click(screen.getByRole('button', { name: 'Gắn' }))
+    await check(user, /NL04/)
+    expect(all).toHaveAttribute('data-state', 'indeterminate')
+    await user.click(all)
+    expect(screen.getByText('Đã chọn 2')).toBeInTheDocument()
+    await user.click(all)
+    expect(screen.getByText('Đã chọn 0')).toBeInTheDocument()
+  })
+
+  it('101212 khi chọn MỘT vật tư → câu của mã lỗi tại hộp, hộp vẫn mở, không toast', async () => {
+    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(409, 101212)))
+    const { user, onOpenChange } = renderDialog(supplier, mutationToastQueryClient())
+    await ready()
+    await check(user, /NL04/)
+    await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
 
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Vật tư này đã thuộc nhà cung cấp khác',
@@ -112,13 +139,40 @@ describe('AttachSupplierMaterialDialog', () => {
     expect(onOpenChange).not.toHaveBeenCalled()
   })
 
-  it('lỗi khác → toast và đóng hộp', async () => {
-    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials/m-2`, () => apiError(500)))
+  it.each([
+    [101212, 'Chưa gắn vật tư nào: ít nhất một vật tư đã chọn đã thuộc nhà cung cấp khác.'],
+    [100701, 'Chưa gắn vật tư nào: ít nhất một vật tư đã chọn không còn tồn tại.'],
+  ])('%s khi chọn NHIỀU → nói rõ cả lô chưa gắn (BE không nói vật tư nào)', async (code, text) => {
+    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(409, code)))
     const { user, onOpenChange } = renderDialog(supplier, mutationToastQueryClient())
-    await screen.findByText('Gắn vật tư cho NCC-HN-01')
+    await ready()
+    await check(user, /NL04/)
+    await check(user, /NL05/)
+    await user.click(screen.getByRole('button', { name: 'Gắn (2)' }))
 
-    await pickM2(user)
-    await user.click(screen.getByRole('button', { name: 'Gắn' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent(text)
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('đổi lựa chọn → xoá lỗi tại hộp', async () => {
+    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(409, 101212)))
+    const { user } = renderDialog(supplier, mutationToastQueryClient())
+    await ready()
+    await check(user, /NL04/)
+    await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
+    await screen.findByRole('alert')
+
+    await check(user, /NL04/)
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('lỗi khác → toast và đóng hộp', async () => {
+    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(500)))
+    const { user, onOpenChange } = renderDialog(supplier, mutationToastQueryClient())
+    await ready()
+    await check(user, /NL04/)
+    await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -130,16 +184,15 @@ describe('AttachSupplierMaterialDialog', () => {
       release = resolve
     })
     server.use(
-      mswHttp.put(`${BASE}/suppliers/s-1/materials/m-2`, async () => {
+      mswHttp.put(`${BASE}/suppliers/s-1/materials`, async () => {
         await gate
-        return ok(m2)
+        return ok([m2])
       }),
     )
     const { user, onOpenChange } = renderDialog()
-    await screen.findByText('Gắn vật tư cho NCC-HN-01')
-
-    await pickM2(user)
-    await user.click(screen.getByRole('button', { name: 'Gắn' }))
+    await ready()
+    await check(user, /NL04/)
+    await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
     await screen.findByRole('button', { name: 'Đang lưu...' })
 
     await user.keyboard('{Escape}')
@@ -150,21 +203,7 @@ describe('AttachSupplierMaterialDialog', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
   })
 
-  it('đổi lựa chọn → xoá lỗi tại ô', async () => {
-    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials/m-2`, () => apiError(409, 101212)))
-    const { user } = renderDialog(supplier, mutationToastQueryClient())
-    await screen.findByText('Gắn vật tư cho NCC-HN-01')
-    await pickM2(user)
-    await user.click(screen.getByRole('button', { name: 'Gắn' }))
-    await screen.findByRole('alert')
-
-    await user.click(screen.getByRole('combobox', { name: 'Vật tư' }))
-    await user.click(await screen.findByText('NL05 · Nhãn'))
-
-    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
-  })
-
-  it('đang tải danh sách → ô chọn bị khoá', async () => {
+  it('đang tải danh sách → ô tìm khoá, có khung chờ', async () => {
     let release = () => {}
     const gate = new Promise<void>((resolve) => {
       release = resolve
@@ -177,11 +216,13 @@ describe('AttachSupplierMaterialDialog', () => {
     )
     renderDialog()
     await screen.findByText('Gắn vật tư cho NCC-HN-01')
-
-    expect(screen.getByRole('combobox', { name: 'Vật tư' })).toBeDisabled()
+    expect(screen.getByLabelText('Vật tư')).toBeDisabled()
+    expect(
+      screen.getByRole('group', { name: 'Vật tư chưa thuộc nhà cung cấp này' }),
+    ).toHaveAttribute('aria-busy', 'true')
 
     release()
-    await waitFor(() => expect(screen.getByRole('combobox', { name: 'Vật tư' })).toBeEnabled())
+    await waitFor(() => expect(screen.getByLabelText('Vật tư')).toBeEnabled())
   })
 
   it.each([
@@ -194,7 +235,7 @@ describe('AttachSupplierMaterialDialog', () => {
 
     const alert = await screen.findByRole('alert')
     expect(alert).toHaveTextContent(/\S/)
-    expect(screen.getByRole('combobox', { name: 'Vật tư' })).toBeDisabled()
+    expect(screen.getByLabelText('Vật tư')).toBeDisabled()
     expect(screen.getByRole('button', { name: 'Gắn' })).toBeDisabled()
     expect(screen.queryByText('Không còn vật tư nào để gắn')).not.toBeInTheDocument()
   })

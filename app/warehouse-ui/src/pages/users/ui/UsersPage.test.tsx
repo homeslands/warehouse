@@ -142,15 +142,12 @@ describe('UsersPage — ADMIN', () => {
 })
 
 describe('UsersPage — ADMIN thấy toàn bộ', () => {
-  it('thấy cả ADMIN khác, vai trò tự tạo; không có ghi chú ẩn dòng', async () => {
+  it('thấy cả ADMIN khác, vai trò tự tạo', async () => {
     renderWithProviders(<UsersPage />, { route: '/users', auth: ADMIN_AUTH })
 
     await screen.findByText('Test SUPERVISOR')
     expect(screen.getByText('Test TEAM_LEAD')).toBeInTheDocument()
     expect(screen.getByText('Test ADMIN')).toBeInTheDocument()
-    expect(
-      screen.queryByText('Một số người dùng được ẩn theo quyền của bạn.'),
-    ).not.toBeInTheDocument()
   })
 })
 
@@ -164,14 +161,15 @@ describe('UsersPage — MANAGER (không có ROLE_READ, không có USER_CREATE)',
     expect(roleCalls).toBe(0)
   })
 
-  it('lọc tạm ở client: chỉ thấy chính mình + người cấp thấp hơn; ẩn ADMIN và vai trò tự tạo; có ghi chú', async () => {
+  it('không lọc thêm ở client: hiện đủ những gì backend trả (backend đã lọc theo kho); người cao hơn không có menu', async () => {
     renderWithProviders(<UsersPage />, { route: '/users', auth: MANAGER_AUTH })
 
     await screen.findByText('Test SUPERVISOR')
     expect(screen.getByText('Test MANAGER')).toBeInTheDocument() // chính mình (0340000000)
-    expect(screen.queryByText('Test ADMIN')).not.toBeInTheDocument()
-    expect(screen.queryByText('Test TEAM_LEAD')).not.toBeInTheDocument()
-    expect(screen.getByText('Một số người dùng được ẩn theo quyền của bạn.')).toBeInTheDocument()
+    expect(screen.getByText('Test ADMIN')).toBeInTheDocument()
+    expect(screen.getByText('Test TEAM_LEAD')).toBeInTheDocument()
+    expect(menuButton('Test ADMIN')).not.toBeInTheDocument()
+    expect(menuButton('Test TEAM_LEAD')).not.toBeInTheDocument()
   })
 
   it('menu chỉ có trên dòng SUPERVISOR, không có trên dòng của chính mình', async () => {

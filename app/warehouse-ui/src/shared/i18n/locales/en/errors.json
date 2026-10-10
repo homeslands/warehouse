@@ -119,5 +119,7 @@
   "supplierTransactionAmountInvalid": "Amount must be greater than 0, at most 2 decimal places",
   "supplierTransactionDateInvalid": "Invalid transaction date",
   "supplierTransactionPaymentHasMaterial": "A payment must not carry a material, quantity or unit price",
-  "supplierMaterialDateInvalid": "The material date filter is invalid"
+  "supplierMaterialDateInvalid": "The material date filter is invalid",
+  "materialNotFound": "Material not found (it may have been deleted)",
+  "supplierMaterialSlugsInvalid": "Invalid material list (1–100 materials required)"
 }
