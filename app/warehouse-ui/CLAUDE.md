@@ -403,8 +403,9 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   chọn chỉ có `@IsOptional()` (`description`, `address`, `invoiceAddress`) gửi `''` được — và đó là
   cách duy nhất để **xoá** nội dung cũ khi sửa (PATCH partial: field vắng mặt = giữ nguyên).
 - **Ngừng/mở hoạt động** là PATCH chỉ `{ isActive }` (partial), không phải gửi lại cả form.
-  Backend bắt **ngừng hoạt động trước khi xoá** (100517 / 101016) → khoá sẵn mục Xoá kèm `title` nêu lý
-  do, thay vì để người dùng bấm rồi ăn toast lỗi.
+  Backend bắt **ngừng hoạt động trước khi xoá** (100517 / 101016) → khoá sẵn mục Xoá và nêu lý do bằng
+  `DropdownMenuItemHint` (`shared/ui/dropdown-menu.tsx`, dòng chữ nhỏ ngay dưới mục, nối `aria-describedby`) —
+  **không** dùng `title`: mục disabled không nhận hover nên tooltip không bao giờ hiện, mobile cũng không có hover.
 - **Danh sách lựa chọn dựng từ trang dữ liệu đang hiển thị thì luôn có thể cũ** (kho "còn trống" của
   `AssignStoreWarehouseDialog` tính từ `warehouseSlug` của các dòng cửa hàng ở `StoresPage`, không
   phải một trường "thuộc cửa hàng nào" trên chính kho) — cửa hàng ở trang khác hay người khác vừa gán
@@ -609,16 +610,21 @@ mất công tìm cách sửa nó.
 - **Màn Người dùng (`/users`, WMS-12): FE chặn tạm thay backend ở vài chỗ — đừng gỡ trước khi backend làm.**
   Đã dùng API thật (PR #72, #78; 2026-10-07): tạo, sửa hồ sơ (`PATCH`), đổi vai trò (`.../change-role`), khoá /
   mở khoá (`PUT .../lock`, `PUT .../unlock`), đặt lại mật khẩu hộ; sửa / đổi vai trò / khoá / mở khoá cùng mã
-  `USER_UPDATE`. **`DELETE /users/{slug}` giờ là XOÁ thật (`USER_DELETE`) — FE không gọi, không có nút xoá**
+  `USER_UPDATE`. Bấm dòng (hoặc nút tên, cho bàn phím) mở `UserDetailSheet` (`entities/user`) — chỉ đọc, slug trên
+  URL (`?user=`, link / F5 / Back mở lại đúng người), dữ liệu qua `useUser` (`GET /users/{slug}`, dòng của danh sách làm
+  placeholder; 100405 = ngoài phạm vi / đã xoá → câu báo trong sheet); chân sheet = đúng các thao tác của menu ⋯
+  (`ability.row`), focus ban đầu ở khung sheet chứ không ở nút "Khoá". Bảng thành viên kho mở cùng sheet, chỉ xem.
+  Bảng thành viên kho: thao tác trong menu ⋯ ("Gỡ khỏi kho") như mọi bảng khác. **`DELETE /users/{slug}` giờ là XOÁ thật (`USER_DELETE`) — FE không gọi, không có nút xoá**
   (nghiệp vụ đã chốt **chỉ khoá**; đề nghị backend gỡ endpoint — proposal mục 3.7). Cờ `userSearch`, `userSort`
   đã bật (nhập toàn chữ số → `phonenumber`, còn lại → `name`: `pages/users/model/search-query.ts`). Thành viên kho ở
   `widgets/warehouse-members` (trang chi tiết kho; xem cần `USER_READ`, thêm/gỡ cần `WAREHOUSE_UPDATE` + `USER_READ`). Khối này cố ý KHÔNG áp lớp lọc tạm `ability.visible` của `/users` (thành viên kho đều dưới ADMIN; người xem cần `USER_READ`) và đi theo cờ `userSearch` — cờ tắt thì đóng cả khối (backend cũ bỏ qua `warehouseSlug`).
   Còn chờ backend
   (`docs/proposals/2026-09-30-user-management-api.md`):
+  - **Phạm vi `GET /users` / `GET /users/{slug}` do backend lọc** (WMS-13-be, 2026-10-09): dưới ADMIN chỉ thấy manager
+    + thành viên của các kho mình là manager HOẶC thành viên (kể cả SUPERVISOR; không lọc theo cấp; chưa thuộc kho nào
+    → danh sách rỗng; ngoài phạm vi → 100405). FE **không** lọc thêm ở client (đã gỡ `ability.visible`) — người
+    ngang/cao hơn cùng kho vẫn hiện, chỉ không có thao tác (`ability.row`).
   - **Lớp chặn tạm ở FE** (giao diện thôi, gọi thẳng API vẫn vượt được):
-    - `ability.visible` (`pages/users/model/abilities.ts`): người dưới ADMIN chỉ thấy chính mình + người cấp thấp
-      hơn, lọc ở client — phân trang theo backend nên một trang có thể ít dòng hơn (có dòng ghi chú
-      `users:rowsHidden`). Gỡ khi backend lọc `GET /users` theo phạm vi kho.
     - Mật khẩu ≥ 8 ký tự (`shared/lib/password-policy.ts`) ở `user-form`, `user-reset-password`, `change-password`.
       Backend chốt chính sách thì giữ luật cho khớp và map mã lỗi của backend vào ô.
     - Nút "Đặt lại mật khẩu" ẩn trên người ngang/cao hơn: backend (PR #80) mới chặn người cấp CAO hơn, vẫn cho
@@ -640,7 +646,8 @@ mất công tìm cách sửa nó.
   | Tìm `search`/`code`/`taxCode`/`phonenumber` (WMS-13, `dev` qua PR #89) **đã bật** `supplierSearch`; `sort` backend đang làm | `search` chỉ khớp tên / người liên hệ / email (KHÔNG khớp mã), `code` khớp đủ mã. Sắp xếp cột dựng sẵn sau `supplierSort` (**tắt**) — bật chỉ khi đã thử với API thật. Một ô tìm, đoán tham số theo dạng nhập (`pages/suppliers/model/search-query.ts`); 10 chữ số (MST hay SĐT) đoán sai thì câu báo trống có nút đổi (`?searchBy=`). Test với cờ bật: `SuppliersPage.sort-search.test.tsx` |
   | Lọc `GET /suppliers/{slug}/materials` (`code` / `name` / `from` / `to`, WMS-13) | tab Vật tư có ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng "Ngày tạo vật tư", cờ `supplierMaterialFilters` **đã bật**. Bộ lọc giữ ở state của tab, không lên URL (tab Giao dịch đã dùng `page` / `startDate` / `endDate`). `from`/`to` theo ngày tạo VẬT TƯ, không phải ngày gắn |
   | WMS-13 **tạm ẩn** `GET`/`POST /suppliers/{slug}/transactions` | tab Giao dịch sau cờ `supplierTransactions` (**tắt**): trang chỉ còn Hồ sơ + Vật tư, `?tab=transactions` rơi về Vật tư. Code tab / form ghi giao dịch giữ nguyên |
-  | `GET /materials` không trả nhà cung cấp | ô "Gắn vật tư" lấy **100 vật tư đầu**, chỉ loại vật tư đã gắn với chính NCC này; vật tư thuộc NCC khác chỉ biết qua 101212 hiện tại ô |
+  | Gắn / gỡ theo lô (WMS-13-be: `PUT`/`DELETE /suppliers/{slug}/materials`, body `{ materialSlugs }` 1–100; route cũ `/:materialSlug` đã bị xoá) — **tất cả hoặc không**, lỗi không nói vật tư nào hỏng | hộp Gắn = danh sách có ô tìm (bỏ dấu, `shared/lib/search-text.ts`) + ô tick, "Gắn (n)"; chọn nhiều mà bị 101212/100701 thì câu báo nói rõ CẢ LÔ chưa gắn. Bảng Vật tư có cột ô tick (chỉ trang đang xem; đổi trang/bộ lọc là bỏ chọn) + nút "Gỡ (n)"; gỡ một vật tư qua menu ⋯. Ô tick là component cố định đọc `SelectionContext`, mảng cột `useMemo` — `flexRender` coi `header`/`cell` inline là component, dựng lại mảng cột sẽ remount ô và mất focus bàn phím |
+  | `GET /materials` không trả nhà cung cấp | ô "Gắn vật tư" lấy **100 vật tư đầu**, chỉ loại vật tư đã gắn với chính NCC này; vật tư thuộc NCC khác vẫn hiện — chọn lẫn một cái là cả lô bị từ chối (101212) |
   | `PATCH` dùng `pickDefined`, không nhận `null` | form sửa **không xoá trống** được ô tuỳ chọn: ô trống bị bỏ khỏi body (giữ nguyên, gợi ý `suppliers:keepWhenEmpty`) |
   | Chưa có API công nợ | trang chi tiết không có tổng mua / trả / còn nợ — đừng tự cộng từ danh sách giao dịch (phân trang, có lọc) |
   | Sổ giao dịch chỉ thêm | không có nút sửa / xoá giao dịch; luôn hỏi xác nhận trước khi ghi |
@@ -662,9 +669,6 @@ mất công tìm cách sửa nó.
 - **Danh sách "kho còn trống" do FE tự tính.** Hộp gán kho cho cửa hàng loại kho đã gán dựa trên **trang
   dữ liệu cửa hàng đang hiển thị** — cửa hàng ở trang khác không thấy được. Backend vẫn là chốt chặn
   (101019/101020) và lỗi hiện ngay tại ô chọn; bỏ được khi backend có `GET /warehouses?hasStore=false`.
-- **Lý do "Xoá bị khoá" dùng thuộc tính `title` gốc của HTML** thay vì component tooltip có style riêng
-  (`DropdownMenuItem` của `WarehousesPage`/`StoresPage`) — chấp nhận được vì đây là menu item disabled,
-  nhưng không đồng bộ hình thức với phần còn lại của UI.
 - **`Switch` chưa nối `field.name` / `field.onBlur`** khi dùng trong `react-hook-form`
   (`WarehouseFormSheet`, `StoreFormSheet` chỉ truyền `checked`/`onCheckedChange`/`ref`) — chưa gây lỗi
   thấy được vì `isActive` luôn có giá trị mặc định, nhưng thiếu validate-on-blur và tên field khi debug.

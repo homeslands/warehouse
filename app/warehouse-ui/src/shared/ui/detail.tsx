@@ -27,12 +27,25 @@ export function DetailCard({
   )
 }
 
-/** Một nhóm trường trong `DetailCard`. Nhóm thứ hai trở đi có đường kẻ phía trên. */
-export function DetailGroup({ title, children }: { title?: ReactNode; children: ReactNode }) {
+/**
+ * Một nhóm trường trong `DetailCard`. Nhóm thứ hai trở đi có đường kẻ phía trên. Lưới 1/2/3 cột theo CỬA SỔ;
+ * đặt trong khung hẹp (sheet 480px) thì truyền `className="lg:grid-cols-2"` để không bị 3 cột chật.
+ */
+export function DetailGroup({
+  title,
+  className,
+  children,
+}: {
+  title?: ReactNode
+  className?: string
+  children: ReactNode
+}) {
   return (
     <div className="space-y-4 border-t pt-6 first:border-t-0 first:pt-0">
       {title && <h3 className="text-sm font-medium">{title}</h3>}
-      <dl className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">{children}</dl>
+      <dl className={cn('grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3', className)}>
+        {children}
+      </dl>
     </div>
   )
 }

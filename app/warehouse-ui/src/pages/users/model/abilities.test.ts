@@ -57,16 +57,6 @@ describe('isSelf', () => {
 })
 
 describe('cấp của chính mình từ me.role.level (PR #80)', () => {
-  it('vai trò tự tạo cấp ≥ ADMIN, không có ROLE_READ → thấy mọi dòng', () => {
-    const me: CurrentUser = {
-      userName: 'kho-truong',
-      roleName: 'GIAM_DOC',
-      role: { slug: 'r-gd', name: 'GIAM_DOC', level: 40 },
-      scope: ['USER_READ'],
-    }
-    expect(userAbilities(me, undefined, ON).visible(target('ADMIN'))).toBe(true)
-  })
-
   it('vai trò tự tạo cấp 25, không có ROLE_READ → reset được cho MANAGER, không cho ADMIN', () => {
     const me: CurrentUser = {
       userName: 'to-truong',
@@ -196,42 +186,6 @@ describe('userAbilities — sửa / đổi vai trò / khoá (USER_UPDATE, PR #72
   it('vai trò tự tạo (không tra được cấp) fail-closed dù có USER_UPDATE', () => {
     const me = { ...MANAGER, scope: [...MANAGER.scope, 'USER_UPDATE'] }
     expect(hasAnyRowAbility(userAbilities(me, undefined, ON).row(target('TEAM_LEAD')))).toBe(false)
-  })
-})
-
-describe('userAbilities — visible: lọc dòng ở client (tạm, tới khi backend lọc GET /users)', () => {
-  it('ADMIN và SUPER_ADMIN thấy toàn bộ, kể cả người ngang/cao hơn', () => {
-    for (const me of [ADMIN, ROOT]) {
-      const a = userAbilities(me, ROLES, OFF)
-      for (const role of ['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SUPERVISOR', 'TEAM_LEAD']) {
-        expect(a.visible(target(role))).toBe(true)
-      }
-    }
-  })
-
-  it('MANAGER chỉ thấy chính mình + người cấp thấp hơn; vai trò không tra được cấp thì ẩn', () => {
-    const a = userAbilities(MANAGER, undefined, OFF)
-    expect(a.visible(target('MANAGER', '0340000000'))).toBe(true)
-    expect(a.visible(target('SUPERVISOR'))).toBe(true)
-    expect(a.visible(target('MANAGER'))).toBe(false)
-    expect(a.visible(target('ADMIN'))).toBe(false)
-    expect(a.visible(target('SUPER_ADMIN'))).toBe(false)
-    expect(a.visible(target('TEAM_LEAD'))).toBe(false)
-  })
-
-  it('người xem có vai trò lạ (không tra được cấp) → chỉ thấy chính mình', () => {
-    const me: CurrentUser = {
-      userName: '0399',
-      roleName: 'GHOST',
-      scope: ['USER_READ'],
-    }
-    const a = userAbilities(me, undefined, OFF)
-    expect(a.visible(target('GHOST', '0399'))).toBe(true)
-    expect(a.visible(target('SUPERVISOR'))).toBe(false)
-  })
-
-  it('chưa đăng nhập → không thấy gì', () => {
-    expect(userAbilities(null, ROLES, OFF).visible(target('SUPERVISOR'))).toBe(false)
   })
 })
 

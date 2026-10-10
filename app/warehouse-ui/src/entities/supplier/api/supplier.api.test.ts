@@ -3,10 +3,10 @@ import { describe, expect, it } from 'vitest'
 import { ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import {
-  attachSupplierMaterial,
+  attachSupplierMaterials,
   createSupplier,
   createSupplierTransaction,
-  detachSupplierMaterial,
+  detachSupplierMaterials,
   fetchSupplier,
   fetchSupplierMaterials,
   fetchSupplierTransactions,
@@ -133,33 +133,37 @@ describe('fetchSupplierMaterials', () => {
   })
 })
 
-describe('attachSupplierMaterial', () => {
-  it('PUT /suppliers/:slug/materials/:materialSlug không body', async () => {
-    let body = 'unset'
+describe('attachSupplierMaterials', () => {
+  it('PUT /suppliers/:slug/materials, body { materialSlugs }, trả mảng vật tư', async () => {
+    let body: unknown
     server.use(
-      mswHttp.put(`${BASE}/suppliers/s-1/materials/m-1`, async ({ request }) => {
-        body = await request.text()
-        return ok(supplierMaterial)
+      mswHttp.put(`${BASE}/suppliers/s-1/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok([supplierMaterial])
       }),
     )
 
-    await expect(attachSupplierMaterial('s-1', 'm-1')).resolves.toEqual(supplierMaterial)
-    expect(body).toBe('')
+    await expect(attachSupplierMaterials('s-1', ['m-1', 'm-2'])).resolves.toEqual([
+      supplierMaterial,
+    ])
+    expect(body).toEqual({ materialSlugs: ['m-1', 'm-2'] })
   })
 })
 
-describe('detachSupplierMaterial', () => {
-  it('DELETE /suppliers/:slug/materials/:materialSlug', async () => {
-    let called = false
+describe('detachSupplierMaterials', () => {
+  it('DELETE /suppliers/:slug/materials kèm body { materialSlugs }', async () => {
+    let body: unknown
     server.use(
-      mswHttp.delete(`${BASE}/suppliers/s-1/materials/m-1`, () => {
-        called = true
-        return ok('detached')
+      mswHttp.delete(`${BASE}/suppliers/s-1/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok('1 material have been detached successfully')
       }),
     )
 
-    await expect(detachSupplierMaterial('s-1', 'm-1')).resolves.toBe('detached')
-    expect(called).toBe(true)
+    await expect(detachSupplierMaterials('s-1', ['m-1'])).resolves.toBe(
+      '1 material have been detached successfully',
+    )
+    expect(body).toEqual({ materialSlugs: ['m-1'] })
   })
 })
 

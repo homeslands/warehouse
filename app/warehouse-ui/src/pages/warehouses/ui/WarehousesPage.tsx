@@ -18,6 +18,7 @@ import {
   DropdownMenu,
   DropdownMenuContent,
   DropdownMenuItem,
+  DropdownMenuItemHint,
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
@@ -200,16 +201,25 @@ export function WarehousesPage() {
                 <DropdownMenuSeparator />
               )}
               {ability.delete && (
-                <DropdownMenuItem
-                  variant="destructive"
-                  // Backend từ chối xoá kho đang hoạt động (100517) — khoá sẵn và nói rõ lý do thay
-                  // vì để người dùng bấm rồi ăn toast lỗi.
-                  disabled={warehouse.isActive}
-                  title={warehouse.isActive ? t('warehouses:deleteNeedsInactive') : undefined}
-                  onSelect={() => setDeleting(warehouse)}
-                >
-                  {t('warehouses:deleteAction')}
-                </DropdownMenuItem>
+                <>
+                  <DropdownMenuItem
+                    variant="destructive"
+                    // Backend từ chối xoá kho đang hoạt động (100517) — khoá sẵn và nói rõ lý do thay
+                    // vì để người dùng bấm rồi ăn toast lỗi.
+                    disabled={warehouse.isActive}
+                    aria-describedby={
+                      warehouse.isActive ? `delete-hint-${warehouse.slug}` : undefined
+                    }
+                    onSelect={() => setDeleting(warehouse)}
+                  >
+                    {t('warehouses:deleteAction')}
+                  </DropdownMenuItem>
+                  {warehouse.isActive && (
+                    <DropdownMenuItemHint id={`delete-hint-${warehouse.slug}`}>
+                      {t('warehouses:deleteNeedsInactive')}
+                    </DropdownMenuItemHint>
+                  )}
+                </>
               )}
             </DropdownMenuContent>
           </DropdownMenu>

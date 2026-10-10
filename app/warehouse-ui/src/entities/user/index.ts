@@ -1,5 +1,6 @@
 export {
   fetchUsers,
+  fetchUser,
   fetchRoles,
   createUser,
   resetUserPassword,
@@ -12,6 +13,7 @@ export {
   useManagerCandidates,
   useRoles,
   useUsers,
+  useUser,
   useCreateUser,
   useResetUserPassword,
   useUpdateUser,
@@ -40,3 +42,4 @@ export type {
 } from './model/types'
 export { buildUserColumns, userDisplayName } from './ui/columns'
 export { UserStatusBadge } from './ui/UserStatusBadge'
+export { UserDetailSheet } from './ui/UserDetailSheet'

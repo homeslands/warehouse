@@ -104,6 +104,8 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100523: 'warehouseAccessDenied',
   100524: 'warehouseMemberUserIsAdmin',
   // warehouse-api src/store/store.validation.ts (2026-09-22).
+  // Vật tư — mới dùng qua gắn / gỡ vật tư của nhà cung cấp (`materialSlugs` có slug không tồn tại).
+  100701: 'materialNotFound',
   101001: 'storeNotFound',
   101002: 'storeNameIsRequired',
   101003: 'storeNameDoesExist',
@@ -145,4 +147,5 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   101219: 'supplierTransactionDateInvalid',
   101220: 'supplierTransactionPaymentHasMaterial',
   101221: 'supplierMaterialDateInvalid',
+  101222: 'supplierMaterialSlugsInvalid',
 }

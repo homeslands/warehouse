@@ -119,5 +119,7 @@
   "supplierTransactionAmountInvalid": "Số tiền phải lớn hơn 0, tối đa 2 chữ số thập phân",
   "supplierTransactionDateInvalid": "Ngày giao dịch không hợp lệ",
   "supplierTransactionPaymentHasMaterial": "Thanh toán không kèm vật tư, số lượng hay đơn giá",
-  "supplierMaterialDateInvalid": "Khoảng ngày lọc vật tư không hợp lệ"
+  "supplierMaterialDateInvalid": "Khoảng ngày lọc vật tư không hợp lệ",
+  "materialNotFound": "Không tìm thấy vật tư (có thể đã bị xoá)",
+  "supplierMaterialSlugsInvalid": "Danh sách vật tư không hợp lệ (cần 1–100 vật tư)"
 }
