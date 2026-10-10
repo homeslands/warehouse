@@ -23,18 +23,23 @@ const material: SupplierMaterial = {
   name: 'Bột giặt',
 }
 
+const material2: SupplierMaterial = { ...material, slug: 'm-2', code: 'NL05', name: 'Nhãn dán' }
+
 function renderDialog(
-  target: SupplierMaterial | null = material,
+  target: SupplierMaterial[] | null = [material],
   queryClient?: ReturnType<typeof mutationToastQueryClient>,
 ) {
   const onOpenChange = vi.fn()
+  const onDetached = vi.fn()
   return {
     onOpenChange,
+    onDetached,
     ...renderWithProviders(
       <DetachSupplierMaterialDialog
         supplier={supplier}
-        material={target}
+        materials={target}
         onOpenChange={onOpenChange}
+        onDetached={onDetached}
       />,
       { auth: 'admin', queryClient },
     ),
@@ -48,8 +53,8 @@ beforeEach(() => {
 
 describe('DetachSupplierMaterialDialog', () => {
   it('101213 (đã không còn gắn) → tải lại vật tư NCC, đóng hộp, toast toàn cục báo lỗi', async () => {
-    server.use(mswHttp.delete(`${BASE}/suppliers/s-1/materials/m-1`, () => apiError(422, 101213)))
-    const { user, queryClient, onOpenChange } = renderDialog(material, mutationToastQueryClient())
+    server.use(mswHttp.delete(`${BASE}/suppliers/s-1/materials`, () => apiError(422, 101213)))
+    const { user, queryClient, onOpenChange } = renderDialog([material], mutationToastQueryClient())
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
 
     await user.click(screen.getByRole('button', { name: 'Gỡ' }))
@@ -69,11 +74,13 @@ describe('DetachSupplierMaterialDialog', () => {
     )
   })
 
-  it('bấm Gỡ → DELETE, đóng hộp, tải lại vật tư NCC và vật tư toàn kho', async () => {
+  it('bấm Gỡ → DELETE kèm body { materialSlugs: [slug] }, đóng hộp, tải lại vật tư NCC và vật tư toàn kho', async () => {
     let path = ''
+    let body: unknown
     server.use(
-      mswHttp.delete(`${BASE}/suppliers/s-1/materials/m-1`, ({ request }) => {
+      mswHttp.delete(`${BASE}/suppliers/s-1/materials`, async ({ request }) => {
         path = new URL(request.url).pathname
+        body = await request.json()
         return ok({})
       }),
     )
@@ -83,14 +90,15 @@ describe('DetachSupplierMaterialDialog', () => {
     await user.click(screen.getByRole('button', { name: 'Gỡ' }))
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
-    expect(path).toBe('/api/v1/suppliers/s-1/materials/m-1')
+    expect(path).toBe('/api/v1/suppliers/s-1/materials')
+    expect(body).toEqual({ materialSlugs: ['m-1'] })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: supplierKeys.materials('s-1') })
     expect(invalidate).toHaveBeenCalledWith({ queryKey: materialKeys.all })
   })
 
   it('lỗi → toast toàn cục đúng 1 lần, hộp vẫn mở, không tải lại vật tư toàn kho', async () => {
-    server.use(mswHttp.delete(`${BASE}/suppliers/s-1/materials/m-1`, () => apiError(500)))
-    const { user, queryClient, onOpenChange } = renderDialog(material, mutationToastQueryClient())
+    server.use(mswHttp.delete(`${BASE}/suppliers/s-1/materials`, () => apiError(500)))
+    const { user, queryClient, onOpenChange } = renderDialog([material], mutationToastQueryClient())
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
 
     await user.click(screen.getByRole('button', { name: 'Gỡ' }))
@@ -99,5 +107,26 @@ describe('DetachSupplierMaterialDialog', () => {
     await waitFor(() => expect(screen.getByRole('button', { name: 'Gỡ' })).toBeEnabled())
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
     expect(invalidate).not.toHaveBeenCalledWith({ queryKey: materialKeys.all })
+  })
+
+  it('nhiều vật tư → tiêu đề "Gỡ 2 vật tư?", liệt kê từng vật tư, DELETE một lần với cả lô, báo onDetached', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.delete(`${BASE}/suppliers/s-1/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok('2 material have been detached successfully')
+      }),
+    )
+    const { user, onOpenChange, onDetached } = renderDialog([material, material2])
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Gỡ 2 vật tư?' })
+    expect(dialog).toHaveTextContent('NL04 · Bột giặt')
+    expect(dialog).toHaveTextContent('NL05 · Nhãn dán')
+    await user.click(screen.getByRole('button', { name: 'Gỡ' }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(body).toEqual({ materialSlugs: ['m-1', 'm-2'] })
+    expect(onDetached).toHaveBeenCalledTimes(1)
+    expect(toast.success).toHaveBeenCalledWith('Đã gỡ 2 vật tư')
   })
 })

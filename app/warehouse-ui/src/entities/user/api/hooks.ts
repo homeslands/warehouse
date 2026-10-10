@@ -4,12 +4,13 @@ import { toast } from 'sonner'
 import { isApiError } from '@/shared/api/http'
 import type { ApiError, ListParams } from '@/shared/api/types'
 import {
+  changeUserRole,
   createUser,
   fetchRoles,
+  fetchUser,
   fetchUsers,
-  resetUserPassword,
-  changeUserRole,
   lockUser,
+  resetUserPassword,
   unlockUser,
   updateUser,
 } from './user.api'
@@ -101,6 +102,21 @@ export function useUsers(params: ListParams<UserFilters>) {
     queryKey: userKeys.list(params),
     queryFn: () => fetchUsers(params),
     placeholderData: keepPreviousData,
+  })
+}
+
+/**
+ * Một người dùng theo slug — sheet chi tiết. `placeholderData`: dòng của danh sách đang có (hiện ngay, không
+ * nháy trống) trong lúc tải bản mới. Bên gọi tự báo lỗi tại chỗ (404 = ngoài phạm vi / đã xoá). Cùng gốc
+ * `userKeys.all` nên mọi mutation người dùng cũng làm mới nó.
+ */
+export function useUser(slug: string | null, options: { placeholderData?: User } = {}) {
+  return useQuery({
+    queryKey: userKeys.detail(slug ?? ''),
+    queryFn: () => fetchUser(slug ?? ''),
+    enabled: slug !== null,
+    placeholderData: options.placeholderData,
+    meta: { suppressErrorToast: true },
   })
 }
 

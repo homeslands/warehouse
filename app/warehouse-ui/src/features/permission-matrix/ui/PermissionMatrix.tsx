@@ -167,11 +167,14 @@ export function PermissionMatrix({
           <div className="@container overflow-x-auto rounded-xl border">
             <Table>
               <TableHeader>
-                <TableRow>
+                {/* Dòng tiêu đề không tô hover: `TableRow` mặc định `hover:bg-muted/50` tô cả dòng trừ ô dính
+                    (nền đặc riêng) → nửa dòng xám, nửa trắng khi rê chuột qua. */}
+                <TableRow className="hover:bg-transparent">
                   {/* Cột đầu DÍNH trái: bảng cuộn ngang, không dính thì kéo sang cột vai trò
                       cuối là mất luôn tên quyền đang bật. Phải có nền đặc, nếu không nội dung
-                      cuộn qua sẽ lộ ra dưới nó. */}
-                  <TableHead className="bg-background sticky left-0 z-20 max-w-40 whitespace-normal @2xl:max-w-none @2xl:whitespace-nowrap">
+                      cuộn qua sẽ lộ ra dưới nó. z-index THẤP (1–2), dưới header dính của app (`z-10`):
+                      cao hơn thì khi cuộn trang ô này nổi đè lên header, che breadcrumb. */}
+                  <TableHead className="bg-background sticky left-0 z-[2] max-w-40 whitespace-normal @2xl:max-w-none @2xl:whitespace-nowrap">
                     {t('permissions:columnAuthority')}
                   </TableHead>
                   {/* Khung bảng hẹp ẩn cột SUPER_ADMIN: nó chỉ là lời nhắc "Toàn quyền", không bấm được — nhường
@@ -210,7 +213,7 @@ export function PermissionMatrix({
                         — cột đầu nháy lệch nhịp với phần còn lại của dòng mỗi lần rê chuột. */}
                     {/* Khung bảng hẹp (container query): cột dính giới hạn 10rem và cho xuống dòng, không thì nó chiếm gần hết
                         bề ngang, các cột vai trò chỉ còn một khe để cuộn. */}
-                    <TableCell className="bg-background group-hover:bg-muted sticky left-0 z-10 max-w-40 whitespace-normal transition-colors @2xl:max-w-none @2xl:whitespace-nowrap">
+                    <TableCell className="bg-background group-hover:bg-muted sticky left-0 z-[1] max-w-40 whitespace-normal transition-colors @2xl:max-w-none @2xl:whitespace-nowrap">
                       <div className="grid gap-0.5">
                         <span>{authorityName(authority)}</span>
                         <span className="text-muted-foreground text-xs">

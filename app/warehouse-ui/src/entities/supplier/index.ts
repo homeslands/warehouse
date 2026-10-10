@@ -5,8 +5,8 @@ export {
   updateSupplier,
   removeSupplier,
   fetchSupplierMaterials,
-  attachSupplierMaterial,
-  detachSupplierMaterial,
+  attachSupplierMaterials,
+  detachSupplierMaterials,
   fetchSupplierTransactions,
   createSupplierTransaction,
 } from './api/supplier.api'

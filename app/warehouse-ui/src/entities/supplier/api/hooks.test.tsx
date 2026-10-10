@@ -178,8 +178,8 @@ function MaterialsProbe() {
       <output data-testid="txs">{(txs.data?.items ?? []).map((x) => x.amount).join(',')}</output>
       <output data-testid="attach-status">{attach.status}</output>
       <output data-testid="tx-status">{create.status}</output>
-      <button onClick={() => attach.mutate({ slug: 's-1', materialSlug: 'm-1' })}>attach</button>
-      <button onClick={() => detach.mutate({ slug: 's-1', materialSlug: 'm-1' })}>detach</button>
+      <button onClick={() => attach.mutate({ slug: 's-1', materialSlugs: ['m-1'] })}>attach</button>
+      <button onClick={() => detach.mutate({ slug: 's-1', materialSlugs: ['m-1'] })}>detach</button>
       <button onClick={() => create.mutate({ slug: 's-1', input: { type: 'PAYMENT', amount: 1 } })}>
         tx
       </button>
@@ -227,26 +227,26 @@ describe('vật tư và giao dịch của nhà cung cấp', () => {
   })
 
   it('attach thành công: toast và làm mới supplierKeys.materials', async () => {
-    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials/m-1`, () => ok(supplierMaterial)))
+    server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => ok([supplierMaterial])))
     const { user, queryClient } = renderWithProviders(<MaterialsProbe />)
     await screen.findByText('Xi măng')
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
 
     await user.click(screen.getByRole('button', { name: 'attach' }))
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Đã gắn vật tư'))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Đã gắn 1 vật tư'))
     expect(invalidate).toHaveBeenCalledWith({ queryKey: supplierKeys.materials('s-1') })
   })
 
   it('detach thành công: toast và làm mới supplierKeys.materials', async () => {
-    server.use(mswHttp.delete(`${BASE}/suppliers/s-1/materials/m-1`, () => ok('detached')))
+    server.use(mswHttp.delete(`${BASE}/suppliers/s-1/materials`, () => ok('detached')))
     const { user, queryClient } = renderWithProviders(<MaterialsProbe />)
     await screen.findByText('Xi măng')
     const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
 
     await user.click(screen.getByRole('button', { name: 'detach' }))
 
-    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Đã gỡ vật tư'))
+    await waitFor(() => expect(toast.success).toHaveBeenCalledWith('Đã gỡ 1 vật tư'))
     expect(invalidate).toHaveBeenCalledWith({ queryKey: supplierKeys.materials('s-1') })
   })
 
@@ -266,7 +266,7 @@ describe('vật tư và giao dịch của nhà cung cấp', () => {
     '%s lỗi: KHÔNG tự toast (suppressErrorToast)',
     async (name) => {
       server.use(
-        mswHttp.put(`${BASE}/suppliers/s-1/materials/m-1`, () => apiError(422, 101200)),
+        mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(422, 101200)),
         mswHttp.post(`${BASE}/suppliers/s-1/transactions`, () => apiError(422, 101220)),
       )
       const { user } = renderWithProviders(<MaterialsProbe />, {

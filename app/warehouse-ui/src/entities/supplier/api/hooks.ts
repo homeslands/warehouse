@@ -3,10 +3,10 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import type { ApiError, ListParams } from '@/shared/api/types'
 import {
-  attachSupplierMaterial,
+  attachSupplierMaterials,
   createSupplier,
   createSupplierTransaction,
-  detachSupplierMaterial,
+  detachSupplierMaterials,
   fetchSupplier,
   fetchSupplierMaterials,
   fetchSupplierTransactions,
@@ -117,18 +117,18 @@ export function useAllSupplierMaterials(slug: string, options: { enabled?: boole
   })
 }
 
-type MaterialVars = { slug: string; materialSlug: string }
+type MaterialVars = { slug: string; materialSlugs: string[] }
 
 export function useAttachSupplierMaterial() {
   const qc = useQueryClient()
   const { t } = useTranslation(['suppliers'])
 
-  return useMutation<SupplierMaterial, ApiError, MaterialVars>({
-    mutationFn: ({ slug, materialSlug }) => attachSupplierMaterial(slug, materialSlug),
+  return useMutation<SupplierMaterial[], ApiError, MaterialVars>({
+    mutationFn: ({ slug, materialSlugs }) => attachSupplierMaterials(slug, materialSlugs),
     // Hộp gắn vật tư hiện lỗi ngay tại ô chọn.
     meta: { suppressErrorToast: true },
-    onSuccess: (_data, { slug }) => {
-      toast.success(t('suppliers:materialAttached'))
+    onSuccess: (_data, { slug, materialSlugs }) => {
+      toast.success(t('suppliers:materialAttached', { count: materialSlugs.length }))
       qc.invalidateQueries({ queryKey: supplierKeys.materials(slug) })
     },
   })
@@ -139,9 +139,9 @@ export function useDetachSupplierMaterial() {
   const { t } = useTranslation(['suppliers'])
 
   return useMutation<string, ApiError, MaterialVars>({
-    mutationFn: ({ slug, materialSlug }) => detachSupplierMaterial(slug, materialSlug),
-    onSuccess: (_data, { slug }) => {
-      toast.success(t('suppliers:materialDetached'))
+    mutationFn: ({ slug, materialSlugs }) => detachSupplierMaterials(slug, materialSlugs),
+    onSuccess: (_data, { slug, materialSlugs }) => {
+      toast.success(t('suppliers:materialDetached', { count: materialSlugs.length }))
       qc.invalidateQueries({ queryKey: supplierKeys.materials(slug) })
     },
   })

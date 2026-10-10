@@ -1,12 +1,5 @@
-import { can, ROLES, type CurrentUser } from '@/entities/session'
-import {
-  BUILT_IN_ROLE_LEVELS,
-  canManageTarget,
-  isSameUser,
-  resolveRoleLevel,
-  type Role,
-  type User,
-} from '@/entities/user'
+import { can, type CurrentUser } from '@/entities/session'
+import { canManageTarget, isSameUser, type Role, type User } from '@/entities/user'
 import type { BackendCapabilities } from '@/shared/api/backend-capabilities'
 
 export type UserRowAbilities = {
@@ -25,13 +18,6 @@ export type UserAbilities = {
   filterByRole: boolean
   /** Ô tìm kiếm + lọc trạng thái — theo cờ `userSearch`. */
   search: boolean
-  /**
-   * Dòng này có được hiện không. TẠM: backend chưa lọc `GET /users` theo phạm vi (MANAGER nhận về toàn bộ người
-   * dùng — proposal `docs/proposals/2026-09-30-user-management-api.md`, mục D1). Người dưới ADMIN chỉ thấy chính
-   * mình + người cấp thấp hơn. Dữ liệu vẫn đã về tới trình duyệt — đây là lớp giao diện, không phải bảo mật.
-   * Gỡ khi backend lọc.
-   */
-  visible: (target: User) => boolean
   row: (target: User) => UserRowAbilities
 }
 
@@ -41,13 +27,6 @@ export function isSelf(
   target: Pick<User, 'slug' | 'phonenumber'>,
 ): boolean {
   return isSameUser(me, target)
-}
-
-/** ADMIN trở lên (theo `level`, kể cả vai trò tự tạo cấp cao) — phạm vi toàn hệ thống. */
-function seesEveryone(me: CurrentUser, roles: readonly Role[] | undefined): boolean {
-  if (me.roleName === ROLES.SUPER_ADMIN) return true
-  const level = me.role?.level ?? resolveRoleLevel(me.roleName, roles)
-  return level !== null && level >= BUILT_IN_ROLE_LEVELS.ADMIN
 }
 
 /**
@@ -75,8 +54,6 @@ export function userAbilities(
     create: can(me, 'USER_CREATE') && readRoles,
     filterByRole: readRoles,
     search: flags.userSearch,
-    visible: (target) =>
-      me !== null && (seesEveryone(me, roles) || isSelf(me, target) || manageable(target)),
     row: (target) => {
       const ok = manageable(target)
       return {

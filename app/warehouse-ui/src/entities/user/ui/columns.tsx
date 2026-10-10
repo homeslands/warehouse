@@ -18,16 +18,21 @@ export function userDisplayName(
 }
 
 /**
- * `roleLabel` và `isSelf` do tầng page cấp: entity không được đọc `entities/session` (import ngang).
+ * `roleLabel` và `isSelf` do tầng page cấp: entity không được đọc `entities/session` (import ngang). Có `onOpen`
+ * thì tên là nút mở chi tiết — cho bàn phím, vì cả dòng bấm được (`DataTable` `onRowClick`) nhưng `<tr>` không nhận focus.
  * `sortField` khớp field `sort` của `GET /users` (chỉ có tác dụng khi màn bật `sorting`). Khung hẹp giữ Họ tên, Trạng thái, Thao tác.
  */
 const MAX_WAREHOUSES_SHOWN = 2
 
 export function buildUserColumns(
   t: TFunction<readonly ['users', 'common']>,
-  options: { roleLabel: (roleName: string) => string; isSelf: (user: User) => boolean },
+  options: {
+    roleLabel: (roleName: string) => string
+    isSelf: (user: User) => boolean
+    onOpen?: (user: User) => void
+  },
 ): ColumnDef<User>[] {
-  const { roleLabel, isSelf } = options
+  const { roleLabel, isSelf, onOpen } = options
   return [
     {
       id: 'name',
@@ -37,7 +42,18 @@ export function buildUserColumns(
         // Nhãn "Bạn" chạy theo dòng chữ (inline) — tên xuống 2-3 dòng thì nhãn nằm ngay sau chữ cuối, không
         // lơ lửng giữa ô như khi là một cột flex.
         <div className="max-w-64 min-w-28 font-medium break-words whitespace-normal">
-          {userDisplayName(row.original)}
+          {onOpen ? (
+            <button
+              type="button"
+              className="text-left underline-offset-4 hover:underline"
+              aria-label={t('users:viewDetail', { name: userDisplayName(row.original) })}
+              onClick={() => onOpen(row.original)}
+            >
+              {userDisplayName(row.original)}
+            </button>
+          ) : (
+            userDisplayName(row.original)
+          )}
           {isSelf(row.original) && (
             <Badge variant="secondary" className="ms-2 align-middle">
               {t('users:you')}

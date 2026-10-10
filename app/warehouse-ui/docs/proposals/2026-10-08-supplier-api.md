@@ -17,6 +17,11 @@
 >   FE ẩn tab Giao dịch sau cờ `supplierTransactions` (tắt); mục 2.1, 2.5, 2.6 tạm hoãn theo.
 > - `createdAt` / `updatedAt` của NCC và vật tư trả dạng `Date.toString()` (`"Thu Sep 24 2026 15:47:30 GMT+0700 (Indochina
 >   Time)"`), không phải ISO 8601 như các module khác — FE vẫn đọc được nhưng nên trả ISO cho thống nhất.
+> - **2026-10-09 (WMS-13-be 5–8)**: gắn / gỡ vật tư thành theo lô — `PUT`/`DELETE /suppliers/{slug}/materials`, body
+>   `{ materialSlugs }` (1–100, 101222), tất cả hoặc không; route cũ `/:materialSlug` bị xoá. FE đã chuyển (chọn nhiều
+>   ở hộp Gắn, tick nhiều dòng để Gỡ). **Đề nghị thêm:** khi từ chối cả lô (101212 / 100701 / 101213) trả kèm danh sách
+>   slug gây lỗi (vd `details.materialSlugs`) — hiện người dùng chọn 20 vật tư mà lẫn 1 cái của NCC khác thì không biết
+>   bỏ cái nào. Mục 2.3 (`GET /materials` trả `supplier`) vì vậy càng cần: FE ẩn sẵn được vật tư đã thuộc NCC khác.
 > - `GET /suppliers/{slug}/materials` có thêm lọc `typeSlug`, `code`, `name`, `from`, `to` (mã lỗi 101221). FE dùng `code` /
 >   `name` (một ô tìm) + `from` / `to` sau cờ `supplierMaterialFilters`; `typeSlug` chưa dùng (chưa có API danh sách loại
 >   vật tư phía FE).

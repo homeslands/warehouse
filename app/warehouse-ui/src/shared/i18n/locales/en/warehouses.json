@@ -60,9 +60,9 @@
   "memberPlaceholder": "Select a user",
   "noMemberAvailable": "No one left to add",
   "removeMemberAction": "Remove",
+  "removeMemberMenu": "Remove from warehouse",
   "removeMemberTitle": "Remove member",
   "removeMemberConfirm": "Remove <1>{{name}}</1> from the warehouse? They will no longer see this warehouse.",
   "sectionMembers": "Members",
-  "noMembers": "This warehouse has no members.",
-  "removeMemberAria": "Remove {{name}} from the warehouse"
+  "noMembers": "This warehouse has no members."
 }

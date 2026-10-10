@@ -2,6 +2,7 @@ import { ChevronsUpDownIcon, XIcon } from 'lucide-react'
 import { useCallback, useRef, useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
+import { matchesSearch } from '@/shared/lib/search-text'
 import { Button } from '@/shared/ui/button'
 import {
   Command,
@@ -24,20 +25,9 @@ type ComboboxProps = Omit<ComponentProps<'button'>, 'value' | 'onChange'> & {
   emptyText?: string
 }
 
-/** Bỏ dấu tiếng Việt để gõ "da nang" vẫn ra "Đà Nẵng" — bộ lọc mặc định của cmdk không làm việc này. */
-function normalize(text: string): string {
-  return text
-    .normalize('NFD')
-    .replace(/[̀-ͯ]/g, '')
-    .replace(/đ/g, 'd')
-    .replace(/Đ/g, 'D')
-    .toLowerCase()
-    .trim()
-}
-
 function filterOption(value: string, search: string, keywords?: string[]): number {
-  const haystack = normalize([value, ...(keywords ?? [])].join(' '))
-  return haystack.includes(normalize(search)) ? 1 : 0
+  // Bỏ dấu: gõ "da nang" vẫn ra "Đà Nẵng" — bộ lọc mặc định của cmdk không làm việc này.
+  return matchesSearch([value, ...(keywords ?? [])].join(' '), search) ? 1 : 0
 }
 
 /**
