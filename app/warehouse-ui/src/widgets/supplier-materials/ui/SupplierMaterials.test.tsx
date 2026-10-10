@@ -71,11 +71,12 @@ describe('SupplierMaterials', () => {
     await screen.findByText('Bột giặt')
 
     expect(screen.queryByRole('button', { name: 'Gắn vật tư' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Gỡ / })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Thao tác với / })).not.toBeInTheDocument()
+    expect(screen.queryByRole('checkbox')).not.toBeInTheDocument()
     expect(screen.getAllByRole('columnheader')).toHaveLength(5)
   })
 
-  it('canManage=true → nút Gắn mở hộp gắn; nút "Gỡ NL04" mở hộp gỡ', async () => {
+  it('canManage=true → nút Gắn mở hộp gắn; menu ⋯ "Gỡ khỏi nhà cung cấp" mở hộp gỡ một vật tư', async () => {
     mockMaterials([nl04])
     const user = userEvent.setup()
     renderWithProviders(<SupplierMaterials supplier={supplier} canManage canFilter={false} />, {
@@ -90,7 +91,8 @@ describe('SupplierMaterials', () => {
     await user.click(screen.getByRole('button', { name: 'Huỷ' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
-    await user.click(screen.getByRole('button', { name: 'Gỡ NL04' }))
+    await user.click(screen.getByRole('button', { name: 'Thao tác với NL04' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Gỡ khỏi nhà cung cấp' }))
     const dialog = await screen.findByRole('alertdialog', { name: 'Gỡ vật tư?' })
     expect(within(dialog).getByText('NL04')).toBeInTheDocument()
   })
@@ -192,5 +194,74 @@ describe('SupplierMaterials — lọc (canFilter)', () => {
     await screen.findByText('Bột giặt')
     expect(screen.getByRole('searchbox')).toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Gắn vật tư' })).toBeInTheDocument()
+  })
+})
+
+describe('SupplierMaterials — chọn nhiều để gỡ', () => {
+  it('tick 2 dòng → nút "Gỡ (2)" mở hộp liệt kê cả 2; chưa tick thì không có nút', async () => {
+    mockMaterials([nl04, nl05])
+    const user = userEvent.setup()
+    renderWithProviders(<SupplierMaterials supplier={supplier} canManage canFilter={false} />, {
+      auth: 'admin',
+    })
+    await screen.findByText('Bột giặt')
+    expect(screen.queryByRole('button', { name: /^Gỡ \(/ })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('checkbox', { name: 'Chọn NL04' }))
+    await user.click(screen.getByRole('checkbox', { name: 'Chọn NL05' }))
+    await user.click(screen.getByRole('button', { name: 'Gỡ (2)' }))
+
+    const dialog = await screen.findByRole('alertdialog', { name: 'Gỡ 2 vật tư?' })
+    expect(dialog).toHaveTextContent('NL04 · Bột giặt')
+    expect(dialog).toHaveTextContent('NL05 · Nhãn dán')
+  })
+
+  it('ô tick ở tiêu đề chọn / bỏ chọn cả trang; chọn một phần → trạng thái nửa', async () => {
+    mockMaterials([nl04, nl05])
+    const user = userEvent.setup()
+    renderWithProviders(<SupplierMaterials supplier={supplier} canManage canFilter={false} />, {
+      auth: 'admin',
+    })
+    await screen.findByText('Bột giặt')
+    const all = screen.getByRole('checkbox', { name: 'Chọn tất cả vật tư trên trang' })
+
+    await user.click(screen.getByRole('checkbox', { name: 'Chọn NL04' }))
+    expect(all).toHaveAttribute('data-state', 'indeterminate')
+    await user.click(all)
+    expect(screen.getByRole('button', { name: 'Gỡ (2)' })).toBeInTheDocument()
+    await user.click(all)
+    expect(screen.queryByRole('button', { name: /^Gỡ \(/ })).not.toBeInTheDocument()
+  })
+
+  it('bàn phím: tick bằng Space giữ nguyên focus trên ô tick (ô không bị dựng lại), tick tiếp được', async () => {
+    mockMaterials([nl04, nl05])
+    const user = userEvent.setup()
+    renderWithProviders(<SupplierMaterials supplier={supplier} canManage canFilter={false} />, {
+      auth: 'admin',
+    })
+    await screen.findByText('Bột giặt')
+    const box = screen.getByRole('checkbox', { name: 'Chọn NL04' })
+    box.focus()
+    await user.keyboard(' ')
+
+    expect(box).toHaveAttribute('data-state', 'checked')
+    expect(box).toHaveFocus()
+    expect(box).toBeInTheDocument()
+  })
+
+  it('đổi trang → bỏ chọn (không gỡ nhầm dòng đã khuất)', async () => {
+    mockMaterials([nl04, nl05], 25)
+    const user = userEvent.setup()
+    renderWithProviders(<SupplierMaterials supplier={supplier} canManage canFilter={false} />, {
+      auth: 'admin',
+    })
+    await screen.findByText('Bột giặt')
+    await user.click(screen.getByRole('checkbox', { name: 'Chọn NL04' }))
+    expect(screen.getByRole('button', { name: 'Gỡ (1)' })).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Trang sau' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: /^Gỡ \(/ })).not.toBeInTheDocument(),
+    )
   })
 })

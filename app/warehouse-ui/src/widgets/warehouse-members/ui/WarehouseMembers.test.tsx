@@ -6,7 +6,7 @@ import { describe, expect, it, vi } from 'vitest'
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import type { User } from '@/entities/user'
-import { paginated } from '@/shared/test/api'
+import { ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { WarehouseMembers } from '../index'
@@ -72,7 +72,7 @@ describe('WarehouseMembers', () => {
     ])
   })
 
-  it('canManage=false → không có nút Thêm, không có nút Gỡ, không cột thao tác (Review Focus #5)', async () => {
+  it('canManage=false → không có nút Thêm, không menu ⋯, không cột thao tác (Review Focus #5)', async () => {
     mockMembers([lan, binh])
     renderWithProviders(<WarehouseMembers warehouse={warehouse} canManage={false} />, {
       auth: 'admin',
@@ -80,11 +80,11 @@ describe('WarehouseMembers', () => {
     await screen.findByText('Trần Lan')
 
     expect(screen.queryByRole('button', { name: 'Thêm thành viên' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Gỡ / })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Thao tác với / })).not.toBeInTheDocument()
     expect(screen.getAllByRole('columnheader')).toHaveLength(4)
   })
 
-  it('canManage=true → nút Thêm mở hộp thêm; mỗi dòng có nút Gỡ mở hộp gỡ', async () => {
+  it('canManage=true → nút Thêm mở hộp thêm; mỗi dòng có menu ⋯, mục "Gỡ khỏi kho" mở hộp gỡ', async () => {
     mockMembers([lan, binh])
     const user = userEvent.setup()
     renderWithProviders(<WarehouseMembers warehouse={warehouse} canManage />, { auth: 'admin' })
@@ -97,8 +97,11 @@ describe('WarehouseMembers', () => {
     await user.click(screen.getByRole('button', { name: 'Huỷ' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
 
-    expect(screen.getAllByRole('button', { name: /^Gỡ .* khỏi kho$/ })).toHaveLength(2)
-    await user.click(screen.getByRole('button', { name: 'Gỡ Trần Lan khỏi kho' }))
+    // Không còn nút chữ "Gỡ" trên dòng — thao tác nằm trong menu ⋯ như mọi bảng khác.
+    expect(screen.queryByRole('button', { name: /^Gỡ/ })).not.toBeInTheDocument()
+    expect(screen.getAllByRole('button', { name: /^Thao tác với / })).toHaveLength(2)
+    await user.click(screen.getByRole('button', { name: 'Thao tác với Trần Lan' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Gỡ khỏi kho' }))
     const dialog = await screen.findByRole('alertdialog')
     expect(within(dialog).getByText('Gỡ thành viên')).toBeInTheDocument()
     expect(dialog).toHaveTextContent('Trần Lan')
@@ -141,5 +144,17 @@ describe('WarehouseMembers', () => {
 
     await waitFor(() => expect(pages).toEqual([1, 2, 1]))
     expect(await screen.findByText('Trần Lan')).toBeInTheDocument()
+  })
+
+  it('bấm dòng thành viên → sheet chi tiết người dùng, chỉ xem (không nút thao tác)', async () => {
+    mockMembers([lan, binh])
+    server.use(mswHttp.get(`${BASE}/users/${lan.slug}`, () => ok(lan)))
+    const user = userEvent.setup()
+    renderWithProviders(<WarehouseMembers warehouse={warehouse} canManage />, { auth: 'admin' })
+
+    await user.click(await screen.findByRole('button', { name: 'Xem chi tiết Trần Lan' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Trần Lan' })
+    expect(within(sheet).getByText('Tên đăng nhập')).toBeInTheDocument()
+    expect(within(sheet).queryByRole('button', { name: /^(Sửa|Khoá|Gỡ)/ })).not.toBeInTheDocument()
   })
 })

@@ -387,7 +387,9 @@ describe('StoresPage — quyền ghi và thao tác', () => {
 
     const item = await screen.findByRole('menuitem', { name: 'Xoá' })
     expect(item).toHaveAttribute('aria-disabled', 'true')
-    expect(item).toHaveAttribute('title', 'Phải ngừng hoạt động cửa hàng trước khi xoá')
+    // Lý do hiện thành dòng chữ ngay dưới mục (mục disabled không nhận hover nên `title` không ai thấy).
+    expect(item).toHaveAccessibleDescription('Phải ngừng hoạt động cửa hàng trước khi xoá')
+    expect(screen.getByText('Phải ngừng hoạt động cửa hàng trước khi xoá')).toBeVisible()
   })
 
   it('cửa hàng đã ngừng: xác nhận rồi DELETE', async () => {

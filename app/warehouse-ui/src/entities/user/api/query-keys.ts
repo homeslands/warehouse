@@ -5,6 +5,7 @@ export const userKeys = {
   all: ['users'] as const,
   lists: () => [...userKeys.all, 'list'] as const,
   list: (params: ListParams<UserFilters>) => [...userKeys.lists(), params] as const,
+  detail: (slug: string) => [...userKeys.all, 'detail', slug] as const,
 }
 
 /** Vai trò đổi cực hiếm và mọi màn cần tra `roleSlug` đều dùng lại — key riêng, staleTime dài. */

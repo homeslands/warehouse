@@ -188,7 +188,9 @@ describe('WarehouseDetailPage — quay lại và thao tác', () => {
     await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
     const del = await screen.findByRole('menuitem', { name: 'Xoá' })
     expect(del).toHaveAttribute('data-disabled')
-    expect(del).toHaveAttribute('title', 'Phải ngừng hoạt động kho trước khi xoá')
+    // Lý do hiện thành dòng chữ ngay dưới mục (mục disabled không nhận hover nên `title` không ai thấy).
+    expect(del).toHaveAccessibleDescription('Phải ngừng hoạt động kho trước khi xoá')
+    expect(screen.getByText('Phải ngừng hoạt động kho trước khi xoá')).toBeVisible()
   })
 
   it('xoá kho đã ngừng hoạt động → về danh sách', async () => {
@@ -251,7 +253,7 @@ describe('WarehouseDetailPage — khối Thành viên', () => {
 
     expect(await screen.findByText('Trần Lan')).toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Thêm thành viên' })).not.toBeInTheDocument()
-    expect(screen.queryByRole('button', { name: /^Gỡ / })).not.toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: /^Thao tác với / })).not.toBeInTheDocument()
   })
 
   it('thiếu USER_READ → không có khối và không gọi GET /users', async () => {

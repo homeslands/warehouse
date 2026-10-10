@@ -217,6 +217,17 @@ describe('StoreDetailPage', () => {
     expect(body).not.toHaveProperty('version')
   })
 
+  it('cửa hàng đang hoạt động → mục Xoá khoá, lý do hiện ngay dưới mục', async () => {
+    const { user } = renderPage()
+    await screen.findByRole('heading', { level: 1 })
+
+    await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
+    const del = await screen.findByRole('menuitem', { name: 'Xoá' })
+    expect(del).toHaveAttribute('data-disabled')
+    expect(del).toHaveAccessibleDescription('Phải ngừng hoạt động cửa hàng trước khi xoá')
+    expect(screen.getByText('Phải ngừng hoạt động cửa hàng trước khi xoá')).toBeVisible()
+  })
+
   it('xoá cửa hàng đã ngừng hoạt động → về danh sách', async () => {
     server.use(
       mswHttp.get(`${BASE}/stores/ch-ha-noi`, () => ok({ ...store, isActive: false })),
