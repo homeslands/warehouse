@@ -28,6 +28,8 @@ export function DeleteSupplierDialog({ supplier, onOpenChange, onDeleted }: Prop
   // không hiện câu xác nhận với tên trống.
   const [last, setLast] = useState(supplier)
   if (supplier !== null && supplier !== last) setLast(supplier)
+  // Đóng hộp = dọn lỗi: mở lại đúng bản ghi đó (vd sau khi đã gỡ hết ràng buộc) không còn câu lỗi cũ.
+  if (supplier === null && error !== null) setError(null)
   const shown = supplier ?? last
 
   // Lỗi gắn với bản ghi nó sinh ra: mở cho nhà cung cấp khác thì không hiện lại (render-time).

@@ -132,3 +132,18 @@ describe('ERROR_CODE_KEYS — nhà cung cấp (WMS-11)', () => {
     expect(ERROR_CODE_KEYS[101212]).toBe('supplierMaterialBelongsToOther')
   })
 })
+
+const MATERIAL_CATALOG_CODES = [
+  100601, 100602, 100603, 100604, 100605, 100606, 100607, 100609, 100701, 100702, 100703, 100704,
+  100705, 100706, 100707, 100708, 100709, 100710, 100712, 100714, 100715, 100716, 100717, 100718,
+  100720, 100721, 100722, 100723, 100724, 100901, 100902, 100903, 100904, 100905, 100906, 100907,
+  100909,
+]
+
+describe('ERROR_CODE_KEYS — danh mục vật tư (WMS-15)', () => {
+  it.each(MATERIAL_CATALOG_CODES)('mã %i có khoá và có bản dịch tiếng Việt', (code) => {
+    const key = ERROR_CODE_KEYS[code]
+    expect(key).toBeDefined()
+    expect(viErrors[key]).toBeTruthy()
+  })
+})

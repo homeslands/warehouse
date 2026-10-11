@@ -13,12 +13,11 @@ import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { materialKeys, useMaterialOptions } from '@/entities/material'
+import { MATERIAL_NOT_FOUND, materialKeys, useMaterialOptions } from '@/entities/material'
 import { useAllSupplierMaterials, useAttachSupplierMaterial } from '@/entities/supplier'
 
 /** Cả lô bị từ chối (BE "tất cả hoặc không"): đã thuộc NCC khác / vật tư không còn tồn tại — báo ngay trong hộp. */
 const BELONGS_TO_OTHER = 101212
-const MATERIAL_NOT_FOUND = 100701
 
 type Props = {
   /** `null` = đóng. */

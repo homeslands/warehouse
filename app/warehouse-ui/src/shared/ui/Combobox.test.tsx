@@ -155,4 +155,19 @@ describe('Combobox', () => {
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
     expect(screen.queryByRole('button', { name: 'Xoá lựa chọn' })).not.toBeInTheDocument()
   })
+
+  it('nhãn dài không khoảng trắng được ngắt dòng trong danh sách (không bị cắt giữa chữ)', async () => {
+    const label = 'ONG114 · ỐngNhựaPVCBìnhMinhPhi114x4,9mmClass3TiêuChuẩnISO1452'
+    render(
+      <Combobox
+        aria-label="Đơn vị"
+        options={[{ value: 'x', label }]}
+        value={undefined}
+        onChange={() => {}}
+      />,
+    )
+    await userEvent.setup().click(screen.getByRole('combobox', { name: 'Đơn vị' }))
+
+    expect(screen.getByText(label)).toHaveClass('min-w-0', 'break-words')
+  })
 })
