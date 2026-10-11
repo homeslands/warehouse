@@ -1,7 +1,7 @@
 import { describe, expect, it } from 'vitest'
 import type { CurrentUser } from '@/entities/session'
 import type { Role } from '@/entities/user'
-import { cellLock } from './cell-rules'
+import { cellLock, isRankLocked, sortRolesByRank } from './cell-rules'
 
 // Đối chiếu từng ca với mục 12 của docs/proposals/2026-09-25-permission-delegation-rules.md —
 // FE phải khoá đúng những ô backend sẽ từ chối.
@@ -126,5 +126,52 @@ describe('cellLock — cờ BẬT', () => {
 
   it('chưa đăng nhập → khoá', () => {
     expect(cellLock(base({ actor: null }))).toBe('rank')
+  })
+})
+
+describe('ma trận theo level thật (vai trò tự tạo)', () => {
+  const leveled = (name: string, level?: number): Role => ({
+    slug: name,
+    name,
+    level,
+    authorityCodes: [],
+  })
+
+  it('xếp cột theo level giảm dần; vai trò tự tạo nằm đúng chỗ trong thứ bậc', () => {
+    const roles = [
+      leveled('SUPERVISOR', 10),
+      leveled('Trưởng nhóm', 15),
+      leveled('ADMIN', 30),
+      leveled('MANAGER', 20),
+    ]
+    expect(sortRolesByRank(roles).map((r) => r.name)).toEqual([
+      'ADMIN',
+      'MANAGER',
+      'Trưởng nhóm',
+      'SUPERVISOR',
+    ])
+  })
+
+  it('ADMIN (30) sửa được cột vai trò tự tạo cấp 15; không sửa cột tự tạo cấp 30', () => {
+    expect(isRankLocked(actor('ADMIN'), leveled('Trưởng nhóm', 15), true)).toBe(false)
+    expect(isRankLocked(actor('ADMIN'), leveled('Quản lý vùng', 30), true)).toBe(true)
+  })
+
+  it('người mang vai trò tự tạo (role.level 15 từ /auth/me) sửa được cột SUPERVISOR, không sửa MANAGER', () => {
+    const me: CurrentUser = {
+      userName: 't',
+      roleName: 'Trưởng nhóm',
+      scope: [],
+      role: { slug: 'tl', name: 'Trưởng nhóm', level: 15 },
+    }
+    expect(isRankLocked(me, leveled('SUPERVISOR', 10), true)).toBe(false)
+    expect(isRankLocked(me, leveled('MANAGER', 20), true)).toBe(true)
+  })
+
+  it('vai trò tự tạo thiếu level → khoá (fail-closed), xếp cuối', () => {
+    expect(isRankLocked(actor('ADMIN'), leveled('Không cấp'), true)).toBe(true)
+    expect(
+      sortRolesByRank([leveled('Không cấp'), leveled('SUPERVISOR', 10)]).map((r) => r.name),
+    ).toEqual(['SUPERVISOR', 'Không cấp'])
   })
 })

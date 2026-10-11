@@ -172,6 +172,7 @@ describe('createRoutes — màn Cửa hàng', () => {
       '/material-types',
       '/units',
       '/users',
+      '/roles',
       '/permissions',
     ])
   })
@@ -521,6 +522,34 @@ describe('createRoutes — màn Vật tư', () => {
       route: '/materials',
       auth: 'customer',
     })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+  })
+})
+
+describe('createRoutes — màn Vai trò', () => {
+  beforeEach(() => {
+    server.use(mswHttp.get(`${BASE}/roles`, () => ok([])))
+  })
+
+  it('có ROLE_READ → vào được /roles, menu có "Vai trò" ngay trước "Phân quyền"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/roles',
+      auth: { userName: 'a', roleName: 'ADMIN', scope: ['ROLE_READ', 'MANAGE_PERMISSIONS'] },
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Vai trò', level: 1 })).toBeInTheDocument()
+    const menu = within(screen.getByRole('navigation', { name: 'Menu chính' }))
+    const links = menu.getAllByRole('link').map((a) => a.getAttribute('href'))
+    expect(links.indexOf('/roles')).toBeGreaterThan(-1)
+    expect(links.indexOf('/roles')).toBe(links.indexOf('/permissions') - 1)
+  })
+
+  it('thiếu ROLE_READ gõ thẳng /roles → /forbidden', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/roles',
+      auth: 'customer',
+    })
+
     await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
   })
 })

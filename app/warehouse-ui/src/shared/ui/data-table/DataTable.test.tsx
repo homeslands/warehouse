@@ -332,6 +332,19 @@ describe('DataTable — dữ liệu xấu (break-ui)', () => {
     expect(screen.getByRole('columnheader', { name: 'Tên' })).not.toHaveAttribute('data-pinned')
   })
 
+  it('ô ghim phải đổi nền khi rê chuột cùng nhịp với hàng (cùng transition-colors) — không lệch so với các ô khác', () => {
+    const withActions: ColumnDef<Row>[] = [
+      { accessorKey: 'name', header: 'Tên' },
+      { id: 'actions', header: 'Thao tác', cell: () => <button type="button">⋯</button> },
+    ]
+    render(<DataTable columns={withActions} data={rows.slice(0, 1)} isLoading={false} />)
+
+    const cell = screen.getByRole('button', { name: '⋯' }).closest('td')
+    // Hàng (`TableRow`) chuyển nền bằng `transition-colors`; ô ghim có nền đặc riêng nên phải chuyển cùng kiểu.
+    expect(cell?.closest('tr')).toHaveClass('transition-colors')
+    expect(cell).toHaveClass('transition-colors')
+  })
+
   it('tổng số bản ghi có dấu phân cách hàng nghìn theo ngôn ngữ', () => {
     render(
       <DataTable

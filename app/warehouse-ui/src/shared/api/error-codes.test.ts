@@ -147,3 +147,15 @@ describe('ERROR_CODE_KEYS — danh mục vật tư (WMS-15)', () => {
     expect(viErrors[key]).toBeTruthy()
   })
 })
+
+describe('ERROR_CODE_KEYS — vai trò (WMS-15 phần 2)', () => {
+  it.each([100101, 100102, 100103, 100104, 100105, 100106])(
+    'mã %i có khoá + bản dịch vi/en',
+    (code) => {
+      const key = ERROR_CODE_KEYS[code] as keyof typeof viErrors
+      expect(key).toBeDefined()
+      expect(viErrors[key]).toBeTruthy()
+      expect(enErrors[key as keyof typeof enErrors]).toBeTruthy()
+    },
+  )
+})

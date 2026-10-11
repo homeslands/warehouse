@@ -56,8 +56,14 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100424: 'userSortInvalid',
   100425: 'userIsActiveInvalid',
   100101: 'roleNotFound',
+  // warehouse-api src/role/role.validation.ts — tạo vai trò (WMS-15 phần 2).
+  100102: 'roleNameDoesExist',
+  100103: 'roleNameIsRequired',
   // warehouse-api src/role/role.validation.ts — gán/quản lý vai trò cùng cấp hoặc cao hơn mình.
   100104: 'roleLevelForbidden',
+  // Xoá vai trò: vai trò có sẵn / còn người dùng (kể cả người dùng đã xoá mềm).
+  100105: 'roleBuiltInCannotBeDeleted',
+  100106: 'roleInUse',
   109000: 'exportDatabaseError',
   121000: 'fileNotFound',
   121001: 'fileSizeExceedsLimitAllowed',

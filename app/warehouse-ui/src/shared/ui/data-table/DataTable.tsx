@@ -96,10 +96,11 @@ function hiddenClass(meta: unknown): string | undefined {
  * Cột `id: 'actions'` (menu `⋯`) luôn ghim mép phải: một ô quá rộng (email dài, nhiều kho, vai trò tự tạo
  * tên dài) làm bảng cuộn ngang thì nút thao tác vẫn thấy và bấm được, không bị đẩy ra ngoài khung. Nền đục
  * để chữ cuộn bên dưới không lộ qua; khi bảng thực sự cuộn ngang thì thêm bóng mép trái để báo còn nội dung
- * phía dưới. Màu nền khi hover/mở menu pha sẵn cho khớp `hover:bg-muted/50` của hàng.
+ * phía dưới. Màu nền khi hover/mở menu pha sẵn cho khớp `hover:bg-muted/50` của hàng, và chuyển bằng cùng
+ * `transition-colors` như hàng — thiếu thì ô ghim đổi màu tức thì, lệch nhịp so với phần còn lại của hàng.
  */
 const PINNED_RIGHT =
-  'sticky right-0 z-[1] bg-background [tr:hover>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] [tr:has([aria-expanded=true])>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-data-[overflowing=true]/table:shadow-[-6px_0_6px_-6px_rgb(0_0_0/0.2)]'
+  'sticky right-0 z-[1] bg-background transition-colors [tr:hover>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] [tr:has([aria-expanded=true])>&]:bg-[color-mix(in_oklab,var(--muted)_50%,var(--background))] group-data-[overflowing=true]/table:shadow-[-6px_0_6px_-6px_rgb(0_0_0/0.2)]'
 
 function pinnedProps(columnId: string) {
   return columnId === 'actions'

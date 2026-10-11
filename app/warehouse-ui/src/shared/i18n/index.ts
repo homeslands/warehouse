@@ -11,6 +11,7 @@ import viWarehouses from './locales/vi/warehouses.json'
 import viStores from './locales/vi/stores.json'
 import viSuppliers from './locales/vi/suppliers.json'
 import viUsers from './locales/vi/users.json'
+import viRoles from './locales/vi/roles.json'
 import viUnits from './locales/vi/units.json'
 import viMaterialTypes from './locales/vi/materialTypes.json'
 import viMaterials from './locales/vi/materials.json'
@@ -26,6 +27,7 @@ import enWarehouses from './locales/en/warehouses.json'
 import enStores from './locales/en/stores.json'
 import enSuppliers from './locales/en/suppliers.json'
 import enUsers from './locales/en/users.json'
+import enRoles from './locales/en/roles.json'
 import enUnits from './locales/en/units.json'
 import enMaterialTypes from './locales/en/materialTypes.json'
 import enMaterials from './locales/en/materials.json'
@@ -46,6 +48,7 @@ export const defaultNS = 'common'
 // `materialTypes` — chuỗi của màn Loại vật tư.
 // `materials` — chuỗi của màn Vật tư (danh sách, chi tiết, đơn vị quy đổi).
 // `users` — chuỗi của màn Người dùng (bảng, form tạo/sửa, reset mật khẩu, khoá/xoá).
+// `roles` — chuỗi của màn Vai trò (bảng, form tạo/sửa mô tả, hộp xoá).
 // `permissions` — bảng ma trận phân quyền role × authority.
 export const resources = {
   vi: {
@@ -57,6 +60,7 @@ export const resources = {
     stores: viStores,
     suppliers: viSuppliers,
     users: viUsers,
+    roles: viRoles,
     units: viUnits,
     materialTypes: viMaterialTypes,
     materials: viMaterials,
@@ -74,6 +78,7 @@ export const resources = {
     stores: enStores,
     suppliers: enSuppliers,
     users: enUsers,
+    roles: enRoles,
     units: enUnits,
     materialTypes: enMaterialTypes,
     materials: enMaterials,
@@ -101,6 +106,7 @@ void i18n
       'stores',
       'suppliers',
       'users',
+      'roles',
       'account',
       'units',
       'materialTypes',
