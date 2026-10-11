@@ -1,4 +1,14 @@
-import { FlaskConical, ShieldCheck, Store, Truck, Users, Warehouse } from 'lucide-react'
+import {
+  FlaskConical,
+  Package,
+  Ruler,
+  ShieldCheck,
+  Store,
+  Tags,
+  Truck,
+  Users,
+  Warehouse,
+} from 'lucide-react'
 import { Outlet, createBrowserRouter, type RouteObject } from 'react-router-dom'
 import { ROLES } from '@/entities/session'
 import { BACKEND_SUPPORTS, type BackendCapabilities } from '@/shared/api/backend-capabilities'
@@ -138,6 +148,49 @@ export function createRoutes({
           handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
         },
       ],
+    },
+    {
+      path: '/materials',
+      // `GET /materials` = `@RequireAuthority(MATERIAL_READ)`. Nút ghi + bảng quy đổi gác riêng
+      // (`pages/materials/model/abilities.ts`).
+      handle: {
+        authority: 'MATERIAL_READ',
+        nav: { group: 'catalog', labelKey: 'nav:materials', icon: Package },
+        crumb: 'nav:materials',
+      } satisfies AppRouteHandle,
+      children: [
+        {
+          index: true,
+          lazy: () => import('@/pages/materials').then((m) => ({ Component: m.MaterialsPage })),
+        },
+        {
+          path: ':slug',
+          lazy: () =>
+            import('@/pages/materials').then((m) => ({ Component: m.MaterialDetailPage })),
+          handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
+        },
+      ],
+    },
+    {
+      path: '/material-types',
+      lazy: () =>
+        import('@/pages/material-types').then((m) => ({ Component: m.MaterialTypesPage })),
+      // `GET /material-types` = `@RequireAuthority(MATERIAL_READ)` — loại vật tư dùng chung mã vật tư.
+      handle: {
+        authority: 'MATERIAL_READ',
+        nav: { group: 'catalog', labelKey: 'nav:materialTypes', icon: Tags },
+        crumb: 'nav:materialTypes',
+      } satisfies AppRouteHandle,
+    },
+    {
+      path: '/units',
+      lazy: () => import('@/pages/units').then((m) => ({ Component: m.UnitsPage })),
+      // `GET /units` = `@RequireAuthority(UNIT_READ)`. Nút ghi gác riêng trong màn.
+      handle: {
+        authority: 'UNIT_READ',
+        nav: { group: 'catalog', labelKey: 'nav:units', icon: Ruler },
+        crumb: 'nav:units',
+      } satisfies AppRouteHandle,
     },
     {
       path: '/account',

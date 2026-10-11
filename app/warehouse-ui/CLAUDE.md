@@ -471,13 +471,17 @@ backend cho nó qua trước khi nhìn `scope`):
   FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
   nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
-  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers` (bốn màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
+  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units` (bảy màn
+  sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
   `AUTHORITY_CODES` (để `/permissions` không báo lệch) nhưng **không có nút nào dùng** — chỉ khoá, không xoá. Đếm bằng `grep
   AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
   chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
   `authority.constants.ts`, không phải cách migration tham chiếu tới chúng.
   `SUPPLIER_CREATE/READ/UPDATE/DELETE` (WMS-11) gác `/suppliers`: ghi giao dịch dùng `SUPPLIER_UPDATE`, gắn / gỡ vật tư
   thêm `MATERIAL_UPDATE` (AND), tab Vật tư thêm `MATERIAL_READ` — chi tiết ở "Nợ kỹ thuật" → Nhà cung cấp.
+  `MATERIAL_*` gác cả **loại vật tư** (không có mã riêng); `UNIT_*` gác `/units`. Thêm / Sửa vật tư cần thêm `UNIT_READ`
+  (form tải `GET /units`); bảng đơn vị quy đổi ở trang chi tiết vật tư cần `UNIT_READ`, gắn / sửa tỉ lệ / gỡ cần
+  `MATERIAL_UPDATE` + `UNIT_UPDATE` (WMS-15).
 
 Chọn cái nào: **theo đúng thứ backend gác**. Endpoint gắn `@RequireAuthority(X)` → FE gác bằng
 `can(user, 'X')`. Endpoint gắn `@HasRole(...)` → gác bằng `hasRole`.
@@ -655,6 +659,21 @@ mất công tìm cách sửa nó.
   Quyền theo **authority**, không có nhánh lùi theo vai trò: xem = `SUPPLIER_READ`; thêm / sửa / xoá = `SUPPLIER_CREATE`
   / `_UPDATE` / `_DELETE`; ghi giao dịch = `SUPPLIER_UPDATE` (khi cờ `supplierTransactions` bật); gắn / gỡ vật tư = `SUPPLIER_UPDATE` + `MATERIAL_UPDATE`; tab
   Vật tư cần thêm `MATERIAL_READ`. Trên sandbox (2026-10-08) chỉ ADMIN có quyền ghi; MANAGER / SUPERVISOR chỉ xem.
+- **Vật tư / Loại vật tư / Đơn vị (`/materials`, `/material-types`, `/units`, WMS-15): đã dùng API thật.** Test tay:
+  `docs/test-checklists/WMS-15-fe-material-checklist.md`. Còn treo:
+  - BE bỏ qua `sort` → không sắp xếp theo cột. Ô chọn Loại / Đơn vị / đơn vị gắn được chỉ lấy **100 bản ghi đầu**
+    (lọc tại client; giá trị đang gán nằm ngoài vẫn được chèn vào ô chọn của form sửa); vượt thì cần tìm phía server.
+  - Ô tìm "mã hoặc tên" (`toCodeOrNameQuery`, `shared/lib/code.ts`): có số / gạch hoặc gõ toàn chữ hoa một từ (`KG`)
+    → `code` (khớp đúng), còn lại → `name`. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
+    (`CodeOrNameEmpty`, `?searchBy=`).
+  - Đơn vị gốc là một dòng của bảng đơn vị quy đổi ở backend → `materialCount.asConversionUnit` GỒM số vật tư làm gốc;
+    cột "Đang dùng" trừ ra khi hiện phần tách.
+  - Đổi đơn vị gốc chỉ biết bị khoá sau khi gửi (100723 — đã có tồn hoặc đơn vị quy đổi khác); xoá Loại / Vật tư chỉ
+    biết bị chặn sau khi gửi (100609 / 100712) — báo trong hộp. Xoá Đơn vị khoá sẵn theo `materialCount.total`.
+  - `NumberInput` coi `.` và `,` đều là dấu thập phân ("1.000" = 1) và viết lại về dạng chuẩn khi rời ô. Ngưỡng tồn /
+    tỉ lệ chặn ≥ 1e12 (`DECIMAL_18_6_LIMIT`, cột `DECIMAL(18,6)`; backend không chặn → lỗi 500).
+  - Tồn kho theo kho (`/warehouses/:slug/materials`) và máy tính quy đổi (`POST /materials/:slug/convert`) chưa làm —
+    chờ BE thêm đơn vị gốc vào `InventoryResponseDto` và lọc `name` / `code` (spec WMS-15 mục 9).
 - **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
   bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
   nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,
