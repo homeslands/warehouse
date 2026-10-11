@@ -34,6 +34,8 @@
   "pageSize": "Số dòng mỗi trang",
   "search": "Tìm kiếm",
   "clearSearch": "Xoá tìm kiếm",
+  "searchAsCode": "Tìm theo mã",
+  "searchAsName": "Tìm theo tên",
   "filters": "Bộ lọc",
   "filtersDescription": "Thay đổi áp dụng ngay cho danh sách.",
   "filtersActive": "{{count}} bộ lọc đang áp dụng",

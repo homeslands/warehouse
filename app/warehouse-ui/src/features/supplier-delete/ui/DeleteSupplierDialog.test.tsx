@@ -109,4 +109,16 @@ describe('DeleteSupplierDialog', () => {
     await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
     expect(screen.getByRole('alertdialog')).toHaveTextContent('NCC-HCM-02')
   })
+
+  it('đóng rồi mở lại đúng nhà cung cấp đó → lỗi cũ không còn (chưa bấm Xoá lại)', async () => {
+    server.use(mswHttp.delete(`${BASE}/suppliers/s-1`, () => apiError(422, 101211)))
+    const { user, rerender } = setup()
+    await user.click(screen.getByRole('button', { name: 'Xoá' }))
+    expect(await screen.findByRole('alert')).toBeInTheDocument()
+
+    rerender(null)
+    rerender(supplier)
+
+    expect(screen.queryByRole('alert')).not.toBeInTheDocument()
+  })
 })

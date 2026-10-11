@@ -25,7 +25,6 @@ export {
 } from './api/hooks'
 export { supplierKeys } from './api/query-keys'
 export { toTransactionRange, toTransactionDate } from './model/transaction-range'
-export { isCodeLike } from './model/code-like'
 export { SUPPLIER_TRANSACTION_TYPES } from './model/types'
 export type {
   Supplier,

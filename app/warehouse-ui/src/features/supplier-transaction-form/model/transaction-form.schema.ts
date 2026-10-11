@@ -1,13 +1,12 @@
 import { format } from 'date-fns'
 import { z } from 'zod'
+import { hasAtMostDecimals } from '@/shared/lib/number'
 import {
   toTransactionDate,
   type SupplierTransactionInput,
   type SupplierTransactionType,
 } from '@/entities/supplier'
 
-// Không dùng String(): số < 1e-6 thành dạng mũ ('1e-7') và bị đếm 0 số lẻ.
-const hasAtMostDecimals = (value: number, n: number) => Number(value.toFixed(n)) === value
 const NOTE_MAX = 1000
 
 export type TransactionFormValues = {
