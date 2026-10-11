@@ -1,4 +1,5 @@
-import { isCodeLike, type SupplierFilters } from '@/entities/supplier'
+import { isCodeLike } from '@/shared/lib/code'
+import type { SupplierFilters } from '@/entities/supplier'
 
 export type SupplierSearchField = 'search' | 'code' | 'taxCode' | 'phonenumber'
 export type SupplierSearchQuery = Partial<Pick<SupplierFilters, SupplierSearchField>>

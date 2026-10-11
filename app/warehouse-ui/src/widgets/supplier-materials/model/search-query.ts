@@ -1,4 +1,5 @@
-import { isCodeLike, type SupplierMaterialFilters } from '@/entities/supplier'
+import { isCodeLike } from '@/shared/lib/code'
+import type { SupplierMaterialFilters } from '@/entities/supplier'
 
 export type SupplierMaterialSearchQuery = Pick<SupplierMaterialFilters, 'code' | 'name'>
 

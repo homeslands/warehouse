@@ -16,9 +16,18 @@ import { AttachSupplierMaterialDialog } from '../index'
 const BASE = 'http://localhost:8085/api/v1'
 const supplier = { slug: 's-1', code: 'NCC-HN-01' }
 
-const m1: Material = { slug: 'm-1', code: 'NL01', name: 'Đường', baseUnitName: 'kg' }
-const m2: Material = { slug: 'm-2', code: 'NL04', name: 'Bột giặt', baseUnitName: 'kg' }
-const m3: Material = { slug: 'm-3', code: 'NL05', name: 'Nhãn' }
+const base = {
+  createdAt: '',
+  updatedAt: '',
+  minimumInventory: 0,
+  maximumInventory: 0,
+  typeSlug: 'mt-1',
+  typeCode: 'MT-01',
+  typeName: 'Nguyên liệu',
+}
+const m1: Material = { ...base, slug: 'm-1', code: 'NL01', name: 'Đường', baseUnitName: 'kg' }
+const m2: Material = { ...base, slug: 'm-2', code: 'NL04', name: 'Bột giặt', baseUnitName: 'kg' }
+const m3: Material = { ...base, slug: 'm-3', code: 'NL05', name: 'Nhãn' }
 
 let materialsUrl: URL | undefined
 let attachedUrl: URL | undefined

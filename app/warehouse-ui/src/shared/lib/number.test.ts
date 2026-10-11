@@ -1,0 +1,15 @@
+import { describe, expect, it } from 'vitest'
+import { hasAtMostDecimals } from './number'
+
+describe('hasAtMostDecimals', () => {
+  it.each([0, 1, 1.5, 0.123456, 1.000001, 50])('%s có ≤ 6 số lẻ', (v) => {
+    expect(hasAtMostDecimals(v, 6)).toBe(true)
+  })
+  it.each([0.1234567, 1e-7, 1.0000001])('%s có > 6 số lẻ', (v) => {
+    expect(hasAtMostDecimals(v, 6)).toBe(false)
+  })
+  it('n = 2 (tiền)', () => {
+    expect(hasAtMostDecimals(1.25, 2)).toBe(true)
+    expect(hasAtMostDecimals(1.255, 2)).toBe(false)
+  })
+})
