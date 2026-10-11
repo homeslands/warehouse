@@ -6,6 +6,7 @@ import {
   Store,
   Tags,
   Truck,
+  UserCog,
   Users,
   Warehouse,
 } from 'lucide-react'
@@ -208,6 +209,16 @@ export function createRoutes({
         authority: 'USER_READ',
         nav: { group: 'admin', labelKey: 'nav:users', icon: Users },
         crumb: 'nav:users',
+      } satisfies AppRouteHandle,
+    },
+    {
+      path: '/roles',
+      lazy: () => import('@/pages/roles').then((m) => ({ Component: m.RolesPage })),
+      // `GET /roles` = `@RequireAuthority(ROLE_READ)`. Nút ghi gác riêng (`pages/roles/model/abilities.ts`).
+      handle: {
+        authority: 'ROLE_READ',
+        nav: { group: 'admin', labelKey: 'nav:roles', icon: UserCog },
+        crumb: 'nav:roles',
       } satisfies AppRouteHandle,
     },
     {

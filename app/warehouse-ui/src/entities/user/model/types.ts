@@ -40,6 +40,18 @@ export type Role = {
   authorityCodes: string[]
 }
 
+/** Body `POST /roles`. Tên tự do (backend không kiểm định dạng, không dùng lại được kể cả sau khi xoá); `level` < cấp người tạo. */
+export type RoleInput = {
+  name: string
+  level: number
+  description?: string
+}
+
+/** Body `PATCH /roles/{slug}` — backend chỉ sửa được mô tả; `''` xoá trống. */
+export type RoleUpdateInput = {
+  description: string
+}
+
 /** Body `POST /users`. Trường tuỳ chọn để trống thì BỎ hẳn (`@IsEmail`/`@Matches` không nhận `''`). */
 export type UserInput = {
   phonenumber: string

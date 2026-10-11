@@ -471,8 +471,8 @@ backend cho nó qua trước khi nhìn `scope`):
   FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
   nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
-  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units` (bảy màn
-  sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
+  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units`, `/roles` (tám
+  màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
   `AUTHORITY_CODES` (để `/permissions` không báo lệch) nhưng **không có nút nào dùng** — chỉ khoá, không xoá. Đếm bằng `grep
   AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
   chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
@@ -481,7 +481,9 @@ backend cho nó qua trước khi nhìn `scope`):
   thêm `MATERIAL_UPDATE` (AND), tab Vật tư thêm `MATERIAL_READ` — chi tiết ở "Nợ kỹ thuật" → Nhà cung cấp.
   `MATERIAL_*` gác cả **loại vật tư** (không có mã riêng); `UNIT_*` gác `/units`. Thêm / Sửa vật tư cần thêm `UNIT_READ`
   (form tải `GET /units`); bảng đơn vị quy đổi ở trang chi tiết vật tư cần `UNIT_READ`, gắn / sửa tỉ lệ / gỡ cần
-  `MATERIAL_UPDATE` + `UNIT_UPDATE` (WMS-15).
+  `MATERIAL_UPDATE` + `UNIT_UPDATE` (WMS-15). `ROLE_CREATE/UPDATE/DELETE` gác nút ghi ở `/roles` (route `ROLE_READ`);
+  chỉ thao tác vai trò `level` thấp hơn mình (`canManageTarget`), vai trò có sẵn không xoá được. Ba mã này thuộc
+  `PROTECTED_AUTHORITY_CODES` (chỉ SUPER_ADMIN cấp được).
 
 Chọn cái nào: **theo đúng thứ backend gác**. Endpoint gắn `@RequireAuthority(X)` → FE gác bằng
 `can(user, 'X')`. Endpoint gắn `@HasRole(...)` → gác bằng `hasRole`.
@@ -513,8 +515,9 @@ phiếu nhập kho"): tên quyền dịch theo **mã** (`permissions:authorityNa
 tên nhóm backend (`GROUP_KEYS` trong `features/permission-matrix/model/labels.ts` →
 `permissions:groupNames.*`); dòng mã bên dưới giữ nguyên. Mã/nhóm FE chưa biết → hiện tên backend.
 **Thêm mã vào `AUTHORITY_CODES` thì thêm tên vào cả `vi` lẫn `en`** — `labels.test.ts` đỏ nếu thiếu.
-Cột vai trò xếp theo cấp bậc `ROLE_RANK` (SUPER_ADMIN → ADMIN → MANAGER → SUPERVISOR), không theo thứ tự
-API (`sortRolesByRank`).
+Cột vai trò xếp theo `level` thật (`sortRolesByRank` → `sortRolesByLevel` của `entities/user`, cấp cao trước, không biết
+cấp xuống cuối) — vai trò tự tạo ở `/roles` nằm đúng chỗ trong thứ bậc. R1 khoá cột theo `level` (`canManageTarget`):
+vai trò tự tạo phân quyền được khi thấp cấp hơn mình; thiếu `level` → khoá.
 
 Trong màn `/permissions`, **mọi** lần gạt switch đều đi qua `ConfirmDialog` — cả cấp lẫn gỡ, cho mọi
 vai trò, không chỉ ca tự thu hồi. Bảng dày switch cạnh nhau, không có undo, và thay đổi có hiệu lực
@@ -733,12 +736,18 @@ mất công tìm cách sửa nó.
   là lỗi tạm thời nên thử lại tới 3 lần thay vì dừng ngay. Sửa tối thiểu khi làm:
   `const d = error.response?.data; return d === undefined || d === '' ? error : d`. **Đợt này chưa
   sửa** — chạm tầng `shared`, ảnh hưởng nhiều test.
+- **Vai trò (`/roles`, WMS-15 phần 2): đã dùng API thật.** Test tay: `docs/test-checklists/WMS-15-fe-role-checklist.md`.
+  Còn treo: tên và cấp không đổi được (backend chỉ sửa mô tả); tên không dùng lại được kể cả sau khi xoá (FE chặn trùng
+  không phân biệt hoa thường với vai trò đang có + mã / nhãn vi-en của vai trò có sẵn, nhưng không biết tên vai trò đã
+  xoá → 100102 báo tại ô Tên); backend không trả số người dùng của vai trò → chặn xoá chỉ biết sau khi gửi (100106, hộp
+  xoá có link `/users?roleSlug=`). SUPER_ADMIN cũng chỉ tạo được cấp < cấp SUPER_ADMIN (FE tự chặn, backend chưa —
+  vai trò cấp ≥ SUPER_ADMIN gán được SUPER_ADMIN qua `change-role`): `docs/proposals/2026-10-11-role-level-cap.md`.
 - **Luật ủy quyền R1–R4 ở màn `/permissions`: FE ĐÃ DỰNG SẴN sau cờ `permissionDelegationRules`
   (mặc định `false`), chờ backend.** Đặc tả: `docs/proposals/2026-09-25-permission-delegation-rules.md`.
   Luật từng ô là hàm thuần `cellLock` / `isRankLocked` (`features/permission-matrix/model/cell-rules.ts`),
   thứ tự R3 → R1 → R2 → R4 như backend; SUPER_ADMIN miễn R1–R3, R4 ("vai trò cuối cùng") áp cho mọi
   người và áp cả khi cờ tắt. Cột vai trò ngang/cao hơn mình vẽ ✓/— (chỉ xem) thay cho switch. Hằng số
-  phải khớp backend: `ROLE_RANK` (`entities/session/model/roles.ts`), `PROTECTED_AUTHORITY_CODES`
+  phải khớp backend: `BUILT_IN_ROLE_LEVELS` (`entities/user/model/role-level.ts`, chỉ dùng khi thiếu `level`), `PROTECTED_AUTHORITY_CODES`
   (`shared/api/authority-codes.ts`). **Còn thiếu**: bốn mã lỗi mới (`AUTHORITY_PROTECTED`,
   `ROLE_RANK_NOT_ALLOWED`, `AUTHORITY_NOT_HELD`, `LAST_PERMISSION_ADMIN`) chưa có trong
   `error-codes.ts` vì backend chưa chọn số — tới lúc đó lỗi từ chối hiện câu chung. Bật cờ xong thì
