@@ -1,5 +1,5 @@
-import { ROLE_RANK, ROLES, type CurrentUser } from '@/entities/session'
-import type { Role } from '@/entities/user'
+import { ROLES, type CurrentUser } from '@/entities/session'
+import { canManageTarget, sortRolesByLevel, type Role } from '@/entities/user'
 import { PROTECTED_AUTHORITY_CODES } from '@/shared/api/authority-codes'
 
 const MANAGE_PERMISSIONS = 'MANAGE_PERMISSIONS'
@@ -11,23 +11,17 @@ const PROTECTED = new Set<string>(PROTECTED_AUTHORITY_CODES)
  */
 export type CellLock = 'protected' | 'rank' | 'notHeld' | 'lastKey'
 
-function rankOf(roleName: string | undefined, unknown: number): number {
-  return roleName !== undefined && roleName in ROLE_RANK
-    ? ROLE_RANK[roleName as keyof typeof ROLE_RANK]
-    : unknown
-}
-
 /**
- * Xếp vai trò từ cấp cao xuống cấp thấp (SUPER_ADMIN → ADMIN → MANAGER → SUPERVISOR) — ma trận đọc
- * theo đúng thứ bậc, dễ so ai hơn ai. Vai trò lạ xuống cuối, giữ thứ tự API (sort ổn định).
+ * Xếp vai trò theo `level` thật, cấp cao trước (cùng thứ tự màn `/roles`) — vai trò tự tạo nằm đúng chỗ trong
+ * thứ bậc. Không biết cấp → xuống cuối, giữ thứ tự API.
  */
 export function sortRolesByRank(roles: readonly Role[]): Role[] {
-  return [...roles].sort((a, b) => rankOf(b.name, -1) - rankOf(a.name, -1))
+  return sortRolesByLevel(roles)
 }
 
 /**
- * R1 cho cả CỘT: người dùng không được sửa vai trò ngang hoặc cao hơn mình. SUPER_ADMIN được miễn.
- * Vai trò lạ: người gọi coi như thấp nhất, vai trò đích coi như cao nhất — khoá, không mở.
+ * R1 cho cả CỘT: chỉ sửa vai trò có `level` THẤP HƠN mình (backend `RoleService.assertCanManage`). SUPER_ADMIN
+ * được miễn. Không biết cấp của một bên (vai trò tự tạo thiếu `level`, phiên cũ) → khoá (fail-closed).
  */
 export function isRankLocked(
   actor: CurrentUser | null,
@@ -35,7 +29,11 @@ export function isRankLocked(
   delegationRules: boolean,
 ): boolean {
   if (!delegationRules || actor?.roleName === ROLES.SUPER_ADMIN) return false
-  return rankOf(actor?.roleName, 0) <= rankOf(role.name, Infinity)
+  if (!actor) return true
+  return !canManageTarget(actor, {
+    roleName: role.name,
+    role: role.level === undefined ? undefined : { level: role.level },
+  })
 }
 
 /**

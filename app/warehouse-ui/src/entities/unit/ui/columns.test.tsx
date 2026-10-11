@@ -74,6 +74,8 @@ describe('buildUnitColumns', () => {
     expect(sub).toHaveClass('break-words', 'whitespace-normal')
     const desc = screen.getByText(long)
     expect(desc).toHaveClass('line-clamp-2')
+    // `block` đè `display: -webkit-box` của line-clamp → mô tả hiện hết các dòng (break-ui 2026-10-11).
+    expect(desc).not.toHaveClass('block')
     expect(desc).toHaveAttribute('title', long)
   })
 })

@@ -5,19 +5,25 @@ import { isApiError } from '@/shared/api/http'
 import type { ApiError, ListParams } from '@/shared/api/types'
 import {
   changeUserRole,
+  createRole,
   createUser,
   fetchRoles,
   fetchUser,
   fetchUsers,
   lockUser,
+  removeRole,
   resetUserPassword,
   unlockUser,
+  updateRole,
   updateUser,
 } from './user.api'
 import { roleKeys, userKeys } from './query-keys'
 import type {
   ManagerCandidate,
   ResetUserPasswordInput,
+  Role,
+  RoleInput,
+  RoleUpdateInput,
   User,
   UserFilters,
   UserInput,
@@ -204,6 +210,53 @@ export function useChangeUserRole() {
     onSuccess: () => {
       toast.success(t('users:roleChanged'))
       invalidate()
+    },
+  })
+}
+
+function useInvalidateRoles() {
+  const qc = useQueryClient()
+  // Ma trận phân quyền, ô lọc / gán vai trò ở màn Người dùng đều đọc `roleKeys.all`.
+  return () => qc.invalidateQueries({ queryKey: roleKeys.all })
+}
+
+export function useCreateRole() {
+  const invalidate = useInvalidateRoles()
+  const { t } = useTranslation(['roles'])
+  return useMutation<Role, ApiError, RoleInput>({
+    mutationFn: createRole,
+    // Form tự báo lỗi tại ô (tên trùng, cấp).
+    meta: { suppressErrorToast: true },
+    onSuccess: () => {
+      toast.success(t('roles:created'))
+      void invalidate()
+    },
+  })
+}
+
+export function useUpdateRole() {
+  const invalidate = useInvalidateRoles()
+  const { t } = useTranslation(['roles'])
+  return useMutation<Role, ApiError, { slug: string; input: RoleUpdateInput }>({
+    mutationFn: ({ slug, input }) => updateRole(slug, input),
+    meta: { suppressErrorToast: true },
+    onSuccess: () => {
+      toast.success(t('roles:updated'))
+      void invalidate()
+    },
+  })
+}
+
+export function useDeleteRole() {
+  const invalidate = useInvalidateRoles()
+  const { t } = useTranslation(['roles'])
+  return useMutation<string, ApiError, string>({
+    mutationFn: removeRole,
+    // Hộp xoá tự báo 100105 / 100106 tại chỗ.
+    meta: { suppressErrorToast: true },
+    onSuccess: () => {
+      toast.success(t('roles:deleted'))
+      void invalidate()
     },
   })
 }

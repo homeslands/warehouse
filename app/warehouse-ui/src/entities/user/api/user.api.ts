@@ -1,9 +1,11 @@
-import { getData, getPaginated, patchData, postData, putData } from '@/shared/api/http'
+import { deleteData, getData, getPaginated, patchData, postData, putData } from '@/shared/api/http'
 import type { ListParams, Paginated } from '@/shared/api/types'
 import type {
   ChangeUserRoleInput,
   ResetUserPasswordInput,
   Role,
+  RoleInput,
+  RoleUpdateInput,
   User,
   UserFilters,
   UserInput,
@@ -47,3 +49,13 @@ export const unlockUser = (slug: string): Promise<User> => putData<User>(`/users
 /** `USER_UPDATE`. Vai trò hiện tại lẫn vai trò mới phải thấp hơn người gọi; thu hồi mọi phiên của người đó. */
 export const changeUserRole = (slug: string, input: ChangeUserRoleInput): Promise<User> =>
   postData<User>(`/users/${slug}/change-role`, input)
+
+/** `ROLE_CREATE`. Cấp < cấp người tạo (100104); tên trùng kể cả vai trò đã xoá (100102). */
+export const createRole = (input: RoleInput): Promise<Role> => postData<Role>('/roles', input)
+
+/** `ROLE_UPDATE`. Chỉ mô tả; vai trò ngang/cao hơn mình → 100104. */
+export const updateRole = (slug: string, input: RoleUpdateInput): Promise<Role> =>
+  patchData<Role>(`/roles/${slug}`, input)
+
+/** `ROLE_DELETE`. Xoá mềm; chặn vai trò có sẵn (100105), còn người dùng (100106), ngang/cao hơn mình (100104). */
+export const removeRole = (slug: string): Promise<string> => deleteData<string>(`/roles/${slug}`)

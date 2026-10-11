@@ -32,7 +32,7 @@ export function buildUnitColumns(t: TFunction<readonly ['units', 'common']>): Co
           // Tối đa 2 dòng để bảng còn lướt được; đủ nội dung ở `title` và trong form sửa.
           <span
             title={row.original.description}
-            className="line-clamp-2 block max-w-80 min-w-40 break-words whitespace-normal"
+            className="line-clamp-2 max-w-80 min-w-40 break-words whitespace-normal"
           >
             {row.original.description}
           </span>
