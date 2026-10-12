@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon, MoreHorizontalIcon } from 'lucide-react'
-import { useEffect, useRef, useState } from 'react'
+import { ArrowLeftIcon } from 'lucide-react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
@@ -10,12 +10,6 @@ import { readBackTo } from '@/shared/lib/back-link'
 import { formatDateTime } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { DetailCard, DetailContact, DetailField, DetailGroup, DetailMeta } from '@/shared/ui/detail'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/shared/ui/dropdown-menu'
 import { EmptyValue } from '@/shared/ui/EmptyValue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
@@ -44,6 +38,7 @@ export function SupplierDetailPage() {
   const { data: supplier, isPending, error, refetch } = useSupplier(slug)
   useCrumbTitle(supplier?.name)
 
+  const deleteHintId = useId()
   const [formOpen, setFormOpen] = useState(false)
   const [deleting, setDeleting] = useState(false)
   // Tổng vật tư lấy từ chính query của tab Vật tư (cùng key mặc định → dùng chung cache) nên biết
@@ -136,29 +131,29 @@ export function SupplierDetailPage() {
           <h1 className="min-w-0 text-xl font-semibold break-words">
             {supplier.code} · {supplier.name}
           </h1>
-          <div className="flex gap-2">
-            {ability.update && (
-              <Button onClick={() => setFormOpen(true)}>{t('suppliers:editAction')}</Button>
-            )}
-            {ability.delete && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
-                    <MoreHorizontalIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  <DropdownMenuItem
-                    variant="destructive"
-                    // Backend chặn xoá khi còn vật tư gắn (101211) — khoá sẵn kèm lý do khi đã biết tổng.
-                    disabled={blocked}
-                    title={blocked ? t('suppliers:deleteBlocked') : undefined}
-                    onSelect={() => setDeleting(true)}
-                  >
-                    {t('suppliers:deleteMenu')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+          {/* Màn hẹp: hàng nút rơi xuống dưới tiêu đề → canh trái; đủ chỗ thì canh phải cạnh tiêu đề. */}
+          <div className="grid justify-items-start gap-1 sm:justify-items-end">
+            <div className="flex gap-2">
+              {ability.update && (
+                <Button onClick={() => setFormOpen(true)}>{t('suppliers:editAction')}</Button>
+              )}
+              {ability.delete && (
+                <Button
+                  variant="destructive"
+                  // Backend chặn xoá khi còn vật tư gắn (101211) — khoá sẵn kèm lý do khi đã biết tổng.
+                  disabled={blocked}
+                  aria-describedby={blocked ? deleteHintId : undefined}
+                  onClick={() => setDeleting(true)}
+                >
+                  {t('suppliers:deleteAction')}
+                </Button>
+              )}
+            </div>
+            {/* Lý do hiện sẵn, không dùng `title`: nút disabled không nhận hover, mobile không có hover. */}
+            {ability.delete && blocked && (
+              <p id={deleteHintId} className="text-muted-foreground max-w-80 text-xs sm:text-right">
+                {t('suppliers:deleteBlocked')}
+              </p>
             )}
           </div>
         </div>

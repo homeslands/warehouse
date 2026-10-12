@@ -109,5 +109,8 @@
     "SUPPLIER_DELETE": "Xoá nhà cung cấp",
     "TAX_PROFILE_READ": "Xem/tra cứu hồ sơ mã số thuế",
     "TAX_PROFILE_UPDATE": "Làm mới hồ sơ mã số thuế"
-  }
+  },
+  "expandAll": "Mở tất cả",
+  "collapseAll": "Thu gọn tất cả",
+  "groupCount": "{{count}} quyền"
 }

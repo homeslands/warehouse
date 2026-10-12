@@ -1,15 +1,24 @@
 import { Fragment, useState } from 'react'
-import { CheckIcon, MinusIcon, ShieldCheckIcon, ShieldOffIcon } from 'lucide-react'
+import {
+  CheckIcon,
+  ChevronRightIcon,
+  MinusIcon,
+  ShieldCheckIcon,
+  ShieldOffIcon,
+} from 'lucide-react'
 import { useTranslation } from 'react-i18next'
 import type { Authority } from '@/entities/authority'
 import { ROLES, useAuthStore, useRoleLabel } from '@/entities/session'
 import type { Role } from '@/entities/user'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { Button } from '@/shared/ui/button'
+import { Collapsible, CollapsibleContent, CollapsibleTrigger } from '@/shared/ui/collapsible'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { Switch } from '@/shared/ui/switch'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
 import { useTogglePermission, type TogglePermissionInput } from '../api/useTogglePermission'
 import { cellLock, isRankLocked, sortRolesByRank, type CellLock } from '../model/cell-rules'
+import { readExpandedGroups, writeExpandedGroups } from '../model/expanded-groups'
 import { useAuthorityLabels } from '../model/labels'
 
 const MANAGE_PERMISSIONS = 'MANAGE_PERMISSIONS'
@@ -72,6 +81,13 @@ export function PermissionMatrix({
   // là `variables` nhảy sang ô mới và ô cũ mở khoá giữa chừng.
   const [pending, setPending] = useState<ReadonlySet<string>>(new Set())
   const [confirming, setConfirming] = useState<Confirming | null>(null)
+  // Nhóm đang MỞ — mặc định gập hết (64 quyền / ~16 nhóm, mở hết thì trang dài hàng chục màn hình). Nhớ theo
+  // trình duyệt: vào lại trang vẫn mở đúng những nhóm đang làm.
+  const [expanded, setExpanded] = useState<ReadonlySet<string>>(() => new Set(readExpandedGroups()))
+  const setExpandedGroups = (next: ReadonlySet<string>) => {
+    setExpanded(next)
+    writeExpandedGroups(next)
+  }
 
   const superAdmin = roles.find((role) => role.name === ROLES.SUPER_ADMIN)
   // Xếp theo cấp bậc (ADMIN → MANAGER → SUPERVISOR) sau cột SUPER_ADMIN — không theo thứ tự API.
@@ -155,136 +171,181 @@ export function PermissionMatrix({
           confirmLabel: t('permissions:revokeAction'),
         }
 
+  const groups = groupAuthorities(authorities)
+
   return (
     <div className="grid gap-6">
       {/* Mỗi nhóm một BẢNG RIÊNG, tiêu đề nhóm nằm NGOÀI bảng. Đổi lại header cột (tên vai trò)
           lặp ở từng bảng — đó là điểm cộng với 46 quyền: cuộn xuống vẫn luôn thấy mình đang bật
           cho vai trò nào. */}
-      {groupAuthorities(authorities).map((group) => (
-        <section key={group.name} className="grid gap-2">
-          <h2 className="font-heading text-base font-semibold">{groupName(group.name)}</h2>
+      <div className="flex flex-wrap justify-end gap-2">
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={groups.every((group) => expanded.has(group.name))}
+          onClick={() => setExpandedGroups(new Set(groups.map((group) => group.name)))}
+        >
+          {t('permissions:expandAll')}
+        </Button>
+        <Button
+          variant="outline"
+          size="sm"
+          disabled={expanded.size === 0}
+          onClick={() => setExpandedGroups(new Set())}
+        >
+          {t('permissions:collapseAll')}
+        </Button>
+      </div>
 
-          <div className="@container overflow-x-auto rounded-xl border">
-            <Table>
-              <TableHeader>
-                {/* Dòng tiêu đề không tô hover: `TableRow` mặc định `hover:bg-muted/50` tô cả dòng trừ ô dính
+      {groups.map((group) => (
+        <Collapsible
+          key={group.name}
+          asChild
+          open={expanded.has(group.name)}
+          onOpenChange={(open) => {
+            const next = new Set(expanded)
+            if (open) next.add(group.name)
+            else next.delete(group.name)
+            setExpandedGroups(next)
+          }}
+        >
+          <section className="grid gap-2">
+            {/* Nút nằm TRONG heading: trình đọc màn hình vẫn nhảy theo heading, và nút đọc được trạng thái mở. */}
+            <h2 className="font-heading text-base font-semibold">
+              <CollapsibleTrigger className="group/trigger hover:bg-muted focus-visible:ring-ring/50 -mx-2 flex w-[calc(100%+1rem)] items-center gap-2 rounded-md px-2 py-1.5 text-left outline-none focus-visible:ring-[3px]">
+                <ChevronRightIcon
+                  aria-hidden
+                  className="text-muted-foreground size-4 shrink-0 transition-transform group-data-[state=open]/trigger:rotate-90"
+                />
+                <span className="min-w-0 break-words">{groupName(group.name)}</span>
+                <span className="text-muted-foreground text-sm font-normal whitespace-nowrap">
+                  · {t('permissions:groupCount', { count: group.items.length })}
+                </span>
+              </CollapsibleTrigger>
+            </h2>
+
+            <CollapsibleContent className="@container overflow-x-auto rounded-xl border">
+              <Table>
+                <TableHeader>
+                  {/* Dòng tiêu đề không tô hover: `TableRow` mặc định `hover:bg-muted/50` tô cả dòng trừ ô dính
                     (nền đặc riêng) → nửa dòng xám, nửa trắng khi rê chuột qua. */}
-                <TableRow className="hover:bg-transparent">
-                  {/* Cột đầu DÍNH trái: bảng cuộn ngang, không dính thì kéo sang cột vai trò
+                  <TableRow className="hover:bg-transparent">
+                    {/* Cột đầu DÍNH trái: bảng cuộn ngang, không dính thì kéo sang cột vai trò
                       cuối là mất luôn tên quyền đang bật. Phải có nền đặc, nếu không nội dung
                       cuộn qua sẽ lộ ra dưới nó. z-index THẤP (1–2), dưới header dính của app (`z-10`):
                       cao hơn thì khi cuộn trang ô này nổi đè lên header, che breadcrumb. */}
-                  <TableHead className="bg-background sticky left-0 z-[2] max-w-40 whitespace-normal @2xl:max-w-none @2xl:whitespace-nowrap">
-                    {t('permissions:columnAuthority')}
-                  </TableHead>
-                  {/* Khung bảng hẹp ẩn cột SUPER_ADMIN: nó chỉ là lời nhắc "Toàn quyền", không bấm được — nhường
+                    <TableHead className="bg-background sticky left-0 z-[2] max-w-40 whitespace-normal @2xl:max-w-none @2xl:whitespace-nowrap">
+                      {t('permissions:columnAuthority')}
+                    </TableHead>
+                    {/* Khung bảng hẹp ẩn cột SUPER_ADMIN: nó chỉ là lời nhắc "Toàn quyền", không bấm được — nhường
                       chỗ cho các cột vai trò chỉnh được. */}
-                  {superAdmin && (
-                    <TableHead className="hidden @xl:table-cell">
-                      {roleLabel(superAdmin.name)}
-                    </TableHead>
-                  )}
-                  {editableRoles.map((role) => (
-                    <TableHead key={role.slug}>
-                      <div className="grid">
-                        <span>{roleLabel(role.name)}</span>
-                        {/* R1: vai trò ngang/cao hơn mình → cả cột chỉ xem. Nói ra ngay ở tiêu đề,
+                    {superAdmin && (
+                      <TableHead className="hidden @xl:table-cell">
+                        {roleLabel(superAdmin.name)}
+                      </TableHead>
+                    )}
+                    {editableRoles.map((role) => (
+                      <TableHead key={role.slug}>
+                        <div className="grid">
+                          <span>{roleLabel(role.name)}</span>
+                          {/* R1: vai trò ngang/cao hơn mình → cả cột chỉ xem. Nói ra ngay ở tiêu đề,
                             thay vì để người dùng tự đoán từ một hàng switch xám. */}
-                        {isRankLocked(currentUser, role, delegationRules) && (
-                          <span
-                            className="text-muted-foreground text-xs font-normal"
-                            title={t('permissions:rankReason')}
-                          >
-                            {t('permissions:readOnlyColumn')}
-                          </span>
-                        )}
-                      </div>
-                    </TableHead>
-                  ))}
-                </TableRow>
-              </TableHeader>
-              <TableBody>
-                {group.items.map((authority) => (
-                  // `hover:bg-muted` ĐẶC thay cho `bg-muted/50` mặc định: ô dính tô nền riêng nên
-                  // màu có alpha sẽ chồng hai lớp và lệch màu với phần còn lại của dòng.
-                  <TableRow key={authority.slug} className="group hover:bg-muted">
-                    {/* `transition-colors` phải LẶP LẠI ở đây: nó nằm trên `<tr>`, không di truyền
+                          {isRankLocked(currentUser, role, delegationRules) && (
+                            <span
+                              className="text-muted-foreground text-xs font-normal"
+                              title={t('permissions:rankReason')}
+                            >
+                              {t('permissions:readOnlyColumn')}
+                            </span>
+                          )}
+                        </div>
+                      </TableHead>
+                    ))}
+                  </TableRow>
+                </TableHeader>
+                <TableBody>
+                  {group.items.map((authority) => (
+                    // `hover:bg-muted` ĐẶC thay cho `bg-muted/50` mặc định: ô dính tô nền riêng nên
+                    // màu có alpha sẽ chồng hai lớp và lệch màu với phần còn lại của dòng.
+                    <TableRow key={authority.slug} className="group hover:bg-muted">
+                      {/* `transition-colors` phải LẶP LẠI ở đây: nó nằm trên `<tr>`, không di truyền
                         xuống `<td>`. Thiếu nó, nền `<tr>` mờ dần trong khi ô dính đổi màu tức thì
                         — cột đầu nháy lệch nhịp với phần còn lại của dòng mỗi lần rê chuột. */}
-                    {/* Khung bảng hẹp (container query): cột dính giới hạn 10rem và cho xuống dòng, không thì nó chiếm gần hết
+                      {/* Khung bảng hẹp (container query): cột dính giới hạn 10rem và cho xuống dòng, không thì nó chiếm gần hết
                         bề ngang, các cột vai trò chỉ còn một khe để cuộn. */}
-                    <TableCell className="bg-background group-hover:bg-muted sticky left-0 z-[1] max-w-40 whitespace-normal transition-colors @2xl:max-w-none @2xl:whitespace-nowrap">
-                      <div className="grid gap-0.5">
-                        <span>{authorityName(authority)}</span>
-                        <span className="text-muted-foreground text-xs">
-                          {breakableCode(authority.code)}
-                        </span>
-                      </div>
-                    </TableCell>
-                    {/* Cột SUPER_ADMIN là LỜI KHẲNG ĐỊNH, không phải dữ liệu: nó bypass mọi cổng
+                      <TableCell className="bg-background group-hover:bg-muted sticky left-0 z-[1] max-w-40 whitespace-normal transition-colors @2xl:max-w-none @2xl:whitespace-nowrap">
+                        <div className="grid gap-0.5">
+                          <span>{authorityName(authority)}</span>
+                          <span className="text-muted-foreground text-xs">
+                            {breakableCode(authority.code)}
+                          </span>
+                        </div>
+                      </TableCell>
+                      {/* Cột SUPER_ADMIN là LỜI KHẲNG ĐỊNH, không phải dữ liệu: nó bypass mọi cổng
                         kiểm tra và cố tình không có row nào trong permission_tbl. Vẽ switch ở đây
                         là bịa ra một trạng thái không tồn tại. */}
-                    {superAdmin && (
-                      <TableCell className="text-muted-foreground hidden text-sm @xl:table-cell">
-                        {t('permissions:fullAccess')}
-                      </TableCell>
-                    )}
-                    {editableRoles.map((role) => {
-                      const granted = role.authorityCodes.includes(authority.code)
-                      const label = `${authorityName(authority)} — ${roleLabel(role.name)}`
+                      {superAdmin && (
+                        <TableCell className="text-muted-foreground hidden text-sm @xl:table-cell">
+                          {t('permissions:fullAccess')}
+                        </TableCell>
+                      )}
+                      {editableRoles.map((role) => {
+                        const granted = role.authorityCodes.includes(authority.code)
+                        const label = `${authorityName(authority)} — ${roleLabel(role.name)}`
 
-                      // Cột chỉ xem (R1): dấu ✓/— thay cho switch — vẫn cho biết đã cấp hay chưa.
-                      if (isRankLocked(currentUser, role, delegationRules)) {
+                        // Cột chỉ xem (R1): dấu ✓/— thay cho switch — vẫn cho biết đã cấp hay chưa.
+                        if (isRankLocked(currentUser, role, delegationRules)) {
+                          return (
+                            <TableCell key={role.slug}>
+                              <span
+                                role="img"
+                                aria-label={`${label}: ${t(granted ? 'permissions:cellGranted' : 'permissions:cellNotGranted')}`}
+                                className="text-muted-foreground inline-flex"
+                              >
+                                {granted ? (
+                                  <CheckIcon className="size-4" />
+                                ) : (
+                                  <MinusIcon className="size-4" />
+                                )}
+                              </span>
+                            </TableCell>
+                          )
+                        }
+
+                        const lock = cellLock({
+                          actor: currentUser,
+                          role,
+                          code: authority.code,
+                          granted,
+                          manageHolderCount: manageHolders.length,
+                          delegationRules,
+                        })
                         return (
                           <TableCell key={role.slug}>
-                            <span
-                              role="img"
-                              aria-label={`${label}: ${t(granted ? 'permissions:cellGranted' : 'permissions:cellNotGranted')}`}
-                              className="text-muted-foreground inline-flex"
-                            >
-                              {granted ? (
-                                <CheckIcon className="size-4" />
-                              ) : (
-                                <MinusIcon className="size-4" />
-                              )}
-                            </span>
-                          </TableCell>
-                        )
-                      }
-
-                      const lock = cellLock({
-                        actor: currentUser,
-                        role,
-                        code: authority.code,
-                        granted,
-                        manageHolderCount: manageHolders.length,
-                        delegationRules,
-                      })
-                      return (
-                        <TableCell key={role.slug}>
-                          {/* `title` đặt trên `<span>` bọc ngoài, KHÔNG trên chính `<Switch>`: phần
+                            {/* `title` đặt trên `<span>` bọc ngoài, KHÔNG trên chính `<Switch>`: phần
                               tử `disabled` không phát sự kiện chuột ở phần lớn trình duyệt nên
                               tooltip đặt thẳng trên nó không bao giờ hiện — đúng lúc người dùng cần
                               biết vì sao không bấm được. */}
-                          <span title={lock ? t(LOCK_REASON[lock]) : undefined}>
-                            <Switch
-                              aria-label={label}
-                              checked={granted}
-                              disabled={
-                                pending.has(cellKey(role.slug, authority.code)) || lock !== null
-                              }
-                              onCheckedChange={(next) => onToggle(role, authority, next)}
-                            />
-                          </span>
-                        </TableCell>
-                      )
-                    })}
-                  </TableRow>
-                ))}
-              </TableBody>
-            </Table>
-          </div>
-        </section>
+                            <span title={lock ? t(LOCK_REASON[lock]) : undefined}>
+                              <Switch
+                                aria-label={label}
+                                checked={granted}
+                                disabled={
+                                  pending.has(cellKey(role.slug, authority.code)) || lock !== null
+                                }
+                                onCheckedChange={(next) => onToggle(role, authority, next)}
+                              />
+                            </span>
+                          </TableCell>
+                        )
+                      })}
+                    </TableRow>
+                  ))}
+                </TableBody>
+              </Table>
+            </CollapsibleContent>
+          </section>
+        </Collapsible>
       ))}
 
       <p className="text-muted-foreground text-xs">{t('permissions:superAdminNote')}</p>
