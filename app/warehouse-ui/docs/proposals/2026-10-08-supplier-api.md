@@ -37,7 +37,7 @@
 | **Tổng hợp công nợ** | ❌ | chưa có — ngoài phạm vi đợt này |
 | **`GET /suppliers` tìm / sắp xếp** | ⚠️ tìm có ở WMS-13 (`main`, chưa deploy); `sort` đang làm | ô tìm + sắp xếp dựng sẵn sau cờ `supplierSearch` / `supplierSort` (tắt) |
 | **API giao dịch** | ⚠️ WMS-13 tạm ẩn `GET`/`POST .../transactions` | tab Giao dịch ẩn sau cờ `supplierTransactions` (tắt) |
-| **`GET /materials` biết nhà cung cấp** | ❌ | ô gắn vật tư không ẩn được vật tư đã thuộc nhà cung cấp khác — báo 101212 tại ô |
+| **`GET /materials` biết nhà cung cấp** | ✅ WMS-13-be(9) (2026-10-12): `hasSupplier` lọc + trả `supplier` | hộp Gắn vật tư gọi `hasSupplier=false` — chỉ còn vật tư gắn được |
 | **`PATCH` nhận `null`** | ❌ `pickDefined` | ô trống = giữ nguyên |
 | **Sửa giao dịch ghi sai** | ❌ sổ chỉ thêm | không có nút sửa / xoá giao dịch |
 | **MANAGER ghi giao dịch** | ⚠️ chỉ ADMIN có `SUPPLIER_UPDATE` | MANAGER / SUPERVISOR chỉ xem |

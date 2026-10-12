@@ -14,7 +14,7 @@ import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { MATERIAL_NOT_FOUND, materialKeys, useMaterialOptions } from '@/entities/material'
-import { useAllSupplierMaterials, useAttachSupplierMaterial } from '@/entities/supplier'
+import { useAttachSupplierMaterial } from '@/entities/supplier'
 
 /** Cả lô bị từ chối (BE "tất cả hoặc không"): đã thuộc NCC khác / vật tư không còn tồn tại — báo ngay trong hộp. */
 const BELONGS_TO_OTHER = 101212
@@ -36,9 +36,9 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
   const attach = useAttachSupplierMaterial()
   const searchId = useId()
   const open = supplier !== null
-  // Chỉ tải khi hộp mở — tab Vật tư đã có bảng riêng, không cần danh sách ứng viên.
-  const materials = useMaterialOptions({ enabled: open })
-  const attached = useAllSupplierMaterials(supplier?.slug ?? '', { enabled: open })
+  // Chỉ tải khi hộp mở. `hasSupplier: false`: backend chỉ trả vật tư CHƯA thuộc nhà cung cấp nào — mỗi vật tư
+  // thuộc tối đa một NCC (101212), nên đây đúng là những vật tư gắn được; không cần tự loại phía FE.
+  const materials = useMaterialOptions({ enabled: open, hasSupplier: false })
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [query, setQuery] = useState('')
@@ -56,12 +56,11 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
     }
   }, [slug])
 
-  const isLoading = materials.isPending || attached.isPending
+  const isLoading = materials.isPending
   // Lỗi tải ứng viên: nói rõ thay vì "Không còn vật tư nào để gắn" (sai sự thật) và khoá nút Gắn.
-  const loadError = materials.isError ? materials.error : attached.isError ? attached.error : null
+  const loadError = materials.isError ? materials.error : null
 
-  const attachedSlugs = new Set((attached.data?.items ?? []).map((m) => m.slug))
-  const candidates = (materials.data?.items ?? []).filter((m) => !attachedSlugs.has(m.slug))
+  const candidates = materials.data?.items ?? []
   const shown = candidates.filter((m) => matchesSearch(`${m.code} ${m.name}`, query))
   const allShownSelected = shown.length > 0 && shown.every((m) => selected.has(m.slug))
   const someShownSelected = shown.some((m) => selected.has(m.slug))
@@ -202,10 +201,10 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
                     <span className="min-w-0 break-words">
                       <span className="font-medium">{m.code}</span> · {m.name}
                       {/* Khoảng trắng nằm NGOÀI span: khoảng trắng đầu span bị cắt khi tính tên khả truy cập. */}
-                      {m.baseUnitName && (
+                      {m.baseUnit && (
                         <>
                           {' '}
-                          <span className="text-muted-foreground">· {m.baseUnitName}</span>
+                          <span className="text-muted-foreground">· {m.baseUnit.name}</span>
                         </>
                       )}
                     </span>

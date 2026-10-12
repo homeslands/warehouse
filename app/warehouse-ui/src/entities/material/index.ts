@@ -27,6 +27,7 @@ export { materialKeys } from './api/query-keys'
 export { MATERIAL_NOT_FOUND, MATERIAL_IN_USE } from './model/error-codes'
 export type {
   Material,
+  MaterialRef,
   MaterialInput,
   MaterialUpdateInput,
   MaterialFilters,

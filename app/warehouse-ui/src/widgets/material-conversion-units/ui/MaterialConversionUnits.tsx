@@ -21,7 +21,7 @@ import { ConversionUnitDialog } from '@/features/material-conversion-unit-form'
 import { DetachConversionUnitDialog } from '@/features/material-conversion-unit-detach'
 
 type Props = {
-  material: Pick<Material, 'slug' | 'baseUnitSlug' | 'baseUnitCode'>
+  material: Pick<Material, 'slug' | 'baseUnit'>
   /** Gắn / sửa tỉ lệ / gỡ (`MATERIAL_UPDATE` + `UNIT_UPDATE` + `UNIT_READ`). */
   canManage: boolean
 }
@@ -38,7 +38,7 @@ export function MaterialConversionUnits({ material, canManage }: Props) {
   const [editing, setEditing] = useState<MaterialConversionUnit | null>(null)
   const [detaching, setDetaching] = useState<MaterialConversionUnit | null>(null)
 
-  const baseUnitCode = material.baseUnitSlug && material.baseUnitCode ? material.baseUnitCode : null
+  const baseUnitCode = material.baseUnit?.code ?? null
   const { data, isPending, error, isPlaceholderData } = useConversionUnits(
     material.slug,
     { page, size },

@@ -504,9 +504,10 @@ describe('createRoutes — màn Vật tư', () => {
           name: 'Xi măng',
           minimumInventory: 0,
           maximumInventory: 0,
-          typeSlug: 'mt-1',
-          typeCode: 'MT-01',
-          typeName: 'Vật liệu',
+          type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
+          baseUnit: null,
+          hasSupplier: false,
+          supplier: null,
         }),
       ),
     )

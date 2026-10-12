@@ -20,12 +20,10 @@ const material: Material = {
   name: 'Xi măng',
   minimumInventory: 10,
   maximumInventory: 100,
-  typeSlug: 'mt-1',
-  typeCode: 'MT-01',
-  typeName: 'Vật liệu',
-  baseUnitSlug: 'u-kg',
-  baseUnitCode: 'KG',
-  baseUnitName: 'Kilogram',
+  type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
+  baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
+  hasSupplier: false,
+  supplier: null,
 }
 
 const ADMIN: TestAuth = {

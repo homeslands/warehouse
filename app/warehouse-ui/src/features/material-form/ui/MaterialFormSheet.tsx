@@ -90,15 +90,15 @@ export function MaterialFormSheet({ open, onOpenChange, material }: Props) {
   const typeOptions = withCurrent(
     (types.data?.items ?? []).map((x) => ({ value: x.slug, label: optionLabel(x.code, x.name) })),
     material
-      ? { value: material.typeSlug, label: optionLabel(material.typeCode, material.typeName) }
+      ? { value: material.type.slug, label: optionLabel(material.type.code, material.type.name) }
       : null,
   )
   const unitOptions = withCurrent(
     (units.data?.items ?? []).map((x) => ({ value: x.slug, label: optionLabel(x.code, x.name) })),
-    material?.baseUnitSlug && material.baseUnitCode
+    material?.baseUnit
       ? {
-          value: material.baseUnitSlug,
-          label: optionLabel(material.baseUnitCode, material.baseUnitName ?? ''),
+          value: material.baseUnit.slug,
+          label: optionLabel(material.baseUnit.code, material.baseUnit.name),
         }
       : null,
   )
@@ -281,9 +281,7 @@ export function MaterialFormSheet({ open, onOpenChange, material }: Props) {
               {/* Sửa vật tư đã có đơn vị gốc: backend khoá đổi khi đã có tồn / đơn vị quy đổi khác (100723) —
                   FE không biết trước tồn kho nên không khoá sẵn, chỉ nhắc. Vật tư cũ chưa có thì là lần chọn đầu. */}
               <FormDescription>
-                {material?.baseUnitSlug
-                  ? t('materials:baseUnitLockHint')
-                  : t('materials:baseUnitHint')}
+                {material?.baseUnit ? t('materials:baseUnitLockHint') : t('materials:baseUnitHint')}
               </FormDescription>
               <FormMessage />
             </FormItem>

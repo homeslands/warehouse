@@ -13,9 +13,10 @@ const legacy: Material = {
   name: 'Xi măng',
   minimumInventory: 0,
   maximumInventory: 12.5,
-  typeSlug: 'mt-1',
-  typeCode: 'MT-01',
-  typeName: 'Vật liệu',
+  type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
+  baseUnit: null,
+  hasSupplier: false,
+  supplier: null,
 }
 
 function Table({ rows }: { rows: Material[] }) {
@@ -41,8 +42,8 @@ function Table({ rows }: { rows: Material[] }) {
 }
 
 describe('buildMaterialColumns', () => {
-  it('vật tư cũ chưa có đơn vị gốc (vắng hoặc null) → "Chưa có"; ngưỡng giữ số lẻ', () => {
-    render(<Table rows={[legacy, { ...legacy, slug: 'm-2', baseUnitCode: null }]} />)
+  it('vật tư cũ chưa có đơn vị gốc (`baseUnit: null`) → "Chưa có"; ngưỡng giữ số lẻ', () => {
+    render(<Table rows={[legacy, { ...legacy, slug: 'm-2' }]} />)
     expect(screen.getAllByText('Chưa có')).toHaveLength(2)
     expect(screen.getAllByText('12,5')).toHaveLength(2)
   })
@@ -52,7 +53,19 @@ describe('buildMaterialColumns', () => {
     const unitCode = 'THUNG-24CHAI-500ML-PET-XK-202601'
     const name = 'ỐngNhựaPVCBìnhMinhPhi114x4,9mmClass3TiêuChuẩnISO1452'
     const typeName = 'HoáChấtTẩyRửaCôngNghiệpNồngĐộCaoKhôngPhaLoãng'
-    render(<Table rows={[{ ...legacy, code, name, typeName, baseUnitCode: unitCode }]} />)
+    render(
+      <Table
+        rows={[
+          {
+            ...legacy,
+            code,
+            name,
+            type: { ...legacy.type, name: typeName },
+            baseUnit: { slug: 'u-x', code: unitCode, name: 'Thùng' },
+          },
+        ]}
+      />,
+    )
 
     expect(screen.getAllByText(code).find((el) => el.className.includes('@sm:hidden'))).toHaveClass(
       'break-words',

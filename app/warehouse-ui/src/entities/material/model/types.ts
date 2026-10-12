@@ -1,6 +1,18 @@
+/** Phần FE dùng của object lồng trong `MaterialResponseDto` (loại / đơn vị / nhà cung cấp) — backend trả đủ DTO của module đó. */
+export type MaterialRef = {
+  slug: string
+  code: string
+  name: string
+}
+
 /**
  * `MaterialResponseDto`. Danh mục không có `version`, không có `isActive`, không có `description`. Tên vật tư ĐƯỢC
- * trùng (backend không có mã lỗi trùng tên). `baseUnit*` có thể vắng ở dữ liệu cũ chưa có đơn vị gốc (100714).
+ * trùng (backend không có mã lỗi trùng tên).
+ *
+ * Từ WMS-13-be(9) (2026-10-12) loại / đơn vị gốc là **object lồng** (`type`, `baseUnit`), không còn trường phẳng
+ * `typeSlug`/`baseUnitCode`…; body gửi lên và bộ lọc vẫn dùng `typeSlug` / `baseUnitSlug`. `baseUnit: null` = dữ liệu cũ
+ * chưa có đơn vị gốc (100714). Mỗi vật tư thuộc tối đa MỘT nhà cung cấp (`supplier`, `null` khi chưa gắn).
+ * `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng — xem `SupplierMaterial`.
  */
 export type Material = {
   slug: string
@@ -11,12 +23,10 @@ export type Material = {
   /** Ngưỡng mặc định; kho có thể ghi đè. ≥ 0, tối đa 6 số lẻ. */
   minimumInventory: number
   maximumInventory: number
-  typeSlug: string
-  typeCode: string
-  typeName: string
-  baseUnitSlug?: string | null
-  baseUnitCode?: string | null
-  baseUnitName?: string | null
+  type: MaterialRef
+  baseUnit: MaterialRef | null
+  hasSupplier: boolean
+  supplier: MaterialRef | null
 }
 
 export type MaterialInput = {
@@ -32,11 +42,15 @@ export type MaterialInput = {
 /** PATCH partial (`pickDefined`). Đổi `baseUnitSlug` bị khoá khi đã có tồn / đơn vị quy đổi khác (100723). */
 export type MaterialUpdateInput = Partial<MaterialInput>
 
-/** Lọc `GET /materials` (ghép AND): `code` khớp đúng, `name` chứa chuỗi, `typeSlug` khớp đúng. */
+/**
+ * Lọc `GET /materials` (ghép AND): `code` khớp đúng, `name` chứa chuỗi, `typeSlug` khớp đúng; `hasSupplier`
+ * `false` = chưa thuộc nhà cung cấp nào (ứng viên gắn vào NCC), `true` = đã thuộc một NCC. Giá trị sai → 100725.
+ */
 export type MaterialFilters = {
   name?: string
   code?: string
   typeSlug?: string
+  hasSupplier?: boolean
 }
 
 /**

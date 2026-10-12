@@ -131,5 +131,5 @@
   "detachMenu": "Remove from supplier",
   "selectMaterialAria": "Select {{code}}",
   "selectAllOnPage": "Select all materials on this page",
-  "materialListLabel": "Materials not yet with this supplier"
+  "materialListLabel": "Materials not attached to any supplier"
 }
