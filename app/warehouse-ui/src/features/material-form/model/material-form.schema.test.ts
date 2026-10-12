@@ -16,12 +16,10 @@ const material: Material = {
   name: 'Xi măng',
   minimumInventory: 10,
   maximumInventory: 100,
-  typeSlug: 'mt-1',
-  typeCode: 'MT-01',
-  typeName: 'Vật liệu',
-  baseUnitSlug: 'u-kg',
-  baseUnitCode: 'KG',
-  baseUnitName: 'Kilogram',
+  type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
+  baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
+  hasSupplier: false,
+  supplier: null,
 }
 
 const valid: MaterialFormValues = {
@@ -87,7 +85,7 @@ describe('chuyển đổi', () => {
     expect(toUpdateInput(values, material)).toEqual({ minimumInventory: 0 })
   })
   it('vật tư cũ chưa có đơn vị gốc: form trống ô đơn vị, không đổi thì không gửi baseUnitSlug', () => {
-    const legacy = { ...material, baseUnitSlug: null, baseUnitCode: null, baseUnitName: null }
+    const legacy = { ...material, baseUnit: null }
     const values = toFormValues(legacy)
     expect(values.baseUnitSlug).toBe('')
     expect(toUpdateInput({ ...values, name: 'Xi măng PCB40' }, legacy)).toEqual({

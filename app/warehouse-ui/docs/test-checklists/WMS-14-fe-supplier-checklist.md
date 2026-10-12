@@ -69,8 +69,9 @@ mật khẩu hỏi trưởng nhóm, không ghi vào repo. Dữ liệu test đặ
 ## Tab Vật tư
 
 - [ ] Cột Mã · Tên · Loại · Đơn vị cơ sở · Thao tác (Gỡ); NCC chưa có vật tư hiện "Nhà cung cấp chưa có vật tư nào."
-- [ ] "Gắn vật tư": ô chọn lọc theo gõ, nhãn `Mã · Tên · ĐVT`; vật tư đã gắn với NCC này không còn trong ô.
-- [ ] Chọn vật tư đang thuộc NCC khác → bấm Gắn → lỗi 101212 "Vật tư này đã thuộc nhà cung cấp khác" ngay dưới ô.
+- [ ] "Gắn vật tư": ô chọn lọc theo gõ, nhãn `Mã · Tên · ĐVT`; CHỈ có vật tư chưa thuộc nhà cung cấp nào (vật tư của NCC
+      này và của NCC khác đều không có trong danh sách — Network gửi `hasSupplier=false`).
+- [ ] Hai tab cùng mở hộp Gắn cho hai NCC, gắn cùng một vật tư ở tab đầu → tab sau bấm Gắn → lỗi 101212 ngay trong hộp.
 - [ ] Gắn thành công → toast, bảng có thêm dòng, số trên tab tăng, nút Xoá của NCC khoá, ô chọn vật tư trong form giao dịch có vật tư mới.
 - [ ] "Gỡ" → hộp xác nhận nêu mã vật tư + mã NCC, nói rõ lịch sử giao dịch giữ nguyên; gỡ dòng cuối của trang → bảng lùi về trang trước.
 

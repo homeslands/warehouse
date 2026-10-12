@@ -40,12 +40,10 @@ const material: Material = {
   name: 'Xi măng',
   minimumInventory: 10,
   maximumInventory: 100,
-  typeSlug: 'mt-9',
-  typeCode: 'MT-09',
-  typeName: 'Loại ngoài trang đầu',
-  baseUnitSlug: 'u-kg',
-  baseUnitCode: 'KG',
-  baseUnitName: 'Kilogram',
+  type: { slug: 'mt-9', code: 'MT-09', name: 'Loại ngoài trang đầu' },
+  baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
+  hasSupplier: false,
+  supplier: null,
 }
 
 beforeEach(() => {
@@ -153,7 +151,7 @@ describe('MaterialFormSheet', () => {
   })
 
   it('sửa vật tư cũ chưa có đơn vị gốc: gợi ý chọn đơn vị gốc (không phải câu "không đổi được"); bấm Lưu báo bắt buộc', async () => {
-    const legacy = { ...material, baseUnitSlug: null, baseUnitCode: null, baseUnitName: null }
+    const legacy = { ...material, baseUnit: null }
     const { user } = renderSheet(legacy)
 
     expect(

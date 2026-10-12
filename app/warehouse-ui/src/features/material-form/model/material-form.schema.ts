@@ -61,8 +61,8 @@ export function toUpdateInput(values: MaterialFormValues, original: Material): M
   const input: MaterialUpdateInput = {}
   if (values.code.trim() !== original.code) input.code = values.code.trim()
   if (values.name.trim() !== original.name) input.name = values.name.trim()
-  if (values.typeSlug !== original.typeSlug) input.typeSlug = values.typeSlug
-  if (values.baseUnitSlug !== (original.baseUnitSlug ?? ''))
+  if (values.typeSlug !== original.type.slug) input.typeSlug = values.typeSlug
+  if (values.baseUnitSlug !== (original.baseUnit?.slug ?? ''))
     input.baseUnitSlug = values.baseUnitSlug
   const min = values.minimumInventory ?? 0
   const max = values.maximumInventory ?? 0
@@ -75,8 +75,8 @@ export function toFormValues(material: Material): MaterialFormValues {
   return {
     code: material.code,
     name: material.name,
-    typeSlug: material.typeSlug,
-    baseUnitSlug: material.baseUnitSlug ?? '',
+    typeSlug: material.type.slug,
+    baseUnitSlug: material.baseUnit?.slug ?? '',
     minimumInventory: material.minimumInventory,
     maximumInventory: material.maximumInventory,
   }

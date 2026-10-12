@@ -140,6 +140,8 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100722: 'materialBaseUnitCannotBeDetached',
   100723: 'materialBaseUnitLocked',
   100724: 'materialBaseUnitSlugIsRequired',
+  // `GET /materials?hasSupplier=` không phải true/false (WMS-13-be(9), 2026-10-12).
+  100725: 'materialHasSupplierInvalid',
   // warehouse-api src/unit/unit.validation.ts (WMS-15). 100908 backend không dùng.
   100901: 'unitNotFound',
   100902: 'unitNameIsRequired',
