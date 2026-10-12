@@ -27,6 +27,7 @@ import { ok } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { mutationToastQueryClient } from '@/shared/test/query-client'
 import { renderWithProviders } from '@/shared/test/render'
+import { EXPANDED_GROUPS_KEY } from '../model/expanded-groups'
 import { PermissionMatrix } from './PermissionMatrix'
 
 const BASE = 'http://localhost:8085/api/v1'
@@ -60,11 +61,19 @@ const roles: Role[] = [
 
 const ADMIN_USER = { userName: 'a', roleName: 'ADMIN', scope: ['MANAGE_PERMISSIONS'] }
 
+/** Bảng mặc định gập hết — các test ở đây kiểm Ô / cột, nên mở sẵn mọi nhóm như người dùng đã bấm "Mở tất cả". */
+const expandAllGroups = (list: Authority[] = authorities) =>
+  localStorage.setItem(
+    EXPANDED_GROUPS_KEY,
+    JSON.stringify([...new Set(list.map((a) => a.authorityGroup.name))]),
+  )
+
 function renderMatrix(
   auth: unknown = ADMIN_USER,
   over: Partial<{ roles: Role[] }> = {},
   queryClient?: ReturnType<typeof mutationToastQueryClient>,
 ) {
+  expandAllGroups()
   return renderWithProviders(
     <PermissionMatrix roles={over.roles ?? roles} authorities={authorities} />,
     { route: '/permissions', auth: auth as never, queryClient },
@@ -183,6 +192,7 @@ describe('PermissionMatrix — thứ tự cột và tên quyền', () => {
         authorityGroup: { slug: 'g', name: 'User Management' },
       },
     ]
+    expandAllGroups(own)
     renderWithProviders(<PermissionMatrix roles={roles} authorities={own} />, {
       route: '/permissions',
       auth: ADMIN_USER as never,
@@ -191,7 +201,7 @@ describe('PermissionMatrix — thứ tự cột và tên quyền', () => {
     expect(screen.getByText('Tạo người dùng')).toBeInTheDocument()
     expect(screen.queryByText('Create user')).not.toBeInTheDocument()
     expect(screen.getByText('USER_CREATE')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Người dùng' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Người dùng/ })).toBeInTheDocument()
   })
 
   it('mã hoặc nhóm FE chưa biết → hiện tên backend trả về, không vỡ màn', () => {
@@ -203,13 +213,14 @@ describe('PermissionMatrix — thứ tự cột và tên quyền', () => {
         authorityGroup: { slug: 'g', name: 'Brand New Group' },
       },
     ]
+    expandAllGroups(own)
     renderWithProviders(<PermissionMatrix roles={roles} authorities={own} />, {
       route: '/permissions',
       auth: ADMIN_USER as never,
     })
 
     expect(screen.getByText('Quyền mới')).toBeInTheDocument()
-    expect(screen.getByRole('heading', { name: 'Brand New Group' })).toBeInTheDocument()
+    expect(screen.getByRole('heading', { name: /^Brand New Group/ })).toBeInTheDocument()
   })
 })
 

@@ -19,6 +19,7 @@ vi.mock('@/shared/api/backend-capabilities', () => ({
 import type { Authority } from '@/entities/authority'
 import type { Role } from '@/entities/user'
 import { renderWithProviders } from '@/shared/test/render'
+import { EXPANDED_GROUPS_KEY } from '../model/expanded-groups'
 import { PermissionMatrix } from './PermissionMatrix'
 
 const authorities: Authority[] = [
@@ -53,7 +54,15 @@ const roles: Role[] = [
   { slug: 'supervisor', name: 'SUPERVISOR', authorityCodes: [] },
 ]
 
+/** Bảng mặc định gập hết — các test ở đây kiểm Ô / cột, nên mở sẵn mọi nhóm như người dùng đã bấm "Mở tất cả". */
+const expandAllGroups = () =>
+  localStorage.setItem(
+    EXPANDED_GROUPS_KEY,
+    JSON.stringify([...new Set(authorities.map((a) => a.authorityGroup.name))]),
+  )
+
 function renderAs(roleName: string, scope: string[]) {
+  expandAllGroups()
   return renderWithProviders(<PermissionMatrix roles={roles} authorities={authorities} />, {
     route: '/permissions',
     auth: { userName: 't', roleName, scope },

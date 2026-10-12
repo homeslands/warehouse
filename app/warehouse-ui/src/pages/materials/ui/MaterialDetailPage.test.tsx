@@ -109,8 +109,10 @@ describe('MaterialDetailPage', () => {
     server.use(mswHttp.delete(`${BASE}/materials/m-1`, () => ok('m-1')))
     const { user, router } = renderPage()
 
-    await user.click(await screen.findByRole('button', { name: 'Thao tác khác' }))
-    await user.click(await screen.findByRole('menuitem', { name: 'Xoá' }))
+    // Xoá là nút ngay cạnh Sửa — không còn menu ⋯ chỉ có một mục.
+    expect(await screen.findByRole('button', { name: 'Sửa' })).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Thao tác khác' })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Xoá' }))
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Xoá' }),
     )

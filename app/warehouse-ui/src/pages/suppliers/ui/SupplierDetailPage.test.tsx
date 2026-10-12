@@ -196,13 +196,16 @@ describe('SupplierDetailPage', () => {
   })
 
   it('Xoá bị khoá khi tab Vật tư báo tổng > 0 (Review Focus #5)', async () => {
-    const { user } = renderPage()
+    renderPage()
     await screen.findByRole('tab', { name: 'Vật tư (3)' })
 
-    await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
-    const item = await screen.findByRole('menuitem', { name: 'Xoá' })
-    expect(item).toHaveAttribute('aria-disabled', 'true')
-    expect(item).toHaveAttribute('title', 'Còn vật tư đang gắn — gỡ hết ở tab Vật tư trước')
+    // Nút Xoá cạnh Sửa (không còn menu ⋯); lý do khoá là chữ hiện sẵn — nút disabled không nhận hover, mobile không
+    // có hover, nên `title` không đủ.
+    expect(screen.queryByRole('button', { name: 'Thao tác khác' })).not.toBeInTheDocument()
+    const button = screen.getByRole('button', { name: 'Xoá' })
+    expect(button).toBeDisabled()
+    expect(button).toHaveAccessibleDescription('Còn vật tư đang gắn — gỡ hết ở tab Vật tư trước')
+    expect(screen.getByText('Còn vật tư đang gắn — gỡ hết ở tab Vật tư trước')).toBeVisible()
   })
 
   it('tổng 0 → Xoá mở hộp xác nhận; xoá xong về backTo (replace) và gỡ cache chi tiết', async () => {
@@ -213,10 +216,12 @@ describe('SupplierDetailPage', () => {
     const { user, router, queryClient } = renderPage()
     await screen.findByRole('tab', { name: 'Vật tư (0)' })
 
-    await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
-    const item = await screen.findByRole('menuitem', { name: 'Xoá' })
-    expect(item).not.toHaveAttribute('aria-disabled', 'true')
-    await user.click(item)
+    const button = screen.getByRole('button', { name: 'Xoá' })
+    expect(button).toBeEnabled()
+    expect(
+      screen.queryByText('Còn vật tư đang gắn — gỡ hết ở tab Vật tư trước'),
+    ).not.toBeInTheDocument()
+    await user.click(button)
     await user.click(
       within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Xoá' }),
     )
@@ -234,36 +239,25 @@ describe('SupplierDetailPage', () => {
       mswHttp.get(`${BASE}/suppliers/ncc-xyz/materials`, () => paginated([], { total: 0 })),
       mswHttp.get(`${BASE}/suppliers/ncc-xyz/transactions`, () => paginated([])),
     )
-    const { user, router } = renderPage({ route: '/suppliers/ncc-abc?tab=transactions' })
+    const { router } = renderPage({ route: '/suppliers/ncc-abc?tab=transactions' })
 
     expect(await screen.findByRole('tab', { name: 'Vật tư (2)' })).toBeInTheDocument()
     expect(screen.getByRole('tab', { name: 'Giao dịch', selected: true })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
-    expect(await screen.findByRole('menuitem', { name: 'Xoá' })).toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
-    await user.keyboard('{Escape}')
+    expect(screen.getByRole('button', { name: 'Xoá' })).toBeDisabled()
 
     await router.navigate('/suppliers/ncc-xyz?tab=transactions')
 
     expect(await screen.findByRole('tab', { name: 'Vật tư (0)' })).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
-    expect(await screen.findByRole('menuitem', { name: 'Xoá' })).not.toHaveAttribute(
-      'aria-disabled',
-      'true',
-    )
+    expect(screen.getByRole('button', { name: 'Xoá' })).toBeEnabled()
   })
 
   it('thiếu MATERIAL_READ → không biết tổng, Xoá KHÔNG bị khoá', async () => {
-    const { user } = renderPage({
+    renderPage({
       auth: { userName: 'a', roleName: 'ADMIN', scope: ['SUPPLIER_READ', 'SUPPLIER_DELETE'] },
     })
     await screen.findByRole('heading', { level: 1 })
 
-    await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
-    const item = await screen.findByRole('menuitem', { name: 'Xoá' })
-    expect(item).not.toHaveAttribute('aria-disabled', 'true')
+    expect(screen.getByRole('button', { name: 'Xoá' })).toBeEnabled()
   })
 
   it('404 → "Không tìm thấy nhà cung cấp" + link về danh sách', async () => {

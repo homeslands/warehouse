@@ -78,6 +78,8 @@ describe('bị thu quyền giữa phiên', () => {
       queryClient,
     })
 
+    // Bảng mặc định gập hết.
+    await user.click(await screen.findByRole('button', { name: 'Mở tất cả' }))
     await user.click(await screen.findByRole('switch', { name: 'Xem nhật ký hệ thống — Quản lý' }))
     const box = await screen.findByRole('alertdialog')
     await user.click(within(box).getByRole('button', { name: 'Cấp quyền' }))
