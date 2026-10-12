@@ -1,5 +1,13 @@
 import { describe, expect, it } from 'vitest'
-import { assignableRoles, canManageTarget, resolveRoleLevel } from './role-level'
+import {
+  BUILT_IN_ROLE_NAMES,
+  assignableRoles,
+  canManageTarget,
+  isBuiltInRole,
+  maxCreatableLevel,
+  resolveRoleLevel,
+  sortRolesByLevel,
+} from './role-level'
 import type { Role } from './types'
 
 const role = (name: string, level?: number): Role => ({
@@ -125,5 +133,51 @@ describe('assignableRoles', () => {
 
   it('vai trò của mình không tra được cấp → không gán được gì', () => {
     expect(assignableRoles({ roleName: 'GHOST' }, ROLES_FROM_API)).toEqual([])
+  })
+})
+
+describe('cấp bậc cho quản lý vai trò', () => {
+  it('isBuiltInRole: 4 vai trò có sẵn, so đúng chuỗi', () => {
+    expect(['SUPER_ADMIN', 'ADMIN', 'MANAGER', 'SUPERVISOR'].every(isBuiltInRole)).toBe(true)
+    expect(BUILT_IN_ROLE_NAMES).toHaveLength(4)
+    expect(isBuiltInRole('Trưởng nhóm')).toBe(false)
+    expect(isBuiltInRole('admin')).toBe(false)
+  })
+
+  it('maxCreatableLevel: ADMIN 29, vai trò tự tạo cấp 15 → 14, không rõ cấp → 0', () => {
+    expect(maxCreatableLevel({ roleName: 'ADMIN' })).toBe(29)
+    expect(maxCreatableLevel({ roleName: 'Trưởng nhóm', role: { level: 15 } })).toBe(14)
+    expect(maxCreatableLevel({ roleName: 'Lạ' })).toBe(0)
+  })
+
+  it('maxCreatableLevel: SUPER_ADMIN có trần = cấp SUPER_ADMIN − 1 — không tạo vai trò ngang / vượt SUPER_ADMIN', () => {
+    // Backend không trần, và `changeRole` chỉ so cấp người gán — vai trò cấp ≥ SUPER_ADMIN gán được SUPER_ADMIN.
+    expect(maxCreatableLevel({ roleName: 'SUPER_ADMIN' })).toBe(99)
+    expect(maxCreatableLevel({ roleName: 'SUPER_ADMIN' }, [role('SUPER_ADMIN', 120)])).toBe(119)
+    // `/auth/me` trả `role.level` — vẫn lấy theo nó như mọi người khác.
+    expect(
+      maxCreatableLevel({ roleName: 'SUPER_ADMIN', role: { level: 100 } }, [
+        role('SUPER_ADMIN', 100),
+      ]),
+    ).toBe(99)
+  })
+
+  it('sortRolesByLevel: giảm dần; vai trò tự tạo thiếu level xuống cuối, giữ thứ tự API; có sẵn thiếu level lấy bảng có sẵn', () => {
+    const roles = [
+      role('SUPERVISOR', 10),
+      role('Không cấp A'),
+      role('ADMIN', 30),
+      role('Trưởng nhóm', 15),
+      role('Không cấp B'),
+      role('MANAGER'),
+    ]
+    expect(sortRolesByLevel(roles).map((r) => r.name)).toEqual([
+      'ADMIN',
+      'MANAGER',
+      'Trưởng nhóm',
+      'SUPERVISOR',
+      'Không cấp A',
+      'Không cấp B',
+    ])
   })
 })

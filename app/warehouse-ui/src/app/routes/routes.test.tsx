@@ -163,7 +163,18 @@ describe('createRoutes — màn Cửa hàng', () => {
     const links = menu.getAllByRole('link').map((a) => a.getAttribute('href'))
     // `auth: 'admin'` tiêm SUPER_ADMIN (xem `shared/test/render.tsx`), nó bypass mọi authority nên
     // cũng thấy `/permissions` (nhóm `admin`) — đúng hành vi, không phải hồi quy.
-    expect(links).toEqual(['/', '/warehouses', '/stores', '/suppliers', '/users', '/permissions'])
+    expect(links).toEqual([
+      '/',
+      '/warehouses',
+      '/stores',
+      '/suppliers',
+      '/materials',
+      '/material-types',
+      '/units',
+      '/users',
+      '/roles',
+      '/permissions',
+    ])
   })
 
   it('thiếu STORE_READ gõ thẳng /stores → /forbidden', async () => {
@@ -406,5 +417,140 @@ describe('createRoutes — màn Người dùng cần USER_READ', () => {
     expect(await screen.findByRole('heading', { name: 'Người dùng', level: 1 })).toBeInTheDocument()
     const adminGroup = within(screen.getByRole('group', { name: 'Quản trị' }))
     expect(adminGroup.getByRole('link', { name: 'Người dùng' })).toHaveAttribute('href', '/users')
+  })
+})
+
+describe('createRoutes — màn Đơn vị', () => {
+  beforeEach(() => {
+    server.use(mswHttp.get(`${BASE}/units`, () => paginated([])))
+  })
+
+  it('có UNIT_READ → vào được /units, menu có mục "Đơn vị"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/units',
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['UNIT_READ'] },
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Đơn vị', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Đơn vị' })).toHaveAttribute('href', '/units')
+  })
+
+  it('thiếu UNIT_READ gõ thẳng /units → /forbidden', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/units',
+      auth: 'customer',
+    })
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+    expect(screen.queryByRole('link', { name: 'Đơn vị' })).not.toBeInTheDocument()
+  })
+})
+
+describe('createRoutes — màn Loại vật tư', () => {
+  beforeEach(() => {
+    server.use(mswHttp.get(`${BASE}/material-types`, () => paginated([])))
+  })
+
+  it('có MATERIAL_READ → vào được, menu có "Loại vật tư"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/material-types',
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['MATERIAL_READ'] },
+    })
+
+    expect(
+      await screen.findByRole('heading', { name: 'Loại vật tư', level: 1 }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Loại vật tư' })).toHaveAttribute(
+      'href',
+      '/material-types',
+    )
+  })
+
+  it('thiếu MATERIAL_READ → /forbidden', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/material-types',
+      auth: 'customer',
+    })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+  })
+})
+
+describe('createRoutes — màn Vật tư', () => {
+  beforeEach(() => {
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => paginated([])),
+      mswHttp.get(`${BASE}/material-types`, () => paginated([])),
+    )
+  })
+
+  it('có MATERIAL_READ → vào được /materials, menu có "Vật tư"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/materials',
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['MATERIAL_READ'] },
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Vật tư', level: 1 })).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Vật tư' })).toHaveAttribute('href', '/materials')
+  })
+
+  it('/materials/:slug: breadcrumb kết thúc bằng tên vật tư', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/materials/m-1`, () =>
+        ok({
+          slug: 'm-1',
+          createdAt: '',
+          updatedAt: '',
+          code: 'VT-01',
+          name: 'Xi măng',
+          minimumInventory: 0,
+          maximumInventory: 0,
+          type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
+          baseUnit: null,
+          hasSupplier: false,
+          supplier: null,
+        }),
+      ),
+    )
+    renderWithRouter(createRoutes({ dev: false }), { route: '/materials/m-1', auth: 'admin' })
+
+    await screen.findByRole('heading', { level: 1, name: 'VT-01 · Xi măng' })
+    const trail = within(screen.getByRole('navigation', { name: 'Vị trí hiện tại' }))
+    await waitFor(() => expect(trail.getByText('Xi măng')).toHaveAttribute('aria-current', 'page'))
+  })
+
+  it('thiếu MATERIAL_READ → /forbidden', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/materials',
+      auth: 'customer',
+    })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+  })
+})
+
+describe('createRoutes — màn Vai trò', () => {
+  beforeEach(() => {
+    server.use(mswHttp.get(`${BASE}/roles`, () => ok([])))
+  })
+
+  it('có ROLE_READ → vào được /roles, menu có "Vai trò" ngay trước "Phân quyền"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/roles',
+      auth: { userName: 'a', roleName: 'ADMIN', scope: ['ROLE_READ', 'MANAGE_PERMISSIONS'] },
+    })
+
+    expect(await screen.findByRole('heading', { name: 'Vai trò', level: 1 })).toBeInTheDocument()
+    const menu = within(screen.getByRole('navigation', { name: 'Menu chính' }))
+    const links = menu.getAllByRole('link').map((a) => a.getAttribute('href'))
+    expect(links.indexOf('/roles')).toBeGreaterThan(-1)
+    expect(links.indexOf('/roles')).toBe(links.indexOf('/permissions') - 1)
+  })
+
+  it('thiếu ROLE_READ gõ thẳng /roles → /forbidden', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/roles',
+      auth: 'customer',
+    })
+
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
   })
 })

@@ -34,6 +34,8 @@
   "pageSize": "Rows per page",
   "search": "Search",
   "clearSearch": "Clear search",
+  "searchAsCode": "Search by code",
+  "searchAsName": "Search by name",
   "filters": "Filters",
   "filtersDescription": "Changes apply to the list right away.",
   "filtersActive": "{{count}} filters applied",

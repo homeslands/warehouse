@@ -64,3 +64,31 @@ export function assignableRoles(
     return level !== null && level < myLevel
   })
 }
+
+/** Tên 4 vai trò có sẵn (backend `RoleEnum`) — không xoá được, tên mới không được trùng. */
+export const BUILT_IN_ROLE_NAMES: readonly string[] = Object.keys(BUILT_IN_ROLE_LEVELS)
+
+export function isBuiltInRole(name: string): boolean {
+  return BUILT_IN_ROLE_NAMES.includes(name)
+}
+
+/**
+ * Cấp cao nhất `me` được tạo: thấp hơn cấp mình một bậc. `0` = không tạo được (không rõ cấp).
+ *
+ * SUPER_ADMIN CŨNG có trần (cấp SUPER_ADMIN − 1), dù backend không chặn: `changeRole` chỉ so cấp người gán với vai
+ * trò mới, nên người mang vai trò cấp ≥ SUPER_ADMIN gán được SUPER_ADMIN cho người khác. Đề xuất backend:
+ * `docs/proposals/2026-10-11-role-level-cap.md`.
+ */
+export function maxCreatableLevel(
+  me: { roleName: string; role?: { level: number } },
+  roles?: readonly Role[],
+): number {
+  const level = actorLevel(me, roles)
+  return level === null ? 0 : level - 1
+}
+
+/** Cấp giảm dần (cùng thứ tự cột ma trận phân quyền). Không biết cấp → xuống cuối, giữ thứ tự API (sort ổn định). */
+export function sortRolesByLevel(roles: readonly Role[]): Role[] {
+  const levelOf = (role: Role) => role.level ?? resolveRoleLevel(role.name) ?? -Infinity
+  return [...roles].sort((a, b) => levelOf(b) - levelOf(a))
+}

@@ -95,4 +95,47 @@ describe('NumberInput', () => {
     await user.click(screen.getByRole('button', { name: 'Đặt 42' }))
     expect(input).toHaveValue('42')
   })
+
+  it('số rất nhỏ: rời ô vẫn giữ chuỗi đã gõ (không ra 1e-7), xoá lùi được', async () => {
+    const { onChange, user, input } = setup()
+    await user.type(input, '0.0000001')
+    await user.tab()
+    expect(input).toHaveValue('0.0000001')
+    expect(onChange).toHaveBeenLastCalledWith(1e-7)
+    await user.type(input, '{Backspace}')
+    expect(input).toHaveValue('0.000000')
+    expect(onChange).toHaveBeenLastCalledWith(0)
+  })
+
+  it('dấu phẩy: rời ô vẫn hiện như đã gõ', async () => {
+    const { user, input } = setup()
+    await user.type(input, '1,5')
+    await user.tab()
+    expect(input).toHaveValue('1,5')
+  })
+
+  it('giá trị từ ngoài là số rất nhỏ → hiện dạng thường, không dạng mũ', () => {
+    const small = setup({ initial: 1e-7 })
+    expect(small.input).toHaveValue('0.0000001')
+  })
+
+  it('"1.000" / "1,000" là 1 (dấu thập phân) → rời ô viết lại thành "1" để người dùng thấy giá trị thật', async () => {
+    const { onChange, user, input } = setup()
+    await user.type(input, '1.000')
+    await user.tab()
+    expect(onChange).toHaveBeenLastCalledWith(1)
+    expect(input).toHaveValue('1')
+
+    await user.clear(input)
+    await user.type(input, '1,000')
+    await user.tab()
+    expect(input).toHaveValue('1')
+  })
+
+  it('dấu phẩy được giữ khi viết lại: "2,50" → "2,5"', async () => {
+    const { user, input } = setup()
+    await user.type(input, '2,50')
+    await user.tab()
+    expect(input).toHaveValue('2,5')
+  })
 })

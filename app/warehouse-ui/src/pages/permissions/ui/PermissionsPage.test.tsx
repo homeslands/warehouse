@@ -30,8 +30,13 @@ beforeEach(() => {
 
 describe('PermissionsPage', () => {
   it('dựng bảng từ hai query', async () => {
-    renderWithProviders(<PermissionsPage />, { route: '/permissions', auth: ADMIN_USER as never })
+    const { user } = renderWithProviders(<PermissionsPage />, {
+      route: '/permissions',
+      auth: ADMIN_USER as never,
+    })
 
+    // Bảng mặc định gập hết — mở ra mới thấy từng quyền.
+    await user.click(await screen.findByRole('button', { name: 'Mở tất cả' }))
     expect(await screen.findByText('Quản trị phân quyền')).toBeInTheDocument()
     expect(screen.getByText('Quản trị viên')).toBeInTheDocument()
   })
@@ -65,8 +70,12 @@ describe('PermissionsPage — cảnh báo lệch danh mục mã quyền (chỉ k
         ]),
       ),
     )
-    renderWithProviders(<PermissionsPage />, { route: '/permissions', auth: ADMIN_USER as never })
+    const { user } = renderWithProviders(<PermissionsPage />, {
+      route: '/permissions',
+      auth: ADMIN_USER as never,
+    })
 
+    await user.click(await screen.findByRole('button', { name: 'Mở tất cả' }))
     await screen.findByText('Mã mới')
     expect(warn).toHaveBeenCalledWith(expect.stringContaining('BRAND_NEW_CODE'))
     warn.mockRestore()

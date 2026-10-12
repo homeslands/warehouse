@@ -23,6 +23,11 @@ function toNumber(text: string): number | undefined {
   return Number.isFinite(n) ? n : undefined
 }
 
+/** Số → chuỗi dạng thường. `String(1e-7)` ra `'1e-7'` — chuỗi đó không gõ tiếp / xoá lùi được trong ô. */
+function toPlainText(n: number): string {
+  return n.toLocaleString('en-US', { useGrouping: false, maximumFractionDigits: 20 })
+}
+
 function clamp(n: number, min: number | undefined, max: number | undefined): number {
   if (min !== undefined && n < min) return min
   if (max !== undefined && n > max) return max
@@ -43,13 +48,13 @@ export function NumberInput({
   onBlur,
   ...props
 }: NumberInputProps) {
-  const [text, setText] = useState(() => (value === undefined ? '' : String(value)))
+  const [text, setText] = useState(() => (value === undefined ? '' : toPlainText(value)))
 
   // Giá trị đổi từ ngoài (form.reset, setValue) → hiện theo. Bỏ qua khi chuỗi đang gõ đã biểu diễn
   // đúng giá trị đó ("1." vẫn là 1) để không nhảy con trỏ giữa lúc gõ.
   useEffect(() => {
     setText((current) =>
-      toNumber(current) === value ? current : value === undefined ? '' : String(value),
+      toNumber(current) === value ? current : value === undefined ? '' : toPlainText(value),
     )
   }, [value])
 
@@ -70,8 +75,11 @@ export function NumberInput({
         if (n === undefined) {
           setText('')
         } else {
+          // Luôn viết lại về dạng chuẩn để người dùng thấy giá trị thật: "1.000" là 1 (dấu chấm / phẩy là dấu
+          // thập phân), không phải một nghìn. Gõ dấu phẩy thì giữ dấu phẩy.
           const clamped = clamp(n, min, max)
-          setText(String(clamped))
+          const plain = toPlainText(clamped)
+          setText(text.includes(',') ? plain.replace('.', ',') : plain)
           if (clamped !== n) onChange(clamped)
         }
         onBlur?.(event)

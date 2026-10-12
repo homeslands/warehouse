@@ -106,7 +106,8 @@ export function Combobox({
                       setOpen(false)
                     }}
                   >
-                    {option.label}
+                    {/* Nhãn dài không khoảng trắng (tên vật tư / đơn vị) phải ngắt dòng, không bị cắt giữa chữ. */}
+                    <span className="min-w-0 break-words">{option.label}</span>
                   </CommandItem>
                 ))}
               </CommandGroup>

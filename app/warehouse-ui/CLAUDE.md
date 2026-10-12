@@ -279,7 +279,10 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   Ô mặc định không xuống dòng (`TableCell` của shadcn). Cột chữ dài do người dùng nhập: bọc
   `block max-w-* whitespace-normal`; chuỗi không có khoảng trắng (email) thêm `break-words` — **đừng dùng
   `[overflow-wrap:anywhere]`**: nó hạ min-content về 1 ký tự nên bảng bóp cột, email ngắn cũng gãy giữa chữ.
-  Nhãn ngắn mà có thể dài (vai trò tự tạo): `truncate` + `title`. Danh sách trong ô: 2 mục + "+N", đủ ở
+  Nhãn ngắn mà có thể dài (vai trò tự tạo): `truncate` + `title`.
+  Trang chi tiết: menu ⋯ ở đầu trang chỉ dùng khi có từ hai thao tác phụ trở lên (Kho, Cửa hàng); chỉ còn mỗi Xoá thì
+  để nút `variant="destructive"` ngay cạnh nút Sửa (Vật tư, Nhà cung cấp). Nút bị khoá thì lý do là dòng chữ nhỏ hiện
+  sẵn dưới hàng nút, nối `aria-describedby` — không dùng `title` (nút disabled không nhận hover). Danh sách trong ô: 2 mục + "+N", đủ ở
   `title` và `sr-only`. Kiểm bằng skill `break-ui` (dữ liệu xấu thật, nhiều khổ màn) trước khi báo xong.
   Bộ lọc trên thanh (`ListToolbar`), không cần khai gì thêm:
   - **Desktop vừa một hàng**: ô tìm trái, bộ lọc + nút hành động phải.
@@ -471,13 +474,19 @@ backend cho nó qua trước khi nhìn `scope`):
   FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
   nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
-  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers` (bốn màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
+  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units`, `/roles` (tám
+  màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
   `AUTHORITY_CODES` (để `/permissions` không báo lệch) nhưng **không có nút nào dùng** — chỉ khoá, không xoá. Đếm bằng `grep
   AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
   chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
   `authority.constants.ts`, không phải cách migration tham chiếu tới chúng.
   `SUPPLIER_CREATE/READ/UPDATE/DELETE` (WMS-11) gác `/suppliers`: ghi giao dịch dùng `SUPPLIER_UPDATE`, gắn / gỡ vật tư
   thêm `MATERIAL_UPDATE` (AND), tab Vật tư thêm `MATERIAL_READ` — chi tiết ở "Nợ kỹ thuật" → Nhà cung cấp.
+  `MATERIAL_*` gác cả **loại vật tư** (không có mã riêng); `UNIT_*` gác `/units`. Thêm / Sửa vật tư cần thêm `UNIT_READ`
+  (form tải `GET /units`); bảng đơn vị quy đổi ở trang chi tiết vật tư cần `UNIT_READ`, gắn / sửa tỉ lệ / gỡ cần
+  `MATERIAL_UPDATE` + `UNIT_UPDATE` (WMS-15). `ROLE_CREATE/UPDATE/DELETE` gác nút ghi ở `/roles` (route `ROLE_READ`);
+  chỉ thao tác vai trò `level` thấp hơn mình (`canManageTarget`), vai trò có sẵn không xoá được. Ba mã này thuộc
+  `PROTECTED_AUTHORITY_CODES` (chỉ SUPER_ADMIN cấp được).
 
 Chọn cái nào: **theo đúng thứ backend gác**. Endpoint gắn `@RequireAuthority(X)` → FE gác bằng
 `can(user, 'X')`. Endpoint gắn `@HasRole(...)` → gác bằng `hasRole`.
@@ -509,8 +518,9 @@ phiếu nhập kho"): tên quyền dịch theo **mã** (`permissions:authorityNa
 tên nhóm backend (`GROUP_KEYS` trong `features/permission-matrix/model/labels.ts` →
 `permissions:groupNames.*`); dòng mã bên dưới giữ nguyên. Mã/nhóm FE chưa biết → hiện tên backend.
 **Thêm mã vào `AUTHORITY_CODES` thì thêm tên vào cả `vi` lẫn `en`** — `labels.test.ts` đỏ nếu thiếu.
-Cột vai trò xếp theo cấp bậc `ROLE_RANK` (SUPER_ADMIN → ADMIN → MANAGER → SUPERVISOR), không theo thứ tự
-API (`sortRolesByRank`).
+Cột vai trò xếp theo `level` thật (`sortRolesByRank` → `sortRolesByLevel` của `entities/user`, cấp cao trước, không biết
+cấp xuống cuối) — vai trò tự tạo ở `/roles` nằm đúng chỗ trong thứ bậc. R1 khoá cột theo `level` (`canManageTarget`):
+vai trò tự tạo phân quyền được khi thấp cấp hơn mình; thiếu `level` → khoá.
 
 Trong màn `/permissions`, **mọi** lần gạt switch đều đi qua `ConfirmDialog` — cả cấp lẫn gỡ, cho mọi
 vai trò, không chỉ ca tự thu hồi. Bảng dày switch cạnh nhau, không có undo, và thay đổi có hiệu lực
@@ -647,7 +657,7 @@ mất công tìm cách sửa nó.
   | Lọc `GET /suppliers/{slug}/materials` (`code` / `name` / `from` / `to`, WMS-13) | tab Vật tư có ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng "Ngày tạo vật tư", cờ `supplierMaterialFilters` **đã bật**. Bộ lọc giữ ở state của tab, không lên URL (tab Giao dịch đã dùng `page` / `startDate` / `endDate`). `from`/`to` theo ngày tạo VẬT TƯ, không phải ngày gắn |
   | WMS-13 **tạm ẩn** `GET`/`POST /suppliers/{slug}/transactions` | tab Giao dịch sau cờ `supplierTransactions` (**tắt**): trang chỉ còn Hồ sơ + Vật tư, `?tab=transactions` rơi về Vật tư. Code tab / form ghi giao dịch giữ nguyên |
   | Gắn / gỡ theo lô (WMS-13-be: `PUT`/`DELETE /suppliers/{slug}/materials`, body `{ materialSlugs }` 1–100; route cũ `/:materialSlug` đã bị xoá) — **tất cả hoặc không**, lỗi không nói vật tư nào hỏng | hộp Gắn = danh sách có ô tìm (bỏ dấu, `shared/lib/search-text.ts`) + ô tick, "Gắn (n)"; chọn nhiều mà bị 101212/100701 thì câu báo nói rõ CẢ LÔ chưa gắn. Bảng Vật tư có cột ô tick (chỉ trang đang xem; đổi trang/bộ lọc là bỏ chọn) + nút "Gỡ (n)"; gỡ một vật tư qua menu ⋯. Ô tick là component cố định đọc `SelectionContext`, mảng cột `useMemo` — `flexRender` coi `header`/`cell` inline là component, dựng lại mảng cột sẽ remount ô và mất focus bàn phím |
-  | `GET /materials` không trả nhà cung cấp | ô "Gắn vật tư" lấy **100 vật tư đầu**, chỉ loại vật tư đã gắn với chính NCC này; vật tư thuộc NCC khác vẫn hiện — chọn lẫn một cái là cả lô bị từ chối (101212) |
+  | `GET /materials?hasSupplier=false` (WMS-13-be(9), 2026-10-12) **đã dùng** | hộp "Gắn vật tư" chỉ liệt kê vật tư chưa thuộc nhà cung cấp nào (mỗi vật tư thuộc tối đa một NCC) — không còn tự lọc ở FE, không còn tải vật tư của NCC để loại. Vẫn chỉ **100 bản ghi đầu**; 101212 vẫn có thể xảy ra nếu người khác vừa gắn |
   | `PATCH` dùng `pickDefined`, không nhận `null` | form sửa **không xoá trống** được ô tuỳ chọn: ô trống bị bỏ khỏi body (giữ nguyên, gợi ý `suppliers:keepWhenEmpty`) |
   | Chưa có API công nợ | trang chi tiết không có tổng mua / trả / còn nợ — đừng tự cộng từ danh sách giao dịch (phân trang, có lọc) |
   | Sổ giao dịch chỉ thêm | không có nút sửa / xoá giao dịch; luôn hỏi xác nhận trước khi ghi |
@@ -655,6 +665,27 @@ mất công tìm cách sửa nó.
   Quyền theo **authority**, không có nhánh lùi theo vai trò: xem = `SUPPLIER_READ`; thêm / sửa / xoá = `SUPPLIER_CREATE`
   / `_UPDATE` / `_DELETE`; ghi giao dịch = `SUPPLIER_UPDATE` (khi cờ `supplierTransactions` bật); gắn / gỡ vật tư = `SUPPLIER_UPDATE` + `MATERIAL_UPDATE`; tab
   Vật tư cần thêm `MATERIAL_READ`. Trên sandbox (2026-10-08) chỉ ADMIN có quyền ghi; MANAGER / SUPERVISOR chỉ xem.
+- **Vật tư / Loại vật tư / Đơn vị (`/materials`, `/material-types`, `/units`, WMS-15): đã dùng API thật.** Test tay:
+  `docs/test-checklists/WMS-15-fe-material-checklist.md`. Còn treo:
+  - BE bỏ qua `sort` → không sắp xếp theo cột. Ô chọn Loại / Đơn vị / đơn vị gắn được chỉ lấy **100 bản ghi đầu**
+    (lọc tại client; giá trị đang gán nằm ngoài vẫn được chèn vào ô chọn của form sửa); vượt thì cần tìm phía server.
+  - Ô tìm "mã hoặc tên" (`toCodeOrNameQuery`, `shared/lib/code.ts`): có số / gạch hoặc gõ toàn chữ hoa một từ (`KG`)
+    → `code` (khớp đúng), còn lại → `name`. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
+    (`CodeOrNameEmpty`, `?searchBy=`).
+  - **Cấu trúc `MaterialResponseDto` đổi ở WMS-13-be(9) (2026-10-12)**: loại / đơn vị gốc là object lồng `type`, `baseUnit`
+    (`null` = chưa có), thêm `hasSupplier` + `supplier`; các trường phẳng `typeSlug`/`typeCode`/`baseUnitCode`… **đã bỏ**.
+    Body gửi lên và bộ lọc vẫn là `typeSlug` / `baseUnitSlug`. `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng
+    (`SupplierMaterial`) — hai kiểu khác nhau, đừng gộp.
+  - Đơn vị gốc là một dòng của bảng đơn vị quy đổi ở backend → `materialCount.asConversionUnit` GỒM số vật tư làm gốc;
+    cột "Đang dùng" trừ ra khi hiện phần tách.
+  - Đổi đơn vị gốc chỉ biết bị khoá sau khi gửi (100723 — đã có tồn hoặc đơn vị quy đổi khác); xoá Loại / Vật tư chỉ
+    biết bị chặn sau khi gửi (100609 / 100712) — báo trong hộp. Xoá Đơn vị khoá sẵn theo `materialCount.total`.
+  - `NumberInput` coi `.` và `,` đều là dấu thập phân ("1.000" = 1) và viết lại về dạng chuẩn khi rời ô. Ngưỡng tồn /
+    tỉ lệ chặn ≥ 1e12 (`DECIMAL_18_6_LIMIT`, cột `DECIMAL(18,6)`; backend không chặn → lỗi 500).
+  - Tồn kho theo kho (`/warehouses/:slug/materials`) chưa làm — chờ BE thêm đơn vị gốc vào `InventoryResponseDto` và
+    lọc `name` / `code` (spec WMS-15 mục 9).
+  - `POST /materials/:slug/convert` (quy đổi số lượng): **cố ý không dùng** — chốt 2026-10-12 là không cần màn / công cụ
+    quy đổi riêng. Đừng dựng lại khi chưa có yêu cầu mới.
 - **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
   bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
   nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,
@@ -714,12 +745,18 @@ mất công tìm cách sửa nó.
   là lỗi tạm thời nên thử lại tới 3 lần thay vì dừng ngay. Sửa tối thiểu khi làm:
   `const d = error.response?.data; return d === undefined || d === '' ? error : d`. **Đợt này chưa
   sửa** — chạm tầng `shared`, ảnh hưởng nhiều test.
+- **Vai trò (`/roles`, WMS-15 phần 2): đã dùng API thật.** Test tay: `docs/test-checklists/WMS-15-fe-role-checklist.md`.
+  Còn treo: tên và cấp không đổi được (backend chỉ sửa mô tả); tên không dùng lại được kể cả sau khi xoá (FE chặn trùng
+  không phân biệt hoa thường với vai trò đang có + mã / nhãn vi-en của vai trò có sẵn, nhưng không biết tên vai trò đã
+  xoá → 100102 báo tại ô Tên); backend không trả số người dùng của vai trò → chặn xoá chỉ biết sau khi gửi (100106, hộp
+  xoá có link `/users?roleSlug=`). SUPER_ADMIN cũng chỉ tạo được cấp < cấp SUPER_ADMIN (FE tự chặn, backend chưa —
+  vai trò cấp ≥ SUPER_ADMIN gán được SUPER_ADMIN qua `change-role`): `docs/proposals/2026-10-11-role-level-cap.md`.
 - **Luật ủy quyền R1–R4 ở màn `/permissions`: FE ĐÃ DỰNG SẴN sau cờ `permissionDelegationRules`
   (mặc định `false`), chờ backend.** Đặc tả: `docs/proposals/2026-09-25-permission-delegation-rules.md`.
   Luật từng ô là hàm thuần `cellLock` / `isRankLocked` (`features/permission-matrix/model/cell-rules.ts`),
   thứ tự R3 → R1 → R2 → R4 như backend; SUPER_ADMIN miễn R1–R3, R4 ("vai trò cuối cùng") áp cho mọi
   người và áp cả khi cờ tắt. Cột vai trò ngang/cao hơn mình vẽ ✓/— (chỉ xem) thay cho switch. Hằng số
-  phải khớp backend: `ROLE_RANK` (`entities/session/model/roles.ts`), `PROTECTED_AUTHORITY_CODES`
+  phải khớp backend: `BUILT_IN_ROLE_LEVELS` (`entities/user/model/role-level.ts`, chỉ dùng khi thiếu `level`), `PROTECTED_AUTHORITY_CODES`
   (`shared/api/authority-codes.ts`). **Còn thiếu**: bốn mã lỗi mới (`AUTHORITY_PROTECTED`,
   `ROLE_RANK_NOT_ALLOWED`, `AUTHORITY_NOT_HELD`, `LAST_PERMISSION_ADMIN`) chưa có trong
   `error-codes.ts` vì backend chưa chọn số — tới lúc đó lỗi từ chối hiện câu chung. Bật cờ xong thì
