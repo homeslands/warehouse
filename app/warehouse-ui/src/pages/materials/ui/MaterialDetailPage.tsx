@@ -125,11 +125,11 @@ export function MaterialDetailPage() {
       >
         <DetailGroup>
           <DetailField label={t('materials:fieldType')}>
-            {material.typeCode} · {material.typeName}
+            {material.type.code} · {material.type.name}
           </DetailField>
           <DetailField label={t('materials:fieldBaseUnit')}>
-            {material.baseUnitCode ? (
-              `${material.baseUnitCode} · ${material.baseUnitName ?? ''}`
+            {material.baseUnit ? (
+              `${material.baseUnit.code} · ${material.baseUnit.name}`
             ) : (
               <EmptyValue />
             )}

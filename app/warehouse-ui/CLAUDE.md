@@ -657,7 +657,7 @@ mất công tìm cách sửa nó.
   | Lọc `GET /suppliers/{slug}/materials` (`code` / `name` / `from` / `to`, WMS-13) | tab Vật tư có ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng "Ngày tạo vật tư", cờ `supplierMaterialFilters` **đã bật**. Bộ lọc giữ ở state của tab, không lên URL (tab Giao dịch đã dùng `page` / `startDate` / `endDate`). `from`/`to` theo ngày tạo VẬT TƯ, không phải ngày gắn |
   | WMS-13 **tạm ẩn** `GET`/`POST /suppliers/{slug}/transactions` | tab Giao dịch sau cờ `supplierTransactions` (**tắt**): trang chỉ còn Hồ sơ + Vật tư, `?tab=transactions` rơi về Vật tư. Code tab / form ghi giao dịch giữ nguyên |
   | Gắn / gỡ theo lô (WMS-13-be: `PUT`/`DELETE /suppliers/{slug}/materials`, body `{ materialSlugs }` 1–100; route cũ `/:materialSlug` đã bị xoá) — **tất cả hoặc không**, lỗi không nói vật tư nào hỏng | hộp Gắn = danh sách có ô tìm (bỏ dấu, `shared/lib/search-text.ts`) + ô tick, "Gắn (n)"; chọn nhiều mà bị 101212/100701 thì câu báo nói rõ CẢ LÔ chưa gắn. Bảng Vật tư có cột ô tick (chỉ trang đang xem; đổi trang/bộ lọc là bỏ chọn) + nút "Gỡ (n)"; gỡ một vật tư qua menu ⋯. Ô tick là component cố định đọc `SelectionContext`, mảng cột `useMemo` — `flexRender` coi `header`/`cell` inline là component, dựng lại mảng cột sẽ remount ô và mất focus bàn phím |
-  | `GET /materials` không trả nhà cung cấp | ô "Gắn vật tư" lấy **100 vật tư đầu**, chỉ loại vật tư đã gắn với chính NCC này; vật tư thuộc NCC khác vẫn hiện — chọn lẫn một cái là cả lô bị từ chối (101212) |
+  | `GET /materials?hasSupplier=false` (WMS-13-be(9), 2026-10-12) **đã dùng** | hộp "Gắn vật tư" chỉ liệt kê vật tư chưa thuộc nhà cung cấp nào (mỗi vật tư thuộc tối đa một NCC) — không còn tự lọc ở FE, không còn tải vật tư của NCC để loại. Vẫn chỉ **100 bản ghi đầu**; 101212 vẫn có thể xảy ra nếu người khác vừa gắn |
   | `PATCH` dùng `pickDefined`, không nhận `null` | form sửa **không xoá trống** được ô tuỳ chọn: ô trống bị bỏ khỏi body (giữ nguyên, gợi ý `suppliers:keepWhenEmpty`) |
   | Chưa có API công nợ | trang chi tiết không có tổng mua / trả / còn nợ — đừng tự cộng từ danh sách giao dịch (phân trang, có lọc) |
   | Sổ giao dịch chỉ thêm | không có nút sửa / xoá giao dịch; luôn hỏi xác nhận trước khi ghi |
@@ -672,6 +672,10 @@ mất công tìm cách sửa nó.
   - Ô tìm "mã hoặc tên" (`toCodeOrNameQuery`, `shared/lib/code.ts`): có số / gạch hoặc gõ toàn chữ hoa một từ (`KG`)
     → `code` (khớp đúng), còn lại → `name`. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
     (`CodeOrNameEmpty`, `?searchBy=`).
+  - **Cấu trúc `MaterialResponseDto` đổi ở WMS-13-be(9) (2026-10-12)**: loại / đơn vị gốc là object lồng `type`, `baseUnit`
+    (`null` = chưa có), thêm `hasSupplier` + `supplier`; các trường phẳng `typeSlug`/`typeCode`/`baseUnitCode`… **đã bỏ**.
+    Body gửi lên và bộ lọc vẫn là `typeSlug` / `baseUnitSlug`. `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng
+    (`SupplierMaterial`) — hai kiểu khác nhau, đừng gộp.
   - Đơn vị gốc là một dòng của bảng đơn vị quy đổi ở backend → `materialCount.asConversionUnit` GỒM số vật tư làm gốc;
     cột "Đang dùng" trừ ra khi hiện phần tách.
   - Đổi đơn vị gốc chỉ biết bị khoá sau khi gửi (100723 — đã có tồn hoặc đơn vị quy đổi khác); xoá Loại / Vật tư chỉ

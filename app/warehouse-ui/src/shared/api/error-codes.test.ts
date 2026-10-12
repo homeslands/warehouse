@@ -159,3 +159,12 @@ describe('ERROR_CODE_KEYS — vai trò (WMS-15 phần 2)', () => {
     },
   )
 })
+
+describe('ERROR_CODE_KEYS — lọc vật tư theo nhà cung cấp (WMS-13-be(9))', () => {
+  it('100725 có khoá + bản dịch vi/en', () => {
+    const key = ERROR_CODE_KEYS[100725] as keyof typeof viErrors
+    expect(key).toBeDefined()
+    expect(viErrors[key]).toBeTruthy()
+    expect(enErrors[key as keyof typeof enErrors]).toBeTruthy()
+  })
+})

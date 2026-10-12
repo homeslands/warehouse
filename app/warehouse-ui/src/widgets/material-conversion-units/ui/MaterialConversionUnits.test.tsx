@@ -19,7 +19,7 @@ const rows: MaterialConversionUnit[] = [
     isBaseUnit: false,
   },
 ]
-const material = { slug: 'm-1', baseUnitSlug: 'u-kg', baseUnitCode: 'KG' }
+const material = { slug: 'm-1', baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' } }
 
 /** Ô tỉ lệ tách số ra một thẻ riêng — so theo chữ của cả ô. Tỉ lệ có ở cột Tỉ lệ lẫn dòng phụ khung hẹp. */
 const rateText = (text: string) => (_: string, el: Element | null) =>
@@ -58,10 +58,7 @@ describe('MaterialConversionUnits', () => {
       }),
     )
     renderWithProviders(
-      <MaterialConversionUnits
-        material={{ slug: 'm-1', baseUnitSlug: null, baseUnitCode: null }}
-        canManage
-      />,
+      <MaterialConversionUnits material={{ slug: 'm-1', baseUnit: null }} canManage />,
     )
 
     expect(

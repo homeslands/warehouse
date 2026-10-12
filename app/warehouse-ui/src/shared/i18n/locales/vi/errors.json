@@ -113,6 +113,7 @@
   "materialBaseUnitCannotBeDetached": "Không gỡ được đơn vị gốc — đổi đơn vị gốc của vật tư trước",
   "materialBaseUnitLocked": "Không đổi được đơn vị gốc: vật tư đã có tồn kho hoặc đã gắn đơn vị quy đổi khác",
   "materialBaseUnitSlugIsRequired": "Vui lòng chọn đơn vị gốc",
+  "materialHasSupplierInvalid": "Bộ lọc nhà cung cấp không hợp lệ",
   "unitNotFound": "Không tìm thấy đơn vị (có thể đã bị xoá)",
   "unitNameIsRequired": "Vui lòng nhập tên đơn vị",
   "unitNameDoesExist": "Tên đơn vị đã tồn tại",

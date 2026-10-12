@@ -113,6 +113,7 @@
   "materialBaseUnitCannotBeDetached": "The base unit cannot be removed — change the material's base unit first",
   "materialBaseUnitLocked": "The base unit can no longer change: the material has stock or other conversion units",
   "materialBaseUnitSlugIsRequired": "Please choose a base unit",
+  "materialHasSupplierInvalid": "Invalid supplier filter",
   "unitNotFound": "Unit not found (it may have been deleted)",
   "unitNameIsRequired": "Please enter the unit name",
   "unitNameDoesExist": "This unit name already exists",
