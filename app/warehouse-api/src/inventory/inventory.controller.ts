@@ -86,10 +86,10 @@ export class InventoryController {
   @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Update the per-warehouse inventory thresholds (không đụng tồn)',
+    summary: 'Update the per-warehouse inventory thresholds (stock is not changed)',
     description:
-      'Gửi `null` cho 1 vế để bỏ override và quay về ngưỡng mặc định của Material. Không gửi field ' +
-      'nào thì vế đó giữ nguyên. Sửa tồn thì dùng `PATCH .../quantity`.',
+      'Send `null` for a threshold to drop the override and fall back to the Material default. ' +
+      'An omitted field keeps its current value. To change stock, use `PATCH .../quantity`.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -122,10 +122,11 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Adjust the stock quantity by a delta',
     description:
-      'Cộng/trừ tồn dưới khoá `SELECT ... FOR UPDATE` — 2 lần điều chỉnh đồng thời chạy nối tiếp, ' +
-      'không ghi đè nhau; mỗi lần ghi 1 dòng lịch sử `ADJUST`. `delta` là số khác 0 (tối đa 6 chữ ' +
-      'số thập phân); làm tồn âm hoặc thấp hơn lượng đã giữ chỗ thì bị từ chối. Đây là cửa TẠM ' +
-      'khi chưa có phiếu nhập/xuất kho.',
+      'Adds to/subtracts from stock under a `SELECT ... FOR UPDATE` lock — 2 concurrent ' +
+      'adjustments run one after another and never overwrite each other; each one writes 1 ' +
+      '`ADJUST` history row. `delta` is a non-zero number (up to 6 decimal places); a change ' +
+      'that makes stock negative or lower than the reserved quantity is rejected. This is a ' +
+      'TEMPORARY entry point until import/export forms exist.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -158,7 +159,8 @@ export class InventoryController {
   @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.WarehouseUpdate)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Remove a material from this warehouse (chặn nếu tồn > 0 hoặc còn giữ chỗ)',
+    summary:
+      'Remove a material from this warehouse (blocked if stock > 0 or any quantity is reserved)',
   })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Removed', type: String })
   @ApiParam({ name: 'materialSlug', required: true, example: 'x7fk2p9qab' })

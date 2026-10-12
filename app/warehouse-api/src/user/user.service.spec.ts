@@ -16,6 +16,7 @@ import { CurrentUserDto } from './user.decorator';
 import { GetAllUserRequestDto } from './user.dto';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
+import { And, In, LessThan, Like, MoreThanOrEqual, Not } from 'typeorm';
 
 describe('UserService', () => {
   let service: UserService;
@@ -29,14 +30,13 @@ describe('UserService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     manager: { transaction: jest.fn() },
-    createQueryBuilder: jest.fn(),
   };
   const transactionManager = { softDelete: jest.fn() };
   const tokenRevocationService = {
     revokeSession: jest.fn(),
     revokeAllTokensForUser: jest.fn(),
   };
-  const warehouseRepository = { count: jest.fn(), createQueryBuilder: jest.fn() };
+  const warehouseRepository = { count: jest.fn(), find: jest.fn() };
   const roleService = { findBySlug: jest.fn(), assertCanManage: jest.fn(), actorLevel: jest.fn() };
   const config: Record<string, string> = { SALT_ROUNDS: '4' };
   const configService = { get: (key: string) => config[key] };
@@ -320,17 +320,8 @@ describe('UserService', () => {
   });
 
   describe('findWarehousesOfUser', () => {
-    let qb: Record<string, jest.Mock>;
-
-    beforeEach(() => {
-      qb = {};
-      for (const method of ['leftJoinAndSelect', 'leftJoin', 'where', 'orderBy'])
-        qb[method] = jest.fn().mockReturnValue(qb);
-      warehouseRepository.createQueryBuilder.mockReturnValue(qb);
-    });
-
     it('returns managed and member warehouses flagged by isManager, without ids', async () => {
-      qb.getMany = jest.fn().mockResolvedValue([
+      warehouseRepository.find.mockResolvedValue([
         { id: 'wh-id-1', slug: 'wh-1', code: 'WH-01', name: 'Kho 1', manager: { id: 'user-id' } },
         { id: 'wh-id-2', slug: 'wh-2', code: 'WH-02', name: 'Kho 2', manager: { id: 'boss' } },
         { id: 'wh-id-3', slug: 'wh-3', code: 'WH-03', name: 'Kho 3', manager: null },
@@ -341,100 +332,79 @@ describe('UserService', () => {
         { slug: 'wh-2', code: 'WH-02', name: 'Kho 2', isManager: false },
         { slug: 'wh-3', code: 'WH-03', name: 'Kho 3', isManager: false },
       ]);
-      // Thành viên đã bị gỡ (xoá mềm) không được tính.
-      expect(qb.leftJoin).toHaveBeenCalledWith(
-        'warehouse.members',
-        'member',
-        expect.stringContaining('member.deletedAt IS NULL'),
-        { userId: 'user-id' },
-      );
+      // Điều kiện qua relation `members` — TypeORM tự loại thành viên đã gỡ (xoá mềm) ở JOIN.
+      expect(warehouseRepository.find).toHaveBeenCalledWith({
+        where: [{ manager: { id: 'user-id' } }, { members: { user: { id: 'user-id' } } }],
+        relations: { manager: true },
+        order: { name: 'ASC' },
+      });
     });
   });
 
   describe('findAll', () => {
-    // QueryBuilder giả: mọi method chain trả lại chính nó, ghi lại toàn bộ lời gọi để assert.
-    let qb: Record<string, jest.Mock>;
-    const wheres = () => qb.andWhere.mock.calls.map(([condition]) => condition);
-    const params = () => Object.assign({}, ...qb.andWhere.mock.calls.map(([, p]) => p ?? {}));
     const query = (overrides: Partial<GetAllUserRequestDto> = {}) =>
       ({ page: 1, size: 10, ...overrides }) as GetAllUserRequestDto;
+    const options = () => userRepository.findAndCount.mock.calls[0][0];
 
     beforeEach(() => {
-      qb = {};
-      for (const method of [
-        'leftJoinAndSelect',
-        'andWhere',
-        'orderBy',
-        'addOrderBy',
-        'skip',
-        'take',
-      ])
-        qb[method] = jest.fn().mockReturnValue(qb);
-      qb.getManyAndCount = jest.fn().mockResolvedValue([[], 0]);
-      userRepository.createQueryBuilder.mockReturnValue(qb);
+      userRepository.findAndCount.mockResolvedValue([[], 0]);
     });
 
-    it('joins role and live member warehouses, sorts by createdAt DESC by default', async () => {
+    it('loads role and member warehouses, sorts by createdAt DESC by default', async () => {
       await service.findAll(query({ page: 3, size: 5 }));
 
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith('user.role', 'role');
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'user.warehouseMembers',
-        'member',
-        'member.deletedAt IS NULL',
-      );
-      expect(qb.leftJoinAndSelect).toHaveBeenCalledWith(
-        'member.warehouse',
-        'warehouse',
-        'warehouse.deletedAt IS NULL',
-      );
-      expect(qb.andWhere).not.toHaveBeenCalled();
-      expect(qb.orderBy).toHaveBeenCalledWith('user.createdAt', 'DESC');
-      expect(qb.addOrderBy).toHaveBeenLastCalledWith('user.id', 'ASC');
-      expect(qb.skip).toHaveBeenCalledWith(10);
-      expect(qb.take).toHaveBeenCalledWith(5);
+      expect(userRepository.findAndCount).toHaveBeenCalledWith({
+        where: {},
+        relations: { role: true, warehouseMembers: { warehouse: true } },
+        order: { createdAt: 'DESC', id: 'ASC' },
+        skip: 10,
+        take: 5,
+      });
     });
 
-    it('applies role / name / phone / birthday filters as bound parameters', async () => {
+    it('applies role / phone / birthday filters', async () => {
       await service.findAll(
-        query({
-          roleSlug: 'supervisor',
-          name: 'Nguyễn Văn',
-          phonenumber: '0900',
-          birthday: '1990-05-20',
-        }),
+        query({ roleSlug: 'supervisor', phonenumber: '0900', birthday: '1990-05-20' }),
       );
 
-      expect(wheres()).toEqual(
-        expect.arrayContaining([
-          'role.slug = :roleSlug',
-          'user.phonenumber LIKE :phonenumber',
-          'user.dob = :birthday',
-        ]),
-      );
-      expect(params()).toMatchObject({
-        roleSlug: 'supervisor',
-        name: '%Nguyễn Văn%',
-        phonenumber: '%0900%',
-        birthday: '1990-05-20',
+      expect(options().where).toEqual({
+        role: { slug: 'supervisor' },
+        phonenumber: Like('%0900%'),
+        dob: '1990-05-20',
       });
+    });
+
+    // Mảng `where` = OR: mỗi nhánh phải mang đủ điều kiện chung, không thì lọt user ngoài bộ lọc.
+    it('searches name across first name, last name and "last first", keeping other filters', async () => {
+      await service.findAll(query({ name: 'Nguyễn Văn', phonenumber: '0900' }));
+
+      const where = options().where;
+      expect(where).toHaveLength(3);
+      for (const branch of where) expect(branch.phonenumber).toEqual(Like('%0900%'));
+      expect(where[0].firstName).toEqual(Like('%Nguyễn Văn%'));
+      expect(where[1].lastName).toEqual(Like('%Nguyễn Văn%'));
+      expect(where[2].lastName.type).toBe('raw');
+      expect(where[2].lastName.getSql('User.lastName')).toBe(
+        "CONCAT(User.lastName, ' ', User.firstName) LIKE :name",
+      );
+      expect(where[2].lastName.objectLiteralParameters).toEqual({ name: '%Nguyễn Văn%' });
     });
 
     // `YYYY-MM-DD` = trọn ngày: endDate so `<` 00:00 ngày kế tiếp.
     it('turns a date-only range into [start 00:00, day after end 00:00)', async () => {
       await service.findAll(query({ startDate: '2026-09-01', endDate: '2026-09-30' }));
 
-      expect(wheres()).toEqual(
-        expect.arrayContaining(['user.createdAt >= :start', 'user.createdAt < :end']),
+      expect(options().where.createdAt).toEqual(
+        And(MoreThanOrEqual(new Date(2026, 8, 1)), LessThan(new Date(2026, 9, 1))),
       );
-      expect(params().start).toEqual(new Date(2026, 8, 1));
-      expect(params().end).toEqual(new Date(2026, 9, 1));
     });
 
     it('accepts a single-day range', async () => {
       await service.findAll(query({ startDate: '2026-09-01', endDate: '2026-09-01' }));
 
-      expect(params().end).toEqual(new Date(2026, 8, 2));
+      expect(options().where.createdAt).toEqual(
+        And(MoreThanOrEqual(new Date(2026, 8, 1)), LessThan(new Date(2026, 8, 2))),
+      );
     });
 
     it('rejects startDate after endDate', async () => {
@@ -442,54 +412,131 @@ describe('UserService', () => {
         service.findAll(query({ startDate: '2026-09-02', endDate: '2026-09-01' })),
         UserValidation.USER_DATE_RANGE_INVALID.code,
       );
-      expect(qb.getManyAndCount).not.toHaveBeenCalled();
+      expect(userRepository.findAndCount).not.toHaveBeenCalled();
     });
 
-    // Lọc kho bằng EXISTS, không lọc trên join — nếu không `warehouses` trả về bị cắt còn 1 kho.
-    it('filters by warehouse through an EXISTS subquery', async () => {
+    // Lọc kho bằng tra id trước, không lọc trên relation — nếu không `warehouses` bị cắt còn 1 kho.
+    it('filters by warehouse through a member-id lookup, not on the loaded relation', async () => {
+      userRepository.find.mockResolvedValue([{ id: 'u1' }, { id: 'u2' }]);
+
       await service.findAll(query({ warehouseSlug: 'wh-1' }));
 
-      const [condition, bound] = qb.andWhere.mock.calls[0];
-      expect(typeof condition).toBe('function');
-      expect(bound).toEqual({ warehouseSlug: 'wh-1' });
+      expect(userRepository.find).toHaveBeenCalledWith({
+        select: { id: true },
+        where: { warehouseMembers: { warehouse: { slug: 'wh-1' } } },
+      });
+      expect(options().where).toEqual({ id: In(['u1', 'u2']) });
+      expect(options().relations).toEqual({ role: true, warehouseMembers: { warehouse: true } });
     });
 
-    it('applies multi-level sort in order', async () => {
-      await service.findAll(query({ sort: ['lastName:asc', 'dob:DESC'] }));
+    it('returns an empty page when the warehouse has no member', async () => {
+      userRepository.find.mockResolvedValue([]);
 
-      expect(qb.orderBy).toHaveBeenCalledWith('user.lastName', 'ASC');
-      expect(qb.addOrderBy.mock.calls).toEqual([
-        ['user.dob', 'DESC'],
-        ['user.id', 'ASC'],
-      ]);
+      const result = await service.findAll(query({ warehouseSlug: 'wh-1' }));
+
+      expect(result).toMatchObject({ items: [], total: 0 });
+      expect(userRepository.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it.each([RoleEnum.Manager, RoleEnum.Supervisor, 'CUSTOM_ROLE', undefined])(
+      'scopes %s callers to managers/members of the warehouses they belong to',
+      async (roleName) => {
+        warehouseRepository.find
+          .mockResolvedValueOnce([{ id: 'wh-1' }, { id: 'wh-2' }])
+          .mockResolvedValueOnce([
+            { manager: { id: 'caller-id' }, members: [{ user: { id: 'u1' } }] },
+            {
+              manager: { id: 'boss' },
+              members: [{ user: { id: 'caller-id' } }, { user: { id: 'u1' } }],
+            },
+          ]);
+
+        await service.findAll(query(), {}, { userId: 'caller-id', roleName, scope: [] });
+
+        expect(warehouseRepository.find).toHaveBeenNthCalledWith(1, {
+          select: { id: true },
+          where: [{ manager: { id: 'caller-id' } }, { members: { user: { id: 'caller-id' } } }],
+        });
+        expect(warehouseRepository.find).toHaveBeenNthCalledWith(2, {
+          where: { id: In(['wh-1', 'wh-2']) },
+          relations: { manager: true, members: { user: true } },
+        });
+        expect(options().where).toEqual({ id: In(['caller-id', 'u1', 'boss']) });
+      },
+    );
+
+    it('intersects the caller scope with the warehouse filter and drops excluded ids', async () => {
+      warehouseRepository.find
+        .mockResolvedValueOnce([{ id: 'wh-1' }])
+        .mockResolvedValueOnce([{ manager: { id: 'user-id' }, members: [{ user: { id: 'u1' } }] }]);
+      userRepository.find.mockResolvedValue([{ id: 'u1' }, { id: 'outsider' }]);
+
+      await service.findAll(
+        query({ warehouseSlug: 'wh-9' }),
+        { excludedIds: ['user-id'] },
+        caller({ roleName: RoleEnum.Supervisor }),
+      );
+
+      expect(options().where).toEqual({ id: In(['u1']) });
+    });
+
+    it('returns an empty page without querying users when the caller has no warehouse', async () => {
+      warehouseRepository.find.mockResolvedValueOnce([]);
+
+      const result = await service.findAll(
+        query({ warehouseSlug: 'wh-1' }),
+        {},
+        caller({ roleName: RoleEnum.Supervisor }),
+      );
+
+      expect(result).toMatchObject({ items: [], total: 0, totalPages: 0, hasNext: false });
+      expect(warehouseRepository.find).toHaveBeenCalledTimes(1);
+      expect(userRepository.find).not.toHaveBeenCalled();
+      expect(userRepository.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it.each([RoleEnum.Admin, RoleEnum.SuperAdmin])(
+      'does not scope %s callers',
+      async (roleName) => {
+        await service.findAll(query(), {}, { userId: 'u', roleName, scope: [] });
+
+        expect(options().where).toEqual({});
+        expect(warehouseRepository.find).not.toHaveBeenCalled();
+      },
+    );
+
+    it('applies multi-level sort in order, first occurrence of a field wins', async () => {
+      await service.findAll(query({ sort: ['lastName:asc', 'dob:DESC', 'lastName:DESC'] }));
+
+      const order = options().order;
+      expect(order).toEqual({ lastName: 'ASC', dob: 'DESC', id: 'ASC' });
+      expect(Object.keys(order)).toEqual(['lastName', 'dob', 'id']);
     });
 
     it.each([true, false])('filters by isActive=%s from the query', async (isActive) => {
       await service.findAll(query({ isActive }));
 
-      expect(wheres()).toEqual(['user.isActive = :isActive']);
-      expect(params()).toEqual({ isActive });
+      expect(options().where).toEqual({ isActive });
     });
 
     // `available-members` dùng chung query DTO: client gửi `isActive=false` không được mở lại user đã khoá.
     it('lets the internal onlyActive flag override query.isActive', async () => {
       await service.findAll(query({ isActive: false }), { onlyActive: true });
 
-      expect(wheres()).toEqual(['user.isActive = :isActive']);
-      expect(params()).toEqual({ isActive: true });
+      expect(options().where).toEqual({ isActive: true });
     });
 
     it('applies the internal exclusion / active-only / role filter', async () => {
-      await service.findAll(query(), {
+      await service.findAll(query({ roleSlug: 'sup' }), {
         excludedIds: ['a', 'b'],
         onlyActive: true,
         excludedRoleNames: [RoleEnum.Admin],
       });
 
-      expect(params()).toMatchObject({
+      expect(options().where).toEqual({
+        id: Not(In(['a', 'b'])),
         isActive: true,
-        excludedIds: ['a', 'b'],
-        excludedRoleNames: [RoleEnum.Admin],
+        role: { slug: 'sup', name: Not(In([RoleEnum.Admin])) },
       });
     });
 
@@ -497,11 +544,11 @@ describe('UserService', () => {
     it('skips the id filter when nothing is excluded', async () => {
       await service.findAll(query(), { excludedIds: [] });
 
-      expect(qb.andWhere).not.toHaveBeenCalled();
+      expect(options().where).toEqual({});
     });
 
     it('maps role + member warehouses onto each user', async () => {
-      qb.getManyAndCount.mockResolvedValue([
+      userRepository.findAndCount.mockResolvedValue([
         [
           {
             ...other,
@@ -525,6 +572,68 @@ describe('UserService', () => {
         level: 10,
       });
       expect(result.items[0].warehouses).toEqual([{ slug: 'wh-1', code: 'WH-01', name: 'Kho 1' }]);
+    });
+  });
+
+  describe('findOne', () => {
+    const target = {
+      ...other,
+      role: { slug: 'sup', name: RoleEnum.Supervisor },
+      warehouseMembers: [],
+    };
+
+    it('loads the user with role and member warehouses', async () => {
+      userRepository.findOne.mockResolvedValue(target);
+
+      const result = await service.findOne(caller({ roleName: RoleEnum.Admin }), 'other-slug');
+
+      expect(userRepository.findOne).toHaveBeenCalledWith({
+        where: { slug: 'other-slug' },
+        relations: { role: true, warehouseMembers: { warehouse: true } },
+      });
+      expect(result.slug).toBe('other-slug');
+      expect(warehouseRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('throws USER_NOT_FOUND for an unknown slug', async () => {
+      userRepository.findOne.mockResolvedValue(null);
+
+      await expectUserError(
+        service.findOne(caller({ roleName: RoleEnum.Admin }), 'missing'),
+        UserValidation.USER_NOT_FOUND.code,
+      );
+    });
+
+    it('lets a scoped caller read a user sharing one of their warehouses', async () => {
+      userRepository.findOne.mockResolvedValue(target);
+      warehouseRepository.find
+        .mockResolvedValueOnce([{ id: 'wh-1' }])
+        .mockResolvedValueOnce([
+          { manager: { id: 'user-id' }, members: [{ user: { id: 'other-id' } }] },
+        ]);
+
+      await expect(service.findOne(caller(), 'other-slug')).resolves.toMatchObject({
+        slug: 'other-slug',
+      });
+    });
+
+    // Ngoài phạm vi trả NOT_FOUND chứ không FORBIDDEN — không lộ user đó có tồn tại.
+    it('hides a user outside the scoped caller warehouses as USER_NOT_FOUND', async () => {
+      userRepository.findOne.mockResolvedValue(target);
+      warehouseRepository.find.mockResolvedValueOnce([]);
+
+      await expectUserError(
+        service.findOne(caller(), 'other-slug'),
+        UserValidation.USER_NOT_FOUND.code,
+      );
+    });
+
+    it('always lets a scoped caller read themselves', async () => {
+      userRepository.findOne.mockResolvedValue({ ...target, id: 'user-id' });
+
+      await service.findOne(caller({ roleName: RoleEnum.Supervisor }), 'my-slug');
+
+      expect(warehouseRepository.find).not.toHaveBeenCalled();
     });
   });
 

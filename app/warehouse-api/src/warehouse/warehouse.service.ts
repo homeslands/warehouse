@@ -141,20 +141,46 @@ export class WarehouseService {
       relations: WAREHOUSE_RELATIONS,
     });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
-
-    if (!hasRole(currentUser, ...WAREHOUSE_UNSCOPED_ROLES)) {
-      const isManager = warehouse.manager?.id === currentUser.userId;
-      const isMember =
-        !isManager &&
-        (await this.warehouseMemberRepository.existsBy({
-          warehouse: { id: warehouse.id },
-          user: { id: currentUser.userId },
-        }));
-      if (!isManager && !isMember)
-        throw new WarehouseException(WarehouseValidation.WAREHOUSE_ACCESS_DENIED);
-    }
+    await this.assertCanRead(warehouse, currentUser);
 
     return this.mapper.map(warehouse, Warehouse, WarehouseResponseDto);
+  }
+
+  /**
+   * Danh sách thành viên của kho (phân trang). Cùng phạm vi đọc với `findOne`: dưới ADMIN chỉ xem
+   * được kho mình là manager hoặc thành viên. Manager KHÔNG nằm trong danh sách (slot riêng trên
+   * `warehouse_tbl`, đã có trong `GET :slug`); row xoá mềm (member đã bị gỡ) tự bị loại.
+   */
+  async findMembers(
+    slug: string,
+    query: BaseQueryDto,
+    currentUser: CurrentUserDto,
+  ): Promise<AppPaginatedResponseDto<WarehouseMemberResponseDto>> {
+    const warehouse = await this.warehouseRepository.findOne({
+      where: { slug },
+      relations: { manager: true },
+    });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+    await this.assertCanRead(warehouse, currentUser);
+
+    const [items, total] = await this.warehouseMemberRepository.findAndCount({
+      where: { warehouse: { id: warehouse.id } },
+      relations: { user: true },
+      order: { createdAt: 'DESC' },
+      skip: (query.page - 1) * query.size,
+      take: query.size,
+    });
+    const totalPages = Math.ceil(total / query.size);
+
+    return {
+      items: this.mapper.mapArray(items, WarehouseMember, WarehouseMemberResponseDto),
+      total,
+      page: query.page,
+      pageSize: query.size,
+      totalPages,
+      hasNext: query.page < totalPages,
+      hasPrevios: query.page > 1,
+    } as AppPaginatedResponseDto<WarehouseMemberResponseDto>;
   }
 
   async updateWarehouse(
@@ -328,6 +354,21 @@ export class WarehouseService {
       hasNext: query.page < totalPages,
       hasPrevios: query.page > 1,
     } as AppPaginatedResponseDto<WarehouseResponseDto>;
+  }
+
+  /**
+   * `ADMIN`/`SUPER_ADMIN` đọc được mọi kho. Role khác (kể cả role tự tạo, token thiếu claim `role`)
+   * phải là manager HOẶC thành viên — ngược lại `WAREHOUSE_ACCESS_DENIED` (403). `warehouse` phải
+   * được load kèm `manager`. `existsBy` mặc định loại row xoá mềm ⇒ member đã bị gỡ mất quyền đọc.
+   */
+  private async assertCanRead(warehouse: Warehouse, currentUser: CurrentUserDto): Promise<void> {
+    if (hasRole(currentUser, ...WAREHOUSE_UNSCOPED_ROLES)) return;
+    if (warehouse.manager?.id === currentUser.userId) return;
+    const isMember = await this.warehouseMemberRepository.existsBy({
+      warehouse: { id: warehouse.id },
+      user: { id: currentUser.userId },
+    });
+    if (!isMember) throw new WarehouseException(WarehouseValidation.WAREHOUSE_ACCESS_DENIED);
   }
 
   /**

@@ -1,7 +1,12 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { CreateSupplierTransactionRequestDto, UpdateSupplierRequestDto } from './supplier.dto';
-import { SupplierTransactionType } from './supplier.constants';
+import {
+  CreateSupplierTransactionRequestDto,
+  GetSupplierMaterialRequestDto,
+  SupplierMaterialSlugsRequestDto,
+  UpdateSupplierRequestDto,
+} from './supplier.dto';
+import { SUPPLIER_MATERIAL_BATCH_MAX, SupplierTransactionType } from './supplier.constants';
 
 const messages = <T extends object>(cls: new () => T, payload: object): string[] =>
   validateSync(plainToInstance(cls, payload), { whitelist: true }).flatMap((e) =>
@@ -80,5 +85,48 @@ describe('CreateSupplierTransactionRequestDto', () => {
     expect(
       messages(CreateSupplierTransactionRequestDto, { ...purchase, transactionDate: 'hôm qua' }),
     ).toContain('SUPPLIER_TRANSACTION_DATE_INVALID');
+  });
+});
+
+describe('GetSupplierMaterialRequestDto', () => {
+  it('chấp nhận from/to dạng ISO 8601', () => {
+    expect(
+      messages(GetSupplierMaterialRequestDto, {
+        from: '2026-09-01T00:00:00.000Z',
+        to: '2026-09-30',
+      }),
+    ).toEqual([]);
+  });
+
+  it('từ chối from/to không phải ngày', () => {
+    expect(
+      messages(GetSupplierMaterialRequestDto, { from: 'yesterday', to: '2026-13-45' }),
+    ).toEqual(['SUPPLIER_MATERIAL_DATE_INVALID', 'SUPPLIER_MATERIAL_DATE_INVALID']);
+  });
+});
+
+describe('SupplierMaterialSlugsRequestDto — gắn/gỡ hàng loạt', () => {
+  it('trim và khử trùng lặp slug', () => {
+    const dto = plainToInstance(SupplierMaterialSlugsRequestDto, {
+      materialSlugs: [' m1 ', 'm1', 'm2'],
+    });
+    expect(dto.materialSlugs).toEqual(['m1', 'm2']);
+    expect(validateSync(dto)).toEqual([]);
+  });
+
+  it.each([
+    ['thiếu field', {}],
+    ['không phải mảng', { materialSlugs: 'm1' }],
+    ['mảng rỗng', { materialSlugs: [] }],
+    ['phần tử không phải chuỗi', { materialSlugs: ['m1', 2] }],
+    ['phần tử rỗng', { materialSlugs: ['m1', '  '] }],
+    [
+      `quá ${SUPPLIER_MATERIAL_BATCH_MAX} vật tư`,
+      { materialSlugs: Array.from({ length: SUPPLIER_MATERIAL_BATCH_MAX + 1 }, (_, i) => `m${i}`) },
+    ],
+  ])('từ chối %s', (_, payload) => {
+    const result = messages(SupplierMaterialSlugsRequestDto, payload);
+    expect(result.length).toBeGreaterThan(0);
+    expect(new Set(result)).toEqual(new Set(['SUPPLIER_MATERIAL_SLUGS_INVALID']));
   });
 });

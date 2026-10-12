@@ -4,6 +4,7 @@ import { validateSync } from 'class-validator';
 import {
   CreateMaterialConversionUnitRequestDto,
   CreateMaterialRequestDto,
+  GetAllMaterialRequestDto,
   UpdateMaterialConversionUnitRequestDto,
   UpdateMaterialRequestDto,
 } from './material.dto';
@@ -141,5 +142,25 @@ describe('UpdateMaterialRequestDto.baseUnitSlug — PATCH', () => {
     expect(messagesFor({ baseUnitSlug: '', version: 1 })).toContain(
       'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED',
     );
+  });
+});
+
+describe('GetAllMaterialRequestDto.hasSupplier — query string', () => {
+  const parse = (hasSupplier: unknown) => {
+    const dto = plainToInstance(GetAllMaterialRequestDto, { hasSupplier });
+    return { dto, messages: validateSync(dto).flatMap((e) => Object.values(e.constraints ?? {})) };
+  };
+
+  it.each([
+    ['true', true],
+    ['false', false],
+  ])("chuyển '%s' sang boolean", (raw, expected) => {
+    const { dto, messages } = parse(raw);
+    expect(dto.hasSupplier).toBe(expected);
+    expect(messages).toEqual([]);
+  });
+
+  it('từ chối giá trị không phải true/false', () => {
+    expect(parse('yes').messages).toContain('MATERIAL_HAS_SUPPLIER_INVALID');
   });
 });

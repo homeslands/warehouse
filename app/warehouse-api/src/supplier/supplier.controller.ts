@@ -15,13 +15,11 @@ import {
 } from '@nestjs/common';
 import {
   CreateSupplierRequestDto,
-  CreateSupplierTransactionRequestDto,
   GetAllSupplierRequestDto,
   GetSupplierMaterialRequestDto,
-  GetSupplierTransactionRequestDto,
   SupplierMaterialResponseDto,
+  SupplierMaterialSlugsRequestDto,
   SupplierResponseDto,
-  SupplierTransactionResponseDto,
   UpdateSupplierRequestDto,
 } from './supplier.dto';
 import { SupplierService } from './supplier.service';
@@ -29,7 +27,6 @@ import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator';
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
-import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 
 @ApiTags('Supplier')
 @Controller('suppliers')
@@ -62,7 +59,10 @@ export class SupplierController {
   @Get()
   @RequireAuthority(AuthorityCode.SupplierRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all suppliers (paginated)' })
+  @ApiOperation({
+    summary:
+      'Get all suppliers (paginated, filter by code / taxCode / search(name|contactPerson|email) / phonenumber)',
+  })
   @ApiPaginatedResponse(SupplierResponseDto, 'Retrieved')
   async findAll(
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
@@ -155,38 +155,57 @@ export class SupplierController {
     } as AppResponseDto<AppPaginatedResponseDto<SupplierMaterialResponseDto>>;
   }
 
-  @Put(':slug/materials/:materialSlug')
+  @Put(':slug/materials')
   @RequireAuthority(AuthorityCode.SupplierUpdate, AuthorityCode.MaterialUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Attach a material to a supplier' })
+  @ApiOperation({
+    summary: 'Attach materials to a supplier (batch)',
+    description:
+      'All-or-nothing: if any slug does not exist (`MATERIAL_NOT_FOUND`) or any material already ' +
+      'belongs to another supplier (`SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER`), the whole batch ' +
+      'is rejected. Materials already attached to this supplier are skipped. Returns every material ' +
+      'in the batch.',
+  })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Attached',
     type: SupplierMaterialResponseDto,
+    isArray: true,
   })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  @ApiParam({ name: 'materialSlug', required: true, example: 'm8kq2p9xab' })
-  async attachMaterial(@Param('slug') slug: string, @Param('materialSlug') materialSlug: string) {
-    const result = await this.supplierService.attachMaterial(slug, materialSlug);
+  async attachMaterials(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: SupplierMaterialSlugsRequestDto,
+  ) {
+    const result = await this.supplierService.attachMaterials(slug, requestData);
     return {
-      message: 'Material has been attached to supplier successfully',
+      message: 'Materials have been attached to supplier successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<SupplierMaterialResponseDto>;
+    } as AppResponseDto<SupplierMaterialResponseDto[]>;
   }
 
-  @Delete(':slug/materials/:materialSlug')
+  @Delete(':slug/materials')
   @RequireAuthority(AuthorityCode.SupplierUpdate, AuthorityCode.MaterialUpdate)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Detach a material from a supplier' })
+  @ApiOperation({
+    summary: 'Detach materials from a supplier (batch)',
+    description:
+      'All-or-nothing: every material in the batch must currently belong to this supplier, ' +
+      'otherwise the whole batch is rejected (`SUPPLIER_MATERIAL_NOT_ATTACHED`).',
+  })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Detached', type: String })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  @ApiParam({ name: 'materialSlug', required: true, example: 'm8kq2p9xab' })
-  async detachMaterial(@Param('slug') slug: string, @Param('materialSlug') materialSlug: string) {
-    const result = await this.supplierService.detachMaterial(slug, materialSlug);
+  async detachMaterials(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: SupplierMaterialSlugsRequestDto,
+  ) {
+    const result = await this.supplierService.detachMaterials(slug, requestData);
     return {
-      message: 'Material has been detached from supplier successfully',
+      message: 'Materials have been detached from supplier successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result: `${result} material have been detached successfully`,
@@ -194,50 +213,7 @@ export class SupplierController {
   }
 
   // ---------- Lịch sử giao dịch (append-only) ----------
-
-  @Get(':slug/transactions')
-  @RequireAuthority(AuthorityCode.SupplierRead)
-  @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get the transaction history of a supplier (newest first)' })
-  @ApiPaginatedResponse(SupplierTransactionResponseDto, 'Retrieved')
-  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  async findTransactions(
-    @Param('slug') slug: string,
-    @Query(new ValidationPipe({ transform: true, whitelist: true }))
-    query: GetSupplierTransactionRequestDto,
-  ) {
-    const result = await this.supplierService.findTransactions(slug, query);
-    return {
-      message: 'Supplier transactions have been retrieved successfully',
-      statusCode: HttpStatus.OK,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<AppPaginatedResponseDto<SupplierTransactionResponseDto>>;
-  }
-
-  // Ghi vào sổ giao dịch của nhà cung cấp ⇒ cùng quyền với sửa nhà cung cấp.
-  @Post(':slug/transactions')
-  @RequireAuthority(AuthorityCode.SupplierUpdate)
-  @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Record a transaction (PURCHASE / RETURN / PAYMENT) with a supplier' })
-  @ApiResponseWithType({
-    status: HttpStatus.CREATED,
-    description: 'Created',
-    type: SupplierTransactionResponseDto,
-  })
-  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
-  async createTransaction(
-    @CurrentUser() currentUser: CurrentUserDto,
-    @Param('slug') slug: string,
-    @Body(new ValidationPipe({ transform: true, whitelist: true }))
-    requestData: CreateSupplierTransactionRequestDto,
-  ) {
-    const result = await this.supplierService.createTransaction(currentUser, slug, requestData);
-    return {
-      message: 'Supplier transaction has been created successfully',
-      statusCode: HttpStatus.CREATED,
-      timestamp: new Date().toISOString(),
-      result,
-    } as AppResponseDto<SupplierTransactionResponseDto>;
-  }
+  // TODO(tech-debt): tạm ẩn `GET/POST :slug/transactions` — người dùng chưa được tự tạo giao dịch.
+  // Mở lại khi làm phần phân tích giao dịch của nhà cung cấp; service `findTransactions` /
+  // `createTransaction` + entity `SupplierTransaction` vẫn giữ nguyên để nối lại controller.
 }
