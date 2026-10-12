@@ -18,6 +18,7 @@ import { UnitValidation, TUnitErrorCode } from 'src/unit/unit.validation';
 import { InventoryValidation, TInventoryErrorCode } from 'src/inventory/inventory.validation';
 import { StoreValidation, TStoreErrorCode } from 'src/store/store.validation';
 import { SupplierValidation, TSupplierErrorCode } from 'src/supplier/supplier.validation';
+import { ImportFormValidation, TImportFormErrorCode } from 'src/import-form/import-form.validation';
 import { TaxProfileValidation, TTaxProfileErrorCode } from 'src/tax-profile/tax-profile.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
@@ -54,6 +55,7 @@ export const AppValidation: TAuthErrorCode &
   TInventoryErrorCode &
   TStoreErrorCode &
   TSupplierErrorCode &
+  TImportFormErrorCode &
   TTaxProfileErrorCode &
   TDbErrorCode &
   TFileErrorCode &
@@ -72,6 +74,7 @@ export const AppValidation: TAuthErrorCode &
   ...InventoryValidation,
   ...StoreValidation,
   ...SupplierValidation,
+  ...ImportFormValidation,
   ...TaxProfileValidation,
   ...DbValidation,
   ...FileValidation,
