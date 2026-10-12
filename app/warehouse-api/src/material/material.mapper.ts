@@ -11,6 +11,12 @@ import { Material } from './material.entity';
 import { MaterialUnit } from './material-unit.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
+import { MaterialType } from 'src/material-type/material-type.entity';
+import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
+import { Unit } from 'src/unit/unit.entity';
+import { UnitResponseDto } from 'src/unit/unit.dto';
+import { Supplier } from 'src/supplier/supplier.entity';
+import { SupplierResponseDto } from 'src/supplier/supplier.dto';
 
 /**
  * Automapper KHÔNG kế thừa map của DTO cha — `UpdateMaterialRequestDto extends
@@ -76,31 +82,29 @@ export class MaterialProfile extends AutomapperProfile {
         Material,
         MaterialResponseDto,
         extend(baseMapper(mapper)),
+        // Object lồng map qua profile của module tương ứng (MaterialType/Unit/Supplier) — các profile
+        // đó phải được đăng ký cùng mapper, thiếu là automapper ném lỗi "mapping not found".
         forMember(
-          (d) => d.typeSlug,
-          mapFrom((s) => s.type?.slug),
+          (d) => d.type,
+          mapFrom((s) =>
+            s.type ? mapper.map(s.type, MaterialType, MaterialTypeResponseDto) : undefined,
+          ),
         ),
         forMember(
-          (d) => d.typeCode,
-          mapFrom((s) => s.type?.code),
+          (d) => d.baseUnit,
+          mapFrom((s) => (s.baseUnit ? mapper.map(s.baseUnit, Unit, UnitResponseDto) : null)),
+        ),
+        // `supplier` cần `relations: { supplier: true }` ở read path — thiếu thì mọi vật tư đều ra
+        // `hasSupplier: false`.
+        forMember(
+          (d) => d.hasSupplier,
+          mapFrom((s) => !!s.supplier),
         ),
         forMember(
-          (d) => d.typeName,
-          mapFrom((s) => s.type?.name),
-        ),
-        // `baseUnit` là quan hệ NULL-able và không `eager` — thiếu `relations: { baseUnit: true }`
-        // ở read path thì 3 field dưới im lặng ra `undefined`, không có lỗi nào báo ra.
-        forMember(
-          (d) => d.baseUnitSlug,
-          mapFrom((s) => s.baseUnit?.slug),
-        ),
-        forMember(
-          (d) => d.baseUnitCode,
-          mapFrom((s) => s.baseUnit?.code),
-        ),
-        forMember(
-          (d) => d.baseUnitName,
-          mapFrom((s) => s.baseUnit?.name),
+          (d) => d.supplier,
+          mapFrom((s) =>
+            s.supplier ? mapper.map(s.supplier, Supplier, SupplierResponseDto) : null,
+          ),
         ),
       );
 
