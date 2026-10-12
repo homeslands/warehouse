@@ -279,7 +279,10 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   Ô mặc định không xuống dòng (`TableCell` của shadcn). Cột chữ dài do người dùng nhập: bọc
   `block max-w-* whitespace-normal`; chuỗi không có khoảng trắng (email) thêm `break-words` — **đừng dùng
   `[overflow-wrap:anywhere]`**: nó hạ min-content về 1 ký tự nên bảng bóp cột, email ngắn cũng gãy giữa chữ.
-  Nhãn ngắn mà có thể dài (vai trò tự tạo): `truncate` + `title`. Danh sách trong ô: 2 mục + "+N", đủ ở
+  Nhãn ngắn mà có thể dài (vai trò tự tạo): `truncate` + `title`.
+  Trang chi tiết: menu ⋯ ở đầu trang chỉ dùng khi có từ hai thao tác phụ trở lên (Kho, Cửa hàng); chỉ còn mỗi Xoá thì
+  để nút `variant="destructive"` ngay cạnh nút Sửa (Vật tư, Nhà cung cấp). Nút bị khoá thì lý do là dòng chữ nhỏ hiện
+  sẵn dưới hàng nút, nối `aria-describedby` — không dùng `title` (nút disabled không nhận hover). Danh sách trong ô: 2 mục + "+N", đủ ở
   `title` và `sr-only`. Kiểm bằng skill `break-ui` (dữ liệu xấu thật, nhiều khổ màn) trước khi báo xong.
   Bộ lọc trên thanh (`ListToolbar`), không cần khai gì thêm:
   - **Desktop vừa một hàng**: ô tìm trái, bộ lọc + nút hành động phải.
@@ -675,8 +678,10 @@ mất công tìm cách sửa nó.
     biết bị chặn sau khi gửi (100609 / 100712) — báo trong hộp. Xoá Đơn vị khoá sẵn theo `materialCount.total`.
   - `NumberInput` coi `.` và `,` đều là dấu thập phân ("1.000" = 1) và viết lại về dạng chuẩn khi rời ô. Ngưỡng tồn /
     tỉ lệ chặn ≥ 1e12 (`DECIMAL_18_6_LIMIT`, cột `DECIMAL(18,6)`; backend không chặn → lỗi 500).
-  - Tồn kho theo kho (`/warehouses/:slug/materials`) và máy tính quy đổi (`POST /materials/:slug/convert`) chưa làm —
-    chờ BE thêm đơn vị gốc vào `InventoryResponseDto` và lọc `name` / `code` (spec WMS-15 mục 9).
+  - Tồn kho theo kho (`/warehouses/:slug/materials`) chưa làm — chờ BE thêm đơn vị gốc vào `InventoryResponseDto` và
+    lọc `name` / `code` (spec WMS-15 mục 9).
+  - `POST /materials/:slug/convert` (quy đổi số lượng): **cố ý không dùng** — chốt 2026-10-12 là không cần màn / công cụ
+    quy đổi riêng. Đừng dựng lại khi chưa có yêu cầu mới.
 - **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
   bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
   nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,

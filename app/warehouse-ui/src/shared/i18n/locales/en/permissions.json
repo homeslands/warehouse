@@ -109,5 +109,8 @@
     "SUPPLIER_DELETE": "Delete suppliers",
     "TAX_PROFILE_READ": "View/look up tax profiles",
     "TAX_PROFILE_UPDATE": "Refresh tax profiles"
-  }
+  },
+  "expandAll": "Expand all",
+  "collapseAll": "Collapse all",
+  "groupCount": "Authorities: {{count}}"
 }

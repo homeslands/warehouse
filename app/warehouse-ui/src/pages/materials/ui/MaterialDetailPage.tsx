@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { ArrowLeftIcon, MoreHorizontalIcon } from 'lucide-react'
+import { ArrowLeftIcon } from 'lucide-react'
 import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
@@ -9,12 +9,6 @@ import { readBackTo } from '@/shared/lib/back-link'
 import { formatDateTime, formatQuantity } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { DetailCard, DetailField, DetailGroup, DetailMeta } from '@/shared/ui/detail'
-import {
-  DropdownMenu,
-  DropdownMenuContent,
-  DropdownMenuItem,
-  DropdownMenuTrigger,
-} from '@/shared/ui/dropdown-menu'
 import { EmptyValue } from '@/shared/ui/EmptyValue'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { materialKeys, useMaterial } from '@/entities/material'
@@ -109,19 +103,10 @@ export function MaterialDetailPage() {
               <Button onClick={() => setFormOpen(true)}>{t('materials:editAction')}</Button>
             )}
             {ability.delete && (
-              <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
-                    <MoreHorizontalIcon />
-                  </Button>
-                </DropdownMenuTrigger>
-                <DropdownMenuContent align="end">
-                  {/* Backend chặn xoá khi còn gán vào kho (100712) — FE không biết trước, hộp xoá báo tại chỗ. */}
-                  <DropdownMenuItem variant="destructive" onSelect={() => setDeleting(true)}>
-                    {t('materials:deleteMenu')}
-                  </DropdownMenuItem>
-                </DropdownMenuContent>
-              </DropdownMenu>
+              // Backend chặn xoá khi còn gán vào kho (100712) — FE không biết trước, hộp xoá báo tại chỗ.
+              <Button variant="destructive" onClick={() => setDeleting(true)}>
+                {t('materials:deleteAction')}
+              </Button>
             )}
           </div>
         </div>
