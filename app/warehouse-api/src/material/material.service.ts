@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { FindOptionsRelations, FindOptionsWhere, Like, Repository } from 'typeorm';
+import { FindOptionsRelations, FindOptionsWhere, IsNull, Like, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -32,9 +32,13 @@ import { TransactionManagerService } from 'src/db/transaction-manager.service';
 
 /**
  * `type`/`baseUnit` cố tình KHÔNG `eager` trên entity, nên mọi read path phải truyền hằng này —
- * thiếu nó thì response im lặng mất `typeSlug`/`typeCode`/`baseUnitSlug`, không có lỗi nào báo ra.
+ * thiếu nó thì response im lặng mất `type`/`baseUnit`/`supplier`, không có lỗi nào báo ra.
  */
-const MATERIAL_RELATIONS: FindOptionsRelations<Material> = { type: true, baseUnit: true };
+const MATERIAL_RELATIONS: FindOptionsRelations<Material> = {
+  type: true,
+  baseUnit: true,
+  supplier: true,
+};
 
 @Injectable()
 export class MaterialService {
@@ -101,6 +105,10 @@ export class MaterialService {
     if (query.typeSlug) where.type = { slug: query.typeSlug };
     if (query.code) where.code = query.code;
     if (query.name) where.name = Like(`%${query.name}%`);
+    // Lọc thẳng trên cột FK `supplier_id_column`. Không lệch với `hasSupplier` trong response vì
+    // `deleteSupplier` chặn xoá nhà cung cấp còn gắn vật tư ⇒ không có FK trỏ vào supplier đã xoá mềm.
+    if (query.hasSupplier === true) where.supplier = Not(IsNull());
+    else if (query.hasSupplier === false) where.supplier = IsNull();
 
     const [items, total] = await this.materialRepository.findAndCount({
       where,
