@@ -60,23 +60,23 @@ export function buildMaterialColumns(
       },
     },
     {
-      accessorKey: 'typeName',
+      id: 'type',
       header: t('materials:columnType'),
       meta: { hideBelow: '@2xl' },
       cell: ({ row }) => (
         <span className="block max-w-48 min-w-28 break-words whitespace-normal">
-          {row.original.typeName}
+          {row.original.type.name}
         </span>
       ),
     },
     {
-      accessorKey: 'baseUnitCode',
+      id: 'baseUnit',
       header: t('materials:columnBaseUnit'),
       meta: { hideBelow: '@sm' },
       cell: ({ row }) =>
-        row.original.baseUnitCode ? (
+        row.original.baseUnit ? (
           <span className="block max-w-40 break-words whitespace-normal">
-            {row.original.baseUnitCode}
+            {row.original.baseUnit.code}
           </span>
         ) : (
           <EmptyValue />
