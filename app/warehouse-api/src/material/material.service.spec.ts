@@ -1,4 +1,5 @@
 import { Test, TestingModule } from '@nestjs/testing';
+import { IsNull, Not } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
@@ -16,6 +17,10 @@ import { UnitService } from 'src/unit/unit.service';
 import { Unit } from 'src/unit/unit.entity';
 import { MaterialType } from 'src/material-type/material-type.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
+import { Supplier } from 'src/supplier/supplier.entity';
+import { MaterialTypeProfile } from 'src/material-type/material-type.mapper';
+import { UnitProfile } from 'src/unit/unit.mapper';
+import { SupplierProfile } from 'src/supplier/supplier.mapper';
 
 const materialType = () =>
   ({ id: 'type-id-1', slug: 'type-slug-1', code: 'MT-01', name: 'Tiêu hao' }) as MaterialType;
@@ -98,6 +103,9 @@ describe('MaterialService', () => {
       providers: [
         MaterialService,
         MaterialProfile,
+        MaterialTypeProfile,
+        UnitProfile,
+        SupplierProfile,
         { provide: getRepositoryToken(Material), useValue: materialRepository },
         { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: getRepositoryToken(MaterialUnit), useValue: materialUnitRepository },
@@ -115,6 +123,73 @@ describe('MaterialService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('findAll', () => {
+    const supplier = () =>
+      ({
+        id: 'supplier-id-1',
+        slug: 'sup-slug-1',
+        code: 'SUP-01',
+        name: 'Nhà cung cấp A',
+      }) as Supplier;
+
+    it('load supplier/type/baseUnit và trả object lồng kèm hasSupplier', async () => {
+      materialRepository.findAndCount.mockResolvedValue([
+        [baseMaterial({ type: materialType(), baseUnit: unit(), supplier: supplier() })],
+        1,
+      ]);
+
+      const result = await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          relations: { type: true, baseUnit: true, supplier: true },
+        }),
+      );
+      expect(result.items[0]).toMatchObject({
+        hasSupplier: true,
+        supplier: { slug: 'sup-slug-1', code: 'SUP-01', name: 'Nhà cung cấp A' },
+        type: { slug: 'type-slug-1', code: 'MT-01', name: 'Tiêu hao' },
+        baseUnit: { slug: 'unit-slug-1', code: 'KG', name: 'Kilogram' },
+      });
+      expect(result.items[0]).not.toHaveProperty('typeSlug');
+      expect(result.items[0]).not.toHaveProperty('baseUnitSlug');
+    });
+
+    it('hasSupplier = false và supplier = null khi vật tư chưa gắn nhà cung cấp', async () => {
+      materialRepository.findAndCount.mockResolvedValue([
+        [baseMaterial({ type: materialType(), baseUnit: undefined, supplier: null })],
+        1,
+      ]);
+
+      const result = await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(result.items[0]).toMatchObject({ hasSupplier: false, supplier: null, baseUnit: null });
+    });
+
+    it.each([
+      ['true', true, Not(IsNull())],
+      ['false', false, IsNull()],
+    ])('lọc hasSupplier=%s theo cột FK supplier', async (_label, hasSupplier, expected) => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, hasSupplier } as never);
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { supplier: expected } }),
+      );
+    });
+
+    it('không lọc supplier khi không gửi hasSupplier', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: {} }),
+      );
+    });
   });
 
   describe('createMaterial', () => {
@@ -137,7 +212,7 @@ describe('MaterialService', () => {
         }),
       );
       // Quan hệ `type` được flatten ra 3 field phẳng, không lồng cả DTO loại vật tư vào response.
-      expect(result).toMatchObject({ typeSlug: 'type-slug-1', typeCode: 'MT-01' });
+      expect(result).toMatchObject({ type: { slug: 'type-slug-1', code: 'MT-01' } });
     });
 
     it('rejects maximumInventory below minimumInventory', async () => {
@@ -253,7 +328,7 @@ describe('MaterialService', () => {
       expect(materialRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ baseUnit: unit() }),
       );
-      expect(result).toMatchObject({ baseUnitSlug: 'unit-slug-1', baseUnitCode: 'KG' });
+      expect(result).toMatchObject({ baseUnit: { slug: 'unit-slug-1', code: 'KG' } });
     });
 
     it('không tạo vật tư khi baseUnitSlug không tồn tại', async () => {
@@ -275,7 +350,7 @@ describe('MaterialService', () => {
 
       expect(unitService.findEntityBySlug).not.toHaveBeenCalled();
       expect(materialUnitRepository.countBy).not.toHaveBeenCalled();
-      expect(result).toMatchObject({ baseUnitSlug: 'unit-slug-1' });
+      expect(result).toMatchObject({ baseUnit: { slug: 'unit-slug-1' } });
     });
 
     it('đặt base unit lần đầu: tạo dòng join rate = 1 TRƯỚC khi trỏ base_unit_id', async () => {
@@ -296,7 +371,7 @@ describe('MaterialService', () => {
         conversionRate: 1,
       });
       expect(manager.save.mock.calls[1][0]).toMatchObject({ baseUnit: unit() });
-      expect(result).toMatchObject({ baseUnitSlug: 'unit-slug-1', baseUnitName: 'Kilogram' });
+      expect(result).toMatchObject({ baseUnit: { slug: 'unit-slug-1', name: 'Kilogram' } });
     });
 
     it('đổi base unit khi vật tư còn sạch: xoá dòng join cũ SAU khi con trỏ đã rời đi', async () => {
