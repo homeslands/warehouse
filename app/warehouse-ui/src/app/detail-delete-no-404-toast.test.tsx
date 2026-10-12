@@ -156,8 +156,7 @@ describe('xoá nhà cung cấp từ trang chi tiết', () => {
       await screen.findByRole('heading', { level: 1, name: 'NCC-01 · Công ty ABC' })
       await screen.findByRole('tab', { name: 'Vật tư (0)' })
 
-      await user.click(screen.getByRole('button', { name: 'Thao tác khác' }))
-      await user.click(await screen.findByRole('menuitem', { name: 'Xoá' }))
+      await user.click(screen.getByRole('button', { name: 'Xoá' }))
       await user.click(
         within(await screen.findByRole('alertdialog')).getByRole('button', { name: 'Xoá' }),
       )
