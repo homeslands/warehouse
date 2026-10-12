@@ -22,6 +22,7 @@ export const MATERIAL_BASE_UNIT_RATE_IS_FIXED = 'MATERIAL_BASE_UNIT_RATE_IS_FIXE
 export const MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED = 'MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED';
 export const MATERIAL_BASE_UNIT_LOCKED = 'MATERIAL_BASE_UNIT_LOCKED';
 export const MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED = 'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED';
+export const MATERIAL_HAS_SUPPLIER_INVALID = 'MATERIAL_HAS_SUPPLIER_INVALID';
 
 export type TMaterialErrorCodeKey =
   | typeof MATERIAL_NOT_FOUND
@@ -44,7 +45,8 @@ export type TMaterialErrorCodeKey =
   | typeof MATERIAL_BASE_UNIT_RATE_IS_FIXED
   | typeof MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED
   | typeof MATERIAL_BASE_UNIT_LOCKED
-  | typeof MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED;
+  | typeof MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED
+  | typeof MATERIAL_HAS_SUPPLIER_INVALID;
 
 export type TMaterialErrorCode = Record<TMaterialErrorCodeKey, TErrorCodeValue>;
 
@@ -141,4 +143,5 @@ export const MaterialValidation: TMaterialErrorCode = {
     'Base unit can no longer be changed: the material already has stock or other conversion units',
   ),
   MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED: createErrorCode(100724, 'baseUnitSlug is required'),
+  MATERIAL_HAS_SUPPLIER_INVALID: createErrorCode(100725, 'hasSupplier must be true or false'),
 };

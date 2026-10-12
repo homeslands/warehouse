@@ -1,14 +1,22 @@
-import { IsNotEmpty, IsOptional, IsPositive, Matches, Min } from 'class-validator';
+import { IsBoolean, IsNotEmpty, IsOptional, IsPositive, Matches, Min } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
+import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
+import { UnitResponseDto } from 'src/unit/unit.dto';
+import { SupplierResponseDto } from 'src/supplier/supplier.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const upper = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toUpperCase() : value;
+const toBoolean = ({ value }: { value: unknown }) => {
+  if (value === 'true') return true;
+  if (value === 'false') return false;
+  return value;
+};
 
 export class CreateMaterialRequestDto {
   @AutoMap()
@@ -110,6 +118,14 @@ export class GetAllMaterialRequestDto extends BaseQueryDto {
   @IsOptional()
   @Transform(trim)
   name?: string;
+
+  @ApiPropertyOptional({
+    description: 'true = attached to a supplier, false = not attached to any supplier',
+  })
+  @IsOptional()
+  @Transform(toBoolean)
+  @IsBoolean({ message: 'MATERIAL_HAS_SUPPLIER_INVALID' })
+  hasSupplier?: boolean;
 }
 
 export class MaterialResponseDto extends BaseResponseDto {
@@ -129,25 +145,25 @@ export class MaterialResponseDto extends BaseResponseDto {
   @ApiProperty()
   maximumInventory: number;
 
-  // Flatten từ quan hệ `type` bằng `forMember` — không lồng nguyên `MaterialTypeResponseDto` vào.
-  @ApiPropertyOptional({ description: 'Slug of the material type' })
-  typeSlug?: string;
+  @ApiPropertyOptional({ type: MaterialTypeResponseDto, description: 'Material type' })
+  type?: MaterialTypeResponseDto;
 
-  @ApiPropertyOptional({ description: 'Business code of the material type' })
-  typeCode?: string;
+  @ApiPropertyOptional({
+    type: UnitResponseDto,
+    nullable: true,
+    description: 'Base unit — `null` when the material has no base unit yet',
+  })
+  baseUnit?: UnitResponseDto | null;
 
-  @ApiPropertyOptional({ description: 'Name of the material type' })
-  typeName?: string;
+  @ApiProperty({ description: 'Whether the material is attached to a supplier' })
+  hasSupplier: boolean;
 
-  // Flatten từ quan hệ `baseUnit` — `undefined` khi vật tư chưa khai đơn vị cơ sở.
-  @ApiPropertyOptional({ description: 'Slug of the base unit' })
-  baseUnitSlug?: string;
-
-  @ApiPropertyOptional({ description: 'Business code of the base unit' })
-  baseUnitCode?: string;
-
-  @ApiPropertyOptional({ description: 'Name of the base unit' })
-  baseUnitName?: string;
+  @ApiPropertyOptional({
+    type: SupplierResponseDto,
+    nullable: true,
+    description: 'Supplier of the material — `null` when `hasSupplier` is false',
+  })
+  supplier?: SupplierResponseDto | null;
 }
 
 /**
