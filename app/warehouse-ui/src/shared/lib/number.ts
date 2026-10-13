@@ -10,3 +10,10 @@ export const hasAtMostDecimals = (value: number, n: number): boolean =>
  * trần là lỗi 500 của MySQL strict; FE chặn trước tại ô (ngưỡng tồn, tỉ lệ quy đổi).
  */
 export const DECIMAL_18_6_LIMIT = 1e12
+
+/** Trần (không gồm) của cột tiền `DECIMAL(18,2)` — 16 chữ số phần nguyên. */
+export const DECIMAL_18_2_LIMIT = 1e16
+
+/** Tiền 2 số lẻ: `0.1 * 3` → `0.3` (không phải `0.30000000000000004`). */
+export const roundMoney = (value: number): number =>
+  Math.round((value + Number.EPSILON) * 100) / 100
