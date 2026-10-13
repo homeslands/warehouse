@@ -1,18 +1,18 @@
-import { Column, Entity, JoinColumn, ManyToOne } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { VersionedBase } from 'src/app/versioned.entity';
-import { Supplier } from 'src/supplier/supplier.entity';
 import { User } from 'src/user/user.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 import { ImportFormStatus } from './import-form.constants';
+import { ImportFormItem } from './import-form-item.entity';
 
 /**
- * Phiếu nhập kho (mới có phần đầu phiếu, chưa có dòng vật tư — nên xác nhận phiếu CHƯA cộng tồn).
+ * Phiếu nhập kho: phần đầu phiếu + các dòng vật tư (`items`). Xác nhận phiếu CHƯA cộng tồn.
  *
- * Các cột `supplier*`/`requesterName`/`approverName` là **snapshot** lúc ghi phiếu, không phải dữ
- * liệu join: nhà cung cấp/user sửa tên, địa chỉ, MST bất cứ lúc nào, đọc qua FK là viết lại chứng từ
- * cũ. FK vẫn giữ để tra ngược "phiếu nào của nhà cung cấp/người này".
+ * Các cột `requesterName`/`approverName` là **snapshot** lúc ghi phiếu, không phải dữ liệu join: user
+ * sửa tên bất cứ lúc nào, đọc qua FK là viết lại chứng từ cũ. FK vẫn giữ để tra ngược "phiếu nào
+ * của người này". Phiếu nhập không gắn nhà cung cấp.
  */
 @Entity('import_form_tbl')
 export class ImportForm extends VersionedBase {
@@ -27,30 +27,6 @@ export class ImportForm extends VersionedBase {
   @AutoMap()
   @Column({ name: 'invoice_code_column' })
   invoiceCode: string;
-
-  @ManyToOne(() => Supplier, { nullable: false })
-  @JoinColumn({ name: 'supplier_id_column' })
-  supplier: Supplier;
-
-  @AutoMap()
-  @Column({ name: 'supplier_name_column' })
-  supplierName: string;
-
-  @AutoMap()
-  @Column({ name: 'supplier_code_column' })
-  supplierCode: string;
-
-  @AutoMap()
-  @Column({ name: 'supplier_slug_column' })
-  supplierSlug: string;
-
-  @AutoMap()
-  @Column({ name: 'supplier_tax_code_column', type: 'varchar', nullable: true })
-  supplierTaxCode?: string | null;
-
-  @AutoMap()
-  @Column({ name: 'supplier_address_column', type: 'varchar', nullable: true })
-  supplierAddress?: string | null;
 
   @ManyToOne(() => User, { nullable: true })
   @JoinColumn({ name: 'requester_id_column' })
@@ -100,4 +76,14 @@ export class ImportForm extends VersionedBase {
   @ManyToOne(() => Warehouse, { nullable: false })
   @JoinColumn({ name: 'warehouse_id_column' })
   warehouse: Warehouse;
+
+  /**
+   * Dòng vật tư. Service ghi tường minh trong cùng transaction với đầu phiếu (không dùng cascade
+   * insert/update); chỉ cascade xoá mềm/khôi phục để `softRemove(phiếu)` kéo theo dòng.
+   * `total` = Σ `items.amount`, do service tính lại mỗi lần `items` đổi — client không gửi `total`.
+   */
+  @OneToMany(() => ImportFormItem, (item) => item.importForm, {
+    cascade: ['soft-remove', 'recover'],
+  })
+  items?: ImportFormItem[];
 }

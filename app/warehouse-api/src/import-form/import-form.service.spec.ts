@@ -16,9 +16,11 @@ import { AuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { RoleEnum } from 'src/role/role.enum';
 import { User } from 'src/user/user.entity';
-import { Supplier } from 'src/supplier/supplier.entity';
-import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
+import { Material } from 'src/material/material.entity';
+import { Supplier } from 'src/supplier/supplier.entity';
+import { ImportFormItem } from './import-form-item.entity';
+import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 
 describe('ImportFormService', () => {
@@ -31,10 +33,13 @@ describe('ImportFormService', () => {
     softRemove: jest.fn(),
   };
   const warehouseRepository = { findOneBy: jest.fn() };
-  const supplierRepository = { findOneBy: jest.fn() };
   const userRepository = { findOneBy: jest.fn() };
+  const materialRepository = { find: jest.fn() };
+  // `execute` chạy thẳng callback với `manager` giả — đủ để kiểm mọi lần ghi đều đi qua transaction.
+  // Rollback thật do `TransactionManagerService` lo (xem `transaction-manager.service.spec.ts`).
+  const manager = { save: jest.fn(), delete: jest.fn() };
+  const transactionManager = { execute: jest.fn() };
 
-  const warehouse = { id: 'wh-1', slug: 'wh-slug', isActive: true } as Warehouse;
   const supplier = {
     id: 'sup-1',
     slug: 'sup-slug',
@@ -43,15 +48,34 @@ describe('ImportFormService', () => {
     taxCode: '0101234567',
     address: 'Hanoi',
   } as Supplier;
+
+  // Vật tư base = KG, gắn thêm BAO (1 BAO = 50 KG), thuộc nhà cung cấp A.
+  const kg = { id: 'unit-kg', slug: 'kg', code: 'KG', name: 'Kilogram' };
+  const bag = { id: 'unit-bag', slug: 'bag', code: 'BAO', name: 'Bao' };
+  const cement = {
+    id: 'mat-1',
+    slug: 'cement',
+    code: 'XM-01',
+    name: 'Xi mang',
+    supplier,
+    unitsCanHave: [
+      { unit: kg, conversionRate: 1 },
+      { unit: bag, conversionRate: 50 },
+    ],
+  } as unknown as Material;
+
+  const warehouse = { id: 'wh-1', slug: 'wh-slug', isActive: true } as Warehouse;
   const requester = { id: 'u1', slug: 'u1-slug', firstName: 'An', lastName: 'Nguyen' } as User;
   const approver = { id: 'u2', slug: 'u2-slug', firstName: 'Binh', lastName: 'Tran' } as User;
 
   const createDto: CreateImportFormRequestDto = {
     code: 'pn-0001',
     invoiceCode: 'HD-1',
-    supplierSlug: 'sup-slug',
     date: '2026-10-12',
-    total: 1000,
+    items: [
+      { materialSlug: 'cement', unitSlug: 'bag', quantity: 2, unitPrice: 400 },
+      { materialSlug: 'cement', unitSlug: 'kg', quantity: 0.5, unitPrice: 9.99, note: 'loose' },
+    ],
   };
 
   const actor = (scope: string[] = [], userId = 'u1', roleName?: string): CurrentUserDto => ({
@@ -66,9 +90,6 @@ describe('ImportFormService', () => {
       slug: 'form-slug',
       code: 'PN-0001',
       invoiceCode: 'HD-1',
-      supplierName: 'Supplier A',
-      supplierCode: 'NCC-01',
-      supplierSlug: 'sup-slug',
       requester,
       requesterName: 'Nguyen An',
       approver: null,
@@ -91,6 +112,8 @@ describe('ImportFormService', () => {
     jest.resetAllMocks();
     importFormRepository.create.mockImplementation((data) => data);
     importFormRepository.save.mockImplementation(async (data) => data);
+    manager.save.mockImplementation(async (data) => data);
+    transactionManager.execute.mockImplementation(async (onSave) => onSave(manager));
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -98,8 +121,9 @@ describe('ImportFormService', () => {
         ImportFormProfile,
         { provide: getRepositoryToken(ImportForm), useValue: importFormRepository },
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
-        { provide: getRepositoryToken(Supplier), useValue: supplierRepository },
         { provide: getRepositoryToken(User), useValue: userRepository },
+        { provide: getRepositoryToken(Material), useValue: materialRepository },
+        { provide: TransactionManagerService, useValue: transactionManager },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
       ],
@@ -113,23 +137,195 @@ describe('ImportFormService', () => {
     beforeEach(() => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse);
       importFormRepository.findOne.mockResolvedValue(null);
-      supplierRepository.findOneBy.mockResolvedValue(supplier);
       userRepository.findOneBy.mockResolvedValue(requester);
+      materialRepository.find.mockResolvedValue([cement]);
     });
 
-    it('creates a DRAFT with supplier/requester snapshots and an uppercased code', async () => {
+    it('builds items with snapshots, base quantity and amount, and computes total', async () => {
       const result = await service.createImportForm('wh-slug', createDto, actor());
 
-      expect(importFormRepository.save).toHaveBeenCalledWith(
+      const saved = manager.save.mock.calls[0][0];
+      expect(saved.items).toHaveLength(2);
+      expect(saved.items[0]).toBeInstanceOf(ImportFormItem);
+      expect(saved.items).toEqual([
+        expect.objectContaining({
+          lineNo: 1,
+          material: cement,
+          materialCode: 'XM-01',
+          materialName: 'Xi mang',
+          unit: bag,
+          unitCode: 'BAO',
+          unitName: 'Bao',
+          quantity: 2,
+          conversionRate: 50,
+          baseQuantity: 100,
+          unitPrice: 400,
+          amount: 800,
+          note: null,
+        }),
+        expect.objectContaining({
+          lineNo: 2,
+          unit: kg,
+          conversionRate: 1,
+          baseQuantity: 0.5,
+          amount: 5, // 0.5 × 9.99 = 4.995 → làm tròn 2 chữ số
+          note: 'loose',
+        }),
+      ]);
+      expect(saved.total).toBe(805);
+      expect(result).toMatchObject({
+        total: 805,
+        items: [
+          { lineNo: 1, materialSlug: 'cement', unitSlug: 'bag', amount: 800 },
+          { lineNo: 2, materialSlug: 'cement', unitSlug: 'kg', amount: 5 },
+        ],
+      });
+      expect(materialRepository.find).toHaveBeenCalledTimes(1);
+    });
+
+    it('snapshots the material supplier on every line (form header has no supplier)', async () => {
+      const result = await service.createImportForm('wh-slug', createDto, actor());
+
+      expect(materialRepository.find).toHaveBeenCalledWith(
+        expect.objectContaining({ relations: expect.objectContaining({ supplier: true }) }),
+      );
+      const saved = manager.save.mock.calls[0][0];
+      expect(saved).not.toHaveProperty('supplier');
+      saved.items.forEach((item: ImportFormItem) =>
+        expect(item).toMatchObject({
+          supplierSlug: 'sup-slug',
+          supplierCode: 'NCC-01',
+          supplierName: 'Supplier A',
+          supplierTaxCode: '0101234567',
+          supplierAddress: 'Hanoi',
+        }),
+      );
+      expect(result.items?.[0]).toMatchObject({
+        supplierSlug: 'sup-slug',
+        supplierName: 'Supplier A',
+      });
+    });
+
+    it('writes null supplier snapshot columns when the material has no supplier', async () => {
+      materialRepository.find.mockResolvedValue([{ ...cement, supplier: null }]);
+
+      await service.createImportForm('wh-slug', createDto, actor());
+
+      const saved = manager.save.mock.calls[0][0];
+      saved.items.forEach((item: ImportFormItem) =>
+        expect(item).toMatchObject({
+          supplierSlug: null,
+          supplierCode: null,
+          supplierName: null,
+          supplierTaxCode: null,
+          supplierAddress: null,
+        }),
+      );
+    });
+
+    it('writes the form and its items in ONE transaction, items pointing at the saved form', async () => {
+      await service.createImportForm('wh-slug', createDto, actor());
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(importFormRepository.save).not.toHaveBeenCalled();
+      const [[form], [items]] = manager.save.mock.calls;
+      expect(form).toMatchObject({ code: 'PN-0001' });
+      expect(items).toHaveLength(2);
+      items.forEach((item: ImportFormItem) => expect(item.importForm).toBe(form));
+    });
+
+    it('propagates an error while saving items (transaction rolls back the form)', async () => {
+      manager.save
+        .mockImplementationOnce(async (data) => data)
+        .mockRejectedValueOnce(new Error('ER_NO_REFERENCED_ROW'));
+
+      await expect(service.createImportForm('wh-slug', createDto, actor())).rejects.toThrow(
+        'ER_NO_REFERENCED_ROW',
+      );
+      expect(importFormRepository.save).not.toHaveBeenCalled();
+    });
+
+    // Lỗi nghiệp vụ của dòng bị chặn trước khi mở transaction — không chạm DB.
+    it('does not open a transaction when an item is invalid', async () => {
+      materialRepository.find.mockResolvedValue([]);
+
+      await expect(service.createImportForm('wh-slug', createDto, actor())).rejects.toBeDefined();
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects the same material + unit twice', async () => {
+      const item = createDto.items[0];
+
+      await expectError(
+        service.createImportForm('wh-slug', { ...createDto, items: [item, { ...item }] }, actor()),
+        ImportFormValidation.IMPORT_FORM_ITEM_DUPLICATED.code,
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('rejects an unknown material', async () => {
+      materialRepository.find.mockResolvedValue([]);
+
+      await expectError(
+        service.createImportForm('wh-slug', createDto, actor()),
+        ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND.code,
+      );
+    });
+
+    it('rejects a unit that is not attached to the material', async () => {
+      await expectError(
+        service.createImportForm(
+          'wh-slug',
+          { ...createDto, items: [{ ...createDto.items[0], unitSlug: 'litre' }] },
+          actor(),
+        ),
+        ImportFormValidation.IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL.code,
+      );
+    });
+
+    it.each([0, -1, Number.NaN])('rejects a dirty conversion rate %p from the DB', async (rate) => {
+      materialRepository.find.mockResolvedValue([
+        { ...cement, unitsCanHave: [{ unit: bag, conversionRate: rate }] },
+      ]);
+
+      await expectError(
+        service.createImportForm('wh-slug', { ...createDto, items: [createDto.items[0]] }, actor()),
+        ImportFormValidation.IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID.code,
+      );
+    });
+
+    it('rejects a base quantity that overflows DECIMAL(18,6)', async () => {
+      await expectError(
+        service.createImportForm(
+          'wh-slug',
+          { ...createDto, items: [{ ...createDto.items[0], quantity: 1e11 }] }, // × 50
+          actor(),
+        ),
+        ImportFormValidation.IMPORT_FORM_ITEM_QUANTITY_INVALID.code,
+      );
+    });
+
+    it('rejects a total that overflows DECIMAL(18,2)', async () => {
+      await expectError(
+        service.createImportForm(
+          'wh-slug',
+          {
+            ...createDto,
+            items: [{ ...createDto.items[1], quantity: 1e9, unitPrice: 1e8 }],
+          },
+          actor(),
+        ),
+        ImportFormValidation.IMPORT_FORM_TOTAL_INVALID.code,
+      );
+    });
+
+    it('creates a DRAFT with requester snapshot and an uppercased code', async () => {
+      const result = await service.createImportForm('wh-slug', createDto, actor());
+
+      expect(manager.save).toHaveBeenCalledWith(
         expect.objectContaining({
           code: 'PN-0001',
           status: ImportFormStatus.Draft,
-          supplier,
-          supplierName: 'Supplier A',
-          supplierCode: 'NCC-01',
-          supplierSlug: 'sup-slug',
-          supplierTaxCode: '0101234567',
-          supplierAddress: 'Hanoi',
           requester,
           requesterName: 'Nguyen An',
           approver: null,
@@ -143,7 +339,7 @@ describe('ImportFormService', () => {
         requesterSlug: 'u1-slug',
         approverSlug: null,
         warehouseSlug: 'wh-slug',
-        total: 1000,
+        total: 805,
       });
       expect(result).not.toHaveProperty('id');
     });
@@ -155,7 +351,7 @@ describe('ImportFormService', () => {
         service.createImportForm('wh-slug', createDto, actor()),
         ImportFormValidation.IMPORT_FORM_WAREHOUSE_INACTIVE.code,
       );
-      expect(importFormRepository.save).not.toHaveBeenCalled();
+      expect(manager.save).not.toHaveBeenCalled();
     });
 
     it('returns WAREHOUSE_NOT_FOUND for an unknown warehouse', async () => {
@@ -164,15 +360,6 @@ describe('ImportFormService', () => {
       await expectError(
         service.createImportForm('nope', createDto, actor()),
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
-      );
-    });
-
-    it('returns SUPPLIER_NOT_FOUND for an unknown supplier', async () => {
-      supplierRepository.findOneBy.mockResolvedValue(null);
-
-      await expectError(
-        service.createImportForm('wh-slug', createDto, actor()),
-        SupplierValidation.SUPPLIER_NOT_FOUND.code,
       );
     });
 
@@ -192,20 +379,6 @@ describe('ImportFormService', () => {
         withDeleted: true,
       });
     });
-
-    it('stores null (not undefined) when the supplier has no tax code/address', async () => {
-      supplierRepository.findOneBy.mockResolvedValue({
-        ...supplier,
-        taxCode: undefined,
-        address: undefined,
-      });
-
-      await service.createImportForm('wh-slug', createDto, actor());
-
-      expect(importFormRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ supplierTaxCode: null, supplierAddress: null }),
-      );
-    });
   });
 
   describe('findAll / findOne', () => {
@@ -217,7 +390,6 @@ describe('ImportFormService', () => {
         page: 1,
         size: 10,
         status: ImportFormStatus.Draft,
-        supplierSlug: 'sup-slug',
       });
 
       expect(importFormRepository.findAndCount).toHaveBeenCalledWith(
@@ -225,11 +397,15 @@ describe('ImportFormService', () => {
           where: {
             warehouse: { slug: 'wh-slug' },
             status: ImportFormStatus.Draft,
-            supplierSlug: 'sup-slug',
           },
         }),
       );
       expect(result).toMatchObject({ total: 1, items: [{ slug: 'form-slug' }] });
+      // List cố ý không load dòng vật tư (payload nhẹ); chi tiết lấy qua `GET :slug`.
+      expect(importFormRepository.findAndCount.mock.calls[0][0].relations).not.toHaveProperty(
+        'items',
+      );
+      expect(result.items[0].items).toBeUndefined(); // undefined ⇒ JSON bỏ hẳn key
     });
 
     it('returns WAREHOUSE_NOT_FOUND instead of an empty list for an unknown warehouse', async () => {
@@ -283,9 +459,96 @@ describe('ImportFormService', () => {
         code: 'PN-0001',
         invoiceCode: 'HD-1',
         total: 1000,
-        supplierName: 'Supplier A',
       });
-      expect(supplierRepository.findOneBy).not.toHaveBeenCalled();
+      expect(materialRepository.find).not.toHaveBeenCalled();
+    });
+
+    it('replaces all items and recomputes total when items is sent', async () => {
+      const oldItem = { id: 'old-item', lineNo: 1, amount: 1000 } as ImportFormItem;
+      importFormRepository.findOne.mockResolvedValue(draft({ items: [oldItem] }));
+      materialRepository.find.mockResolvedValue([cement]);
+
+      await service.updateImportForm(
+        'wh-slug',
+        'form-slug',
+        { items: [createDto.items[0]], version: 1 },
+        full(),
+      );
+
+      const saved = manager.save.mock.calls[0][0];
+      expect(manager.delete).toHaveBeenCalledWith(ImportFormItem, ['old-item']);
+      expect(saved.items).not.toContain(oldItem);
+      expect(saved.items).toEqual([expect.objectContaining({ lineNo: 1, amount: 800 })]);
+      expect(saved.total).toBe(800);
+    });
+
+    it('deletes the old lines before inserting the new ones, inside the transaction', async () => {
+      const oldItems = [{ id: 'old-1' }, { id: 'old-2' }] as ImportFormItem[];
+      importFormRepository.findOne.mockResolvedValue(draft({ items: oldItems }));
+      materialRepository.find.mockResolvedValue([cement]);
+
+      const result = await service.updateImportForm(
+        'wh-slug',
+        'form-slug',
+        { items: [createDto.items[0]], version: 1 },
+        full(),
+      );
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(manager.delete).toHaveBeenCalledWith(ImportFormItem, ['old-1', 'old-2']);
+      // UNIQUE (phiếu, vật tư, đơn vị): xoá dòng cũ phải chạy trước khi ghi dòng mới.
+      const deleteOrder = manager.delete.mock.invocationCallOrder[0];
+      const itemsSaveOrder = manager.save.mock.invocationCallOrder[1];
+      expect(deleteOrder).toBeLessThan(itemsSaveOrder);
+      expect(result.items).toEqual([expect.objectContaining({ lineNo: 1, unitSlug: 'bag' })]);
+    });
+
+    it('keeps the old lines (no delete/insert) when items is not sent', async () => {
+      const oldItems = [
+        { id: 'old-1', lineNo: 1, material: cement, unit: bag, amount: 1000 },
+      ] as unknown as ImportFormItem[];
+      importFormRepository.findOne.mockResolvedValue(draft({ items: oldItems }));
+
+      const result = await service.updateImportForm(
+        'wh-slug',
+        'form-slug',
+        { note: 'x', version: 1 },
+        full(),
+      );
+
+      expect(manager.delete).not.toHaveBeenCalled();
+      expect(manager.save).toHaveBeenCalledTimes(1);
+      expect(result.items).toEqual([expect.objectContaining({ lineNo: 1, unitSlug: 'bag' })]);
+    });
+
+    it('propagates an error while inserting new lines (transaction rolls back the delete)', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: [{ id: 'old-1' }] as any }));
+      materialRepository.find.mockResolvedValue([cement]);
+      manager.save
+        .mockImplementationOnce(async (data) => data)
+        .mockRejectedValueOnce(new Error('ER_DUP_ENTRY'));
+
+      await expect(
+        service.updateImportForm(
+          'wh-slug',
+          'form-slug',
+          { items: [createDto.items[0]], version: 1 },
+          full(),
+        ),
+      ).rejects.toThrow('ER_DUP_ENTRY');
+    });
+
+    it('loads items (ordered by lineNo) so the old lines can be replaced', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft());
+
+      await service.updateImportForm('wh-slug', 'form-slug', { version: 1 }, full());
+
+      expect(importFormRepository.findOne).toHaveBeenCalledWith(
+        expect.objectContaining({
+          relations: expect.objectContaining({ items: { material: true, unit: true } }),
+          order: { items: { lineNo: 'ASC' } },
+        }),
+      );
     });
 
     // Automapper không kế thừa map Create -> Update: field nào thiếu `forMember` là PATCH âm thầm bỏ.
@@ -296,7 +559,6 @@ describe('ImportFormService', () => {
         purchaseOrder: 'PO-9',
         invoiceCode: 'HD-9',
         date: '2026-11-01',
-        total: 99.5,
         file: 'import-forms/x.pdf',
         note: 'n',
       };
@@ -309,35 +571,6 @@ describe('ImportFormService', () => {
       );
 
       expect(result).toMatchObject({ ...patch, code: 'PN-0002' });
-    });
-
-    it('re-snapshots the supplier only when supplierSlug is sent', async () => {
-      importFormRepository.findOne.mockResolvedValue(
-        draft({ supplierTaxCode: 'OLD-TAX', supplierAddress: 'Old address' }),
-      );
-      supplierRepository.findOneBy.mockResolvedValue({
-        id: 'sup-2',
-        slug: 'sup-2-slug',
-        code: 'NCC-02',
-        name: 'Supplier B',
-      });
-
-      await service.updateImportForm(
-        'wh-slug',
-        'form-slug',
-        { supplierSlug: 'sup-2-slug', version: 1 },
-        full(),
-      );
-
-      expect(importFormRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          supplierSlug: 'sup-2-slug',
-          supplierName: 'Supplier B',
-          supplierCode: 'NCC-02',
-          supplierTaxCode: null,
-          supplierAddress: null,
-        }),
-      );
     });
 
     it('checks code uniqueness only when the code actually changes', async () => {
@@ -362,7 +595,7 @@ describe('ImportFormService', () => {
           service.updateImportForm('wh-slug', 'form-slug', { version: 1 }, full()),
           ImportFormValidation.IMPORT_FORM_NOT_DRAFT.code,
         );
-        expect(importFormRepository.save).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
       },
     );
 
