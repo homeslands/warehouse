@@ -17,7 +17,11 @@ describe('hasAtMostDecimals', () => {
 describe('roundMoney', () => {
   it('làm tròn 2 số lẻ, khử sai số dấu phẩy động', () => {
     expect(roundMoney(0.1 * 3)).toBe(0.3)
-    expect(roundMoney(1.005)).toBe(1.01)
     expect(roundMoney(10 * 375000)).toBe(3750000)
+  })
+  it('khớp backend Number(value.toFixed(2))', () => {
+    expect(roundMoney(1.005)).toBe(1)
+    expect(roundMoney(2.135)).toBe(2.13)
+    expect(roundMoney(2.175)).toBe(2.17)
   })
 })
