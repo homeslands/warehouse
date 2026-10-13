@@ -137,7 +137,13 @@ export function ImportFormItemsField({ form, materials, fallbackLabels }: Props)
                   <FormLabel className="md:sr-only">
                     {lineLabel(t('importForms:fieldUnit'), index)}
                   </FormLabel>
-                  <Select value={f.value} onValueChange={f.onChange} disabled={!material}>
+                  <Select
+                    value={f.value}
+                    // Radix bắn `''` khi đổi `value` trước lúc các `SelectItem` của vật tư mới kịp đăng ký — bỏ qua,
+                    // người dùng không có thao tác nào để xoá đơn vị.
+                    onValueChange={(next) => next && f.onChange(next)}
+                    disabled={!material}
+                  >
                     <FormControl>
                       <SelectTrigger
                         className="w-full"
