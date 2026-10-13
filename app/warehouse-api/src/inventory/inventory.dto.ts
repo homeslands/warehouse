@@ -6,13 +6,15 @@ import {
   MaxLength,
   Min,
   ValidateIf,
+  ValidateNested,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
-import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
+import { ApiProperty, ApiPropertyOptional, OmitType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { InventoryHistoryAction } from './inventory.constants';
+import { CreateMaterialRequestDto } from 'src/material/material.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -73,6 +75,25 @@ export class AssignInventoryRequestDto {
 }
 
 /** Chỉ sửa ngưỡng override — cố ý KHÔNG nhận `quantity` (đi qua `PATCH .../quantity`). */
+/**
+ * `POST /warehouses/:slug/materials` — tạo vật tư MỚI và gán luôn vào kho. `material` phải đủ mọi
+ * field bắt buộc của `POST /materials`. Lồng riêng vì cả 2 phần đều có `minimumInventory`/
+ * `maximumInventory` nhưng khác nghĩa: trong `material` là ngưỡng mặc định của vật tư, ngoài là
+ * override riêng của kho này.
+ */
+export class CreateInventoryMaterialRequestDto extends OmitType(AssignInventoryRequestDto, [
+  'materialSlug',
+] as const) {
+  @ApiProperty({
+    type: CreateMaterialRequestDto,
+    description: 'The new material (all required fields)',
+  })
+  @IsNotEmpty({ message: 'INVENTORY_MATERIAL_IS_REQUIRED' })
+  @ValidateNested()
+  @Type(() => CreateMaterialRequestDto)
+  material: CreateMaterialRequestDto;
+}
+
 export class UpdateInventoryRequestDto {
   @ApiPropertyOptional({
     description: 'Send `null` to drop the override and fall back to the Material threshold.',

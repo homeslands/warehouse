@@ -86,7 +86,8 @@ Dùng `@HasRole` (RBAC cơ bản), giống `/warehouses`. `SUPER_ADMIN` bypass.
 - `DELETE /materials/:slug` — xoá
 
 **Vật tư của kho** — `/warehouses/:warehouseSlug/materials`
-- `POST /warehouses/:warehouseSlug/materials` — gán vật tư vào kho (`materialSlug`, `quantity?`, `minimumInventory?`, `maximumInventory?`)
+- `PUT /warehouses/:warehouseSlug/materials` — gán vật tư CÓ SẴN vào kho (`materialSlug`, `quantity?`, `minimumInventory?`, `maximumInventory?`)
+- `POST /warehouses/:warehouseSlug/materials` — tạo vật tư MỚI + gán vào kho trong 1 transaction (`material`: đủ field bắt buộc của `POST /materials`; `quantity?`, `minimumInventory?`, `maximumInventory?` là của kho)
 - `GET /warehouses/:warehouseSlug/materials` — list phân trang (filter `typeSlug`, `belowMinimum`, `aboveMaximum`)
 - `PATCH /warehouses/:warehouseSlug/materials/:materialSlug` — sửa override ngưỡng
 - `PATCH /warehouses/:warehouseSlug/materials/:materialSlug/quantity` — điều chỉnh tồn theo `delta` (+ `note?`)

@@ -322,6 +322,42 @@ describe('MaterialService', () => {
     });
   });
 
+  describe('createMaterialIn (transaction của caller)', () => {
+    beforeEach(() => unitService.findEntityBySlug.mockResolvedValue(unit()));
+
+    it('ghi bằng manager được truyền vào, không tự mở transaction, trả entity', async () => {
+      materialRepository.findOne.mockResolvedValue(null);
+      materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
+      materialRepository.create.mockImplementation((data) => ({ id: 'material-id-1', ...data }));
+      materialRepository.save.mockImplementation((data) => data);
+      materialUnitRepository.create.mockImplementation((data) => data);
+
+      const created = await service.createMaterialIn(manager as never, createDto() as never);
+
+      expect(transactionManagerService.execute).not.toHaveBeenCalled();
+      // Vẫn đúng thứ tự FK tổ hợp: vật tư → dòng join rate = 1 → trỏ base_unit_id.
+      expect(manager.save).toHaveBeenNthCalledWith(
+        2,
+        expect.objectContaining({
+          materialId: 'material-id-1',
+          unitId: 'unit-id-1',
+          conversionRate: 1,
+        }),
+      );
+      expect(created).toMatchObject({ code: 'MAT-001', baseUnit: { id: 'unit-id-1' } });
+    });
+
+    it('chạy đủ rào như createMaterial (trùng mã) trước khi ghi', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial());
+
+      await expectError(
+        service.createMaterialIn(manager as never, createDto() as never),
+        MaterialValidation.MATERIAL_CODE_DOES_EXIST.code,
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+  });
+
   // PATCH phải là partial update đúng nghĩa REST: field không gửi giữ nguyên giá trị cũ.
   describe('updateMaterial — partial (PATCH)', () => {
     it('chỉ đổi field được gửi, các field khác giữ nguyên', async () => {

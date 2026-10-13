@@ -7,6 +7,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   AdjustInventoryQuantityRequestDto,
   AssignInventoryRequestDto,
+  CreateInventoryMaterialRequestDto,
   GetInventoryHistoryRequestDto,
   GetInventoryRequestDto,
   UpdateInventoryRequestDto,
@@ -107,6 +108,51 @@ export class InventoryService {
     });
     this.logger.log(
       `Material ${material.id} assigned to warehouse ${warehouse.id}: ${created.id}`,
+      context,
+    );
+    return this.toResponse(created);
+  }
+
+  /**
+   * Tạo vật tư MỚI rồi gán luôn vào kho — tất cả trong 1 transaction: tạo vật tư (+ dòng join đơn
+   * vị cơ sở), dòng tồn, dòng lịch sử `ASSIGN`. Lỗi ở bất kỳ bước nào (trùng mã vật tư, ngưỡng của
+   * kho mâu thuẫn với ngưỡng mặc định...) thì không để lại vật tư "mồ côi" không thuộc kho nào.
+   * Vật tư mới nên không cần tra trùng `(kho, vật tư)` như `assignMaterial`.
+   */
+  async createMaterialInWarehouse(
+    warehouseSlug: string,
+    dto: CreateInventoryMaterialRequestDto,
+    actor: CurrentUserDto,
+  ): Promise<InventoryResponseDto> {
+    const context = `${InventoryService.name}.${this.createMaterialInWarehouse.name}`;
+    const warehouse = await this.findWarehouse(warehouseSlug);
+    if (!warehouse.isActive)
+      throw new InventoryException(InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE);
+
+    const created = await this.transactionManager.execute(async (manager) => {
+      const material = await this.materialService.createMaterialIn(manager, dto.material);
+      const row = this.inventoryRepository.create({
+        warehouse,
+        material,
+        quantity: roundToScale(Number(dto.quantity ?? 0)),
+        reservedQuantity: 0,
+        minimumInventory: dto.minimumInventory ?? null,
+        maximumInventory: dto.maximumInventory ?? null,
+      });
+      this.assertEffectiveRange(row);
+
+      const saved = await manager.getRepository(Inventory).save(row);
+      await this.recordHistory(
+        manager,
+        saved,
+        { action: InventoryHistoryAction.Assign, quantityDelta: saved.quantity },
+        { quantity: 0, reservedQuantity: 0 },
+        actor,
+      );
+      return saved;
+    });
+    this.logger.log(
+      `Material ${created.material.id} created in warehouse ${warehouse.id}: ${created.id}`,
       context,
     );
     return this.toResponse(created);
