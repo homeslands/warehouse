@@ -16,6 +16,8 @@ import {
   ChangeImportFormStatusRequestDto,
   CreateImportFormRequestDto,
   GetAllImportFormRequestDto,
+  GetImportFormAvailableMaterialRequestDto,
+  ImportFormAvailableMaterialResponseDto,
   ImportFormResponseDto,
   UpdateImportFormRequestDto,
 } from './import-form.dto';
@@ -87,6 +89,30 @@ export class ImportFormController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<AppPaginatedResponseDto<ImportFormResponseDto>>;
+  }
+
+  // Khai TRƯỚC `GET :slug`, nếu không Nest khớp `available-materials` thành slug của phiếu.
+  @Get('available-materials')
+  @RequireAuthority(AuthorityCode.ImportFormCreate)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Materials that can be put on an import form of this warehouse',
+    description:
+      'Only materials assigned to the warehouse (inventory row exists), with their attached units',
+  })
+  @ApiPaginatedResponse(ImportFormAvailableMaterialResponseDto, 'Retrieved')
+  async findAvailableMaterials(
+    @Param('warehouseSlug') warehouseSlug: string,
+    @Query(new ValidationPipe({ transform: true, whitelist: true }))
+    query: GetImportFormAvailableMaterialRequestDto,
+  ) {
+    const result = await this.importFormService.findAvailableMaterials(warehouseSlug, query);
+    return {
+      message: 'Available materials have been retrieved successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AppPaginatedResponseDto<ImportFormAvailableMaterialResponseDto>>;
   }
 
   @Get(':slug')

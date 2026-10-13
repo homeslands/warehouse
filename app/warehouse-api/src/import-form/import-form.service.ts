@@ -4,6 +4,7 @@ import {
   FindOptionsRelations,
   FindOptionsWhere,
   In,
+  Like,
   OptimisticLockVersionMismatchError,
   Repository,
 } from 'typeorm';
@@ -16,6 +17,8 @@ import {
   CreateImportFormItemDto,
   CreateImportFormRequestDto,
   GetAllImportFormRequestDto,
+  GetImportFormAvailableMaterialRequestDto,
+  ImportFormAvailableMaterialResponseDto,
   ImportFormResponseDto,
   UpdateImportFormRequestDto,
 } from './import-form.dto';
@@ -29,6 +32,7 @@ import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { Material } from 'src/material/material.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
+import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { AuthorityCode, TAuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
@@ -76,6 +80,7 @@ export class ImportFormService {
     @InjectRepository(Warehouse) private readonly warehouseRepository: Repository<Warehouse>,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(Material) private readonly materialRepository: Repository<Material>,
+    @InjectRepository(Inventory) private readonly inventoryRepository: Repository<Inventory>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly transactionManagerService: TransactionManagerService,
@@ -94,7 +99,7 @@ export class ImportFormService {
 
     const data = this.mapper.map(dto, CreateImportFormRequestDto, ImportForm);
     await this.assertCodeIsFree(data.code);
-    const { items, total } = await this.buildItems(dto.items);
+    const { items, total } = await this.buildItems(dto.items, warehouse.id);
     const requester = await this.findUser(currentUser.userId);
 
     const form = this.importFormRepository.create({
@@ -149,6 +154,57 @@ export class ImportFormService {
     } as AppPaginatedResponseDto<ImportFormResponseDto>;
   }
 
+  /**
+   * Vật tư ghi được vào phiếu nhập của kho = vật tư đã gán vào kho (có dòng `inventory_tbl`), kèm
+   * các đơn vị đã gắn để client chọn `unitSlug`. Cùng nguồn với rào trong `buildItems`.
+   */
+  async findAvailableMaterials(
+    warehouseSlug: string,
+    query: GetImportFormAvailableMaterialRequestDto,
+  ): Promise<AppPaginatedResponseDto<ImportFormAvailableMaterialResponseDto>> {
+    const warehouse = await this.findWarehouse(warehouseSlug);
+
+    const materialWhere: FindOptionsWhere<Material> = {};
+    if (query.code) materialWhere.code = query.code;
+    if (query.name) materialWhere.name = Like(`%${query.name}%`);
+
+    const [rows, total] = await this.inventoryRepository.findAndCount({
+      where: { warehouse: { id: warehouse.id }, material: materialWhere },
+      relations: { material: { baseUnit: true, supplier: true, unitsCanHave: { unit: true } } },
+      order: { material: { code: 'ASC' } },
+      skip: (query.page - 1) * query.size,
+      take: query.size,
+    });
+    const totalPages = Math.ceil(total / query.size);
+
+    return {
+      items: rows.map(({ material, quantity }) => ({
+        slug: material.slug,
+        code: material.code,
+        name: material.name,
+        baseUnitSlug: material.baseUnit?.slug ?? null,
+        quantity,
+        supplierSlug: material.supplier?.slug ?? null,
+        supplierName: material.supplier?.name ?? null,
+        units: (material.unitsCanHave ?? [])
+          .map((mu) => ({
+            unitSlug: mu.unit.slug,
+            unitCode: mu.unit.code,
+            unitName: mu.unit.name,
+            conversionRate: Number(mu.conversionRate),
+            isBaseUnit: mu.unitId === material.baseUnit?.id,
+          }))
+          .sort((a, b) => a.conversionRate - b.conversionRate),
+      })),
+      total,
+      page: query.page,
+      pageSize: query.size,
+      totalPages,
+      hasNext: query.page < totalPages,
+      hasPrevios: query.page > 1,
+    } as AppPaginatedResponseDto<ImportFormAvailableMaterialResponseDto>;
+  }
+
   async findOne(warehouseSlug: string, slug: string): Promise<ImportFormResponseDto> {
     const form = await this.findForm(warehouseSlug, slug);
     return this.mapper.map(form, ImportForm, ImportFormResponseDto);
@@ -175,7 +231,9 @@ export class ImportFormService {
     // Gửi `items` = thay toàn bộ dòng. Dựng + kiểm tra dòng mới TRƯỚC khi mở transaction để lỗi
     // nghiệp vụ không chạm DB; không gửi thì giữ nguyên dòng cũ.
     const replacement =
-      dto.items !== undefined && dto.items !== null ? await this.buildItems(dto.items) : undefined;
+      dto.items !== undefined && dto.items !== null
+        ? await this.buildItems(dto.items, form.warehouse.id)
+        : undefined;
 
     Object.assign(form, data);
     if (replacement) form.total = replacement.total;
@@ -329,9 +387,12 @@ export class ImportFormService {
   /**
    * Dựng dòng phiếu từ body: resolve vật tư (1 query cho cả mảng), kiểm đơn vị thuộc vật tư, snapshot
    * tỉ lệ quy đổi + mã/tên + nhà cung cấp của vật tư, tính `baseQuantity`/`amount`, và `total` = Σ `amount`.
+   * Vật tư phải đã gán vào kho của phiếu (có dòng `inventory_tbl`) — nếu không, xác nhận phiếu sẽ
+   * không có dòng tồn để cộng; chặn ngay lúc ghi thay vì để phiếu nháp không bao giờ xác nhận được.
    */
   private async buildItems(
     dtos: CreateImportFormItemDto[],
+    warehouseId: string,
   ): Promise<{ items: ImportFormItem[]; total: number }> {
     const seen = new Set<string>();
     for (const dto of dtos) {
@@ -347,12 +408,26 @@ export class ImportFormService {
       relations: { unitsCanHave: { unit: true }, supplier: true },
     });
     const materialBySlug = new Map(materials.map((material) => [material.slug, material]));
+    const assigned = materials.length
+      ? await this.inventoryRepository.find({
+          where: {
+            warehouse: { id: warehouseId },
+            material: { id: In(materials.map((material) => material.id)) },
+          },
+          relations: { material: true },
+        })
+      : [];
+    const assignedMaterialIds = new Set(assigned.map((row) => row.material.id));
 
     let total = 0;
     const items = dtos.map((dto, index) => {
       const material = materialBySlug.get(dto.materialSlug);
       if (!material)
         throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND);
+      if (!assignedMaterialIds.has(material.id))
+        throw new ImportFormException(
+          ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE,
+        );
       const row = material.unitsCanHave?.find((mu) => mu.unit?.slug === dto.unitSlug);
       if (!row)
         throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL);

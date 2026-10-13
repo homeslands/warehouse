@@ -164,6 +164,67 @@ export class GetAllImportFormRequestDto extends BaseQueryDto {
   status?: ImportFormStatus;
 }
 
+export class GetImportFormAvailableMaterialRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({ description: 'Exact material code' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  code?: string;
+
+  @ApiPropertyOptional({ description: 'Part of the material name' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  name?: string;
+}
+
+export class ImportFormAvailableUnitResponseDto {
+  @ApiProperty()
+  unitSlug: string;
+
+  @ApiProperty()
+  unitCode: string;
+
+  @ApiProperty()
+  unitName: string;
+
+  @ApiProperty({ description: 'Base units in 1 of this unit (1 for the base unit)' })
+  conversionRate: number;
+
+  @ApiProperty()
+  isBaseUnit: boolean;
+}
+
+/**
+ * Vật tư đã gán vào kho (có dòng `inventory_tbl`) — chỉ những vật tư này mới ghi được vào phiếu
+ * nhập của kho. `units` là các đơn vị đã gắn cho vật tư (chọn làm `unitSlug` của dòng phiếu).
+ */
+export class ImportFormAvailableMaterialResponseDto {
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  code: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional({ description: 'Slug of the base unit (null for legacy materials)' })
+  baseUnitSlug?: string | null;
+
+  @ApiProperty({ description: 'Current stock in this warehouse, in the base unit' })
+  quantity: number;
+
+  @ApiPropertyOptional()
+  supplierSlug?: string | null;
+
+  @ApiPropertyOptional()
+  supplierName?: string | null;
+
+  @ApiProperty({ type: [ImportFormAvailableUnitResponseDto] })
+  units: ImportFormAvailableUnitResponseDto[];
+}
+
 export class ImportFormItemResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty({ description: 'Line number, in the order the items were sent (1-based)' })
