@@ -1,5 +1,12 @@
 import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
-import { EntityManager, FindOptionsRelations, FindOptionsWhere, In, Repository } from 'typeorm';
+import {
+  EntityManager,
+  FindOptionsRelations,
+  FindOptionsWhere,
+  In,
+  OptimisticLockVersionMismatchError,
+  Repository,
+} from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -21,6 +28,7 @@ import { pickDefined } from 'src/shared/utils/obj.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { Material } from 'src/material/material.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
+import { InventoryService } from 'src/inventory/inventory.service';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { AuthorityCode, TAuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
@@ -71,6 +79,7 @@ export class ImportFormService {
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly transactionManagerService: TransactionManagerService,
+    private readonly inventoryService: InventoryService,
   ) {}
 
   async createImportForm(
@@ -234,7 +243,11 @@ export class ImportFormService {
     return this.decide(warehouseSlug, slug, dto, currentUser, ImportFormStatus.Cancelled);
   }
 
-  /** `DRAFT` → `CONFIRMED`/`CANCELLED`, người quyết định được ghi làm `approver`. */
+  /**
+   * `DRAFT` → `CONFIRMED`/`CANCELLED`, người quyết định được ghi làm `approver`. Xác nhận = cộng
+   * `baseQuantity` của mọi dòng vào tồn của kho, cùng transaction với đổi trạng thái; huỷ không đụng
+   * tồn (phiếu nháp chưa cộng gì).
+   */
   private async decide(
     warehouseSlug: string,
     slug: string,
@@ -247,11 +260,43 @@ export class ImportFormService {
     this.assertIsDraft(form);
 
     const approver = await this.findUser(currentUser.userId);
-    form.status = status;
-    form.approver = approver;
-    form.approverName = fullName(approver);
+    const items = form.items ?? [];
 
-    const updated = await this.importFormRepository.save(form);
+    const updated = await this.transactionManagerService.execute(async (manager) => {
+      // Khoá đầu phiếu rồi kiểm lại trạng thái + version trên bản ĐÃ KHOÁ: optimistic check ở
+      // `findForm` chỉ chạy lúc đọc, `save()` không kèm `WHERE version` — 2 request xác nhận đồng
+      // thời đều qua được check đó và cộng tồn 2 lần. Version khớp ⇒ dòng phiếu chưa bị PATCH thay.
+      const locked = await manager.findOne(ImportForm, {
+        where: { id: form.id },
+        lock: { mode: 'pessimistic_write' },
+      });
+      if (!locked) throw new ImportFormException(ImportFormValidation.IMPORT_FORM_NOT_FOUND);
+      this.assertIsDraft(locked);
+      if (locked.version !== form.version)
+        throw new OptimisticLockVersionMismatchError(ImportForm.name, form.version, locked.version);
+
+      form.status = status;
+      form.approver = approver;
+      form.approverName = fullName(approver);
+      const saved = await manager.save(form);
+
+      if (status === ImportFormStatus.Confirmed)
+        await this.inventoryService.receive(
+          manager,
+          form.warehouse.id,
+          items.map((item) => {
+            // Vật tư bị xoá mềm sau khi ghi dòng ⇒ relation không load được.
+            if (!item.material)
+              throw new ImportFormException(
+                ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND,
+              );
+            return { materialId: item.material.id, quantity: item.baseQuantity };
+          }),
+          currentUser,
+          `Import form ${form.code}`,
+        );
+      return saved;
+    });
     this.logger.log(`Import form ${form.id} -> ${status}`, context);
     return this.mapper.map(updated, ImportForm, ImportFormResponseDto);
   }

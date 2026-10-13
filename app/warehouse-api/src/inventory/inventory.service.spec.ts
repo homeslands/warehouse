@@ -67,6 +67,7 @@ describe('InventoryService', () => {
 
   /** Repository lấy qua `manager` bên trong transaction — tách khỏi repository inject ở ngoài. */
   const txInventoryRepository = {
+    find: jest.fn(),
     findOne: jest.fn(),
     save: jest.fn((data) => data),
     update: jest.fn(),
@@ -318,6 +319,71 @@ describe('InventoryService', () => {
     it('rejects a zero delta before touching the database', async () => {
       await expectError(adjust({ delta: 0 }), InventoryValidation.INVENTORY_DELTA_INVALID.code);
       expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('receive (import form confirmed)', () => {
+    const receive = (lines: { materialId: string; quantity: number }[]) =>
+      service.receive(manager as never, 'wh-id-1', lines, actor, 'Import form PN-1');
+
+    it('sums lines per material, locks each row and records one IMPORT history per material', async () => {
+      txInventoryRepository.find.mockResolvedValue([row()]);
+      txInventoryRepository.findOne.mockResolvedValue(row({ quantity: 20, warehouse: undefined }));
+
+      await receive([
+        { materialId: 'mat-id-1', quantity: 100 },
+        { materialId: 'mat-id-1', quantity: 0.5 },
+      ]);
+
+      expect(txInventoryRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'wm-id-1' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(txInventoryRepository.update).toHaveBeenCalledWith(
+        { id: 'wm-id-1' },
+        { quantity: 120.5, reservedQuantity: 0 },
+      );
+      expect(writtenHistory()).toMatchObject({
+        action: InventoryHistoryAction.Import,
+        quantityDelta: 100.5,
+        quantityBefore: 20,
+        quantityAfter: 120.5,
+        note: 'Import form PN-1',
+        changedBy: { id: 'user-id-1' },
+      });
+      // Chạy trong transaction của caller — không tự mở transaction mới.
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+
+    it('locks rows in a fixed id order to avoid deadlocks', async () => {
+      const b = row({ id: 'wm-b', material: material({ id: 'mat-b' }) });
+      const a = row({ id: 'wm-a', material: material({ id: 'mat-a' }) });
+      txInventoryRepository.find.mockResolvedValue([b, a]);
+      txInventoryRepository.findOne.mockImplementation(async ({ where }) => row({ id: where.id }));
+
+      await receive([
+        { materialId: 'mat-b', quantity: 1 },
+        { materialId: 'mat-a', quantity: 1 },
+      ]);
+
+      expect(txInventoryRepository.findOne.mock.calls.map(([q]) => q.where.id)).toEqual([
+        'wm-a',
+        'wm-b',
+      ]);
+    });
+
+    it('rejects when a material is not assigned to the warehouse (no auto-assign)', async () => {
+      txInventoryRepository.find.mockResolvedValue([row()]);
+
+      await expectError(
+        receive([
+          { materialId: 'mat-id-1', quantity: 1 },
+          { materialId: 'mat-missing', quantity: 1 },
+        ]),
+        InventoryValidation.INVENTORY_NOT_FOUND.code,
+      );
+      expect(txInventoryRepository.update).not.toHaveBeenCalled();
+      expect(txHistoryRepository.save).not.toHaveBeenCalled();
     });
   });
 

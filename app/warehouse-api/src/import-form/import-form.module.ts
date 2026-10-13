@@ -9,14 +9,17 @@ import { Material } from 'src/material/material.entity';
 import { User } from 'src/user/user.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { DbModule } from 'src/db/db.module';
+import { InventoryModule } from 'src/inventory/inventory.module';
 
 @Module({
   // Kho/nhà cung cấp/user/vật tư chỉ cần tra theo slug/id ⇒ đăng ký entity thay vì import module
   // của chúng (cùng cách `InventoryModule` làm với `Warehouse`). `DbModule` cho
-  // `TransactionManagerService`: đầu phiếu + dòng vật tư ghi trong 1 transaction.
+  // `TransactionManagerService`: đầu phiếu + dòng vật tư ghi trong 1 transaction. `InventoryModule`
+  // cho `InventoryService.receive` — xác nhận phiếu cộng tồn trong cùng transaction đổi trạng thái.
   imports: [
     TypeOrmModule.forFeature([ImportForm, ImportFormItem, Warehouse, User, Material]),
     DbModule,
+    InventoryModule,
   ],
   controllers: [ImportFormController],
   providers: [ImportFormService, ImportFormProfile],

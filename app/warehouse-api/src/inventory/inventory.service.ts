@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EntityManager, FindOptionsWhere, Raw, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, In, Raw, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -200,6 +200,48 @@ export class InventoryService {
 
     this.logger.log(`Inventory ${row.id} quantity adjusted by ${delta}`, context);
     return this.toResponse(await this.findRow(warehouseSlug, materialSlug));
+  }
+
+  /**
+   * Nhập hàng vào kho từ phiếu nhập đã xác nhận. Chạy trong transaction của CALLER — cộng tồn và đổi
+   * trạng thái phiếu cùng commit/rollback. `lines[].quantity` theo đơn vị cơ sở (`baseQuantity` của
+   * dòng phiếu); nhiều dòng cùng vật tư (khác đơn vị) gộp thành 1 lần cộng + 1 dòng lịch sử `IMPORT`.
+   *
+   * Vật tư chưa gán vào kho ⇒ `INVENTORY_NOT_FOUND`, KHÔNG tự gán: gán vật tư vào kho là thao tác
+   * quản trị riêng (`POST /warehouses/:slug/materials`). Khoá các dòng tồn theo thứ tự `id` cố định
+   * để 2 phiếu cùng vật tư xác nhận đồng thời không deadlock.
+   */
+  async receive(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: { materialId: string; quantity: number }[],
+    actor: CurrentUserDto,
+    note?: string | null,
+  ): Promise<void> {
+    const totals = new Map<string, number>();
+    for (const line of lines)
+      totals.set(line.materialId, roundToScale((totals.get(line.materialId) ?? 0) + line.quantity));
+    if (!totals.size) return;
+
+    const rows = await manager.getRepository(Inventory).find({
+      where: { warehouse: { id: warehouseId }, material: { id: In([...totals.keys()]) } },
+      relations: { material: true },
+    });
+    if (rows.length !== totals.size)
+      throw new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND);
+
+    const ordered = [...rows].sort((a, b) => a.id.localeCompare(b.id));
+    for (const row of ordered)
+      await this.mutate(
+        manager,
+        row.id,
+        {
+          action: InventoryHistoryAction.Import,
+          quantityDelta: totals.get(row.material.id),
+          note,
+        },
+        actor,
+      );
   }
 
   async removeMaterial(
