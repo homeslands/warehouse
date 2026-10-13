@@ -62,7 +62,7 @@ describe('InventoryService', () => {
   };
   const warehouseRepository = { findOneBy: jest.fn() };
   const historyRepository = { findAndCount: jest.fn() };
-  const materialService = { findEntityBySlug: jest.fn() };
+  const materialService = { findEntityBySlug: jest.fn(), createMaterialIn: jest.fn() };
   const actor = { userId: 'user-id-1', scope: [] };
 
   /** Repository lấy qua `manager` bên trong transaction — tách khỏi repository inject ở ngoài. */
@@ -113,6 +113,63 @@ describe('InventoryService', () => {
 
   it('should be defined', () => {
     expect(service).toBeDefined();
+  });
+
+  describe('createMaterialInWarehouse', () => {
+    const materialDto = { code: 'MAT-001', name: 'Găng tay', typeSlug: 't', baseUnitSlug: 'u' };
+    const create = (overrides: Record<string, unknown> = {}) =>
+      service.createMaterialInWarehouse(
+        'wh-slug-1',
+        { material: materialDto, ...overrides } as never,
+        actor,
+      );
+
+    beforeEach(() => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse());
+      materialService.createMaterialIn.mockResolvedValue(material());
+      inventoryRepository.create.mockImplementation((data) => ({ id: 'wm-id-1', ...data }));
+    });
+
+    it('creates the material, the inventory row and an ASSIGN history in ONE transaction', async () => {
+      const result = await create({ quantity: 5, minimumInventory: 20 });
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      // Vật tư được tạo bằng `manager` của transaction này, không tự mở transaction riêng.
+      expect(materialService.createMaterialIn).toHaveBeenCalledWith(manager, materialDto);
+      expect(txInventoryRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: 5, reservedQuantity: 0, minimumInventory: 20 }),
+      );
+      expect(writtenHistory()).toMatchObject({
+        action: InventoryHistoryAction.Assign,
+        quantityDelta: 5,
+        quantityBefore: 0,
+        quantityAfter: 5,
+      });
+      expect(result).toMatchObject({
+        materialCode: 'MAT-001',
+        warehouseSlug: 'wh-slug-1',
+        quantity: 5,
+        effectiveMinimumInventory: 20,
+      });
+    });
+
+    it('rejects an inactive warehouse before creating anything', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse({ isActive: false }));
+
+      await expectError(create(), InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE.code);
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+      expect(materialService.createMaterialIn).not.toHaveBeenCalled();
+    });
+
+    // Lỗi sau khi đã tạo vật tư phải ném ra trong transaction ⇒ rollback cả vật tư vừa tạo.
+    it('throws inside the transaction when the warehouse override conflicts with the material default', async () => {
+      await expectError(
+        create({ minimumInventory: 500 }),
+        InventoryValidation.INVENTORY_RANGE_INVALID.code,
+      );
+      expect(materialService.createMaterialIn).toHaveBeenCalled();
+      expect(txInventoryRepository.save).not.toHaveBeenCalled();
+    });
   });
 
   describe('assignMaterial', () => {

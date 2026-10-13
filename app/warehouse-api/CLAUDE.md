@@ -152,7 +152,8 @@ Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route n
 | `POST` / `GET` / `PATCH` / `DELETE /units...` | `UNIT_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
 | `GET /warehouses/{slug}/materials` | `MATERIAL_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 | `GET /warehouses/{slug}/materials/{materialSlug}/histories` | `MATERIAL_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `POST` / `PATCH` / `DELETE /warehouses/{slug}/materials...` (kể cả `.../quantity`) | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
+| `PUT` (gán vật tư có sẵn) / `PATCH` / `DELETE /warehouses/{slug}/materials...` (kể cả `.../quantity`) | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
+| `POST /warehouses/{slug}/materials` (tạo vật tư mới + gán vào kho, 1 transaction) | `MATERIAL_CREATE` + `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
 | `POST` / `GET` / `PATCH` / `DELETE /stores...` | `STORE_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) — `GET /stores` với `MANAGER` bị service lọc về cửa hàng gắn kho mình phụ trách |
 | `PUT /stores/{slug}/warehouse`, `POST /stores/{slug}/warehouse-histories/{historySlug}/restore` | `STORE_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
 | `GET /stores/{slug}/warehouse-histories` | `STORE_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |

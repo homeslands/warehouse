@@ -1,5 +1,14 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { FindOptionsRelations, FindOptionsWhere, In, IsNull, Like, Not, Repository } from 'typeorm';
+import {
+  EntityManager,
+  FindOptionsRelations,
+  FindOptionsWhere,
+  In,
+  IsNull,
+  Like,
+  Not,
+  Repository,
+} from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -70,6 +79,31 @@ export class MaterialService {
    */
   async createMaterial(dto: CreateMaterialRequestDto): Promise<MaterialResponseDto> {
     const context = `${MaterialService.name}.${this.createMaterial.name}`;
+    const prepared = await this.prepareMaterial(dto);
+    const created = await this.transactionManagerService.execute((manager) =>
+      this.insertMaterial(manager, prepared),
+    );
+
+    this.logger.log(`Material created: ${created.id}`, context);
+    // Vật tư mới chưa gán vào kho nào.
+    return { ...this.mapper.map(created, Material, MaterialResponseDto), warehouses: [] };
+  }
+
+  /**
+   * Bản chạy trong transaction của CALLER — `InventoryService.createMaterialInWarehouse` tạo vật tư
+   * và gán vào kho cùng 1 transaction. Trả entity (đã có `type`/`baseUnit`), không phải response.
+   */
+  async createMaterialIn(manager: EntityManager, dto: CreateMaterialRequestDto): Promise<Material> {
+    const context = `${MaterialService.name}.${this.createMaterialIn.name}`;
+    const created = await this.insertMaterial(manager, await this.prepareMaterial(dto));
+    this.logger.log(`Material created: ${created.id}`, context);
+    return created;
+  }
+
+  /** Mọi rào + resolve quan hệ của tạo vật tư, chạy TRƯỚC khi ghi để lỗi nghiệp vụ không chạm DB. */
+  private async prepareMaterial(
+    dto: CreateMaterialRequestDto,
+  ): Promise<{ data: Material; baseUnit: Unit }> {
     const data = this.mapper.map(dto, CreateMaterialRequestDto, Material);
 
     await this.assertCodeIsFree(data.code);
@@ -79,24 +113,25 @@ export class MaterialService {
     // `baseUnitSlug` bắt buộc (DTO chặn thiếu/`null`). Ném `UNIT_NOT_FOUND` nếu slug sai (lỗi của
     // module unit, cố ý không bọc lại).
     const baseUnit = await this.unitService.findEntityBySlug(dto.baseUnitSlug);
+    return { data, baseUnit };
+  }
 
-    const created = await this.transactionManagerService.execute(async (manager) => {
-      const material = await manager.save(this.materialRepository.create(data));
+  /** 3 bước ghi theo đúng thứ tự FK tổ hợp (xem `createMaterial`), trong transaction `manager`. */
+  private async insertMaterial(
+    manager: EntityManager,
+    { data, baseUnit }: { data: Material; baseUnit: Unit },
+  ): Promise<Material> {
+    const material = await manager.save(this.materialRepository.create(data));
 
-      await manager.save(
-        this.materialUnitRepository.create({
-          materialId: material.id,
-          unitId: baseUnit.id,
-          conversionRate: MaterialService.BASE_UNIT_RATE,
-        }),
-      );
-      material.baseUnit = baseUnit;
-      return manager.save(material);
-    });
-
-    this.logger.log(`Material created: ${created.id}`, context);
-    // Vật tư mới chưa gán vào kho nào.
-    return { ...this.mapper.map(created, Material, MaterialResponseDto), warehouses: [] };
+    await manager.save(
+      this.materialUnitRepository.create({
+        materialId: material.id,
+        unitId: baseUnit.id,
+        conversionRate: MaterialService.BASE_UNIT_RATE,
+      }),
+    );
+    material.baseUnit = baseUnit;
+    return manager.save(material);
   }
 
   async findAll(
