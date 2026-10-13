@@ -71,7 +71,11 @@ describe('MaterialService', () => {
     findAndCount: jest.fn(),
     softRemove: jest.fn(),
   };
-  const inventoryRepository = { countBy: jest.fn(), createQueryBuilder: jest.fn() };
+  const inventoryRepository = {
+    countBy: jest.fn(),
+    createQueryBuilder: jest.fn(),
+    find: jest.fn(),
+  };
   // Manager giả của transaction: chạy thẳng callback, ghi nhận lời gọi để kiểm THỨ TỰ ghi 2 bảng
   // (FK tổ hợp bắt buộc: tạo dòng join trước, trỏ base_unit_id sau, xoá dòng cũ cuối cùng).
   const manager = {
@@ -98,6 +102,8 @@ describe('MaterialService', () => {
 
   beforeEach(async () => {
     jest.clearAllMocks();
+    // Mặc định vật tư chưa gán vào kho nào; test về `warehouses` tự mock lại.
+    inventoryRepository.find.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -179,6 +185,76 @@ describe('MaterialService', () => {
       expect(materialRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({ where: { supplier: expected } }),
       );
+    });
+
+    it('lọc theo supplierSlug, ưu tiên hơn hasSupplier', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        supplierSlug: 'sup-slug-1',
+        hasSupplier: false,
+      } as never);
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({ where: { supplier: { slug: 'sup-slug-1' } } }),
+      );
+    });
+
+    it('lọc theo warehouseSlug và typeSlug cùng lúc', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        warehouseSlug: 'wh-slug-1',
+        typeSlug: 'type-slug-1',
+      } as never);
+
+      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          where: {
+            type: { slug: 'type-slug-1' },
+            inventories: { warehouse: { slug: 'wh-slug-1' } },
+          },
+          // Không load `inventories` theo relation: có `where` trên nó thì danh sách kho bị lọc theo.
+          relations: { type: true, baseUnit: true, supplier: true },
+        }),
+      );
+    });
+
+    it('trả warehouses của từng vật tư bằng 1 query cho cả trang (không bị lọc theo warehouseSlug)', async () => {
+      const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), supplier: null });
+      const m2 = baseMaterial({ id: 'mat-2', slug: 'm2', type: materialType(), supplier: null });
+      materialRepository.findAndCount.mockResolvedValue([[m1, m2], 2]);
+      inventoryRepository.find.mockResolvedValue([
+        {
+          material: { id: 'mat-1' },
+          warehouse: { slug: 'wh-a', code: 'KHO-A', name: 'Kho A' },
+          quantity: 10,
+          reservedQuantity: 2.5,
+        },
+        {
+          material: { id: 'mat-1' },
+          warehouse: { slug: 'wh-b', code: 'KHO-B', name: 'Kho B' },
+          quantity: 0,
+          reservedQuantity: 0,
+        },
+      ]);
+
+      const result = await service.findAll({ page: 1, size: 10, warehouseSlug: 'wh-a' } as never);
+
+      expect(inventoryRepository.find).toHaveBeenCalledTimes(1);
+      expect(inventoryRepository.find.mock.calls[0][0].where.material.id.value).toEqual([
+        'mat-1',
+        'mat-2',
+      ]);
+      expect(result.items[0].warehouses).toEqual([
+        { slug: 'wh-a', code: 'KHO-A', name: 'Kho A', quantity: 10, availableQuantity: 7.5 },
+        { slug: 'wh-b', code: 'KHO-B', name: 'Kho B', quantity: 0, availableQuantity: 0 },
+      ]);
+      expect(result.items[1].warehouses).toEqual([]);
     });
 
     it('không lọc supplier khi không gửi hasSupplier', async () => {
