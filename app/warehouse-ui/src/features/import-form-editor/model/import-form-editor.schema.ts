@@ -172,8 +172,14 @@ export function lineAmount(quantity?: number, unitPrice?: number): number | unde
   return roundMoney(quantity * unitPrice)
 }
 
+/** Cộng dồn đúng như backend: `total = roundMoney(total + amount)` từng dòng, dòng chưa đủ số thì bỏ qua. */
 export function formTotal(items: { quantity?: number; unitPrice?: number }[]): number {
-  return roundMoney(items.reduce((sum, i) => sum + (lineAmount(i.quantity, i.unitPrice) ?? 0), 0))
+  let total = 0
+  for (const item of items) {
+    const amount = lineAmount(item.quantity, item.unitPrice)
+    if (amount !== undefined) total = roundMoney(total + amount)
+  }
+  return total
 }
 
 export function baseUnitOf(material: AvailableMaterial): AvailableUnit | undefined {
