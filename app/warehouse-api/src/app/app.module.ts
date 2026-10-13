@@ -44,6 +44,7 @@ import { UnitModule } from 'src/unit/unit.module';
 import { InventoryModule } from 'src/inventory/inventory.module';
 import { StoreModule } from 'src/store/store.module';
 import { SupplierModule } from 'src/supplier/supplier.module';
+import { ImportFormModule } from 'src/import-form/import-form.module';
 import { TaxProfileModule } from 'src/tax-profile/tax-profile.module';
 import { DbModule } from 'src/db/db.module';
 import { HealthModule } from 'src/health/health.module';
@@ -91,6 +92,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     InventoryModule,
     StoreModule,
     SupplierModule,
+    ImportFormModule,
     TaxProfileModule,
     DbModule,
     HealthModule,
