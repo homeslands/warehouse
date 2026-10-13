@@ -14,7 +14,7 @@ export function ImportFormPrintView({ form, warehouseName, baseUnitCode }: Props
   const { t } = useTranslation(['importForms', 'common'])
   const status = t(`importForms:status.${form.status}`)
   return (
-    <div className="hidden text-black print:block">
+    <div className="hidden bg-white text-black print:block">
       <h1 className="text-center text-xl font-bold">{t('importForms:printTitle')}</h1>
       <p className="mt-1 text-center text-sm">
         {form.code} · {formatDate(form.date)}
@@ -35,7 +35,7 @@ export function ImportFormPrintView({ form, warehouseName, baseUnitCode }: Props
         </div>
         <div>
           <dt className="inline font-medium">{t('importForms:fieldPurchaseOrder')}: </dt>
-          <dd className="inline">{form.purchaseOrder ?? '—'}</dd>
+          <dd className="inline">{form.purchaseOrder || '—'}</dd>
         </div>
         <div>
           <dt className="inline font-medium">{t('importForms:fieldRequester')}: </dt>

@@ -48,17 +48,22 @@ export function ImportFormItemsTable({
             </TableCell>
             <TableCell>
               {item.supplierName ? (
-                <span className="block max-w-48 whitespace-normal break-words">{item.supplierName}</span>
+                <span className="block max-w-48 whitespace-normal break-words">
+                  {item.supplierName}
+                </span>
               ) : (
                 <EmptyValue />
               )}
             </TableCell>
             <TableCell>{item.unitCode}</TableCell>
-            <TableCell className="text-right tabular-nums">{formatQuantity(item.quantity)}</TableCell>
+            <TableCell className="text-right tabular-nums">
+              {formatQuantity(item.quantity)}
+            </TableCell>
             <TableCell className="text-right tabular-nums">
               {item.conversionRate !== 1
                 ? t('importForms:converted', {
-                    value: `${formatQuantity(item.baseQuantity)} ${baseUnitCode?.(item.materialSlug) ?? ''}`.trim(),
+                    value:
+                      `${formatQuantity(item.baseQuantity)} ${baseUnitCode?.(item.materialSlug) ?? ''}`.trim(),
                   })
                 : '—'}
             </TableCell>

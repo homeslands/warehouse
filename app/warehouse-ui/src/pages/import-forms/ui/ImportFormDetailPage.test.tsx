@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
@@ -10,7 +10,6 @@ import { ImportFormDetailPage } from './ImportFormDetailPage'
 
 const BASE = 'http://localhost:8085/api/v1'
 const kho = { slug: 'w-a', code: 'KHO-A', name: 'Kho A', isActive: true } as Warehouse
-
 
 const draftForm: ImportForm = {
   slug: 'if-1',
@@ -71,7 +70,11 @@ const MANAGER: TestAuth = {
   ],
 }
 
-function renderPage(route = '/import-forms/if-1?warehouse=w-a', auth: TestAuth = MANAGER, form = draftForm) {
+function renderPage(
+  route = '/import-forms/if-1?warehouse=w-a',
+  auth: TestAuth = MANAGER,
+  form = draftForm,
+) {
   const getWarehouse = vi.fn(() => ok(kho))
   server.use(
     mswHttp.get(`${BASE}/warehouses/w-a`, getWarehouse),
@@ -135,7 +138,12 @@ describe('ImportFormDetailPage', () => {
       userName: 's',
       userSlug: 'u-other',
       roleName: 'SUPERVISOR',
-      scope: ['IMPORT_FORM_READ', 'WAREHOUSE_READ', 'IMPORT_FORM_UPDATE_DRAFT_OWN', 'IMPORT_FORM_DELETE_DRAFT_OWN'],
+      scope: [
+        'IMPORT_FORM_READ',
+        'WAREHOUSE_READ',
+        'IMPORT_FORM_UPDATE_DRAFT_OWN',
+        'IMPORT_FORM_DELETE_DRAFT_OWN',
+      ],
     })
     await screen.findByRole('heading', { level: 1, name: /PN-0001/ })
     expect(screen.queryByRole('button', { name: 'Sửa' })).not.toBeInTheDocument()
@@ -151,12 +159,65 @@ describe('ImportFormDetailPage', () => {
       route: '/import-forms/if-1?warehouse=w-a',
       auth: MANAGER,
     })
-    expect(await screen.findByText('Không tìm thấy phiếu nhập (có thể đã bị xoá).')).toBeInTheDocument()
+    expect(
+      await screen.findByText('Không tìm thấy phiếu nhập (có thể đã bị xoá).'),
+    ).toBeInTheDocument()
   })
 
   it('thiếu ?warehouse → về danh sách, không gọi API kho', async () => {
     const { getWarehouse } = renderPage('/import-forms/if-1')
     expect(await screen.findByText('DANH SÁCH')).toBeInTheDocument()
     await waitFor(() => expect(getWarehouse).not.toHaveBeenCalled())
+  })
+  it.each(['DRAFT', 'CANCELLED'] as const)(
+    'bản in %s: có nhãn "chưa có giá trị", ẩn/hiện đúng class',
+    async (status) => {
+      renderPage(undefined, MANAGER, { ...draftForm, status })
+      await screen.findByRole('heading', { level: 1, name: /PN-0001/ })
+      const printRoot = screen.getByText('PHIẾU NHẬP KHO').parentElement as HTMLElement
+      expect(printRoot).toHaveClass('hidden', 'print:block')
+      expect(within(printRoot).getByText(/chưa có giá trị nhập kho/)).toBeInTheDocument()
+      const screenRoot = screen
+        .getByRole('heading', { level: 1, name: /PN-0001/ })
+        .closest('.print\\:hidden')
+      expect(screenRoot).not.toBeNull()
+    },
+  )
+
+  it('bản in CONFIRMED: không có nhãn "chưa có giá trị"', async () => {
+    renderPage(undefined, MANAGER, { ...draftForm, status: 'CONFIRMED' })
+    await screen.findByRole('heading', { level: 1, name: /PN-0001/ })
+    expect(screen.getByText('PHIẾU NHẬP KHO')).toBeInTheDocument()
+    expect(screen.queryByText(/chưa có giá trị nhập kho/)).not.toBeInTheDocument()
+  })
+
+  it('xoá từ trang chi tiết → về danh sách', async () => {
+    const del = vi.fn(() => ok('1 import form have been deleted successfully'))
+    const { user } = renderPage()
+    server.use(mswHttp.delete(`${BASE}/warehouses/w-a/import-forms/if-1`, del))
+    await user.click(await screen.findByRole('button', { name: 'Thao tác khác' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Xoá phiếu nháp' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Xoá' }))
+    expect(await screen.findByText('DANH SÁCH')).toBeInTheDocument()
+    expect(del).toHaveBeenCalled()
+  })
+
+  it('CANCELLED: nhãn "Người huỷ" và tên người huỷ', async () => {
+    renderPage(undefined, MANAGER, {
+      ...draftForm,
+      status: 'CANCELLED',
+      approverSlug: 'u-x',
+      approverName: 'Lê C',
+    })
+    expect((await screen.findAllByText('Người huỷ')).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Lê C').length).toBeGreaterThan(0)
+  })
+
+  it('bấm Xác nhận phiếu → mở hộp xác nhận', async () => {
+    const { user } = renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Xác nhận phiếu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByText(/Xác nhận phiếu nhập PN-0001/)).toBeInTheDocument()
   })
 })
