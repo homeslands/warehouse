@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { FindOptionsRelations, FindOptionsWhere, IsNull, Like, Not, Repository } from 'typeorm';
+import { FindOptionsRelations, FindOptionsWhere, In, IsNull, Like, Not, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -95,7 +95,8 @@ export class MaterialService {
     });
 
     this.logger.log(`Material created: ${created.id}`, context);
-    return this.mapper.map(created, Material, MaterialResponseDto);
+    // Vật tư mới chưa gán vào kho nào.
+    return { ...this.mapper.map(created, Material, MaterialResponseDto), warehouses: [] };
   }
 
   async findAll(
@@ -107,8 +108,13 @@ export class MaterialService {
     if (query.name) where.name = Like(`%${query.name}%`);
     // Lọc thẳng trên cột FK `supplier_id_column`. Không lệch với `hasSupplier` trong response vì
     // `deleteSupplier` chặn xoá nhà cung cấp còn gắn vật tư ⇒ không có FK trỏ vào supplier đã xoá mềm.
-    if (query.hasSupplier === true) where.supplier = Not(IsNull());
+    // `supplierSlug` cụ thể hơn `hasSupplier` nên được ưu tiên (gửi cả 2 mâu thuẫn nhau thì bỏ cờ).
+    if (query.supplierSlug) where.supplier = { slug: query.supplierSlug };
+    else if (query.hasSupplier === true) where.supplier = Not(IsNull());
     else if (query.hasSupplier === false) where.supplier = IsNull();
+    // JOIN `inventory_tbl` chỉ để lọc (TypeORM tự thêm `deleted_at IS NULL` cho bảng join ⇒ vật tư
+    // đã gỡ khỏi kho không khớp). 1 vật tư có tối đa 1 dòng/kho nên không nhân bản kết quả.
+    if (query.warehouseSlug) where.inventories = { warehouse: { slug: query.warehouseSlug } };
 
     const [items, total] = await this.materialRepository.findAndCount({
       where,
@@ -120,7 +126,7 @@ export class MaterialService {
     const totalPages = Math.ceil(total / query.size);
 
     return {
-      items: this.mapper.mapArray(items, Material, MaterialResponseDto),
+      items: await this.toResponses(items),
       total,
       page: query.page,
       pageSize: query.size,
@@ -132,7 +138,35 @@ export class MaterialService {
 
   async findOne(slug: string): Promise<MaterialResponseDto> {
     const material = await this.findEntityBySlug(slug);
-    return this.mapper.map(material, Material, MaterialResponseDto);
+    const [response] = await this.toResponses([material]);
+    return response;
+  }
+
+  /**
+   * Map sang response kèm `warehouses` — tra `inventory_tbl` bằng 1 query cho cả trang, KHÔNG qua
+   * relation `inventories` của query chính (có `where` trên nó thì TypeORM lọc luôn danh sách kho).
+   */
+  private async toResponses(materials: Material[]): Promise<MaterialResponseDto[]> {
+    const rows = materials.length
+      ? await this.inventoryRepository.find({
+          where: { material: { id: In(materials.map((material) => material.id)) } },
+          relations: { warehouse: true, material: true },
+          order: { warehouse: { code: 'ASC' } },
+        })
+      : [];
+
+    return materials.map((material) => ({
+      ...this.mapper.map(material, Material, MaterialResponseDto),
+      warehouses: rows
+        .filter((row) => row.material.id === material.id)
+        .map((row) => ({
+          slug: row.warehouse.slug,
+          code: row.warehouse.code,
+          name: row.warehouse.name,
+          quantity: row.quantity,
+          availableQuantity: roundToScale(row.quantity - row.reservedQuantity),
+        })),
+    }));
   }
 
   /** Dùng bởi `InventoryService` để resolve `materialSlug` -> entity. */
@@ -210,7 +244,8 @@ export class MaterialService {
     });
 
     this.logger.log(`Material updated: ${updated.id}`, context);
-    return this.mapper.map(updated, Material, MaterialResponseDto);
+    const [response] = await this.toResponses([updated]);
+    return response;
   }
 
   /**
