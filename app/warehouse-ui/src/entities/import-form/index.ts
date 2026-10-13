@@ -23,6 +23,7 @@ export {
   IMPORT_FORM_NOT_FOUND,
   IMPORT_FORM_NOT_DRAFT,
   IMPORT_FORM_NOT_OWNER,
+  isStaleImportFormError,
 } from './model/error-codes'
 export { IMPORT_FORM_STATUSES } from './model/types'
 export type {
