@@ -126,6 +126,36 @@ export class GetAllMaterialRequestDto extends BaseQueryDto {
   @Transform(toBoolean)
   @IsBoolean({ message: 'MATERIAL_HAS_SUPPLIER_INVALID' })
   hasSupplier?: boolean;
+
+  @ApiPropertyOptional({
+    description: 'Filter by the slug of the supplier (takes precedence over `hasSupplier`)',
+  })
+  @IsOptional()
+  @Transform(trim)
+  supplierSlug?: string;
+
+  @ApiPropertyOptional({ description: 'Only materials assigned to this warehouse' })
+  @IsOptional()
+  @Transform(trim)
+  warehouseSlug?: string;
+}
+
+/** 1 kho mà vật tư đã được gán vào (1 dòng `inventory_tbl`), kèm tồn theo đơn vị cơ sở. */
+export class MaterialWarehouseResponseDto {
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  code: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiProperty({ description: 'Stock in this warehouse, in the base unit' })
+  quantity: number;
+
+  @ApiProperty({ description: 'quantity - reservedQuantity' })
+  availableQuantity: number;
 }
 
 export class MaterialResponseDto extends BaseResponseDto {
@@ -164,6 +194,12 @@ export class MaterialResponseDto extends BaseResponseDto {
     description: 'Supplier of the material — `null` when `hasSupplier` is false',
   })
   supplier?: SupplierResponseDto | null;
+
+  @ApiProperty({
+    type: [MaterialWarehouseResponseDto],
+    description: 'Warehouses the material is assigned to (empty when none)',
+  })
+  warehouses: MaterialWarehouseResponseDto[];
 }
 
 /**

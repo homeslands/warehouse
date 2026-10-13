@@ -1,3 +1,7 @@
+import { Inventory } from 'src/inventory/inventory.entity';
+import { OptimisticLockVersionMismatchError } from 'typeorm';
+import { InventoryValidation } from 'src/inventory/inventory.validation';
+import { InventoryException } from 'src/inventory/inventory.exception';
 import { ForbiddenException } from '@nestjs/common';
 import { Test, TestingModule } from '@nestjs/testing';
 import { getRepositoryToken } from '@nestjs/typeorm';
@@ -21,6 +25,7 @@ import { Material } from 'src/material/material.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
 import { ImportFormItem } from './import-form-item.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
+import { InventoryService } from 'src/inventory/inventory.service';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 
 describe('ImportFormService', () => {
@@ -35,9 +40,14 @@ describe('ImportFormService', () => {
   const warehouseRepository = { findOneBy: jest.fn() };
   const userRepository = { findOneBy: jest.fn() };
   const materialRepository = { find: jest.fn() };
+  const inventoryRepository = { find: jest.fn(), findAndCount: jest.fn() };
+  // Mặc định: mọi vật tư được hỏi đều đã gán vào kho (trả 1 dòng tồn cho mỗi id trong `In(...)`).
+  const allAssigned = async ({ where }: { where: { material: { id: { value: string[] } } } }) =>
+    where.material.id.value.map((id) => ({ material: { id } }));
   // `execute` chạy thẳng callback với `manager` giả — đủ để kiểm mọi lần ghi đều đi qua transaction.
   // Rollback thật do `TransactionManagerService` lo (xem `transaction-manager.service.spec.ts`).
-  const manager = { save: jest.fn(), delete: jest.fn() };
+  const manager = { save: jest.fn(), delete: jest.fn(), findOne: jest.fn() };
+  const inventoryService = { receive: jest.fn() };
   const transactionManager = { execute: jest.fn() };
 
   const supplier = {
@@ -114,6 +124,7 @@ describe('ImportFormService', () => {
     importFormRepository.save.mockImplementation(async (data) => data);
     manager.save.mockImplementation(async (data) => data);
     transactionManager.execute.mockImplementation(async (onSave) => onSave(manager));
+    inventoryRepository.find.mockImplementation(allAssigned);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -123,7 +134,9 @@ describe('ImportFormService', () => {
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(Material), useValue: materialRepository },
+        { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
+        { provide: InventoryService, useValue: inventoryService },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
       ],
@@ -378,6 +391,119 @@ describe('ImportFormService', () => {
         where: { code: 'PN-0001' },
         withDeleted: true,
       });
+    });
+  });
+
+  describe('materials must be assigned to the warehouse', () => {
+    beforeEach(() => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findOne.mockResolvedValue(null);
+      userRepository.findOneBy.mockResolvedValue(requester);
+      materialRepository.find.mockResolvedValue([cement]);
+    });
+
+    it('looks up the inventory rows of THIS warehouse for the requested materials', async () => {
+      await service.createImportForm('wh-slug', createDto, actor());
+
+      const [{ where }] = inventoryRepository.find.mock.calls[0];
+      expect(where.warehouse).toEqual({ id: 'wh-1' });
+      expect(where.material.id.value).toEqual(['mat-1']);
+    });
+
+    it('rejects create when a material is not assigned to the warehouse', async () => {
+      inventoryRepository.find.mockResolvedValue([]);
+
+      await expectError(
+        service.createImportForm('wh-slug', createDto, actor()),
+        ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE.code,
+      );
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects PATCH items with a material not assigned to the form warehouse', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft());
+      inventoryRepository.find.mockResolvedValue([]);
+
+      await expectError(
+        service.updateImportForm(
+          'wh-slug',
+          'form-slug',
+          { items: [createDto.items[0]], version: 1 },
+          actor([AuthorityCode.ImportFormUpdateDraft]),
+        ),
+        ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE.code,
+      );
+      expect(inventoryRepository.find.mock.calls[0][0].where.warehouse).toEqual({ id: 'wh-1' });
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findAvailableMaterials', () => {
+    it('lists materials assigned to the warehouse with their units (base unit first)', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      inventoryRepository.findAndCount.mockResolvedValue([
+        [
+          {
+            quantity: 12.5,
+            material: {
+              ...cement,
+              baseUnit: kg,
+              unitsCanHave: [
+                { unitId: 'unit-bag', unit: bag, conversionRate: '50.000000' },
+                { unitId: 'unit-kg', unit: kg, conversionRate: '1.000000' },
+              ],
+            },
+          },
+        ],
+        1,
+      ]);
+
+      const result = await service.findAvailableMaterials('wh-slug', {
+        page: 1,
+        size: 10,
+        name: 'Xi',
+      } as never);
+
+      const [options] = inventoryRepository.findAndCount.mock.calls[0];
+      expect(options.where.warehouse).toEqual({ id: 'wh-1' });
+      expect(options.where.material.name.value).toBe('%Xi%');
+      expect(result).toMatchObject({ total: 1, page: 1, totalPages: 1, hasNext: false });
+      expect(result.items).toEqual([
+        {
+          slug: 'cement',
+          code: 'XM-01',
+          name: 'Xi mang',
+          baseUnitSlug: 'kg',
+          quantity: 12.5,
+          supplierSlug: 'sup-slug',
+          supplierName: 'Supplier A',
+          units: [
+            {
+              unitSlug: 'kg',
+              unitCode: 'KG',
+              unitName: 'Kilogram',
+              conversionRate: 1,
+              isBaseUnit: true,
+            },
+            {
+              unitSlug: 'bag',
+              unitCode: 'BAO',
+              unitName: 'Bao',
+              conversionRate: 50,
+              isBaseUnit: false,
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('returns WAREHOUSE_NOT_FOUND for an unknown warehouse', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(null);
+
+      await expectError(
+        service.findAvailableMaterials('nope', { page: 1, size: 10 } as never),
+        WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      );
     });
   });
 
@@ -705,7 +831,15 @@ describe('ImportFormService', () => {
   });
 
   describe('confirm / cancel', () => {
-    beforeEach(() => userRepository.findOneBy.mockResolvedValue(approver));
+    const lines = [
+      { id: 'i1', material: cement, unit: bag, baseQuantity: 100 },
+      { id: 'i2', material: cement, unit: kg, baseQuantity: 0.5 },
+    ] as unknown as ImportFormItem[];
+
+    beforeEach(() => {
+      userRepository.findOneBy.mockResolvedValue(approver);
+      manager.findOne.mockImplementation(async () => draft());
+    });
 
     it.each([
       ['confirmImportForm', ImportFormStatus.Confirmed],
@@ -719,6 +853,8 @@ describe('ImportFormService', () => {
         expect.objectContaining({ lock: { mode: 'optimistic', version: 2 } }),
       );
       expect(userRepository.findOneBy).toHaveBeenCalledWith({ id: 'u2' });
+      expect(manager.save).toHaveBeenCalledWith(expect.objectContaining({ status }));
+      expect(importFormRepository.save).not.toHaveBeenCalled();
       expect(result).toMatchObject({
         status,
         approverSlug: 'u2-slug',
@@ -738,6 +874,77 @@ describe('ImportFormService', () => {
         expect(importFormRepository.save).not.toHaveBeenCalled();
       },
     );
+
+    it('confirm adds every line baseQuantity to the warehouse stock in the same transaction', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: lines }));
+      const u2 = actor([], 'u2');
+
+      await service.confirmImportForm('wh-slug', 'form-slug', { version: 1 }, u2);
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(inventoryService.receive).toHaveBeenCalledWith(
+        manager,
+        'wh-1',
+        [
+          { materialId: 'mat-1', quantity: 100 },
+          { materialId: 'mat-1', quantity: 0.5 },
+        ],
+        u2,
+        'Import form PN-0001',
+      );
+      // Đổi trạng thái trước, cộng tồn sau — cùng 1 transaction.
+      expect(manager.save.mock.invocationCallOrder[0]).toBeLessThan(
+        inventoryService.receive.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('cancel does not touch the stock', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: lines }));
+
+      await service.cancelImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2'));
+
+      expect(inventoryService.receive).not.toHaveBeenCalled();
+    });
+
+    it('propagates an inventory error (material not in warehouse) so the transaction rolls back', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: lines }));
+      inventoryService.receive.mockRejectedValue(
+        new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND),
+      );
+
+      await expectError(
+        service.confirmImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+        InventoryValidation.INVENTORY_NOT_FOUND.code,
+      );
+    });
+
+    // 2 request xác nhận đồng thời: cả hai qua optimistic check lúc đọc, request sau thấy bản đã khoá
+    // không còn DRAFT ⇒ không cộng tồn lần 2.
+    it('re-checks the status on the pessimistically locked row', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: lines }));
+      manager.findOne.mockResolvedValue(draft({ status: ImportFormStatus.Confirmed, version: 2 }));
+
+      await expectError(
+        service.confirmImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+        ImportFormValidation.IMPORT_FORM_NOT_DRAFT.code,
+      );
+      expect(manager.findOne).toHaveBeenCalledWith(ImportForm, {
+        where: { id: 'form-1' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(manager.save).not.toHaveBeenCalled();
+      expect(inventoryService.receive).not.toHaveBeenCalled();
+    });
+
+    it('rejects with a version conflict when the form changed after it was read', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: lines }));
+      manager.findOne.mockResolvedValue(draft({ version: 2 }));
+
+      await expect(
+        service.confirmImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+      ).rejects.toBeInstanceOf(OptimisticLockVersionMismatchError);
+      expect(inventoryService.receive).not.toHaveBeenCalled();
+    });
 
     it('throws ImportFormException when the form does not exist', async () => {
       importFormRepository.findOne.mockResolvedValue(null);

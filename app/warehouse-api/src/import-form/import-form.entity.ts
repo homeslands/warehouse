@@ -8,7 +8,8 @@ import { ImportFormStatus } from './import-form.constants';
 import { ImportFormItem } from './import-form-item.entity';
 
 /**
- * Phiếu nhập kho: phần đầu phiếu + các dòng vật tư (`items`). Xác nhận phiếu CHƯA cộng tồn.
+ * Phiếu nhập kho: phần đầu phiếu + các dòng vật tư (`items`). Xác nhận phiếu cộng `baseQuantity` của
+ * từng dòng vào tồn của kho (`InventoryService.receive`); phiếu nháp/huỷ không đụng tồn.
  *
  * Các cột `requesterName`/`approverName` là **snapshot** lúc ghi phiếu, không phải dữ liệu join: user
  * sửa tên bất cứ lúc nào, đọc qua FK là viết lại chứng từ cũ. FK vẫn giữ để tra ngược "phiếu nào
