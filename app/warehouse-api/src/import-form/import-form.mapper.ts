@@ -3,10 +3,12 @@ import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core'
 import { Injectable } from '@nestjs/common';
 import {
   CreateImportFormRequestDto,
+  ImportFormItemResponseDto,
   ImportFormResponseDto,
   UpdateImportFormRequestDto,
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
+import { ImportFormItem } from './import-form-item.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { versionedMapper } from 'src/app/versioned.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
@@ -17,7 +19,8 @@ import { normalizeCode } from 'src/shared/utils/code.util';
  * là PATCH âm thầm bỏ qua field đó. Mọi `mapFrom` dùng `?.` ⇒ field vắng mặt ra `undefined` và bị
  * `pickDefined` lọc ở service.
  *
- * `supplierSlug` cố tình KHÔNG map: service resolve nhà cung cấp rồi chép snapshot.
+ * `items` cố tình KHÔNG map: service resolve vật tư/đơn vị (kèm nhà cung cấp của vật tư) rồi tự dựng
+ * snapshot + dòng phiếu. `total` không có trong body — service tính từ `items`.
  */
 const normalizeImportForm = <T extends Partial<CreateImportFormRequestDto>>() =>
   [
@@ -39,10 +42,6 @@ const normalizeImportForm = <T extends Partial<CreateImportFormRequestDto>>() =>
       mapFrom((s) => s.date),
     ),
     forMember<T, ImportForm>(
-      (d) => d.total,
-      mapFrom((s) => s.total),
-    ),
-    forMember<T, ImportForm>(
       (d) => d.file,
       mapFrom((s) => s.file?.trim()),
     ),
@@ -62,6 +61,21 @@ export class ImportFormProfile extends AutomapperProfile {
     return (mapper: Mapper) => {
       createMap(
         mapper,
+        ImportFormItem,
+        ImportFormItemResponseDto,
+        extend(baseMapper(mapper)),
+        forMember(
+          (d) => d.materialSlug,
+          mapFrom((s) => s.material?.slug),
+        ),
+        forMember(
+          (d) => d.unitSlug,
+          mapFrom((s) => s.unit?.slug),
+        ),
+      );
+
+      createMap(
+        mapper,
         ImportForm,
         ImportFormResponseDto,
         extend(baseMapper(mapper)),
@@ -76,6 +90,15 @@ export class ImportFormProfile extends AutomapperProfile {
         forMember(
           (d) => d.warehouseSlug,
           mapFrom((s) => s.warehouse?.slug),
+        ),
+        // `items` chỉ có khi đã load relation (list cố ý không load) — không load thì bỏ hẳn field.
+        forMember(
+          (d) => d.items,
+          mapFrom((s) =>
+            s.items
+              ? mapper.mapArray(s.items, ImportFormItem, ImportFormItemResponseDto)
+              : undefined,
+          ),
         ),
         versionedMapper(),
       );
