@@ -15,6 +15,7 @@ export const INVENTORY_RANGE_INVALID = 'INVENTORY_RANGE_INVALID';
 export const INVENTORY_QUANTITY_BELOW_RESERVED = 'INVENTORY_QUANTITY_BELOW_RESERVED';
 export const INVENTORY_RESERVED_NOT_EMPTY = 'INVENTORY_RESERVED_NOT_EMPTY';
 export const INVENTORY_NOTE_INVALID = 'INVENTORY_NOTE_INVALID';
+export const INVENTORY_MATERIAL_IS_REQUIRED = 'INVENTORY_MATERIAL_IS_REQUIRED';
 
 export type TInventoryErrorCodeKey =
   | typeof INVENTORY_NOT_FOUND
@@ -30,7 +31,8 @@ export type TInventoryErrorCodeKey =
   | typeof INVENTORY_RANGE_INVALID
   | typeof INVENTORY_QUANTITY_BELOW_RESERVED
   | typeof INVENTORY_RESERVED_NOT_EMPTY
-  | typeof INVENTORY_NOTE_INVALID;
+  | typeof INVENTORY_NOTE_INVALID
+  | typeof INVENTORY_MATERIAL_IS_REQUIRED;
 
 export type TInventoryErrorCode = Record<TInventoryErrorCodeKey, TErrorCodeValue>;
 
@@ -97,4 +99,5 @@ export const InventoryValidation: TInventoryErrorCode = {
     'note must be a string of at most 255 characters',
     HttpStatus.BAD_REQUEST,
   ),
+  INVENTORY_MATERIAL_IS_REQUIRED: createErrorCode(100815, 'material is required'),
 };

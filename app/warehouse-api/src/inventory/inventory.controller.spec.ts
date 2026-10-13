@@ -1,3 +1,5 @@
+import { RequestMethod } from '@nestjs/common';
+import { METHOD_METADATA } from '@nestjs/common/constants';
 import { Test, TestingModule } from '@nestjs/testing';
 import { InventoryController } from './inventory.controller';
 import { InventoryService } from './inventory.service';
@@ -8,6 +10,7 @@ describe('InventoryController', () => {
   let controller: InventoryController;
   const inventoryService = {
     assignMaterial: jest.fn(),
+    createMaterialInWarehouse: jest.fn(),
     findAll: jest.fn(),
     updateThresholds: jest.fn(),
     adjustQuantity: jest.fn(),
@@ -53,7 +56,34 @@ describe('InventoryController', () => {
     const response = await controller.assignMaterial('wh-slug-1', dto, actor);
 
     expect(inventoryService.assignMaterial).toHaveBeenCalledWith('wh-slug-1', dto, actor);
+    expect(response.statusCode).toBe(200);
+  });
+
+  it('wraps the create-and-assign result in AppResponseDto with 201', async () => {
+    inventoryService.createMaterialInWarehouse.mockResolvedValue({ slug: 'wm-slug-1' });
+    const dto = {
+      material: { code: 'MAT-1', name: 'M', typeSlug: 't', baseUnitSlug: 'u' },
+      quantity: 3,
+    };
+
+    const response = await controller.createMaterialInWarehouse('wh-slug-1', dto as never, actor);
+
+    expect(inventoryService.createMaterialInWarehouse).toHaveBeenCalledWith(
+      'wh-slug-1',
+      dto,
+      actor,
+    );
     expect(response.statusCode).toBe(201);
+  });
+
+  // `PUT` = gán vật tư có sẵn, `POST` = tạo vật tư mới + gán — đổi nhầm method là đổi nghĩa route.
+  it.each([
+    ['assignMaterial', RequestMethod.PUT],
+    ['createMaterialInWarehouse', RequestMethod.POST],
+  ] as const)('%s is mapped to HTTP method %s', (handler, method) => {
+    expect(Reflect.getMetadata(METHOD_METADATA, InventoryController.prototype[handler])).toBe(
+      method,
+    );
   });
 
   it('renders the remove count as a message string', async () => {
@@ -74,6 +104,11 @@ describe('InventoryController', () => {
 
     it('maps every route to its authority code', () => {
       expect(authority(controller.assignMaterial)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.WarehouseUpdate,
+      ]);
+      expect(authority(controller.createMaterialInWarehouse)).toEqual([
+        AuthorityCode.MaterialCreate,
         AuthorityCode.MaterialUpdate,
         AuthorityCode.WarehouseUpdate,
       ]);

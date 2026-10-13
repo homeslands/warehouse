@@ -1,3 +1,4 @@
+import { Inventory } from 'src/inventory/inventory.entity';
 import { OptimisticLockVersionMismatchError } from 'typeorm';
 import { InventoryValidation } from 'src/inventory/inventory.validation';
 import { InventoryException } from 'src/inventory/inventory.exception';
@@ -39,6 +40,10 @@ describe('ImportFormService', () => {
   const warehouseRepository = { findOneBy: jest.fn() };
   const userRepository = { findOneBy: jest.fn() };
   const materialRepository = { find: jest.fn() };
+  const inventoryRepository = { find: jest.fn(), findAndCount: jest.fn() };
+  // Mặc định: mọi vật tư được hỏi đều đã gán vào kho (trả 1 dòng tồn cho mỗi id trong `In(...)`).
+  const allAssigned = async ({ where }: { where: { material: { id: { value: string[] } } } }) =>
+    where.material.id.value.map((id) => ({ material: { id } }));
   // `execute` chạy thẳng callback với `manager` giả — đủ để kiểm mọi lần ghi đều đi qua transaction.
   // Rollback thật do `TransactionManagerService` lo (xem `transaction-manager.service.spec.ts`).
   const manager = { save: jest.fn(), delete: jest.fn(), findOne: jest.fn() };
@@ -119,6 +124,7 @@ describe('ImportFormService', () => {
     importFormRepository.save.mockImplementation(async (data) => data);
     manager.save.mockImplementation(async (data) => data);
     transactionManager.execute.mockImplementation(async (onSave) => onSave(manager));
+    inventoryRepository.find.mockImplementation(allAssigned);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -128,6 +134,7 @@ describe('ImportFormService', () => {
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(Material), useValue: materialRepository },
+        { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
         { provide: InventoryService, useValue: inventoryService },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
@@ -384,6 +391,119 @@ describe('ImportFormService', () => {
         where: { code: 'PN-0001' },
         withDeleted: true,
       });
+    });
+  });
+
+  describe('materials must be assigned to the warehouse', () => {
+    beforeEach(() => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findOne.mockResolvedValue(null);
+      userRepository.findOneBy.mockResolvedValue(requester);
+      materialRepository.find.mockResolvedValue([cement]);
+    });
+
+    it('looks up the inventory rows of THIS warehouse for the requested materials', async () => {
+      await service.createImportForm('wh-slug', createDto, actor());
+
+      const [{ where }] = inventoryRepository.find.mock.calls[0];
+      expect(where.warehouse).toEqual({ id: 'wh-1' });
+      expect(where.material.id.value).toEqual(['mat-1']);
+    });
+
+    it('rejects create when a material is not assigned to the warehouse', async () => {
+      inventoryRepository.find.mockResolvedValue([]);
+
+      await expectError(
+        service.createImportForm('wh-slug', createDto, actor()),
+        ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE.code,
+      );
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects PATCH items with a material not assigned to the form warehouse', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft());
+      inventoryRepository.find.mockResolvedValue([]);
+
+      await expectError(
+        service.updateImportForm(
+          'wh-slug',
+          'form-slug',
+          { items: [createDto.items[0]], version: 1 },
+          actor([AuthorityCode.ImportFormUpdateDraft]),
+        ),
+        ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE.code,
+      );
+      expect(inventoryRepository.find.mock.calls[0][0].where.warehouse).toEqual({ id: 'wh-1' });
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('findAvailableMaterials', () => {
+    it('lists materials assigned to the warehouse with their units (base unit first)', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      inventoryRepository.findAndCount.mockResolvedValue([
+        [
+          {
+            quantity: 12.5,
+            material: {
+              ...cement,
+              baseUnit: kg,
+              unitsCanHave: [
+                { unitId: 'unit-bag', unit: bag, conversionRate: '50.000000' },
+                { unitId: 'unit-kg', unit: kg, conversionRate: '1.000000' },
+              ],
+            },
+          },
+        ],
+        1,
+      ]);
+
+      const result = await service.findAvailableMaterials('wh-slug', {
+        page: 1,
+        size: 10,
+        name: 'Xi',
+      } as never);
+
+      const [options] = inventoryRepository.findAndCount.mock.calls[0];
+      expect(options.where.warehouse).toEqual({ id: 'wh-1' });
+      expect(options.where.material.name.value).toBe('%Xi%');
+      expect(result).toMatchObject({ total: 1, page: 1, totalPages: 1, hasNext: false });
+      expect(result.items).toEqual([
+        {
+          slug: 'cement',
+          code: 'XM-01',
+          name: 'Xi mang',
+          baseUnitSlug: 'kg',
+          quantity: 12.5,
+          supplierSlug: 'sup-slug',
+          supplierName: 'Supplier A',
+          units: [
+            {
+              unitSlug: 'kg',
+              unitCode: 'KG',
+              unitName: 'Kilogram',
+              conversionRate: 1,
+              isBaseUnit: true,
+            },
+            {
+              unitSlug: 'bag',
+              unitCode: 'BAO',
+              unitName: 'Bao',
+              conversionRate: 50,
+              isBaseUnit: false,
+            },
+          ],
+        },
+      ]);
+    });
+
+    it('returns WAREHOUSE_NOT_FOUND for an unknown warehouse', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(null);
+
+      await expectError(
+        service.findAvailableMaterials('nope', { page: 1, size: 10 } as never),
+        WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      );
     });
   });
 

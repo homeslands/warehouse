@@ -5,6 +5,7 @@ import { MaterialType } from 'src/material-type/material-type.entity';
 import { Unit } from 'src/unit/unit.entity';
 import { MaterialUnit } from './material-unit.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
+import { Inventory } from 'src/inventory/inventory.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 
 @Entity('material_tbl')
@@ -87,4 +88,12 @@ export class Material extends Base {
    */
   @OneToMany(() => MaterialUnit, (materialUnit) => materialUnit.material)
   unitsCanHave: MaterialUnit[];
+
+  /**
+   * Phía ngược của `Inventory.material` (1 dòng = vật tư này trong 1 kho) — không thêm cột nào.
+   * Chỉ dùng để LỌC (`GET /materials?warehouseSlug=`); đừng load nó kèm `where` trên chính nó, TypeORM
+   * lọc luôn các dòng được load ⇒ response chỉ còn kho đang lọc. `MaterialService` tra kho riêng.
+   */
+  @OneToMany(() => Inventory, (inventory) => inventory.material)
+  inventories?: Inventory[];
 }
