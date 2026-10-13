@@ -4,6 +4,9 @@
   "stores": "Cửa hàng",
   "suppliers": "Nhà cung cấp",
   "materials": "Vật tư",
+  "importForms": "Phiếu nhập",
+  "create": "Tạo mới",
+  "edit": "Sửa",
   "materialTypes": "Loại vật tư",
   "units": "Đơn vị",
   "users": "Người dùng",
@@ -21,6 +24,7 @@
   "breadcrumb": "Vị trí hiện tại",
   "groups": {
     "catalog": "Danh mục",
+    "forms": "Nghiệp vụ kho",
     "admin": "Quản trị",
     "dev": "Dev"
   }

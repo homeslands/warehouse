@@ -4,7 +4,7 @@ import { can, type CurrentUser, type Role } from '@/entities/session'
 import type { AuthorityCode } from '@/shared/api/authority-codes'
 
 /** Thứ tự nhóm trên sidebar. Thêm nhóm = thêm vào đây + khoá `nav:groups.<key>`. */
-export const NAV_GROUP_ORDER = ['catalog', 'admin', 'dev'] as const
+export const NAV_GROUP_ORDER = ['catalog', 'forms', 'admin', 'dev'] as const
 
 export type NavGroupKey = (typeof NAV_GROUP_ORDER)[number]
 
