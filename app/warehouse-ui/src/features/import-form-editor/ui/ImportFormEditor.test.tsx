@@ -1,5 +1,5 @@
-import { screen, waitFor } from '@testing-library/react'
-import { http as mswHttp } from 'msw'
+import { screen, waitFor, within } from '@testing-library/react'
+import { HttpResponse, http as mswHttp } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { AvailableMaterial, ImportForm } from '@/entities/import-form'
 import { apiError, ok, paginated } from '@/shared/test/api'
@@ -167,20 +167,69 @@ describe('ImportFormEditor', () => {
     })
   })
 
-  it('sửa: 409 → onConflict, không hiện lỗi tại ô', async () => {
+  it('sửa: 409 → onConflict (điều hướng đi không bị hỏi), không hiện lỗi tại ô', async () => {
     server.use(mswHttp.patch(`${URL_W}/if-1`, () => apiError(409, 100800, 'conflict')))
+    const { user, router, onConflict } = setup(draftForm)
+    onConflict.mockImplementation(() => void router.navigate('/elsewhere'))
+    await user.clear(screen.getByRole('textbox', { name: /^Ghi chú$/ }))
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    expect(await screen.findByText('NƠI KHÁC')).toBeInTheDocument()
+    expect(onConflict).toHaveBeenCalledTimes(1)
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(document.querySelector('[data-slot="form-message"]')).toBeNull()
+  })
+
+  it('sửa: 101314 (không còn là nháp) → onConflict', async () => {
+    server.use(mswHttp.patch(`${URL_W}/if-1`, () => apiError(409, 101314, 'not draft')))
     const { user, onConflict } = setup(draftForm)
     await user.clear(screen.getByRole('textbox', { name: /^Ghi chú$/ }))
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
-    await waitFor(() => expect(onConflict).toHaveBeenCalled())
+    await waitFor(() => expect(onConflict).toHaveBeenCalledTimes(1))
   })
 
-  it('đã sửa mà rời trang → hỏi "Bỏ thay đổi chưa lưu?"; Ở lại thì không đi', async () => {
+  it('đang upload file → Lưu nháp bị khoá, xong thì mở lại', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    server.use(
+      mswHttp.post(`${BASE}/file/upload`, async () => {
+        await gate
+        return HttpResponse.json(
+          {
+            message: 'File a-1760000000000.pdf uploaded to S3 successfully',
+            statusCode: 201,
+            timestamp: '',
+          },
+          { status: 201 },
+        )
+      }),
+    )
+    const { user } = setup(draftForm)
+    await user.clear(screen.getByRole('textbox', { name: /^Ghi chú$/ }))
+    const save = screen.getByRole('button', { name: 'Lưu nháp' })
+    expect(save).toBeEnabled()
+    await user.upload(screen.getByLabelText('Chứng từ đính kèm'), new File(['x'], 'a.pdf'))
+    await waitFor(() => expect(save).toBeDisabled())
+    release()
+    await waitFor(() => expect(save).toBeEnabled())
+  })
+
+  it('đã sửa mà rời trang → hỏi "Bỏ thay đổi chưa lưu?"; Tiếp tục sửa thì ở lại', async () => {
     const { user, router } = setup(draftForm)
     await user.clear(await screen.findByRole('textbox', { name: /^Ghi chú$/ }))
     void router.navigate('/elsewhere')
     const dialog = await screen.findByRole('alertdialog')
     expect(dialog).toHaveTextContent('Bỏ thay đổi chưa lưu?')
+    await user.click(within(dialog).getByRole('button', { name: 'Tiếp tục sửa' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(router.state.location.pathname).toBe('/editor')
+  })
+
+  it('đã sửa mà rời trang → Bỏ thay đổi thì đi', async () => {
+    const { user, router } = setup(draftForm)
+    await user.clear(await screen.findByRole('textbox', { name: /^Ghi chú$/ }))
+    void router.navigate('/elsewhere')
+    await confirmDialog(user, 'Bỏ thay đổi')
+    expect(await screen.findByText('NƠI KHÁC')).toBeInTheDocument()
   })
 
   it('lưu thành công rồi điều hướng → KHÔNG hỏi', async () => {

@@ -112,7 +112,10 @@ export function ImportFormEditor({
     create.mutate(
       { warehouseSlug, input: toCreateInput(toCreate) },
       {
-        onSuccess: finish,
+        onSuccess: (saved) => {
+          setToCreate(null)
+          finish(saved)
+        },
         onError: (error) => {
           // Đóng hộp xác nhận để lỗi tại ô hiện ra.
           setToCreate(null)

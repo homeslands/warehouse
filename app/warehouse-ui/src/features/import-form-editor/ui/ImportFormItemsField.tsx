@@ -139,9 +139,10 @@ export function ImportFormItemsField({ form, materials, fallbackLabels }: Props)
                   </FormLabel>
                   <Select
                     value={f.value}
-                    // Radix bắn `''` khi đổi `value` trước lúc các `SelectItem` của vật tư mới kịp đăng ký — bỏ qua,
-                    // người dùng không có thao tác nào để xoá đơn vị.
-                    onValueChange={(next) => next && f.onChange(next)}
+                    onValueChange={(next) => {
+                      // Radix bắn onValueChange('') khi danh sách SelectItem đổi theo vật tư — không có thao tác xoá đơn vị.
+                      if (next) f.onChange(next)
+                    }}
                     disabled={!material}
                   >
                     <FormControl>
