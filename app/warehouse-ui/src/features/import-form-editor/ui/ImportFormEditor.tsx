@@ -3,7 +3,6 @@ import { ClipboardListIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
-import { isApiError, isVersionConflict } from '@/shared/api/http'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { formatCurrency } from '@/shared/lib/format'
 import { toastApiError } from '@/shared/lib/toast-error'
@@ -23,8 +22,7 @@ import {
 } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import {
-  IMPORT_FORM_NOT_DRAFT,
-  IMPORT_FORM_NOT_OWNER,
+  isStaleImportFormError,
   useAvailableMaterials,
   useCreateImportForm,
   useUpdateImportForm,
@@ -135,11 +133,7 @@ export function ImportFormEditor({
       {
         onSuccess: finish,
         onError: (error) => {
-          const stale =
-            isVersionConflict(error) ||
-            (isApiError(error) &&
-              (error.code === IMPORT_FORM_NOT_DRAFT || error.code === IMPORT_FORM_NOT_OWNER))
-          if (stale) {
+          if (isStaleImportFormError(error)) {
             leaving.current = true
             onConflict()
             return
