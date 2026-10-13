@@ -54,7 +54,10 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
 
   const backTo = readBackTo(location.state, listPath(warehouseSlug))
   const backLink = (
-    <Link to={backTo} className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm">
+    <Link
+      to={backTo}
+      className="text-muted-foreground hover:text-foreground inline-flex items-center gap-1.5 text-sm"
+    >
       <ArrowLeftIcon className="size-4" aria-hidden="true" />
       {t('common:backToList')}
     </Link>
@@ -76,7 +79,9 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
       <div className="space-y-4">
         {backLink}
         <div role="alert" className="bg-card space-y-3 rounded-xl border p-6">
-          <p className="text-sm">{notFound ? t('importForms:notFound') : resolveApiErrorMessage(error)}</p>
+          <p className="text-sm">
+            {notFound ? t('importForms:notFound') : resolveApiErrorMessage(error)}
+          </p>
           {!notFound && (
             <Button variant="outline" onClick={() => void refetch()}>
               {t('common:retry')}
@@ -87,21 +92,39 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
     )
   }
 
-  const ability = importFormAbilities(user, { form, warehouseActive: warehouse.data?.isActive ?? false })
-  const warehouseName = warehouse.data ? `${warehouse.data.code} · ${warehouse.data.name}` : warehouseSlug
+  const ability = importFormAbilities(user, {
+    form,
+    warehouseActive: warehouse.data?.isActive ?? false,
+  })
+  const warehouseName = warehouse.data
+    ? `${warehouse.data.code} · ${warehouse.data.name}`
+    : warehouseSlug
   const baseUnitCode = (materialSlug: string) =>
     form.items?.find((i) => i.materialSlug === materialSlug && i.conversionRate === 1)?.unitCode
 
   const secondary: SecondaryAction[] = [
-    ...(ability.cancel ? [{ key: 'cancel', label: t('importForms:cancel'), onSelect: () => setCancelling(form) }] : []),
-    ...(ability.delete
-      ? [{ key: 'delete', label: t('importForms:delete'), destructive: true, onSelect: () => setDeleting(form) }]
+    ...(ability.cancel
+      ? [{ key: 'cancel', label: t('importForms:cancel'), onSelect: () => setCancelling(form) }]
       : []),
-    ...(ability.print ? [{ key: 'print', label: t('importForms:print'), onSelect: () => window.print() }] : []),
+    ...(ability.delete
+      ? [
+          {
+            key: 'delete',
+            label: t('importForms:delete'),
+            destructive: true,
+            onSelect: () => setDeleting(form),
+          },
+        ]
+      : []),
+    ...(ability.print
+      ? [{ key: 'print', label: t('importForms:print'), onSelect: () => window.print() }]
+      : []),
   ]
 
   const approverLabel =
-    form.status === 'CANCELLED' ? t('importForms:fieldCancelledBy') : t('importForms:fieldConfirmedBy')
+    form.status === 'CANCELLED'
+      ? t('importForms:fieldCancelledBy')
+      : t('importForms:fieldConfirmedBy')
 
   return (
     <>
@@ -114,9 +137,16 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
               <ImportFormStatusBadge status={form.status} />
             </div>
             <div className="flex flex-wrap gap-2">
-              {ability.confirm && <Button onClick={() => setConfirming(form)}>{t('importForms:confirm')}</Button>}
+              {ability.confirm && (
+                <Button onClick={() => setConfirming(form)}>{t('importForms:confirm')}</Button>
+              )}
               {ability.update && (
-                <Button variant="outline" onClick={() => navigate(editPath(warehouseSlug, form.slug), { state: location.state })}>
+                <Button
+                  variant="outline"
+                  onClick={() =>
+                    navigate(editPath(warehouseSlug, form.slug), { state: location.state })
+                  }
+                >
                   {t('importForms:editAction')}
                 </Button>
               )}
@@ -171,7 +201,9 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
               {form.purchaseOrder || <EmptyValue />}
             </DetailField>
             <DetailField label={t('importForms:fieldRequester')}>{form.requesterName}</DetailField>
-            <DetailField label={form.status === 'DRAFT' ? t('importForms:fieldApprover') : approverLabel}>
+            <DetailField
+              label={form.status === 'DRAFT' ? t('importForms:fieldApprover') : approverLabel}
+            >
               {form.approverName || <EmptyValue />}
             </DetailField>
             <DetailField label={t('importForms:fieldTotal')}>
