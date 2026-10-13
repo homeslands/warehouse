@@ -31,6 +31,8 @@ export const IMPORT_FORM_ITEM_DUPLICATED = 'IMPORT_FORM_ITEM_DUPLICATED';
 export const IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND = 'IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND';
 export const IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL = 'IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL';
 export const IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID = 'IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID';
+export const IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE =
+  'IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE';
 
 export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_NOT_FOUND
@@ -58,7 +60,8 @@ export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_ITEM_DUPLICATED
   | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND
   | typeof IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL
-  | typeof IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID;
+  | typeof IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID
+  | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE;
 
 export type TImportFormErrorCode = Record<TImportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -148,5 +151,9 @@ export const ImportFormValidation: TImportFormErrorCode = {
   IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID: createErrorCode(
     101327,
     'Conversion rate of the item unit is invalid',
+  ),
+  IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE: createErrorCode(
+    101328,
+    'Item material is not assigned to this warehouse',
   ),
 };

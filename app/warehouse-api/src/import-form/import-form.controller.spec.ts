@@ -10,6 +10,7 @@ describe('ImportFormController', () => {
   const importFormService = {
     createImportForm: jest.fn(),
     findAll: jest.fn(),
+    findAvailableMaterials: jest.fn(),
     findOne: jest.fn(),
     updateImportForm: jest.fn(),
     deleteImportForm: jest.fn(),
@@ -67,6 +68,7 @@ describe('ImportFormController', () => {
     it.each([
       ['createImportForm', [AuthorityCode.ImportFormCreate]],
       ['findAll', [AuthorityCode.ImportFormRead]],
+      ['findAvailableMaterials', [AuthorityCode.ImportFormCreate]],
       ['findOne', [AuthorityCode.ImportFormRead]],
       ['confirmImportForm', [AuthorityCode.ImportFormConfirm]],
       ['cancelImportForm', [AuthorityCode.ImportFormConfirm]],
