@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
@@ -248,6 +248,26 @@ describe('ImportFormsPage', () => {
       ).toBeInTheDocument()
       expect(await screen.findByRole('textbox', { name: /^Số hoá đơn/ })).toHaveValue('HD-123')
       expect(router.state.location.pathname).toBe('/import-forms')
+    })
+
+    it('Sửa khi chi tiết còn đang tải → tiêu đề đã có mã phiếu, chưa hiện Tổng', async () => {
+      mock([kho('w-a', 'A')], { ...draftForm, requesterSlug: 'u-sup' })
+      let release: () => void = () => {}
+      const gate = new Promise<void>((r) => (release = r))
+      server.use(
+        mswHttp.get(`${BASE}/warehouses/w-a/import-forms/if-1`, async () => {
+          await gate
+          return ok(draftForm)
+        }),
+        mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
+      )
+      const { user } = renderPage('/import-forms?warehouse=w-a')
+      await openMenu(user)
+      await user.click(await screen.findByRole('menuitem', { name: 'Sửa' }))
+      const dialog = await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
+      expect(within(dialog).queryByText(/^Tổng:/)).not.toBeInTheDocument()
+      release()
+      expect(await within(dialog).findByText(/^Tổng:/)).toBeInTheDocument()
     })
 
     it('phiếu nháp của người khác → không có Sửa, Xoá', async () => {

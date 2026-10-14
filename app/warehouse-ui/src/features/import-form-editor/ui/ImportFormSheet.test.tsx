@@ -212,6 +212,39 @@ describe('ImportFormSheet', () => {
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
   })
 
+  it('sửa: chi tiết đang tải → không hiện Tổng; tiêu đề dùng formCode; tải xong có Tổng', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    server.use(
+      mswHttp.get(`${URL_W}/available-materials`, () => paginated([flour])),
+      mswHttp.get(`${URL_W}/if-1`, async () => {
+        await gate
+        return ok(draftForm)
+      }),
+    )
+    renderWithProviders(
+      <ImportFormSheet
+        open
+        onOpenChange={vi.fn()}
+        warehouseSlug="w-a"
+        warehouseName="Kho A"
+        formSlug="if-1"
+        formCode="PN-0001"
+      />,
+      { auth: 'admin' },
+    )
+    const dialog = await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
+    expect(within(dialog).queryByText(/^Tổng:/)).not.toBeInTheDocument()
+    release()
+    expect(await within(dialog).findByText(/^Tổng:/)).toBeInTheDocument()
+  })
+
+  it('sửa: tải lỗi hoặc không phải Nháp → không hiện Tổng', async () => {
+    setup({ formSlug: 'if-1', detail: { ...draftForm, status: 'CONFIRMED' } })
+    await screen.findByText(/không còn ở trạng thái Nháp/)
+    expect(screen.queryByText(/^Tổng:/)).not.toBeInTheDocument()
+  })
+
   it('sửa: tự tải chi tiết, hiện skeleton rồi điền sẵn; Lưu khoá khi chưa đổi', async () => {
     setup({ formSlug: 'if-1', detail: draftForm })
     expect(

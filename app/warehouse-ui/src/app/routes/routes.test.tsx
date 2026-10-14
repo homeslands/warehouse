@@ -591,4 +591,13 @@ describe('createRoutes — màn Phiếu nhập', () => {
     })
     await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
   })
+
+  it('/import-forms/new (link cũ) → chuyển về danh sách, giữ ?warehouse', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/import-forms/new?warehouse=w-a',
+      auth: READER,
+    })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/import-forms'))
+    expect(router.state.location.search).toContain('warehouse=w-a')
+  })
 })
