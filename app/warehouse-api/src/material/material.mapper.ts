@@ -97,17 +97,15 @@ export class MaterialProfile extends AutomapperProfile {
           (d) => d.baseUnit,
           mapFrom((s) => (s.baseUnit ? mapper.map(s.baseUnit, Unit, UnitResponseDto) : null)),
         ),
-        // `supplier` cần `relations: { supplier: true }` ở read path — thiếu thì mọi vật tư đều ra
-        // `hasSupplier: false`.
+        // `suppliers` cần `relations: { suppliers: true }` ở read path — thiếu thì mọi vật tư đều ra
+        // `hasSupplier: false` + `suppliers: []`.
         forMember(
           (d) => d.hasSupplier,
-          mapFrom((s) => !!s.supplier),
+          mapFrom((s) => (s.suppliers ?? []).length > 0),
         ),
         forMember(
-          (d) => d.supplier,
-          mapFrom((s) =>
-            s.supplier ? mapper.map(s.supplier, Supplier, SupplierResponseDto) : null,
-          ),
+          (d) => d.suppliers,
+          mapFrom((s) => mapper.mapArray(s.suppliers ?? [], Supplier, SupplierResponseDto)),
         ),
         // `inventories` chỉ có khi service gán thủ công từ 1 query riêng (xem `toResponses`). Bỏ qua
         // dòng có `warehouse` = null: kho đã xoá mềm vẫn còn dòng tồn trỏ tới, không được làm sập cả

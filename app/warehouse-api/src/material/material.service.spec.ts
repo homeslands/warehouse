@@ -1,5 +1,4 @@
 import { Test, TestingModule } from '@nestjs/testing';
-import { IsNull, Not } from 'typeorm';
 import { getRepositoryToken } from '@nestjs/typeorm';
 import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
@@ -21,6 +20,7 @@ import { Supplier } from 'src/supplier/supplier.entity';
 import { MaterialTypeProfile } from 'src/material-type/material-type.mapper';
 import { UnitProfile } from 'src/unit/unit.mapper';
 import { SupplierProfile } from 'src/supplier/supplier.mapper';
+import { SupplierValidation } from 'src/supplier/supplier.validation';
 
 const materialType = () =>
   ({ id: 'type-id-1', slug: 'type-slug-1', code: 'MT-01', name: 'Tiêu hao' }) as MaterialType;
@@ -84,7 +84,10 @@ describe('MaterialService', () => {
     save: jest.fn((entity) => materialRepository.save(entity)),
     countBy: jest.fn(),
     delete: jest.fn(),
+    // Bảng join `material_supplier_tbl` ghi bằng SQL tay (`material-supplier.util.ts`).
+    query: jest.fn(),
   };
+  const supplierRepository = { find: jest.fn() };
   const transactionManagerService = {
     execute: jest.fn((onSave: (m: typeof manager) => unknown) => onSave(manager)),
   };
@@ -120,6 +123,7 @@ describe('MaterialService', () => {
         { provide: MaterialTypeService, useValue: materialTypeService },
         { provide: UnitService, useValue: unitService },
         { provide: TransactionManagerService, useValue: transactionManagerService },
+        { provide: getRepositoryToken(Supplier), useValue: supplierRepository },
       ],
     }).compile();
     await module.init();
@@ -140,9 +144,9 @@ describe('MaterialService', () => {
         name: 'Nhà cung cấp A',
       }) as Supplier;
 
-    it('load supplier/type/baseUnit và trả object lồng kèm hasSupplier', async () => {
+    it('load suppliers/type/baseUnit và trả object lồng kèm hasSupplier', async () => {
       materialRepository.findAndCount.mockResolvedValue([
-        [baseMaterial({ type: materialType(), baseUnit: unit(), supplier: supplier() })],
+        [baseMaterial({ type: materialType(), baseUnit: unit(), suppliers: [supplier()] })],
         1,
       ]);
 
@@ -150,41 +154,69 @@ describe('MaterialService', () => {
 
       expect(materialRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
-          relations: { type: true, baseUnit: true, supplier: true },
+          relations: { type: true, baseUnit: true, suppliers: true },
         }),
       );
       expect(result.items[0]).toMatchObject({
         hasSupplier: true,
-        supplier: { slug: 'sup-slug-1', code: 'SUP-01', name: 'Nhà cung cấp A' },
+        suppliers: [{ slug: 'sup-slug-1', code: 'SUP-01', name: 'Nhà cung cấp A' }],
         type: { slug: 'type-slug-1', code: 'MT-01', name: 'Tiêu hao' },
         baseUnit: { slug: 'unit-slug-1', code: 'KG', name: 'Kilogram' },
       });
       expect(result.items[0]).not.toHaveProperty('typeSlug');
       expect(result.items[0]).not.toHaveProperty('baseUnitSlug');
+      expect(result.items[0]).not.toHaveProperty('supplier');
     });
 
-    it('hasSupplier = false và supplier = null khi vật tư chưa gắn nhà cung cấp', async () => {
+    it('trả đủ mọi nhà cung cấp của vật tư (n - n)', async () => {
+      const other = { ...supplier(), id: 'supplier-id-2', slug: 'sup-slug-2', code: 'SUP-02' };
       materialRepository.findAndCount.mockResolvedValue([
-        [baseMaterial({ type: materialType(), baseUnit: undefined, supplier: null })],
+        [baseMaterial({ type: materialType(), suppliers: [supplier(), other as Supplier] })],
         1,
       ]);
 
       const result = await service.findAll({ page: 1, size: 10 } as never);
 
-      expect(result.items[0]).toMatchObject({ hasSupplier: false, supplier: null, baseUnit: null });
+      expect(result.items[0].suppliers.map(({ slug }) => slug)).toEqual([
+        'sup-slug-1',
+        'sup-slug-2',
+      ]);
     });
 
+    it('hasSupplier = false và suppliers = [] khi vật tư chưa gắn nhà cung cấp', async () => {
+      materialRepository.findAndCount.mockResolvedValue([
+        [baseMaterial({ type: materialType(), baseUnit: undefined, suppliers: [] })],
+        1,
+      ]);
+
+      const result = await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(result.items[0]).toMatchObject({ hasSupplier: false, suppliers: [], baseUnit: null });
+    });
+
+    // Lọc bằng subquery trên `id`, KHÔNG bằng `where.suppliers` — lọc trên relation đang load sẽ cắt
+    // luôn danh sách nhà cung cấp trả về.
+    const idFilter = () => {
+      const { where } = materialRepository.findAndCount.mock.calls[0][0];
+      expect(where).not.toHaveProperty('suppliers');
+      return {
+        sql: where.id.getSql('m.id') as string,
+        params: where.id.objectLiteralParameters,
+      };
+    };
+
     it.each([
-      ['true', true, Not(IsNull())],
-      ['false', false, IsNull()],
-    ])('lọc hasSupplier=%s theo cột FK supplier', async (_label, hasSupplier, expected) => {
+      ['true', true, 'm.id IN ('],
+      ['false', false, 'm.id NOT IN ('],
+    ])('lọc hasSupplier=%s bằng subquery trên bảng join', async (_label, hasSupplier, prefix) => {
       materialRepository.findAndCount.mockResolvedValue([[], 0]);
 
       await service.findAll({ page: 1, size: 10, hasSupplier } as never);
 
-      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { supplier: expected } }),
-      );
+      const { sql } = idFilter();
+      expect(sql.startsWith(prefix)).toBe(true);
+      expect(sql).toContain('material_supplier_tbl');
+      expect(sql).toContain('s.deleted_at_column IS NULL');
     });
 
     it('lọc theo supplierSlug, ưu tiên hơn hasSupplier', async () => {
@@ -197,9 +229,10 @@ describe('MaterialService', () => {
         hasSupplier: false,
       } as never);
 
-      expect(materialRepository.findAndCount).toHaveBeenCalledWith(
-        expect.objectContaining({ where: { supplier: { slug: 'sup-slug-1' } } }),
-      );
+      const { sql, params } = idFilter();
+      expect(sql.startsWith('m.id IN (')).toBe(true);
+      expect(sql).toContain('s.slug_column = :supplierSlug');
+      expect(params).toEqual({ supplierSlug: 'sup-slug-1' });
     });
 
     it('lọc theo warehouseSlug và typeSlug cùng lúc', async () => {
@@ -219,14 +252,14 @@ describe('MaterialService', () => {
             inventories: { warehouse: { slug: 'wh-slug-1' } },
           },
           // Không load `inventories` theo relation: có `where` trên nó thì danh sách kho bị lọc theo.
-          relations: { type: true, baseUnit: true, supplier: true },
+          relations: { type: true, baseUnit: true, suppliers: true },
         }),
       );
     });
 
     it('trả warehouses của từng vật tư bằng 1 query cho cả trang (không bị lọc theo warehouseSlug)', async () => {
-      const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), supplier: null });
-      const m2 = baseMaterial({ id: 'mat-2', slug: 'm2', type: materialType(), supplier: null });
+      const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), suppliers: [] });
+      const m2 = baseMaterial({ id: 'mat-2', slug: 'm2', type: materialType(), suppliers: [] });
       materialRepository.findAndCount.mockResolvedValue([[m1, m2], 2]);
       inventoryRepository.find.mockResolvedValue([
         {
@@ -258,7 +291,7 @@ describe('MaterialService', () => {
     });
 
     it('bỏ qua dòng tồn trỏ tới kho đã xoá mềm (warehouse = null) thay vì làm sập response', async () => {
-      const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), supplier: null });
+      const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), suppliers: [] });
       materialRepository.findAndCount.mockResolvedValue([[m1], 1]);
       inventoryRepository.find.mockResolvedValue([
         {
@@ -289,6 +322,77 @@ describe('MaterialService', () => {
 
       expect(materialRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({ where: {} }),
+      );
+    });
+  });
+
+  describe('assignSuppliers — PUT thay cả tập', () => {
+    const sup = (n: number) =>
+      ({ id: `sup-id-${n}`, slug: `sup-${n}`, code: `SUP-0${n}`, name: `NCC ${n}` }) as Supplier;
+
+    const loaded = (suppliers: Supplier[]) =>
+      materialRepository.findOne.mockResolvedValue(
+        baseMaterial({ type: materialType(), baseUnit: unit(), suppliers }),
+      );
+
+    const sqlCalls = () => manager.query.mock.calls.map(([sql, params]) => ({ sql, params }));
+
+    it('chỉ ghi phần chênh lệch: gỡ cặp thừa, thêm cặp mới (INSERT IGNORE), trong 1 transaction', async () => {
+      loaded([sup(1), sup(2)]);
+      supplierRepository.find.mockResolvedValue([sup(2), sup(3)]);
+
+      const result = await service.assignSuppliers('material-slug-1', {
+        supplierSlugs: ['sup-2', 'sup-3'],
+      });
+
+      expect(transactionManagerService.execute).toHaveBeenCalledTimes(1);
+      const [del, ins] = sqlCalls();
+      expect(del.sql).toContain('DELETE FROM `material_supplier_tbl`');
+      expect(del.params).toEqual([['material-id-1'], ['sup-id-1']]);
+      expect(ins.sql).toContain('INSERT IGNORE INTO `material_supplier_tbl`');
+      expect(ins.params).toEqual([[['material-id-1', 'sup-id-3']]]);
+      expect(result.suppliers.map(({ slug }) => slug)).toEqual(['sup-2', 'sup-3']);
+      expect(result.hasSupplier).toBe(true);
+    });
+
+    it('mảng rỗng = gỡ hết nhà cung cấp, không tra supplier', async () => {
+      loaded([sup(1)]);
+
+      const result = await service.assignSuppliers('material-slug-1', { supplierSlugs: [] });
+
+      expect(supplierRepository.find).not.toHaveBeenCalled();
+      const [del] = sqlCalls();
+      expect(del.params).toEqual([['material-id-1'], ['sup-id-1']]);
+      expect(manager.query).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ hasSupplier: false, suppliers: [] });
+    });
+
+    it('không ghi gì khi tập mới trùng tập cũ', async () => {
+      loaded([sup(1)]);
+      supplierRepository.find.mockResolvedValue([sup(1)]);
+
+      await service.assignSuppliers('material-slug-1', { supplierSlugs: ['sup-1'] });
+
+      expect(transactionManagerService.execute).not.toHaveBeenCalled();
+      expect(manager.query).not.toHaveBeenCalled();
+    });
+
+    it('1 slug không tồn tại ⇒ SUPPLIER_NOT_FOUND cho cả lô, không ghi gì', async () => {
+      loaded([]);
+      supplierRepository.find.mockResolvedValue([sup(1)]);
+
+      await expect(
+        service.assignSuppliers('material-slug-1', { supplierSlugs: ['sup-1', 'missing'] }),
+      ).rejects.toMatchObject({ code: SupplierValidation.SUPPLIER_NOT_FOUND.code });
+      expect(manager.query).not.toHaveBeenCalled();
+    });
+
+    it('vật tư không tồn tại ⇒ MATERIAL_NOT_FOUND', async () => {
+      materialRepository.findOne.mockResolvedValue(null);
+
+      await expectError(
+        service.assignSuppliers('missing', { supplierSlugs: [] }),
+        MaterialValidation.MATERIAL_NOT_FOUND.code,
       );
     });
   });
