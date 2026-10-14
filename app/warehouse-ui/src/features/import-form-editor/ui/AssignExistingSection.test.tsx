@@ -33,6 +33,7 @@ function setup(opts: { search?: string; canAssign?: boolean } = {}) {
     }),
   )
   const onAssigned = vi.fn()
+  const onBusyChange = vi.fn()
   const r = renderWithProviders(
     <AssignExistingSection
       warehouseSlug="w-a"
@@ -40,10 +41,11 @@ function setup(opts: { search?: string; canAssign?: boolean } = {}) {
       availableSlugs={['m-in']}
       canAssign={opts.canAssign ?? true}
       onAssigned={onAssigned}
+      onBusyChange={onBusyChange}
     />,
     { auth: 'admin' },
   )
-  return { ...r, seen, onAssigned }
+  return { ...r, seen, onAssigned, onBusyChange }
 }
 
 describe('AssignExistingSection', () => {
@@ -82,6 +84,31 @@ describe('AssignExistingSection', () => {
       expect(onAssigned).toHaveBeenCalledWith({ slug: 'm-cement', name: 'Xi măng PCB40' }, false),
     )
     expect(calls).toBe(1)
+  })
+
+  it('onBusyChange: true suốt lúc gửi + onAssigned, rồi false', async () => {
+    const order: string[] = []
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => ok({ materialSlug: 'm-cement' })),
+    )
+    const { user, onAssigned, onBusyChange } = setup()
+    onBusyChange.mockImplementation((b: boolean) => order.push(`busy:${b}`))
+    onAssigned.mockImplementation(async () => {
+      await new Promise((r) => setTimeout(r, 30))
+      order.push('assigned')
+    })
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await waitFor(() => expect(order).toEqual(['busy:true', 'assigned', 'busy:false']))
+  })
+
+  it('onBusyChange: lỗi → false', async () => {
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100804, 'inactive')),
+    )
+    const { user, onBusyChange } = setup()
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false))
+    expect(onBusyChange.mock.calls.map((c) => c[0])).toEqual([true, false])
   })
 
   it('100802 → onAssigned(material, true)', async () => {
