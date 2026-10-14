@@ -28,11 +28,10 @@ type Props = {
   /** Slug vật tư đã có ở kho (từ `available-materials`) — loại khỏi kết quả. */
   availableSlugs: string[]
   canAssign: boolean
+  /** Hộp đang bận (gắn / tạo, kể cả đoạn sau khi API trả về) — khoá mọi nút. */
+  locked?: boolean
   /** `alreadyInWarehouse` = backend trả 100802 (vật tư đã ở kho) — bên gọi vẫn chọn vào dòng. */
-  onAssigned: (
-    material: { slug: string; name: string },
-    alreadyInWarehouse: boolean,
-  ) => Promise<void> | void
+  onAssigned: (material: Material, alreadyInWarehouse: boolean) => Promise<void> | void
   /** `true` từ lúc gửi đến khi `onAssigned` xong — bên gọi khoá mọi lối đóng hộp trong lúc đó. */
   onBusyChange?: (busy: boolean) => void
 }
@@ -43,6 +42,7 @@ export function AssignExistingSection({
   search,
   availableSlugs,
   canAssign,
+  locked = false,
   onAssigned,
   onBusyChange,
 }: Props) {
@@ -71,23 +71,22 @@ export function AssignExistingSection({
     onBusyChange?.(true)
     const done = async (already: boolean) => {
       try {
-        await onAssigned({ slug: m.slug, name: m.name }, already)
+        await onAssigned(m, already)
       } finally {
+        inFlight.current = false
         onBusyChange?.(false)
       }
     }
     assign.mutate(
       { warehouseSlug, materialSlug: m.slug },
       {
-        onSettled: () => {
-          inFlight.current = false
-        },
         onSuccess: () => void done(false),
         onError: (error) => {
           if (isApiError(error) && error.code === INVENTORY_DOES_EXIST) {
             void done(true)
             return
           }
+          inFlight.current = false
           onBusyChange?.(false)
           if (
             isApiError(error) &&
@@ -118,40 +117,49 @@ export function AssignExistingSection({
         <Skeleton className="h-16" />
       ) : candidates.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          {found.length > 0
+          {found.length === 1
             ? t('importForms:catalogAlreadyInWarehouse')
             : t('importForms:catalogEmpty')}
         </p>
       ) : (
         <ul className="divide-y rounded-md border">
-          {candidates.map((m) => (
-            <li key={m.slug} className="flex flex-wrap items-center gap-3 p-3">
-              <div className="min-w-0 flex-1">
-                <p className="text-sm break-words">
-                  <span className="font-medium">{m.code}</span> · {m.name}
-                </p>
-                <p className="text-muted-foreground text-xs">
-                  {t('importForms:catalogTypeUnit', {
-                    type: m.type.name,
-                    unit: m.baseUnit?.code ?? t('importForms:noBaseUnit'),
-                  })}
-                  {m.supplier && ` · ${m.supplier.name}`}
-                </p>
-              </div>
-              <Button
-                type="button"
-                variant="outline"
-                size="sm"
-                disabled={!canAssign || assign.isPending}
-                aria-describedby={canAssign ? undefined : hintId}
-                onClick={() => onAssign(m)}
-              >
-                {assign.isPending && assign.variables?.materialSlug === m.slug
-                  ? t('importForms:assigning')
-                  : t('importForms:assignAction')}
-              </Button>
-            </li>
-          ))}
+          {candidates.map((m) => {
+            const noBaseUnit = m.baseUnit === null
+            const rowHintId = `${hintId}-${m.slug}`
+            return (
+              <li key={m.slug} className="flex flex-wrap items-center gap-3 p-3">
+                <div className="min-w-0 flex-1">
+                  <p className="text-sm break-words">
+                    <span className="font-medium">{m.code}</span> · {m.name}
+                  </p>
+                  <p className="text-muted-foreground text-xs">
+                    {t('importForms:catalogTypeUnit', {
+                      type: m.type.name,
+                      unit: m.baseUnit?.code ?? t('importForms:noBaseUnit'),
+                    })}
+                    {m.supplier && ` · ${m.supplier.name}`}
+                  </p>
+                </div>
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="sm"
+                  disabled={!canAssign || locked || assign.isPending || noBaseUnit}
+                  aria-describedby={!canAssign ? hintId : noBaseUnit ? rowHintId : undefined}
+                  onClick={() => onAssign(m)}
+                >
+                  {assign.isPending && assign.variables?.materialSlug === m.slug
+                    ? t('importForms:assigning')
+                    : t('importForms:assignAction')}
+                </Button>
+                {noBaseUnit && (
+                  <p id={rowHintId} className="text-muted-foreground w-full text-xs">
+                    {t('importForms:noBaseUnit')}
+                  </p>
+                )}
+              </li>
+            )
+          })}
         </ul>
       )}
       {!canAssign && (

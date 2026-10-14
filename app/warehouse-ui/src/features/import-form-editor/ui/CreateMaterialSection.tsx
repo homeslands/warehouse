@@ -1,5 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useId } from 'react'
+import { useId, useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
@@ -18,6 +18,7 @@ import {
   addMaterialSchema,
   type AddMaterialValues,
 } from '../model/add-material.schema'
+import { codeNameLabel, type AddedMaterial } from '../model/material-add'
 
 /** Mã lỗi vật tư (1007xx) của phần `material` trong POST → ô tương ứng (như `MaterialFormSheet`). */
 const FIELD_BY_CODE = {
@@ -38,9 +39,15 @@ type Props = {
   initialSearch: string
   canCreate: boolean
   canAttachSupplier: boolean
-  /** `supplierAttached`: `null` = không chọn NCC; `false` = tạo + gắn kho xong nhưng gắn NCC lỗi. */
+  /** Hộp đang bận (gắn / tạo, kể cả đoạn sau khi API trả về) — khoá nút tạo. */
+  locked?: boolean
+  /**
+   * `name` = tên server trả về (cho toast). `supplierAttached`: `null` = không chọn NCC; `false` = tạo + gắn kho xong
+   * nhưng gắn NCC lỗi.
+   */
   onCreated: (
-    material: { slug: string; name: string },
+    added: AddedMaterial,
+    name: string,
     supplierAttached: boolean | null,
   ) => Promise<void> | void
   /** Hộp chặn đóng khi đang gửi. */
@@ -48,13 +55,14 @@ type Props = {
   onWarehouseInactive: () => void
 }
 
-const label = (code: string, name: string) => `${code} · ${name}`
+const label = codeNameLabel
 
 export function CreateMaterialSection({
   warehouseSlug,
   initialSearch,
   canCreate,
   canAttachSupplier,
+  locked = false,
   onCreated,
   onBusyChange,
   onWarehouseInactive,
@@ -64,14 +72,22 @@ export function CreateMaterialSection({
   const create = useCreateWarehouseMaterial()
   const types = useMaterialTypeOptions({ enabled: canCreate })
   const units = useUnitOptions({ enabled: canCreate })
-  const suppliers = useSuppliers({ page: 1, size: 100 }, { enabled: canAttachSupplier })
+  const suppliers = useSuppliers(
+    { page: 1, size: 100 },
+    { enabled: canAttachSupplier && canCreate },
+  )
   const form = useForm<AddMaterialValues>({
     resolver: zodResolver(addMaterialSchema),
     mode: 'onTouched',
     defaultValues: addMaterialDefaults(initialSearch),
   })
 
+  // `isPending` về false ngay khi POST xong, còn gắn NCC / onCreated vẫn chạy → chốt cả luồng bằng ref.
+  const inFlight = useRef(false)
+
   const onSubmit = (values: AddMaterialValues) => {
+    if (inFlight.current) return
+    inFlight.current = true
     onBusyChange(true)
     create.mutate(
       {
@@ -85,7 +101,12 @@ export function CreateMaterialSection({
       },
       {
         onSuccess: async (item) => {
-          const material = { slug: item.materialSlug, name: item.materialName }
+          const unitLabel = unitOptions.find((o) => o.value === values.baseUnitSlug)
+          const added: AddedMaterial = {
+            slug: item.materialSlug,
+            label: label(values.code.trim().toUpperCase(), values.name.trim()),
+            baseUnit: { slug: values.baseUnitSlug, label: unitLabel?.label ?? values.baseUnitSlug },
+          }
           let attached: boolean | null = null
           if (canAttachSupplier && values.supplierSlug !== '') {
             try {
@@ -96,12 +117,14 @@ export function CreateMaterialSection({
             }
           }
           try {
-            await onCreated(material, attached)
+            await onCreated(added, item.materialName, attached)
           } finally {
+            inFlight.current = false
             onBusyChange(false)
           }
         },
         onError: (error) => {
+          inFlight.current = false
           onBusyChange(false)
           if (isApiError(error) && error.code === INVENTORY_WAREHOUSE_INACTIVE) {
             toastApiError(error)
@@ -224,7 +247,7 @@ export function CreateMaterialSection({
         <div className="space-y-1">
           <Button
             type="button"
-            disabled={!canCreate || create.isPending}
+            disabled={!canCreate || locked || create.isPending}
             aria-describedby={canCreate ? undefined : hintId}
             onClick={form.handleSubmit(onSubmit)}
           >

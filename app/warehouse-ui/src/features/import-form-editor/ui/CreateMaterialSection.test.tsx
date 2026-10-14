@@ -25,6 +25,12 @@ const UNITS: Unit[] = [
 ]
 const SUPPLIERS: Supplier[] = [{ slug: 's-1', code: 'NCC-1', name: 'NCC Bột', ...stamp }]
 
+const ADDED = {
+  slug: 'm-new',
+  label: 'VT-09 · xi măng',
+  baseUnit: { slug: 'u-kg', label: 'KG · Kilogram' },
+}
+
 function mockCatalog() {
   server.use(
     mswHttp.get(`${BASE}/material-types`, () => paginated(MATERIAL_TYPES)),
@@ -39,7 +45,12 @@ async function pick(user: UserEvent, field: RegExp, label: string) {
 }
 
 function setup(
-  opts: { canCreate?: boolean; canAttachSupplier?: boolean; initialSearch?: string } = {},
+  opts: {
+    canCreate?: boolean
+    canAttachSupplier?: boolean
+    initialSearch?: string
+    locked?: boolean
+  } = {},
 ) {
   mockCatalog()
   const onCreated = vi.fn()
@@ -49,6 +60,7 @@ function setup(
       initialSearch={opts.initialSearch ?? 'xi măng'}
       canCreate={opts.canCreate ?? true}
       canAttachSupplier={opts.canAttachSupplier ?? true}
+      locked={opts.locked}
       onCreated={onCreated}
       onBusyChange={vi.fn()}
       onWarehouseInactive={vi.fn()}
@@ -77,9 +89,7 @@ describe('CreateMaterialSection', () => {
     expect(screen.getByRole('textbox', { name: /^Tên vật tư/ })).toHaveValue('xi măng')
     await fill(user)
     await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
-    await waitFor(() =>
-      expect(onCreated).toHaveBeenCalledWith({ slug: 'm-new', name: 'xi măng' }, null),
-    )
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', null))
     expect(body).toEqual({
       material: { code: 'VT-09', name: 'xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' },
       quantity: 0,
@@ -101,9 +111,7 @@ describe('CreateMaterialSection', () => {
     await fill(user)
     await pick(user, /^Nhà cung cấp/, 'NCC-1 · NCC Bột')
     await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
-    await waitFor(() =>
-      expect(onCreated).toHaveBeenCalledWith({ slug: 'm-new', name: 'xi măng' }, false),
-    )
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', false))
     expect(attachBody).toEqual({ materialSlugs: ['m-new'] })
   })
 
@@ -129,5 +137,51 @@ describe('CreateMaterialSection', () => {
   it('chữ giống mã → điền ô Mã', () => {
     setup({ initialSearch: 'vt-77' })
     expect(screen.getByRole('textbox', { name: /^Mã vật tư/ })).toHaveValue('VT-77')
+  })
+
+  it('bấm đúp "Tạo và gắn vào kho" chỉ gửi một POST', async () => {
+    let posts = 0
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, async () => {
+        posts++
+        await new Promise((r) => setTimeout(r, 50))
+        return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
+      }),
+    )
+    const { user, onCreated } = setup()
+    await fill(user)
+    await user.dblClick(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledTimes(1))
+    expect(posts).toBe(1)
+  })
+
+  it('locked → nút tạo bị khoá', () => {
+    setup({ locked: true })
+    expect(screen.getByRole('button', { name: 'Tạo và gắn vào kho' })).toBeDisabled()
+  })
+
+  it('không tải NCC khi không có quyền tạo', async () => {
+    let gets = 0
+    mockCatalog()
+    server.use(
+      mswHttp.get(`${BASE}/suppliers`, () => {
+        gets++
+        return paginated(SUPPLIERS)
+      }),
+    )
+    renderWithProviders(
+      <CreateMaterialSection
+        warehouseSlug="w-a"
+        initialSearch=""
+        canCreate={false}
+        canAttachSupplier
+        onCreated={vi.fn()}
+        onBusyChange={vi.fn()}
+        onWarehouseInactive={vi.fn()}
+      />,
+      { auth: 'admin' },
+    )
+    await new Promise((r) => setTimeout(r, 100))
+    expect(gets).toBe(0)
   })
 })
