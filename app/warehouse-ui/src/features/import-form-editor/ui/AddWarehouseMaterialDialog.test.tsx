@@ -1,6 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
-import { useState } from 'react'
+import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { describe, expect, it, vi } from 'vitest'
 import { supplierKeys } from '@/entities/supplier'
@@ -35,9 +35,11 @@ const ALL = { search: true, assign: true, create: true, attachSupplier: true }
 function Harness({
   onAdded,
   initialSearch = 'xi măng',
+  abilities = ALL,
 }: {
   onAdded: (a: AddedMaterial) => void
   initialSearch?: string
+  abilities?: typeof ALL
 }) {
   const [open, setOpen] = useState(true)
   return (
@@ -52,7 +54,7 @@ function Harness({
         warehouseName="Kho A"
         initialSearch={initialSearch}
         availableSlugs={[]}
-        abilities={ALL}
+        abilities={abilities}
         onAdded={onAdded}
       />
     </>
@@ -106,7 +108,7 @@ describe('AddWarehouseMaterialDialog', () => {
     expect(screen.getByRole('textbox', { name: /Tìm vật tư trong danh mục/ })).toHaveValue(
       'xi măng',
     )
-    expect(screen.queryByRole('group', { name: 'Tạo vật tư mới' })).not.toBeInTheDocument()
+    expect(screen.queryByRole('form', { name: 'Tạo vật tư mới' })).not.toBeInTheDocument()
   })
 
   it('đang gắn: Esc và nút Đóng không đóng được; xong thì onAdded + đóng', async () => {
@@ -194,8 +196,12 @@ describe('AddWarehouseMaterialDialog', () => {
       mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(500, undefined, 'boom')),
     )
     const onAdded = vi.fn()
+    const parentSubmit = vi.fn((e: FormEvent) => e.preventDefault())
+    // Như trong app: hộp mở từ trong <form> của phiếu nhập — submit tạo vật tư không được nổi lên phiếu.
     const { user, queryClient } = renderWithProviders(
-      <Harness onAdded={onAdded} initialSearch="Xi măng mới" />,
+      <form onSubmit={parentSubmit}>
+        <Harness onAdded={onAdded} initialSearch="Xi măng mới" />
+      </form>,
       { auth: 'admin' },
     )
     const inv = vi.spyOn(queryClient, 'invalidateQueries')
@@ -216,6 +222,7 @@ describe('AddWarehouseMaterialDialog', () => {
         baseUnit: { slug: 'u-kg', label: 'KG · Kilogram' },
       }),
     )
+    expect(parentSubmit).not.toHaveBeenCalled()
     expect(toast.success).toHaveBeenCalled()
     expect(toast.warning).toHaveBeenCalled()
     expect(
@@ -223,5 +230,35 @@ describe('AddWarehouseMaterialDialog', () => {
         ([f]) => JSON.stringify(f?.queryKey) === JSON.stringify(supplierKeys.all),
       ),
     ).toBe(true)
+  })
+
+  it('nút "Tạo và gắn vào kho" nằm ở chân hộp cạnh "Đóng", chỉ khi đang mở form tạo', async () => {
+    server.use(mswHttp.get(`${BASE}/materials`, () => paginated([])))
+    const { user } = renderWithProviders(<Harness onAdded={vi.fn()} />, { auth: 'admin' })
+    const footer = () =>
+      screen.getByRole('dialog').querySelector<HTMLElement>('[data-slot="dialog-footer"]')!
+    expect(within(footer()).queryByRole('button', { name: 'Tạo và gắn vào kho' })).toBeNull()
+    await user.click(screen.getByRole('button', { name: /Tạo vật tư mới/ }))
+    const submit = within(footer()).getByRole('button', { name: 'Tạo và gắn vào kho' })
+    expect(submit).toHaveAttribute('type', 'submit')
+    expect(submit).toHaveAttribute(
+      'form',
+      screen.getByRole('form', { name: 'Tạo vật tư mới' }).getAttribute('id'),
+    )
+    expect(within(footer()).getByRole('button', { name: 'Đóng' })).toBeInTheDocument()
+  })
+
+  it('thiếu quyền tạo → nút ở chân hộp khoá, mô tả bằng lý do', async () => {
+    server.use(mswHttp.get(`${BASE}/materials`, () => paginated([])))
+    const { user } = renderWithProviders(
+      <Harness onAdded={vi.fn()} abilities={{ ...ALL, create: false }} />,
+      { auth: 'admin' },
+    )
+    await user.click(screen.getByRole('button', { name: /Tạo vật tư mới/ }))
+    const submit = screen.getByRole('button', { name: 'Tạo và gắn vào kho' })
+    expect(submit).toBeDisabled()
+    expect(submit).toHaveAccessibleDescription(
+      'Cần quyền tạo / sửa vật tư, sửa kho và xem đơn vị — liên hệ quản trị.',
+    )
   })
 })

@@ -1,6 +1,8 @@
 import { screen, waitFor } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
 import { http as mswHttp } from 'msw'
+import type { FormEvent } from 'react'
+import { createPortal } from 'react-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { apiError, ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
@@ -49,25 +51,37 @@ function setup(
     canCreate?: boolean
     canAttachSupplier?: boolean
     initialSearch?: string
-    locked?: boolean
   } = {},
 ) {
   mockCatalog()
   const onCreated = vi.fn()
+  const parentSubmit = vi.fn((e: FormEvent) => e.preventDefault())
+  // Như trong app: section nằm (theo cây React) trong <form> của phiếu nhập; nút submit nằm ngoài section (footer hộp).
   const r = renderWithProviders(
-    <CreateMaterialSection
-      warehouseSlug="w-a"
-      initialSearch={opts.initialSearch ?? 'xi măng'}
-      canCreate={opts.canCreate ?? true}
-      canAttachSupplier={opts.canAttachSupplier ?? true}
-      locked={opts.locked}
-      onCreated={onCreated}
-      onBusyChange={vi.fn()}
-      onWarehouseInactive={vi.fn()}
-    />,
+    <form onSubmit={parentSubmit}>
+      {createPortal(
+        <>
+          <CreateMaterialSection
+            formId="create-form"
+            hintId="create-hint"
+            warehouseSlug="w-a"
+            initialSearch={opts.initialSearch ?? 'xi măng'}
+            canCreate={opts.canCreate ?? true}
+            canAttachSupplier={opts.canAttachSupplier ?? true}
+            onCreated={onCreated}
+            onBusyChange={vi.fn()}
+            onWarehouseInactive={vi.fn()}
+          />
+          <button type="submit" form="create-form">
+            Tạo và gắn vào kho
+          </button>
+        </>,
+        document.body,
+      )}
+    </form>,
     { auth: 'admin' },
   )
-  return { ...r, onCreated }
+  return { ...r, onCreated, parentSubmit }
 }
 
 async function fill(user: UserEvent) {
@@ -85,11 +99,12 @@ describe('CreateMaterialSection', () => {
         return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
       }),
     )
-    const { user, onCreated } = setup()
+    const { user, onCreated, parentSubmit } = setup()
     expect(screen.getByRole('textbox', { name: /^Tên vật tư/ })).toHaveValue('xi măng')
     await fill(user)
     await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
     await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', null))
+    expect(parentSubmit).not.toHaveBeenCalled()
     expect(body).toEqual({
       material: { code: 'VT-09', name: 'xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' },
       quantity: 0,
@@ -124,13 +139,11 @@ describe('CreateMaterialSection', () => {
     expect(onCreated).not.toHaveBeenCalled()
   })
 
-  it('thiếu quyền tạo → nút khoá kèm lý do; không quyền NCC → không có ô NCC', () => {
+  it('thiếu quyền tạo → hiện lý do (id = hintId); không quyền NCC → không có ô NCC', () => {
     setup({ canCreate: false, canAttachSupplier: false })
-    const btn = screen.getByRole('button', { name: 'Tạo và gắn vào kho' })
-    expect(btn).toBeDisabled()
-    expect(btn).toHaveAccessibleDescription(
-      'Cần quyền tạo / sửa vật tư, sửa kho và xem đơn vị — liên hệ quản trị.',
-    )
+    expect(
+      screen.getByText('Cần quyền tạo / sửa vật tư, sửa kho và xem đơn vị — liên hệ quản trị.'),
+    ).toHaveAttribute('id', 'create-hint')
     expect(screen.queryByRole('combobox', { name: /^Nhà cung cấp/ })).not.toBeInTheDocument()
   })
 
@@ -155,11 +168,6 @@ describe('CreateMaterialSection', () => {
     expect(posts).toBe(1)
   })
 
-  it('locked → nút tạo bị khoá', () => {
-    setup({ locked: true })
-    expect(screen.getByRole('button', { name: 'Tạo và gắn vào kho' })).toBeDisabled()
-  })
-
   it('không tải NCC khi không có quyền tạo', async () => {
     let gets = 0
     mockCatalog()
@@ -171,6 +179,8 @@ describe('CreateMaterialSection', () => {
     )
     renderWithProviders(
       <CreateMaterialSection
+        formId="create-form"
+        hintId="create-hint"
         warehouseSlug="w-a"
         initialSearch=""
         canCreate={false}

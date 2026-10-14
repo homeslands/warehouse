@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { PackagePlusIcon, PlusIcon } from 'lucide-react'
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/shared/ui/button'
@@ -73,6 +73,8 @@ function DialogBody({
   const [createBusy, setCreateBusy] = useState(false)
   const [assignBusy, setAssignBusy] = useState(false)
   const busy = createBusy || assignBusy
+  const createFormId = useId()
+  const createHintId = useId()
 
   /** Chờ danh sách vật tư của kho tải lại rồi mới báo bên gọi — dòng chọn xong phải có đủ đơn vị. */
   const finish = async (
@@ -112,14 +114,16 @@ function DialogBody({
           </DialogDescription>
         </DialogHeader>
 
-        <div className="max-h-[60vh] space-y-4 overflow-y-auto">
-          <Input
-            aria-label={t('importForms:addMaterialSearch')}
-            placeholder={t('importForms:addMaterialSearch')}
-            value={search}
-            onChange={(e) => setSearch(e.target.value)}
-            autoComplete="off"
-          />
+        <Input
+          aria-label={t('importForms:addMaterialSearch')}
+          placeholder={t('importForms:addMaterialSearch')}
+          value={search}
+          onChange={(e) => setSearch(e.target.value)}
+          autoComplete="off"
+        />
+
+        {/* `-m-1 p-1`: vùng cuộn cắt theo mép padding — chừa chỗ cho viền focus (ring-3) của ô / nút sát mép. */}
+        <div className="-m-1 max-h-[55vh] space-y-4 overflow-y-auto p-1">
           <AssignExistingSection
             warehouseSlug={warehouseSlug}
             search={search}
@@ -139,17 +143,23 @@ function DialogBody({
           />
           <Separator />
           {creating === null ? (
-            <Button type="button" variant="ghost" onClick={() => setCreating(search)}>
+            <Button
+              type="button"
+              variant="ghost"
+              disabled={busy}
+              onClick={() => setCreating(search)}
+            >
               <PlusIcon aria-hidden />
               {t('importForms:createMaterialSection')}
             </Button>
           ) : (
             <CreateMaterialSection
+              formId={createFormId}
+              hintId={createHintId}
               warehouseSlug={warehouseSlug}
               initialSearch={creating}
               canCreate={abilities.create}
               canAttachSupplier={abilities.attachSupplier}
-              locked={busy}
               onBusyChange={setCreateBusy}
               onWarehouseInactive={() => onOpenChange(false)}
               onCreated={async (added, name, supplierAttached) => {
@@ -171,6 +181,17 @@ function DialogBody({
           >
             {t('common:close')}
           </Button>
+          {creating !== null && (
+            <Button
+              type="submit"
+              form={createFormId}
+              size="xl"
+              disabled={!abilities.create || busy}
+              aria-describedby={abilities.create ? undefined : createHintId}
+            >
+              {createBusy ? t('importForms:creatingMaterial') : t('importForms:createAndAssign')}
+            </Button>
+          )}
         </DialogFooter>
       </DialogContent>
     </Dialog>

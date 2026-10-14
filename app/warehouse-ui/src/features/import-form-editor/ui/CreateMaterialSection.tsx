@@ -1,11 +1,10 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { useId, useRef } from 'react'
+import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
-import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/Combobox'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
@@ -35,12 +34,14 @@ const FIELD_BY_CODE = {
 } as const
 
 type Props = {
+  /** Nút submit nằm ở footer của hộp (`<Button type="submit" form={formId}>`), không nằm trong section. */
+  formId: string
+  /** `id` của dòng lý do thiếu quyền — nút submit ở footer trỏ `aria-describedby` vào đây. */
+  hintId: string
   warehouseSlug: string
   initialSearch: string
   canCreate: boolean
   canAttachSupplier: boolean
-  /** Hộp đang bận (gắn / tạo, kể cả đoạn sau khi API trả về) — khoá nút tạo. */
-  locked?: boolean
   /**
    * `name` = tên server trả về (cho toast). `supplierAttached`: `null` = không chọn NCC; `false` = tạo + gắn kho xong
    * nhưng gắn NCC lỗi.
@@ -58,17 +59,17 @@ type Props = {
 const label = codeNameLabel
 
 export function CreateMaterialSection({
+  formId,
+  hintId,
   warehouseSlug,
   initialSearch,
   canCreate,
   canAttachSupplier,
-  locked = false,
   onCreated,
   onBusyChange,
   onWarehouseInactive,
 }: Props) {
   const { t } = useTranslation(['importForms', 'common'])
-  const hintId = useId()
   const create = useCreateWarehouseMaterial()
   const types = useMaterialTypeOptions({ enabled: canCreate })
   const units = useUnitOptions({ enabled: canCreate })
@@ -153,9 +154,18 @@ export function CreateMaterialSection({
 
   return (
     <Form {...form}>
-      {/* Không lồng <form> trong <form> của FormSheet: hộp nằm trong portal nên DOM không lồng, nhưng vẫn dùng div +
-          nút type="button" để Enter trong ô không submit phiếu nhập phía sau. */}
-      <div className="space-y-4" role="group" aria-label={t('importForms:createMaterialSection')}>
+      {/* Hộp nằm trong portal nhưng cây React vẫn nằm trong <form> của FormSheet → sự kiện submit nổi lên tới phiếu nhập;
+          chặn lại để Enter / nút "Tạo và gắn vào kho" chỉ tạo vật tư. */}
+      <form
+        id={formId}
+        noValidate
+        className="space-y-4"
+        aria-label={t('importForms:createMaterialSection')}
+        onSubmit={(e) => {
+          e.stopPropagation()
+          void form.handleSubmit(onSubmit)(e)
+        }}
+      >
         <div className="grid items-start gap-4 sm:grid-cols-2">
           <FormField
             control={form.control}
@@ -244,24 +254,12 @@ export function CreateMaterialSection({
           )}
         </div>
         <p className="text-muted-foreground text-sm">{t('importForms:createMaterialHint')}</p>
-        <div className="space-y-1">
-          <Button
-            type="button"
-            disabled={!canCreate || locked || create.isPending}
-            aria-describedby={canCreate ? undefined : hintId}
-            onClick={form.handleSubmit(onSubmit)}
-          >
-            {create.isPending
-              ? t('importForms:creatingMaterial')
-              : t('importForms:createAndAssign')}
-          </Button>
-          {!canCreate && (
-            <p id={hintId} className="text-muted-foreground text-xs">
-              {t('importForms:needCreatePermission')}
-            </p>
-          )}
-        </div>
-      </div>
+        {!canCreate && (
+          <p id={hintId} className="text-muted-foreground text-xs">
+            {t('importForms:needCreatePermission')}
+          </p>
+        )}
+      </form>
     </Form>
   )
 }
