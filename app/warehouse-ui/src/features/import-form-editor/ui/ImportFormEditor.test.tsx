@@ -167,6 +167,63 @@ describe('ImportFormEditor', () => {
     })
   })
 
+  it('available-materials lỗi → hiện alert kèm Thử lại; bấm Thử lại thì nạp lại', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.get(`${URL_W}/available-materials`, () => {
+        calls += 1
+        return calls === 1 ? apiError(500, 100500, 'Internal error') : paginated([flour])
+      }),
+    )
+    const { user } = renderWithRouter(
+      [
+        {
+          path: '/editor',
+          element: (
+            <ImportFormEditor
+              warehouseSlug="w-a"
+              onSaved={vi.fn()}
+              onCancel={vi.fn()}
+              onConflict={vi.fn()}
+            />
+          ),
+        },
+      ],
+      { route: '/editor', auth: 'admin' },
+    )
+    const alert = await screen.findByRole('alert')
+    expect(alert).toBeInTheDocument()
+    await user.click(within(alert).getByRole('button', { name: 'Thử lại' }))
+    await waitFor(() => expect(calls).toBe(2))
+    await waitFor(() => expect(screen.queryByRole('alert')).not.toBeInTheDocument())
+    await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
+    expect(await screen.findByText('VT-01 · Bột mì')).toBeInTheDocument()
+  })
+
+  it('sửa: vật tư của dòng không còn trong danh sách → ô đơn vị vẫn hiện đơn vị đã lưu', async () => {
+    server.use(mswHttp.get(`${URL_W}/available-materials`, () => paginated([])))
+    const r = renderWithRouter(
+      [
+        {
+          path: '/editor',
+          element: (
+            <ImportFormEditor
+              warehouseSlug="w-a"
+              form={draftForm}
+              onSaved={vi.fn()}
+              onCancel={vi.fn()}
+              onConflict={vi.fn()}
+            />
+          ),
+        },
+      ],
+      { route: '/editor', auth: 'admin' },
+    )
+    expect(r).toBeTruthy()
+    const unit = await screen.findByRole('combobox', { name: 'Đơn vị dòng 1' })
+    await waitFor(() => expect(unit).toHaveTextContent('BAG · Bao 25kg'))
+  })
+
   it('sửa: 409 → onConflict (điều hướng đi không bị hỏi), không hiện lỗi tại ô', async () => {
     server.use(mswHttp.patch(`${URL_W}/if-1`, () => apiError(409, 100800, 'conflict')))
     const { user, router, onConflict } = setup(draftForm)
