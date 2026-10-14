@@ -104,12 +104,13 @@ describe('ImportFormItemsField', () => {
     expect(current?.items).toHaveLength(1)
   })
 
+  // Render 200 dòng thật nên chậm khi chạy cả bộ test song song; cho timeout riêng.
   it('đủ 200 dòng → khoá Thêm dòng kèm lý do', () => {
     renderWithProviders(<Harness items={Array.from({ length: 200 }, () => ({ ...EMPTY_ITEM }))} />)
     const add = screen.getByRole('button', { name: 'Thêm dòng' })
     expect(add).toBeDisabled()
     expect(add).toHaveAccessibleDescription('Đã đủ 200 dòng — tối đa của một phiếu.')
-  })
+  }, 20_000)
 
   it('ghi chú dòng ẩn, bấm biểu tượng thì hiện ô', async () => {
     const { user } = renderWithProviders(<Harness />)
