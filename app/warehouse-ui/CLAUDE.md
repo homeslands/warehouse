@@ -777,9 +777,10 @@ mất công tìm cách sửa nó.
   được cả bốn loại phiếu). Cần vào màn `/permissions` bật **7 ô** cho `MANAGER`:
   `IMPORT_FORM_CREATE`, `EXPORT_FORM_CREATE`, `BALANCE_FORM_CREATE`, `BALANCE_FORM_RECORD_COUNT`,
   `IMPORT_FORM_UPDATE_DRAFT`, `EXPORT_FORM_UPDATE_DRAFT`, `WAREHOUSE_PAYMENT_UPDATE_DRAFT`. Không cần
-  migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hiện chưa
-  có tác dụng**: module phiếu chưa có endpoint nào — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend
-  làm module đó và gác bằng `@RequireAuthority`.
+  migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hai ô phiếu nhập
+  (`IMPORT_FORM_CREATE`, `IMPORT_FORM_UPDATE_DRAFT`) đã có tác dụng** — phiếu nhập có endpoint từ WMS-16, FE dùng ở
+  `/import-forms`. Năm ô còn lại (`EXPORT_FORM_*`, `BALANCE_FORM_*`, `WAREHOUSE_PAYMENT_*`) vẫn chưa có tác dụng: các module
+  đó chưa có endpoint — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend làm module đó và gác bằng `@RequireAuthority`.
 - **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
   key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
   không có chỉ số dòng → chỉ toast; chưa lọc theo mã / ngày → không có ô tìm; dòng phiếu không có mã đơn vị gốc → cột quy đổi
