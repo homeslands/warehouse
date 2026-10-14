@@ -119,4 +119,25 @@ describe('ImportFormItemsField', () => {
     const row = screen.getByTestId('line-0')
     expect(within(row).getByRole('textbox', { name: /Ghi chú dòng/ })).toBeInTheDocument()
   })
+
+  const withNote = [{ ...EMPTY_ITEM, materialSlug: 'm-flour', unitSlug: 'u-kg', note: 'abc' }]
+
+  it('ghi chú có sẵn → hiện ô; xoá hết chữ thì ô vẫn còn và giữ focus', async () => {
+    const { user } = renderWithProviders(<Harness items={withNote} />)
+    const input = screen.getByRole('textbox', { name: /Ghi chú dòng/ })
+    expect(input).toHaveValue('abc')
+    await user.clear(input)
+    const after = screen.getByRole('textbox', { name: /Ghi chú dòng/ })
+    expect(after).toBe(input)
+    expect(after).toHaveFocus()
+  })
+
+  it('bấm biểu tượng ghi chú đang mở (có chữ) → ẩn ô, aria-pressed = false', async () => {
+    const { user } = renderWithProviders(<Harness items={withNote} />)
+    const toggle = screen.getByRole('button', { name: 'Ghi chú dòng 1' })
+    expect(toggle).toHaveAttribute('aria-pressed', 'true')
+    await user.click(toggle)
+    expect(toggle).toHaveAttribute('aria-pressed', 'false')
+    expect(screen.queryByRole('textbox', { name: /Ghi chú dòng/ })).not.toBeInTheDocument()
+  })
 })

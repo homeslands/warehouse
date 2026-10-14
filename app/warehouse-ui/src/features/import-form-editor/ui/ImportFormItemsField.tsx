@@ -24,18 +24,28 @@ type Props = {
   materials: AvailableMaterial[]
   /** Vật tư của dòng cũ không còn trong danh sách (bị gỡ khỏi kho / ngoài 100 bản ghi đầu): slug → "mã · tên". */
   fallbackLabels: Record<string, string>
+  /** Đơn vị đã lưu của dòng cũ có vật tư không còn trong danh sách: unitSlug → "mã · tên". */
+  fallbackUnits?: Record<string, string>
 }
 
 /** Lưới 7 cột từ `md`; dưới `md` mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra. */
 const ROW_GRID =
   'grid gap-3 rounded-lg border p-3 md:grid-cols-[2rem_minmax(12rem,2fr)_minmax(7rem,1fr)_minmax(6rem,1fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_auto] md:items-start md:rounded-none md:border-0 md:border-b md:px-0'
 
-export function ImportFormItemsField({ form, materials, fallbackLabels }: Props) {
+export function ImportFormItemsField({
+  form,
+  materials,
+  fallbackLabels,
+  fallbackUnits = {},
+}: Props) {
   const { t } = useTranslation(['importForms', 'common'])
   const hintId = useId()
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'items' })
   const items = useWatch({ control: form.control, name: 'items' })
-  const [openNotes, setOpenNotes] = useState<ReadonlySet<string>>(new Set())
+  // Chỉ khởi tạo một lần từ ghi chú có sẵn; sau đó người dùng toàn quyền đóng/mở (xoá hết chữ không làm ô biến mất).
+  const [openNotes, setOpenNotes] = useState<ReadonlySet<string>>(
+    () => new Set(fields.filter((_, i) => (items[i]?.note ?? '') !== '').map((f) => f.id)),
+  )
 
   const bySlug = new Map(materials.map((m) => [m.slug, m]))
   const baseSlugOf = (slug: string | undefined) => {
@@ -85,7 +95,7 @@ export function ImportFormItemsField({ form, materials, fallbackLabels }: Props)
         const base = material ? baseUnitOf(material) : undefined
         const unit = material?.units.find((u) => u.unitSlug === row.unitSlug)
         const amount = lineAmount(row.quantity, row.unitPrice)
-        const noteOpen = openNotes.has(field.id) || row.note !== ''
+        const noteOpen = openNotes.has(field.id)
 
         return (
           <div key={field.id} data-testid={`line-${index}`} className={ROW_GRID}>
@@ -154,6 +164,9 @@ export function ImportFormItemsField({ form, materials, fallbackLabels }: Props)
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
+                      {!material && f.value && fallbackUnits[f.value] && (
+                        <SelectItem value={f.value}>{fallbackUnits[f.value]}</SelectItem>
+                      )}
                       {(material?.units ?? []).map((u) => (
                         <SelectItem key={u.unitSlug} value={u.unitSlug}>
                           {`${u.unitCode} · ${u.unitName}`}

@@ -3,12 +3,14 @@ import { ClipboardListIcon } from 'lucide-react'
 import { useRef, useState } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { formatCurrency } from '@/shared/lib/format'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { DatePicker } from '@/shared/ui/DatePicker'
+import { Skeleton } from '@/shared/ui/skeleton'
 import { SummaryList } from '@/shared/ui/SummaryList'
 import { Textarea } from '@/shared/ui/textarea'
 import {
@@ -93,6 +95,10 @@ export function ImportFormEditor({
 
   const fallbackLabels = Object.fromEntries(
     (original?.items ?? []).map((i) => [i.materialSlug, `${i.materialCode} · ${i.materialName}`]),
+  )
+
+  const fallbackUnits = Object.fromEntries(
+    (original?.items ?? []).map((i) => [i.unitSlug, `${i.unitCode} · ${i.unitName}`]),
   )
 
   const finish = (result: ImportForm) => {
@@ -222,11 +228,38 @@ export function ImportFormEditor({
         </section>
 
         <section className="bg-card rounded-xl border p-5 sm:p-6">
-          <ImportFormItemsField
-            form={form}
-            materials={materials.data?.items ?? []}
-            fallbackLabels={fallbackLabels}
-          />
+          {materials.isPending ? (
+            <div className="space-y-3" role="status" aria-label={t('common:loading')}>
+              <Skeleton className="h-6 w-40" />
+              <Skeleton className="h-10 w-full" />
+              <Skeleton className="h-10 w-full" />
+            </div>
+          ) : (
+            <>
+              {materials.isError && (
+                <div
+                  role="alert"
+                  className="text-destructive mb-3 flex flex-wrap items-center justify-between gap-2 text-sm"
+                >
+                  <span>{resolveApiErrorMessage(materials.error)}</span>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    onClick={() => void materials.refetch()}
+                  >
+                    {t('common:retry')}
+                  </Button>
+                </div>
+              )}
+              <ImportFormItemsField
+                form={form}
+                materials={materials.data?.items ?? []}
+                fallbackLabels={fallbackLabels}
+                fallbackUnits={fallbackUnits}
+              />
+            </>
+          )}
         </section>
 
         <div className="bg-background/95 sticky bottom-0 z-20 border-t backdrop-blur print:hidden">
