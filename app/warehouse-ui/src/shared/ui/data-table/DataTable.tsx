@@ -128,6 +128,12 @@ function useOverflowing() {
 
 const SKELETON_ROWS = 5
 
+/**
+ * Mảng rỗng CỐ ĐỊNH cho lúc chưa có dữ liệu. TanStack tự reset pageIndex (setState) mỗi khi `data` đổi
+ * tham chiếu — `data ?? []` dựng mảng mới mỗi render nên đang tải / lỗi sẽ render lặp vô hạn.
+ */
+const NO_ROWS: never[] = []
+
 const INTERACTIVE =
   'a, button, input, select, textarea, label, [role="menuitem"], [role="checkbox"]'
 
@@ -154,7 +160,7 @@ export function DataTable<TData>({
 }: DataTableProps<TData>) {
   const { t } = useTranslation(['common'])
   const table = useReactTable({
-    data: data ?? [],
+    data: data ?? NO_ROWS,
     columns,
     getCoreRowModel: getCoreRowModel(),
   })
