@@ -351,10 +351,14 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
 
     Cả hai đều vô hình khi đọc code và khi chạy test. Cách kiểm: render thật rồi in `element.className`
     ra xem class nào còn sống sót.
-  - **Ngoại lệ — form nhiều dòng → trang riêng** (phiếu nhập `/import-forms/new`, `/:slug/edit`): đầu phiếu + tới 200 dòng
-    vật tư không vừa ngăn 480px. Trang riêng (`features/import-form-editor`), chân trang ghim tổng + Huỷ / Lưu nháp, chặn rời
-    trang bằng `useBlocker` + `beforeunload` (`LeaveGuard`) — cần data router, test bằng `renderWithRouter`. Tạo vẫn hỏi
-    xác nhận, sửa lưu thẳng. Ngữ cảnh kho nằm trên `?warehouse=` ở mọi route phiếu (`pages/import-forms/model/paths.ts`).
+  - **Form nhiều dòng (phiếu nhập) → `FormSheet size="wide"`** (~1024px, full width dưới 640px; prop `size?: 'default' | 'wide'`).
+    `footerStart` đặt tổng tiền bên trái chân sheet, cùng hàng Huỷ / Lưu nháp. `ImportFormSheet`
+    (`features/import-form-editor`) luôn mount, trang cha điều khiển `open` (+ `formSlug` khi sửa); sheet tự tải
+    chi tiết khi sửa (`useImportForm(..., { enabled: open })`), chỉ kiểm `status === 'DRAFT'` — quyền sửa do trang cha kiểm
+    trước khi truyền `formSlug`. **Không có URL riêng cho form**: F5 / Back khi đang mở sẽ mất phần đang nhập, như mọi sheet
+    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo vẫn hỏi xác nhận, sửa lưu thẳng; 409 / 101314 khi sửa →
+    đóng sheet + toast + invalidate cả kho. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
+    (`pages/import-forms/model/paths.ts`).
   - **thao tác một ô (gán, chọn) → `Dialog`**: mẫu `features/warehouse-assign-manager`,
     `features/store-assign-warehouse`. Không dựng react-hook-form cho một ô — state cục bộ + một
     `<p role="alert">` cho lỗi backend thuộc ô đó là đủ.
@@ -787,4 +791,4 @@ mất công tìm cách sửa nó.
   thiếu mã khi phiếu không có dòng 1:1; ô chọn vật tư tải 100 vật tư đầu của kho. Test tay:
   `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
   `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
-  chân trang của form là `sticky bottom-0` (không phải fixed) vì sidebar thu gọn thành icon.
+  chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang).

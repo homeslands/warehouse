@@ -31,11 +31,15 @@ export function useImportForms(warehouseSlug: string, params: ListParams<ImportF
 }
 
 /** Chi tiết — trang tự báo 404 / lỗi tại chỗ. */
-export function useImportForm(warehouseSlug: string, slug: string) {
+export function useImportForm(
+  warehouseSlug: string,
+  slug: string,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: importFormKeys.detail(warehouseSlug, slug),
     queryFn: () => fetchImportForm(warehouseSlug, slug),
-    enabled: warehouseSlug !== '' && slug !== '',
+    enabled: warehouseSlug !== '' && slug !== '' && (options.enabled ?? true),
     meta: { suppressErrorToast: true },
   })
 }

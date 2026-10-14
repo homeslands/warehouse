@@ -27,9 +27,10 @@ import {
 } from '@/entities/import-form'
 import { useAuthStore } from '@/entities/session'
 import { DeleteImportFormDialog } from '@/features/import-form-delete'
+import { ImportFormSheet } from '@/features/import-form-editor'
 import { WarehousePicker, useWarehouseSelection } from '@/features/warehouse-picker'
 import { importFormAbilities } from '../model/abilities'
-import { createPath, detailPath, editPath } from '../model/paths'
+import { detailPath } from '../model/paths'
 
 const FILTERS = z.object({
   warehouse: z.string().optional(),
@@ -50,6 +51,8 @@ export function ImportFormsPage() {
   const warehouse = selection.warehouse
   const warehouseSlug = warehouse?.slug ?? ''
   const [deleting, setDeleting] = useState<ImportForm | null>(null)
+  // Sheet luôn mount (callback của mutation bị bỏ qua nếu unmount): `sheet` = đang mở ở chế độ nào.
+  const [sheet, setSheet] = useState<{ open: boolean; formSlug?: string }>({ open: false })
 
   const backTo = location.pathname + location.search
   const detailLink = useCallback(
@@ -97,11 +100,7 @@ export function ImportFormsPage() {
                 {t('importForms:viewDetail')}
               </DropdownMenuItem>
               {ability.update && (
-                <DropdownMenuItem
-                  onSelect={() =>
-                    navigate(editPath(f.warehouseSlug, f.slug), { state: { backTo } })
-                  }
-                >
+                <DropdownMenuItem onSelect={() => setSheet({ open: true, formSlug: f.slug })}>
                   {t('importForms:editAction')}
                 </DropdownMenuItem>
               )}
@@ -117,7 +116,7 @@ export function ImportFormsPage() {
       },
     }
     return [...buildImportFormColumns(t, { detailLink }), actions]
-  }, [t, detailLink, navigate, user, backTo])
+  }, [t, detailLink, navigate, user])
 
   const header = <h1 className="text-xl font-semibold">{t('importForms:title')}</h1>
 
@@ -192,7 +191,7 @@ export function ImportFormsPage() {
               <Button
                 disabled={!pageAbility.create}
                 aria-describedby={!warehouse.isActive ? hintId : undefined}
-                onClick={() => navigate(createPath(warehouse.slug), { state: { backTo } })}
+                onClick={() => setSheet({ open: true })}
               >
                 <PlusIcon aria-hidden />
                 <span className="max-md:sr-only">{t('importForms:create')}</span>
@@ -227,6 +226,16 @@ export function ImportFormsPage() {
             onSizeChange: setSize,
             isFetching: isPlaceholderData,
           }}
+        />
+      )}
+
+      {warehouse && (
+        <ImportFormSheet
+          open={sheet.open}
+          onOpenChange={(open) => setSheet((prev) => ({ ...prev, open }))}
+          warehouseSlug={warehouse.slug}
+          warehouseName={warehouse.name}
+          formSlug={sheet.formSlug}
         />
       )}
 

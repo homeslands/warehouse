@@ -210,27 +210,10 @@ export function createRoutes({
             import('@/pages/import-forms').then((m) => ({ Component: m.ImportFormsPage })),
         },
         {
-          path: 'new',
-          lazy: () =>
-            import('@/pages/import-forms').then((m) => ({ Component: m.ImportFormCreatePage })),
-          // RoleGate lấy `authority` của match SÂU NHẤT có khai → phải liệt kê lại đủ mã của cha.
-          // `available-materials` gác bằng IMPORT_FORM_CREATE.
-          handle: {
-            authority: ['IMPORT_FORM_READ', 'WAREHOUSE_READ', 'IMPORT_FORM_CREATE'],
-            crumb: 'nav:create',
-          } satisfies AppRouteHandle,
-        },
-        {
           path: ':slug',
           lazy: () =>
             import('@/pages/import-forms').then((m) => ({ Component: m.ImportFormDetailPage })),
           handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
-        },
-        {
-          path: ':slug/edit',
-          lazy: () =>
-            import('@/pages/import-forms').then((m) => ({ Component: m.ImportFormEditPage })),
-          handle: { crumb: 'nav:edit' } satisfies AppRouteHandle,
         },
       ],
     },

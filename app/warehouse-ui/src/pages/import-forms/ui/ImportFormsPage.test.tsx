@@ -3,7 +3,7 @@ import { http as mswHttp } from 'msw'
 import { describe, expect, it } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
 import type { Warehouse } from '@/entities/warehouse'
-import { apiError, paginated } from '@/shared/test/api'
+import { apiError, ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
@@ -67,6 +67,7 @@ const SUP: TestAuth = {
     'IMPORT_FORM_CREATE',
     'WAREHOUSE_READ',
     'IMPORT_FORM_DELETE_DRAFT_OWN',
+    'IMPORT_FORM_UPDATE_DRAFT_OWN',
   ],
 }
 
@@ -88,7 +89,6 @@ function renderPage(route = '/import-forms', auth: TestAuth = SUP) {
   return renderWithRouter(
     [
       { path: '/import-forms', element: <ImportFormsPage /> },
-      { path: '/import-forms/new', element: <p>TRANG TẠO</p> },
       { path: '/import-forms/:slug', element: <p>TRANG CHI TIẾT</p> },
     ],
     { route, auth },
@@ -130,6 +130,32 @@ describe('ImportFormsPage', () => {
     expect(row).not.toBeNull()
     expect(row).toContainElement(screen.getByRole('combobox', { name: 'Trạng thái' }))
     expect(row).toContainElement(screen.getByRole('button', { name: 'Tạo phiếu' }))
+  })
+
+  it('bấm Tạo phiếu → mở sheet tạo ngay trên danh sách, không điều hướng', async () => {
+    mock([kho('w-a', 'A')])
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
+    )
+    const { user, router } = renderPage('/import-forms?warehouse=w-a')
+    await user.click(await screen.findByRole('button', { name: 'Tạo phiếu' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Tạo phiếu nhập · Kho A' }),
+    ).toBeInTheDocument()
+    expect(router.state.location.pathname).toBe('/import-forms')
+    expect(screen.getByRole('link', { name: 'PN-0001', hidden: true })).toBeInTheDocument()
+  })
+
+  it('đóng sheet tạo (chưa sửa gì) → về danh sách, sheet biến mất', async () => {
+    mock([kho('w-a', 'A')])
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
+    )
+    const { user } = renderPage('/import-forms?warehouse=w-a')
+    await user.click(await screen.findByRole('button', { name: 'Tạo phiếu' }))
+    await screen.findByRole('dialog', { name: 'Tạo phiếu nhập · Kho A' })
+    await user.click(screen.getByRole('button', { name: 'Huỷ' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
   })
 
   it('kho ngừng hoạt động → nút Tạo khoá kèm lý do', async () => {
@@ -206,6 +232,22 @@ describe('ImportFormsPage', () => {
       expect(await screen.findByRole('menuitem', { name: 'Xem chi tiết' })).toBeInTheDocument()
       await user.click(await screen.findByRole('menuitem', { name: 'Xoá phiếu' }))
       expect(await screen.findByRole('alertdialog')).toHaveTextContent('Xoá phiếu nhập PN-0001')
+    })
+
+    it('Sửa → mở sheet sửa phiếu đó (tự tải chi tiết), không điều hướng', async () => {
+      mock([kho('w-a', 'A')], { ...draftForm, requesterSlug: 'u-sup' })
+      server.use(
+        mswHttp.get(`${BASE}/warehouses/w-a/import-forms/if-1`, () => ok(draftForm)),
+        mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
+      )
+      const { user, router } = renderPage('/import-forms?warehouse=w-a')
+      await openMenu(user)
+      await user.click(await screen.findByRole('menuitem', { name: 'Sửa' }))
+      expect(
+        await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' }),
+      ).toBeInTheDocument()
+      expect(await screen.findByRole('textbox', { name: /^Số hoá đơn/ })).toHaveValue('HD-123')
+      expect(router.state.location.pathname).toBe('/import-forms')
     })
 
     it('phiếu nháp của người khác → không có Sửa, Xoá', async () => {
