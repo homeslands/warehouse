@@ -1,5 +1,5 @@
 import { ChevronsUpDownIcon, XIcon } from 'lucide-react'
-import { useCallback, useRef, useState, type ComponentProps } from 'react'
+import { useCallback, useRef, useState, type ComponentProps, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { matchesSearch } from '@/shared/lib/search-text'
@@ -23,6 +23,11 @@ type ComboboxProps = Omit<ComponentProps<'button'>, 'value' | 'onChange'> & {
   placeholder?: string
   searchPlaceholder?: string
   emptyText?: string
+  /**
+   * Nội dung cố định cuối danh sách (sau kết quả / câu "không có kết quả") — vd "＋ Thêm vật tư vào kho…".
+   * Nhận chữ đang gõ trong ô tìm và hàm đóng danh sách.
+   */
+  footer?: (search: string, close: () => void) => ReactNode
 }
 
 /**
@@ -47,6 +52,7 @@ export function Combobox({
   placeholder,
   searchPlaceholder,
   emptyText,
+  footer,
   disabled,
   className,
   ref,
@@ -54,6 +60,8 @@ export function Combobox({
 }: ComboboxProps) {
   const { t } = useTranslation(['common'])
   const [open, setOpen] = useState(false)
+  // Điều khiển ô tìm để đưa chữ đang gõ cho `footer`; xoá khi đóng (cmdk unmount lúc đóng nên trước đây tự trống).
+  const [search, setSearch] = useState('')
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   // Giữ ref riêng để trả focus về nút mở sau khi xoá, vẫn chuyển tiếp ref ngoài (RHF focus lỗi).
   const setTriggerRef = useCallback(
@@ -82,6 +90,7 @@ export function Combobox({
             window.innerHeight - trigger.getBoundingClientRect().bottom < LIST_SPACE_PX
           )
             trigger.scrollIntoView({ block: 'center' })
+          if (!next) setSearch('')
           setOpen(next)
         }}
       >
@@ -115,7 +124,7 @@ export function Combobox({
         >
           {/* cmdk gắn aria-labelledby của ô tìm vào `label` của Command (aria-label bị lấn át). */}
           <Command filter={filterOption} label={searchText} className="min-h-0">
-            <CommandInput placeholder={searchText} />
+            <CommandInput placeholder={searchText} value={search} onValueChange={setSearch} />
             <CommandList className="min-h-0">
               <CommandEmpty>{emptyText ?? t('common:noResults')}</CommandEmpty>
               <CommandGroup>
@@ -128,6 +137,7 @@ export function Combobox({
                     data-checked={option.value === value}
                     onSelect={() => {
                       onChange(option.value)
+                      setSearch('')
                       setOpen(false)
                     }}
                   >
@@ -137,6 +147,14 @@ export function Combobox({
                 ))}
               </CommandGroup>
             </CommandList>
+            {footer && (
+              <div data-slot="combobox-footer" className="border-t p-1">
+                {footer(search, () => {
+                  setSearch('')
+                  setOpen(false)
+                })}
+              </div>
+            )}
           </Command>
         </PopoverContent>
       </Popover>

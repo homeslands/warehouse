@@ -205,4 +205,51 @@ describe('Combobox', () => {
       expect(scroll).not.toHaveBeenCalled()
     })
   })
+
+  describe('footer', () => {
+    function setupFooter() {
+      const onFooter = vi.fn()
+      render(
+        <Combobox
+          aria-label="Tỉnh"
+          options={OPTIONS}
+          value={undefined}
+          onChange={vi.fn()}
+          footer={(search, close) => (
+            <button
+              type="button"
+              onClick={() => {
+                onFooter(search)
+                close()
+              }}
+            >
+              Thêm “{search}”
+            </button>
+          )}
+        />,
+      )
+      return { onFooter, user: userEvent.setup() }
+    }
+
+    it('luôn ở cuối danh sách, kể cả khi không có kết quả; nhận chữ đang gõ; close() đóng danh sách', async () => {
+      const { onFooter, user } = setupFooter()
+      await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+      expect(screen.getByRole('button', { name: 'Thêm “”' })).toBeInTheDocument()
+      await user.type(screen.getByRole('combobox', { name: /Tìm/ }), 'xyz')
+      expect(screen.queryAllByRole('option')).toHaveLength(0)
+      await user.click(screen.getByRole('button', { name: 'Thêm “xyz”' }))
+      expect(onFooter).toHaveBeenCalledWith('xyz')
+      expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
+    })
+
+    it('mở lại → ô tìm trống', async () => {
+      const { user } = setupFooter()
+      const trigger = screen.getByRole('combobox', { name: 'Tỉnh' })
+      await user.click(trigger)
+      await user.type(screen.getByRole('combobox', { name: /Tìm/ }), 'abc')
+      await user.keyboard('{Escape}')
+      await user.click(trigger)
+      expect(screen.getByRole('button', { name: 'Thêm “”' })).toBeInTheDocument()
+    })
+  })
 })
