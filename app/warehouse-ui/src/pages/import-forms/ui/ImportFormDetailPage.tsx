@@ -25,7 +25,7 @@ import { ConfirmImportFormDialog } from '@/features/import-form-confirm'
 import { DeleteImportFormDialog } from '@/features/import-form-delete'
 import { ImportFormSheet } from '@/features/import-form-editor'
 import { useCrumbTitle } from '@/widgets/app-shell'
-import { importFormAbilities } from '../model/abilities'
+import { importFormAbilities, materialAddAbilities } from '../model/abilities'
 import { IMPORT_FORMS_PATH, listPath } from '../model/paths'
 import { ImportFormItemsTable } from './ImportFormItemsTable'
 import { ImportFormPrintView } from './ImportFormPrintView'
@@ -230,6 +230,7 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
         warehouseName={warehouse.data?.name ?? warehouseSlug}
         formSlug={form.slug}
         formCode={form.code}
+        materialAbilities={materialAddAbilities(user)}
       />
       <ConfirmImportFormDialog
         warehouseSlug={warehouseSlug}

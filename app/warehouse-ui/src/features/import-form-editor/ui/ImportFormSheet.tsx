@@ -36,6 +36,7 @@ import {
 } from '@/entities/import-form'
 import { ImportFormFileField } from './ImportFormFileField'
 import { ImportFormItemsField } from './ImportFormItemsField'
+import { NO_MATERIAL_ADD, type MaterialAddAbilities } from '../model/material-add'
 import {
   emptyFormValues,
   formTotal,
@@ -69,6 +70,8 @@ type ImportFormSheetProps = {
   formCode?: string
   /** Gọi sau khi tạo / lưu thành công (sheet đã tự đóng). */
   onSaved?: (saved: ImportForm) => void
+  /** Quyền của luồng "thêm vật tư vào kho" trong dòng vật tư. */
+  materialAbilities?: MaterialAddAbilities
 }
 
 /**
@@ -84,6 +87,7 @@ export function ImportFormSheet({
   formSlug,
   formCode,
   onSaved,
+  materialAbilities = NO_MATERIAL_ADD,
 }: ImportFormSheetProps) {
   const { t } = useTranslation(['importForms', 'common'])
   const qc = useQueryClient()
@@ -389,6 +393,9 @@ export function ImportFormSheet({
                     materials={materials.data?.items ?? []}
                     fallbackLabels={fallbackLabels}
                     fallbackUnits={fallbackUnits}
+                    warehouseSlug={warehouseSlug}
+                    warehouseName={warehouseName}
+                    materialAbilities={materialAbilities}
                   />
                 </>
               )}

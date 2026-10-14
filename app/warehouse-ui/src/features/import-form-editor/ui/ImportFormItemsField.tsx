@@ -1,5 +1,5 @@
 import { NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useEffect, useId, useState } from 'react'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { translateFormMessage } from '@/shared/lib/form-message'
@@ -18,6 +18,8 @@ import {
   lineAmount,
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
+import { NO_MATERIAL_ADD, type MaterialAddAbilities } from '../model/material-add'
+import { AddWarehouseMaterialDialog } from './AddWarehouseMaterialDialog'
 
 type Props = {
   form: UseFormReturn<ImportFormValues>
@@ -26,6 +28,10 @@ type Props = {
   fallbackLabels: Record<string, string>
   /** Đơn vị đã lưu của dòng cũ có vật tư không còn trong danh sách: unitSlug → "mã · tên". */
   fallbackUnits?: Record<string, string>
+  warehouseSlug: string
+  warehouseName: string
+  /** Quyền của luồng "thêm vật tư vào kho"; mặc định không có quyền nào (ẩn điểm vào). */
+  materialAbilities?: MaterialAddAbilities
 }
 
 /** Lưới 7 cột từ `md`; dưới `md` mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra. */
@@ -37,6 +43,9 @@ export function ImportFormItemsField({
   materials,
   fallbackLabels,
   fallbackUnits = {},
+  warehouseSlug,
+  warehouseName,
+  materialAbilities = NO_MATERIAL_ADD,
 }: Props) {
   const { t } = useTranslation(['importForms', 'common'])
   const hintId = useId()
@@ -52,6 +61,18 @@ export function ImportFormItemsField({
     const m = slug ? bySlug.get(slug) : undefined
     return m ? (baseUnitOf(m)?.unitSlug ?? '') : ''
   }
+  const [adding, setAdding] = useState<{ index: number; search: string } | null>(null)
+  const [pending, setPending] = useState<{ index: number; slug: string } | null>(null)
+  // Hộp gọi `onAdded` sau khi invalidate xong nhưng `materials` có thể chưa re-render → chờ vật tư xuất hiện rồi mới chọn.
+  useEffect(() => {
+    if (!pending || !bySlug.has(pending.slug)) return
+    const opts = { shouldDirty: true, shouldValidate: form.formState.isSubmitted }
+    form.setValue(`items.${pending.index}.materialSlug`, pending.slug, opts)
+    form.setValue(`items.${pending.index}.unitSlug`, baseSlugOf(pending.slug), opts)
+    setPending(null)
+    // bySlug / baseSlugOf dựng lại mỗi render từ `materials` — phụ thuộc `materials` là đủ.
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [pending, materials, form])
   const options: ComboboxOption[] = [
     ...Object.entries(fallbackLabels)
       .filter(([slug]) => !bySlug.has(slug))
@@ -124,6 +145,25 @@ export function ImportFormItemsField({
                       placeholder={t('importForms:materialPlaceholder')}
                       searchPlaceholder={t('importForms:materialSearch')}
                       emptyText={t('importForms:materialEmpty')}
+                      footer={
+                        materialAbilities.search
+                          ? (search, close) => (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                className="w-full justify-start"
+                                onClick={() => {
+                                  close()
+                                  setAdding({ index, search })
+                                }}
+                              >
+                                <PlusIcon aria-hidden />
+                                {t('importForms:addMaterialEntry')}
+                              </Button>
+                            )
+                          : undefined
+                      }
                     />
                   </FormControl>
                   {material && (
@@ -302,6 +342,17 @@ export function ImportFormItemsField({
           </p>
         )}
       </div>
+
+      <AddWarehouseMaterialDialog
+        open={adding !== null}
+        onOpenChange={(open) => !open && setAdding(null)}
+        warehouseSlug={warehouseSlug}
+        warehouseName={warehouseName}
+        initialSearch={adding?.search ?? ''}
+        availableSlugs={materials.map((m) => m.slug)}
+        abilities={materialAbilities}
+        onAdded={(slug) => adding && setPending({ index: adding.index, slug })}
+      />
     </section>
   )
 }

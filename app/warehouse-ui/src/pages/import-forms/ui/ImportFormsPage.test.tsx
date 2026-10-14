@@ -146,6 +146,25 @@ describe('ImportFormsPage', () => {
     expect(screen.getByRole('link', { name: 'PN-0001', hidden: true })).toBeInTheDocument()
   })
 
+  it.each([
+    ['có MATERIAL_READ', true],
+    ['không có MATERIAL_READ', false],
+  ])('sheet tạo, %s → ô vật tư %s nút "Thêm vật tư vào kho…"', async (_name, allowed) => {
+    mock([kho('w-a', 'A')])
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
+    )
+    const { user } = renderPage('/import-forms?warehouse=w-a', {
+      ...SUP,
+      scope: [...SUP.scope, ...(allowed ? ['MATERIAL_READ'] : [])],
+    })
+    await user.click(await screen.findByRole('button', { name: 'Tạo phiếu' }))
+    await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
+    const entry = screen.queryByRole('button', { name: /Thêm vật tư vào kho/ })
+    if (allowed) expect(entry).toBeInTheDocument()
+    else expect(entry).not.toBeInTheDocument()
+  })
+
   it('đóng sheet tạo (chưa sửa gì) → về danh sách, sheet biến mất', async () => {
     mock([kho('w-a', 'A')])
     server.use(
