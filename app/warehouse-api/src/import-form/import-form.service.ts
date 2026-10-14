@@ -24,7 +24,11 @@ import {
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
-import { ImportFormStatus } from './import-form.constants';
+import {
+  IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES,
+  IMPORT_FORM_UPLOAD_FOLDER,
+  ImportFormStatus,
+} from './import-form.constants';
 import { ImportFormException } from './import-form.exception';
 import { ImportFormValidation } from './import-form.validation';
 import { pickDefined } from 'src/shared/utils/obj.util';
@@ -43,6 +47,9 @@ import { UserValidation } from 'src/user/user.validation';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
+import { S3Service } from 'src/file/s3/s3.service';
+import { FileException } from 'src/file/file.exception';
+import { FileValidation } from 'src/file/file.validation';
 
 /** Response cần slug của người lập/người duyệt/kho — các cột snapshot còn lại nằm sẵn trên phiếu. */
 const IMPORT_FORM_RELATIONS: FindOptionsRelations<ImportForm> = {
@@ -85,7 +92,38 @@ export class ImportFormService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly transactionManagerService: TransactionManagerService,
     private readonly inventoryService: InventoryService,
+    private readonly s3Service: S3Service,
   ) {}
+
+  /**
+   * Upload file đính kèm phiếu lên S3, trả link. Không gắn vào phiếu nào: client gửi link này vào
+   * field `file` của `POST`/`PATCH` phiếu, 2 route đó chỉ lưu chuỗi.
+   *
+   * Quyền là OR (tạo phiếu HOẶC sửa phiếu nháp, kể cả bản `_OWN`) ⇒ check ở đây, không bằng decorator.
+   * Không có phiếu cụ thể nên `_OWN` không cần so người tạo — rào đó nằm ở `PATCH`.
+   */
+  async uploadFile(file: Express.Multer.File, currentUser: CurrentUserDto): Promise<string> {
+    const context = `${ImportFormService.name}.${this.uploadFile.name}`;
+    this.assertCanUpload(currentUser);
+    if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
+    if (!IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES.includes(file.mimetype))
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_FILE_TYPE_NOT_ALLOWED);
+
+    const key = await this.s3Service.uploadFile(file, IMPORT_FORM_UPLOAD_FOLDER);
+    this.logger.log(`Import form file uploaded: ${key}`, context);
+    return this.s3Service.getFileUrl(key);
+  }
+
+  private assertCanUpload(currentUser: CurrentUserDto): void {
+    if (currentUser.roleName === RoleEnum.SuperAdmin) return;
+    const scope = currentUser.scope ?? [];
+    const allowed = [
+      AuthorityCode.ImportFormCreate,
+      AuthorityCode.ImportFormUpdateDraft,
+      AuthorityCode.ImportFormUpdateDraftOwn,
+    ].some((code) => scope.includes(code));
+    if (!allowed) throw new ForbiddenException();
+  }
 
   async createImportForm(
     warehouseSlug: string,
