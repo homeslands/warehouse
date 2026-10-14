@@ -45,3 +45,12 @@ MANAGER, SUPERVISOR (thuộc ít nhất 1 kho). Bật cho MANAGER ở `/permissi
 
 - [ ] Chrome 320 / 768 / 1024 / 1400px, sidebar mở / thu gọn: chân trang form không đè nội dung, không cuộn ngang trang.
 - [ ] Dark mode; tiếng Anh.
+
+## Thêm vật tư vào kho từ phiếu
+- [ ] Mở ô vật tư của một dòng, gõ tên vật tư chưa có ở kho → cuối danh sách có "＋ Thêm vật tư vào kho…" → hộp mở, ô tìm có sẵn chữ.
+- [ ] Vật tư có trong danh mục → "Gắn vào kho" → hộp đóng, dòng đó được chọn vật tư + đơn vị gốc, có hiện "Tồn: 0 …".
+- [ ] Tạo vật tư mới (mã, tên, loại, đơn vị gốc) không chọn NCC → dòng được chọn; mở màn Vật tư thấy vật tư mới.
+- [ ] Tạo vật tư mới có chọn NCC → dòng phiếu sau khi lưu có NCC đó.
+- [ ] Mã trùng → lỗi tại ô Mã trong hộp.
+- [ ] Đăng nhập MANAGER (seed mặc định) → vẫn tìm được, nút "Gắn vào kho" / "Tạo và gắn vào kho" khoá kèm lý do.
+- [ ] Bỏ phiếu sau khi gắn → vật tư vẫn ở kho (màn tạo phiếu mới thấy vật tư trong ô chọn).

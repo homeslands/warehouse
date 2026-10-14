@@ -23,7 +23,10 @@ import type {
   MaterialUpdateInput,
 } from '../model/types'
 
-export function useMaterials(params: ListParams<MaterialFilters>, options: { enabled?: boolean } = {}) {
+export function useMaterials(
+  params: ListParams<MaterialFilters>,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: materialKeys.list(params),
     queryFn: () => fetchMaterials(params),

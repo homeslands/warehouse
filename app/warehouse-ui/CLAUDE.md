@@ -359,6 +359,12 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo vẫn hỏi xác nhận, sửa lưu thẳng; 409 / 101314 khi sửa →
     đóng sheet + toast + invalidate cả kho. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
     (`pages/import-forms/model/paths.ts`).
+    Ô chọn vật tư của dòng có `footer` "＋ Thêm vật tư vào kho…" (prop `footer` của `Combobox`: nhận chữ đang gõ + hàm đóng)
+    → `AddWarehouseMaterialDialog` (`features/import-form-editor`): tìm danh mục (`GET /materials`, loại vật tư đã ở kho) +
+    "Gắn vào kho" (`PUT /warehouses/{w}/materials`), hoặc "Tạo và gắn vào kho" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC). Quyền
+    `MaterialAddAbilities` do trang tính (`materialAddAbilities`). Hộp chờ `available-materials` tải lại rồi mới `onAdded`; items field
+    còn chờ thêm tới khi vật tư có trong `materials` mới chọn vào dòng (để có đơn vị gốc). Invalidate chéo (vật tư khả dụng, danh mục
+    vật tư, NCC) nằm ở hộp — entity `inventory` không import entity khác.
   - **thao tác một ô (gán, chọn) → `Dialog`**: mẫu `features/warehouse-assign-manager`,
     `features/store-assign-warehouse`. Không dựng react-hook-form cho một ô — state cục bộ + một
     `<p role="alert">` cho lỗi backend thuộc ô đó là đủ.
@@ -791,4 +797,4 @@ mất công tìm cách sửa nó.
   thiếu mã khi phiếu không có dòng 1:1; ô chọn vật tư tải 100 vật tư đầu của kho. Test tay:
   `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
   `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
-  chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang).
+  chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang). Thêm vật tư từ phiếu: vật tư tạo nhanh chỉ có đơn vị gốc; kho > 100 vật tư thì vật tư vừa gắn (ngoài 100 mục đầu) không chọn được vào dòng tự động; seed quyền mặc định chỉ ADMIN gắn / tạo vật tư (MANAGER / SUPERVISOR thấy nút khoá kèm lý do — admin bật `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` (+ `MATERIAL_CREATE`) ở `/permissions`). Hộp thêm vật tư khoá mọi đường đóng khi đang gắn / tạo; edge case đã biết: dòng chọn vật tư chờ tới khi vật tư hiện trong danh sách kho (100 mục).
