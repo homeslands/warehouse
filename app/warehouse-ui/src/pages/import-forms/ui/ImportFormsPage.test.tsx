@@ -122,6 +122,16 @@ describe('ImportFormsPage', () => {
     await waitFor(() => expect(seen.at(-1)?.get('status')).toBe('CONFIRMED'))
   })
 
+  it('ô kho nằm trên thanh lọc, cùng hàng với Trạng thái và nút Tạo', async () => {
+    mock([kho('w-a', 'A'), kho('w-b', 'B')])
+    renderPage('/import-forms?warehouse=w-b')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    const row = screen.getByRole('combobox', { name: 'Kho' }).closest('[data-slot="toolbar-row"]')
+    expect(row).not.toBeNull()
+    expect(row).toContainElement(screen.getByRole('combobox', { name: 'Trạng thái' }))
+    expect(row).toContainElement(screen.getByRole('button', { name: 'Tạo phiếu' }))
+  })
+
   it('kho ngừng hoạt động → nút Tạo khoá kèm lý do', async () => {
     mock([kho('w-a', 'A', false)])
     renderPage('/import-forms?warehouse=w-a')

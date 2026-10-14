@@ -156,31 +156,32 @@ export function ImportFormsPage() {
 
   return (
     <div className="space-y-4">
-      <div className="flex flex-wrap items-center justify-between gap-3">
-        {header}
-        <WarehousePicker
-          warehouses={selection.warehouses}
-          value={warehouse?.slug}
-          onChange={(slug) => setFilters({ warehouse: slug })}
-        />
-      </div>
+      {header}
 
       <ListToolbar
+        // Kho đứng đầu thanh lọc nhưng không tính vào "Bộ lọc (n)" / "Xoá bộ lọc": luôn phải có một kho.
         filters={
-          <SelectFilter
-            label={t('importForms:filterStatus')}
-            value={filters.status ?? ''}
-            onChange={(value) =>
-              setFilters({ status: value === '' ? undefined : (value as ImportForm['status']) })
-            }
-            options={[
-              { value: '', label: t('importForms:statusAll') },
-              ...IMPORT_FORM_STATUSES.map((s) => ({
-                value: s,
-                label: t(`importForms:status.${s}`),
-              })),
-            ]}
-          />
+          <>
+            <WarehousePicker
+              warehouses={selection.warehouses}
+              value={warehouse?.slug}
+              onChange={(slug) => setFilters({ warehouse: slug })}
+            />
+            <SelectFilter
+              label={t('importForms:filterStatus')}
+              value={filters.status ?? ''}
+              onChange={(value) =>
+                setFilters({ status: value === '' ? undefined : (value as ImportForm['status']) })
+              }
+              options={[
+                { value: '', label: t('importForms:statusAll') },
+                ...IMPORT_FORM_STATUSES.map((s) => ({
+                  value: s,
+                  label: t(`importForms:status.${s}`),
+                })),
+              ]}
+            />
+          </>
         }
         activeFilterCount={filters.status ? 1 : 0}
         onClearFilters={() => setFilters({ status: undefined })}
