@@ -1,4 +1,4 @@
-import { Entity, Column, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToMany } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { Base } from 'src/app/base.entity';
 import { Material } from 'src/material/material.entity';
@@ -39,9 +39,10 @@ export class Supplier extends Base {
   note?: string;
 
   /**
-   * 1 nhà cung cấp - n vật tư: FK nằm ở `material_tbl.supplier_id_column` (NULL-able). Gắn/gỡ qua
-   * `PUT|DELETE /suppliers/:slug/materials` (body `materialSlugs`), không qua DTO của vật tư.
+   * n nhà cung cấp - n vật tư qua bảng join `material_supplier_tbl` (phía sở hữu là
+   * `Material.suppliers`). Gắn/gỡ qua `PUT|DELETE /suppliers/:slug/materials` (body
+   * `materialSlugs`) hoặc `PUT /materials/:slug/suppliers`, không qua DTO của vật tư.
    */
-  @OneToMany(() => Material, (material) => material.supplier)
+  @ManyToMany(() => Material, (material) => material.suppliers)
   materials: Material[];
 }

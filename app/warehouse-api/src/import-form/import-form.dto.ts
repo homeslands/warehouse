@@ -65,6 +65,17 @@ export class CreateImportFormItemDto {
   @Transform(trim)
   @IsString({ message: 'IMPORT_FORM_ITEM_NOTE_INVALID' })
   note?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Slug of the supplier of this line; must be one of the material suppliers. Omitted: the ' +
+      'only supplier of the material is used, or none when the material has 0 or several',
+    example: 'sup-slug-1',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString({ message: 'IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL' })
+  supplierSlug?: string;
 }
 
 /**
@@ -199,6 +210,17 @@ export class ImportFormAvailableUnitResponseDto {
   isBaseUnit: boolean;
 }
 
+export class ImportFormAvailableSupplierResponseDto {
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  code: string;
+
+  @ApiProperty()
+  name: string;
+}
+
 /**
  * Vật tư đã gán vào kho (có dòng `inventory_tbl`) — chỉ những vật tư này mới ghi được vào phiếu
  * nhập của kho. `units` là các đơn vị đã gắn cho vật tư (chọn làm `unitSlug` của dòng phiếu).
@@ -219,11 +241,11 @@ export class ImportFormAvailableMaterialResponseDto {
   @ApiProperty({ description: 'Current stock in this warehouse, in the base unit' })
   quantity: number;
 
-  @ApiPropertyOptional()
-  supplierSlug?: string | null;
-
-  @ApiPropertyOptional()
-  supplierName?: string | null;
+  @ApiProperty({
+    type: [ImportFormAvailableSupplierResponseDto],
+    description: 'Suppliers of the material — candidates for `items[].supplierSlug`',
+  })
+  suppliers: ImportFormAvailableSupplierResponseDto[];
 
   @ApiProperty({ type: [ImportFormAvailableUnitResponseDto] })
   units: ImportFormAvailableUnitResponseDto[];
