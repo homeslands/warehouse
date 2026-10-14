@@ -91,4 +91,21 @@ describe('DeleteImportFormDialog', () => {
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(onDeleted).not.toHaveBeenCalled()
   })
+
+  it('101301 (phiếu không còn) → đóng hộp như phiếu cũ, không gọi onDeleted', async () => {
+    server.use(mswHttp.delete(URL_D, () => apiError(404, 101301, 'not found')))
+    const onOpenChange = vi.fn()
+    const onDeleted = vi.fn()
+    const { user } = renderWithProviders(
+      <DeleteImportFormDialog
+        warehouseSlug="w-a"
+        form={draftForm}
+        onOpenChange={onOpenChange}
+        onDeleted={onDeleted}
+      />,
+    )
+    await confirmDialog(user, 'Xoá')
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(onDeleted).not.toHaveBeenCalled()
+  })
 })

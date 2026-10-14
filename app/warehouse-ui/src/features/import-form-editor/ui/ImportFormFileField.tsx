@@ -60,6 +60,7 @@ export function ImportFormFileField({ form, onUploadingChange }: Props) {
             ref={inputRef}
             type="file"
             className="sr-only"
+            tabIndex={-1}
             disabled={uploading}
             onChange={(e) => void onPick(e.target.files?.[0])}
           />
@@ -74,7 +75,10 @@ export function ImportFormFileField({ form, onUploadingChange }: Props) {
                 variant="ghost"
                 size="icon-sm"
                 aria-label={t('importForms:fileRemove')}
-                onClick={() => form.setValue('file', '', { shouldDirty: true })}
+                onClick={() => {
+                  form.setValue('file', '', { shouldDirty: true })
+                  form.clearErrors('file')
+                }}
               >
                 <XIcon aria-hidden />
               </Button>

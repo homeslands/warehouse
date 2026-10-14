@@ -43,6 +43,11 @@ describe('buildImportFormColumns', () => {
     expect(screen.getByText('Nguyễn Văn A')).toBeInTheDocument()
   })
 
+  it('tổng tiền giữ phần lẻ (tối đa 2 chữ số), nhất quán với trang chi tiết', () => {
+    renderWithProviders(<Table rows={[{ ...draftForm, total: 1234.56 }]} />)
+    expect(screen.getByText(/1\.234,56/)).toBeInTheDocument()
+  })
+
   it('CANCELLED / CONFIRMED hiện đúng nhãn', () => {
     renderWithProviders(
       <Table

@@ -24,6 +24,10 @@ describe('isStaleImportFormError', () => {
     expect(isStaleImportFormError(err(403, 101315))).toBe(true)
   })
 
+  it('101301 (phiếu không còn) → cũ', () => {
+    expect(isStaleImportFormError(err(404, 101301))).toBe(true)
+  })
+
   it('lỗi khác (400 / 101304) → không cũ', () => {
     expect(isStaleImportFormError(err(400, 101304))).toBe(false)
   })

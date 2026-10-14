@@ -16,7 +16,13 @@ import {
 const BASE = 'http://localhost:8085/api/v1'
 let current: ImportFormValues | undefined
 
-function Harness({ file = '' }: { file?: string }) {
+function Harness({
+  file = '',
+  withErrorButton = false,
+}: {
+  file?: string
+  withErrorButton?: boolean
+}) {
   const form = useForm<ImportFormValues>({
     resolver: zodResolver(importFormSchema),
     defaultValues: { ...emptyFormValues(new Date(2026, 9, 13)), file },
@@ -25,6 +31,16 @@ function Harness({ file = '' }: { file?: string }) {
   return (
     <Form {...form}>
       <ImportFormFileField form={form} onUploadingChange={vi.fn()} />
+      {withErrorButton && (
+        <button
+          type="button"
+          onClick={() =>
+            form.setError('file', { type: 'server', message: 'importForms:fileUploadFailed' })
+          }
+        >
+          đặt lỗi
+        </button>
+      )}
     </Form>
   )
 }
@@ -73,5 +89,18 @@ describe('ImportFormFileField', () => {
     await user.click(screen.getByRole('button', { name: 'Gỡ file' }))
     expect(current?.file).toBe('')
     expect(screen.queryByText('cu.png')).not.toBeInTheDocument()
+  })
+
+  it('gỡ file → xoá cả lỗi cũ của ô file', async () => {
+    const { user } = renderWithProviders(<Harness file="cu-1760000000000.png" withErrorButton />)
+    await user.click(screen.getByRole('button', { name: 'đặt lỗi' }))
+    expect(await screen.findByText('Tải file lên không thành công, thử lại.')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Gỡ file' }))
+    expect(screen.queryByText('Tải file lên không thành công, thử lại.')).not.toBeInTheDocument()
+  })
+
+  it('input file ẩn không nằm trong thứ tự Tab', () => {
+    renderWithProviders(<Harness />)
+    expect(screen.getByLabelText('Chứng từ đính kèm')).toHaveAttribute('tabindex', '-1')
   })
 })
