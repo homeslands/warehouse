@@ -110,7 +110,9 @@ describe('importFormSchema', () => {
   })
 
   it('số HĐ bắt buộc, PO / HĐ tối đa 64', () => {
-    expect(issues({ ...valid(), invoiceCode: '  ' })).toContain('invoiceCode:importForms:invoiceCodeRequired')
+    expect(issues({ ...valid(), invoiceCode: '  ' })).toContain(
+      'invoiceCode:importForms:invoiceCodeRequired',
+    )
     expect(issues({ ...valid(), purchaseOrder: 'x'.repeat(65) })).toContain(
       'purchaseOrder:importForms:referenceTooLong',
     )
@@ -126,11 +128,21 @@ describe('importFormSchema', () => {
       items: [{ ...valid().items[0], ...patch }],
     })
     expect(issues(item({ quantity: 0 }))).toContain('items.0.quantity:importForms:quantityInvalid')
-    expect(issues(item({ quantity: 0.1234567 }))).toContain('items.0.quantity:importForms:quantityInvalid')
-    expect(issues(item({ quantity: undefined }))).toContain('items.0.quantity:importForms:quantityInvalid')
-    expect(issues(item({ quantity: 1e12 }))).toContain('items.0.quantity:importForms:quantityTooLarge')
-    expect(issues(item({ unitPrice: -1 }))).toContain('items.0.unitPrice:importForms:unitPriceInvalid')
-    expect(issues(item({ unitPrice: 1.005 }))).toContain('items.0.unitPrice:importForms:unitPriceInvalid')
+    expect(issues(item({ quantity: 0.1234567 }))).toContain(
+      'items.0.quantity:importForms:quantityInvalid',
+    )
+    expect(issues(item({ quantity: undefined }))).toContain(
+      'items.0.quantity:importForms:quantityInvalid',
+    )
+    expect(issues(item({ quantity: 1e12 }))).toContain(
+      'items.0.quantity:importForms:quantityTooLarge',
+    )
+    expect(issues(item({ unitPrice: -1 }))).toContain(
+      'items.0.unitPrice:importForms:unitPriceInvalid',
+    )
+    expect(issues(item({ unitPrice: 1.005 }))).toContain(
+      'items.0.unitPrice:importForms:unitPriceInvalid',
+    )
     expect(issues(item({ unitPrice: 0 }))).toEqual([])
   })
 
@@ -169,7 +181,9 @@ describe('chuyển đổi', () => {
       date: '2026-10-13',
       items: [{ materialSlug: 'm-flour', unitSlug: 'u-bag', quantity: 2, unitPrice: 375000 }],
     })
-    expect(toCreateInput({ ...valid(), note: ' x ', file: 'k.pdf', purchaseOrder: 'PO' })).toMatchObject({
+    expect(
+      toCreateInput({ ...valid(), note: ' x ', file: 'k.pdf', purchaseOrder: 'PO' }),
+    ).toMatchObject({
       note: 'x',
       file: 'k.pdf',
       purchaseOrder: 'PO',
@@ -190,12 +204,16 @@ describe('chuyển đổi', () => {
   })
 
   it('toFormValues: null → "", ghi chú dòng null → ""', () => {
-    expect(toFormValues({ ...draftForm, purchaseOrder: null, note: null, file: null })).toMatchObject({
+    expect(
+      toFormValues({ ...draftForm, purchaseOrder: null, note: null, file: null }),
+    ).toMatchObject({
       code: 'PN-0001',
       purchaseOrder: '',
       note: '',
       file: '',
-      items: [{ materialSlug: 'm-flour', unitSlug: 'u-bag', quantity: 10, unitPrice: 375000, note: '' }],
+      items: [
+        { materialSlug: 'm-flour', unitSlug: 'u-bag', quantity: 10, unitPrice: 375000, note: '' },
+      ],
     })
   })
 

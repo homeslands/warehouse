@@ -12,7 +12,9 @@ export function useWarehouseSelection(
 ) {
   const { data, isPending, error } = useWarehouses({ page: 1, size: 100 })
   const warehouses = data?.items
-  const resolved = warehouses ? resolveWarehouse(warehouses, requested, recallWarehouse()) : undefined
+  const resolved = warehouses
+    ? resolveWarehouse(warehouses, requested, recallWarehouse())
+    : undefined
 
   // Ref để effect dưới không chạy lại chỉ vì bên gọi truyền callback mới mỗi lần render. Cập nhật trong effect
   // (không ghi ref lúc render); khai TRƯỚC effect dùng nó nên luôn chạy trước.

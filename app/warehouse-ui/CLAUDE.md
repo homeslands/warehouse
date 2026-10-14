@@ -351,6 +351,10 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
 
     Cả hai đều vô hình khi đọc code và khi chạy test. Cách kiểm: render thật rồi in `element.className`
     ra xem class nào còn sống sót.
+  - **Ngoại lệ — form nhiều dòng → trang riêng** (phiếu nhập `/import-forms/new`, `/:slug/edit`): đầu phiếu + tới 200 dòng
+    vật tư không vừa ngăn 480px. Trang riêng (`features/import-form-editor`), chân trang ghim tổng + Huỷ / Lưu nháp, chặn rời
+    trang bằng `useBlocker` + `beforeunload` (`LeaveGuard`) — cần data router, test bằng `renderWithRouter`. Tạo vẫn hỏi
+    xác nhận, sửa lưu thẳng. Ngữ cảnh kho nằm trên `?warehouse=` ở mọi route phiếu (`pages/import-forms/model/paths.ts`).
   - **thao tác một ô (gán, chọn) → `Dialog`**: mẫu `features/warehouse-assign-manager`,
     `features/store-assign-warehouse`. Không dựng react-hook-form cho một ô — state cục bộ + một
     `<p role="alert">` cho lỗi backend thuộc ô đó là đủ.
@@ -471,8 +475,7 @@ backend cho nó qua trước khi nhìn `scope`):
   endpoint nghiệp vụ bằng `@RequireAuthority` — **64 mã** (thêm `ROLE_*` từ `WMS-10-be(5)`: `GET /roles` cần `ROLE_READ`), seed mặc định chép đúng `@HasRole` cũ.
   **Nhiều mã trong một decorator là AND**: route nối hai tài nguyên không có mã riêng (gán kho cho
   cửa hàng = `STORE_UPDATE` + `WAREHOUSE_UPDATE`; vật tư trong kho = `MATERIAL_*` + `WAREHOUSE_*`) →
-  FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
-  nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
+  FE gác bằng `can(A) && can(B)`. Phiếu **nhập** đã có endpoint (WMS-16) — `IMPORT_FORM_*` gác thật, luật `_OWN` so `requesterSlug` với `userSlug` (`pages/import-forms/model/abilities.ts`); phiếu xuất / kiểm / chi chưa có endpoint. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
   `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units`, `/roles` (tám
   màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
@@ -777,3 +780,10 @@ mất công tìm cách sửa nó.
   migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hiện chưa
   có tác dụng**: module phiếu chưa có endpoint nào — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend
   làm module đó và gác bằng `@RequireAuthority`.
+- **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
+  key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
+  không có chỉ số dòng → chỉ toast; chưa lọc theo mã / ngày → không có ô tìm; dòng phiếu không có mã đơn vị gốc → cột quy đổi
+  thiếu mã khi phiếu không có dòng 1:1; ô chọn vật tư tải 100 vật tư đầu của kho. Test tay:
+  `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
+  `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
+  chân trang của form là `sticky bottom-0` (không phải fixed) vì sidebar thu gọn thành icon.
