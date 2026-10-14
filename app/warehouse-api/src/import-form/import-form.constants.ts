@@ -22,3 +22,17 @@ export const IMPORT_FORM_ITEMS_MAX = 200;
 
 export const IMPORT_FORM_REFERENCE_MAX_LENGTH = 64;
 export const IMPORT_FORM_FILE_MAX_LENGTH = 1024;
+
+/** Upload file đính kèm phiếu (`POST .../import-forms/upload-file`) — key S3 nằm dưới thư mục này. */
+export const IMPORT_FORM_UPLOAD_FOLDER = 'import-forms';
+export const IMPORT_FORM_UPLOAD_MAX_SIZE = 10 * 1024 * 1024; // 10MB
+export const IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES: readonly string[] = [
+  'application/pdf',
+  'image/jpeg',
+  'image/png',
+  'image/webp',
+  'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet', // xlsx
+  'application/vnd.ms-excel', // xls
+  'application/vnd.openxmlformats-officedocument.wordprocessingml.document', // docx
+  'application/msword', // doc
+];

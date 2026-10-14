@@ -27,6 +27,8 @@ import { ImportFormItem } from './import-form-item.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
+import { S3Service } from 'src/file/s3/s3.service';
+import { FileValidation } from 'src/file/file.validation';
 
 describe('ImportFormService', () => {
   let service: ImportFormService;
@@ -49,6 +51,7 @@ describe('ImportFormService', () => {
   const manager = { save: jest.fn(), delete: jest.fn(), findOne: jest.fn() };
   const inventoryService = { receive: jest.fn() };
   const transactionManager = { execute: jest.fn() };
+  const s3Service = { uploadFile: jest.fn(), getFileUrl: jest.fn() };
 
   const supplier = {
     id: 'sup-1',
@@ -137,6 +140,7 @@ describe('ImportFormService', () => {
         { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
         { provide: InventoryService, useValue: inventoryService },
+        { provide: S3Service, useValue: s3Service },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
       ],
@@ -771,6 +775,56 @@ describe('ImportFormService', () => {
           actor([], 'root', RoleEnum.SuperAdmin),
         ),
       ).resolves.toBeDefined();
+    });
+  });
+
+  describe('uploadFile', () => {
+    const pdf = { originalname: 'hoa don.pdf', mimetype: 'application/pdf' } as Express.Multer.File;
+    const url = 'https://bucket.s3.ap-southeast-1.amazonaws.com/import-forms/hoa-don-1.pdf';
+
+    beforeEach(() => {
+      s3Service.uploadFile.mockResolvedValue('import-forms/hoa-don-1.pdf');
+      s3Service.getFileUrl.mockReturnValue(url);
+    });
+
+    it.each([
+      AuthorityCode.ImportFormCreate,
+      AuthorityCode.ImportFormUpdateDraft,
+      AuthorityCode.ImportFormUpdateDraftOwn,
+    ])('uploads under import-forms/ and returns the S3 link with %s', async (code) => {
+      await expect(service.uploadFile(pdf, actor([code]))).resolves.toBe(url);
+      expect(s3Service.uploadFile).toHaveBeenCalledWith(pdf, 'import-forms');
+      expect(s3Service.getFileUrl).toHaveBeenCalledWith('import-forms/hoa-don-1.pdf');
+    });
+
+    it('lets SUPER_ADMIN upload without any authority', async () => {
+      await expect(service.uploadFile(pdf, actor([], 'root', RoleEnum.SuperAdmin))).resolves.toBe(
+        url,
+      );
+    });
+
+    it('rejects a user with none of the create/update authorities', async () => {
+      await expect(
+        service.uploadFile(pdf, actor([AuthorityCode.ImportFormRead])),
+      ).rejects.toBeInstanceOf(ForbiddenException);
+      expect(s3Service.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('rejects a missing file', async () => {
+      await expectError(
+        service.uploadFile(undefined, actor([AuthorityCode.ImportFormCreate])),
+        FileValidation.FILE_NOT_FOUND.code,
+      );
+    });
+
+    it('rejects a file type outside the whitelist without touching S3', async () => {
+      const html = { originalname: 'x.html', mimetype: 'text/html' } as Express.Multer.File;
+
+      await expectError(
+        service.uploadFile(html, actor([AuthorityCode.ImportFormCreate])),
+        ImportFormValidation.IMPORT_FORM_FILE_TYPE_NOT_ALLOWED.code,
+      );
+      expect(s3Service.uploadFile).not.toHaveBeenCalled();
     });
   });
 

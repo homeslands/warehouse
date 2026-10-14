@@ -16,6 +16,7 @@ describe('ImportFormController', () => {
     deleteImportForm: jest.fn(),
     confirmImportForm: jest.fn(),
     cancelImportForm: jest.fn(),
+    uploadFile: jest.fn(),
   };
   const actor = { userId: 'user-id-1', scope: [] };
 
@@ -57,6 +58,17 @@ describe('ImportFormController', () => {
     expect(response.result).toBe('1 import form have been deleted successfully');
   });
 
+  it('returns the S3 link from upload-file as the result', async () => {
+    const file = { originalname: 'a.pdf' } as Express.Multer.File;
+    importFormService.uploadFile.mockResolvedValue('https://bucket/import-forms/a.pdf');
+
+    const response = await controller.uploadFile(file, actor);
+
+    expect(importFormService.uploadFile).toHaveBeenCalledWith(file, actor);
+    expect(response.statusCode).toBe(201);
+    expect(response.result).toBe('https://bucket/import-forms/a.pdf');
+  });
+
   it('scopes every route to the warehouse in :warehouseSlug', () => {
     expect(Reflect.getMetadata(WAREHOUSE_SCOPE_KEY, ImportFormController)).toBe('warehouseSlug');
   });
@@ -78,7 +90,7 @@ describe('ImportFormController', () => {
 
     // Full-or-_OWN là OR, decorator chỉ biểu diễn AND ⇒ check nằm ở service. Gắn decorator vào đây
     // sẽ chặn mất người chỉ có quyền `_OWN`.
-    it.each(['updateImportForm', 'deleteImportForm'] as const)(
+    it.each(['updateImportForm', 'deleteImportForm', 'uploadFile'] as const)(
       '%s has no guard-level authority (checked in the service)',
       (handler) => {
         expect(authorityOf(handler)).toBeUndefined();
