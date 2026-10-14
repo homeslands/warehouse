@@ -284,7 +284,9 @@ export function ImportFormSheet({
         <Form {...form}>
           <div className="space-y-6">
             <section className="bg-card space-y-5 rounded-xl border p-5 sm:p-6">
-              <div className="grid gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
+              {/* `items-start`: FormItem là grid — bị kéo giãn theo ô cao nhất hàng (Mã phiếu có dòng gợi ý) thì
+                  nhãn và ô nhập của các ô bên cạnh bị đẩy lệch xuống. */}
+              <div className="grid items-start gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
                 <FormField
                   control={form.control}
                   name="code"
