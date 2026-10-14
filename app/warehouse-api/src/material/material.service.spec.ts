@@ -257,6 +257,31 @@ describe('MaterialService', () => {
       expect(result.items[1].warehouses).toEqual([]);
     });
 
+    it('bỏ qua dòng tồn trỏ tới kho đã xoá mềm (warehouse = null) thay vì làm sập response', async () => {
+      const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), supplier: null });
+      materialRepository.findAndCount.mockResolvedValue([[m1], 1]);
+      inventoryRepository.find.mockResolvedValue([
+        {
+          material: { id: 'mat-1' },
+          warehouse: null,
+          quantity: 5,
+          reservedQuantity: 0,
+        },
+        {
+          material: { id: 'mat-1' },
+          warehouse: { slug: 'wh-a', code: 'KHO-A', name: 'Kho A' },
+          quantity: 1,
+          reservedQuantity: 0,
+        },
+      ]);
+
+      const result = await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(result.items[0].warehouses).toEqual([
+        { slug: 'wh-a', code: 'KHO-A', name: 'Kho A', quantity: 1, availableQuantity: 1 },
+      ]);
+    });
+
     it('không lọc supplier khi không gửi hasSupplier', async () => {
       materialRepository.findAndCount.mockResolvedValue([[], 0]);
 

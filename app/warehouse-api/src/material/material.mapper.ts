@@ -5,12 +5,15 @@ import {
   CreateMaterialRequestDto,
   MaterialConversionUnitResponseDto,
   MaterialResponseDto,
+  MaterialWarehouseResponseDto,
   UpdateMaterialRequestDto,
 } from './material.dto';
 import { Material } from './material.entity';
 import { MaterialUnit } from './material-unit.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
+import { roundToScale } from 'src/shared/utils/decimal.transformer';
+import { Inventory } from 'src/inventory/inventory.entity';
 import { MaterialType } from 'src/material-type/material-type.entity';
 import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
 import { Unit } from 'src/unit/unit.entity';
@@ -105,6 +108,44 @@ export class MaterialProfile extends AutomapperProfile {
           mapFrom((s) =>
             s.supplier ? mapper.map(s.supplier, Supplier, SupplierResponseDto) : null,
           ),
+        ),
+        // `inventories` chỉ có khi service gán thủ công từ 1 query riêng (xem `toResponses`). Bỏ qua
+        // dòng có `warehouse` = null: kho đã xoá mềm vẫn còn dòng tồn trỏ tới, không được làm sập cả
+        // response.
+        forMember(
+          (d) => d.warehouses,
+          mapFrom((s) =>
+            (s.inventories ?? [])
+              .filter((row) => row.warehouse)
+              .map((row) => mapper.map(row, Inventory, MaterialWarehouseResponseDto)),
+          ),
+        ),
+      );
+
+      // Dòng tồn kho -> 1 kho của vật tư (object lồng trong `warehouses`).
+      createMap(
+        mapper,
+        Inventory,
+        MaterialWarehouseResponseDto,
+        forMember(
+          (d) => d.slug,
+          mapFrom((s) => s.warehouse.slug),
+        ),
+        forMember(
+          (d) => d.code,
+          mapFrom((s) => s.warehouse.code),
+        ),
+        forMember(
+          (d) => d.name,
+          mapFrom((s) => s.warehouse.name),
+        ),
+        forMember(
+          (d) => d.quantity,
+          mapFrom((s) => s.quantity),
+        ),
+        forMember(
+          (d) => d.availableQuantity,
+          mapFrom((s) => roundToScale(s.quantity - s.reservedQuantity)),
         ),
       );
 
