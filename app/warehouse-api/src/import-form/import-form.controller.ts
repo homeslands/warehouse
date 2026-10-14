@@ -1,4 +1,11 @@
-import { ApiTags, ApiOperation, ApiBearerAuth, ApiParam } from '@nestjs/swagger';
+import {
+  ApiTags,
+  ApiOperation,
+  ApiBearerAuth,
+  ApiParam,
+  ApiBody,
+  ApiConsumes,
+} from '@nestjs/swagger';
 import {
   HttpStatus,
   HttpCode,
@@ -11,7 +18,11 @@ import {
   Param,
   Delete,
   Query,
+  UploadedFile,
+  UseInterceptors,
 } from '@nestjs/common';
+import { CustomFileInterceptor } from 'src/file/custom-interceptor';
+import { IMPORT_FORM_UPLOAD_MAX_SIZE } from './import-form.constants';
 import {
   ChangeImportFormStatusRequestDto,
   CreateImportFormRequestDto,
@@ -70,6 +81,43 @@ export class ImportFormController {
       timestamp: new Date().toISOString(),
       result,
     } as AppResponseDto<ImportFormResponseDto>;
+  }
+
+  // Không gắn `@RequireAuthority`: quyền là OR (tạo HOẶC sửa nháp/_OWN), service tự check.
+  @Post('upload-file')
+  @HttpCode(HttpStatus.CREATED)
+  @UseInterceptors(
+    new CustomFileInterceptor('file', {
+      limits: { fileSize: IMPORT_FORM_UPLOAD_MAX_SIZE, files: 1 },
+    }),
+  )
+  @ApiConsumes('multipart/form-data')
+  @ApiBody({
+    schema: {
+      type: 'object',
+      required: ['file'],
+      properties: { file: { type: 'string', format: 'binary' } },
+    },
+  })
+  @ApiOperation({
+    summary: 'Upload an attachment for an import form to S3',
+    description:
+      'Returns the S3 link; send it as `file` in POST/PATCH import form. Max 10MB, ' +
+      'pdf/jpg/png/webp/xls/xlsx/doc/docx. Requires IMPORT_FORM_CREATE, ' +
+      'IMPORT_FORM_UPDATE_DRAFT or IMPORT_FORM_UPDATE_DRAFT_OWN',
+  })
+  @ApiResponseWithType({ status: HttpStatus.CREATED, description: 'Uploaded', type: String })
+  async uploadFile(
+    @UploadedFile() file: Express.Multer.File,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    const result = await this.importFormService.uploadFile(file, currentUser);
+    return {
+      message: 'File has been uploaded successfully',
+      statusCode: HttpStatus.CREATED,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<string>;
   }
 
   @Get()

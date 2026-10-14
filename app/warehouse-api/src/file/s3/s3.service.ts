@@ -29,10 +29,12 @@ export class S3Service {
     });
   }
 
-  async uploadFile(file: Express.Multer.File): Promise<string> {
+  /** `folder` (không có `/` ở 2 đầu) được ghép làm tiền tố của key, vd `import-forms/abc-123.pdf`. */
+  async uploadFile(file: Express.Multer.File, folder?: string): Promise<string> {
     const context = `${S3Service.name}.${this.uploadFile.name}`;
     const filename = file.originalname.split('.')[0].replace(' ', '-');
-    const key = `${filename}-${Date.now()}.${file.originalname.split('.')[1]}`;
+    const name = `${filename}-${Date.now()}.${file.originalname.split('.')[1]}`;
+    const key = folder ? `${folder}/${name}` : name;
 
     await this.s3.send(
       new PutObjectCommand({
@@ -66,6 +68,12 @@ export class S3Service {
     });
 
     return Promise.all(uploads);
+  }
+
+  /** Link public dạng virtual-hosted của object; chỉ mở được khi bucket/object cho đọc public. */
+  getFileUrl(key: string): string {
+    const path = key.split('/').map(encodeURIComponent).join('/');
+    return `https://${this.AWS_BUCKET}.s3.${this.AWS_REGION}.amazonaws.com/${path}`;
   }
 
   async deleteFile(key: string): Promise<void> {

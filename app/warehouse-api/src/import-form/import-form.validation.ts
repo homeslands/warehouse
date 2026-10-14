@@ -33,6 +33,7 @@ export const IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL = 'IMPORT_FORM_ITEM_UNIT_NOT_
 export const IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID = 'IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID';
 export const IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE =
   'IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE';
+export const IMPORT_FORM_FILE_TYPE_NOT_ALLOWED = 'IMPORT_FORM_FILE_TYPE_NOT_ALLOWED';
 
 export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_NOT_FOUND
@@ -61,7 +62,8 @@ export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND
   | typeof IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL
   | typeof IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID
-  | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE;
+  | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE
+  | typeof IMPORT_FORM_FILE_TYPE_NOT_ALLOWED;
 
 export type TImportFormErrorCode = Record<TImportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -155,5 +157,9 @@ export const ImportFormValidation: TImportFormErrorCode = {
   IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE: createErrorCode(
     101328,
     'Item material is not assigned to this warehouse',
+  ),
+  IMPORT_FORM_FILE_TYPE_NOT_ALLOWED: createErrorCode(
+    101329,
+    'File type is not allowed (pdf, jpg, png, webp, xls, xlsx, doc, docx only)',
   ),
 };

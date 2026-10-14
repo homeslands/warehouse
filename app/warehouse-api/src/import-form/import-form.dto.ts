@@ -105,7 +105,11 @@ export class CreateImportFormRequestDto {
   date: string;
 
   @AutoMap()
-  @ApiPropertyOptional({ description: 'Attached file key/URL', example: 'import-forms/pn-1.pdf' })
+  @ApiPropertyOptional({
+    description: 'S3 link returned by `POST .../import-forms/upload-file` — stored as-is',
+    example:
+      'https://my-bucket.s3.ap-southeast-1.amazonaws.com/import-forms/pn-1-1760400000000.pdf',
+  })
   @IsOptional()
   @Transform(trim)
   @IsString({ message: 'IMPORT_FORM_FILE_INVALID' })
