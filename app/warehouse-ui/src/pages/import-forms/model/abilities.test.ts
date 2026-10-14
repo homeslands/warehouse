@@ -31,7 +31,11 @@ describe('importFormAbilities', () => {
   })
 
   it('chỉ _OWN: phiếu mình được, phiếu người khác không', () => {
-    const u = user(['IMPORT_FORM_UPDATE_DRAFT_OWN', 'IMPORT_FORM_DELETE_DRAFT_OWN'])
+    const u = user([
+      'IMPORT_FORM_CREATE',
+      'IMPORT_FORM_UPDATE_DRAFT_OWN',
+      'IMPORT_FORM_DELETE_DRAFT_OWN',
+    ])
     expect(importFormAbilities(u, { form: mine, warehouseActive: true })).toMatchObject({
       update: true,
       delete: true,
@@ -42,11 +46,16 @@ describe('importFormAbilities', () => {
     })
   })
 
+  it('có UPDATE_DRAFT nhưng thiếu IMPORT_FORM_CREATE → không sửa (editor cần available-materials)', () => {
+    const u = user(['IMPORT_FORM_UPDATE_DRAFT', 'IMPORT_FORM_UPDATE_DRAFT_OWN'])
+    expect(importFormAbilities(u, { form: mine, warehouseActive: true }).update).toBe(false)
+  })
+
   it('_OWN mà phiên chưa có userSlug → không coi là của mình', () => {
     const u: CurrentUser = {
       userName: 'u',
       roleName: 'CUSTOM',
-      scope: ['IMPORT_FORM_UPDATE_DRAFT_OWN'],
+      scope: ['IMPORT_FORM_CREATE', 'IMPORT_FORM_UPDATE_DRAFT_OWN'],
     }
     expect(importFormAbilities(u, { form: mine, warehouseActive: true }).update).toBe(false)
   })

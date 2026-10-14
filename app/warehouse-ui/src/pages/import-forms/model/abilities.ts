@@ -4,7 +4,11 @@ import type { ImportForm } from '@/entities/import-form'
 export type ImportFormAbilities = {
   /** `POST` = IMPORT_FORM_CREATE; backend chặn kho inactive (101316) → FE khoá trước. */
   create: boolean
-  /** `PATCH` = UPDATE_DRAFT, hoặc UPDATE_DRAFT_OWN + là người lập. Chỉ DRAFT. */
+  /**
+   * `PATCH` = UPDATE_DRAFT, hoặc UPDATE_DRAFT_OWN + là người lập. Chỉ DRAFT. Còn cần IMPORT_FORM_CREATE vì
+   * trang sửa nạp `GET …/available-materials` (backend gate bằng IMPORT_FORM_CREATE) — thiếu thì ẩn nút để
+   * người dùng không vào một form không chọn được vật tư.
+   */
   update: boolean
   delete: boolean
   /** Xác nhận / huỷ = IMPORT_FORM_CONFIRM. Không chặn tự duyệt (docs/permissions.md). */
@@ -37,7 +41,9 @@ export function importFormAbilities(
   const decide = draft && can(user, 'IMPORT_FORM_CONFIRM')
   return {
     create: can(user, 'IMPORT_FORM_CREATE') && warehouseActive,
-    update: fullOrOwn('IMPORT_FORM_UPDATE_DRAFT', 'IMPORT_FORM_UPDATE_DRAFT_OWN'),
+    update:
+      can(user, 'IMPORT_FORM_CREATE') &&
+      fullOrOwn('IMPORT_FORM_UPDATE_DRAFT', 'IMPORT_FORM_UPDATE_DRAFT_OWN'),
     delete: fullOrOwn('IMPORT_FORM_DELETE_DRAFT', 'IMPORT_FORM_DELETE_DRAFT_OWN'),
     confirm: decide,
     cancel: decide,
