@@ -170,6 +170,16 @@ describe('ImportFormDetailPage', () => {
     expect(await screen.findByText('DANH SÁCH')).toBeInTheDocument()
     await waitFor(() => expect(getWarehouse).not.toHaveBeenCalled())
   })
+  it('bản in: gốc mang class cho bảng 9 cột vừa A4 (bỏ cuộn ngang, cho ô xuống dòng)', async () => {
+    renderPage(undefined, MANAGER, draftForm)
+    await screen.findByRole('heading', { level: 1, name: /PN-0001/ })
+    expect(screen.getByTestId('import-form-print')).toHaveClass(
+      'print:[&_[data-slot=table-container]]:overflow-visible',
+      'print:[&_td]:whitespace-normal',
+      'print:[&_th]:whitespace-normal',
+    )
+  })
+
   it.each(['DRAFT', 'CANCELLED'] as const)(
     'bản in %s: có nhãn "chưa có giá trị", ẩn/hiện đúng class',
     async (status) => {
