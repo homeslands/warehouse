@@ -351,6 +351,14 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
 
     Cả hai đều vô hình khi đọc code và khi chạy test. Cách kiểm: render thật rồi in `element.className`
     ra xem class nào còn sống sót.
+  - **Form nhiều dòng (phiếu nhập) → `FormSheet size="wide"`** (~1024px, full width dưới 640px; prop `size?: 'default' | 'wide'`).
+    `footerStart` đặt tổng tiền bên trái chân sheet, cùng hàng Huỷ / Lưu nháp. `ImportFormSheet`
+    (`features/import-form-editor`) luôn mount, trang cha điều khiển `open` (+ `formSlug` khi sửa); sheet tự tải
+    chi tiết khi sửa (`useImportForm(..., { enabled: open })`), chỉ kiểm `status === 'DRAFT'` — quyền sửa do trang cha kiểm
+    trước khi truyền `formSlug`. **Không có URL riêng cho form**: F5 / Back khi đang mở sẽ mất phần đang nhập, như mọi sheet
+    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo vẫn hỏi xác nhận, sửa lưu thẳng; 409 / 101314 khi sửa →
+    đóng sheet + toast + invalidate cả kho. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
+    (`pages/import-forms/model/paths.ts`).
   - **thao tác một ô (gán, chọn) → `Dialog`**: mẫu `features/warehouse-assign-manager`,
     `features/store-assign-warehouse`. Không dựng react-hook-form cho một ô — state cục bộ + một
     `<p role="alert">` cho lỗi backend thuộc ô đó là đủ.
@@ -471,8 +479,7 @@ backend cho nó qua trước khi nhìn `scope`):
   endpoint nghiệp vụ bằng `@RequireAuthority` — **64 mã** (thêm `ROLE_*` từ `WMS-10-be(5)`: `GET /roles` cần `ROLE_READ`), seed mặc định chép đúng `@HasRole` cũ.
   **Nhiều mã trong một decorator là AND**: route nối hai tài nguyên không có mã riêng (gán kho cho
   cửa hàng = `STORE_UPDATE` + `WAREHOUSE_UPDATE`; vật tư trong kho = `MATERIAL_*` + `WAREHOUSE_*`) →
-  FE gác bằng `can(A) && can(B)`. Mã bốn loại phiếu seed sẵn nhưng module phiếu **chưa có endpoint**
-  nên bật/tắt chúng chưa đổi được gì. Lịch sử + chỗ backend làm khác đề xuất:
+  FE gác bằng `can(A) && can(B)`. Phiếu **nhập** đã có endpoint (WMS-16) — `IMPORT_FORM_*` gác thật, luật `_OWN` so `requesterSlug` với `userSlug` (`pages/import-forms/model/abilities.ts`); phiếu xuất / kiểm / chi chưa có endpoint. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
   `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units`, `/roles` (tám
   màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
@@ -774,6 +781,14 @@ mất công tìm cách sửa nó.
   được cả bốn loại phiếu). Cần vào màn `/permissions` bật **7 ô** cho `MANAGER`:
   `IMPORT_FORM_CREATE`, `EXPORT_FORM_CREATE`, `BALANCE_FORM_CREATE`, `BALANCE_FORM_RECORD_COUNT`,
   `IMPORT_FORM_UPDATE_DRAFT`, `EXPORT_FORM_UPDATE_DRAFT`, `WAREHOUSE_PAYMENT_UPDATE_DRAFT`. Không cần
-  migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hiện chưa
-  có tác dụng**: module phiếu chưa có endpoint nào — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend
-  làm module đó và gác bằng `@RequireAuthority`.
+  migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hai ô phiếu nhập
+  (`IMPORT_FORM_CREATE`, `IMPORT_FORM_UPDATE_DRAFT`) đã có tác dụng** — phiếu nhập có endpoint từ WMS-16, FE dùng ở
+  `/import-forms`. Năm ô còn lại (`EXPORT_FORM_*`, `BALANCE_FORM_*`, `WAREHOUSE_PAYMENT_*`) vẫn chưa có tác dụng: các module
+  đó chưa có endpoint — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend làm module đó và gác bằng `@RequireAuthority`.
+- **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
+  key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
+  không có chỉ số dòng → chỉ toast; chưa lọc theo mã / ngày → không có ô tìm; dòng phiếu không có mã đơn vị gốc → cột quy đổi
+  thiếu mã khi phiếu không có dòng 1:1; ô chọn vật tư tải 100 vật tư đầu của kho. Test tay:
+  `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
+  `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
+  chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang).

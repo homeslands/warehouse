@@ -15,6 +15,7 @@ import viRoles from './locales/vi/roles.json'
 import viUnits from './locales/vi/units.json'
 import viMaterialTypes from './locales/vi/materialTypes.json'
 import viMaterials from './locales/vi/materials.json'
+import viImportForms from './locales/vi/importForms.json'
 import viErrors from './locales/vi/errors.json'
 import viErrorPages from './locales/vi/errorPages.json'
 import viNav from './locales/vi/nav.json'
@@ -31,6 +32,7 @@ import enRoles from './locales/en/roles.json'
 import enUnits from './locales/en/units.json'
 import enMaterialTypes from './locales/en/materialTypes.json'
 import enMaterials from './locales/en/materials.json'
+import enImportForms from './locales/en/importForms.json'
 import enErrors from './locales/en/errors.json'
 import enErrorPages from './locales/en/errorPages.json'
 import enNav from './locales/en/nav.json'
@@ -47,6 +49,7 @@ export const defaultNS = 'common'
 // `units` — chuỗi của màn Đơn vị.
 // `materialTypes` — chuỗi của màn Loại vật tư.
 // `materials` — chuỗi của màn Vật tư (danh sách, chi tiết, đơn vị quy đổi).
+// `importForms` — chuỗi của màn Phiếu nhập kho (danh sách, form, xác nhận, in).
 // `users` — chuỗi của màn Người dùng (bảng, form tạo/sửa, reset mật khẩu, khoá/xoá).
 // `roles` — chuỗi của màn Vai trò (bảng, form tạo/sửa mô tả, hộp xoá).
 // `permissions` — bảng ma trận phân quyền role × authority.
@@ -64,6 +67,7 @@ export const resources = {
     units: viUnits,
     materialTypes: viMaterialTypes,
     materials: viMaterials,
+    importForms: viImportForms,
     errors: viErrors,
     errorPages: viErrorPages,
     nav: viNav,
@@ -82,6 +86,7 @@ export const resources = {
     units: enUnits,
     materialTypes: enMaterialTypes,
     materials: enMaterials,
+    importForms: enImportForms,
     errors: enErrors,
     errorPages: enErrorPages,
     nav: enNav,
@@ -111,6 +116,7 @@ void i18n
       'units',
       'materialTypes',
       'materials',
+      'importForms',
       'errors',
       'errorPages',
       'nav',

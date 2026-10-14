@@ -1,0 +1,104 @@
+import type { Versioned } from '@/shared/api/types'
+
+/** Vòng đời một chiều: `DRAFT` → `CONFIRMED` | `CANCELLED`. Chỉ `DRAFT` sửa / xoá được. */
+export const IMPORT_FORM_STATUSES = ['DRAFT', 'CONFIRMED', 'CANCELLED'] as const
+export type ImportFormStatus = (typeof IMPORT_FORM_STATUSES)[number]
+
+/**
+ * `ImportFormItemResponseDto`. Mã / tên vật tư, đơn vị, tỉ lệ quy đổi và NCC là **snapshot** lúc ghi dòng.
+ * `baseQuantity = quantity × conversionRate`, `amount = quantity × unitPrice` — server tính.
+ */
+export type ImportFormItem = {
+  slug: string
+  createdAt: string
+  updatedAt: string
+  lineNo: number
+  materialSlug: string
+  materialCode: string
+  materialName: string
+  unitSlug: string
+  unitCode: string
+  unitName: string
+  supplierSlug: string | null
+  supplierCode: string | null
+  supplierName: string | null
+  supplierTaxCode: string | null
+  supplierAddress: string | null
+  quantity: number
+  conversionRate: number
+  baseQuantity: number
+  unitPrice: number
+  amount: number
+  note: string | null
+}
+
+/**
+ * `ImportFormResponseDto`. `items` chỉ có ở `GET /{slug}` (danh sách bỏ hẳn field). `approver*` = người xác nhận
+ * HOẶC huỷ. `requesterSlug` null khi user đã bị xoá. Phiếu không có field nhà cung cấp.
+ */
+export type ImportForm = Versioned & {
+  slug: string
+  createdAt: string
+  updatedAt: string
+  code: string
+  purchaseOrder: string | null
+  invoiceCode: string
+  requesterSlug: string | null
+  requesterName: string
+  approverSlug: string | null
+  approverName: string | null
+  /** `YYYY-MM-DD`, không múi giờ. */
+  date: string
+  total: number
+  file: string | null
+  note: string | null
+  status: ImportFormStatus
+  warehouseSlug: string
+  items?: ImportFormItem[]
+}
+
+export type ImportFormItemInput = {
+  materialSlug: string
+  unitSlug: string
+  quantity: number
+  unitPrice: number
+  note?: string
+}
+
+export type ImportFormInput = {
+  code: string
+  invoiceCode: string
+  date: string
+  purchaseOrder?: string
+  file?: string
+  note?: string
+  items: ImportFormItemInput[]
+}
+
+/** PATCH partial + `version` bắt buộc. Gửi `items` = thay TOÀN BỘ dòng. `''` = xoá giá trị cũ. */
+export type ImportFormUpdateInput = Partial<ImportFormInput> & Versioned
+
+export type ImportFormFilters = {
+  status?: ImportFormStatus
+}
+
+/** `ImportFormAvailableUnitResponseDto`. `conversionRate` = số đơn vị gốc trong 1 đơn vị này. */
+export type AvailableUnit = {
+  unitSlug: string
+  unitCode: string
+  unitName: string
+  conversionRate: number
+  isBaseUnit: boolean
+}
+
+/** `ImportFormAvailableMaterialResponseDto` — vật tư đã gán vào kho, `quantity` = tồn hiện tại (đơn vị gốc). */
+export type AvailableMaterial = {
+  slug: string
+  code: string
+  name: string
+  baseUnitSlug: string | null
+  quantity: number
+  supplierSlug: string | null
+  supplierName: string | null
+  units: AvailableUnit[]
+}

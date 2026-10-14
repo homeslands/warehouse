@@ -29,6 +29,33 @@ function renderSheet(overrides: Overrides = {}) {
 }
 
 describe('FormSheet', () => {
+  describe('size và footerStart', () => {
+    it('mặc định rộng 480px', () => {
+      renderSheet()
+      expect(screen.getByRole('dialog').className).toContain('data-[side=right]:sm:max-w-[480px]')
+    })
+
+    it('size="wide" rộng ~1024px, không còn max-w-[480px]', () => {
+      renderSheet({ size: 'wide' })
+      const cls = screen.getByRole('dialog').className
+      expect(cls).toContain('data-[side=right]:sm:max-w-5xl')
+      expect(cls).not.toContain('max-w-[480px]')
+    })
+
+    it('footerStart hiện bên trái chân sheet, cùng hàng với Huỷ / Lưu', () => {
+      renderSheet({ footerStart: <p>Tổng: 5</p> })
+      const footer = screen.getByText('Tổng: 5').closest('[data-slot="sheet-footer"]')
+      expect(footer).not.toBeNull()
+      expect(within(footer as HTMLElement).getByRole('button', { name: 'Lưu' })).toBeInTheDocument()
+      expect(footer?.firstElementChild).toHaveTextContent('Tổng: 5')
+    })
+
+    it('không truyền footerStart thì không thêm gì', () => {
+      renderSheet()
+      expect(screen.queryByText('Tổng: 5')).not.toBeInTheDocument()
+    })
+  })
+
   it('đóng thì không render gì', () => {
     renderSheet({ open: false })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

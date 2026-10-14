@@ -1,5 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { cleanup, render, screen } from '@testing-library/react'
+import { Profiler } from 'react'
 import { createPortal } from 'react-dom'
 import userEvent from '@testing-library/user-event'
 import { describe, expect, it, vi } from 'vitest'
@@ -59,6 +60,25 @@ describe('DataTable — trạng thái', () => {
     render(<DataTable columns={columns} data={undefined} isLoading={false} error={error} />)
     expect(screen.getByRole('alert')).toHaveTextContent('boom')
     expect(screen.queryByText('Chưa có dữ liệu.')).not.toBeInTheDocument()
+  })
+
+  it('chưa có dữ liệu (đang tải / lỗi) mà cha render lại → không lặp render vô hạn', async () => {
+    // TanStack tự reset pageIndex mỗi khi `data` đổi tham chiếu (bỏ qua lần đầu, đăng ký qua microtask).
+    // `data ?? []` dựng mảng mới mỗi render → reset → setState → render → mảng mới… lặp mãi khi lỗi.
+    const error = { statusCode: 500, timestamp: '', path: '', method: 'GET', message: 'boom' }
+    vi.spyOn(console, 'warn').mockImplementation(() => {})
+    let commits = 0
+    const ui = () => (
+      <Profiler id="t" onRender={() => commits++}>
+        <DataTable columns={columns} data={undefined} isLoading={false} error={error} />
+      </Profiler>
+    )
+    const { rerender } = render(ui())
+    await Promise.resolve()
+    rerender(ui())
+    await new Promise((r) => setTimeout(r, 50))
+    expect(commits).toBeLessThan(10)
+    vi.restoreAllMocks()
   })
 
   it('lỗi khi đã có dữ liệu → giữ dữ liệu, không hiện lỗi tại chỗ', () => {

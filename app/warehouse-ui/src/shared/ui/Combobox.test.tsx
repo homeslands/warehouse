@@ -170,4 +170,39 @@ describe('Combobox', () => {
 
     expect(screen.getByText(label)).toHaveClass('min-w-0', 'break-words')
   })
+
+  describe('mở gần mép dưới màn hình', () => {
+    function placeTrigger(bottom: number) {
+      const trigger = screen.getByRole('combobox', { name: 'Tỉnh' })
+      vi.spyOn(trigger, 'getBoundingClientRect').mockReturnValue({
+        top: bottom - 36,
+        bottom,
+        left: 0,
+        right: 200,
+        width: 200,
+        height: 36,
+        x: 0,
+        y: bottom - 36,
+        toJSON: () => ({}),
+      } as DOMRect)
+      return trigger
+    }
+
+    it('phía dưới còn ít chỗ → cuộn ô chọn lên giữa trước khi mở danh sách', async () => {
+      const { user } = setup()
+      const trigger = placeTrigger(window.innerHeight - 100)
+      const scroll = vi.spyOn(trigger, 'scrollIntoView')
+      await user.click(trigger)
+      expect(scroll).toHaveBeenCalledWith({ block: 'center' })
+      expect(screen.getAllByRole('option')).toHaveLength(3)
+    })
+
+    it('phía dưới đủ chỗ → không cuộn', async () => {
+      const { user } = setup()
+      const trigger = placeTrigger(100)
+      const scroll = vi.spyOn(trigger, 'scrollIntoView')
+      await user.click(trigger)
+      expect(scroll).not.toHaveBeenCalled()
+    })
+  })
 })
