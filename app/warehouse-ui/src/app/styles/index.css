@@ -204,4 +204,17 @@
   [data-slot='sidebar-container'] {
     display: none !important;
   }
+
+  /* Giấy luôn trắng: ép bộ biến sáng khi đang ở dark mode (class `.dark` vẫn nằm trên <html> lúc in).
+     Giá trị copy từ :root ở đầu file — đổi bên đó thì đổi cả ở đây. */
+  .dark {
+    color-scheme: light;
+    --background: oklch(1 0 0);
+    --foreground: oklch(0.145 0 0);
+    --card: oklch(1 0 0);
+    --card-foreground: oklch(0.145 0 0);
+    --muted: oklch(0.97 0 0);
+    --muted-foreground: oklch(0.556 0 0);
+    --border: oklch(0.922 0 0);
+  }
 }
