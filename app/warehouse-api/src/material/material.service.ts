@@ -190,18 +190,10 @@ export class MaterialService {
         })
       : [];
 
-    return materials.map((material) => ({
-      ...this.mapper.map(material, Material, MaterialResponseDto),
-      warehouses: rows
-        .filter((row) => row.material.id === material.id)
-        .map((row) => ({
-          slug: row.warehouse.slug,
-          code: row.warehouse.code,
-          name: row.warehouse.name,
-          quantity: row.quantity,
-          availableQuantity: roundToScale(row.quantity - row.reservedQuantity),
-        })),
-    }));
+    return materials.map((material) => {
+      material.inventories = rows.filter((row) => row.material.id === material.id);
+      return this.mapper.map(material, Material, MaterialResponseDto);
+    });
   }
 
   /** Dùng bởi `InventoryService` để resolve `materialSlug` -> entity. */
