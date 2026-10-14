@@ -24,12 +24,20 @@ const mat = (slug: string, code: string, name: string): Material => ({
 const cement = mat('m-cement', 'VT-09', 'Xi măng PCB40')
 const inWarehouse = mat('m-in', 'VT-01', 'Xi măng trắng')
 
-function setup(opts: { search?: string; canAssign?: boolean } = {}) {
+function setup(
+  opts: {
+    search?: string
+    canAssign?: boolean
+    locked?: boolean
+    found?: Material[]
+    available?: string[]
+  } = {},
+) {
   const seen: URLSearchParams[] = []
   server.use(
     mswHttp.get(`${BASE}/materials`, ({ request }) => {
       seen.push(new URL(request.url).searchParams)
-      return paginated([cement, inWarehouse])
+      return paginated(opts.found ?? [cement, inWarehouse])
     }),
   )
   const onAssigned = vi.fn()
@@ -38,8 +46,9 @@ function setup(opts: { search?: string; canAssign?: boolean } = {}) {
     <AssignExistingSection
       warehouseSlug="w-a"
       search={opts.search ?? 'xi măng'}
-      availableSlugs={['m-in']}
+      availableSlugs={opts.available ?? ['m-in']}
       canAssign={opts.canAssign ?? true}
+      locked={opts.locked}
       onAssigned={onAssigned}
       onBusyChange={onBusyChange}
     />,
@@ -80,9 +89,7 @@ describe('AssignExistingSection', () => {
     const { user, onAssigned } = setup()
     const btn = await screen.findByRole('button', { name: 'Gắn vào kho' })
     await user.dblClick(btn)
-    await waitFor(() =>
-      expect(onAssigned).toHaveBeenCalledWith({ slug: 'm-cement', name: 'Xi măng PCB40' }, false),
-    )
+    await waitFor(() => expect(onAssigned).toHaveBeenCalledWith(cement, false))
     expect(calls).toBe(1)
   })
 
@@ -117,9 +124,7 @@ describe('AssignExistingSection', () => {
     )
     const { user, onAssigned } = setup()
     await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
-    await waitFor(() =>
-      expect(onAssigned).toHaveBeenCalledWith({ slug: 'm-cement', name: 'Xi măng PCB40' }, true),
-    )
+    await waitFor(() => expect(onAssigned).toHaveBeenCalledWith(cement, true))
   })
 
   it('100804 → lỗi tại dòng, không gọi onAssigned', async () => {
@@ -193,5 +198,56 @@ describe('AssignExistingSection', () => {
     expect(await screen.findByText(/Xi măng PCB40/)).toBeInTheDocument()
     expect(seen).toHaveLength(1)
     expect(seen[0].get('name')).toBe('xi măng')
+  })
+
+  it('onAssigned chạy xong rồi mới mở khoá: bấm dòng khác trong lúc đó không gửi PUT thứ hai', async () => {
+    let puts = 0
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => {
+        puts++
+        return ok({ materialSlug: 'm-cement' })
+      }),
+    )
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    const other = mat('m-other', 'VT-10', 'Xi măng đen')
+    const { user, onAssigned } = setup({ found: [cement, other], available: [] })
+    onAssigned.mockImplementation(() => gate)
+    const buttons = await screen.findAllByRole('button', { name: 'Gắn vào kho' })
+    await user.click(buttons[0])
+    await waitFor(() => expect(onAssigned).toHaveBeenCalledTimes(1))
+    // isPending đã false nhưng onAssigned chưa xong → vẫn khoá.
+    await user.click(screen.getAllByRole('button', { name: 'Gắn vào kho' })[0])
+    await user.click(screen.getAllByRole('button', { name: 'Gắn vào kho' }).at(-1)!)
+    expect(puts).toBe(1)
+    release()
+    await waitFor(() => expect(onAssigned).toHaveBeenCalledTimes(1))
+  })
+
+  it('locked → mọi nút Gắn vào kho bị khoá', async () => {
+    setup({ locked: true })
+    expect(await screen.findByRole('button', { name: 'Gắn vào kho' })).toBeDisabled()
+  })
+
+  it('vật tư chưa có đơn vị gốc → nút khoá kèm lý do', async () => {
+    const legacy = { ...mat('m-old', 'VT-77', 'Xi măng cũ'), baseUnit: null }
+    setup({ found: [legacy], available: [] })
+    const btn = await screen.findByRole('button', { name: 'Gắn vào kho' })
+    expect(btn).toBeDisabled()
+    expect(btn).toHaveAccessibleDescription('chưa có đơn vị gốc')
+  })
+
+  it('một kết quả duy nhất đã có ở kho → nhắc chọn trực tiếp', async () => {
+    setup({ found: [inWarehouse] })
+    expect(await screen.findByText(/đã có ở kho — chọn trực tiếp/)).toBeInTheDocument()
+  })
+
+  it('nhiều kết quả đều đã có ở kho → báo không tìm thấy', async () => {
+    setup({
+      found: [inWarehouse, mat('m-in2', 'VT-02', 'Xi măng xám')],
+      available: ['m-in', 'm-in2'],
+    })
+    expect(await screen.findByText(/Không tìm thấy vật tư nào chưa có ở kho/)).toBeInTheDocument()
+    expect(screen.queryByText(/chọn trực tiếp/)).not.toBeInTheDocument()
   })
 })

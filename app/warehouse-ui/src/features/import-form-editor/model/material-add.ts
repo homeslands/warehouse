@@ -19,3 +19,15 @@ export const NO_MATERIAL_ADD: MaterialAddAbilities = {
   create: false,
   attachSupplier: false,
 }
+
+/**
+ * Vật tư vừa được thêm vào kho từ hộp "Thêm vật tư vào kho" — đủ để dòng phiếu chọn ngay, kể cả khi vật tư chưa nằm trong
+ * 100 bản ghi đầu của `available-materials`. `label` = "mã · tên"; `baseUnit.label` = "mã đơn vị · tên đơn vị".
+ */
+export type AddedMaterial = {
+  slug: string
+  label: string
+  baseUnit: { slug: string; label: string } | null
+}
+
+export const codeNameLabel = (code: string, name: string) => `${code} · ${name}`

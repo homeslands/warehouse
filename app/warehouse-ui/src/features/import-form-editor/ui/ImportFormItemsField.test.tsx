@@ -208,7 +208,7 @@ describe('ImportFormItemsField', () => {
     expect(screen.queryByRole('textbox', { name: /Ghi chú dòng/ })).not.toBeInTheDocument()
   })
 
-  it('dòng "＋ Thêm vật tư vào kho…" mở hộp với chữ đã gõ; gắn xong chỉ dòng đó được chọn + đơn vị gốc', async () => {
+  it('dòng "＋ Thêm vật tư vào kho…" mở hộp với chữ đã gõ; gắn xong chọn NGAY chỉ dòng đó + đơn vị gốc', async () => {
     server.use(
       mswHttp.get(`${BASE}/materials`, () => paginated([cementMaterial])),
       mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => ok({ materialSlug: 'm-cement' })),
@@ -222,15 +222,33 @@ describe('ImportFormItemsField', () => {
       'xi măng',
     )
     await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
-    // Vật tư chưa có trong `materials` → chưa chọn; tải lại xong mới chọn.
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
-    expect(current?.items[2].materialSlug).toBe('')
-    await user.click(screen.getByRole('button', { name: 'RELOAD' }))
-    await waitFor(() =>
-      expect(current?.items[2]).toMatchObject({ materialSlug: 'm-cement', unitSlug: 'u-kg' }),
+    // Không cần tải lại: hộp trả về nhãn + đơn vị gốc nên dòng chọn ngay.
+    expect(current?.items[2]).toMatchObject({ materialSlug: 'm-cement', unitSlug: 'u-kg' })
+    expect(screen.getByRole('combobox', { name: 'Vật tư dòng 3' })).toHaveTextContent(
+      'VT-09 · Xi măng',
     )
     expect(current?.items[0].materialSlug).toBe('')
     expect(current?.items[1].materialSlug).toBe('')
+  })
+
+  it('vật tư vừa gắn không nằm trong materials (ngoài 100 bản ghi) → dòng vẫn hiện nhãn và đơn vị gốc', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => paginated([cementMaterial])),
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => ok({ materialSlug: 'm-cement' })),
+      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
+    )
+    const { user } = renderWithProviders(<HarnessWithReload />, { auth: 'admin' })
+    await user.click(screen.getByRole('combobox', { name: 'Vật tư dòng 1' }))
+    await user.type(screen.getByRole('combobox', { name: /Tìm theo mã hoặc tên/ }), 'xi măng')
+    await user.click(screen.getByRole('button', { name: /Thêm vật tư vào kho/ }))
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(current?.items[0]).toMatchObject({ materialSlug: 'm-cement', unitSlug: 'u-kg' })
+    expect(screen.getByRole('combobox', { name: 'Vật tư dòng 1' })).toHaveTextContent(
+      'VT-09 · Xi măng',
+    )
+    expect(selectedLabel('Đơn vị dòng 1')).toBe('KG · Kilogram')
   })
 
   it('không có quyền tìm danh mục → không có dòng "Thêm vật tư vào kho…"', async () => {

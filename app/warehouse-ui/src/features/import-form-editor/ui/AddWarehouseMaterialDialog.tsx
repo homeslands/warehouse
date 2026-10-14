@@ -16,11 +16,11 @@ import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Input } from '@/shared/ui/input'
 import { Separator } from '@/shared/ui/separator'
 import { importFormKeys } from '@/entities/import-form'
-import { materialKeys } from '@/entities/material'
+import { materialKeys, type Material } from '@/entities/material'
 import { supplierKeys } from '@/entities/supplier'
 import { AssignExistingSection } from './AssignExistingSection'
 import { CreateMaterialSection } from './CreateMaterialSection'
-import type { MaterialAddAbilities } from '../model/material-add'
+import { codeNameLabel, type AddedMaterial, type MaterialAddAbilities } from '../model/material-add'
 
 type Props = {
   open: boolean
@@ -30,9 +30,17 @@ type Props = {
   initialSearch: string
   availableSlugs: string[]
   abilities: MaterialAddAbilities
-  /** Gọi SAU KHI `available-materials` của kho đã tải lại — dòng có đủ đơn vị khi chọn. */
-  onAdded: (materialSlug: string) => void
+  /** Gọi SAU KHI `available-materials` của kho đã tải lại; kèm nhãn + đơn vị gốc để dòng chọn ngay. */
+  onAdded: (added: AddedMaterial) => void
 }
+
+const toAddedMaterial = (m: Material): AddedMaterial => ({
+  slug: m.slug,
+  label: codeNameLabel(m.code, m.name),
+  baseUnit: m.baseUnit
+    ? { slug: m.baseUnit.slug, label: codeNameLabel(m.baseUnit.code, m.baseUnit.name) }
+    : null,
+})
 
 /**
  * Hộp "Thêm vật tư vào kho" mở từ ô chọn vật tư của dòng phiếu nhập: tìm danh mục + gắn vào kho, hoặc tạo vật tư mới +
@@ -68,7 +76,8 @@ function DialogBody({
 
   /** Chờ danh sách vật tư của kho tải lại rồi mới báo bên gọi — dòng chọn xong phải có đủ đơn vị. */
   const finish = async (
-    material: { slug: string; name: string },
+    name: string,
+    added: AddedMaterial,
     toastKey:
       | 'importForms:assignedToast'
       | 'importForms:alreadyInWarehouseToast'
@@ -77,11 +86,11 @@ function DialogBody({
   ) => {
     await qc.invalidateQueries({ queryKey: importFormKeys.available(warehouseSlug) })
     void qc.invalidateQueries({ queryKey: materialKeys.all })
-    const message = t(toastKey, { name: material.name })
+    const message = t(toastKey, { name })
     if (toastKey === 'importForms:alreadyInWarehouseToast') toast.info(message)
     else toast.success(message)
     if (supplierFailed) toast.warning(t('importForms:supplierAttachFailed'))
-    onAdded(material.slug)
+    onAdded(added)
     onOpenChange(false)
   }
 
@@ -116,10 +125,12 @@ function DialogBody({
             search={search}
             availableSlugs={availableSlugs}
             canAssign={abilities.assign}
+            locked={busy}
             onBusyChange={setAssignBusy}
             onAssigned={(m, alreadyInWarehouse) =>
               finish(
-                m,
+                m.name,
+                toAddedMaterial(m),
                 alreadyInWarehouse
                   ? 'importForms:alreadyInWarehouseToast'
                   : 'importForms:assignedToast',
@@ -138,12 +149,13 @@ function DialogBody({
               initialSearch={creating}
               canCreate={abilities.create}
               canAttachSupplier={abilities.attachSupplier}
+              locked={busy}
               onBusyChange={setCreateBusy}
               onWarehouseInactive={() => onOpenChange(false)}
-              onCreated={async (m, supplierAttached) => {
+              onCreated={async (added, name, supplierAttached) => {
                 if (supplierAttached !== null)
                   void qc.invalidateQueries({ queryKey: supplierKeys.all })
-                await finish(m, 'importForms:createdToast', supplierAttached === false)
+                await finish(name, added, 'importForms:createdToast', supplierAttached === false)
               }}
             />
           )}

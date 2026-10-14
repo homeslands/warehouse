@@ -1,5 +1,5 @@
 import { NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
-import { useEffect, useId, useState } from 'react'
+import { useId, useState } from 'react'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { translateFormMessage } from '@/shared/lib/form-message'
@@ -18,7 +18,11 @@ import {
   lineAmount,
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
-import { NO_MATERIAL_ADD, type MaterialAddAbilities } from '../model/material-add'
+import {
+  NO_MATERIAL_ADD,
+  type AddedMaterial,
+  type MaterialAddAbilities,
+} from '../model/material-add'
 import { AddWarehouseMaterialDialog } from './AddWarehouseMaterialDialog'
 
 type Props = {
@@ -62,19 +66,24 @@ export function ImportFormItemsField({
     return m ? (baseUnitOf(m)?.unitSlug ?? '') : ''
   }
   const [adding, setAdding] = useState<{ index: number; search: string } | null>(null)
-  const [pending, setPending] = useState<{ index: number; slug: string } | null>(null)
-  // Hộp gọi `onAdded` sau khi invalidate xong nhưng `materials` có thể chưa re-render → chờ vật tư xuất hiện rồi mới chọn.
-  useEffect(() => {
-    if (!pending || !bySlug.has(pending.slug)) return
+  // Vật tư vừa thêm từ hộp có thể nằm ngoài 100 bản ghi đầu của `materials` → giữ nhãn / đơn vị tại chỗ cho dòng đã chọn.
+  const [addedLabels, setAddedLabels] = useState<Record<string, string>>({})
+  const [addedUnits, setAddedUnits] = useState<Record<string, string>>({})
+  const labels = { ...fallbackLabels, ...addedLabels }
+  const unitLabels = { ...fallbackUnits, ...addedUnits }
+  const onMaterialAdded = (added: AddedMaterial) => {
+    if (!adding) return
+    setAddedLabels((prev) => ({ ...prev, [added.slug]: added.label }))
+    if (added.baseUnit) {
+      const { slug, label } = added.baseUnit
+      setAddedUnits((prev) => ({ ...prev, [slug]: label }))
+    }
     const opts = { shouldDirty: true, shouldValidate: form.formState.isSubmitted }
-    form.setValue(`items.${pending.index}.materialSlug`, pending.slug, opts)
-    form.setValue(`items.${pending.index}.unitSlug`, baseSlugOf(pending.slug), opts)
-    setPending(null)
-    // bySlug / baseSlugOf dựng lại mỗi render từ `materials` — phụ thuộc `materials` là đủ.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [pending, materials, form])
+    form.setValue(`items.${adding.index}.materialSlug`, added.slug, opts)
+    form.setValue(`items.${adding.index}.unitSlug`, added.baseUnit?.slug ?? '', opts)
+  }
   const options: ComboboxOption[] = [
-    ...Object.entries(fallbackLabels)
+    ...Object.entries(labels)
       .filter(([slug]) => !bySlug.has(slug))
       .map(([value, label]) => ({ value, label })),
     ...materials.map((m) => ({ value: m.slug, label: `${m.code} · ${m.name}` })),
@@ -204,8 +213,8 @@ export function ImportFormItemsField({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {!material && f.value && fallbackUnits[f.value] && (
-                        <SelectItem value={f.value}>{fallbackUnits[f.value]}</SelectItem>
+                      {!material && f.value && unitLabels[f.value] && (
+                        <SelectItem value={f.value}>{unitLabels[f.value]}</SelectItem>
                       )}
                       {(material?.units ?? []).map((u) => (
                         <SelectItem key={u.unitSlug} value={u.unitSlug}>
@@ -351,7 +360,7 @@ export function ImportFormItemsField({
         initialSearch={adding?.search ?? ''}
         availableSlugs={materials.map((m) => m.slug)}
         abilities={materialAbilities}
-        onAdded={(slug) => adding && setPending({ index: adding.index, slug })}
+        onAdded={onMaterialAdded}
       />
     </section>
   )
