@@ -3,7 +3,7 @@ import { http as mswHttp } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
 import type { Warehouse } from '@/entities/warehouse'
-import { apiError, ok } from '@/shared/test/api'
+import { apiError, ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { ImportFormDetailPage } from './ImportFormDetailPage'
@@ -80,12 +80,12 @@ function renderPage(
   server.use(
     mswHttp.get(`${BASE}/warehouses/w-a`, getWarehouse),
     mswHttp.get(`${BASE}/warehouses/w-a/import-forms/if-1`, () => ok(form)),
+    mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
   )
   const r = renderWithRouter(
     [
       { path: '/import-forms', element: <p>DANH SÁCH</p> },
       { path: '/import-forms/:slug', element: <ImportFormDetailPage /> },
-      { path: '/import-forms/:slug/edit', element: <p>TRANG SỬA</p> },
     ],
     { route, auth },
   )
@@ -111,6 +111,28 @@ describe('ImportFormDetailPage', () => {
     expect(await screen.findByRole('menuitem', { name: 'Huỷ phiếu' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'Xoá phiếu nháp' })).toBeInTheDocument()
     expect(screen.getByRole('menuitem', { name: 'In phiếu' })).toBeInTheDocument()
+  })
+
+  it('bấm Sửa → mở sheet sửa ngay trên trang (không điều hướng), lưu xong trang cập nhật', async () => {
+    let saved = false
+    server.use(
+      mswHttp.patch(`${BASE}/warehouses/w-a/import-forms/if-1`, () => {
+        saved = true
+        return ok({ ...draftForm, version: 4, note: '' })
+      }),
+    )
+    const { user, router } = renderPage()
+    await user.click(await screen.findByRole('button', { name: 'Sửa' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
+    expect(router.state.location.pathname).toBe('/import-forms/if-1')
+    const note = await within(sheet).findByRole('textbox', { name: /^Ghi chú$/ })
+    expect(note).toHaveValue('Giao buổi sáng')
+    await user.clear(note)
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu nháp' }))
+    await waitFor(() => expect(saved).toBe(true))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(router.state.location.pathname).toBe('/import-forms/if-1')
+    expect(screen.queryByText('Giao buổi sáng')).not.toBeInTheDocument()
   })
 
   it('CONFIRMED: chỉ còn nút In, hiện người xác nhận', async () => {

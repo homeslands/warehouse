@@ -23,9 +23,10 @@ import { useWarehouse } from '@/entities/warehouse'
 import { CancelImportFormDialog } from '@/features/import-form-cancel'
 import { ConfirmImportFormDialog } from '@/features/import-form-confirm'
 import { DeleteImportFormDialog } from '@/features/import-form-delete'
+import { ImportFormSheet } from '@/features/import-form-editor'
 import { useCrumbTitle } from '@/widgets/app-shell'
 import { importFormAbilities } from '../model/abilities'
-import { IMPORT_FORMS_PATH, editPath, listPath } from '../model/paths'
+import { IMPORT_FORMS_PATH, listPath } from '../model/paths'
 import { ImportFormItemsTable } from './ImportFormItemsTable'
 import { ImportFormPrintView } from './ImportFormPrintView'
 import { useWarehouseParam } from './useWarehouseParam'
@@ -51,6 +52,7 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
   const [confirming, setConfirming] = useState<ImportForm | null>(null)
   const [cancelling, setCancelling] = useState<ImportForm | null>(null)
   const [deleting, setDeleting] = useState<ImportForm | null>(null)
+  const [editing, setEditing] = useState(false)
 
   const backTo = readBackTo(location.state, listPath(warehouseSlug))
   const backLink = (
@@ -141,12 +143,7 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
                 <Button onClick={() => setConfirming(form)}>{t('importForms:confirm')}</Button>
               )}
               {ability.update && (
-                <Button
-                  variant="outline"
-                  onClick={() =>
-                    navigate(editPath(warehouseSlug, form.slug), { state: location.state })
-                  }
-                >
+                <Button variant="outline" onClick={() => setEditing(true)}>
                   {t('importForms:editAction')}
                 </Button>
               )}
@@ -226,6 +223,13 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
 
       <ImportFormPrintView form={form} warehouseName={warehouseName} baseUnitCode={baseUnitCode} />
 
+      <ImportFormSheet
+        open={editing}
+        onOpenChange={setEditing}
+        warehouseSlug={warehouseSlug}
+        warehouseName={warehouse.data?.name ?? warehouseSlug}
+        formSlug={form.slug}
+      />
       <ConfirmImportFormDialog
         warehouseSlug={warehouseSlug}
         form={confirming}
