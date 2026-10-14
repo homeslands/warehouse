@@ -30,7 +30,10 @@ export function LeaveGuard({ when, bypass }: Props) {
   useEffect(() => {
     if (!when) return
     const onBeforeUnload = (e: BeforeUnloadEvent) => {
-      if (!bypass.current) e.preventDefault()
+      if (bypass.current) return
+      e.preventDefault()
+      // Trình duyệt cũ chỉ hiện hộp hỏi khi returnValue được gán.
+      e.returnValue = ''
     }
     window.addEventListener('beforeunload', onBeforeUnload)
     return () => window.removeEventListener('beforeunload', onBeforeUnload)

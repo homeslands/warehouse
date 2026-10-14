@@ -64,7 +64,11 @@ export function buildImportFormColumns(
     {
       accessorKey: 'total',
       header: t('importForms:columnTotal'),
-      cell: ({ row }) => <span className="tabular-nums">{formatCurrency(row.original.total)}</span>,
+      cell: ({ row }) => (
+        <span className="tabular-nums">
+          {formatCurrency(row.original.total, { maximumFractionDigits: 2 })}
+        </span>
+      ),
     },
     {
       accessorKey: 'status',
