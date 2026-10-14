@@ -1,4 +1,4 @@
-import { useEffect, useId, useState } from 'react'
+import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
@@ -11,9 +11,7 @@ import {
   INVENTORY_WAREHOUSE_INACTIVE,
   useAssignWarehouseMaterial,
 } from '@/entities/inventory'
-import { useMaterials, type Material } from '@/entities/material'
-
-const MATERIAL_NOT_FOUND = 100701
+import { MATERIAL_NOT_FOUND, useMaterials, type Material } from '@/entities/material'
 
 function useDebouncedValue<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -31,32 +29,48 @@ type Props = {
   availableSlugs: string[]
   canAssign: boolean
   /** `alreadyInWarehouse` = backend trả 100802 (vật tư đã ở kho) — bên gọi vẫn chọn vào dòng. */
-  onAssigned: (material: { slug: string; name: string }, alreadyInWarehouse: boolean) => Promise<void> | void
+  onAssigned: (
+    material: { slug: string; name: string },
+    alreadyInWarehouse: boolean,
+  ) => Promise<void> | void
 }
 
 /** Tìm danh mục vật tư (chưa có ở kho) và gắn vào kho. */
-export function AssignExistingSection({ warehouseSlug, search, availableSlugs, canAssign, onAssigned }: Props) {
-  const { t } = useTranslation(['importForms', 'common'])
+export function AssignExistingSection({
+  warehouseSlug,
+  search,
+  availableSlugs,
+  canAssign,
+  onAssigned,
+}: Props) {
+  const { t } = useTranslation(['importForms'])
   const hintId = useId()
   const debounced = useDebouncedValue(search.trim(), 300)
   const query = toCodeOrNameQuery(debounced)
   const enabled = debounced !== ''
-  // `enabled`: option thêm vào `useMaterials` ở ghi chú dưới — ô tìm trống thì không gọi API.
+  // Ô tìm trống thì không gọi API.
   const materials = useMaterials({ page: 1, size: 20, ...query }, { enabled })
   const assign = useAssignWarehouseMaterial()
-  const [rowError, setRowError] = useState<{ slug: string; message: string } | null>(null)
+  const [rowError, setRowError] = useState<{ search: string; message: string } | null>(null)
+  const inFlight = useRef(false)
 
   if (!enabled) return null
 
   const found = materials.data?.items ?? []
   const candidates = found.filter((m) => !availableSlugs.includes(m.slug))
+  // Lỗi gắn gắn với từ khoá đã tìm: đổi từ khoá thì tự ẩn; refetch có thể gỡ dòng nên hiển thị ở mức section.
+  const sectionError = rowError?.search === debounced ? rowError.message : null
 
   const onAssign = (m: Material) => {
-    if (assign.isPending) return
+    if (inFlight.current) return
+    inFlight.current = true
     setRowError(null)
     assign.mutate(
       { warehouseSlug, materialSlug: m.slug },
       {
+        onSettled: () => {
+          inFlight.current = false
+        },
         onSuccess: () => void onAssigned({ slug: m.slug, name: m.name }, false),
         onError: (error) => {
           if (isApiError(error) && error.code === INVENTORY_DOES_EXIST) {
@@ -67,7 +81,10 @@ export function AssignExistingSection({ warehouseSlug, search, availableSlugs, c
             isApiError(error) &&
             (error.code === INVENTORY_WAREHOUSE_INACTIVE || error.code === MATERIAL_NOT_FOUND)
           ) {
-            setRowError({ slug: m.slug, message: resolveApiErrorMessage(error) })
+            setRowError({
+              search: debounced,
+              message: `${m.code} · ${m.name}: ${resolveApiErrorMessage(error)}`,
+            })
             void materials.refetch()
             return
           }
@@ -80,11 +97,18 @@ export function AssignExistingSection({ warehouseSlug, search, availableSlugs, c
   return (
     <section className="space-y-2" aria-label={t('importForms:catalogNotInWarehouse')}>
       <h3 className="text-sm font-medium">{t('importForms:catalogNotInWarehouse')}</h3>
+      {sectionError && (
+        <p role="alert" className="text-destructive text-sm">
+          {sectionError}
+        </p>
+      )}
       {materials.isPending ? (
         <Skeleton className="h-16" />
       ) : candidates.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          {found.length > 0 ? t('importForms:catalogAlreadyInWarehouse') : t('importForms:catalogEmpty')}
+          {found.length > 0
+            ? t('importForms:catalogAlreadyInWarehouse')
+            : t('importForms:catalogEmpty')}
         </p>
       ) : (
         <ul className="divide-y rounded-md border">
@@ -101,11 +125,6 @@ export function AssignExistingSection({ warehouseSlug, search, availableSlugs, c
                   })}
                   {m.supplier && ` · ${m.supplier.name}`}
                 </p>
-                {rowError?.slug === m.slug && (
-                  <p role="alert" className="text-destructive mt-1 text-sm">
-                    {rowError.message}
-                  </p>
-                )}
               </div>
               <Button
                 type="button"
