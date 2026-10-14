@@ -33,6 +33,8 @@ type Props = {
     material: { slug: string; name: string },
     alreadyInWarehouse: boolean,
   ) => Promise<void> | void
+  /** `true` từ lúc gửi đến khi `onAssigned` xong — bên gọi khoá mọi lối đóng hộp trong lúc đó. */
+  onBusyChange?: (busy: boolean) => void
 }
 
 /** Tìm danh mục vật tư (chưa có ở kho) và gắn vào kho. */
@@ -42,6 +44,7 @@ export function AssignExistingSection({
   availableSlugs,
   canAssign,
   onAssigned,
+  onBusyChange,
 }: Props) {
   const { t } = useTranslation(['importForms'])
   const hintId = useId()
@@ -65,18 +68,27 @@ export function AssignExistingSection({
     if (inFlight.current) return
     inFlight.current = true
     setRowError(null)
+    onBusyChange?.(true)
+    const done = async (already: boolean) => {
+      try {
+        await onAssigned({ slug: m.slug, name: m.name }, already)
+      } finally {
+        onBusyChange?.(false)
+      }
+    }
     assign.mutate(
       { warehouseSlug, materialSlug: m.slug },
       {
         onSettled: () => {
           inFlight.current = false
         },
-        onSuccess: () => void onAssigned({ slug: m.slug, name: m.name }, false),
+        onSuccess: () => void done(false),
         onError: (error) => {
           if (isApiError(error) && error.code === INVENTORY_DOES_EXIST) {
-            void onAssigned({ slug: m.slug, name: m.name }, true)
+            void done(true)
             return
           }
+          onBusyChange?.(false)
           if (
             isApiError(error) &&
             (error.code === INVENTORY_WAREHOUSE_INACTIVE || error.code === MATERIAL_NOT_FOUND)

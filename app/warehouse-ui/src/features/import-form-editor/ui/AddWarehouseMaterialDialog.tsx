@@ -62,7 +62,9 @@ function DialogBody({
   const qc = useQueryClient()
   const [search, setSearch] = useState(initialSearch)
   const [creating, setCreating] = useState<string | null>(null)
-  const [busy, setBusy] = useState(false)
+  const [createBusy, setCreateBusy] = useState(false)
+  const [assignBusy, setAssignBusy] = useState(false)
+  const busy = createBusy || assignBusy
 
   /** Chờ danh sách vật tư của kho tải lại rồi mới báo bên gọi — dòng chọn xong phải có đủ đơn vị. */
   const finish = async (
@@ -71,12 +73,14 @@ function DialogBody({
       | 'importForms:assignedToast'
       | 'importForms:alreadyInWarehouseToast'
       | 'importForms:createdToast',
+    supplierFailed = false,
   ) => {
     await qc.invalidateQueries({ queryKey: importFormKeys.available(warehouseSlug) })
     void qc.invalidateQueries({ queryKey: materialKeys.all })
     const message = t(toastKey, { name: material.name })
     if (toastKey === 'importForms:alreadyInWarehouseToast') toast.info(message)
     else toast.success(message)
+    if (supplierFailed) toast.warning(t('importForms:supplierAttachFailed'))
     onAdded(material.slug)
     onOpenChange(false)
   }
@@ -112,6 +116,7 @@ function DialogBody({
             search={search}
             availableSlugs={availableSlugs}
             canAssign={abilities.assign}
+            onBusyChange={setAssignBusy}
             onAssigned={(m, alreadyInWarehouse) =>
               finish(
                 m,
@@ -133,13 +138,12 @@ function DialogBody({
               initialSearch={creating}
               canCreate={abilities.create}
               canAttachSupplier={abilities.attachSupplier}
-              onBusyChange={setBusy}
+              onBusyChange={setCreateBusy}
               onWarehouseInactive={() => onOpenChange(false)}
               onCreated={async (m, supplierAttached) => {
-                if (supplierAttached === false) toast.warning(t('importForms:supplierAttachFailed'))
                 if (supplierAttached !== null)
                   void qc.invalidateQueries({ queryKey: supplierKeys.all })
-                await finish(m, 'importForms:createdToast')
+                await finish(m, 'importForms:createdToast', supplierAttached === false)
               }}
             />
           )}

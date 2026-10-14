@@ -96,4 +96,29 @@ describe('AddWarehouseMaterialDialog', () => {
     )
     expect(screen.queryByRole('group', { name: 'Tạo vật tư mới' })).not.toBeInTheDocument()
   })
+
+  it('đang gắn: Esc và nút Đóng không đóng được; xong thì onAdded + đóng', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => paginated([cement])),
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, async () => {
+        await gate
+        return ok({ materialSlug: 'm-cement' })
+      }),
+    )
+    const onAdded = vi.fn()
+    const { user } = renderWithProviders(<Harness onAdded={onAdded} />, { auth: 'admin' })
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await screen.findByRole('button', { name: 'Đang gắn…' })
+    await user.keyboard('{Escape}')
+    const close = within(screen.getByRole('dialog')).getAllByRole('button', { name: 'Đóng' })
+    expect(close).toHaveLength(1)
+    expect(close[0]).toBeDisabled()
+    await user.click(close[0])
+    expect(screen.getByRole('dialog')).toBeInTheDocument()
+    release()
+    await waitFor(() => expect(onAdded).toHaveBeenCalledWith('m-cement'))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+  })
 })
