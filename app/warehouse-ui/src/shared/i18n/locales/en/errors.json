@@ -189,5 +189,20 @@
   "importFormItemMaterialNotFound": "A material on this receipt no longer exists",
   "importFormItemUnitNotOfMaterial": "A line uses a unit not attached to its material",
   "importFormItemConversionRateInvalid": "A unit on this receipt has an invalid conversion rate",
-  "importFormItemMaterialNotInWarehouse": "A material on this receipt was removed from the warehouse"
+  "importFormItemMaterialNotInWarehouse": "A material on this receipt was removed from the warehouse",
+  "inventoryNotFound": "The material is not assigned to this warehouse",
+  "inventoryDoesExist": "The material is already in this warehouse",
+  "inventorySlugRequired": "The material to add is missing",
+  "inventoryWarehouseInactive": "The warehouse is inactive — materials cannot be managed",
+  "inventoryQuantityInvalid": "Invalid stock quantity",
+  "inventoryQuantityNegative": "The adjustment would make the stock negative",
+  "inventoryQuantityNotEmpty": "Stock must be 0 before removing the material from the warehouse",
+  "inventoryDeltaInvalid": "Invalid adjustment",
+  "inventoryMinimumInvalid": "Invalid minimum threshold",
+  "inventoryMaximumInvalid": "Invalid maximum threshold",
+  "inventoryRangeInvalid": "The maximum threshold must be greater than or equal to the minimum",
+  "inventoryQuantityBelowReserved": "The adjustment would make the stock lower than the reserved quantity",
+  "inventoryReservedNotEmpty": "Reserved quantity must be 0 before removing the material from the warehouse",
+  "inventoryNoteInvalid": "Note must be at most 255 characters",
+  "inventoryMaterialRequired": "Material details are missing"
 }
