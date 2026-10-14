@@ -29,7 +29,7 @@ import { useAuthStore } from '@/entities/session'
 import { DeleteImportFormDialog } from '@/features/import-form-delete'
 import { ImportFormSheet } from '@/features/import-form-editor'
 import { WarehousePicker, useWarehouseSelection } from '@/features/warehouse-picker'
-import { importFormAbilities } from '../model/abilities'
+import { importFormAbilities, materialAddAbilities } from '../model/abilities'
 import { detailPath } from '../model/paths'
 
 const FILTERS = z.object({
@@ -241,6 +241,7 @@ export function ImportFormsPage() {
           warehouseName={warehouse.name}
           formSlug={sheet.formSlug}
           formCode={sheet.formCode}
+          materialAbilities={materialAddAbilities(user)}
         />
       )}
 

@@ -173,6 +173,22 @@ describe('ImportFormDetailPage', () => {
     expect(screen.queryByRole('button', { name: 'Xoá phiếu nháp' })).not.toBeInTheDocument()
   })
 
+  it.each([
+    ['có MATERIAL_READ', true],
+    ['không có MATERIAL_READ', false],
+  ])('sheet sửa, %s → ô vật tư %s nút "Thêm vật tư vào kho…"', async (_name, allowed) => {
+    const { user } = renderPage(undefined, {
+      ...MANAGER,
+      scope: [...MANAGER.scope, ...(allowed ? ['MATERIAL_READ'] : [])],
+    })
+    await user.click(await screen.findByRole('button', { name: 'Sửa' }))
+    await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
+    await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
+    const entry = screen.queryByRole('button', { name: /Thêm vật tư vào kho/ })
+    if (allowed) expect(entry).toBeInTheDocument()
+    else expect(entry).not.toBeInTheDocument()
+  })
+
   it('404 → câu "Không tìm thấy phiếu nhập"', async () => {
     server.use(
       mswHttp.get(`${BASE}/warehouses/w-a`, () => ok(kho)),
