@@ -229,6 +229,7 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
         warehouseSlug={warehouseSlug}
         warehouseName={warehouse.data?.name ?? warehouseSlug}
         formSlug={form.slug}
+        formCode={form.code}
       />
       <ConfirmImportFormDialog
         warehouseSlug={warehouseSlug}

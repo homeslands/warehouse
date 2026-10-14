@@ -65,6 +65,8 @@ type ImportFormSheetProps = {
   warehouseName: string
   /** Có = sửa phiếu này (sheet tự tải chi tiết); không có = tạo mới. */
   formSlug?: string
+  /** Mã phiếu đang sửa nếu trang cha đã biết — để tiêu đề có mã ngay khi chi tiết còn đang tải. */
+  formCode?: string
   /** Gọi sau khi tạo / lưu thành công (sheet đã tự đóng). */
   onSaved?: (saved: ImportForm) => void
 }
@@ -80,6 +82,7 @@ export function ImportFormSheet({
   warehouseSlug,
   warehouseName,
   formSlug,
+  formCode,
   onSaved,
 }: ImportFormSheetProps) {
   const { t } = useTranslation(['importForms', 'common'])
@@ -225,16 +228,18 @@ export function ImportFormSheet({
       size="wide"
       title={
         editing
-          ? t('importForms:editTitle', { code: original?.code ?? '' })
+          ? t('importForms:editTitle', { code: original?.code ?? formCode ?? '' })
           : t('importForms:createTitle', { warehouse: warehouseName })
       }
       submitLabel={t('importForms:saveDraft')}
       isPending={isPending}
       submitDisabled={uploading || (editing && (!editable || !isDirty))}
       isDirty={isDirty}
-      footerStart={t('importForms:total', {
-        value: formatCurrency(total, { maximumFractionDigits: 2 }),
-      })}
+      footerStart={
+        body === null
+          ? t('importForms:total', { value: formatCurrency(total, { maximumFractionDigits: 2 }) })
+          : undefined
+      }
       confirmation={
         editing
           ? undefined

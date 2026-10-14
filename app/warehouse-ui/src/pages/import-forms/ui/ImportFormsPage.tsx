@@ -52,7 +52,9 @@ export function ImportFormsPage() {
   const warehouseSlug = warehouse?.slug ?? ''
   const [deleting, setDeleting] = useState<ImportForm | null>(null)
   // Sheet luôn mount (callback của mutation bị bỏ qua nếu unmount): `sheet` = đang mở ở chế độ nào.
-  const [sheet, setSheet] = useState<{ open: boolean; formSlug?: string }>({ open: false })
+  const [sheet, setSheet] = useState<{ open: boolean; formSlug?: string; formCode?: string }>({
+    open: false,
+  })
 
   const backTo = location.pathname + location.search
   const detailLink = useCallback(
@@ -100,7 +102,9 @@ export function ImportFormsPage() {
                 {t('importForms:viewDetail')}
               </DropdownMenuItem>
               {ability.update && (
-                <DropdownMenuItem onSelect={() => setSheet({ open: true, formSlug: f.slug })}>
+                <DropdownMenuItem
+                  onSelect={() => setSheet({ open: true, formSlug: f.slug, formCode: f.code })}
+                >
                   {t('importForms:editAction')}
                 </DropdownMenuItem>
               )}
@@ -236,6 +240,7 @@ export function ImportFormsPage() {
           warehouseSlug={warehouse.slug}
           warehouseName={warehouse.name}
           formSlug={sheet.formSlug}
+          formCode={sheet.formCode}
         />
       )}
 
