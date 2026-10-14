@@ -25,6 +25,12 @@ type ComboboxProps = Omit<ComponentProps<'button'>, 'value' | 'onChange'> & {
   emptyText?: string
 }
 
+/**
+ * Chỗ cần dưới ô chọn để danh sách hiện đủ (~ô tìm + `max-h-72` của `CommandList`). Ít hơn → cuộn ô chọn lên
+ * giữa vùng nhìn thấy TRƯỚC khi mở: ô ở cuối form (dòng vật tư cuối sheet) nếu không thì chỉ còn vài mục hiện ra.
+ */
+const LIST_SPACE_PX = 320
+
 function filterOption(value: string, search: string, keywords?: string[]): number {
   // Bỏ dấu: gõ "da nang" vẫn ra "Đà Nẵng" — bộ lọc mặc định của cmdk không làm việc này.
   return matchesSearch([value, ...(keywords ?? [])].join(' '), search) ? 1 : 0
@@ -65,7 +71,20 @@ export function Combobox({
     <div className={cn('flex items-center gap-1', className)}>
       {/* modal: Popover portal ra ngoài Dialog; không modal thì RemoveScroll của Dialog chặn lăn chuột
           trong danh sách/lịch. */}
-      <Popover modal open={open} onOpenChange={setOpen}>
+      <Popover
+        modal
+        open={open}
+        onOpenChange={(next) => {
+          const trigger = triggerRef.current
+          if (
+            next &&
+            trigger &&
+            window.innerHeight - trigger.getBoundingClientRect().bottom < LIST_SPACE_PX
+          )
+            trigger.scrollIntoView({ block: 'center' })
+          setOpen(next)
+        }}
+      >
         <PopoverTrigger asChild>
           <Button
             type="button"
@@ -87,11 +106,17 @@ export function Combobox({
             <ChevronsUpDownIcon className="opacity-50" aria-hidden />
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-(--radix-popover-trigger-width) p-0" align="start">
+        <PopoverContent
+          // Không bao giờ cao hơn chỗ trống thật (Radix tính theo phía đang mở): phần dư cuộn trong danh sách
+          // thay vì tràn ra khỏi màn hình. `min-h-0` để Command / CommandList co lại được trong khung flex.
+          className="max-h-(--radix-popover-content-available-height) w-(--radix-popover-trigger-width) p-0"
+          align="start"
+          collisionPadding={8}
+        >
           {/* cmdk gắn aria-labelledby của ô tìm vào `label` của Command (aria-label bị lấn át). */}
-          <Command filter={filterOption} label={searchText}>
+          <Command filter={filterOption} label={searchText} className="min-h-0">
             <CommandInput placeholder={searchText} />
-            <CommandList>
+            <CommandList className="min-h-0">
               <CommandEmpty>{emptyText ?? t('common:noResults')}</CommandEmpty>
               <CommandGroup>
                 {options.map((option) => (
