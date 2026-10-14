@@ -78,19 +78,27 @@ describe('AssignExistingSection', () => {
     const { user, onAssigned } = setup()
     const btn = await screen.findByRole('button', { name: 'Gắn vào kho' })
     await user.dblClick(btn)
-    await waitFor(() => expect(onAssigned).toHaveBeenCalledWith({ slug: 'm-cement', name: 'Xi măng PCB40' }, false))
+    await waitFor(() =>
+      expect(onAssigned).toHaveBeenCalledWith({ slug: 'm-cement', name: 'Xi măng PCB40' }, false),
+    )
     expect(calls).toBe(1)
   })
 
   it('100802 → onAssigned(material, true)', async () => {
-    server.use(mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100802, 'exists')))
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100802, 'exists')),
+    )
     const { user, onAssigned } = setup()
     await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
-    await waitFor(() => expect(onAssigned).toHaveBeenCalledWith({ slug: 'm-cement', name: 'Xi măng PCB40' }, true))
+    await waitFor(() =>
+      expect(onAssigned).toHaveBeenCalledWith({ slug: 'm-cement', name: 'Xi măng PCB40' }, true),
+    )
   })
 
   it('100804 → lỗi tại dòng, không gọi onAssigned', async () => {
-    server.use(mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100804, 'inactive')))
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100804, 'inactive')),
+    )
     const { user, onAssigned } = setup()
     await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Kho đang ngừng hoạt động')
@@ -102,5 +110,61 @@ describe('AssignExistingSection', () => {
     const btn = await screen.findByRole('button', { name: 'Gắn vào kho' })
     expect(btn).toBeDisabled()
     expect(btn).toHaveAccessibleDescription('Cần quyền sửa vật tư và sửa kho — liên hệ quản trị.')
+  })
+
+  it('100701 → cảnh báo vẫn hiện dù kết quả tải lại không còn vật tư đó', async () => {
+    let gets = 0
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => {
+        gets++
+        return paginated(gets === 1 ? [cement] : [])
+      }),
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(404, 100701, 'gone')),
+    )
+    const onAssigned = vi.fn()
+    const { user } = renderWithProviders(
+      <AssignExistingSection
+        warehouseSlug="w-a"
+        search="xi măng"
+        availableSlugs={[]}
+        canAssign
+        onAssigned={onAssigned}
+      />,
+      { auth: 'admin' },
+    )
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    expect(await screen.findByRole('alert')).toHaveTextContent('VT-09 · Xi măng PCB40:')
+    await waitFor(() =>
+      expect(screen.queryByRole('button', { name: 'Gắn vào kho' })).not.toBeInTheDocument(),
+    )
+    expect(screen.getByRole('alert')).toBeInTheDocument()
+    expect(onAssigned).not.toHaveBeenCalled()
+  })
+
+  it('debounce thật: gõ nhanh chỉ gửi một request cho giá trị cuối', async () => {
+    const seen: URLSearchParams[] = []
+    server.use(
+      mswHttp.get(`${BASE}/materials`, ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return paginated([cement])
+      }),
+    )
+    const el = (search: string) => (
+      <AssignExistingSection
+        warehouseSlug="w-a"
+        search={search}
+        availableSlugs={[]}
+        canAssign
+        onAssigned={vi.fn()}
+      />
+    )
+    const { rerender } = renderWithProviders(el(''), { auth: 'admin' })
+    rerender(el('x'))
+    rerender(el('xi'))
+    rerender(el('xi m'))
+    rerender(el('xi măng'))
+    expect(await screen.findByText(/Xi măng PCB40/)).toBeInTheDocument()
+    expect(seen).toHaveLength(1)
+    expect(seen[0].get('name')).toBe('xi măng')
   })
 })
