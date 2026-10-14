@@ -27,8 +27,12 @@ import type {
   SupplierUpdateInput,
 } from '../model/types'
 
-export function useSuppliers(params: ListParams<SupplierFilters>) {
+export function useSuppliers(
+  params: ListParams<SupplierFilters>,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
+    enabled: options.enabled ?? true,
     queryKey: supplierKeys.list(params),
     queryFn: () => fetchSuppliers(params),
     placeholderData: keepPreviousData,
