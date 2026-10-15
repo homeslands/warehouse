@@ -15,24 +15,19 @@ import {
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Input } from '@/shared/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
+import {
+  inventoryKeys,
+  type AddedMaterial,
+  type AddMaterialDialogProps,
+} from '@/entities/inventory'
 import { importFormKeys } from '@/entities/import-form'
 import { materialKeys, type Material } from '@/entities/material'
 import { supplierKeys } from '@/entities/supplier'
 import { AssignExistingSection } from './AssignExistingSection'
 import { CreateMaterialSection } from './CreateMaterialSection'
-import { codeNameLabel, type AddedMaterial, type MaterialAddAbilities } from '../model/material-add'
+import { codeNameLabel } from '../model/labels'
 
-type Props = {
-  open: boolean
-  onOpenChange: (open: boolean) => void
-  warehouseSlug: string
-  warehouseName: string
-  initialSearch: string
-  availableSlugs: string[]
-  abilities: MaterialAddAbilities
-  /** Gọi SAU KHI `available-materials` của kho đã tải lại; kèm nhãn + đơn vị gốc để dòng chọn ngay. */
-  onAdded: (added: AddedMaterial) => void
-}
+type Props = AddMaterialDialogProps
 
 type DialogTab = 'catalog' | 'create'
 
@@ -62,13 +57,12 @@ function DialogBody({
   open,
   onOpenChange,
   warehouseSlug,
-  warehouseName,
   initialSearch,
-  availableSlugs,
+  description,
   abilities,
   onAdded,
 }: Props) {
-  const { t } = useTranslation(['importForms', 'common'])
+  const { t } = useTranslation(['inventory', 'common'])
   const qc = useQueryClient()
   const [search, setSearch] = useState(initialSearch)
   const [tab, setTab] = useState<DialogTab>('catalog')
@@ -79,22 +73,23 @@ function DialogBody({
   const createFormId = useId()
   const createHintId = useId()
 
-  /** Chờ danh sách vật tư của kho tải lại rồi mới báo bên gọi — dòng chọn xong phải có đủ đơn vị. */
+  /** Chờ vật tư khả dụng của phiếu nhập và danh sách tồn của kho tải lại rồi mới báo bên gọi. */
   const finish = async (
     name: string,
     added: AddedMaterial,
     toastKey:
-      | 'importForms:assignedToast'
-      | 'importForms:alreadyInWarehouseToast'
-      | 'importForms:createdToast',
+      'inventory:assignedToast' | 'inventory:alreadyInWarehouseToast' | 'inventory:createdToast',
     supplierFailed = false,
   ) => {
-    await qc.invalidateQueries({ queryKey: importFormKeys.available(warehouseSlug) })
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: importFormKeys.available(warehouseSlug) }),
+      qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouseSlug) }),
+    ])
     void qc.invalidateQueries({ queryKey: materialKeys.all })
     const message = t(toastKey, { name })
-    if (toastKey === 'importForms:alreadyInWarehouseToast') toast.info(message)
+    if (toastKey === 'inventory:alreadyInWarehouseToast') toast.info(message)
     else toast.success(message)
-    if (supplierFailed) toast.warning(t('importForms:supplierAttachFailed'))
+    if (supplierFailed) toast.warning(t('inventory:supplierAttachFailed'))
     onAdded(added)
     onOpenChange(false)
   }
@@ -111,10 +106,8 @@ function DialogBody({
           <DialogIcon>
             <PackagePlusIcon />
           </DialogIcon>
-          <DialogTitle>{t('importForms:addMaterialTitle')}</DialogTitle>
-          <DialogDescription>
-            {t('importForms:addMaterialDescription', { warehouse: warehouseName })}
-          </DialogDescription>
+          <DialogTitle>{t('inventory:addMaterialTitle')}</DialogTitle>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <Tabs
@@ -129,10 +122,10 @@ function DialogBody({
         >
           <TabsList className="w-full">
             <TabsTrigger value="catalog" className="flex-1" disabled={busy}>
-              {t('importForms:catalogTab')}
+              {t('inventory:catalogTab')}
             </TabsTrigger>
             <TabsTrigger value="create" className="flex-1" disabled={busy}>
-              {t('importForms:createMaterialSection')}
+              {t('inventory:createMaterialSection')}
             </TabsTrigger>
           </TabsList>
 
@@ -140,8 +133,8 @@ function DialogBody({
           <div className="h-[min(20rem,50vh)]">
             <TabsContent value="catalog" className="flex h-full flex-col gap-4">
               <Input
-                aria-label={t('importForms:addMaterialSearch')}
-                placeholder={t('importForms:addMaterialSearch')}
+                aria-label={t('inventory:addMaterialSearch')}
+                placeholder={t('inventory:addMaterialSearch')}
                 value={search}
                 onChange={(e) => setSearch(e.target.value)}
                 autoComplete="off"
@@ -151,7 +144,6 @@ function DialogBody({
                 <AssignExistingSection
                   warehouseSlug={warehouseSlug}
                   search={search}
-                  availableSlugs={availableSlugs}
                   canAssign={abilities.assign}
                   locked={busy}
                   onBusyChange={setAssignBusy}
@@ -160,8 +152,8 @@ function DialogBody({
                       m.name,
                       toAddedMaterial(m),
                       alreadyInWarehouse
-                        ? 'importForms:alreadyInWarehouseToast'
-                        : 'importForms:assignedToast',
+                        ? 'inventory:alreadyInWarehouseToast'
+                        : 'inventory:assignedToast',
                     )
                   }
                 />
@@ -188,12 +180,7 @@ function DialogBody({
                   onCreated={async (added, name, supplierAttached) => {
                     if (supplierAttached !== null)
                       void qc.invalidateQueries({ queryKey: supplierKeys.all })
-                    await finish(
-                      name,
-                      added,
-                      'importForms:createdToast',
-                      supplierAttached === false,
-                    )
+                    await finish(name, added, 'inventory:createdToast', supplierAttached === false)
                   }}
                 />
               </TabsContent>
@@ -219,7 +206,7 @@ function DialogBody({
               disabled={!abilities.create || busy}
               aria-describedby={abilities.create ? undefined : createHintId}
             >
-              {createBusy ? t('importForms:creatingMaterial') : t('importForms:createAndAssign')}
+              {createBusy ? t('inventory:creatingMaterial') : t('inventory:createAndAssign')}
             </Button>
           )}
         </DialogFooter>

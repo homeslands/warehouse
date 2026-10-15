@@ -3,10 +3,10 @@ import { http as mswHttp } from 'msw'
 import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
 import { describe, expect, it, vi } from 'vitest'
+import type { AddedMaterial } from '@/entities/inventory'
 import { supplierKeys } from '@/entities/supplier'
 import type { Material } from '@/entities/material'
 import { apiError, ok, paginated } from '@/shared/test/api'
-import type { AddedMaterial } from '../model/material-add'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { AddWarehouseMaterialDialog } from './AddWarehouseMaterialDialog'
@@ -24,6 +24,7 @@ const cement: Material = {
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 }
 const CEMENT_ADDED: AddedMaterial = {
   slug: 'm-cement',
@@ -51,9 +52,8 @@ function Harness({
         open={open}
         onOpenChange={setOpen}
         warehouseSlug="w-a"
-        warehouseName="Kho A"
         initialSearch={initialSearch}
-        availableSlugs={[]}
+        description="Mô tả thử"
         abilities={abilities}
         onAdded={onAdded}
       />
@@ -87,9 +87,51 @@ describe('AddWarehouseMaterialDialog', () => {
     )
     await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(CEMENT_ADDED))
+    expect(toast.success).toHaveBeenCalledWith('Đã gắn Xi măng PCB40 vào kho')
     expect(order).toEqual(['available-refreshed', 'added'])
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     inv.mockRestore()
+  })
+
+  it('100802 (đã có ở kho) → toast thông tin, không toast thành công, vẫn onAdded', async () => {
+    vi.mocked(toast.success).mockClear()
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => paginated([cement])),
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100802, 'exists')),
+    )
+    const onAdded = vi.fn()
+    const { user } = renderWithProviders(<Harness onAdded={onAdded} />, { auth: 'admin' })
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await waitFor(() => expect(onAdded).toHaveBeenCalledWith(CEMENT_ADDED))
+    expect(toast.info).toHaveBeenCalledWith('Xi măng PCB40 đã có trong kho')
+    expect(toast.success).not.toHaveBeenCalled()
+  })
+
+  it('hiện câu mô tả do bên gọi truyền', () => {
+    server.use(mswHttp.get(`${BASE}/materials`, () => paginated([])))
+    renderWithProviders(<Harness onAdded={vi.fn()} />, { auth: 'admin' })
+    expect(screen.getByText('Mô tả thử')).toBeInTheDocument()
+  })
+
+  it('gắn xong chờ cả vật tư khả dụng của phiếu nhập lẫn danh sách tồn của kho tải lại rồi mới onAdded', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => paginated([cement])),
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => ok({ materialSlug: 'm-cement' })),
+    )
+    const awaited: string[] = []
+    const onAdded = vi.fn()
+    const { user, queryClient } = renderWithProviders(<Harness onAdded={onAdded} />, {
+      auth: 'admin',
+    })
+    vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(async (filters) => {
+      const key = JSON.stringify(filters?.queryKey)
+      await new Promise((r) => setTimeout(r, 10))
+      awaited.push(key)
+    })
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await waitFor(() => expect(onAdded).toHaveBeenCalled())
+    expect(awaited).toContain(JSON.stringify(['inventory', 'w-a']))
+    expect(awaited.some((k) => k.includes('available'))).toBe(true)
   })
 
   it('đóng rồi mở lại → ô tìm lấy lại chữ ban đầu, form tạo đóng', async () => {

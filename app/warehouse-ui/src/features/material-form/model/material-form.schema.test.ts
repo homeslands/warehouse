@@ -20,6 +20,7 @@ const material: Material = {
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 }
 
 const valid: MaterialFormValues = {

@@ -12,7 +12,7 @@ export type MaterialRef = {
  * Từ WMS-13-be(9) (2026-10-12) loại / đơn vị gốc là **object lồng** (`type`, `baseUnit`), không còn trường phẳng
  * `typeSlug`/`baseUnitCode`…; body gửi lên và bộ lọc vẫn dùng `typeSlug` / `baseUnitSlug`. `baseUnit: null` = dữ liệu cũ
  * chưa có đơn vị gốc (100714). Một vật tư thuộc được NHIỀU nhà cung cấp (`suppliers`, rỗng khi chưa gắn — BE đổi từ
- * `supplier` đơn lẻ, 2026-10-15); FE chỉ khai các trường đang dùng của mỗi NCC. Response còn `warehouses[]` (chưa dùng).
+ * `supplier` đơn lẻ, 2026-10-15); FE chỉ khai các trường đang dùng của mỗi NCC.
  * `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng — xem `SupplierMaterial`.
  */
 export type Material = {
@@ -28,6 +28,17 @@ export type Material = {
   baseUnit: MaterialRef | null
   hasSupplier: boolean
   suppliers: MaterialRef[]
+  /** Kho đang có vật tư (rỗng khi chưa gắn kho nào). */
+  warehouses: MaterialWarehouse[]
+}
+
+/** Một phần tử `warehouses[]` của `MaterialResponseDto` — kho đang có vật tư, kèm tồn (đơn vị gốc). */
+export type MaterialWarehouse = {
+  slug: string
+  code: string
+  name: string
+  quantity: number
+  availableQuantity: number
 }
 
 export type MaterialInput = {

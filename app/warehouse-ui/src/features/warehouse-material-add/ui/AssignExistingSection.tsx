@@ -25,8 +25,6 @@ function useDebouncedValue<T>(value: T, ms: number): T {
 type Props = {
   warehouseSlug: string
   search: string
-  /** Slug vật tư đã có ở kho (từ `available-materials`) — loại khỏi kết quả. */
-  availableSlugs: string[]
   canAssign: boolean
   /** Hộp đang bận (gắn / tạo, kể cả đoạn sau khi API trả về) — khoá mọi nút. */
   locked?: boolean
@@ -40,13 +38,12 @@ type Props = {
 export function AssignExistingSection({
   warehouseSlug,
   search,
-  availableSlugs,
   canAssign,
   locked = false,
   onAssigned,
   onBusyChange,
 }: Props) {
-  const { t } = useTranslation(['importForms'])
+  const { t } = useTranslation(['inventory'])
   const hintId = useId()
   const debounced = useDebouncedValue(search.trim(), 300)
   const query = toCodeOrNameQuery(debounced)
@@ -57,11 +54,11 @@ export function AssignExistingSection({
   const [rowError, setRowError] = useState<{ search: string; message: string } | null>(null)
   const inFlight = useRef(false)
 
-  if (!enabled)
-    return <p className="text-muted-foreground text-sm">{t('importForms:catalogHint')}</p>
+  if (!enabled) return <p className="text-muted-foreground text-sm">{t('inventory:catalogHint')}</p>
 
   const found = materials.data?.items ?? []
-  const candidates = found.filter((m) => !availableSlugs.includes(m.slug))
+  // Đã ở kho này thì chọn thẳng trong dòng / bảng — theo `warehouses` của chính vật tư nên không phụ thuộc 100 bản ghi đầu.
+  const candidates = found.filter((m) => !m.warehouses.some((w) => w.slug === warehouseSlug))
   // Lỗi gắn gắn với từ khoá đã tìm: đổi từ khoá thì tự ẩn; refetch có thể gỡ dòng nên hiển thị ở mức section.
   const sectionError = rowError?.search === debounced ? rowError.message : null
 
@@ -107,8 +104,8 @@ export function AssignExistingSection({
   }
 
   return (
-    <section className="space-y-2" aria-label={t('importForms:catalogNotInWarehouse')}>
-      <h3 className="text-sm font-medium">{t('importForms:catalogNotInWarehouse')}</h3>
+    <section className="space-y-2" aria-label={t('inventory:catalogNotInWarehouse')}>
+      <h3 className="text-sm font-medium">{t('inventory:catalogNotInWarehouse')}</h3>
       {sectionError && (
         <p role="alert" className="text-destructive text-sm">
           {sectionError}
@@ -119,8 +116,8 @@ export function AssignExistingSection({
       ) : candidates.length === 0 ? (
         <p className="text-muted-foreground text-sm">
           {found.length === 1
-            ? t('importForms:catalogAlreadyInWarehouse')
-            : t('importForms:catalogEmpty')}
+            ? t('inventory:catalogAlreadyInWarehouse')
+            : t('inventory:catalogEmpty')}
         </p>
       ) : (
         <ul className="divide-y rounded-md border">
@@ -134,9 +131,9 @@ export function AssignExistingSection({
                     <span className="font-medium">{m.code}</span> · {m.name}
                   </p>
                   <p className="text-muted-foreground text-xs">
-                    {t('importForms:catalogTypeUnit', {
+                    {t('inventory:catalogTypeUnit', {
                       type: m.type.name,
-                      unit: m.baseUnit?.code ?? t('importForms:noBaseUnit'),
+                      unit: m.baseUnit?.code ?? t('inventory:noBaseUnit'),
                     })}
                     {m.suppliers.length > 0 && (
                       <>
@@ -155,12 +152,12 @@ export function AssignExistingSection({
                   onClick={() => onAssign(m)}
                 >
                   {assign.isPending && assign.variables?.materialSlug === m.slug
-                    ? t('importForms:assigning')
-                    : t('importForms:assignAction')}
+                    ? t('inventory:assigning')
+                    : t('inventory:assignAction')}
                 </Button>
                 {noBaseUnit && (
                   <p id={rowHintId} className="text-muted-foreground w-full text-xs">
-                    {t('importForms:noBaseUnit')}
+                    {t('inventory:noBaseUnit')}
                   </p>
                 )}
               </li>
@@ -170,7 +167,7 @@ export function AssignExistingSection({
       )}
       {!canAssign && (
         <p id={hintId} className="text-muted-foreground text-xs">
-          {t('importForms:needAssignPermission')}
+          {t('inventory:needAssignPermission')}
         </p>
       )}
     </section>

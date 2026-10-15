@@ -39,6 +39,8 @@ describe('WarehouseDetailPage — cờ userSearch tắt', () => {
     const calls: string[] = []
     server.use(
       mswHttp.get(`${BASE}/warehouses/kho-ha-noi`, () => ok(warehouse)),
+      mswHttp.get(`${BASE}/warehouses/kho-ha-noi/materials`, () => paginated([])),
+      mswHttp.get(`${BASE}/material-types`, () => paginated([])),
       mswHttp.get(`${BASE}/users`, ({ request }) => {
         calls.push(request.url)
         return paginated([])
@@ -49,11 +51,16 @@ describe('WarehouseDetailPage — cờ userSearch tắt', () => {
       auth: {
         userName: 'a',
         roleName: 'ADMIN',
-        scope: ['WAREHOUSE_READ', 'WAREHOUSE_UPDATE', 'USER_READ'],
+        scope: ['WAREHOUSE_READ', 'WAREHOUSE_UPDATE', 'USER_READ', 'MATERIAL_READ'],
       },
     })
     await screen.findByRole('heading', { level: 1 })
 
+    // Vật tư đứng một mình: không thanh tab, không khối Thành viên.
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Vật tư trong kho' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
     expect(screen.queryByRole('heading', { level: 2, name: 'Thành viên' })).not.toBeInTheDocument()
     expect(calls).toEqual([])
   })

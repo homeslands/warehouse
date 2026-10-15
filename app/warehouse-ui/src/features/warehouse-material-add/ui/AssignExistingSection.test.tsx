@@ -20,9 +20,13 @@ const mat = (slug: string, code: string, name: string): Material => ({
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 })
 const cement = mat('m-cement', 'VT-09', 'Xi măng PCB40')
-const inWarehouse = mat('m-in', 'VT-01', 'Xi măng trắng')
+const inWarehouse: Material = {
+  ...mat('m-in', 'VT-01', 'Xi măng trắng'),
+  warehouses: [{ slug: 'w-a', code: 'KA', name: 'Kho A', quantity: 0, availableQuantity: 0 }],
+}
 
 function setup(
   opts: {
@@ -30,7 +34,6 @@ function setup(
     canAssign?: boolean
     locked?: boolean
     found?: Material[]
-    available?: string[]
   } = {},
 ) {
   const seen: URLSearchParams[] = []
@@ -46,7 +49,6 @@ function setup(
     <AssignExistingSection
       warehouseSlug="w-a"
       search={opts.search ?? 'xi măng'}
-      availableSlugs={opts.available ?? ['m-in']}
       canAssign={opts.canAssign ?? true}
       locked={opts.locked}
       onAssigned={onAssigned}
@@ -75,7 +77,6 @@ describe('AssignExistingSection', () => {
           suppliers: [ncc('s-1', 'NCC Bột'), ncc('s-2', 'NCC Đường'), ncc('s-3', 'NCC Muối')],
         },
       ],
-      available: [],
     })
     const shown = await screen.findByText('NCC Bột, NCC Đường')
     expect(shown.parentElement).toHaveTextContent('NCC Bột, NCC Đường +1')
@@ -175,7 +176,6 @@ describe('AssignExistingSection', () => {
       <AssignExistingSection
         warehouseSlug="w-a"
         search="xi măng"
-        availableSlugs={[]}
         canAssign
         onAssigned={onAssigned}
       />,
@@ -199,13 +199,7 @@ describe('AssignExistingSection', () => {
       }),
     )
     const el = (search: string) => (
-      <AssignExistingSection
-        warehouseSlug="w-a"
-        search={search}
-        availableSlugs={[]}
-        canAssign
-        onAssigned={vi.fn()}
-      />
+      <AssignExistingSection warehouseSlug="w-a" search={search} canAssign onAssigned={vi.fn()} />
     )
     const { rerender } = renderWithProviders(el(''), { auth: 'admin' })
     rerender(el('x'))
@@ -228,7 +222,7 @@ describe('AssignExistingSection', () => {
     let release: () => void = () => {}
     const gate = new Promise<void>((r) => (release = r))
     const other = mat('m-other', 'VT-10', 'Xi măng đen')
-    const { user, onAssigned } = setup({ found: [cement, other], available: [] })
+    const { user, onAssigned } = setup({ found: [cement, other] })
     onAssigned.mockImplementation(() => gate)
     const buttons = await screen.findAllByRole('button', { name: 'Gắn vào kho' })
     await user.click(buttons[0])
@@ -248,23 +242,32 @@ describe('AssignExistingSection', () => {
 
   it('vật tư chưa có đơn vị gốc → nút khoá kèm lý do', async () => {
     const legacy = { ...mat('m-old', 'VT-77', 'Xi măng cũ'), baseUnit: null }
-    setup({ found: [legacy], available: [] })
+    setup({ found: [legacy] })
     const btn = await screen.findByRole('button', { name: 'Gắn vào kho' })
     expect(btn).toBeDisabled()
     expect(btn).toHaveAccessibleDescription('chưa có đơn vị gốc')
   })
 
-  it('một kết quả duy nhất đã có ở kho → nhắc chọn trực tiếp', async () => {
+  it('một kết quả duy nhất đã có ở kho → hiện câu trung tính', async () => {
     setup({ found: [inWarehouse] })
-    expect(await screen.findByText(/đã có ở kho — chọn trực tiếp/)).toBeInTheDocument()
+    expect(await screen.findByText('Vật tư này đã có ở kho.')).toBeInTheDocument()
   })
 
   it('nhiều kết quả đều đã có ở kho → báo không tìm thấy', async () => {
     setup({
-      found: [inWarehouse, mat('m-in2', 'VT-02', 'Xi măng xám')],
-      available: ['m-in', 'm-in2'],
+      found: [inWarehouse, { ...inWarehouse, slug: 'm-in2', code: 'VT-02', name: 'Xi măng xám' }],
     })
     expect(await screen.findByText(/Không tìm thấy vật tư nào chưa có ở kho/)).toBeInTheDocument()
-    expect(screen.queryByText(/chọn trực tiếp/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Vật tư này đã có ở kho.')).not.toBeInTheDocument()
+  })
+
+  it('vật tư thuộc kho KHÁC vẫn là ứng viên; thuộc chính kho này thì loại', async () => {
+    const otherWh = {
+      ...mat('m-other', 'VT-11', 'Xi măng xám'),
+      warehouses: [{ slug: 'w-b', code: 'KB', name: 'Kho B', quantity: 5, availableQuantity: 5 }],
+    }
+    setup({ found: [otherWh, inWarehouse] })
+    expect(await screen.findByText(/Xi măng xám/)).toBeInTheDocument()
+    expect(screen.queryByText(/Xi măng trắng/)).not.toBeInTheDocument()
   })
 })

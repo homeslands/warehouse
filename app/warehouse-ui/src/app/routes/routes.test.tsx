@@ -101,6 +101,10 @@ describe('createRoutes', () => {
 })
 
 describe('createRoutes — màn Kho', () => {
+  // `@/pages/warehouses` kéo theo cả widget Vật tư trong kho (bảng, sheet lịch sử, hộp thêm/gỡ) — lần
+  // transform NGUỘI có thể vượt 1000ms mặc định của `findBy*`. Nạp module trước, ngoài mọi test.
+  beforeAll(() => import('@/pages/warehouses'), 15000)
+
   beforeEach(() => {
     // Màn Kho của ADMIN nạp thêm ứng viên quản lý cho ô lọc (`useManagerCandidates`).
     server.use(
@@ -509,6 +513,7 @@ describe('createRoutes — màn Vật tư', () => {
           baseUnit: null,
           hasSupplier: false,
           suppliers: [],
+          warehouses: [],
         }),
       ),
     )
