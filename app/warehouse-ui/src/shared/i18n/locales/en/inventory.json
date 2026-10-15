@@ -81,6 +81,5 @@
     "REMOVE": "Removed"
   },
   "reservedChange": "Reserved {{delta}} ({{before}} → {{after}})",
-  "importFormNote": "Goods receipt {{code}}",
-  "changedBy": "by {{name}}"
+  "importFormNote": "Goods receipt {{code}}"
 }

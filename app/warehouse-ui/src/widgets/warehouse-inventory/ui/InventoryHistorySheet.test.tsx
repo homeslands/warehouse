@@ -139,10 +139,14 @@ describe('InventoryHistorySheet', () => {
     expect(within(dialog).getAllByText('30')).toHaveLength(2)
     expect(within(dialog).getByText('20 – 70')).toBeInTheDocument()
     expect(await within(dialog).findByText('Nhập kho')).toBeInTheDocument()
-    expect(within(dialog).getByText('+5')).toBeInTheDocument()
-    expect(within(dialog).getByText(/20 → 25/)).toBeInTheDocument()
-    expect(within(dialog).getByText('Phiếu nhập P500D03')).toBeInTheDocument()
-    expect(within(dialog).getByText('bởi Người dùng')).toBeInTheDocument()
+    // Dạng sao kê: trái = thao tác / ghi chú / "thời gian · người"; phải = lượng thay đổi + trước → sau.
+    const importRow = within(dialog).getByText('Nhập kho').closest('li')!
+    const change = within(importRow).getByTestId('history-change')
+    expect(within(change).getByText('+5')).toBeInTheDocument()
+    expect(within(change).getByText('20 → 25')).toBeInTheDocument()
+    expect(within(importRow).getByText('Phiếu nhập P500D03')).toBeInTheDocument()
+    expect(within(importRow).getByText(/· Người dùng$/)).toBeInTheDocument()
+    expect(importRow).not.toHaveTextContent('bởi')
     expect(within(dialog).getByText('Giữ chỗ +10 (0 → 10)')).toBeInTheDocument()
     expect(within(dialog).queryByText(/0 → 0/)).not.toBeInTheDocument()
   })

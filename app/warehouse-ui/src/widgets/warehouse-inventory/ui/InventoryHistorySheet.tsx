@@ -2,6 +2,7 @@ import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
+import { cn } from '@/shared/lib/cn'
 import { formatDateTime, formatQuantity } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -169,7 +170,7 @@ export function InventoryHistorySheet({
                       <Badge variant="destructive">{t('inventory:badgeBelow')}</Badge>
                     )}
                     {summary.isAboveMaximum && (
-                      <Badge variant="secondary">{t('inventory:badgeAbove')}</Badge>
+                      <Badge variant="destructive">{t('inventory:badgeAbove')}</Badge>
                     )}
                   </span>
                 </DetailField>
@@ -206,51 +207,54 @@ export function InventoryHistorySheet({
                     {rows.map((h) => {
                       const code = importFormCode(h.note)
                       return (
-                        <li key={h.slug} className="space-y-0.5 py-3 text-sm">
-                          <p className="flex flex-wrap items-baseline gap-x-2">
-                            <span className="text-muted-foreground tabular-nums">
-                              {formatDateTime(h.createdAt)}
-                            </span>
-                            <span className="font-medium">
+                        // Dạng sao kê: trái = thao tác, ghi chú, "thời gian · người"; phải = lượng thay đổi (đậm, có màu)
+                        // và tồn trước → sau — mắt quét dọc cột phải là thấy tồn đi lên / xuống thế nào.
+                        <li key={h.slug} className="flex items-start justify-between gap-4 py-3">
+                          <div className="min-w-0 space-y-0.5">
+                            <p className="text-sm font-medium">
                               {isKnownAction(h.action)
                                 ? t(`inventory:action.${h.action}`)
                                 : h.action}
-                            </span>
-                          </p>
+                            </p>
+                            {h.note !== null && h.note !== '' && (
+                              <p className="text-sm break-words">
+                                {code !== null ? t('inventory:importFormNote', { code }) : h.note}
+                              </p>
+                            )}
+                            {h.reservedDelta !== 0 && (
+                              <p className="text-muted-foreground text-xs tabular-nums">
+                                {t('inventory:reservedChange', {
+                                  delta: signed(h.reservedDelta),
+                                  before: formatQuantity(h.reservedBefore),
+                                  after: formatQuantity(h.reservedAfter),
+                                })}
+                              </p>
+                            )}
+                            <p className="text-muted-foreground text-xs tabular-nums">
+                              {formatDateTime(h.createdAt)} ·{' '}
+                              {h.changedByName || t('common:unnamedUser')}
+                            </p>
+                          </div>
                           {h.quantityDelta !== 0 && (
-                            <p className="tabular-nums">
-                              <span
-                                className={
-                                  h.quantityDelta > 0 ? 'text-success' : 'text-destructive'
-                                }
+                            <div
+                              data-testid="history-change"
+                              className="shrink-0 space-y-0.5 text-right tabular-nums"
+                            >
+                              <p
+                                className={cn(
+                                  'text-sm font-semibold',
+                                  h.quantityDelta > 0 ? 'text-success' : 'text-destructive',
+                                )}
                               >
                                 {signed(h.quantityDelta)}
-                              </span>{' '}
-                              <span>
-                                {formatStock(h.quantityBefore, summary.unitCode)} →{' '}
-                                {formatStock(h.quantityAfter, summary.unitCode)}
-                              </span>
-                            </p>
+                                {summary.unitCode && ` ${summary.unitCode}`}
+                              </p>
+                              <p className="text-muted-foreground text-xs">
+                                {formatQuantity(h.quantityBefore)} →{' '}
+                                {formatQuantity(h.quantityAfter)}
+                              </p>
+                            </div>
                           )}
-                          {h.reservedDelta !== 0 && (
-                            <p className="tabular-nums">
-                              {t('inventory:reservedChange', {
-                                delta: signed(h.reservedDelta),
-                                before: formatQuantity(h.reservedBefore),
-                                after: formatQuantity(h.reservedAfter),
-                              })}
-                            </p>
-                          )}
-                          {h.note !== null && h.note !== '' && (
-                            <p className="break-words">
-                              {code !== null ? t('inventory:importFormNote', { code }) : h.note}
-                            </p>
-                          )}
-                          <p className="text-muted-foreground text-xs">
-                            {t('inventory:changedBy', {
-                              name: h.changedByName || t('common:unnamedUser'),
-                            })}
-                          </p>
                         </li>
                       )
                     })}
