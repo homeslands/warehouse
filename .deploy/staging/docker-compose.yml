@@ -114,7 +114,7 @@ services:
         max_failure_ratio: 0.3
 
     depends_on:
-      - mysql_db
+      - warehouse_mysql_db
     ports:
       - 8085:8085
 
