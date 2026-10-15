@@ -136,60 +136,69 @@ function DialogBody({
             </TabsTrigger>
           </TabsList>
 
-          <TabsContent value="catalog" className="space-y-4">
-            <Input
-              aria-label={t('importForms:addMaterialSearch')}
-              placeholder={t('importForms:addMaterialSearch')}
-              value={search}
-              onChange={(e) => setSearch(e.target.value)}
-              autoComplete="off"
-            />
-            {/* `-m-1 p-1`: vùng cuộn cắt theo mép padding — chừa chỗ cho viền focus (ring-3) của nút sát mép. */}
-            <div className="-m-1 max-h-[45vh] overflow-y-auto p-1">
-              <AssignExistingSection
-                warehouseSlug={warehouseSlug}
-                search={search}
-                availableSlugs={availableSlugs}
-                canAssign={abilities.assign}
-                locked={busy}
-                onBusyChange={setAssignBusy}
-                onAssigned={(m, alreadyInWarehouse) =>
-                  finish(
-                    m.name,
-                    toAddedMaterial(m),
-                    alreadyInWarehouse
-                      ? 'importForms:alreadyInWarehouseToast'
-                      : 'importForms:assignedToast',
-                  )
-                }
+          {/* Hai tab chung một chiều cao cố định (phần dư cuộn bên trong) — đổi tab không làm hộp co giãn / nhảy vị trí. */}
+          <div className="h-[min(20rem,50vh)]">
+            <TabsContent value="catalog" className="flex h-full flex-col gap-4">
+              <Input
+                aria-label={t('importForms:addMaterialSearch')}
+                placeholder={t('importForms:addMaterialSearch')}
+                value={search}
+                onChange={(e) => setSearch(e.target.value)}
+                autoComplete="off"
               />
-            </div>
-          </TabsContent>
-
-          {creating !== null && (
-            // Giữ mount khi sang tab kia để không mất phần đã nhập.
-            <TabsContent
-              value="create"
-              forceMount
-              className="-m-1 max-h-[55vh] overflow-y-auto p-1 data-[state=inactive]:hidden"
-            >
-              <CreateMaterialSection
-                formId={createFormId}
-                hintId={createHintId}
-                warehouseSlug={warehouseSlug}
-                initialSearch={creating}
-                canCreate={abilities.create}
-                canAttachSupplier={abilities.attachSupplier}
-                onBusyChange={setCreateBusy}
-                onWarehouseInactive={() => onOpenChange(false)}
-                onCreated={async (added, name, supplierAttached) => {
-                  if (supplierAttached !== null)
-                    void qc.invalidateQueries({ queryKey: supplierKeys.all })
-                  await finish(name, added, 'importForms:createdToast', supplierAttached === false)
-                }}
-              />
+              {/* `-m-1 p-1`: vùng cuộn cắt theo mép padding — chừa chỗ cho viền focus (ring-3) của nút sát mép. */}
+              <div className="-m-1 min-h-0 flex-1 overflow-y-auto p-1">
+                <AssignExistingSection
+                  warehouseSlug={warehouseSlug}
+                  search={search}
+                  availableSlugs={availableSlugs}
+                  canAssign={abilities.assign}
+                  locked={busy}
+                  onBusyChange={setAssignBusy}
+                  onAssigned={(m, alreadyInWarehouse) =>
+                    finish(
+                      m.name,
+                      toAddedMaterial(m),
+                      alreadyInWarehouse
+                        ? 'importForms:alreadyInWarehouseToast'
+                        : 'importForms:assignedToast',
+                    )
+                  }
+                />
+              </div>
             </TabsContent>
-          )}
+
+            {creating !== null && (
+              // Giữ mount khi sang tab kia để không mất phần đã nhập.
+              <TabsContent
+                value="create"
+                forceMount
+                // `-m-1 p-1` (chỗ cho viền focus) nên cao thêm 0.5rem để chiếm đúng bằng tab danh mục.
+                className="-m-1 h-[calc(100%+0.5rem)] overflow-y-auto p-1 data-[state=inactive]:hidden"
+              >
+                <CreateMaterialSection
+                  formId={createFormId}
+                  hintId={createHintId}
+                  warehouseSlug={warehouseSlug}
+                  initialSearch={creating}
+                  canCreate={abilities.create}
+                  canAttachSupplier={abilities.attachSupplier}
+                  onBusyChange={setCreateBusy}
+                  onWarehouseInactive={() => onOpenChange(false)}
+                  onCreated={async (added, name, supplierAttached) => {
+                    if (supplierAttached !== null)
+                      void qc.invalidateQueries({ queryKey: supplierKeys.all })
+                    await finish(
+                      name,
+                      added,
+                      'importForms:createdToast',
+                      supplierAttached === false,
+                    )
+                  }}
+                />
+              </TabsContent>
+            )}
+          </div>
         </Tabs>
 
         <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
