@@ -161,10 +161,10 @@ export class SupplierController {
   @ApiOperation({
     summary: 'Attach materials to a supplier (batch)',
     description:
-      'All-or-nothing: if any slug does not exist (`MATERIAL_NOT_FOUND`) or any material already ' +
-      'belongs to another supplier (`SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER`), the whole batch ' +
-      'is rejected. Materials already attached to this supplier are skipped. Returns every material ' +
-      'in the batch.',
+      'All-or-nothing: if any slug does not exist (`MATERIAL_NOT_FOUND`) the whole batch is ' +
+      'rejected. A material can have several suppliers, so materials of other suppliers are ' +
+      'attached too; materials already attached to this supplier are skipped. Returns every ' +
+      'material in the batch.',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -193,8 +193,9 @@ export class SupplierController {
   @ApiOperation({
     summary: 'Detach materials from a supplier (batch)',
     description:
-      'All-or-nothing: every material in the batch must currently belong to this supplier, ' +
-      'otherwise the whole batch is rejected (`SUPPLIER_MATERIAL_NOT_ATTACHED`).',
+      'All-or-nothing: every material in the batch must currently be attached to this supplier, ' +
+      'otherwise the whole batch is rejected (`SUPPLIER_MATERIAL_NOT_ATTACHED`). Other suppliers ' +
+      'of the materials are kept.',
   })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Detached', type: String })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })

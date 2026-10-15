@@ -62,7 +62,7 @@ describe('ImportFormService', () => {
     address: 'Hanoi',
   } as Supplier;
 
-  // Vật tư base = KG, gắn thêm BAO (1 BAO = 50 KG), thuộc nhà cung cấp A.
+  // Vật tư base = KG, gắn thêm BAO (1 BAO = 50 KG), chỉ có 1 nhà cung cấp (A).
   const kg = { id: 'unit-kg', slug: 'kg', code: 'KG', name: 'Kilogram' };
   const bag = { id: 'unit-bag', slug: 'bag', code: 'BAO', name: 'Bao' };
   const cement = {
@@ -70,7 +70,7 @@ describe('ImportFormService', () => {
     slug: 'cement',
     code: 'XM-01',
     name: 'Xi mang',
-    supplier,
+    suppliers: [supplier],
     unitsCanHave: [
       { unit: kg, conversionRate: 1 },
       { unit: bag, conversionRate: 50 },
@@ -204,7 +204,7 @@ describe('ImportFormService', () => {
       const result = await service.createImportForm('wh-slug', createDto, actor());
 
       expect(materialRepository.find).toHaveBeenCalledWith(
-        expect.objectContaining({ relations: expect.objectContaining({ supplier: true }) }),
+        expect.objectContaining({ relations: expect.objectContaining({ suppliers: true }) }),
       );
       const saved = manager.save.mock.calls[0][0];
       expect(saved).not.toHaveProperty('supplier');
@@ -223,21 +223,71 @@ describe('ImportFormService', () => {
       });
     });
 
+    const nullSupplier = {
+      supplierSlug: null,
+      supplierCode: null,
+      supplierName: null,
+      supplierTaxCode: null,
+      supplierAddress: null,
+    };
+    const supplierB = {
+      id: 'sup-2',
+      slug: 'sup-b',
+      code: 'NCC-02',
+      name: 'Supplier B',
+      taxCode: '0109999999',
+      address: 'HCMC',
+    } as Supplier;
+    const savedItems = (): ImportFormItem[] => manager.save.mock.calls[0][0].items;
+
     it('writes null supplier snapshot columns when the material has no supplier', async () => {
-      materialRepository.find.mockResolvedValue([{ ...cement, supplier: null }]);
+      materialRepository.find.mockResolvedValue([{ ...cement, suppliers: [] }]);
 
       await service.createImportForm('wh-slug', createDto, actor());
 
-      const saved = manager.save.mock.calls[0][0];
-      saved.items.forEach((item: ImportFormItem) =>
+      savedItems().forEach((item) => expect(item).toMatchObject(nullSupplier));
+    });
+
+    // n - n: không tự đoán khi vật tư có nhiều nhà cung cấp và dòng không chỉ rõ.
+    it('writes null supplier when the material has several suppliers and the line names none', async () => {
+      materialRepository.find.mockResolvedValue([{ ...cement, suppliers: [supplier, supplierB] }]);
+
+      await service.createImportForm('wh-slug', createDto, actor());
+
+      savedItems().forEach((item) => expect(item).toMatchObject(nullSupplier));
+    });
+
+    it('snapshots the supplier named by items[].supplierSlug', async () => {
+      materialRepository.find.mockResolvedValue([{ ...cement, suppliers: [supplier, supplierB] }]);
+      const dto = {
+        ...createDto,
+        items: createDto.items.map((item) => ({ ...item, supplierSlug: 'sup-b' })),
+      };
+
+      await service.createImportForm('wh-slug', dto, actor());
+
+      savedItems().forEach((item) =>
         expect(item).toMatchObject({
-          supplierSlug: null,
-          supplierCode: null,
-          supplierName: null,
-          supplierTaxCode: null,
-          supplierAddress: null,
+          supplierSlug: 'sup-b',
+          supplierCode: 'NCC-02',
+          supplierName: 'Supplier B',
+          supplierTaxCode: '0109999999',
+          supplierAddress: 'HCMC',
         }),
       );
+    });
+
+    it('rejects a supplierSlug that is not a supplier of the material', async () => {
+      const dto = {
+        ...createDto,
+        items: [{ ...createDto.items[0], supplierSlug: 'sup-b' }],
+      };
+
+      await expectError(
+        service.createImportForm('wh-slug', dto, actor()),
+        ImportFormValidation.IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL.code,
+      );
+      expect(transactionManager.execute).not.toHaveBeenCalled();
     });
 
     it('writes the form and its items in ONE transaction, items pointing at the saved form', async () => {
@@ -479,8 +529,7 @@ describe('ImportFormService', () => {
           name: 'Xi mang',
           baseUnitSlug: 'kg',
           quantity: 12.5,
-          supplierSlug: 'sup-slug',
-          supplierName: 'Supplier A',
+          suppliers: [{ slug: 'sup-slug', code: 'NCC-01', name: 'Supplier A' }],
           units: [
             {
               unitSlug: 'kg',

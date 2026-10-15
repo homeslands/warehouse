@@ -34,6 +34,7 @@ import { ImportFormValidation } from './import-form.validation';
 import { pickDefined } from 'src/shared/utils/obj.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { Material } from 'src/material/material.entity';
+import { Supplier } from 'src/supplier/supplier.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { Inventory } from 'src/inventory/inventory.entity';
@@ -208,7 +209,7 @@ export class ImportFormService {
 
     const [rows, total] = await this.inventoryRepository.findAndCount({
       where: { warehouse: { id: warehouse.id }, material: materialWhere },
-      relations: { material: { baseUnit: true, supplier: true, unitsCanHave: { unit: true } } },
+      relations: { material: { baseUnit: true, suppliers: true, unitsCanHave: { unit: true } } },
       order: { material: { code: 'ASC' } },
       skip: (query.page - 1) * query.size,
       take: query.size,
@@ -222,8 +223,9 @@ export class ImportFormService {
         name: material.name,
         baseUnitSlug: material.baseUnit?.slug ?? null,
         quantity,
-        supplierSlug: material.supplier?.slug ?? null,
-        supplierName: material.supplier?.name ?? null,
+        suppliers: (material.suppliers ?? [])
+          .map(({ slug, code, name }) => ({ slug, code, name }))
+          .sort((a, b) => a.code.localeCompare(b.code)),
         units: (material.unitsCanHave ?? [])
           .map((mu) => ({
             unitSlug: mu.unit.slug,
@@ -443,7 +445,7 @@ export class ImportFormService {
     const slugs = [...new Set(dtos.map((dto) => dto.materialSlug))];
     const materials = await this.materialRepository.find({
       where: { slug: In(slugs) },
-      relations: { unitsCanHave: { unit: true }, supplier: true },
+      relations: { unitsCanHave: { unit: true }, suppliers: true },
     });
     const materialBySlug = new Map(materials.map((material) => [material.slug, material]));
     const assigned = materials.length
@@ -477,6 +479,8 @@ export class ImportFormService {
           ImportFormValidation.IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID,
         );
 
+      const supplier = this.pickSupplier(material, dto.supplierSlug);
+
       const baseQuantity = roundToScale(dto.quantity * conversionRate);
       if (dto.quantity >= QUANTITY_MAX || baseQuantity >= QUANTITY_MAX || baseQuantity <= 0)
         throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_QUANTITY_INVALID);
@@ -491,11 +495,11 @@ export class ImportFormService {
         material,
         materialCode: material.code,
         materialName: material.name,
-        supplierSlug: material.supplier?.slug ?? null,
-        supplierCode: material.supplier?.code ?? null,
-        supplierName: material.supplier?.name ?? null,
-        supplierTaxCode: material.supplier?.taxCode ?? null,
-        supplierAddress: material.supplier?.address ?? null,
+        supplierSlug: supplier?.slug ?? null,
+        supplierCode: supplier?.code ?? null,
+        supplierName: supplier?.name ?? null,
+        supplierTaxCode: supplier?.taxCode ?? null,
+        supplierAddress: supplier?.address ?? null,
         unit: row.unit,
         unitCode: row.unit.code,
         unitName: row.unit.name,
@@ -512,6 +516,25 @@ export class ImportFormService {
       throw new ImportFormException(ImportFormValidation.IMPORT_FORM_TOTAL_INVALID);
 
     return { items, total };
+  }
+
+  /**
+   * Nhà cung cấp snapshot vào dòng phiếu. Vật tư - nhà cung cấp là n - n nên dòng phải chỉ ra
+   * nhà cung cấp nào: gửi `supplierSlug` thì nó phải nằm trong các nhà cung cấp của vật tư; không
+   * gửi thì lấy nhà cung cấp DUY NHẤT của vật tư, còn 0 hoặc nhiều nhà cung cấp thì để trống (không
+   * tự đoán).
+   */
+  private pickSupplier(material: Material, supplierSlug?: string): Supplier | null {
+    const suppliers = material.suppliers ?? [];
+    if (supplierSlug) {
+      const supplier = suppliers.find(({ slug }) => slug === supplierSlug);
+      if (!supplier)
+        throw new ImportFormException(
+          ImportFormValidation.IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL,
+        );
+      return supplier;
+    }
+    return suppliers.length === 1 ? suppliers[0] : null;
   }
 
   private assertIsDraft(form: ImportForm): void {
