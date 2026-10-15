@@ -118,7 +118,9 @@ export function Combobox({
         <PopoverContent
           // Không bao giờ cao hơn chỗ trống thật (Radix tính theo phía đang mở): phần dư cuộn trong danh sách
           // thay vì tràn ra khỏi màn hình. `min-h-0` để Command / CommandList co lại được trong khung flex.
-          className="max-h-(--radix-popover-content-available-height) w-(--radix-popover-trigger-width) p-0"
+          // Rộng bằng nút mở nhưng không hẹp hơn 18rem: ô trong bảng (dòng phiếu nhập) hẹp, danh sách bóp theo sẽ cắt
+          // chữ ô tìm và câu "không có kết quả".
+          className="max-h-(--radix-popover-content-available-height) w-(--radix-popover-trigger-width) min-w-72 p-0"
           align="start"
           collisionPadding={8}
         >

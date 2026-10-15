@@ -1,5 +1,5 @@
 import { useQueryClient } from '@tanstack/react-query'
-import { PackagePlusIcon, PlusIcon } from 'lucide-react'
+import { PackagePlusIcon } from 'lucide-react'
 import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -14,7 +14,7 @@ import {
 } from '@/shared/ui/dialog'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Input } from '@/shared/ui/input'
-import { Separator } from '@/shared/ui/separator'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { importFormKeys } from '@/entities/import-form'
 import { materialKeys, type Material } from '@/entities/material'
 import { supplierKeys } from '@/entities/supplier'
@@ -34,6 +34,8 @@ type Props = {
   onAdded: (added: AddedMaterial) => void
 }
 
+type DialogTab = 'catalog' | 'create'
+
 const toAddedMaterial = (m: Material): AddedMaterial => ({
   slug: m.slug,
   label: codeNameLabel(m.code, m.name),
@@ -43,8 +45,8 @@ const toAddedMaterial = (m: Material): AddedMaterial => ({
 })
 
 /**
- * Hộp "Thêm vật tư vào kho" mở từ ô chọn vật tư của dòng phiếu nhập: tìm danh mục + gắn vào kho, hoặc tạo vật tư mới +
- * gắn kho (+ NCC). Nội dung remount mỗi lần mở (`session`) để ô tìm / form không giữ dữ liệu lần trước.
+ * Hộp "Thêm vật tư vào kho" mở từ ô chọn vật tư của dòng phiếu nhập, hai tab: "Chọn từ danh mục" (tìm + gắn vào kho) và
+ * "Tạo vật tư mới" (tạo + gắn kho, + NCC; nút gửi ở chân hộp). Nội dung remount mỗi lần mở (`session`) để ô tìm / form không giữ dữ liệu lần trước.
  */
 export function AddWarehouseMaterialDialog(props: Props) {
   const [session, setSession] = useState(0)
@@ -69,6 +71,7 @@ function DialogBody({
   const { t } = useTranslation(['importForms', 'common'])
   const qc = useQueryClient()
   const [search, setSearch] = useState(initialSearch)
+  const [tab, setTab] = useState<DialogTab>('catalog')
   const [creating, setCreating] = useState<string | null>(null)
   const [createBusy, setCreateBusy] = useState(false)
   const [assignBusy, setAssignBusy] = useState(false)
@@ -114,62 +117,80 @@ function DialogBody({
           </DialogDescription>
         </DialogHeader>
 
-        <Input
-          aria-label={t('importForms:addMaterialSearch')}
-          placeholder={t('importForms:addMaterialSearch')}
-          value={search}
-          onChange={(e) => setSearch(e.target.value)}
-          autoComplete="off"
-        />
-
-        {/* `-m-1 p-1`: vùng cuộn cắt theo mép padding — chừa chỗ cho viền focus (ring-3) của ô / nút sát mép. */}
-        <div className="-m-1 max-h-[55vh] space-y-4 overflow-y-auto p-1">
-          <AssignExistingSection
-            warehouseSlug={warehouseSlug}
-            search={search}
-            availableSlugs={availableSlugs}
-            canAssign={abilities.assign}
-            locked={busy}
-            onBusyChange={setAssignBusy}
-            onAssigned={(m, alreadyInWarehouse) =>
-              finish(
-                m.name,
-                toAddedMaterial(m),
-                alreadyInWarehouse
-                  ? 'importForms:alreadyInWarehouseToast'
-                  : 'importForms:assignedToast',
-              )
-            }
-          />
-          <Separator />
-          {creating === null ? (
-            <Button
-              type="button"
-              variant="ghost"
-              disabled={busy}
-              onClick={() => setCreating(search)}
-            >
-              <PlusIcon aria-hidden />
+        <Tabs
+          value={tab}
+          onValueChange={(next) => {
+            const value = next as DialogTab
+            // Form tạo lấy chữ đang tìm làm giá trị đầu ở LẦN ĐẦU mở tab; sau đó giữ nguyên khi qua lại giữa hai tab.
+            if (value === 'create' && creating === null) setCreating(search)
+            setTab(value)
+          }}
+          className="min-h-0 gap-4"
+        >
+          <TabsList className="w-full">
+            <TabsTrigger value="catalog" className="flex-1" disabled={busy}>
+              {t('importForms:catalogTab')}
+            </TabsTrigger>
+            <TabsTrigger value="create" className="flex-1" disabled={busy}>
               {t('importForms:createMaterialSection')}
-            </Button>
-          ) : (
-            <CreateMaterialSection
-              formId={createFormId}
-              hintId={createHintId}
-              warehouseSlug={warehouseSlug}
-              initialSearch={creating}
-              canCreate={abilities.create}
-              canAttachSupplier={abilities.attachSupplier}
-              onBusyChange={setCreateBusy}
-              onWarehouseInactive={() => onOpenChange(false)}
-              onCreated={async (added, name, supplierAttached) => {
-                if (supplierAttached !== null)
-                  void qc.invalidateQueries({ queryKey: supplierKeys.all })
-                await finish(name, added, 'importForms:createdToast', supplierAttached === false)
-              }}
+            </TabsTrigger>
+          </TabsList>
+
+          <TabsContent value="catalog" className="space-y-4">
+            <Input
+              aria-label={t('importForms:addMaterialSearch')}
+              placeholder={t('importForms:addMaterialSearch')}
+              value={search}
+              onChange={(e) => setSearch(e.target.value)}
+              autoComplete="off"
             />
+            {/* `-m-1 p-1`: vùng cuộn cắt theo mép padding — chừa chỗ cho viền focus (ring-3) của nút sát mép. */}
+            <div className="-m-1 max-h-[45vh] overflow-y-auto p-1">
+              <AssignExistingSection
+                warehouseSlug={warehouseSlug}
+                search={search}
+                availableSlugs={availableSlugs}
+                canAssign={abilities.assign}
+                locked={busy}
+                onBusyChange={setAssignBusy}
+                onAssigned={(m, alreadyInWarehouse) =>
+                  finish(
+                    m.name,
+                    toAddedMaterial(m),
+                    alreadyInWarehouse
+                      ? 'importForms:alreadyInWarehouseToast'
+                      : 'importForms:assignedToast',
+                  )
+                }
+              />
+            </div>
+          </TabsContent>
+
+          {creating !== null && (
+            // Giữ mount khi sang tab kia để không mất phần đã nhập.
+            <TabsContent
+              value="create"
+              forceMount
+              className="-m-1 max-h-[55vh] overflow-y-auto p-1 data-[state=inactive]:hidden"
+            >
+              <CreateMaterialSection
+                formId={createFormId}
+                hintId={createHintId}
+                warehouseSlug={warehouseSlug}
+                initialSearch={creating}
+                canCreate={abilities.create}
+                canAttachSupplier={abilities.attachSupplier}
+                onBusyChange={setCreateBusy}
+                onWarehouseInactive={() => onOpenChange(false)}
+                onCreated={async (added, name, supplierAttached) => {
+                  if (supplierAttached !== null)
+                    void qc.invalidateQueries({ queryKey: supplierKeys.all })
+                  await finish(name, added, 'importForms:createdToast', supplierAttached === false)
+                }}
+              />
+            </TabsContent>
           )}
-        </div>
+        </Tabs>
 
         <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
           <Button
@@ -181,7 +202,7 @@ function DialogBody({
           >
             {t('common:close')}
           </Button>
-          {creating !== null && (
+          {tab === 'create' && (
             <Button
               type="submit"
               form={createFormId}

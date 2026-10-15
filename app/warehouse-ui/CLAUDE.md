@@ -360,8 +360,10 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     đóng sheet + toast + invalidate cả kho. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
     (`pages/import-forms/model/paths.ts`).
     Ô chọn vật tư của dòng có `footer` "＋ Thêm vật tư vào kho…" (prop `footer` của `Combobox`: nhận chữ đang gõ + hàm đóng)
-    → `AddWarehouseMaterialDialog` (`features/import-form-editor`): tìm danh mục (`GET /materials`, loại vật tư đã ở kho) +
-    "Gắn vào kho" (`PUT /warehouses/{w}/materials`), hoặc "Tạo và gắn vào kho" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC). Quyền
+    → `AddWarehouseMaterialDialog` (`features/import-form-editor`), hai tab: "Chọn từ danh mục" (`GET /materials`, loại vật tư đã ở
+    kho, + "Gắn vào kho" `PUT /warehouses/{w}/materials`) và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC; nút "Tạo và gắn
+    vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp nằm trong form phiếu).
+    Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`. Quyền
     `MaterialAddAbilities` do trang tính (`materialAddAbilities`). Hộp chờ `available-materials` tải lại rồi mới `onAdded(AddedMaterial)`; items field
     chọn dòng NGAY bằng nhãn + đơn vị gốc hộp trả về (không chờ vật tư xuất hiện trong `materials`). Invalidate chéo (vật tư khả dụng, danh mục
     vật tư, NCC) nằm ở hộp — entity `inventory` không import entity khác.
