@@ -98,7 +98,7 @@ describe('AddWarehouseMaterialDialog', () => {
     const input = screen.getByRole('textbox', { name: /Tìm vật tư trong danh mục/ })
     await user.clear(input)
     await user.type(input, 'khác')
-    await user.click(screen.getByRole('button', { name: /Tạo vật tư mới/ }))
+    await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
     // Nút × cũng mang nhãn "Đóng" — nút chân hộp là nút cuối.
     await user.click(
       within(screen.getByRole('dialog')).getAllByRole('button', { name: 'Đóng' }).at(-1)!,
@@ -205,7 +205,7 @@ describe('AddWarehouseMaterialDialog', () => {
       { auth: 'admin' },
     )
     const inv = vi.spyOn(queryClient, 'invalidateQueries')
-    await user.click(screen.getByRole('button', { name: /Tạo vật tư mới/ }))
+    await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
     await user.type(await screen.findByRole('textbox', { name: /^Mã vật tư/ }), ' vt-99 ')
     const pick = async (field: RegExp, label: string) => {
       await user.click(screen.getByRole('combobox', { name: field }))
@@ -232,13 +232,13 @@ describe('AddWarehouseMaterialDialog', () => {
     ).toBe(true)
   })
 
-  it('nút "Tạo và gắn vào kho" nằm ở chân hộp cạnh "Đóng", chỉ khi đang mở form tạo', async () => {
+  it('nút "Tạo và gắn vào kho" nằm ở chân hộp cạnh "Đóng", chỉ ở tab tạo', async () => {
     server.use(mswHttp.get(`${BASE}/materials`, () => paginated([])))
     const { user } = renderWithProviders(<Harness onAdded={vi.fn()} />, { auth: 'admin' })
     const footer = () =>
       screen.getByRole('dialog').querySelector<HTMLElement>('[data-slot="dialog-footer"]')!
     expect(within(footer()).queryByRole('button', { name: 'Tạo và gắn vào kho' })).toBeNull()
-    await user.click(screen.getByRole('button', { name: /Tạo vật tư mới/ }))
+    await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
     const submit = within(footer()).getByRole('button', { name: 'Tạo và gắn vào kho' })
     expect(submit).toHaveAttribute('type', 'submit')
     expect(submit).toHaveAttribute(
@@ -254,11 +254,30 @@ describe('AddWarehouseMaterialDialog', () => {
       <Harness onAdded={vi.fn()} abilities={{ ...ALL, create: false }} />,
       { auth: 'admin' },
     )
-    await user.click(screen.getByRole('button', { name: /Tạo vật tư mới/ }))
+    await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
     const submit = screen.getByRole('button', { name: 'Tạo và gắn vào kho' })
     expect(submit).toBeDisabled()
     expect(submit).toHaveAccessibleDescription(
       'Cần quyền tạo / sửa vật tư, sửa kho và xem đơn vị — liên hệ quản trị.',
     )
+  })
+
+  it('hai tab: ô tìm trống hiện gợi ý; qua lại giữa hai tab giữ phần đã nhập ở form tạo', async () => {
+    server.use(mswHttp.get(`${BASE}/materials`, () => paginated([])))
+    const { user } = renderWithProviders(<Harness onAdded={vi.fn()} initialSearch="" />, {
+      auth: 'admin',
+    })
+    expect(screen.getByRole('tab', { name: 'Chọn từ danh mục' })).toHaveAttribute(
+      'aria-selected',
+      'true',
+    )
+    expect(screen.getByText('Gõ mã hoặc tên để tìm vật tư trong danh mục.')).toBeInTheDocument()
+    await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
+    await user.type(screen.getByRole('textbox', { name: /^Tên vật tư/ }), 'Thép cuộn')
+    await user.click(screen.getByRole('tab', { name: 'Chọn từ danh mục' }))
+    expect(screen.queryByRole('button', { name: 'Tạo và gắn vào kho' })).not.toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: /Tìm vật tư trong danh mục/ })).toBeVisible()
+    await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
+    expect(screen.getByRole('textbox', { name: /^Tên vật tư/ })).toHaveValue('Thép cuộn')
   })
 })

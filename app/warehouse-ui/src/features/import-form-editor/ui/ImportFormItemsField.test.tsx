@@ -4,7 +4,7 @@ import { http as mswHttp } from 'msw'
 import { useState } from 'react'
 import type { UserEvent } from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import type { AvailableMaterial } from '@/entities/import-form'
 import type { Material } from '@/entities/material'
 import { ok, paginated } from '@/shared/test/api'
@@ -84,7 +84,13 @@ const BASE = 'http://localhost:8085/api/v1'
 
 let current: ImportFormValues | undefined
 
-function Harness({ items }: { items?: ImportFormValues['items'] }) {
+function Harness({
+  items,
+  loadError,
+}: {
+  items?: ImportFormValues['items']
+  loadError?: { message: string; onRetry: () => void }
+}) {
   const form = useForm<ImportFormValues>({
     resolver: zodResolver(importFormSchema),
     defaultValues: { ...emptyFormValues(new Date(2026, 9, 13)), ...(items && { items }) },
@@ -94,10 +100,11 @@ function Harness({ items }: { items?: ImportFormValues['items'] }) {
     <Form {...form}>
       <ImportFormItemsField
         form={form}
-        materials={[flour, sugar]}
+        materials={loadError ? [] : [flour, sugar]}
         fallbackLabels={{}}
         warehouseSlug="w-a"
         warehouseName="Kho A"
+        loadError={loadError}
       />
     </Form>
   )
@@ -136,6 +143,21 @@ async function pickMaterial(user: UserEvent, line: number, label: string) {
 }
 
 describe('ImportFormItemsField', () => {
+  it('tải vật tư lỗi → báo dưới tiêu đề kèm Thử lại; ô chọn báo không tải được thay vì "không có vật tư"', async () => {
+    const onRetry = vi.fn()
+    const { user } = renderWithProviders(
+      <Harness loadError={{ message: 'Internal server error', onRetry }} />,
+    )
+    const section = screen.getByRole('region', { name: 'Dòng vật tư' })
+    const alert = within(section).getByRole('alert')
+    expect(alert).toHaveTextContent('Không tải được vật tư của kho: Internal server error')
+    await user.click(within(alert).getByRole('button', { name: 'Thử lại' }))
+    expect(onRetry).toHaveBeenCalledTimes(1)
+    await user.click(screen.getByRole('combobox', { name: 'Vật tư dòng 1' }))
+    expect(await screen.findByText('Không tải được vật tư của kho')).toBeInTheDocument()
+    expect(screen.queryByText('Không có vật tư phù hợp')).not.toBeInTheDocument()
+  })
+
   it('chọn vật tư → đơn vị mặc định là đơn vị gốc, hiện tồn', async () => {
     const { user } = renderWithProviders(<Harness />)
     await pickMaterial(user, 1, 'VT-01 · Bột mì')

@@ -57,7 +57,8 @@ export function AssignExistingSection({
   const [rowError, setRowError] = useState<{ search: string; message: string } | null>(null)
   const inFlight = useRef(false)
 
-  if (!enabled) return null
+  if (!enabled)
+    return <p className="text-muted-foreground text-sm">{t('importForms:catalogHint')}</p>
 
   const found = materials.data?.items ?? []
   const candidates = found.filter((m) => !availableSlugs.includes(m.slug))

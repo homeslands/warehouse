@@ -371,33 +371,23 @@ export function ImportFormSheet({
                   <Skeleton className="h-10 w-full" />
                 </div>
               ) : (
-                <>
-                  {materials.isError && (
-                    <div
-                      role="alert"
-                      className="text-destructive mb-3 flex flex-wrap items-center justify-between gap-2 text-sm"
-                    >
-                      <span>{resolveApiErrorMessage(materials.error)}</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void materials.refetch()}
-                      >
-                        {t('common:retry')}
-                      </Button>
-                    </div>
-                  )}
-                  <ImportFormItemsField
-                    form={form}
-                    materials={materials.data?.items ?? []}
-                    fallbackLabels={fallbackLabels}
-                    fallbackUnits={fallbackUnits}
-                    warehouseSlug={warehouseSlug}
-                    warehouseName={warehouseName}
-                    materialAbilities={materialAbilities}
-                  />
-                </>
+                <ImportFormItemsField
+                  form={form}
+                  materials={materials.data?.items ?? []}
+                  fallbackLabels={fallbackLabels}
+                  fallbackUnits={fallbackUnits}
+                  warehouseSlug={warehouseSlug}
+                  warehouseName={warehouseName}
+                  materialAbilities={materialAbilities}
+                  loadError={
+                    materials.isError
+                      ? {
+                          message: resolveApiErrorMessage(materials.error),
+                          onRetry: () => void materials.refetch(),
+                        }
+                      : undefined
+                  }
+                />
               )}
             </section>
           </div>
