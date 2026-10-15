@@ -8,6 +8,8 @@ import { InventoryRowActions, StockCell, type InventoryRowHandlers } from './Inv
 export function buildInventoryColumns(
   t: TFunction<readonly ['inventory', 'common']>,
   handlers: InventoryRowHandlers,
+  /** Danh sách hiện tại (`pathname + search`) — trang vật tư dùng làm đích "Quay lại danh sách". */
+  backTo: string,
 ): ColumnDef<InventoryItem>[] {
   return [
     {
@@ -17,6 +19,7 @@ export function buildInventoryColumns(
         <span className="block max-w-72 min-w-40 whitespace-normal break-words">
           <Link
             to={`/materials/${row.original.materialSlug}`}
+            state={{ backTo }}
             className="font-medium hover:underline"
           >
             {row.original.materialCode}

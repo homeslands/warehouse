@@ -52,7 +52,14 @@ const noUnitAbove = row({
 })
 
 function LocationProbe() {
-  return <output data-testid="search">{useLocation().search}</output>
+  const location = useLocation()
+  return (
+    <>
+      <output data-testid="search">{location.search}</output>
+      <output data-testid="path">{location.pathname}</output>
+      <output data-testid="state">{JSON.stringify(location.state)}</output>
+    </>
+  )
 }
 
 function setup(
@@ -108,6 +115,15 @@ describe('WarehouseInventory', () => {
     expect(within(noRow).getByText('Trên max')).toBeInTheDocument()
     expect(within(noRow).getByText('Chưa đặt')).toBeInTheDocument()
     expect(noRow).not.toHaveTextContent('undefined')
+  })
+
+  it('bấm mã vật tư → sang trang vật tư, state.backTo là tab Vật tư của kho (có cả ?tab=)', async () => {
+    const { user } = setup()
+    await user.click(await screen.findByRole('link', { name: 'NL04' }))
+    expect(screen.getByTestId('path')).toHaveTextContent('/materials/m-matcha')
+    expect(JSON.parse(screen.getByTestId('state').textContent!)).toEqual({
+      backTo: '/warehouses/w-a?tab=materials',
+    })
   })
 
   it('có đơn vị gốc → "30 KG"', async () => {

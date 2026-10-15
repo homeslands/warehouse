@@ -40,8 +40,8 @@ export function RemoveWarehouseMaterialDialog({ warehouse, item, onOpenChange, o
   const shown = item ?? last
   const name = shown ? `${shown.materialCode} · ${shown.materialName}` : ''
 
+  // Thành công: `useRemoveWarehouseMaterial` đã tự tải lại tồn của kho — ở đây chỉ phần còn lại.
   const refresh = () => {
-    void qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouse.slug) })
     void qc.invalidateQueries({ queryKey: materialKeys.all })
     void qc.invalidateQueries({ queryKey: importFormKeys.available(warehouse.slug) })
   }
@@ -68,6 +68,7 @@ export function RemoveWarehouseMaterialDialog({ warehouse, item, onOpenChange, o
               onOpenChange(false)
             },
             onError: (error) => {
+              void qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouse.slug) })
               refresh()
               if (isApiError(error) && error.code === INVENTORY_NOT_FOUND) {
                 toast.info(t('inventory:alreadyRemovedToast', { name }))
