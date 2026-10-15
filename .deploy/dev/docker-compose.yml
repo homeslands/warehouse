@@ -5,6 +5,7 @@ volumes:
 
 services:
   warehouse-redis:
+    container_name: warehouse-redis
     image: redis:7-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
     volumes:
@@ -22,6 +23,7 @@ services:
     restart: unless-stopped
 
   warehouse-api:
+    container_name: warehouse-api
     image: ghcr.io/homeslands/warehouse-api:dev
     restart: unless-stopped
     depends_on:
@@ -126,6 +128,7 @@ services:
 
 
   warehouse-ui:
+    container_name: warehouse-ui
     image: ghcr.io/homeslands/warehouse-ui:dev
     healthcheck:
       test: ["CMD", "nc", "-z", "localhost", "5175"] # TCP check on port 5175
