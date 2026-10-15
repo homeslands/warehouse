@@ -15,6 +15,7 @@ import {
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Input } from '@/shared/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
+import { inventoryKeys } from '@/entities/inventory'
 import { importFormKeys } from '@/entities/import-form'
 import { materialKeys, type Material } from '@/entities/material'
 import { supplierKeys } from '@/entities/supplier'
@@ -26,9 +27,9 @@ type Props = {
   open: boolean
   onOpenChange: (open: boolean) => void
   warehouseSlug: string
-  warehouseName: string
   initialSearch: string
-  availableSlugs: string[]
+  /** Câu dưới tiêu đề — mỗi nơi dùng nói đúng ngữ cảnh của mình. */
+  description: string
   abilities: MaterialAddAbilities
   /** Gọi SAU KHI `available-materials` của kho đã tải lại; kèm nhãn + đơn vị gốc để dòng chọn ngay. */
   onAdded: (added: AddedMaterial) => void
@@ -62,9 +63,8 @@ function DialogBody({
   open,
   onOpenChange,
   warehouseSlug,
-  warehouseName,
   initialSearch,
-  availableSlugs,
+  description,
   abilities,
   onAdded,
 }: Props) {
@@ -79,7 +79,7 @@ function DialogBody({
   const createFormId = useId()
   const createHintId = useId()
 
-  /** Chờ danh sách vật tư của kho tải lại rồi mới báo bên gọi — dòng chọn xong phải có đủ đơn vị. */
+  /** Chờ vật tư khả dụng của phiếu nhập và danh sách tồn của kho tải lại rồi mới báo bên gọi. */
   const finish = async (
     name: string,
     added: AddedMaterial,
@@ -89,7 +89,10 @@ function DialogBody({
       | 'importForms:createdToast',
     supplierFailed = false,
   ) => {
-    await qc.invalidateQueries({ queryKey: importFormKeys.available(warehouseSlug) })
+    await Promise.all([
+      qc.invalidateQueries({ queryKey: importFormKeys.available(warehouseSlug) }),
+      qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouseSlug) }),
+    ])
     void qc.invalidateQueries({ queryKey: materialKeys.all })
     const message = t(toastKey, { name })
     if (toastKey === 'importForms:alreadyInWarehouseToast') toast.info(message)
@@ -112,9 +115,7 @@ function DialogBody({
             <PackagePlusIcon />
           </DialogIcon>
           <DialogTitle>{t('importForms:addMaterialTitle')}</DialogTitle>
-          <DialogDescription>
-            {t('importForms:addMaterialDescription', { warehouse: warehouseName })}
-          </DialogDescription>
+          <DialogDescription>{description}</DialogDescription>
         </DialogHeader>
 
         <Tabs
@@ -151,7 +152,6 @@ function DialogBody({
                 <AssignExistingSection
                   warehouseSlug={warehouseSlug}
                   search={search}
-                  availableSlugs={availableSlugs}
                   canAssign={abilities.assign}
                   locked={busy}
                   onBusyChange={setAssignBusy}

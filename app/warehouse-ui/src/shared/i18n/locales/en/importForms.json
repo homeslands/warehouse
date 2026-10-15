@@ -137,7 +137,7 @@
   "assignAction": "Add to warehouse",
   "assigning": "Adding…",
   "assignedToast": "Added {{name}} to the warehouse",
-  "alreadyInWarehouseToast": "{{name}} is already in the warehouse — selected in the line",
+  "alreadyInWarehouseToast": "{{name}} is already in the warehouse",
   "createMaterialSection": "Create a new material",
   "createMaterialHint": "A new material only has its base unit — add conversion units on the material detail page.",
   "fieldMaterialCode": "Material code",

@@ -52,9 +52,8 @@ function Harness({
         open={open}
         onOpenChange={setOpen}
         warehouseSlug="w-a"
-        warehouseName="Kho A"
         initialSearch={initialSearch}
-        availableSlugs={[]}
+        description="Mô tả thử"
         abilities={abilities}
         onAdded={onAdded}
       />
@@ -91,6 +90,33 @@ describe('AddWarehouseMaterialDialog', () => {
     expect(order).toEqual(['available-refreshed', 'added'])
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     inv.mockRestore()
+  })
+
+  it('hiện câu mô tả do bên gọi truyền', () => {
+    server.use(mswHttp.get(`${BASE}/materials`, () => paginated([])))
+    renderWithProviders(<Harness onAdded={vi.fn()} />, { auth: 'admin' })
+    expect(screen.getByText('Mô tả thử')).toBeInTheDocument()
+  })
+
+  it('gắn xong chờ cả vật tư khả dụng của phiếu nhập lẫn danh sách tồn của kho tải lại rồi mới onAdded', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => paginated([cement])),
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => ok({ materialSlug: 'm-cement' })),
+    )
+    const awaited: string[] = []
+    const onAdded = vi.fn()
+    const { user, queryClient } = renderWithProviders(<Harness onAdded={onAdded} />, {
+      auth: 'admin',
+    })
+    vi.spyOn(queryClient, 'invalidateQueries').mockImplementation(async (filters) => {
+      const key = JSON.stringify(filters?.queryKey)
+      await new Promise((r) => setTimeout(r, 10))
+      awaited.push(key)
+    })
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await waitFor(() => expect(onAdded).toHaveBeenCalled())
+    expect(awaited).toContain(JSON.stringify(['inventory', 'w-a']))
+    expect(awaited.some((k) => k.includes('available'))).toBe(true)
   })
 
   it('đóng rồi mở lại → ô tìm lấy lại chữ ban đầu, form tạo đóng', async () => {
