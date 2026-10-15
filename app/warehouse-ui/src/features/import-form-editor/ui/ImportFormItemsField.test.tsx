@@ -77,7 +77,7 @@ const cementMaterial: Material = {
   type: { slug: 'mt-1', code: 'MT', name: 'Vật liệu' },
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
-  supplier: null,
+  suppliers: [],
 }
 
 const BASE = 'http://localhost:8085/api/v1'

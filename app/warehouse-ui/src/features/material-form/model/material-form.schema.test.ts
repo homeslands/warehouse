@@ -19,7 +19,7 @@ const material: Material = {
   type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
-  supplier: null,
+  suppliers: [],
 }
 
 const valid: MaterialFormValues = {

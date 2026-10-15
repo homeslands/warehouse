@@ -11,7 +11,8 @@ export type MaterialRef = {
  *
  * Từ WMS-13-be(9) (2026-10-12) loại / đơn vị gốc là **object lồng** (`type`, `baseUnit`), không còn trường phẳng
  * `typeSlug`/`baseUnitCode`…; body gửi lên và bộ lọc vẫn dùng `typeSlug` / `baseUnitSlug`. `baseUnit: null` = dữ liệu cũ
- * chưa có đơn vị gốc (100714). Mỗi vật tư thuộc tối đa MỘT nhà cung cấp (`supplier`, `null` khi chưa gắn).
+ * chưa có đơn vị gốc (100714). Một vật tư thuộc được NHIỀU nhà cung cấp (`suppliers`, rỗng khi chưa gắn — BE đổi từ
+ * `supplier` đơn lẻ, 2026-10-15); FE chỉ khai các trường đang dùng của mỗi NCC. Response còn `warehouses[]` (chưa dùng).
  * `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng — xem `SupplierMaterial`.
  */
 export type Material = {
@@ -26,7 +27,7 @@ export type Material = {
   type: MaterialRef
   baseUnit: MaterialRef | null
   hasSupplier: boolean
-  supplier: MaterialRef | null
+  suppliers: MaterialRef[]
 }
 
 export type MaterialInput = {
@@ -44,7 +45,7 @@ export type MaterialUpdateInput = Partial<MaterialInput>
 
 /**
  * Lọc `GET /materials` (ghép AND): `code` khớp đúng, `name` chứa chuỗi, `typeSlug` khớp đúng; `hasSupplier`
- * `false` = chưa thuộc nhà cung cấp nào (ứng viên gắn vào NCC), `true` = đã thuộc một NCC. Giá trị sai → 100725.
+ * `false` = chưa thuộc nhà cung cấp nào, `true` = đã thuộc ít nhất một NCC. Giá trị sai → 100725.
  */
 export type MaterialFilters = {
   name?: string

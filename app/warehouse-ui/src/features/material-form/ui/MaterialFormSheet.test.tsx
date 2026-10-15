@@ -43,7 +43,7 @@ const material: Material = {
   type: { slug: 'mt-9', code: 'MT-09', name: 'Loại ngoài trang đầu' },
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
-  supplier: null,
+  suppliers: [],
 }
 
 beforeEach(() => {
