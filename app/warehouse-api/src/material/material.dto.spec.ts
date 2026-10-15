@@ -2,6 +2,7 @@ import { ValidationPipe } from '@nestjs/common';
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import {
+  AssignMaterialSuppliersRequestDto,
   CreateMaterialConversionUnitRequestDto,
   CreateMaterialRequestDto,
   GetAllMaterialRequestDto,
@@ -162,5 +163,31 @@ describe('GetAllMaterialRequestDto.hasSupplier — query string', () => {
 
   it('từ chối giá trị không phải true/false', () => {
     expect(parse('yes').messages).toContain('MATERIAL_HAS_SUPPLIER_INVALID');
+  });
+});
+
+describe('AssignMaterialSuppliersRequestDto — PUT /materials/:slug/suppliers', () => {
+  const parse = (body: object) => plainToInstance(AssignMaterialSuppliersRequestDto, body);
+  const messagesFor = (body: object) =>
+    validateSync(parse(body), { whitelist: true }).flatMap((e) =>
+      Object.values(e.constraints ?? {}),
+    );
+
+  it('chấp nhận mảng rỗng (gỡ hết nhà cung cấp)', () => {
+    expect(messagesFor({ supplierSlugs: [] })).toEqual([]);
+  });
+
+  it('trim + khử trùng lặp slug', () => {
+    expect(parse({ supplierSlugs: [' a ', 'a', 'b'] }).supplierSlugs).toEqual(['a', 'b']);
+  });
+
+  it.each([
+    ['thiếu field', {}],
+    ['không phải mảng', { supplierSlugs: 'a' }],
+    ['phần tử rỗng', { supplierSlugs: ['  '] }],
+    ['phần tử không phải chuỗi', { supplierSlugs: [1] }],
+    ['quá 50 phần tử', { supplierSlugs: Array.from({ length: 51 }, (_, i) => `s${i}`) }],
+  ])('từ chối %s', (_label, body) => {
+    expect(messagesFor(body)).toContain('MATERIAL_SUPPLIER_SLUGS_INVALID');
   });
 });

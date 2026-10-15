@@ -76,6 +76,8 @@ export const SupplierValidation: TSupplierErrorCode = {
     101211,
     'Supplier still has materials attached, detach them before deleting',
   ),
+  // Không còn được ném từ migration `1783728000041` (vật tư - nhà cung cấp thành n - n). Giữ mã để
+  // không tái sử dụng nhầm 101212.
   SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER: createErrorCode(
     101212,
     'Material is already attached to another supplier',

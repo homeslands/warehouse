@@ -1,4 +1,14 @@
-import { IsBoolean, IsNotEmpty, IsOptional, IsPositive, Matches, Min } from 'class-validator';
+import {
+  ArrayMaxSize,
+  IsArray,
+  IsBoolean,
+  IsNotEmpty,
+  IsOptional,
+  IsPositive,
+  IsString,
+  Matches,
+  Min,
+} from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
@@ -185,21 +195,46 @@ export class MaterialResponseDto extends BaseResponseDto {
   })
   baseUnit?: UnitResponseDto | null;
 
-  @ApiProperty({ description: 'Whether the material is attached to a supplier' })
+  @ApiProperty({ description: 'Whether the material is attached to at least one supplier' })
   hasSupplier: boolean;
 
-  @ApiPropertyOptional({
-    type: SupplierResponseDto,
-    nullable: true,
-    description: 'Supplier of the material — `null` when `hasSupplier` is false',
+  @ApiProperty({
+    type: [SupplierResponseDto],
+    description: 'Suppliers of the material (empty when `hasSupplier` is false)',
   })
-  supplier?: SupplierResponseDto | null;
+  suppliers: SupplierResponseDto[];
 
   @ApiProperty({
     type: [MaterialWarehouseResponseDto],
     description: 'Warehouses the material is assigned to (empty when none)',
   })
   warehouses: MaterialWarehouseResponseDto[];
+}
+
+/** Số nhà cung cấp tối đa gắn cho 1 vật tư trong 1 lần `PUT /materials/:slug/suppliers`. */
+export const MATERIAL_SUPPLIER_MAX = 50;
+
+/**
+ * Body của `PUT /materials/:slug/suppliers` — THAY toàn bộ tập nhà cung cấp của vật tư (PUT đúng
+ * nghĩa): nhà cung cấp không có trong mảng bị gỡ, mảng rỗng = gỡ hết. Slug được trim + khử trùng lặp
+ * trước khi validate.
+ */
+export class AssignMaterialSuppliersRequestDto {
+  @ApiProperty({
+    type: [String],
+    description: `Supplier slugs (0-${MATERIAL_SUPPLIER_MAX}); empty array detaches every supplier`,
+    example: ['sup-slug-1', 'sup-slug-2'],
+  })
+  @Transform(({ value }) =>
+    Array.isArray(value)
+      ? [...new Set(value.map((item) => (typeof item === 'string' ? item.trim() : item)))]
+      : value,
+  )
+  @IsArray({ message: 'MATERIAL_SUPPLIER_SLUGS_INVALID' })
+  @ArrayMaxSize(MATERIAL_SUPPLIER_MAX, { message: 'MATERIAL_SUPPLIER_SLUGS_INVALID' })
+  @IsString({ each: true, message: 'MATERIAL_SUPPLIER_SLUGS_INVALID' })
+  @IsNotEmpty({ each: true, message: 'MATERIAL_SUPPLIER_SLUGS_INVALID' })
+  supplierSlugs: string[];
 }
 
 /**
