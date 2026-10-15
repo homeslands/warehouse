@@ -36,6 +36,7 @@ import {
 } from '@/entities/import-form'
 import { ImportFormFileField } from './ImportFormFileField'
 import { ImportFormItemsField } from './ImportFormItemsField'
+import { NO_MATERIAL_ADD, type MaterialAddAbilities } from '../model/material-add'
 import {
   emptyFormValues,
   formTotal,
@@ -69,6 +70,8 @@ type ImportFormSheetProps = {
   formCode?: string
   /** Gọi sau khi tạo / lưu thành công (sheet đã tự đóng). */
   onSaved?: (saved: ImportForm) => void
+  /** Quyền của luồng "thêm vật tư vào kho" trong dòng vật tư. */
+  materialAbilities?: MaterialAddAbilities
 }
 
 /**
@@ -84,6 +87,7 @@ export function ImportFormSheet({
   formSlug,
   formCode,
   onSaved,
+  materialAbilities = NO_MATERIAL_ADD,
 }: ImportFormSheetProps) {
   const { t } = useTranslation(['importForms', 'common'])
   const qc = useQueryClient()
@@ -367,30 +371,23 @@ export function ImportFormSheet({
                   <Skeleton className="h-10 w-full" />
                 </div>
               ) : (
-                <>
-                  {materials.isError && (
-                    <div
-                      role="alert"
-                      className="text-destructive mb-3 flex flex-wrap items-center justify-between gap-2 text-sm"
-                    >
-                      <span>{resolveApiErrorMessage(materials.error)}</span>
-                      <Button
-                        type="button"
-                        variant="outline"
-                        size="sm"
-                        onClick={() => void materials.refetch()}
-                      >
-                        {t('common:retry')}
-                      </Button>
-                    </div>
-                  )}
-                  <ImportFormItemsField
-                    form={form}
-                    materials={materials.data?.items ?? []}
-                    fallbackLabels={fallbackLabels}
-                    fallbackUnits={fallbackUnits}
-                  />
-                </>
+                <ImportFormItemsField
+                  form={form}
+                  materials={materials.data?.items ?? []}
+                  fallbackLabels={fallbackLabels}
+                  fallbackUnits={fallbackUnits}
+                  warehouseSlug={warehouseSlug}
+                  warehouseName={warehouseName}
+                  materialAbilities={materialAbilities}
+                  loadError={
+                    materials.isError
+                      ? {
+                          message: resolveApiErrorMessage(materials.error),
+                          onRetry: () => void materials.refetch(),
+                        }
+                      : undefined
+                  }
+                />
               )}
             </section>
           </div>

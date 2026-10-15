@@ -18,6 +18,12 @@ import {
   lineAmount,
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
+import {
+  NO_MATERIAL_ADD,
+  type AddedMaterial,
+  type MaterialAddAbilities,
+} from '../model/material-add'
+import { AddWarehouseMaterialDialog } from './AddWarehouseMaterialDialog'
 
 type Props = {
   form: UseFormReturn<ImportFormValues>
@@ -26,17 +32,30 @@ type Props = {
   fallbackLabels: Record<string, string>
   /** Đơn vị đã lưu của dòng cũ có vật tư không còn trong danh sách: unitSlug → "mã · tên". */
   fallbackUnits?: Record<string, string>
+  warehouseSlug: string
+  warehouseName: string
+  /** Quyền của luồng "thêm vật tư vào kho"; mặc định không có quyền nào (ẩn điểm vào). */
+  materialAbilities?: MaterialAddAbilities
+  /** Tải vật tư khả dụng của kho lỗi: báo ngay dưới tiêu đề "Dòng vật tư" (kèm Thử lại) và trong danh sách của ô chọn. */
+  loadError?: { message: string; onRetry: () => void }
 }
 
-/** Lưới 7 cột từ `md`; dưới `md` mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra. */
+/**
+ * Lưới 7 cột khi KHUNG (container query `@3xl` = 48rem, không phải cửa sổ) đủ rộng — sheet hẹp hơn cửa sổ nên `md:` từng
+ * dựng lưới ~50rem trong khung ~46rem, đẩy nút ghi chú / xoá ra ngoài card. Hẹp hơn: mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra.
+ */
 const ROW_GRID =
-  'grid gap-3 rounded-lg border p-3 md:grid-cols-[2rem_minmax(12rem,2fr)_minmax(7rem,1fr)_minmax(6rem,1fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_auto] md:items-start md:rounded-none md:border-0 md:border-b md:px-0'
+  'grid gap-3 rounded-lg border p-3 @3xl:grid-cols-[2rem_minmax(10rem,2fr)_minmax(6rem,1fr)_minmax(5rem,1fr)_minmax(6rem,1fr)_minmax(6rem,1fr)_auto] @3xl:items-start @3xl:rounded-none @3xl:border-0 @3xl:border-b @3xl:px-0'
 
 export function ImportFormItemsField({
   form,
   materials,
   fallbackLabels,
   fallbackUnits = {},
+  warehouseSlug,
+  warehouseName,
+  materialAbilities = NO_MATERIAL_ADD,
+  loadError,
 }: Props) {
   const { t } = useTranslation(['importForms', 'common'])
   const hintId = useId()
@@ -52,8 +71,25 @@ export function ImportFormItemsField({
     const m = slug ? bySlug.get(slug) : undefined
     return m ? (baseUnitOf(m)?.unitSlug ?? '') : ''
   }
+  const [adding, setAdding] = useState<{ index: number; search: string } | null>(null)
+  // Vật tư vừa thêm từ hộp có thể nằm ngoài 100 bản ghi đầu của `materials` → giữ nhãn / đơn vị tại chỗ cho dòng đã chọn.
+  const [addedLabels, setAddedLabels] = useState<Record<string, string>>({})
+  const [addedUnits, setAddedUnits] = useState<Record<string, string>>({})
+  const labels = { ...fallbackLabels, ...addedLabels }
+  const unitLabels = { ...fallbackUnits, ...addedUnits }
+  const onMaterialAdded = (added: AddedMaterial) => {
+    if (!adding) return
+    setAddedLabels((prev) => ({ ...prev, [added.slug]: added.label }))
+    if (added.baseUnit) {
+      const { slug, label } = added.baseUnit
+      setAddedUnits((prev) => ({ ...prev, [slug]: label }))
+    }
+    const opts = { shouldDirty: true, shouldValidate: form.formState.isSubmitted }
+    form.setValue(`items.${adding.index}.materialSlug`, added.slug, opts)
+    form.setValue(`items.${adding.index}.unitSlug`, added.baseUnit?.slug ?? '', opts)
+  }
   const options: ComboboxOption[] = [
-    ...Object.entries(fallbackLabels)
+    ...Object.entries(labels)
       .filter(([slug]) => !bySlug.has(slug))
       .map(([value, label]) => ({ value, label })),
     ...materials.map((m) => ({ value: m.slug, label: `${m.code} · ${m.name}` })),
@@ -71,14 +107,26 @@ export function ImportFormItemsField({
   )
 
   return (
-    <section className="space-y-3" aria-labelledby={`${hintId}-title`}>
+    <section className="@container space-y-3" aria-labelledby={`${hintId}-title`}>
       <h2 id={`${hintId}-title`} className="font-heading text-base font-semibold">
         {t('importForms:items')}
       </h2>
 
+      {loadError && (
+        <div
+          role="alert"
+          className="text-destructive flex flex-wrap items-center justify-between gap-2 text-sm"
+        >
+          <span>{t('importForms:materialLoadFailed', { message: loadError.message })}</span>
+          <Button type="button" variant="outline" size="sm" onClick={loadError.onRetry}>
+            {t('common:retry')}
+          </Button>
+        </div>
+      )}
+
       <div
         aria-hidden
-        className="text-muted-foreground hidden border-b pb-2 text-sm md:grid md:grid-cols-[2rem_minmax(12rem,2fr)_minmax(7rem,1fr)_minmax(6rem,1fr)_minmax(7rem,1fr)_minmax(7rem,1fr)_auto] md:gap-3"
+        className="text-muted-foreground hidden border-b pb-2 text-sm @3xl:grid @3xl:grid-cols-[2rem_minmax(10rem,2fr)_minmax(6rem,1fr)_minmax(5rem,1fr)_minmax(6rem,1fr)_minmax(6rem,1fr)_auto] @3xl:gap-3"
       >
         <span>{t('importForms:lineNo')}</span>
         <span>{t('importForms:fieldMaterial')}</span>
@@ -106,7 +154,7 @@ export function ImportFormItemsField({
               name={`items.${index}.materialSlug`}
               render={({ field: f }) => (
                 <FormItem required>
-                  <FormLabel className="md:sr-only">
+                  <FormLabel className="@3xl:sr-only">
                     {lineLabel(t('importForms:fieldMaterial'), index)}
                   </FormLabel>
                   <FormControl>
@@ -123,7 +171,31 @@ export function ImportFormItemsField({
                       }}
                       placeholder={t('importForms:materialPlaceholder')}
                       searchPlaceholder={t('importForms:materialSearch')}
-                      emptyText={t('importForms:materialEmpty')}
+                      emptyText={
+                        loadError
+                          ? t('importForms:materialLoadFailedShort')
+                          : t('importForms:materialEmpty')
+                      }
+                      footer={
+                        materialAbilities.search
+                          ? (search, close) => (
+                              <Button
+                                type="button"
+                                variant="ghost"
+                                size="sm"
+                                // Thẳng lề chữ với các mục của danh sách (CommandItem `px-2`).
+                                className="w-full justify-start px-2"
+                                onClick={() => {
+                                  close()
+                                  setAdding({ index, search })
+                                }}
+                              >
+                                <PlusIcon aria-hidden />
+                                {t('importForms:addMaterialEntry')}
+                              </Button>
+                            )
+                          : undefined
+                      }
                     />
                   </FormControl>
                   {material && (
@@ -144,7 +216,7 @@ export function ImportFormItemsField({
               name={`items.${index}.unitSlug`}
               render={({ field: f }) => (
                 <FormItem required>
-                  <FormLabel className="md:sr-only">
+                  <FormLabel className="@3xl:sr-only">
                     {lineLabel(t('importForms:fieldUnit'), index)}
                   </FormLabel>
                   <Select
@@ -164,8 +236,8 @@ export function ImportFormItemsField({
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
-                      {!material && f.value && fallbackUnits[f.value] && (
-                        <SelectItem value={f.value}>{fallbackUnits[f.value]}</SelectItem>
+                      {!material && f.value && unitLabels[f.value] && (
+                        <SelectItem value={f.value}>{unitLabels[f.value]}</SelectItem>
                       )}
                       {(material?.units ?? []).map((u) => (
                         <SelectItem key={u.unitSlug} value={u.unitSlug}>
@@ -184,7 +256,7 @@ export function ImportFormItemsField({
               name={`items.${index}.quantity`}
               render={({ field: f }) => (
                 <FormItem required>
-                  <FormLabel className="md:sr-only">
+                  <FormLabel className="@3xl:sr-only">
                     {lineLabel(t('importForms:fieldQuantity'), index)}
                   </FormLabel>
                   <FormControl>
@@ -207,7 +279,7 @@ export function ImportFormItemsField({
               name={`items.${index}.unitPrice`}
               render={({ field: f }) => (
                 <FormItem required>
-                  <FormLabel className="md:sr-only">
+                  <FormLabel className="@3xl:sr-only">
                     {lineLabel(t('importForms:fieldUnitPrice'), index)}
                   </FormLabel>
                   <FormControl>
@@ -218,8 +290,8 @@ export function ImportFormItemsField({
               )}
             />
 
-            <div className="flex items-center justify-between gap-2 md:block md:pt-2 md:text-right">
-              <span className="text-muted-foreground text-sm md:sr-only">
+            <div className="flex items-center justify-between gap-2 @3xl:block @3xl:pt-2 @3xl:text-right">
+              <span className="text-muted-foreground text-sm @3xl:sr-only">
                 {t('importForms:fieldAmount')}
               </span>
               <span
@@ -230,7 +302,7 @@ export function ImportFormItemsField({
               </span>
             </div>
 
-            <div className="flex gap-1 md:pt-0.5">
+            <div className="flex gap-1 @3xl:pt-0.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -265,7 +337,7 @@ export function ImportFormItemsField({
                 control={form.control}
                 name={`items.${index}.note`}
                 render={({ field: f }) => (
-                  <FormItem className="md:col-start-2 md:col-end-7">
+                  <FormItem className="@3xl:col-start-2 @3xl:col-end-7">
                     <FormLabel>{lineLabel(t('importForms:fieldLineNote'), index)}</FormLabel>
                     <FormControl>
                       <Input {...f} />
@@ -302,6 +374,17 @@ export function ImportFormItemsField({
           </p>
         )}
       </div>
+
+      <AddWarehouseMaterialDialog
+        open={adding !== null}
+        onOpenChange={(open) => !open && setAdding(null)}
+        warehouseSlug={warehouseSlug}
+        warehouseName={warehouseName}
+        initialSearch={adding?.search ?? ''}
+        availableSlugs={materials.map((m) => m.slug)}
+        abilities={materialAbilities}
+        onAdded={onMaterialAdded}
+      />
     </section>
   )
 }

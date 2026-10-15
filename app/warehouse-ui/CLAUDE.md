@@ -359,6 +359,14 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo vẫn hỏi xác nhận, sửa lưu thẳng; 409 / 101314 khi sửa →
     đóng sheet + toast + invalidate cả kho. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
     (`pages/import-forms/model/paths.ts`).
+    Ô chọn vật tư của dòng có `footer` "＋ Thêm vật tư vào kho…" (prop `footer` của `Combobox`: nhận chữ đang gõ + hàm đóng)
+    → `AddWarehouseMaterialDialog` (`features/import-form-editor`), hai tab: "Chọn từ danh mục" (`GET /materials`, loại vật tư đã ở
+    kho, + "Gắn vào kho" `PUT /warehouses/{w}/materials`) và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC; nút "Tạo và gắn
+    vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp nằm trong form phiếu).
+    Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`. Quyền
+    `MaterialAddAbilities` do trang tính (`materialAddAbilities`). Hộp chờ `available-materials` tải lại rồi mới `onAdded(AddedMaterial)`; items field
+    chọn dòng NGAY bằng nhãn + đơn vị gốc hộp trả về (không chờ vật tư xuất hiện trong `materials`). Invalidate chéo (vật tư khả dụng, danh mục
+    vật tư, NCC) nằm ở hộp — entity `inventory` không import entity khác.
   - **thao tác một ô (gán, chọn) → `Dialog`**: mẫu `features/warehouse-assign-manager`,
     `features/store-assign-warehouse`. Không dựng react-hook-form cho một ô — state cục bộ + một
     `<p role="alert">` cho lỗi backend thuộc ô đó là đủ.
@@ -663,8 +671,8 @@ mất công tìm cách sửa nó.
   | Tìm `search`/`code`/`taxCode`/`phonenumber` (WMS-13, `dev` qua PR #89) **đã bật** `supplierSearch`; `sort` backend đang làm | `search` chỉ khớp tên / người liên hệ / email (KHÔNG khớp mã), `code` khớp đủ mã. Sắp xếp cột dựng sẵn sau `supplierSort` (**tắt**) — bật chỉ khi đã thử với API thật. Một ô tìm, đoán tham số theo dạng nhập (`pages/suppliers/model/search-query.ts`); 10 chữ số (MST hay SĐT) đoán sai thì câu báo trống có nút đổi (`?searchBy=`). Test với cờ bật: `SuppliersPage.sort-search.test.tsx` |
   | Lọc `GET /suppliers/{slug}/materials` (`code` / `name` / `from` / `to`, WMS-13) | tab Vật tư có ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng "Ngày tạo vật tư", cờ `supplierMaterialFilters` **đã bật**. Bộ lọc giữ ở state của tab, không lên URL (tab Giao dịch đã dùng `page` / `startDate` / `endDate`). `from`/`to` theo ngày tạo VẬT TƯ, không phải ngày gắn |
   | WMS-13 **tạm ẩn** `GET`/`POST /suppliers/{slug}/transactions` | tab Giao dịch sau cờ `supplierTransactions` (**tắt**): trang chỉ còn Hồ sơ + Vật tư, `?tab=transactions` rơi về Vật tư. Code tab / form ghi giao dịch giữ nguyên |
-  | Gắn / gỡ theo lô (WMS-13-be: `PUT`/`DELETE /suppliers/{slug}/materials`, body `{ materialSlugs }` 1–100; route cũ `/:materialSlug` đã bị xoá) — **tất cả hoặc không**, lỗi không nói vật tư nào hỏng | hộp Gắn = danh sách có ô tìm (bỏ dấu, `shared/lib/search-text.ts`) + ô tick, "Gắn (n)"; chọn nhiều mà bị 101212/100701 thì câu báo nói rõ CẢ LÔ chưa gắn. Bảng Vật tư có cột ô tick (chỉ trang đang xem; đổi trang/bộ lọc là bỏ chọn) + nút "Gỡ (n)"; gỡ một vật tư qua menu ⋯. Ô tick là component cố định đọc `SelectionContext`, mảng cột `useMemo` — `flexRender` coi `header`/`cell` inline là component, dựng lại mảng cột sẽ remount ô và mất focus bàn phím |
-  | `GET /materials?hasSupplier=false` (WMS-13-be(9), 2026-10-12) **đã dùng** | hộp "Gắn vật tư" chỉ liệt kê vật tư chưa thuộc nhà cung cấp nào (mỗi vật tư thuộc tối đa một NCC) — không còn tự lọc ở FE, không còn tải vật tư của NCC để loại. Vẫn chỉ **100 bản ghi đầu**; 101212 vẫn có thể xảy ra nếu người khác vừa gắn |
+  | Gắn / gỡ theo lô (WMS-13-be: `PUT`/`DELETE /suppliers/{slug}/materials`, body `{ materialSlugs }` 1–100; route cũ `/:materialSlug` đã bị xoá) — **tất cả hoặc không**, lỗi không nói vật tư nào hỏng | hộp Gắn = danh sách có ô tìm (bỏ dấu, `shared/lib/search-text.ts`) + ô tick, "Gắn (n)"; chọn nhiều mà bị 100701 thì câu báo nói rõ CẢ LÔ chưa gắn. Bảng Vật tư có cột ô tick (chỉ trang đang xem; đổi trang/bộ lọc là bỏ chọn) + nút "Gỡ (n)"; gỡ một vật tư qua menu ⋯. Ô tick là component cố định đọc `SelectionContext`, mảng cột `useMemo` — `flexRender` coi `header`/`cell` inline là component, dựng lại mảng cột sẽ remount ô và mất focus bàn phím |
+  | Một vật tư thuộc được **nhiều** NCC (BE đổi 2026-10-15: `supplier` → `suppliers[]`, 101212 không còn) | hộp "Gắn vật tư" **không** lọc `hasSupplier` nữa: tải 100 vật tư đầu rồi ẩn vật tư đã gắn với CHÍNH NCC này theo `suppliers` của từng vật tư (không tải thêm). 100 bản ghi đầu tính cả vật tư đã gắn → ứng viên có thể < 100. `PUT /materials/{slug}/suppliers` (thay cả danh sách NCC của một vật tư) **chưa dùng** |
   | `PATCH` dùng `pickDefined`, không nhận `null` | form sửa **không xoá trống** được ô tuỳ chọn: ô trống bị bỏ khỏi body (giữ nguyên, gợi ý `suppliers:keepWhenEmpty`) |
   | Chưa có API công nợ | trang chi tiết không có tổng mua / trả / còn nợ — đừng tự cộng từ danh sách giao dịch (phân trang, có lọc) |
   | Sổ giao dịch chỉ thêm | không có nút sửa / xoá giao dịch; luôn hỏi xác nhận trước khi ghi |
@@ -680,7 +688,7 @@ mất công tìm cách sửa nó.
     → `code` (khớp đúng), còn lại → `name`. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
     (`CodeOrNameEmpty`, `?searchBy=`).
   - **Cấu trúc `MaterialResponseDto` đổi ở WMS-13-be(9) (2026-10-12)**: loại / đơn vị gốc là object lồng `type`, `baseUnit`
-    (`null` = chưa có), thêm `hasSupplier` + `supplier`; các trường phẳng `typeSlug`/`typeCode`/`baseUnitCode`… **đã bỏ**.
+    (`null` = chưa có), thêm `hasSupplier` + `suppliers[]` (nhiều NCC từ 2026-10-15, trước đó là `supplier` đơn lẻ); các trường phẳng `typeSlug`/`typeCode`/`baseUnitCode`… **đã bỏ**.
     Body gửi lên và bộ lọc vẫn là `typeSlug` / `baseUnitSlug`. `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng
     (`SupplierMaterial`) — hai kiểu khác nhau, đừng gộp.
   - Đơn vị gốc là một dòng của bảng đơn vị quy đổi ở backend → `materialCount.asConversionUnit` GỒM số vật tư làm gốc;
@@ -791,4 +799,4 @@ mất công tìm cách sửa nó.
   thiếu mã khi phiếu không có dòng 1:1; ô chọn vật tư tải 100 vật tư đầu của kho. Test tay:
   `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
   `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
-  chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang).
+  chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang). Thêm vật tư từ phiếu: vật tư tạo nhanh chỉ có đơn vị gốc; seed quyền mặc định chỉ ADMIN gắn / tạo vật tư (MANAGER / SUPERVISOR thấy nút khoá kèm lý do — admin bật `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` (+ `MATERIAL_CREATE`) ở `/permissions`). Hộp thêm vật tư khoá mọi đường đóng khi đang gắn / tạo; dòng chọn vật tư ngay bằng nhãn / đơn vị gốc hộp trả về nên kho > 100 vật tư vẫn chọn được; danh sách NCC trong hộp tạo vật tư chỉ tải 100 NCC đầu; vật tư cũ chưa có đơn vị gốc không gắn được từ phiếu (nút khoá).

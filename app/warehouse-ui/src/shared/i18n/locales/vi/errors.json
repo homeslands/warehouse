@@ -189,5 +189,20 @@
   "importFormItemMaterialNotFound": "Một vật tư trên phiếu không còn tồn tại",
   "importFormItemUnitNotOfMaterial": "Một dòng dùng đơn vị không gắn với vật tư",
   "importFormItemConversionRateInvalid": "Tỉ lệ quy đổi của một đơn vị trên phiếu không hợp lệ",
-  "importFormItemMaterialNotInWarehouse": "Một vật tư trên phiếu đã bị gỡ khỏi kho"
+  "importFormItemMaterialNotInWarehouse": "Một vật tư trên phiếu đã bị gỡ khỏi kho",
+  "inventoryNotFound": "Vật tư chưa được gắn vào kho này",
+  "inventoryDoesExist": "Vật tư đã có ở kho này",
+  "inventorySlugRequired": "Thiếu vật tư cần gắn",
+  "inventoryWarehouseInactive": "Kho đang ngừng hoạt động — không quản lý vật tư được",
+  "inventoryQuantityInvalid": "Số lượng tồn không hợp lệ",
+  "inventoryQuantityNegative": "Điều chỉnh làm tồn kho âm",
+  "inventoryQuantityNotEmpty": "Tồn phải về 0 trước khi gỡ vật tư khỏi kho",
+  "inventoryDeltaInvalid": "Số điều chỉnh không hợp lệ",
+  "inventoryMinimumInvalid": "Ngưỡng tối thiểu không hợp lệ",
+  "inventoryMaximumInvalid": "Ngưỡng tối đa không hợp lệ",
+  "inventoryRangeInvalid": "Ngưỡng tối đa phải lớn hơn hoặc bằng ngưỡng tối thiểu",
+  "inventoryQuantityBelowReserved": "Điều chỉnh làm tồn thấp hơn phần đang giữ chỗ",
+  "inventoryReservedNotEmpty": "Phần giữ chỗ phải về 0 trước khi gỡ vật tư khỏi kho",
+  "inventoryNoteInvalid": "Ghi chú tối đa 255 ký tự",
+  "inventoryMaterialRequired": "Thiếu thông tin vật tư"
 }
