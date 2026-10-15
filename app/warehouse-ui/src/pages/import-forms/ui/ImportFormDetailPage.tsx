@@ -24,8 +24,9 @@ import { CancelImportFormDialog } from '@/features/import-form-cancel'
 import { ConfirmImportFormDialog } from '@/features/import-form-confirm'
 import { DeleteImportFormDialog } from '@/features/import-form-delete'
 import { ImportFormSheet } from '@/features/import-form-editor'
+import { AddWarehouseMaterialDialog, materialAddAbilities } from '@/features/warehouse-material-add'
 import { useCrumbTitle } from '@/widgets/app-shell'
-import { importFormAbilities, materialAddAbilities } from '../model/abilities'
+import { importFormAbilities } from '../model/abilities'
 import { IMPORT_FORMS_PATH, listPath } from '../model/paths'
 import { ImportFormItemsTable } from './ImportFormItemsTable'
 import { ImportFormPrintView } from './ImportFormPrintView'
@@ -231,6 +232,7 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
         formSlug={form.slug}
         formCode={form.code}
         materialAbilities={materialAddAbilities(user)}
+        AddMaterialDialog={AddWarehouseMaterialDialog}
       />
       <ConfirmImportFormDialog
         warehouseSlug={warehouseSlug}

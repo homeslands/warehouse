@@ -12,17 +12,15 @@ describe('addMaterialSchema', () => {
     expect(issues(valid)).toEqual([])
   })
   it('bắt buộc mã / tên / loại / đơn vị; mã đúng BUSINESS_CODE_REGEX; tên ≤ 255', () => {
-    expect(issues({ ...valid, code: '' })).toContain('code:importForms:materialCodeRequired')
-    expect(issues({ ...valid, code: '-x' })).toContain('code:importForms:materialCodeInvalid')
-    expect(issues({ ...valid, name: ' ' })).toContain('name:importForms:materialNameRequired')
+    expect(issues({ ...valid, code: '' })).toContain('code:inventory:materialCodeRequired')
+    expect(issues({ ...valid, code: '-x' })).toContain('code:inventory:materialCodeInvalid')
+    expect(issues({ ...valid, name: ' ' })).toContain('name:inventory:materialNameRequired')
     expect(issues({ ...valid, name: 'a'.repeat(256) })).toContain(
-      'name:importForms:materialNameTooLong',
+      'name:inventory:materialNameTooLong',
     )
-    expect(issues({ ...valid, typeSlug: '' })).toContain(
-      'typeSlug:importForms:materialTypeRequired',
-    )
+    expect(issues({ ...valid, typeSlug: '' })).toContain('typeSlug:inventory:materialTypeRequired')
     expect(issues({ ...valid, baseUnitSlug: '' })).toContain(
-      'baseUnitSlug:importForms:baseUnitRequired',
+      'baseUnitSlug:inventory:baseUnitRequired',
     )
   })
 })

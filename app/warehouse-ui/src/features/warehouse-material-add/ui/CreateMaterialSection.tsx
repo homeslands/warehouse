@@ -8,7 +8,11 @@ import { toastApiError } from '@/shared/lib/toast-error'
 import { Combobox } from '@/shared/ui/Combobox'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
-import { INVENTORY_WAREHOUSE_INACTIVE, useCreateWarehouseMaterial } from '@/entities/inventory'
+import {
+  INVENTORY_WAREHOUSE_INACTIVE,
+  useCreateWarehouseMaterial,
+  type AddedMaterial,
+} from '@/entities/inventory'
 import { useMaterialTypeOptions } from '@/entities/material-type'
 import { attachSupplierMaterials, useSuppliers } from '@/entities/supplier'
 import { useUnitOptions } from '@/entities/unit'
@@ -17,7 +21,7 @@ import {
   addMaterialSchema,
   type AddMaterialValues,
 } from '../model/add-material.schema'
-import { codeNameLabel, type AddedMaterial } from '../model/material-add'
+import { codeNameLabel } from '../model/labels'
 
 /** Mã lỗi vật tư (1007xx) của phần `material` trong POST → ô tương ứng (như `MaterialFormSheet`). */
 const FIELD_BY_CODE = {
@@ -69,7 +73,7 @@ export function CreateMaterialSection({
   onBusyChange,
   onWarehouseInactive,
 }: Props) {
-  const { t } = useTranslation(['importForms', 'common'])
+  const { t } = useTranslation(['inventory', 'common'])
   const create = useCreateWarehouseMaterial()
   const types = useMaterialTypeOptions({ enabled: canCreate })
   const units = useUnitOptions({ enabled: canCreate })
@@ -160,7 +164,7 @@ export function CreateMaterialSection({
         id={formId}
         noValidate
         className="space-y-4"
-        aria-label={t('importForms:createMaterialSection')}
+        aria-label={t('inventory:createMaterialSection')}
         onSubmit={(e) => {
           e.stopPropagation()
           void form.handleSubmit(onSubmit)(e)
@@ -172,7 +176,7 @@ export function CreateMaterialSection({
             name="code"
             render={({ field }) => (
               <FormItem required>
-                <FormLabel>{t('importForms:fieldMaterialCode')}</FormLabel>
+                <FormLabel>{t('inventory:fieldMaterialCode')}</FormLabel>
                 <FormControl>
                   <Input {...field} autoComplete="off" disabled={!canCreate} />
                 </FormControl>
@@ -185,7 +189,7 @@ export function CreateMaterialSection({
             name="name"
             render={({ field }) => (
               <FormItem required>
-                <FormLabel>{t('importForms:fieldMaterialName')}</FormLabel>
+                <FormLabel>{t('inventory:fieldMaterialName')}</FormLabel>
                 <FormControl>
                   <Input {...field} autoComplete="off" disabled={!canCreate} />
                 </FormControl>
@@ -198,13 +202,13 @@ export function CreateMaterialSection({
             name="typeSlug"
             render={({ field }) => (
               <FormItem required>
-                <FormLabel>{t('importForms:fieldMaterialType')}</FormLabel>
+                <FormLabel>{t('inventory:fieldMaterialType')}</FormLabel>
                 <FormControl>
                   <Combobox
                     options={typeOptions}
                     value={field.value || undefined}
                     onChange={(v) => field.onChange(v ?? '')}
-                    placeholder={t('importForms:typePlaceholder')}
+                    placeholder={t('inventory:typePlaceholder')}
                     disabled={!canCreate}
                   />
                 </FormControl>
@@ -217,13 +221,13 @@ export function CreateMaterialSection({
             name="baseUnitSlug"
             render={({ field }) => (
               <FormItem required>
-                <FormLabel>{t('importForms:fieldBaseUnit')}</FormLabel>
+                <FormLabel>{t('inventory:fieldBaseUnit')}</FormLabel>
                 <FormControl>
                   <Combobox
                     options={unitOptions}
                     value={field.value || undefined}
                     onChange={(v) => field.onChange(v ?? '')}
-                    placeholder={t('importForms:baseUnitPlaceholder')}
+                    placeholder={t('inventory:baseUnitPlaceholder')}
                     disabled={!canCreate}
                   />
                 </FormControl>
@@ -237,13 +241,13 @@ export function CreateMaterialSection({
               name="supplierSlug"
               render={({ field }) => (
                 <FormItem className="sm:col-span-2">
-                  <FormLabel>{t('importForms:fieldSupplierOptional')}</FormLabel>
+                  <FormLabel>{t('inventory:fieldSupplierOptional')}</FormLabel>
                   <FormControl>
                     <Combobox
                       options={supplierOptions}
                       value={field.value || undefined}
                       onChange={(v) => field.onChange(v ?? '')}
-                      placeholder={t('importForms:supplierPlaceholder')}
+                      placeholder={t('inventory:supplierPlaceholder')}
                       disabled={!canCreate}
                     />
                   </FormControl>
@@ -253,10 +257,10 @@ export function CreateMaterialSection({
             />
           )}
         </div>
-        <p className="text-muted-foreground text-sm">{t('importForms:createMaterialHint')}</p>
+        <p className="text-muted-foreground text-sm">{t('inventory:createMaterialHint')}</p>
         {!canCreate && (
           <p id={hintId} className="text-muted-foreground text-xs">
-            {t('importForms:needCreatePermission')}
+            {t('inventory:needCreatePermission')}
           </p>
         )}
       </form>

@@ -20,6 +20,12 @@ export {
   INVENTORY_RESERVED_NOT_EMPTY,
   INVENTORY_WAREHOUSE_INACTIVE,
 } from './model/error-codes'
+export { NO_MATERIAL_ADD } from './model/add-dialog'
+export type {
+  AddMaterialDialogProps,
+  AddedMaterial,
+  MaterialAddAbilities,
+} from './model/add-dialog'
 export { removeBlockReason } from './model/rules'
 export type {
   InventoryAction,

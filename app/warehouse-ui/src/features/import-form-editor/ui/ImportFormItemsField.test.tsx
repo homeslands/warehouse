@@ -1,14 +1,11 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { screen, waitFor, within } from '@testing-library/react'
-import { http as mswHttp } from 'msw'
 import { useState } from 'react'
 import type { UserEvent } from '@testing-library/user-event'
 import { useForm } from 'react-hook-form'
 import { describe, expect, it, vi } from 'vitest'
 import type { AvailableMaterial } from '@/entities/import-form'
-import type { Material } from '@/entities/material'
-import { ok, paginated } from '@/shared/test/api'
-import { server } from '@/shared/test/msw'
+import type { AddMaterialDialogProps } from '@/entities/inventory'
 import { Form } from '@/shared/ui/form'
 import { renderWithProviders } from '@/shared/test/render'
 import { chooseOption, selectedLabel } from '@/shared/test/select'
@@ -66,22 +63,28 @@ const cementAvail: AvailableMaterial = {
   ],
 }
 
-const cementMaterial: Material = {
-  slug: 'm-cement',
-  createdAt: '',
-  updatedAt: '',
-  code: 'VT-09',
-  name: 'Xi măng',
-  minimumInventory: 0,
-  maximumInventory: 0,
-  type: { slug: 'mt-1', code: 'MT', name: 'Vật liệu' },
-  baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
-  hasSupplier: false,
-  suppliers: [],
-  warehouses: [],
+/** Hộp giả: hiện chữ đã gõ, nút "Gắn giả" trả về xi măng (hộp thật có test riêng ở feature của nó). */
+function FakeAddDialog({ open, initialSearch, onAdded, onOpenChange }: AddMaterialDialogProps) {
+  if (!open) return null
+  return (
+    <div role="dialog" aria-label="Thêm vật tư giả">
+      <p>Tìm: {initialSearch}</p>
+      <button
+        type="button"
+        onClick={() => {
+          onAdded({
+            slug: 'm-cement',
+            label: 'VT-09 · Xi măng',
+            baseUnit: { slug: 'u-kg', label: 'KG · Kilogram' },
+          })
+          onOpenChange(false)
+        }}
+      >
+        Gắn giả
+      </button>
+    </div>
+  )
 }
-
-const BASE = 'http://localhost:8085/api/v1'
 
 let current: ImportFormValues | undefined
 
@@ -111,7 +114,7 @@ function Harness({
   )
 }
 
-function HarnessWithReload() {
+function HarnessWithReload({ withDialog = true }: { withDialog?: boolean }) {
   const [mats, setMats] = useState<AvailableMaterial[]>([flour])
   const form = useForm<ImportFormValues>({
     resolver: zodResolver(importFormSchema),
@@ -133,6 +136,7 @@ function HarnessWithReload() {
         warehouseSlug="w-a"
         warehouseName="Kho A"
         materialAbilities={{ search: true, assign: true, create: true, attachSupplier: true }}
+        AddMaterialDialog={withDialog ? FakeAddDialog : undefined}
       />
     </Form>
   )
@@ -232,19 +236,12 @@ describe('ImportFormItemsField', () => {
   })
 
   it('dòng "＋ Thêm vật tư vào kho…" mở hộp với chữ đã gõ; gắn xong chọn NGAY chỉ dòng đó + đơn vị gốc', async () => {
-    server.use(
-      mswHttp.get(`${BASE}/materials`, () => paginated([cementMaterial])),
-      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => ok({ materialSlug: 'm-cement' })),
-      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
-    )
-    const { user } = renderWithProviders(<HarnessWithReload />, { auth: 'admin' })
+    const { user } = renderWithProviders(<HarnessWithReload />)
     await user.click(screen.getByRole('combobox', { name: 'Vật tư dòng 3' }))
     await user.type(screen.getByRole('combobox', { name: /Tìm theo mã hoặc tên/ }), 'xi măng')
     await user.click(screen.getByRole('button', { name: /Thêm vật tư vào kho/ }))
-    expect(screen.getByRole('textbox', { name: /Tìm vật tư trong danh mục/ })).toHaveValue(
-      'xi măng',
-    )
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    expect(screen.getByText('Tìm: xi măng')).toBeInTheDocument()
+    await user.click(await screen.findByRole('button', { name: 'Gắn giả' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     // Không cần tải lại: hộp trả về nhãn + đơn vị gốc nên dòng chọn ngay.
     expect(current?.items[2]).toMatchObject({ materialSlug: 'm-cement', unitSlug: 'u-kg' })
@@ -256,16 +253,11 @@ describe('ImportFormItemsField', () => {
   })
 
   it('vật tư vừa gắn không nằm trong materials (ngoài 100 bản ghi) → dòng vẫn hiện nhãn và đơn vị gốc', async () => {
-    server.use(
-      mswHttp.get(`${BASE}/materials`, () => paginated([cementMaterial])),
-      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => ok({ materialSlug: 'm-cement' })),
-      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () => paginated([])),
-    )
-    const { user } = renderWithProviders(<HarnessWithReload />, { auth: 'admin' })
+    const { user } = renderWithProviders(<HarnessWithReload />)
     await user.click(screen.getByRole('combobox', { name: 'Vật tư dòng 1' }))
     await user.type(screen.getByRole('combobox', { name: /Tìm theo mã hoặc tên/ }), 'xi măng')
     await user.click(screen.getByRole('button', { name: /Thêm vật tư vào kho/ }))
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await user.click(await screen.findByRole('button', { name: 'Gắn giả' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(current?.items[0]).toMatchObject({ materialSlug: 'm-cement', unitSlug: 'u-kg' })
     expect(screen.getByRole('combobox', { name: 'Vật tư dòng 1' })).toHaveTextContent(
@@ -276,6 +268,12 @@ describe('ImportFormItemsField', () => {
 
   it('không có quyền tìm danh mục → không có dòng "Thêm vật tư vào kho…"', async () => {
     const { user } = renderWithProviders(<Harness />)
+    await user.click(screen.getByRole('combobox', { name: 'Vật tư dòng 1' }))
+    expect(screen.queryByRole('button', { name: /Thêm vật tư vào kho/ })).not.toBeInTheDocument()
+  })
+
+  it('không truyền AddMaterialDialog (dù có quyền tìm) → không có dòng "Thêm vật tư vào kho…"', async () => {
+    const { user } = renderWithProviders(<HarnessWithReload withDialog={false} />)
     await user.click(screen.getByRole('combobox', { name: 'Vật tư dòng 1' }))
     expect(screen.queryByRole('button', { name: /Thêm vật tư vào kho/ })).not.toBeInTheDocument()
   })

@@ -5,15 +5,15 @@ export const addMaterialSchema = z.object({
   code: z
     .string()
     .trim()
-    .min(1, 'importForms:materialCodeRequired')
-    .regex(BUSINESS_CODE_REGEX, 'importForms:materialCodeInvalid'),
+    .min(1, 'inventory:materialCodeRequired')
+    .regex(BUSINESS_CODE_REGEX, 'inventory:materialCodeInvalid'),
   name: z
     .string()
     .trim()
-    .min(1, 'importForms:materialNameRequired')
-    .max(255, 'importForms:materialNameTooLong'),
-  typeSlug: z.string().min(1, 'importForms:materialTypeRequired'),
-  baseUnitSlug: z.string().min(1, 'importForms:baseUnitRequired'),
+    .min(1, 'inventory:materialNameRequired')
+    .max(255, 'inventory:materialNameTooLong'),
+  typeSlug: z.string().min(1, 'inventory:materialTypeRequired'),
+  baseUnitSlug: z.string().min(1, 'inventory:baseUnitRequired'),
   supplierSlug: z.string(),
 })
 
