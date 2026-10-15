@@ -360,9 +360,12 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     đóng sheet + toast + invalidate cả kho. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
     (`pages/import-forms/model/paths.ts`).
     Ô chọn vật tư của dòng có `footer` "＋ Thêm vật tư vào kho…" (prop `footer` của `Combobox`: nhận chữ đang gõ + hàm đóng)
-    → `AddWarehouseMaterialDialog` (`features/import-form-editor`), hai tab: "Chọn từ danh mục" (`GET /materials`, loại vật tư đã ở
-    kho, + "Gắn vào kho" `PUT /warehouses/{w}/materials`) và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC; nút "Tạo và gắn
-    vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp nằm trong form phiếu).
+    → hộp thêm vật tư nằm ở `features/warehouse-material-add`; phiếu nhập nhận nó qua prop `AddMaterialDialog` do `pages/import-forms`
+    truyền (feature không import feature). Kiểu dùng chung (`AddMaterialDialogProps`, `AddedMaterial`, `MaterialAddAbilities`,
+    `NO_MATERIAL_ADD`) ở `entities/inventory`. Hộp có hai tab: "Chọn từ danh mục" (`GET /materials`, "đã ở kho" tính theo
+    `Material.warehouses`, + "Gắn vào kho" `PUT /warehouses/{w}/materials`) và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC;
+    nút "Tạo và gắn vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp
+    có thể nằm trong form phiếu). Câu mô tả của hộp là prop (phiếu nhập truyền câu riêng); chữ của hộp ở namespace `inventory`.
     Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`. Quyền
     `MaterialAddAbilities` do trang tính (`materialAddAbilities`). Hộp chờ `available-materials` tải lại rồi mới `onAdded(AddedMaterial)`; items field
     chọn dòng NGAY bằng nhãn + đơn vị gốc hộp trả về (không chờ vật tư xuất hiện trong `materials`). Invalidate chéo (vật tư khả dụng, danh mục
@@ -495,6 +498,7 @@ backend cho nó qua trước khi nhìn `scope`):
   AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
   chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
   `authority.constants.ts`, không phải cách migration tham chiếu tới chúng.
+  Vật tư trong kho: xem = `MATERIAL_READ` + `WAREHOUSE_READ`; gỡ = `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE`; thêm = `materialAddAbilities` (`features/warehouse-material-add`).
   `SUPPLIER_CREATE/READ/UPDATE/DELETE` (WMS-11) gác `/suppliers`: ghi giao dịch dùng `SUPPLIER_UPDATE`, gắn / gỡ vật tư
   thêm `MATERIAL_UPDATE` (AND), tab Vật tư thêm `MATERIAL_READ` — chi tiết ở "Nợ kỹ thuật" → Nhà cung cấp.
   `MATERIAL_*` gác cả **loại vật tư** (không có mã riêng); `UNIT_*` gác `/units`. Thêm / Sửa vật tư cần thêm `UNIT_READ`
@@ -697,10 +701,20 @@ mất công tìm cách sửa nó.
     biết bị chặn sau khi gửi (100609 / 100712) — báo trong hộp. Xoá Đơn vị khoá sẵn theo `materialCount.total`.
   - `NumberInput` coi `.` và `,` đều là dấu thập phân ("1.000" = 1) và viết lại về dạng chuẩn khi rời ô. Ngưỡng tồn /
     tỉ lệ chặn ≥ 1e12 (`DECIMAL_18_6_LIMIT`, cột `DECIMAL(18,6)`; backend không chặn → lỗi 500).
-  - Tồn kho theo kho (`/warehouses/:slug/materials`) chưa làm — chờ BE thêm đơn vị gốc vào `InventoryResponseDto` và
-    lọc `name` / `code` (spec WMS-15 mục 9).
   - `POST /materials/:slug/convert` (quy đổi số lượng): **cố ý không dùng** — chốt 2026-10-12 là không cần màn / công cụ
     quy đổi riêng. Đừng dựng lại khi chưa có yêu cầu mới.
+- **Vật tư trong kho (tab ở trang chi tiết kho, WMS-17 phần 3): đã dùng API thật; còn chờ backend.** Tab `?tab=materials|members`
+  (`pages/warehouses/model/detail-tab.ts`); bảng ở `widgets/warehouse-inventory` (lọc `typeSlug` / `belowMinimum` / `aboveMaximum`;
+  trang + bộ lọc giữ ở state, không lên URL). Chữ của cả khối (tab, sheet lịch sử, hộp thêm / gỡ) ở namespace `inventory`. Còn treo:
+  - Ô tìm sau cờ `inventorySearch` (**tắt**) — BE đang làm `name` / `code`; bật chỉ khi đã thử với API thật.
+  - Đơn vị gốc khai **tuỳ chọn** `baseUnitSlug` / `baseUnitCode` / `baseUnitName` trong `InventoryItem` (BE đang thêm; đặt tên khác
+    thì sửa type). Chưa có thì ô số lượng không kèm đơn vị.
+  - Không sort (BE bỏ qua `sort`).
+  - Sheet lịch sử mở bằng `?material=` — mở bằng URL thì lấy tồn từ `GET /materials/{slug}` (`warehouses[]`) nên **không hiện ngưỡng**.
+    Lỗi tải hiện tại chỗ trong sheet kèm nút "Thử lại". Ghi chú "Import form X" đổi thành "Phiếu nhập X" bằng mẫu chuỗi.
+  - Gỡ chặn sẵn khi tồn / giữ chỗ > 0; mã 100801 coi như đã gỡ (không còn nhánh riêng).
+  - Test của app `beforeAll` nạp trước `@/pages/warehouses` vì lần transform lạnh mất hơn 1s (quá timeout mặc định).
+  Test tay: `docs/test-checklists/WMS-17-fe-warehouse-inventory-checklist.md`.
 - **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
   bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
   nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,
