@@ -1,7 +1,7 @@
 import { PlusIcon } from 'lucide-react'
 import { useCallback, useId, useMemo, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { useSearchParams } from 'react-router-dom'
+import { useLocation, useSearchParams } from 'react-router-dom'
 import { toCodeOrNameQuery } from '@/shared/lib/code'
 import { useClampPage } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
@@ -49,6 +49,8 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
   const [adding, setAdding] = useState(false)
   const [removing, setRemoving] = useState<RemovableMaterial | null>(null)
   const [params, setParams] = useSearchParams()
+  const location = useLocation()
+  const backTo = location.pathname + location.search
   const viewingSlug = params.get('material')
   const setViewingSlug = useCallback(
     (slug: string | null) =>
@@ -80,12 +82,16 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
 
   const columns = useMemo(
     () =>
-      buildInventoryColumns(t, {
-        canRemove,
-        onViewHistory: (item) => setViewingSlug(item.materialSlug),
-        onRemove: setRemoving,
-      }),
-    [t, canRemove, setViewingSlug],
+      buildInventoryColumns(
+        t,
+        {
+          canRemove,
+          onViewHistory: (item) => setViewingSlug(item.materialSlug),
+          onRemove: setRemoving,
+        },
+        backTo,
+      ),
+    [t, canRemove, setViewingSlug, backTo],
   )
 
   const filtered = typeSlug !== '' || alert !== '' || (searchEnabled && search.trim() !== '')

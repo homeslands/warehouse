@@ -87,9 +87,24 @@ describe('AddWarehouseMaterialDialog', () => {
     )
     await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(CEMENT_ADDED))
+    expect(toast.success).toHaveBeenCalledWith('Đã gắn Xi măng PCB40 vào kho')
     expect(order).toEqual(['available-refreshed', 'added'])
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     inv.mockRestore()
+  })
+
+  it('100802 (đã có ở kho) → toast thông tin, không toast thành công, vẫn onAdded', async () => {
+    vi.mocked(toast.success).mockClear()
+    server.use(
+      mswHttp.get(`${BASE}/materials`, () => paginated([cement])),
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100802, 'exists')),
+    )
+    const onAdded = vi.fn()
+    const { user } = renderWithProviders(<Harness onAdded={onAdded} />, { auth: 'admin' })
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await waitFor(() => expect(onAdded).toHaveBeenCalledWith(CEMENT_ADDED))
+    expect(toast.info).toHaveBeenCalledWith('Xi măng PCB40 đã có trong kho')
+    expect(toast.success).not.toHaveBeenCalled()
   })
 
   it('hiện câu mô tả do bên gọi truyền', () => {

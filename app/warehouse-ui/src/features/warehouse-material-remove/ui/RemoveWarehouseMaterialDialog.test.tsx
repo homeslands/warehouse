@@ -9,6 +9,7 @@ import { apiError, ok } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { mutationToastQueryClient } from '@/shared/test/query-client'
 import { renderWithProviders } from '@/shared/test/render'
+import { importFormKeys } from '@/entities/import-form'
 import { inventoryKeys } from '@/entities/inventory'
 import { materialKeys } from '@/entities/material'
 import { RemoveWarehouseMaterialDialog } from '../index'
@@ -57,13 +58,17 @@ describe('RemoveWarehouseMaterialDialog', () => {
     expect(onRemoved).toHaveBeenCalledWith('m-1')
     expect(inv).toHaveBeenCalledWith({ queryKey: inventoryKeys.warehouse('w-a') })
     expect(inv).toHaveBeenCalledWith({ queryKey: materialKeys.all })
+    expect(inv).toHaveBeenCalledWith({ queryKey: importFormKeys.available('w-a') })
   })
 
   it('100801 (đã bị gỡ) → coi như xong: toast thông tin, onRemoved, đóng, không toast lỗi', async () => {
     server.use(mswHttp.delete(URL_DELETE, () => apiError(404, 100801)))
-    const { user, onOpenChange, onRemoved } = renderDialog()
+    const { user, queryClient, onOpenChange, onRemoved } = renderDialog()
+    const inv = vi.spyOn(queryClient, 'invalidateQueries')
     await user.click(screen.getByRole('button', { name: 'Gỡ' }))
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(inv).toHaveBeenCalledWith({ queryKey: importFormKeys.available('w-a') })
+    expect(inv).toHaveBeenCalledWith({ queryKey: inventoryKeys.warehouse('w-a') })
     expect(toast.info).toHaveBeenCalledWith('NL04 · Matcha đã được gỡ khỏi kho trước đó')
     expect(onRemoved).toHaveBeenCalledWith('m-1')
     expect(toast.error).not.toHaveBeenCalled()

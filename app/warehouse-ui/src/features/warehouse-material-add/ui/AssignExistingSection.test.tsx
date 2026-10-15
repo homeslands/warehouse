@@ -248,9 +248,9 @@ describe('AssignExistingSection', () => {
     expect(btn).toHaveAccessibleDescription('chưa có đơn vị gốc')
   })
 
-  it('một kết quả duy nhất đã có ở kho → nhắc chọn trực tiếp', async () => {
+  it('một kết quả duy nhất đã có ở kho → hiện câu trung tính', async () => {
     setup({ found: [inWarehouse] })
-    expect(await screen.findByText(/đã có ở kho — chọn trực tiếp/)).toBeInTheDocument()
+    expect(await screen.findByText('Vật tư này đã có ở kho.')).toBeInTheDocument()
   })
 
   it('nhiều kết quả đều đã có ở kho → báo không tìm thấy', async () => {
@@ -258,7 +258,7 @@ describe('AssignExistingSection', () => {
       found: [inWarehouse, { ...inWarehouse, slug: 'm-in2', code: 'VT-02', name: 'Xi măng xám' }],
     })
     expect(await screen.findByText(/Không tìm thấy vật tư nào chưa có ở kho/)).toBeInTheDocument()
-    expect(screen.queryByText(/chọn trực tiếp/)).not.toBeInTheDocument()
+    expect(screen.queryByText('Vật tư này đã có ở kho.')).not.toBeInTheDocument()
   })
 
   it('vật tư thuộc kho KHÁC vẫn là ứng viên; thuộc chính kho này thì loại', async () => {
