@@ -2,7 +2,7 @@ import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
-import { paginated } from '@/shared/test/api'
+import { ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
@@ -63,6 +63,7 @@ function setup(
     isActive?: boolean
     searchEnabled?: boolean
     handler?: (params: URLSearchParams) => Response | undefined
+    route?: string
   } = {},
 ) {
   const seen: URLSearchParams[] = []
@@ -72,6 +73,7 @@ function setup(
       seen.push(params)
       return opts.handler?.(params) ?? paginated(opts.items ?? [matcha, noUnitAbove])
     }),
+    mswHttp.get(`${BASE}/warehouses/w-a/materials/:m/histories`, () => paginated([])),
     mswHttp.get(`${BASE}/material-types`, () =>
       paginated([{ slug: 'mt-1', code: 'NL', name: 'Nguyên liệu', createdAt: '', updatedAt: '' }]),
     ),
@@ -86,7 +88,7 @@ function setup(
       />
       <LocationProbe />
     </>,
-    { auth: 'admin', route: '/warehouses/w-a?tab=materials' },
+    { auth: 'admin', route: opts.route ?? '/warehouses/w-a?tab=materials' },
   )
   return { ...r, seen }
 }
@@ -215,5 +217,33 @@ describe('WarehouseInventory', () => {
     await waitFor(() => expect(seen.some((p) => p.get('page') === '2')).toBe(true))
     await waitFor(() => expect(seen.at(-1)?.get('page')).toBe('1'))
     expect(await screen.findByText(/Matcha/)).toBeInTheDocument()
+  })
+
+  it('bấm dòng mở sheet lịch sử; Đóng bỏ ?material=', async () => {
+    const { user } = setup()
+    await user.click(await screen.findByText(/Matcha/))
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getByText('NL04 · Matcha')).toBeInTheDocument()
+    expect(await within(dialog).findByText('Chưa có biến động nào')).toBeInTheDocument()
+    await user.click(within(dialog).getAllByRole('button', { name: 'Đóng' }).at(-1)!)
+    await waitFor(() => expect(screen.getByTestId('search')).not.toHaveTextContent('material='))
+  })
+
+  it('gỡ từ sheet: xác nhận xong sheet đóng', async () => {
+    const empty = row({ quantity: 0, availableQuantity: 0 })
+    server.use(mswHttp.delete(`${BASE}/warehouses/w-a/materials/m-matcha`, () => ok(null)))
+    const { user } = setup({ items: [empty] })
+    await user.click(await screen.findByText(/Matcha/))
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Gỡ khỏi kho' }))
+    const confirm = await screen.findByRole('alertdialog')
+    await user.click(within(confirm).getByRole('button', { name: 'Gỡ' }))
+    await waitFor(() => expect(screen.getByTestId('search')).not.toHaveTextContent('material='))
+  })
+
+  it('route có sẵn ?material= → sheet mở ngay', async () => {
+    setup({ route: '/warehouses/w-a?tab=materials&material=m-matcha' })
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByText('NL04 · Matcha')).toBeInTheDocument()
   })
 })

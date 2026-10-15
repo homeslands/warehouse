@@ -66,5 +66,21 @@
   "viewHistory": "Xem lịch sử",
   "removeMenu": "Gỡ khỏi kho",
   "removeBlockedStock": "Chỉ gỡ được khi tồn bằng 0",
-  "removeBlockedReserved": "Đang giữ chỗ cho phiếu xuất chưa xong"
+  "removeBlockedReserved": "Đang giữ chỗ cho phiếu xuất chưa xong",
+  "historyTitle": "Lịch sử tồn",
+  "historySection": "Lịch sử biến động",
+  "historyEmpty": "Chưa có biến động nào",
+  "loadMore": "Xem thêm",
+  "notInWarehouse": "Vật tư không còn ở kho này",
+  "action": {
+    "ASSIGN": "Gắn vào kho",
+    "IMPORT": "Nhập kho",
+    "ADJUST": "Điều chỉnh",
+    "RESERVE": "Giữ chỗ",
+    "RELEASE": "Bỏ giữ chỗ",
+    "REMOVE": "Gỡ khỏi kho"
+  },
+  "reservedChange": "Giữ chỗ {{delta}} ({{before}} → {{after}})",
+  "importFormNote": "Phiếu nhập {{code}}",
+  "changedBy": "bởi {{name}}"
 }
