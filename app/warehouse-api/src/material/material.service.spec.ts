@@ -21,6 +21,11 @@ import { MaterialTypeProfile } from 'src/material-type/material-type.mapper';
 import { UnitProfile } from 'src/unit/unit.mapper';
 import { SupplierProfile } from 'src/supplier/supplier.mapper';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
+import { deleteMaterialSuppliers, insertMaterialSuppliers } from './material-supplier.util';
+
+// Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng) — ở đây chỉ
+// kiểm service gọi đúng cặp nào, trong transaction nào.
+jest.mock('./material-supplier.util');
 
 const materialType = () =>
   ({ id: 'type-id-1', slug: 'type-slug-1', code: 'MT-01', name: 'Tiêu hao' }) as MaterialType;
@@ -84,8 +89,6 @@ describe('MaterialService', () => {
     save: jest.fn((entity) => materialRepository.save(entity)),
     countBy: jest.fn(),
     delete: jest.fn(),
-    // Bảng join `material_supplier_tbl` ghi bằng SQL tay (`material-supplier.util.ts`).
-    query: jest.fn(),
   };
   const supplierRepository = { find: jest.fn() };
   const transactionManagerService = {
@@ -335,9 +338,10 @@ describe('MaterialService', () => {
         baseMaterial({ type: materialType(), baseUnit: unit(), suppliers }),
       );
 
-    const sqlCalls = () => manager.query.mock.calls.map(([sql, params]) => ({ sql, params }));
+    const deleted = jest.mocked(deleteMaterialSuppliers);
+    const inserted = jest.mocked(insertMaterialSuppliers);
 
-    it('chỉ ghi phần chênh lệch: gỡ cặp thừa, thêm cặp mới (INSERT IGNORE), trong 1 transaction', async () => {
+    it('chỉ ghi phần chênh lệch: gỡ cặp thừa, thêm cặp mới, trong 1 transaction', async () => {
       loaded([sup(1), sup(2)]);
       supplierRepository.find.mockResolvedValue([sup(2), sup(3)]);
 
@@ -346,11 +350,10 @@ describe('MaterialService', () => {
       });
 
       expect(transactionManagerService.execute).toHaveBeenCalledTimes(1);
-      const [del, ins] = sqlCalls();
-      expect(del.sql).toContain('DELETE FROM `material_supplier_tbl`');
-      expect(del.params).toEqual([['material-id-1'], ['sup-id-1']]);
-      expect(ins.sql).toContain('INSERT IGNORE INTO `material_supplier_tbl`');
-      expect(ins.params).toEqual([[['material-id-1', 'sup-id-3']]]);
+      expect(deleted).toHaveBeenCalledWith(manager, ['material-id-1'], ['sup-id-1']);
+      expect(inserted).toHaveBeenCalledWith(manager, [
+        { materialId: 'material-id-1', supplierId: 'sup-id-3' },
+      ]);
       expect(result.suppliers.map(({ slug }) => slug)).toEqual(['sup-2', 'sup-3']);
       expect(result.hasSupplier).toBe(true);
     });
@@ -361,9 +364,8 @@ describe('MaterialService', () => {
       const result = await service.assignSuppliers('material-slug-1', { supplierSlugs: [] });
 
       expect(supplierRepository.find).not.toHaveBeenCalled();
-      const [del] = sqlCalls();
-      expect(del.params).toEqual([['material-id-1'], ['sup-id-1']]);
-      expect(manager.query).toHaveBeenCalledTimes(1);
+      expect(deleted).toHaveBeenCalledWith(manager, ['material-id-1'], ['sup-id-1']);
+      expect(inserted).toHaveBeenCalledWith(manager, []);
       expect(result).toMatchObject({ hasSupplier: false, suppliers: [] });
     });
 
@@ -374,7 +376,8 @@ describe('MaterialService', () => {
       await service.assignSuppliers('material-slug-1', { supplierSlugs: ['sup-1'] });
 
       expect(transactionManagerService.execute).not.toHaveBeenCalled();
-      expect(manager.query).not.toHaveBeenCalled();
+      expect(deleted).not.toHaveBeenCalled();
+      expect(inserted).not.toHaveBeenCalled();
     });
 
     it('1 slug không tồn tại ⇒ SUPPLIER_NOT_FOUND cho cả lô, không ghi gì', async () => {
@@ -384,7 +387,8 @@ describe('MaterialService', () => {
       await expect(
         service.assignSuppliers('material-slug-1', { supplierSlugs: ['sup-1', 'missing'] }),
       ).rejects.toMatchObject({ code: SupplierValidation.SUPPLIER_NOT_FOUND.code });
-      expect(manager.query).not.toHaveBeenCalled();
+      expect(deleted).not.toHaveBeenCalled();
+      expect(inserted).not.toHaveBeenCalled();
     });
 
     it('vật tư không tồn tại ⇒ MATERIAL_NOT_FOUND', async () => {

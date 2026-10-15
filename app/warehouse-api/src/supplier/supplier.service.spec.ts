@@ -15,6 +15,13 @@ import { SupplierTransactionType } from './supplier.constants';
 import { Material } from 'src/material/material.entity';
 import { MaterialException } from 'src/material/material.exception';
 import { CurrentUserDto } from 'src/user/user.decorator';
+import {
+  deleteMaterialSuppliers,
+  insertMaterialSuppliers,
+} from 'src/material/material-supplier.util';
+
+// Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
+jest.mock('src/material/material-supplier.util');
 
 describe('SupplierService', () => {
   let service: SupplierService;
@@ -39,8 +46,7 @@ describe('SupplierService', () => {
     find: jest.fn(),
     manager: { transaction: jest.fn() },
   };
-  // Bảng join `material_supplier_tbl` ghi bằng SQL tay (`material-supplier.util.ts`).
-  const transactionManager = { query: jest.fn() };
+  const transactionManager = {};
 
   const supplier = { id: 'sup-1', slug: 's1', code: 'NCC-01', name: 'Supplier A' } as Supplier;
   const actor = { userId: 'u1' } as CurrentUserDto;
@@ -245,7 +251,8 @@ describe('SupplierService', () => {
 
   describe('attach / detach materials (batch)', () => {
     const body = (...materialSlugs: string[]) => ({ materialSlugs });
-    const query = () => transactionManager.query;
+    const inserted = jest.mocked(insertMaterialSuppliers);
+    const deleted = jest.mocked(deleteMaterialSuppliers);
     const other = { id: 'other' };
 
     beforeEach(() => {
@@ -255,7 +262,7 @@ describe('SupplierService', () => {
       );
     });
 
-    it('INSERT IGNOREs only the materials not yet attached to this supplier', async () => {
+    it('attaches only the materials not yet attached to this supplier', async () => {
       materialRepository.find.mockResolvedValue([
         { id: 'm-1', slug: 'm1', suppliers: [] },
         { id: 'm-2', slug: 'm2', suppliers: [{ id: 'sup-1' }] },
@@ -270,14 +277,10 @@ describe('SupplierService', () => {
           relations: expect.objectContaining({ suppliers: true }),
         }),
       );
-      expect(query()).toHaveBeenCalledTimes(1);
-      const [sql, params] = query().mock.calls[0];
-      expect(sql).toContain('INSERT IGNORE INTO `material_supplier_tbl`');
-      expect(params).toEqual([
-        [
-          ['m-1', 'sup-1'],
-          ['m-3', 'sup-1'],
-        ],
+      expect(inserted).toHaveBeenCalledTimes(1);
+      expect(inserted).toHaveBeenCalledWith(transactionManager, [
+        { materialId: 'm-1', supplierId: 'sup-1' },
+        { materialId: 'm-3', supplierId: 'sup-1' },
       ]);
       expect(result.map((item) => item.slug)).toEqual(['m1', 'm2', 'm3']);
     });
@@ -287,7 +290,9 @@ describe('SupplierService', () => {
       materialRepository.find.mockResolvedValue([{ id: 'm-1', slug: 'm1', suppliers: [other] }]);
 
       await expect(service.attachMaterials('s1', body('m1'))).resolves.toHaveLength(1);
-      expect(query().mock.calls[0][1]).toEqual([[['m-1', 'sup-1']]]);
+      expect(inserted).toHaveBeenCalledWith(transactionManager, [
+        { materialId: 'm-1', supplierId: 'sup-1' },
+      ]);
     });
 
     it('is a no-op when every material is already attached to this supplier', async () => {
@@ -307,7 +312,7 @@ describe('SupplierService', () => {
       expect(materialRepository.find).toHaveBeenCalledWith(
         expect.objectContaining({ where: { slug: In(['m1', 'missing']) } }),
       );
-      expect(query()).not.toHaveBeenCalled();
+      expect(inserted).not.toHaveBeenCalled();
     });
 
     it('detaches only this supplier from every material and returns the count', async () => {
@@ -315,12 +320,10 @@ describe('SupplierService', () => {
         { id: 'm-1', suppliers: [{ id: 'sup-1' }, other] },
         { id: 'm-2', suppliers: [{ id: 'sup-1' }] },
       ]);
-      query().mockResolvedValue({ affectedRows: 2 });
+      deleted.mockResolvedValue(2);
 
       await expect(service.detachMaterials('s1', body('m1', 'm2'))).resolves.toBe(2);
-      const [sql, params] = query().mock.calls[0];
-      expect(sql).toContain('DELETE FROM `material_supplier_tbl`');
-      expect(params).toEqual([['m-1', 'm-2'], ['sup-1']]);
+      expect(deleted).toHaveBeenCalledWith(transactionManager, ['m-1', 'm-2'], ['sup-1']);
     });
 
     it('detach refuses the whole batch if one material is not attached to this supplier', async () => {
@@ -332,12 +335,12 @@ describe('SupplierService', () => {
       await expect(service.detachMaterials('s1', body('m1', 'm2'))).rejects.toMatchObject({
         code: SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED.code,
       });
-      expect(query()).not.toHaveBeenCalled();
+      expect(deleted).not.toHaveBeenCalled();
     });
 
     it('detach rolls back when a pair disappeared between read and write', async () => {
       materialRepository.find.mockResolvedValue([{ id: 'm-1', suppliers: [{ id: 'sup-1' }] }]);
-      query().mockResolvedValue({ affectedRows: 0 });
+      deleted.mockResolvedValue(0);
 
       await expect(service.detachMaterials('s1', body('m1'))).rejects.toMatchObject({
         code: SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED.code,

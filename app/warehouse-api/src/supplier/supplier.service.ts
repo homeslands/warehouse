@@ -175,7 +175,7 @@ export class SupplierService {
   /**
    * Gắn hàng loạt, tất-cả-hoặc-không về tồn tại: 1 slug không tồn tại là cả lô bị từ chối. Quan hệ
    * n - n nên vật tư đang thuộc nhà cung cấp khác KHÔNG còn bị chặn — chỉ thêm 1 dòng join nữa. Vật
-   * tư đã gắn với chính nhà cung cấp này thì bỏ qua (idempotent, `INSERT IGNORE`).
+   * tư đã gắn với chính nhà cung cấp này thì bỏ qua (idempotent, xem `insertMaterialSuppliers`).
    */
   async attachMaterials(
     slug: string,

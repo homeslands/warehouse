@@ -20,6 +20,10 @@ import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierException } from 'src/supplier/supplier.exception';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
+import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+
+// Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
+jest.mock('src/material/material-supplier.util');
 
 const warehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
   ({ id: 'wh-id-1', slug: 'wh-slug-1', isActive: true, ...overrides }) as Warehouse;
@@ -79,7 +83,6 @@ describe('InventoryService', () => {
   };
   const txHistoryRepository = { create: jest.fn((data) => data), save: jest.fn((data) => data) };
   const manager = {
-    query: jest.fn(),
     getRepository: jest.fn((entity) =>
       entity === InventoryHistory ? txHistoryRepository : txInventoryRepository,
     ),
@@ -181,7 +184,7 @@ describe('InventoryService', () => {
       await create();
 
       expect(supplierRepository.findOneBy).not.toHaveBeenCalled();
-      expect(manager.query).not.toHaveBeenCalled();
+      expect(insertMaterialSuppliers).not.toHaveBeenCalled();
     });
 
     it('attaches the new material to the supplier inside the SAME transaction', async () => {
@@ -191,12 +194,12 @@ describe('InventoryService', () => {
 
       expect(supplierRepository.findOneBy).toHaveBeenCalledWith({ slug: 'sup-slug-1' });
       expect(transactionManager.execute).toHaveBeenCalledTimes(1);
-      expect(manager.query).toHaveBeenCalledTimes(1);
-      expect(manager.query.mock.calls[0][0]).toContain('material_supplier_tbl');
-      expect(manager.query.mock.calls[0][1]).toEqual([[['mat-id-1', 'sup-id-1']]]);
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, [
+        { materialId: 'mat-id-1', supplierId: 'sup-id-1' },
+      ]);
       // Gắn sau khi vật tư đã được tạo (cần `material.id`).
       expect(materialService.createMaterialIn.mock.invocationCallOrder[0]).toBeLessThan(
-        manager.query.mock.invocationCallOrder[0],
+        jest.mocked(insertMaterialSuppliers).mock.invocationCallOrder[0],
       );
     });
 
