@@ -81,6 +81,5 @@
     "REMOVE": "Gỡ khỏi kho"
   },
   "reservedChange": "Giữ chỗ {{delta}} ({{before}} → {{after}})",
-  "importFormNote": "Phiếu nhập {{code}}",
-  "changedBy": "bởi {{name}}"
+  "importFormNote": "Phiếu nhập {{code}}"
 }

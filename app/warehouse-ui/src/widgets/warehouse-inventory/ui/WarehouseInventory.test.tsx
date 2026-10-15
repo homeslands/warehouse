@@ -112,7 +112,8 @@ describe('WarehouseInventory', () => {
     expect(within(matchaRow).getAllByText('30')).toHaveLength(2)
     expect(within(matchaRow).getByText('20 – 70')).toBeInTheDocument()
     const noRow = screen.getByText(/· no$/).closest('tr')!
-    expect(within(noRow).getByText('Trên max')).toBeInTheDocument()
+    // Vượt ngưỡng (cả dưới min lẫn trên max) đều là nhãn destructive (nền đỏ, chữ trắng).
+    expect(within(noRow).getByText('Trên max')).toHaveAttribute('data-variant', 'destructive')
     expect(within(noRow).getByText('Chưa đặt')).toBeInTheDocument()
     expect(noRow).not.toHaveTextContent('undefined')
   })
