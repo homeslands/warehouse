@@ -24,6 +24,7 @@ const cement: Material = {
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 }
 const CEMENT_ADDED: AddedMaterial = {
   slug: 'm-cement',

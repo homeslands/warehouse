@@ -46,11 +46,12 @@ export function useMaterialOptions(options: { enabled?: boolean } = {}) {
 }
 
 /** Chi tiết một vật tư — trang tự báo lỗi tại chỗ. */
-export function useMaterial(slug: string) {
+export function useMaterial(slug: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: materialKeys.detail(slug),
     queryFn: () => fetchMaterial(slug),
     meta: { suppressErrorToast: true },
+    enabled: options.enabled ?? true,
   })
 }
 

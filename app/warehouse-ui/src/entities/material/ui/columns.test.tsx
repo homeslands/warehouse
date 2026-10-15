@@ -17,6 +17,7 @@ const legacy: Material = {
   baseUnit: null,
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 }
 
 function Table({ rows }: { rows: Material[] }) {

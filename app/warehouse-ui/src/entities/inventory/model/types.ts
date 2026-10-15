@@ -21,6 +21,45 @@ export type InventoryItem = {
   materialName: string
   typeSlug: string
   typeName: string
+  /**
+   * Đơn vị gốc — BE đang bổ sung (tên theo đề xuất gửi BE). Chưa có thì FE chỉ hiện số. BE đặt tên khác → sửa ở đây.
+   */
+  baseUnitSlug?: string
+  baseUnitCode?: string
+  baseUnitName?: string
+}
+
+/**
+ * Lọc `GET /warehouses/{w}/materials`. `typeSlug`, `belowMinimum`, `aboveMaximum` chạy thật (2026-10-15); `name`/`code`
+ * BE đang làm — chỉ gửi khi `BACKEND_SUPPORTS.inventorySearch` bật. Boolean chỉ gửi khi `true` (để `undefined` khi tắt).
+ */
+export type InventoryFilters = {
+  typeSlug?: string
+  belowMinimum?: boolean
+  aboveMaximum?: boolean
+  name?: string
+  code?: string
+}
+
+export type InventoryAction = 'ASSIGN' | 'ADJUST' | 'IMPORT' | 'RESERVE' | 'RELEASE' | 'REMOVE'
+
+/** `InventoryHistoryResponseDto`. `action` khai `string` để mã mới của BE không làm vỡ kiểu — FE hiện nguyên mã. */
+export type InventoryHistory = {
+  slug: string
+  createdAt: string
+  updatedAt: string
+  action: string
+  quantityDelta: number
+  quantityBefore: number
+  quantityAfter: number
+  reservedDelta: number
+  reservedBefore: number
+  reservedAfter: number
+  /** Phiếu nhập ghi dạng `"Import form P500D03"`. */
+  note: string | null
+  changedBySlug: string | null
+  /** Có thể `""` (người thao tác chưa có họ tên). */
+  changedByName: string
 }
 
 /**

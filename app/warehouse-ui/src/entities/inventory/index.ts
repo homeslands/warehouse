@@ -1,5 +1,30 @@
-export { assignMaterialToWarehouse, createMaterialInWarehouse } from './api/inventory.api'
-export { useAssignWarehouseMaterial, useCreateWarehouseMaterial } from './api/hooks'
+export {
+  assignMaterialToWarehouse,
+  createMaterialInWarehouse,
+  fetchInventoryHistory,
+  fetchWarehouseInventory,
+  removeWarehouseMaterial,
+} from './api/inventory.api'
+export {
+  useAssignWarehouseMaterial,
+  useCreateWarehouseMaterial,
+  useInventoryHistory,
+  useRemoveWarehouseMaterial,
+  useWarehouseInventory,
+} from './api/hooks'
 export { inventoryKeys } from './api/query-keys'
-export { INVENTORY_DOES_EXIST, INVENTORY_WAREHOUSE_INACTIVE } from './model/error-codes'
-export type { InventoryItem, WarehouseMaterialInput } from './model/types'
+export {
+  INVENTORY_DOES_EXIST,
+  INVENTORY_NOT_FOUND,
+  INVENTORY_QUANTITY_NOT_EMPTY,
+  INVENTORY_RESERVED_NOT_EMPTY,
+  INVENTORY_WAREHOUSE_INACTIVE,
+} from './model/error-codes'
+export { removeBlockReason } from './model/rules'
+export type {
+  InventoryAction,
+  InventoryFilters,
+  InventoryHistory,
+  InventoryItem,
+  WarehouseMaterialInput,
+} from './model/types'

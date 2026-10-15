@@ -26,6 +26,7 @@ const material: Material = {
   baseUnit: null,
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 }
 
 beforeEach(() => {
