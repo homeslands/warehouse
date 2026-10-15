@@ -379,9 +379,8 @@ export function ImportFormItemsField({
         open={adding !== null}
         onOpenChange={(open) => !open && setAdding(null)}
         warehouseSlug={warehouseSlug}
-        warehouseName={warehouseName}
         initialSearch={adding?.search ?? ''}
-        availableSlugs={materials.map((m) => m.slug)}
+        description={t('importForms:addMaterialDescription', { warehouse: warehouseName })}
         abilities={materialAbilities}
         onAdded={onMaterialAdded}
       />

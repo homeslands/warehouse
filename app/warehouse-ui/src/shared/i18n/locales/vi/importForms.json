@@ -137,7 +137,7 @@
   "assignAction": "Gắn vào kho",
   "assigning": "Đang gắn…",
   "assignedToast": "Đã gắn {{name}} vào kho",
-  "alreadyInWarehouseToast": "{{name}} đã có ở kho — đã chọn vào dòng",
+  "alreadyInWarehouseToast": "{{name}} đã có trong kho",
   "createMaterialSection": "Tạo vật tư mới",
   "createMaterialHint": "Vật tư mới chỉ có đơn vị gốc — thêm đơn vị quy đổi ở trang chi tiết vật tư.",
   "fieldMaterialCode": "Mã vật tư",

@@ -25,8 +25,6 @@ function useDebouncedValue<T>(value: T, ms: number): T {
 type Props = {
   warehouseSlug: string
   search: string
-  /** Slug vật tư đã có ở kho (từ `available-materials`) — loại khỏi kết quả. */
-  availableSlugs: string[]
   canAssign: boolean
   /** Hộp đang bận (gắn / tạo, kể cả đoạn sau khi API trả về) — khoá mọi nút. */
   locked?: boolean
@@ -40,7 +38,6 @@ type Props = {
 export function AssignExistingSection({
   warehouseSlug,
   search,
-  availableSlugs,
   canAssign,
   locked = false,
   onAssigned,
@@ -61,7 +58,8 @@ export function AssignExistingSection({
     return <p className="text-muted-foreground text-sm">{t('importForms:catalogHint')}</p>
 
   const found = materials.data?.items ?? []
-  const candidates = found.filter((m) => !availableSlugs.includes(m.slug))
+  // Đã ở kho này thì chọn thẳng trong dòng / bảng — theo `warehouses` của chính vật tư nên không phụ thuộc 100 bản ghi đầu.
+  const candidates = found.filter((m) => !m.warehouses.some((w) => w.slug === warehouseSlug))
   // Lỗi gắn gắn với từ khoá đã tìm: đổi từ khoá thì tự ẩn; refetch có thể gỡ dòng nên hiển thị ở mức section.
   const sectionError = rowError?.search === debounced ? rowError.message : null
 
