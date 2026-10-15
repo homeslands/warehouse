@@ -20,6 +20,7 @@ const mat = (slug: string, code: string, name: string): Material => ({
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 })
 const cement = mat('m-cement', 'VT-09', 'Xi măng PCB40')
 const inWarehouse = mat('m-in', 'VT-01', 'Xi măng trắng')

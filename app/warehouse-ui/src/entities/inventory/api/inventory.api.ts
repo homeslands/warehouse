@@ -1,5 +1,11 @@
-import { postData, putData } from '@/shared/api/http'
-import type { InventoryItem, WarehouseMaterialInput } from '../model/types'
+import { deleteData, getPaginated, postData, putData } from '@/shared/api/http'
+import type { ListParams, Paginated } from '@/shared/api/types'
+import type {
+  InventoryFilters,
+  InventoryHistory,
+  InventoryItem,
+  WarehouseMaterialInput,
+} from '../model/types'
 
 const base = (warehouseSlug: string) => `/warehouses/${warehouseSlug}/materials`
 
@@ -14,3 +20,19 @@ export const createMaterialInWarehouse = (
   warehouseSlug: string,
   material: WarehouseMaterialInput,
 ): Promise<InventoryItem> => postData<InventoryItem>(base(warehouseSlug), { material, quantity: 0 })
+
+export const fetchWarehouseInventory = (
+  warehouseSlug: string,
+  params: ListParams<InventoryFilters>,
+): Promise<Paginated<InventoryItem>> => getPaginated<InventoryItem>(base(warehouseSlug), params)
+
+export const fetchInventoryHistory = (
+  warehouseSlug: string,
+  materialSlug: string,
+  params: ListParams,
+): Promise<Paginated<InventoryHistory>> =>
+  getPaginated<InventoryHistory>(`${base(warehouseSlug)}/${materialSlug}/histories`, params)
+
+/** Chặn khi tồn > 0 (100807) / giữ chỗ > 0 (100813); 100801 khi đã không còn ở kho. */
+export const removeWarehouseMaterial = (warehouseSlug: string, materialSlug: string) =>
+  deleteData<unknown>(`${base(warehouseSlug)}/${materialSlug}`)

@@ -509,6 +509,7 @@ describe('createRoutes — màn Vật tư', () => {
           baseUnit: null,
           hasSupplier: false,
           suppliers: [],
+          warehouses: [],
         }),
       ),
     )

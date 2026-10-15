@@ -25,6 +25,7 @@ const base = {
   baseUnit: null,
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 }
 const kg = { slug: 'u-kg', code: 'KG', name: 'kg' }
 const m1: Material = { ...base, slug: 'm-1', code: 'NL01', name: 'Đường', baseUnit: kg }
@@ -35,6 +36,7 @@ const m1Attached: Material = {
   ...m1,
   hasSupplier: true,
   suppliers: [{ slug: 's-1', code: 'NCC-HN-01', name: 'NCC Hà Nội' }],
+  warehouses: [],
 }
 const m4: Material = {
   ...base,
@@ -43,6 +45,7 @@ const m4: Material = {
   name: 'Muối',
   hasSupplier: true,
   suppliers: [{ slug: 's-2', code: 'NCC-HCM', name: 'NCC Sài Gòn' }],
+  warehouses: [],
 }
 
 let materialsUrl: URL | undefined

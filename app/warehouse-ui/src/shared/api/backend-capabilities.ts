@@ -123,6 +123,12 @@ export const BACKEND_SUPPORTS = {
    * 2026-10-08; `from` sai định dạng → 101221).
    */
   supplierMaterialFilters: true,
+
+  /**
+   * Ô tìm mã / tên ở tab Vật tư của trang chi tiết kho — `GET /warehouses/{w}/materials` nhận `name` / `code`. BE đang
+   * làm (2026-10-15 sandbox còn bỏ qua). Bật khi BE deploy và đã thử với API thật.
+   */
+  inventorySearch: false,
 } as const
 
 /** Kiểu của một bộ cờ — để hàm nhận cờ làm tham số (test truyền `true` được; `as const` ghim `false`). */

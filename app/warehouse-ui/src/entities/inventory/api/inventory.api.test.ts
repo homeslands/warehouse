@@ -1,8 +1,14 @@
 import { http as mswHttp } from 'msw'
 import { describe, expect, it } from 'vitest'
-import { ok } from '@/shared/test/api'
+import { ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
-import { assignMaterialToWarehouse, createMaterialInWarehouse } from './inventory.api'
+import {
+  assignMaterialToWarehouse,
+  createMaterialInWarehouse,
+  fetchInventoryHistory,
+  fetchWarehouseInventory,
+  removeWarehouseMaterial,
+} from './inventory.api'
 import type { InventoryItem } from '../model/types'
 
 const BASE = 'http://localhost:8085/api/v1'
@@ -51,5 +57,54 @@ describe('inventory.api', () => {
     const material = { code: 'VT-09', name: 'Xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' }
     await createMaterialInWarehouse('w-a', material)
     expect(body).toEqual({ material, quantity: 0 })
+  })
+
+  it('GET danh sách gửi đúng bộ lọc, bỏ bộ lọc trống', async () => {
+    let url: URL | undefined
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/materials`, ({ request }) => {
+        url = new URL(request.url)
+        return paginated([item])
+      }),
+    )
+    const res = await fetchWarehouseInventory('w-a', {
+      page: 2,
+      size: 10,
+      typeSlug: 'mt-1',
+      belowMinimum: true,
+      aboveMaximum: undefined,
+      code: undefined,
+    })
+    expect(res.items[0].materialCode).toBe('VT-09')
+    expect(url?.searchParams.get('page')).toBe('2')
+    expect(url?.searchParams.get('typeSlug')).toBe('mt-1')
+    expect(url?.searchParams.get('belowMinimum')).toBe('true')
+    expect(url?.searchParams.has('aboveMaximum')).toBe(false)
+    expect(url?.searchParams.has('code')).toBe(false)
+  })
+
+  it('GET lịch sử của một vật tư', async () => {
+    let url: URL | undefined
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/materials/m-1/histories`, ({ request }) => {
+        url = new URL(request.url)
+        return paginated([])
+      }),
+    )
+    await fetchInventoryHistory('w-a', 'm-1', { page: 3, size: 20 })
+    expect(url?.searchParams.get('page')).toBe('3')
+    expect(url?.searchParams.get('size')).toBe('20')
+  })
+
+  it('DELETE gỡ vật tư khỏi kho', async () => {
+    let called = false
+    server.use(
+      mswHttp.delete(`${BASE}/warehouses/w-a/materials/m-1`, () => {
+        called = true
+        return ok({})
+      }),
+    )
+    await removeWarehouseMaterial('w-a', 'm-1')
+    expect(called).toBe(true)
   })
 })

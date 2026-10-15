@@ -78,6 +78,7 @@ const cementMaterial: Material = {
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
   suppliers: [],
+  warehouses: [],
 }
 
 const BASE = 'http://localhost:8085/api/v1'
