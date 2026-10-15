@@ -36,8 +36,9 @@ export const fetchSupplierMaterials = (
 
 /** Gắn vật tư vào nhà cung cấp — `PUT` không body. */
 /**
- * Gắn nhiều vật tư (1–100, WMS-13-be): tất cả hoặc không — một slug không tồn tại (100701) hay thuộc nhà cung cấp
- * khác (101212) là cả lô bị từ chối; vật tư đã gắn với chính NCC này được bỏ qua. Trả về mọi vật tư trong lô.
+ * Gắn nhiều vật tư (1–100, WMS-13-be): tất cả hoặc không — một slug không tồn tại (100701) là cả lô bị từ chối.
+ * Một vật tư thuộc được nhiều NCC (2026-10-15) nên vật tư của NCC khác vẫn gắn được; vật tư đã gắn với chính NCC này
+ * được bỏ qua. Trả về mọi vật tư trong lô.
  */
 export const attachSupplierMaterials = (
   slug: string,

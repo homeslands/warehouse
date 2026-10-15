@@ -16,9 +16,6 @@ import { Skeleton } from '@/shared/ui/skeleton'
 import { MATERIAL_NOT_FOUND, materialKeys, useMaterialOptions } from '@/entities/material'
 import { useAttachSupplierMaterial } from '@/entities/supplier'
 
-/** Cả lô bị từ chối (BE "tất cả hoặc không"): đã thuộc NCC khác / vật tư không còn tồn tại — báo ngay trong hộp. */
-const BELONGS_TO_OTHER = 101212
-
 type Props = {
   /** `null` = đóng. */
   supplier: { slug: string; code: string } | null
@@ -26,9 +23,10 @@ type Props = {
 }
 
 /**
- * Gắn nhiều vật tư vào nhà cung cấp một lần (`PUT /suppliers/{slug}/materials`, `{ materialSlugs }`). Ứng viên = 100
- * vật tư đầu trừ vật tư đã gắn với chính NCC này (giới hạn lô của BE cũng là 100). BE làm "tất cả hoặc không" và
- * không nói vật tư nào hỏng — chọn nhiều mà bị từ chối thì câu báo nói rõ là CHƯA gắn gì.
+ * Gắn nhiều vật tư vào nhà cung cấp một lần (`PUT /suppliers/{slug}/materials`, `{ materialSlugs }`). Một vật tư có
+ * thể thuộc nhiều NCC, nên ứng viên = 100 vật tư đầu trừ vật tư đã gắn với CHÍNH NCC này (theo `suppliers` của từng
+ * vật tư; giới hạn lô của BE cũng là 100). BE làm "tất cả hoặc không" và không nói vật tư nào hỏng — chọn nhiều mà bị
+ * từ chối (vật tư không còn tồn tại) thì câu báo nói rõ là CHƯA gắn gì.
  */
 export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) {
   const { t } = useTranslation(['suppliers', 'common'])
@@ -36,9 +34,8 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
   const attach = useAttachSupplierMaterial()
   const searchId = useId()
   const open = supplier !== null
-  // Chỉ tải khi hộp mở. `hasSupplier: false`: backend chỉ trả vật tư CHƯA thuộc nhà cung cấp nào — mỗi vật tư
-  // thuộc tối đa một NCC (101212), nên đây đúng là những vật tư gắn được; không cần tự loại phía FE.
-  const materials = useMaterialOptions({ enabled: open, hasSupplier: false })
+  // Chỉ tải khi hộp mở.
+  const materials = useMaterialOptions({ enabled: open })
 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [query, setQuery] = useState('')
@@ -60,7 +57,10 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
   // Lỗi tải ứng viên: nói rõ thay vì "Không còn vật tư nào để gắn" (sai sự thật) và khoá nút Gắn.
   const loadError = materials.isError ? materials.error : null
 
-  const candidates = materials.data?.items ?? []
+  // Vật tư đã gắn với NCC này thì gắn lại cũng bị BE bỏ qua — ẩn đi cho khỏi rối.
+  const candidates = (materials.data?.items ?? []).filter(
+    (m) => !m.suppliers.some((s) => s.slug === slug),
+  )
   const shown = candidates.filter((m) => matchesSearch(`${m.code} ${m.name}`, query))
   const allShownSelected = shown.length > 0 && shown.every((m) => selected.has(m.slug))
   const someShownSelected = shown.some((m) => selected.has(m.slug))
@@ -97,16 +97,12 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
         },
         onError: (error) => {
           const code = isApiError(error) ? error.code : undefined
-          if (code === BELONGS_TO_OTHER || code === MATERIAL_NOT_FOUND) {
+          if (code === MATERIAL_NOT_FOUND) {
             // Một vật tư: câu của mã lỗi là đủ rõ. Nhiều vật tư: BE không nói cái nào — nói rõ cả lô chưa gắn.
             setFieldError(
               selected.size === 1
                 ? resolveApiErrorMessage(error)
-                : t(
-                    code === BELONGS_TO_OTHER
-                      ? 'suppliers:attachBatchBelongsToOther'
-                      : 'suppliers:attachBatchNotFound',
-                  ),
+                : t('suppliers:attachBatchNotFound'),
             )
             return
           }

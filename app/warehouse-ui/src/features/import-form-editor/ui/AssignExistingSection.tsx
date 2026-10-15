@@ -138,7 +138,12 @@ export function AssignExistingSection({
                       type: m.type.name,
                       unit: m.baseUnit?.code ?? t('importForms:noBaseUnit'),
                     })}
-                    {m.supplier && ` · ${m.supplier.name}`}
+                    {m.suppliers.length > 0 && (
+                      <>
+                        {' · '}
+                        <SupplierNames names={m.suppliers.map((s) => s.name)} />
+                      </>
+                    )}
                   </p>
                 </div>
                 <Button
@@ -169,5 +174,22 @@ export function AssignExistingSection({
         </p>
       )}
     </section>
+  )
+}
+
+const MAX_SUPPLIERS_SHOWN = 2
+
+/** Nhiều nhà cung cấp: 2 tên đầu + "+N" (như cột Kho của màn Người dùng); đủ tên ở `title` và cho trình đọc màn hình. */
+function SupplierNames({ names }: { names: string[] }) {
+  const all = names.join(', ')
+  if (names.length <= MAX_SUPPLIERS_SHOWN) return <span>{all}</span>
+  return (
+    <span title={all}>
+      <span aria-hidden="true">
+        <span>{names.slice(0, MAX_SUPPLIERS_SHOWN).join(', ')}</span> +
+        {names.length - MAX_SUPPLIERS_SHOWN}
+      </span>
+      <span className="sr-only">{all}</span>
+    </span>
   )
 }

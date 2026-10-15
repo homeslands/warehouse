@@ -19,7 +19,7 @@ const mat = (slug: string, code: string, name: string): Material => ({
   type: { slug: 'mt-1', code: 'MT', name: 'Vật liệu' },
   baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
   hasSupplier: false,
-  supplier: null,
+  suppliers: [],
 })
 const cement = mat('m-cement', 'VT-09', 'Xi măng PCB40')
 const inWarehouse = mat('m-in', 'VT-01', 'Xi măng trắng')
@@ -63,6 +63,23 @@ describe('AssignExistingSection', () => {
     expect(await screen.findByText(/Xi măng PCB40/)).toBeInTheDocument()
     expect(screen.queryByText(/Xi măng trắng/)).not.toBeInTheDocument()
     expect(seen.at(-1)?.get('name')).toBe('xi măng')
+  })
+
+  it('nhiều nhà cung cấp → 2 tên đầu + "+N", đủ tên ở title', async () => {
+    const ncc = (slug: string, name: string) => ({ slug, code: slug.toUpperCase(), name })
+    setup({
+      found: [
+        {
+          ...cement,
+          hasSupplier: true,
+          suppliers: [ncc('s-1', 'NCC Bột'), ncc('s-2', 'NCC Đường'), ncc('s-3', 'NCC Muối')],
+        },
+      ],
+      available: [],
+    })
+    const shown = await screen.findByText('NCC Bột, NCC Đường')
+    expect(shown.parentElement).toHaveTextContent('NCC Bột, NCC Đường +1')
+    expect(shown.closest('[title]')).toHaveAttribute('title', 'NCC Bột, NCC Đường, NCC Muối')
   })
 
   it('gõ giống mã → gửi code viết hoa', async () => {
