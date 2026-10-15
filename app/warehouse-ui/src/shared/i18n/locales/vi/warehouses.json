@@ -64,5 +64,9 @@
   "removeMemberTitle": "Gỡ thành viên",
   "removeMemberConfirm": "Gỡ <1>{{name}}</1> khỏi kho? Người này sẽ không còn thấy kho này nữa.",
   "sectionMembers": "Thành viên",
-  "noMembers": "Kho chưa có thành viên."
+  "noMembers": "Kho chưa có thành viên.",
+  "tabsLabel": "Nội dung kho",
+  "tabMaterials": "Vật tư",
+  "tabMembers": "Thành viên",
+  "sectionInventory": "Vật tư trong kho"
 }

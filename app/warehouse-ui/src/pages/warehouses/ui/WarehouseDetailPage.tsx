@@ -2,7 +2,7 @@ import { useQueryClient } from '@tanstack/react-query'
 import { ArrowLeftIcon, MoreHorizontalIcon } from 'lucide-react'
 import { useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Link, useLocation, useNavigate, useParams } from 'react-router-dom'
+import { Link, useLocation, useNavigate, useParams, useSearchParams } from 'react-router-dom'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
@@ -22,6 +22,7 @@ import {
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
 import { useAuthStore } from '@/entities/session'
 import {
   WarehouseStatusBadge,
@@ -35,9 +36,12 @@ import { AssignWarehouseManagerDialog } from '@/features/warehouse-assign-manage
 import { ToggleWarehouseActiveDialog } from '@/features/warehouse-toggle-active'
 import { DeleteWarehouseDialog } from '@/features/warehouse-delete'
 import { WarehouseFormSheet } from '@/features/warehouse-form'
+import { materialAddAbilities } from '@/features/warehouse-material-add'
 import { useCrumbTitle } from '@/widgets/app-shell'
+import { WarehouseInventory } from '@/widgets/warehouse-inventory'
 import { WarehouseMembers } from '@/widgets/warehouse-members'
 import { warehouseAbilities } from '../model/abilities'
+import { resolveDetailTab, type WarehouseDetailTab } from '../model/detail-tab'
 
 const LIST_PATH = '/warehouses'
 
@@ -46,6 +50,7 @@ export function WarehouseDetailPage() {
   const { t } = useTranslation(['warehouses', 'common'])
   const location = useLocation()
   const navigate = useNavigate()
+  const [params, setParams] = useSearchParams()
   const qc = useQueryClient()
   const user = useAuthStore((s) => s.user)
   const ability = warehouseAbilities(user, BACKEND_SUPPORTS)
@@ -101,6 +106,58 @@ export function WarehouseDetailPage() {
       </div>
     )
   }
+
+  const tab = resolveDetailTab(params.get('tab'), {
+    materials: ability.viewInventory,
+    members: ability.viewMembers,
+  })
+  const goToTab = (next: WarehouseDetailTab) =>
+    setParams(
+      (p) => {
+        p.set('tab', next)
+        return p
+      },
+      { replace: true },
+    )
+
+  const inventory = ability.viewInventory && (
+    <WarehouseInventory
+      key={warehouse.slug}
+      warehouse={warehouse}
+      addAbilities={materialAddAbilities(user)}
+      canRemove={ability.removeInventory}
+      searchEnabled={BACKEND_SUPPORTS.inventorySearch}
+    />
+  )
+  const members = ability.viewMembers && (
+    <WarehouseMembers
+      key={warehouse.slug}
+      warehouse={warehouse}
+      canManage={ability.manageMembers}
+    />
+  )
+  // Chỉ một khối có quyền → không vẽ thanh tab.
+  const single = !(ability.viewInventory && ability.viewMembers)
+  const detailTabs =
+    tab === null ? null : single ? (
+      tab === 'materials' ? (
+        <section className="space-y-3">
+          <h2 className="text-base font-semibold">{t('warehouses:sectionInventory')}</h2>
+          {inventory}
+        </section>
+      ) : (
+        members
+      )
+    ) : (
+      <Tabs value={tab} onValueChange={(v) => goToTab(v as WarehouseDetailTab)}>
+        <TabsList aria-label={t('warehouses:tabsLabel')}>
+          <TabsTrigger value="materials">{t('warehouses:tabMaterials')}</TabsTrigger>
+          <TabsTrigger value="members">{t('warehouses:tabMembers')}</TabsTrigger>
+        </TabsList>
+        <TabsContent value="materials">{inventory}</TabsContent>
+        <TabsContent value="members">{members}</TabsContent>
+      </Tabs>
+    )
 
   const hasMenu = ability.assignManager || ability.update || ability.delete
 
@@ -198,13 +255,7 @@ export function WarehouseDetailPage() {
         </DetailGroup>
       </DetailCard>
 
-      {ability.viewMembers && (
-        <WarehouseMembers
-          key={warehouse.slug}
-          warehouse={warehouse}
-          canManage={ability.manageMembers}
-        />
-      )}
+      {detailTabs}
 
       <WarehouseFormSheet open={formOpen} onOpenChange={setFormOpen} warehouse={warehouse} />
       {ability.assignManager && (
