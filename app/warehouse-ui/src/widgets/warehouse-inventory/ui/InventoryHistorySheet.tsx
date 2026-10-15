@@ -1,6 +1,7 @@
-import { useState } from 'react'
+import { useId, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
+import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { formatDateTime, formatQuantity } from '@/shared/lib/format'
 import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
@@ -119,7 +120,9 @@ export function InventoryHistorySheet({
   const rows = history.data?.pages.flatMap((p) => p.items) ?? []
   const blocked = summary ? removeBlockReason(summary) : null
   const showRemove = canRemove && summary !== undefined && !notInWarehouse
-  const hintId = 'history-remove-hint'
+  const hintId = useId()
+  const historyFailed = history.isError && !notInWarehouse
+  const materialFailed = material.isError && item === undefined && !notInWarehouse
 
   return (
     <Sheet open={open} onOpenChange={onOpenChange}>
@@ -148,6 +151,8 @@ export function InventoryHistorySheet({
             <p role="alert" className="text-sm">
               {t('inventory:notInWarehouse')}
             </p>
+          ) : materialFailed && !summary ? (
+            <LoadError error={material.error} onRetry={() => void material.refetch()} />
           ) : !summary ? (
             <div aria-busy="true" className="space-y-4">
               <Skeleton className="h-5 w-40" />
@@ -190,7 +195,9 @@ export function InventoryHistorySheet({
 
               <section className="space-y-3">
                 <h3 className="text-sm font-medium">{t('inventory:historySection')}</h3>
-                {history.isPending ? (
+                {historyFailed && !history.data ? (
+                  <LoadError error={history.error} onRetry={() => void history.refetch()} />
+                ) : history.isPending ? (
                   <Skeleton aria-busy="true" className="h-24" />
                 ) : rows.length === 0 ? (
                   <p className="text-muted-foreground text-sm">{t('inventory:historyEmpty')}</p>
@@ -249,6 +256,11 @@ export function InventoryHistorySheet({
                     })}
                   </ol>
                 )}
+                {history.isFetchNextPageError && (
+                  <p role="alert" className="text-destructive text-sm">
+                    {resolveApiErrorMessage(history.error)}
+                  </p>
+                )}
                 {history.hasNextPage && (
                   <Button
                     variant="outline"
@@ -297,5 +309,18 @@ export function InventoryHistorySheet({
         </SheetFooter>
       </SheetContent>
     </Sheet>
+  )
+}
+
+/** Lỗi tải lần đầu hiện tại chỗ (không toast) + nút thử lại. */
+function LoadError({ error, onRetry }: { error: unknown; onRetry: () => void }) {
+  const { t } = useTranslation('common')
+  return (
+    <div role="alert" className="space-y-2 text-sm">
+      <p className="font-medium">{resolveApiErrorMessage(error)}</p>
+      <Button variant="outline" size="sm" onClick={onRetry}>
+        {t('retry')}
+      </Button>
+    </div>
   )
 }

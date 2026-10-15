@@ -193,7 +193,8 @@ describe('InventoryHistorySheet', () => {
         : envelope([history({ slug: 'h-2', action: 'REMOVE' })], 2, false)
     })
     await user.click(await screen.findByRole('button', { name: 'Xem thêm' }))
-    expect(await screen.findByText('Gỡ khỏi kho', { selector: 'span,p,div' })).toBeInTheDocument()
+    const list = await screen.findByRole('list')
+    expect(await within(list).findByText('Gỡ khỏi kho')).toBeInTheDocument()
     expect(pages).toEqual(['1', '2'])
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Xem thêm' })).not.toBeInTheDocument(),
@@ -233,5 +234,41 @@ describe('InventoryHistorySheet', () => {
     setup({ canRemove: false })
     await screen.findByRole('dialog')
     expect(screen.queryByRole('button', { name: 'Gỡ khỏi kho' })).not.toBeInTheDocument()
+  })
+
+  it('lịch sử lỗi 500: báo lỗi tại chỗ, không nói "chưa có biến động"; Thử lại tải lại', async () => {
+    let fail = true
+    const { user } = setup({}, () =>
+      fail ? apiError(500) : envelope([history({ action: 'TRANSFER' })], 1, false),
+    )
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    expect(within(dialog).queryByText('Chưa có biến động nào')).not.toBeInTheDocument()
+    fail = false
+    await user.click(within(dialog).getByRole('button', { name: 'Thử lại' }))
+    expect(await within(dialog).findByText('TRANSFER')).toBeInTheDocument()
+    expect(within(dialog).queryByRole('alert')).not.toBeInTheDocument()
+  })
+
+  it('mở bằng URL, vật tư lỗi 500: báo lỗi tại chỗ, không khung chờ vô tận', async () => {
+    server.use(mswHttp.get(`${BASE}/materials/m-matcha`, () => apiError(500)))
+    setup({ item: undefined })
+    const dialog = await screen.findByRole('dialog')
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Thử lại' })).toBeInTheDocument()
+    expect(document.querySelector('[aria-busy="true"]')).toBeNull()
+  })
+
+  it('trang 2 lỗi 500: báo lỗi cạnh nút, giữ dòng trang 1 và nút Xem thêm', async () => {
+    const { user } = setup({}, ({ request }) =>
+      new URL(request.url).searchParams.get('page') === '2'
+        ? apiError(500)
+        : envelope([history({ action: 'TRANSFER' })], 1, true),
+    )
+    await user.click(await screen.findByRole('button', { name: 'Xem thêm' }))
+    const dialog = screen.getByRole('dialog')
+    expect(await within(dialog).findByRole('alert')).toBeInTheDocument()
+    expect(within(dialog).getByText('TRANSFER')).toBeInTheDocument()
+    expect(within(dialog).getByRole('button', { name: 'Xem thêm' })).toBeInTheDocument()
   })
 })
