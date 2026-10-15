@@ -1,5 +1,5 @@
 import { NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useId, useState, type ComponentType } from 'react'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { translateFormMessage } from '@/shared/lib/form-message'
@@ -12,18 +12,18 @@ import { NumberInput } from '@/shared/ui/NumberInput'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import type { AvailableMaterial } from '@/entities/import-form'
 import {
+  NO_MATERIAL_ADD,
+  type AddedMaterial,
+  type AddMaterialDialogProps,
+  type MaterialAddAbilities,
+} from '@/entities/inventory'
+import {
   EMPTY_ITEM,
   IMPORT_FORM_ITEMS_MAX,
   baseUnitOf,
   lineAmount,
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
-import {
-  NO_MATERIAL_ADD,
-  type AddedMaterial,
-  type MaterialAddAbilities,
-} from '../model/material-add'
-import { AddWarehouseMaterialDialog } from './AddWarehouseMaterialDialog'
 
 type Props = {
   form: UseFormReturn<ImportFormValues>
@@ -36,6 +36,8 @@ type Props = {
   warehouseName: string
   /** Quyền của luồng "thêm vật tư vào kho"; mặc định không có quyền nào (ẩn điểm vào). */
   materialAbilities?: MaterialAddAbilities
+  /** Hộp "Thêm vật tư vào kho" do page truyền vào (feature không import feature). Không có → không có dòng "＋ Thêm vật tư vào kho…". */
+  AddMaterialDialog?: ComponentType<AddMaterialDialogProps>
   /** Tải vật tư khả dụng của kho lỗi: báo ngay dưới tiêu đề "Dòng vật tư" (kèm Thử lại) và trong danh sách của ô chọn. */
   loadError?: { message: string; onRetry: () => void }
 }
@@ -55,6 +57,7 @@ export function ImportFormItemsField({
   warehouseSlug,
   warehouseName,
   materialAbilities = NO_MATERIAL_ADD,
+  AddMaterialDialog,
   loadError,
 }: Props) {
   const { t } = useTranslation(['importForms', 'common'])
@@ -177,7 +180,7 @@ export function ImportFormItemsField({
                           : t('importForms:materialEmpty')
                       }
                       footer={
-                        materialAbilities.search
+                        materialAbilities.search && AddMaterialDialog
                           ? (search, close) => (
                               <Button
                                 type="button"
@@ -375,15 +378,17 @@ export function ImportFormItemsField({
         )}
       </div>
 
-      <AddWarehouseMaterialDialog
-        open={adding !== null}
-        onOpenChange={(open) => !open && setAdding(null)}
-        warehouseSlug={warehouseSlug}
-        initialSearch={adding?.search ?? ''}
-        description={t('importForms:addMaterialDescription', { warehouse: warehouseName })}
-        abilities={materialAbilities}
-        onAdded={onMaterialAdded}
-      />
+      {AddMaterialDialog && (
+        <AddMaterialDialog
+          open={adding !== null}
+          onOpenChange={(open) => !open && setAdding(null)}
+          warehouseSlug={warehouseSlug}
+          initialSearch={adding?.search ?? ''}
+          description={t('importForms:addMaterialDescription', { warehouse: warehouseName })}
+          abilities={materialAbilities}
+          onAdded={onMaterialAdded}
+        />
+      )}
     </section>
   )
 }

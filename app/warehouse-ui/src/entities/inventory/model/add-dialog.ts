@@ -1,6 +1,6 @@
 /**
- * Quyền cho luồng "thêm vật tư vào kho" từ phiếu nhập — trang tính (`pages/import-forms/model/abilities.ts`) rồi
- * truyền xuống (feature không import page).
+ * Quyền cho luồng "thêm vật tư vào kho" — trang tính rồi truyền xuống (feature không import page).
+ * Khai ở entity để `import-form-editor` (nhận hộp qua prop) và `warehouse-material-add` (cài hộp) dùng chung — feature không import feature.
  * - `search`: MATERIAL_READ — có điểm vào + tìm danh mục.
  * - `assign`: MATERIAL_UPDATE + WAREHOUSE_UPDATE (`PUT /warehouses/{w}/materials`).
  * - `create`: MATERIAL_CREATE + MATERIAL_UPDATE + WAREHOUSE_UPDATE (`POST`) + MATERIAL_READ + UNIT_READ (ô chọn loại / đơn vị).
@@ -30,4 +30,14 @@ export type AddedMaterial = {
   baseUnit: { slug: string; label: string } | null
 }
 
-export const codeNameLabel = (code: string, name: string) => `${code} · ${name}`
+export type AddMaterialDialogProps = {
+  open: boolean
+  onOpenChange: (open: boolean) => void
+  warehouseSlug: string
+  initialSearch: string
+  /** Câu dưới tiêu đề — mỗi nơi dùng nói đúng ngữ cảnh của mình. */
+  description: string
+  abilities: MaterialAddAbilities
+  /** Gọi SAU KHI `available-materials` của kho đã tải lại; kèm nhãn + đơn vị gốc để dòng chọn ngay. */
+  onAdded: (added: AddedMaterial) => void
+}

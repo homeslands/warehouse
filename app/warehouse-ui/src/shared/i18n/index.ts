@@ -16,6 +16,7 @@ import viUnits from './locales/vi/units.json'
 import viMaterialTypes from './locales/vi/materialTypes.json'
 import viMaterials from './locales/vi/materials.json'
 import viImportForms from './locales/vi/importForms.json'
+import viInventory from './locales/vi/inventory.json'
 import viErrors from './locales/vi/errors.json'
 import viErrorPages from './locales/vi/errorPages.json'
 import viNav from './locales/vi/nav.json'
@@ -33,6 +34,7 @@ import enUnits from './locales/en/units.json'
 import enMaterialTypes from './locales/en/materialTypes.json'
 import enMaterials from './locales/en/materials.json'
 import enImportForms from './locales/en/importForms.json'
+import enInventory from './locales/en/inventory.json'
 import enErrors from './locales/en/errors.json'
 import enErrorPages from './locales/en/errorPages.json'
 import enNav from './locales/en/nav.json'
@@ -50,6 +52,7 @@ export const defaultNS = 'common'
 // `materialTypes` — chuỗi của màn Loại vật tư.
 // `materials` — chuỗi của màn Vật tư (danh sách, chi tiết, đơn vị quy đổi).
 // `importForms` — chuỗi của màn Phiếu nhập kho (danh sách, form, xác nhận, in).
+// `inventory` — vật tư trong kho: tab ở trang chi tiết kho, sheet lịch sử, hộp thêm / gỡ vật tư (dùng chung với phiếu nhập).
 // `users` — chuỗi của màn Người dùng (bảng, form tạo/sửa, reset mật khẩu, khoá/xoá).
 // `roles` — chuỗi của màn Vai trò (bảng, form tạo/sửa mô tả, hộp xoá).
 // `permissions` — bảng ma trận phân quyền role × authority.
@@ -68,6 +71,7 @@ export const resources = {
     materialTypes: viMaterialTypes,
     materials: viMaterials,
     importForms: viImportForms,
+    inventory: viInventory,
     errors: viErrors,
     errorPages: viErrorPages,
     nav: viNav,
@@ -87,6 +91,7 @@ export const resources = {
     materialTypes: enMaterialTypes,
     materials: enMaterials,
     importForms: enImportForms,
+    inventory: enInventory,
     errors: enErrors,
     errorPages: enErrorPages,
     nav: enNav,
@@ -117,6 +122,7 @@ void i18n
       'materialTypes',
       'materials',
       'importForms',
+      'inventory',
       'errors',
       'errorPages',
       'nav',

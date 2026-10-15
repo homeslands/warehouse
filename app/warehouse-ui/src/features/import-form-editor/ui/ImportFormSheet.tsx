@@ -1,7 +1,7 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
 import { ClipboardListIcon } from 'lucide-react'
-import { useEffect, useState, type ReactNode } from 'react'
+import { useEffect, useState, type ComponentType, type ReactNode } from 'react'
 import { useForm, useWatch } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
@@ -34,9 +34,13 @@ import {
   useUpdateImportForm,
   type ImportForm,
 } from '@/entities/import-form'
+import {
+  NO_MATERIAL_ADD,
+  type AddMaterialDialogProps,
+  type MaterialAddAbilities,
+} from '@/entities/inventory'
 import { ImportFormFileField } from './ImportFormFileField'
 import { ImportFormItemsField } from './ImportFormItemsField'
-import { NO_MATERIAL_ADD, type MaterialAddAbilities } from '../model/material-add'
 import {
   emptyFormValues,
   formTotal,
@@ -72,6 +76,8 @@ type ImportFormSheetProps = {
   onSaved?: (saved: ImportForm) => void
   /** Quyền của luồng "thêm vật tư vào kho" trong dòng vật tư. */
   materialAbilities?: MaterialAddAbilities
+  /** Hộp "Thêm vật tư vào kho" (page truyền vào — feature không import feature). */
+  AddMaterialDialog?: ComponentType<AddMaterialDialogProps>
 }
 
 /**
@@ -88,6 +94,7 @@ export function ImportFormSheet({
   formCode,
   onSaved,
   materialAbilities = NO_MATERIAL_ADD,
+  AddMaterialDialog,
 }: ImportFormSheetProps) {
   const { t } = useTranslation(['importForms', 'common'])
   const qc = useQueryClient()
@@ -379,6 +386,7 @@ export function ImportFormSheet({
                   warehouseSlug={warehouseSlug}
                   warehouseName={warehouseName}
                   materialAbilities={materialAbilities}
+                  AddMaterialDialog={AddMaterialDialog}
                   loadError={
                     materials.isError
                       ? {
