@@ -4,7 +4,7 @@ volumes:
   postgres_data:
 
 services:
-  redis:
+  warehouse-redis:
     container_name: warehouse_redis
     image: redis:7-alpine
     command: redis-server --requirepass ${REDIS_PASSWORD}
@@ -118,7 +118,7 @@ services:
     ports:
       - 8085:8085
 
-  mysql_db:
+  warehouse_mysql_db:
     container_name: warehouse_mysql_db
     image: mysql:8.2.0
     volumes:
