@@ -12,13 +12,16 @@ import { SelectFilter } from '@/shared/ui/data-table/SelectFilter'
 import {
   useWarehouseInventory,
   type InventoryFilters,
-  type InventoryItem,
   type MaterialAddAbilities,
 } from '@/entities/inventory'
 import { useMaterialTypeOptions } from '@/entities/material-type'
 import { AddWarehouseMaterialDialog } from '@/features/warehouse-material-add'
-import { RemoveWarehouseMaterialDialog } from '@/features/warehouse-material-remove'
+import {
+  RemoveWarehouseMaterialDialog,
+  type RemovableMaterial,
+} from '@/features/warehouse-material-remove'
 import { buildInventoryColumns } from './inventory-columns'
+import { InventoryHistorySheet } from './InventoryHistorySheet'
 
 type Alert = '' | 'below' | 'above'
 
@@ -44,7 +47,7 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
   const [typeSlug, setTypeSlug] = useState('')
   const [alert, setAlert] = useState<Alert>('')
   const [adding, setAdding] = useState(false)
-  const [removing, setRemoving] = useState<InventoryItem | null>(null)
+  const [removing, setRemoving] = useState<RemovableMaterial | null>(null)
   const [params, setParams] = useSearchParams()
   const viewingSlug = params.get('material')
   const setViewingSlug = useCallback(
@@ -179,7 +182,14 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
         }}
       />
 
-      {/* Task 6: InventoryHistorySheet ở đây */}
+      <InventoryHistorySheet
+        warehouseSlug={warehouse.slug}
+        materialSlug={viewingSlug}
+        item={data?.items.find((i) => i.materialSlug === viewingSlug)}
+        canRemove={canRemove}
+        onRemove={(target) => setRemoving(target)}
+        onOpenChange={(open) => !open && setViewingSlug(null)}
+      />
 
       {canAdd && (
         <AddWarehouseMaterialDialog

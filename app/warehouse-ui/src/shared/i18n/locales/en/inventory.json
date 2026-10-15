@@ -66,5 +66,21 @@
   "viewHistory": "View history",
   "removeMenu": "Remove from warehouse",
   "removeBlockedStock": "Can only be removed when stock is 0",
-  "removeBlockedReserved": "Reserved for unfinished goods issues"
+  "removeBlockedReserved": "Reserved for unfinished goods issues",
+  "historyTitle": "Stock history",
+  "historySection": "Stock movements",
+  "historyEmpty": "No movements yet",
+  "loadMore": "Load more",
+  "notInWarehouse": "This material is no longer in this warehouse",
+  "action": {
+    "ASSIGN": "Added to warehouse",
+    "IMPORT": "Goods receipt",
+    "ADJUST": "Adjustment",
+    "RESERVE": "Reserved",
+    "RELEASE": "Released",
+    "REMOVE": "Removed"
+  },
+  "reservedChange": "Reserved {{delta}} ({{before}} → {{after}})",
+  "importFormNote": "Goods receipt {{code}}",
+  "changedBy": "by {{name}}"
 }
