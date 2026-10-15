@@ -150,6 +150,7 @@ services:
     ports:
       - 5175:5175
 
+  # Comment the unuse services
   # postgres:
   #   container_name: postgres
   #   image: postgres:16-alpine
