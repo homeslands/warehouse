@@ -17,6 +17,13 @@ import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { Material } from 'src/material/material.entity';
 import { MaterialService } from 'src/material/material.service';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
+import { Supplier } from 'src/supplier/supplier.entity';
+import { SupplierException } from 'src/supplier/supplier.exception';
+import { SupplierValidation } from 'src/supplier/supplier.validation';
+import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+
+// Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
+jest.mock('src/material/material-supplier.util');
 
 const warehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
   ({ id: 'wh-id-1', slug: 'wh-slug-1', isActive: true, ...overrides }) as Warehouse;
@@ -61,6 +68,7 @@ describe('InventoryService', () => {
     metadata: { name: 'Inventory' },
   };
   const warehouseRepository = { findOneBy: jest.fn() };
+  const supplierRepository = { findOneBy: jest.fn() };
   const historyRepository = { findAndCount: jest.fn() };
   const materialService = { findEntityBySlug: jest.fn(), createMaterialIn: jest.fn() };
   const actor = { userId: 'user-id-1', scope: [] };
@@ -100,6 +108,7 @@ describe('InventoryService', () => {
         },
         { provide: getRepositoryToken(InventoryHistory), useValue: historyRepository },
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
+        { provide: getRepositoryToken(Supplier), useValue: supplierRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
@@ -169,6 +178,41 @@ describe('InventoryService', () => {
       );
       expect(materialService.createMaterialIn).toHaveBeenCalled();
       expect(txInventoryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('does not touch the supplier join table when supplierSlug is omitted', async () => {
+      await create();
+
+      expect(supplierRepository.findOneBy).not.toHaveBeenCalled();
+      expect(insertMaterialSuppliers).not.toHaveBeenCalled();
+    });
+
+    it('attaches the new material to the supplier inside the SAME transaction', async () => {
+      supplierRepository.findOneBy.mockResolvedValue({ id: 'sup-id-1', slug: 'sup-slug-1' });
+
+      await create({ supplierSlug: 'sup-slug-1' });
+
+      expect(supplierRepository.findOneBy).toHaveBeenCalledWith({ slug: 'sup-slug-1' });
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, [
+        { materialId: 'mat-id-1', supplierId: 'sup-id-1' },
+      ]);
+      // Gắn sau khi vật tư đã được tạo (cần `material.id`).
+      expect(materialService.createMaterialIn.mock.invocationCallOrder[0]).toBeLessThan(
+        jest.mocked(insertMaterialSuppliers).mock.invocationCallOrder[0],
+      );
+    });
+
+    it('rejects an unknown supplier before creating anything', async () => {
+      supplierRepository.findOneBy.mockResolvedValue(null);
+
+      const promise = create({ supplierSlug: 'missing' });
+      await expect(promise).rejects.toBeInstanceOf(SupplierException);
+      await expect(promise).rejects.toMatchObject({
+        code: SupplierValidation.SUPPLIER_NOT_FOUND.code,
+      });
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+      expect(materialService.createMaterialIn).not.toHaveBeenCalled();
     });
   });
 

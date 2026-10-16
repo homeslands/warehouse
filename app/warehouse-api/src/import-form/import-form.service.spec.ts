@@ -23,12 +23,17 @@ import { User } from 'src/user/user.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { Material } from 'src/material/material.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
+import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { ImportFormItem } from './import-form-item.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { S3Service } from 'src/file/s3/s3.service';
 import { FileValidation } from 'src/file/file.validation';
+import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+
+// Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
+jest.mock('src/material/material-supplier.util');
 
 describe('ImportFormService', () => {
   let service: ImportFormService;
@@ -42,6 +47,7 @@ describe('ImportFormService', () => {
   const warehouseRepository = { findOneBy: jest.fn() };
   const userRepository = { findOneBy: jest.fn() };
   const materialRepository = { find: jest.fn() };
+  const supplierRepository = { find: jest.fn() };
   const inventoryRepository = { find: jest.fn(), findAndCount: jest.fn() };
   // Mặc định: mọi vật tư được hỏi đều đã gán vào kho (trả 1 dòng tồn cho mỗi id trong `In(...)`).
   const allAssigned = async ({ where }: { where: { material: { id: { value: string[] } } } }) =>
@@ -137,6 +143,7 @@ describe('ImportFormService', () => {
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(Material), useValue: materialRepository },
+        { provide: getRepositoryToken(Supplier), useValue: supplierRepository },
         { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
         { provide: InventoryService, useValue: inventoryService },
@@ -277,17 +284,52 @@ describe('ImportFormService', () => {
       );
     });
 
-    it('rejects a supplierSlug that is not a supplier of the material', async () => {
+    it('does not touch the supplier join table when every supplier is already attached', async () => {
       const dto = {
         ...createDto,
-        items: [{ ...createDto.items[0], supplierSlug: 'sup-b' }],
+        items: createDto.items.map((item) => ({ ...item, supplierSlug: 'sup-slug' })),
+      };
+
+      await service.createImportForm('wh-slug', dto, actor());
+
+      expect(supplierRepository.find).not.toHaveBeenCalled();
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, []);
+    });
+
+    it('auto-attaches a supplier not yet attached to the material, in the SAME transaction', async () => {
+      supplierRepository.find.mockResolvedValue([supplierB]);
+      const dto = {
+        ...createDto,
+        items: createDto.items.map((item) => ({ ...item, supplierSlug: 'sup-b' })),
+      };
+
+      await service.createImportForm('wh-slug', dto, actor());
+
+      expect(supplierRepository.find).toHaveBeenCalledTimes(1);
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      // 2 dòng cùng cặp (vật tư, nhà cung cấp) ⇒ chỉ gắn 1 lần.
+      expect(insertMaterialSuppliers).toHaveBeenCalledTimes(1);
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, [
+        { materialId: 'mat-1', supplierId: 'sup-2' },
+      ]);
+      savedItems().forEach((item) =>
+        expect(item).toMatchObject({ supplierSlug: 'sup-b', supplierCode: 'NCC-02' }),
+      );
+    });
+
+    it('rejects an unknown supplierSlug before opening a transaction', async () => {
+      supplierRepository.find.mockResolvedValue([]);
+      const dto = {
+        ...createDto,
+        items: [{ ...createDto.items[0], supplierSlug: 'missing' }],
       };
 
       await expectError(
         service.createImportForm('wh-slug', dto, actor()),
-        ImportFormValidation.IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL.code,
+        SupplierValidation.SUPPLIER_NOT_FOUND.code,
       );
       expect(transactionManager.execute).not.toHaveBeenCalled();
+      expect(insertMaterialSuppliers).not.toHaveBeenCalled();
     });
 
     it('writes the form and its items in ONE transaction, items pointing at the saved form', async () => {
@@ -659,6 +701,24 @@ describe('ImportFormService', () => {
       expect(saved.items).not.toContain(oldItem);
       expect(saved.items).toEqual([expect.objectContaining({ lineNo: 1, amount: 800 })]);
       expect(saved.total).toBe(800);
+    });
+
+    it('auto-attaches a supplier not yet attached to the material when items is sent', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: [] }));
+      materialRepository.find.mockResolvedValue([cement]);
+      supplierRepository.find.mockResolvedValue([{ ...supplier, id: 'sup-2', slug: 'sup-b' }]);
+
+      await service.updateImportForm(
+        'wh-slug',
+        'form-slug',
+        { items: [{ ...createDto.items[0], supplierSlug: 'sup-b' }], version: 1 },
+        full(),
+      );
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, [
+        { materialId: 'mat-1', supplierId: 'sup-2' },
+      ]);
     });
 
     it('deletes the old lines before inserting the new ones, inside the transaction', async () => {

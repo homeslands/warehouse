@@ -68,7 +68,8 @@ export class CreateImportFormItemDto {
 
   @ApiPropertyOptional({
     description:
-      'Slug of the supplier of this line; must be one of the material suppliers. Omitted: the ' +
+      'Slug of the supplier of this line. A supplier not yet attached to the material is attached ' +
+      'automatically (same transaction as the form); an unknown slug is rejected. Omitted: the ' +
       'only supplier of the material is used, or none when the material has 0 or several',
     example: 'sup-slug-1',
   })

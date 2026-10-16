@@ -2,6 +2,8 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsDateString,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsPositive,
@@ -15,6 +17,7 @@ import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
+import { SEARCH_CODE_REGEX, SEARCH_TEXT_REGEX } from 'src/shared/utils/query.util';
 import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
 import { UnitResponseDto } from 'src/unit/unit.dto';
 import { SupplierResponseDto } from 'src/supplier/supplier.dto';
@@ -113,21 +116,60 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   override maximumInventory?: number = undefined;
 }
 
-export class GetAllMaterialRequestDto extends BaseQueryDto {
+export class GetAllMaterialRequestDto extends OmitType(BaseQueryDto, ['sort'] as const) {
   @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
   @IsOptional()
   @Transform(trim)
   typeSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'MAT-001' })
+  @ApiPropertyOptional({
+    description: 'Filter by business code (prefix match, case-insensitive)',
+    example: 'MAT-',
+  })
   @IsOptional()
   @Transform(upper)
+  @Matches(SEARCH_CODE_REGEX, { message: 'MATERIAL_CODE_SEARCH_INVALID' })
   code?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by name (substring match)' })
+  @ApiPropertyOptional({
+    description:
+      'Filter by name (prefix match). Letters (Vietnamese included), digits and spaces only',
+    example: 'Găng tay',
+  })
   @IsOptional()
   @Transform(trim)
+  @Matches(SEARCH_TEXT_REGEX, { message: 'MATERIAL_NAME_SEARCH_INVALID' })
   name?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Creation date from (inclusive). `YYYY-MM-DD` counts from 00:00 server time, or a full ' +
+      'ISO 8601 timestamp.',
+    example: '2026-09-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'MATERIAL_START_DATE_INVALID' })
+  startDate?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Creation date to (inclusive). `YYYY-MM-DD` covers the whole day, or a full ISO 8601 ' +
+      'timestamp.',
+    example: '2026-09-30',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'MATERIAL_END_DATE_INVALID' })
+  endDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort direction by creation date',
+    enum: ['ASC', 'DESC'],
+    default: 'DESC',
+  })
+  @IsOptional()
+  @Transform(upper)
+  @IsIn(['ASC', 'DESC'], { message: 'MATERIAL_SORT_INVALID' })
+  sort?: 'ASC' | 'DESC';
 
   @ApiPropertyOptional({
     description: 'true = attached to a supplier, false = not attached to any supplier',
@@ -166,6 +208,26 @@ export class MaterialWarehouseResponseDto {
 
   @ApiProperty({ description: 'quantity - reservedQuantity' })
   availableQuantity: number;
+}
+
+export class MaterialConversionUnitResponseDto {
+  @ApiProperty({ example: 'unit-abc123' })
+  unitSlug: string;
+
+  @ApiProperty({ example: 'BAG' })
+  unitCode: string;
+
+  @ApiProperty({ example: 'Bag 50kg' })
+  unitName: string;
+
+  @AutoMap()
+  @ApiProperty({ description: 'Number of base units in 1 of this unit', example: 50 })
+  conversionRate: number;
+
+  // Đơn vị cơ sở nay cũng là 1 dòng của bảng join (rate = 1) nên nó nằm trong CHÍNH danh sách này —
+  // client cần cờ để hiển thị khác đi và để biết dòng nào không sửa/gỡ được.
+  @ApiProperty({ description: 'Whether this row is the BASE UNIT of the material', example: false })
+  isBaseUnit: boolean;
 }
 
 export class MaterialResponseDto extends BaseResponseDto {
@@ -209,6 +271,14 @@ export class MaterialResponseDto extends BaseResponseDto {
     description: 'Warehouses the material is assigned to (empty when none)',
   })
   warehouses: MaterialWarehouseResponseDto[];
+
+  @ApiProperty({
+    type: [MaterialConversionUnitResponseDto],
+    description:
+      'Units of the material with conversion rates — base unit first (`isBaseUnit`), the rest by ' +
+      'unit code. Empty when the material has no unit yet',
+  })
+  units: MaterialConversionUnitResponseDto[];
 }
 
 /** Số nhà cung cấp tối đa gắn cho 1 vật tư trong 1 lần `PUT /materials/:slug/suppliers`. */
@@ -293,25 +363,6 @@ export class UpdateMaterialConversionUnitRequestDto extends PartialType(
 ) {}
 
 /** 1 dòng `material_unit_can_have_tbl` đã phẳng hoá cùng thông tin đơn vị. */
-export class MaterialConversionUnitResponseDto {
-  @ApiProperty({ example: 'unit-abc123' })
-  unitSlug: string;
-
-  @ApiProperty({ example: 'BAG' })
-  unitCode: string;
-
-  @ApiProperty({ example: 'Bag 50kg' })
-  unitName: string;
-
-  @AutoMap()
-  @ApiProperty({ description: 'Number of base units in 1 of this unit', example: 50 })
-  conversionRate: number;
-
-  // Đơn vị cơ sở nay cũng là 1 dòng của bảng join (rate = 1) nên nó nằm trong CHÍNH danh sách này —
-  // client cần cờ để hiển thị khác đi và để biết dòng nào không sửa/gỡ được.
-  @ApiProperty({ description: 'Whether this row is the BASE UNIT of the material', example: false })
-  isBaseUnit: boolean;
-}
 
 /** Body của `POST /materials/:slug/convert` — quy đổi số lượng giữa 2 đơn vị của cùng 1 vật tư. */
 export class ConvertMaterialQuantityRequestDto {

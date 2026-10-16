@@ -166,6 +166,77 @@ describe('GetAllMaterialRequestDto.hasSupplier — query string', () => {
   });
 });
 
+describe('GetAllMaterialRequestDto — date range / sort', () => {
+  const messagesFor = (query: object) =>
+    validateSync(plainToInstance(GetAllMaterialRequestDto, query)).flatMap((e) =>
+      Object.values(e.constraints ?? {}),
+    );
+
+  it('chấp nhận ngày YYYY-MM-DD và ISO 8601', () => {
+    expect(messagesFor({ startDate: '2026-09-01', endDate: '2026-09-30T10:00:00Z' })).toEqual([]);
+  });
+
+  it('từ chối ngày sai định dạng', () => {
+    const messages = messagesFor({ startDate: 'hôm qua', endDate: '2026-13-45' });
+    expect(messages).toContain('MATERIAL_START_DATE_INVALID');
+    expect(messages).toContain('MATERIAL_END_DATE_INVALID');
+  });
+
+  it.each([
+    ['asc', 'ASC'],
+    ['DESC', 'DESC'],
+  ])("chấp nhận sort '%s' (không phân biệt hoa thường)", (raw, expected) => {
+    const dto = plainToInstance(GetAllMaterialRequestDto, { sort: raw });
+    expect(dto.sort).toBe(expected);
+    expect(validateSync(dto)).toEqual([]);
+  });
+
+  it.each([['createdAt:ASC'], ['UP']])('từ chối sort %s', (sort) => {
+    expect(messagesFor({ sort })).toContain('MATERIAL_SORT_INVALID');
+  });
+
+  it.each([['Găng tay 2'], ['Ống thép Ø'], ['Nước ngọt'], ['Đường']])(
+    "chấp nhận name '%s' (tiếng Việt, số, khoảng trắng)",
+    (name) => {
+      expect(messagesFor({ name })).toEqual([]);
+    },
+  );
+
+  // Dạng tổ hợp (NFD): nguyên âm + dấu rời — bàn phím/IME trên một số máy gửi kiểu này.
+  it('chấp nhận name tiếng Việt dạng tổ hợp (NFD)', () => {
+    expect(messagesFor({ name: 'Găng tay'.normalize('NFD') })).toEqual([]);
+  });
+
+  it.each([['găng@tay'], ['#1'], ['a,b'], ['50%'], ['a_b'], ['MAT-01']])(
+    "từ chối name '%s' chứa ký tự đặc biệt",
+    (name) => {
+      expect(messagesFor({ name })).toContain('MATERIAL_NAME_SEARCH_INVALID');
+    },
+  );
+
+  it.each([
+    ['MAT-', 'MAT-'],
+    [' mat-0 ', 'MAT-0'],
+    ['A_B', 'A_B'],
+  ])("chấp nhận code '%s' (tự chuyển chữ hoa trước khi validate)", (raw, expected) => {
+    const dto = plainToInstance(GetAllMaterialRequestDto, { code: raw });
+    expect(dto.code).toBe(expected);
+    expect(validateSync(dto)).toEqual([]);
+  });
+
+  it.each([['MAT 01'], ['MAT@1'], ['50%'], ['Ố1']])(
+    "từ chối code '%s' chứa ký tự ngoài chữ/số/_/-",
+    (code) => {
+      expect(messagesFor({ code })).toContain('MATERIAL_CODE_SEARCH_INVALID');
+    },
+  );
+
+  // `OmitType` phải giữ initializer `page = 1` / `size = 10` của `BaseQueryDto`.
+  it('vẫn mặc định page = 1, size = 10', () => {
+    expect(plainToInstance(GetAllMaterialRequestDto, {})).toMatchObject({ page: 1, size: 10 });
+  });
+});
+
 describe('AssignMaterialSuppliersRequestDto — PUT /materials/:slug/suppliers', () => {
   const parse = (body: object) => plainToInstance(AssignMaterialSuppliersRequestDto, body);
   const messagesFor = (body: object) =>

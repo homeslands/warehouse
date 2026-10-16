@@ -8,7 +8,7 @@ import { Supplier } from 'src/supplier/supplier.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 
-/** Bảng join vật tư - nhà cung cấp (n - n). Service ghi thẳng vào đây khi cần `INSERT IGNORE`. */
+/** Bảng join vật tư - nhà cung cấp (n - n). Ghi qua `material-supplier.util.ts` (`relation(Material, 'suppliers')`). */
 export const MATERIAL_SUPPLIER_TABLE = 'material_supplier_tbl';
 
 @Entity('material_tbl')

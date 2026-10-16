@@ -21,6 +21,11 @@ import { MaterialTypeProfile } from 'src/material-type/material-type.mapper';
 import { UnitProfile } from 'src/unit/unit.mapper';
 import { SupplierProfile } from 'src/supplier/supplier.mapper';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
+import { deleteMaterialSuppliers, insertMaterialSuppliers } from './material-supplier.util';
+
+// Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng) — ở đây chỉ
+// kiểm service gọi đúng cặp nào, trong transaction nào.
+jest.mock('./material-supplier.util');
 
 const materialType = () =>
   ({ id: 'type-id-1', slug: 'type-slug-1', code: 'MT-01', name: 'Tiêu hao' }) as MaterialType;
@@ -84,8 +89,6 @@ describe('MaterialService', () => {
     save: jest.fn((entity) => materialRepository.save(entity)),
     countBy: jest.fn(),
     delete: jest.fn(),
-    // Bảng join `material_supplier_tbl` ghi bằng SQL tay (`material-supplier.util.ts`).
-    query: jest.fn(),
   };
   const supplierRepository = { find: jest.fn() };
   const transactionManagerService = {
@@ -107,6 +110,8 @@ describe('MaterialService', () => {
     jest.clearAllMocks();
     // Mặc định vật tư chưa gán vào kho nào; test về `warehouses` tự mock lại.
     inventoryRepository.find.mockResolvedValue([]);
+    // Tương tự với danh sách đơn vị (`units`) của vật tư.
+    materialUnitRepository.find.mockResolvedValue([]);
 
     const module: TestingModule = await Test.createTestingModule({
       providers: [
@@ -257,6 +262,69 @@ describe('MaterialService', () => {
       );
     });
 
+    it('lọc code / name theo tiền tố, escape ký tự đại diện của LIKE', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, code: 'MAT_', name: 'Găng%' } as never);
+
+      const { where } = materialRepository.findAndCount.mock.calls[0][0];
+      expect(where.code).toMatchObject({ _type: 'like', _value: 'MAT\\_%' });
+      expect(where.name).toMatchObject({ _type: 'like', _value: 'Găng\\%%' });
+    });
+
+    it('lọc createdAt theo startDate / endDate, endDate dạng ngày bao trọn ngày đó', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
+      } as never);
+
+      const { where } = materialRepository.findAndCount.mock.calls[0][0];
+      const [from, to] = where.createdAt.value;
+      expect(from).toMatchObject({ _type: 'moreThanOrEqual', _value: new Date(2026, 8, 1) });
+      expect(to).toMatchObject({ _type: 'lessThan', _value: new Date(2026, 9, 1) });
+    });
+
+    it('từ chối startDate sau endDate', async () => {
+      await expect(
+        service.findAll({
+          page: 1,
+          size: 10,
+          startDate: '2026-09-30',
+          endDate: '2026-09-01',
+        } as never),
+      ).rejects.toMatchObject(
+        new MaterialException(MaterialValidation.MATERIAL_DATE_RANGE_INVALID),
+      );
+      expect(materialRepository.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it('sort mặc định createdAt DESC, luôn kèm id cuối để ổn định giữa các trang', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(materialRepository.findAndCount.mock.calls[0][0].order).toEqual({
+        createdAt: 'DESC',
+        id: 'ASC',
+      });
+    });
+
+    it('sort=ASC sort createdAt tăng dần, phân trang theo page/size', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 2, size: 5, sort: 'ASC' } as never);
+
+      expect(materialRepository.findAndCount.mock.calls[0][0]).toMatchObject({
+        order: { createdAt: 'ASC', id: 'ASC' },
+        skip: 5,
+        take: 5,
+      });
+    });
+
     it('trả warehouses của từng vật tư bằng 1 query cho cả trang (không bị lọc theo warehouseSlug)', async () => {
       const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), suppliers: [] });
       const m2 = baseMaterial({ id: 'mat-2', slug: 'm2', type: materialType(), suppliers: [] });
@@ -288,6 +356,58 @@ describe('MaterialService', () => {
         { slug: 'wh-b', code: 'KHO-B', name: 'Kho B', quantity: 0, availableQuantity: 0 },
       ]);
       expect(result.items[1].warehouses).toEqual([]);
+    });
+
+    it('trả units của từng vật tư bằng 1 query cho cả trang, đơn vị cơ sở đứng đầu', async () => {
+      const kg = unit();
+      const bag = unit({ id: 'unit-id-2', slug: 'unit-slug-2', code: 'BAG', name: 'Bao' });
+      const m1 = baseMaterial({ id: 'mat-1', baseUnit: kg, suppliers: [] });
+      const m2 = baseMaterial({ id: 'mat-2', slug: 'm2', baseUnit: undefined, suppliers: [] });
+      materialRepository.findAndCount.mockResolvedValue([[m1, m2], 2]);
+      // Query trả theo mã đơn vị (BAG < KG) — đơn vị cơ sở KG vẫn phải lên đầu.
+      materialUnitRepository.find.mockResolvedValue([
+        { materialId: 'mat-1', unitId: 'unit-id-2', unit: bag, conversionRate: 50 },
+        { materialId: 'mat-1', unitId: 'unit-id-1', unit: kg, conversionRate: 1 },
+        // Đơn vị đã xoá mềm ⇒ relation ra null, phải bị bỏ qua.
+        { materialId: 'mat-1', unitId: 'unit-id-3', unit: null, conversionRate: 2 },
+      ]);
+
+      const result = await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(materialUnitRepository.find).toHaveBeenCalledTimes(1);
+      expect(materialUnitRepository.find.mock.calls[0][0]).toMatchObject({
+        relations: { unit: true },
+        order: { unit: { code: 'ASC' } },
+      });
+      expect(materialUnitRepository.find.mock.calls[0][0].where.materialId.value).toEqual([
+        'mat-1',
+        'mat-2',
+      ]);
+      expect(result.items[0].units).toEqual([
+        {
+          unitSlug: 'unit-slug-1',
+          unitCode: 'KG',
+          unitName: 'Kilogram',
+          conversionRate: 1,
+          isBaseUnit: true,
+        },
+        {
+          unitSlug: 'unit-slug-2',
+          unitCode: 'BAG',
+          unitName: 'Bao',
+          conversionRate: 50,
+          isBaseUnit: false,
+        },
+      ]);
+      expect(result.items[1].units).toEqual([]);
+    });
+
+    it('không query bảng đơn vị khi trang rỗng', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(materialUnitRepository.find).not.toHaveBeenCalled();
     });
 
     it('bỏ qua dòng tồn trỏ tới kho đã xoá mềm (warehouse = null) thay vì làm sập response', async () => {
@@ -335,9 +455,10 @@ describe('MaterialService', () => {
         baseMaterial({ type: materialType(), baseUnit: unit(), suppliers }),
       );
 
-    const sqlCalls = () => manager.query.mock.calls.map(([sql, params]) => ({ sql, params }));
+    const deleted = jest.mocked(deleteMaterialSuppliers);
+    const inserted = jest.mocked(insertMaterialSuppliers);
 
-    it('chỉ ghi phần chênh lệch: gỡ cặp thừa, thêm cặp mới (INSERT IGNORE), trong 1 transaction', async () => {
+    it('chỉ ghi phần chênh lệch: gỡ cặp thừa, thêm cặp mới, trong 1 transaction', async () => {
       loaded([sup(1), sup(2)]);
       supplierRepository.find.mockResolvedValue([sup(2), sup(3)]);
 
@@ -346,11 +467,10 @@ describe('MaterialService', () => {
       });
 
       expect(transactionManagerService.execute).toHaveBeenCalledTimes(1);
-      const [del, ins] = sqlCalls();
-      expect(del.sql).toContain('DELETE FROM `material_supplier_tbl`');
-      expect(del.params).toEqual([['material-id-1'], ['sup-id-1']]);
-      expect(ins.sql).toContain('INSERT IGNORE INTO `material_supplier_tbl`');
-      expect(ins.params).toEqual([[['material-id-1', 'sup-id-3']]]);
+      expect(deleted).toHaveBeenCalledWith(manager, ['material-id-1'], ['sup-id-1']);
+      expect(inserted).toHaveBeenCalledWith(manager, [
+        { materialId: 'material-id-1', supplierId: 'sup-id-3' },
+      ]);
       expect(result.suppliers.map(({ slug }) => slug)).toEqual(['sup-2', 'sup-3']);
       expect(result.hasSupplier).toBe(true);
     });
@@ -361,9 +481,8 @@ describe('MaterialService', () => {
       const result = await service.assignSuppliers('material-slug-1', { supplierSlugs: [] });
 
       expect(supplierRepository.find).not.toHaveBeenCalled();
-      const [del] = sqlCalls();
-      expect(del.params).toEqual([['material-id-1'], ['sup-id-1']]);
-      expect(manager.query).toHaveBeenCalledTimes(1);
+      expect(deleted).toHaveBeenCalledWith(manager, ['material-id-1'], ['sup-id-1']);
+      expect(inserted).toHaveBeenCalledWith(manager, []);
       expect(result).toMatchObject({ hasSupplier: false, suppliers: [] });
     });
 
@@ -374,7 +493,8 @@ describe('MaterialService', () => {
       await service.assignSuppliers('material-slug-1', { supplierSlugs: ['sup-1'] });
 
       expect(transactionManagerService.execute).not.toHaveBeenCalled();
-      expect(manager.query).not.toHaveBeenCalled();
+      expect(deleted).not.toHaveBeenCalled();
+      expect(inserted).not.toHaveBeenCalled();
     });
 
     it('1 slug không tồn tại ⇒ SUPPLIER_NOT_FOUND cho cả lô, không ghi gì', async () => {
@@ -384,7 +504,8 @@ describe('MaterialService', () => {
       await expect(
         service.assignSuppliers('material-slug-1', { supplierSlugs: ['sup-1', 'missing'] }),
       ).rejects.toMatchObject({ code: SupplierValidation.SUPPLIER_NOT_FOUND.code });
-      expect(manager.query).not.toHaveBeenCalled();
+      expect(deleted).not.toHaveBeenCalled();
+      expect(inserted).not.toHaveBeenCalled();
     });
 
     it('vật tư không tồn tại ⇒ MATERIAL_NOT_FOUND', async () => {
@@ -418,6 +539,26 @@ describe('MaterialService', () => {
       );
       // Quan hệ `type` được flatten ra 3 field phẳng, không lồng cả DTO loại vật tư vào response.
       expect(result).toMatchObject({ type: { slug: 'type-slug-1', code: 'MT-01' } });
+    });
+
+    it('trả units chỉ gồm đơn vị cơ sở (rate = 1) cho vật tư vừa tạo', async () => {
+      materialRepository.findOne.mockResolvedValue(null);
+      materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
+      materialRepository.create.mockImplementation((data) => ({ id: 'material-id-1', ...data }));
+      materialRepository.save.mockImplementation((data) => data);
+      materialUnitRepository.create.mockImplementation((data) => data);
+
+      const result = await service.createMaterial(createDto());
+
+      expect(result.units).toEqual([
+        {
+          unitSlug: 'unit-slug-1',
+          unitCode: 'KG',
+          unitName: 'Kilogram',
+          conversionRate: 1,
+          isBaseUnit: true,
+        },
+      ]);
     });
 
     it('rejects maximumInventory below minimumInventory', async () => {

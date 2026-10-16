@@ -6,6 +6,7 @@ import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
 import { ImportFormProfile } from './import-form.mapper';
 import { Material } from 'src/material/material.entity';
+import { Supplier } from 'src/supplier/supplier.entity';
 import { User } from 'src/user/user.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { DbModule } from 'src/db/db.module';
@@ -19,7 +20,15 @@ import { Inventory } from 'src/inventory/inventory.entity';
   // cho `InventoryService.receive` — xác nhận phiếu cộng tồn trong cùng transaction đổi trạng thái.
   // `Inventory` chỉ để ĐỌC (vật tư nào đã gán vào kho); mọi thay đổi tồn vẫn đi qua `InventoryService`.
   imports: [
-    TypeOrmModule.forFeature([ImportForm, ImportFormItem, Warehouse, User, Material, Inventory]),
+    TypeOrmModule.forFeature([
+      ImportForm,
+      ImportFormItem,
+      Warehouse,
+      User,
+      Material,
+      Supplier,
+      Inventory,
+    ]),
     DbModule,
     InventoryModule,
   ],
