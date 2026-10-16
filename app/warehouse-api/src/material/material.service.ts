@@ -141,7 +141,7 @@ export class MaterialService {
   ): Promise<Material> {
     const material = await manager.save(this.materialRepository.create(data));
 
-    await manager.save(
+    const baseUnitRow = await manager.save(
       this.materialUnitRepository.create({
         materialId: material.id,
         unitId: baseUnit.id,
@@ -149,7 +149,10 @@ export class MaterialService {
       }),
     );
     material.baseUnit = baseUnit;
-    return manager.save(material);
+    const saved = await manager.save(material);
+    // Gán SAU lần `save` cuối — chỉ để response có `units`, không để TypeORM xử lý quan hệ 1-N này.
+    saved.unitsCanHave = [{ ...baseUnitRow, unit: baseUnit } as MaterialUnit];
+    return saved;
   }
 
   async findAll(
@@ -211,20 +214,31 @@ export class MaterialService {
   }
 
   /**
-   * Map sang response kèm `warehouses` — tra `inventory_tbl` bằng 1 query cho cả trang, KHÔNG qua
-   * relation `inventories` của query chính (có `where` trên nó thì TypeORM lọc luôn danh sách kho).
+   * Map sang response kèm `warehouses` và `units` — tra `inventory_tbl` / `material_unit_can_have_tbl`
+   * bằng 1 query mỗi bảng cho cả trang, KHÔNG qua relation của query chính: có `where` trên
+   * `inventories` thì TypeORM lọc luôn danh sách kho, và JOIN thêm 1 quan hệ 1-N nữa vào query phân
+   * trang thì số dòng nhân lên theo kho × đơn vị × nhà cung cấp.
    */
   private async toResponses(materials: Material[]): Promise<MaterialResponseDto[]> {
-    const rows = materials.length
-      ? await this.inventoryRepository.find({
-          where: { material: { id: In(materials.map((material) => material.id)) } },
-          relations: { warehouse: true, material: true },
-          order: { warehouse: { code: 'ASC' } },
-        })
-      : [];
+    const ids = materials.map((material) => material.id);
+    const [inventories, units] = ids.length
+      ? await Promise.all([
+          this.inventoryRepository.find({
+            where: { material: { id: In(ids) } },
+            relations: { warehouse: true, material: true },
+            order: { warehouse: { code: 'ASC' } },
+          }),
+          this.materialUnitRepository.find({
+            where: { materialId: In(ids) },
+            relations: { unit: true },
+            order: { unit: { code: 'ASC' } },
+          }),
+        ])
+      : [[], []];
 
     return materials.map((material) => {
-      material.inventories = rows.filter((row) => row.material.id === material.id);
+      material.inventories = inventories.filter((row) => row.material.id === material.id);
+      material.unitsCanHave = units.filter((row) => row.materialId === material.id);
       return this.mapper.map(material, Material, MaterialResponseDto);
     });
   }

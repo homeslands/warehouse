@@ -118,6 +118,20 @@ export class MaterialProfile extends AutomapperProfile {
               .map((row) => mapper.map(row, Inventory, MaterialWarehouseResponseDto)),
           ),
         ),
+        // `unitsCanHave` cũng chỉ có khi service gán thủ công (xem `toResponses`), không thì ra `[]`.
+        // Bỏ dòng có `unit` = null (đơn vị đã xoá mềm). Đơn vị cơ sở lên đầu, còn lại giữ thứ tự query.
+        forMember(
+          (d) => d.units,
+          mapFrom((s) =>
+            (s.unitsCanHave ?? [])
+              .filter((row) => row.unit)
+              .map((row) => ({
+                ...mapper.map(row, MaterialUnit, MaterialConversionUnitResponseDto),
+                isBaseUnit: row.unitId === s.baseUnit?.id,
+              }))
+              .sort((a, b) => Number(b.isBaseUnit) - Number(a.isBaseUnit)),
+          ),
+        ),
       );
 
       // Dòng tồn kho -> 1 kho của vật tư (object lồng trong `warehouses`).
