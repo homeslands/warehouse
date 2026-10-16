@@ -55,7 +55,10 @@ export class MaterialTypeController {
   @Get()
   @RequireAuthority(AuthorityCode.MaterialRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all material types (paginated)' })
+  @ApiOperation({
+    summary:
+      'Get all material types (paginated, filter by code / name / startDate-endDate (creation date))',
+  })
   @ApiPaginatedResponse(MaterialTypeResponseDto, 'Retrieved')
   async findAll(
     @Query(new ValidationPipe({ transform: true, whitelist: true }))

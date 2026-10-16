@@ -15,7 +15,9 @@ import { MaterialTypeException } from './material-type.exception';
 import { MaterialTypeValidation } from './material-type.validation';
 import { Material } from 'src/material/material.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { SortOrder } from 'src/app/base.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import { resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 
 @Injectable()
 export class MaterialTypeService {
@@ -46,13 +48,19 @@ export class MaterialTypeService {
   async findAll(
     query: GetAllMaterialTypeRequestDto,
   ): Promise<AppPaginatedResponseDto<MaterialTypeResponseDto>> {
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
+    if (start && end && start >= end)
+      throw new MaterialTypeException(MaterialTypeValidation.MATERIAL_TYPE_DATE_RANGE_INVALID);
+
     const where: FindOptionsWhere<MaterialType> = {};
     if (query.code) where.code = query.code;
     if (query.name) where.name = Like(`%${query.name}%`);
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) where.createdAt = createdAt;
 
     const [items, total] = await this.materialTypeRepository.findAndCount({
       where,
-      order: { createdAt: 'DESC' },
+      order: { createdAt: query.sort ?? SortOrder.DESC, id: 'ASC' },
       skip: (query.page - 1) * query.size,
       take: query.size,
     });

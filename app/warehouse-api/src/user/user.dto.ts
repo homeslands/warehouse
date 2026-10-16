@@ -97,7 +97,7 @@ export class ChangeUserRoleRequestDto {
 const toArray = ({ value }: { value: unknown }) =>
   value === undefined || Array.isArray(value) ? value : [value];
 
-export class GetAllUserRequestDto extends BaseQueryDto {
+export class GetAllUserRequestDto extends OmitType(BaseQueryDto, ['sort'] as const) {
   @ApiPropertyOptional({ description: 'Filter by role slug', example: 'admin' })
   @IsOptional()
   roleSlug?: string;

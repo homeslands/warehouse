@@ -1,13 +1,10 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
-  And,
   EntityManager,
   FindOptionsRelations,
   FindOptionsWhere,
   In,
-  LessThan,
   Like,
-  MoreThanOrEqual,
   Raw,
   Repository,
 } from 'typeorm';
@@ -39,8 +36,9 @@ import { UnitResponseDto } from 'src/unit/unit.dto';
 import { Unit } from 'src/unit/unit.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { SortOrder } from 'src/app/base.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { escapeLike, resolveDateRange } from 'src/shared/utils/query.util';
+import { escapeLike, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { Supplier } from 'src/supplier/supplier.entity';
@@ -167,9 +165,8 @@ export class MaterialService {
     // Tìm theo tiền tố (`LIKE 'x%'`) — dùng được index của `code_column`, khác substring `%x%`.
     if (query.code) where.code = Like(`${escapeLike(query.code)}%`);
     if (query.name) where.name = Like(`${escapeLike(query.name)}%`);
-    if (start && end) where.createdAt = And(MoreThanOrEqual(start), LessThan(end));
-    else if (start) where.createdAt = MoreThanOrEqual(start);
-    else if (end) where.createdAt = LessThan(end);
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) where.createdAt = createdAt;
     // Lọc bằng subquery trên bảng join, KHÔNG bằng `where.suppliers`: `suppliers` cũng được load qua
     // `relations`, `where` trên nó thì TypeORM lọc luôn danh sách nhà cung cấp trả về (chỉ còn đúng
     // nhà cung cấp đang lọc). Chỉ tính nhà cung cấp chưa xoá mềm — khớp `hasSupplier`/`suppliers`
@@ -190,7 +187,7 @@ export class MaterialService {
     const [items, total] = await this.materialRepository.findAndCount({
       where,
       relations: MATERIAL_RELATIONS,
-      order: { createdAt: query.sort ?? 'DESC', id: 'ASC' },
+      order: { createdAt: query.sort ?? SortOrder.DESC, id: 'ASC' },
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
