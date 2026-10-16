@@ -260,6 +260,69 @@ describe('MaterialService', () => {
       );
     });
 
+    it('lọc code / name theo tiền tố, escape ký tự đại diện của LIKE', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, code: 'MAT_', name: 'Găng%' } as never);
+
+      const { where } = materialRepository.findAndCount.mock.calls[0][0];
+      expect(where.code).toMatchObject({ _type: 'like', _value: 'MAT\\_%' });
+      expect(where.name).toMatchObject({ _type: 'like', _value: 'Găng\\%%' });
+    });
+
+    it('lọc createdAt theo startDate / endDate, endDate dạng ngày bao trọn ngày đó', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
+      } as never);
+
+      const { where } = materialRepository.findAndCount.mock.calls[0][0];
+      const [from, to] = where.createdAt.value;
+      expect(from).toMatchObject({ _type: 'moreThanOrEqual', _value: new Date(2026, 8, 1) });
+      expect(to).toMatchObject({ _type: 'lessThan', _value: new Date(2026, 9, 1) });
+    });
+
+    it('từ chối startDate sau endDate', async () => {
+      await expect(
+        service.findAll({
+          page: 1,
+          size: 10,
+          startDate: '2026-09-30',
+          endDate: '2026-09-01',
+        } as never),
+      ).rejects.toMatchObject(
+        new MaterialException(MaterialValidation.MATERIAL_DATE_RANGE_INVALID),
+      );
+      expect(materialRepository.findAndCount).not.toHaveBeenCalled();
+    });
+
+    it('sort mặc định createdAt DESC, luôn kèm id cuối để ổn định giữa các trang', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 } as never);
+
+      expect(materialRepository.findAndCount.mock.calls[0][0].order).toEqual({
+        createdAt: 'DESC',
+        id: 'ASC',
+      });
+    });
+
+    it('sort=ASC sort createdAt tăng dần, phân trang theo page/size', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 2, size: 5, sort: 'ASC' } as never);
+
+      expect(materialRepository.findAndCount.mock.calls[0][0]).toMatchObject({
+        order: { createdAt: 'ASC', id: 'ASC' },
+        skip: 5,
+        take: 5,
+      });
+    });
+
     it('trả warehouses của từng vật tư bằng 1 query cho cả trang (không bị lọc theo warehouseSlug)', async () => {
       const m1 = baseMaterial({ id: 'mat-1', slug: 'm1', type: materialType(), suppliers: [] });
       const m2 = baseMaterial({ id: 'mat-2', slug: 'm2', type: materialType(), suppliers: [] });
