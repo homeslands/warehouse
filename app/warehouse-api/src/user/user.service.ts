@@ -43,6 +43,7 @@ import { TokenRevocationService } from 'src/auth/token-revocation.service';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import { resolveDateRange } from 'src/shared/utils/query.util';
 import { WAREHOUSE_UNSCOPED_ROLES } from 'src/warehouse/warehouse.constants';
 
 @Injectable()
@@ -494,31 +495,9 @@ export class UserService {
     );
   }
 
-  /**
-   * `YYYY-MM-DD` = trọn ngày theo giờ server: `startDate` từ 00:00, `endDate` tới hết ngày (so sánh
-   * `< 00:00 ngày kế`). ISO 8601 đầy đủ thì dùng nguyên mốc, `endDate` vẫn bao gồm.
-   */
+  /** Xem `resolveDateRange` — ở đây chỉ thêm rào `start < end` bằng mã lỗi của module user. */
   private resolveCreatedAtRange(query: GetAllUserRequestDto): { start?: Date; end?: Date } {
-    const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
-    const toLocalMidnight = (value: string) => {
-      const [y, m, d] = value.split('-').map(Number);
-      return new Date(y, m - 1, d);
-    };
-
-    let start: Date | undefined;
-    let end: Date | undefined;
-    if (query.startDate)
-      start = isDateOnly(query.startDate)
-        ? toLocalMidnight(query.startDate)
-        : new Date(query.startDate);
-    if (query.endDate) {
-      if (isDateOnly(query.endDate)) {
-        end = toLocalMidnight(query.endDate);
-        end.setDate(end.getDate() + 1);
-      } else {
-        end = new Date(new Date(query.endDate).getTime() + 1);
-      }
-    }
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
     if (start && end && start >= end)
       throw new UserException(UserValidation.USER_DATE_RANGE_INVALID);
     return { start, end };

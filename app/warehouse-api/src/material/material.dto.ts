@@ -2,6 +2,8 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsDateString,
+  IsIn,
   IsNotEmpty,
   IsOptional,
   IsPositive,
@@ -15,6 +17,7 @@ import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
+import { SEARCH_CODE_REGEX, SEARCH_TEXT_REGEX } from 'src/shared/utils/query.util';
 import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
 import { UnitResponseDto } from 'src/unit/unit.dto';
 import { SupplierResponseDto } from 'src/supplier/supplier.dto';
@@ -113,21 +116,60 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   override maximumInventory?: number = undefined;
 }
 
-export class GetAllMaterialRequestDto extends BaseQueryDto {
+export class GetAllMaterialRequestDto extends OmitType(BaseQueryDto, ['sort'] as const) {
   @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
   @IsOptional()
   @Transform(trim)
   typeSlug?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'MAT-001' })
+  @ApiPropertyOptional({
+    description: 'Filter by business code (prefix match, case-insensitive)',
+    example: 'MAT-',
+  })
   @IsOptional()
   @Transform(upper)
+  @Matches(SEARCH_CODE_REGEX, { message: 'MATERIAL_CODE_SEARCH_INVALID' })
   code?: string;
 
-  @ApiPropertyOptional({ description: 'Filter by name (substring match)' })
+  @ApiPropertyOptional({
+    description:
+      'Filter by name (prefix match). Letters (Vietnamese included), digits and spaces only',
+    example: 'Găng tay',
+  })
   @IsOptional()
   @Transform(trim)
+  @Matches(SEARCH_TEXT_REGEX, { message: 'MATERIAL_NAME_SEARCH_INVALID' })
   name?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Creation date from (inclusive). `YYYY-MM-DD` counts from 00:00 server time, or a full ' +
+      'ISO 8601 timestamp.',
+    example: '2026-09-01',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'MATERIAL_START_DATE_INVALID' })
+  startDate?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Creation date to (inclusive). `YYYY-MM-DD` covers the whole day, or a full ISO 8601 ' +
+      'timestamp.',
+    example: '2026-09-30',
+  })
+  @IsOptional()
+  @IsDateString({}, { message: 'MATERIAL_END_DATE_INVALID' })
+  endDate?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort direction by creation date',
+    enum: ['ASC', 'DESC'],
+    default: 'DESC',
+  })
+  @IsOptional()
+  @Transform(upper)
+  @IsIn(['ASC', 'DESC'], { message: 'MATERIAL_SORT_INVALID' })
+  sort?: 'ASC' | 'DESC';
 
   @ApiPropertyOptional({
     description: 'true = attached to a supplier, false = not attached to any supplier',
