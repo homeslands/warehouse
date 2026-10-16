@@ -6,6 +6,7 @@ import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Between, In, LessThanOrEqual, Like, MoreThanOrEqual } from 'typeorm';
 import { SupplierService } from './supplier.service';
+import { SortOrder } from 'src/app/base.dto';
 import { SupplierProfile } from './supplier.mapper';
 import { Supplier } from './supplier.entity';
 import { SupplierTransaction } from './supplier-transaction.entity';
@@ -123,6 +124,59 @@ describe('SupplierService', () => {
           ],
         }),
       );
+    });
+
+    it('filters createdAt by startDate / endDate in every search branch, date-only endDate covers the whole day', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        search: 'abc',
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
+      });
+
+      const { where } = supplierRepository.findAndCount.mock.calls[0][0];
+      expect(where).toHaveLength(3);
+      for (const branch of where) {
+        const [from, to] = branch.createdAt.value;
+        expect(from).toMatchObject({ _type: 'moreThanOrEqual', _value: new Date(2026, 8, 1) });
+        expect(to).toMatchObject({ _type: 'lessThan', _value: new Date(2026, 9, 1) });
+      }
+    });
+
+    it('filters createdAt with only startDate', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, startDate: '2026-09-01T08:00:00.000Z' });
+
+      const { where } = supplierRepository.findAndCount.mock.calls[0][0];
+      expect(where.createdAt).toMatchObject({
+        _type: 'moreThanOrEqual',
+        _value: new Date('2026-09-01T08:00:00.000Z'),
+      });
+    });
+
+    it.each([
+      [undefined, SortOrder.DESC],
+      [SortOrder.ASC, SortOrder.ASC],
+    ])('orders by createdAt %s (default DESC), id ASC as tie-breaker', async (sort, expected) => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, sort });
+
+      const { order } = supplierRepository.findAndCount.mock.calls[0][0];
+      expect(order).toEqual({ createdAt: expected, id: 'ASC' });
+    });
+
+    it('rejects startDate after endDate', async () => {
+      await expect(
+        service.findAll({ page: 1, size: 10, startDate: '2026-09-30', endDate: '2026-09-01' }),
+      ).rejects.toMatchObject(
+        new SupplierException(SupplierValidation.SUPPLIER_DATE_RANGE_INVALID),
+      );
+      expect(supplierRepository.findAndCount).not.toHaveBeenCalled();
     });
   });
 

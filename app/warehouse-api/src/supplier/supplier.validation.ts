@@ -28,6 +28,7 @@ export const SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL =
   'SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL';
 export const SUPPLIER_MATERIAL_DATE_INVALID = 'SUPPLIER_MATERIAL_DATE_INVALID';
 export const SUPPLIER_MATERIAL_SLUGS_INVALID = 'SUPPLIER_MATERIAL_SLUGS_INVALID';
+export const SUPPLIER_DATE_RANGE_INVALID = 'SUPPLIER_DATE_RANGE_INVALID';
 
 export type TSupplierErrorCodeKey =
   | typeof SUPPLIER_NOT_FOUND
@@ -51,7 +52,8 @@ export type TSupplierErrorCodeKey =
   | typeof SUPPLIER_TRANSACTION_DATE_INVALID
   | typeof SUPPLIER_TRANSACTION_PAYMENT_HAS_MATERIAL
   | typeof SUPPLIER_MATERIAL_DATE_INVALID
-  | typeof SUPPLIER_MATERIAL_SLUGS_INVALID;
+  | typeof SUPPLIER_MATERIAL_SLUGS_INVALID
+  | typeof SUPPLIER_DATE_RANGE_INVALID;
 
 export type TSupplierErrorCode = Record<TSupplierErrorCodeKey, TErrorCodeValue>;
 
@@ -121,5 +123,10 @@ export const SupplierValidation: TSupplierErrorCode = {
   SUPPLIER_MATERIAL_SLUGS_INVALID: createErrorCode(
     101222,
     'materialSlugs must be a non-empty array of at most 100 material slugs',
+  ),
+  SUPPLIER_DATE_RANGE_INVALID: createErrorCode(
+    101223,
+    'startDate must not be after endDate',
+    HttpStatus.BAD_REQUEST,
   ),
 };

@@ -178,8 +178,8 @@ describe('GetAllMaterialRequestDto — date range / sort', () => {
 
   it('từ chối ngày sai định dạng', () => {
     const messages = messagesFor({ startDate: 'hôm qua', endDate: '2026-13-45' });
-    expect(messages).toContain('MATERIAL_START_DATE_INVALID');
-    expect(messages).toContain('MATERIAL_END_DATE_INVALID');
+    expect(messages).toContain('START_DATE_INVALID');
+    expect(messages).toContain('END_DATE_INVALID');
   });
 
   it.each([
@@ -192,7 +192,7 @@ describe('GetAllMaterialRequestDto — date range / sort', () => {
   });
 
   it.each([['createdAt:ASC'], ['UP']])('từ chối sort %s', (sort) => {
-    expect(messagesFor({ sort })).toContain('MATERIAL_SORT_INVALID');
+    expect(messagesFor({ sort })).toContain('SORT_INVALID');
   });
 
   it.each([['Găng tay 2'], ['Ống thép Ø'], ['Nước ngọt'], ['Đường']])(

@@ -24,10 +24,7 @@ export const MATERIAL_BASE_UNIT_LOCKED = 'MATERIAL_BASE_UNIT_LOCKED';
 export const MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED = 'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED';
 export const MATERIAL_SUPPLIER_SLUGS_INVALID = 'MATERIAL_SUPPLIER_SLUGS_INVALID';
 export const MATERIAL_HAS_SUPPLIER_INVALID = 'MATERIAL_HAS_SUPPLIER_INVALID';
-export const MATERIAL_START_DATE_INVALID = 'MATERIAL_START_DATE_INVALID';
-export const MATERIAL_END_DATE_INVALID = 'MATERIAL_END_DATE_INVALID';
 export const MATERIAL_DATE_RANGE_INVALID = 'MATERIAL_DATE_RANGE_INVALID';
-export const MATERIAL_SORT_INVALID = 'MATERIAL_SORT_INVALID';
 export const MATERIAL_NAME_SEARCH_INVALID = 'MATERIAL_NAME_SEARCH_INVALID';
 export const MATERIAL_CODE_SEARCH_INVALID = 'MATERIAL_CODE_SEARCH_INVALID';
 
@@ -55,10 +52,7 @@ export type TMaterialErrorCodeKey =
   | typeof MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED
   | typeof MATERIAL_HAS_SUPPLIER_INVALID
   | typeof MATERIAL_SUPPLIER_SLUGS_INVALID
-  | typeof MATERIAL_START_DATE_INVALID
-  | typeof MATERIAL_END_DATE_INVALID
   | typeof MATERIAL_DATE_RANGE_INVALID
-  | typeof MATERIAL_SORT_INVALID
   | typeof MATERIAL_NAME_SEARCH_INVALID
   | typeof MATERIAL_CODE_SEARCH_INVALID;
 
@@ -162,24 +156,9 @@ export const MaterialValidation: TMaterialErrorCode = {
     100726,
     'supplierSlugs must be an array of at most 50 non-empty strings',
   ),
-  MATERIAL_START_DATE_INVALID: createErrorCode(
-    100727,
-    'startDate must be a valid date (YYYY-MM-DD or ISO 8601)',
-    HttpStatus.BAD_REQUEST,
-  ),
-  MATERIAL_END_DATE_INVALID: createErrorCode(
-    100728,
-    'endDate must be a valid date (YYYY-MM-DD or ISO 8601)',
-    HttpStatus.BAD_REQUEST,
-  ),
   MATERIAL_DATE_RANGE_INVALID: createErrorCode(
     100729,
     'startDate must not be after endDate',
-    HttpStatus.BAD_REQUEST,
-  ),
-  MATERIAL_SORT_INVALID: createErrorCode(
-    100730,
-    'sort must be ASC or DESC',
     HttpStatus.BAD_REQUEST,
   ),
   MATERIAL_NAME_SEARCH_INVALID: createErrorCode(

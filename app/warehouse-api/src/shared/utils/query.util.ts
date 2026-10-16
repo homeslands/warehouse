@@ -1,3 +1,5 @@
+import { And, FindOperator, LessThan, MoreThanOrEqual } from 'typeorm';
+
 /**
  * Chuỗi tìm kiếm dạng văn bản: chỉ chữ cái (gồm tiếng Việt có dấu — `\p{L}` khớp cả dạng dựng sẵn
  * lẫn tổ hợp nhờ `\p{M}`), chữ số và khoảng trắng; từ chối ký tự đặc biệt như `@ # , % _`. Dùng với
@@ -46,4 +48,15 @@ export const resolveDateRange = (
     }
   }
   return { start, end };
+};
+
+/**
+ * Điều kiện `where` cho cột thời gian từ kết quả `resolveDateRange()`: `start` bao gồm, `end` loại
+ * trừ. Không có mốc nào ⇒ `undefined` (caller bỏ qua, không gán vào `where`).
+ */
+export const toDateRangeOperator = (start?: Date, end?: Date): FindOperator<Date> | undefined => {
+  if (start && end) return And(MoreThanOrEqual(start), LessThan(end));
+  if (start) return MoreThanOrEqual(start);
+  if (end) return LessThan(end);
+  return undefined;
 };

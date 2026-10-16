@@ -61,7 +61,8 @@ export class SupplierController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Get all suppliers (paginated, filter by code / taxCode / search(name|contactPerson|email) / phonenumber)',
+      'Get all suppliers (paginated, filter by code / taxCode / search(name|contactPerson|email) / ' +
+      'phonenumber / startDate-endDate (creation date))',
   })
   @ApiPaginatedResponse(SupplierResponseDto, 'Retrieved')
   async findAll(
