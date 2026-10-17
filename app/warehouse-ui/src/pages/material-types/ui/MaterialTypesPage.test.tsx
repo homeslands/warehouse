@@ -47,3 +47,44 @@ describe('MaterialTypesPage', () => {
     expect(screen.queryByRole('button', { name: 'Tìm theo mã' })).not.toBeInTheDocument()
   })
 })
+
+describe('MaterialTypesPage — sắp xếp theo cột', () => {
+  it('bấm tiêu đề Mã: tăng dần → giảm dần → bỏ sắp xếp (không gửi sort/sortBy)', async () => {
+    const seen: URLSearchParams[] = []
+    server.use(
+      mswHttp.get(`${BASE}/material-types`, ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return paginated([type])
+      }),
+    )
+    const { user } = renderWithProviders(<MaterialTypesPage />, {
+      auth: { userName: 'a', roleName: 'ADMIN', scope: ['MATERIAL_READ'] },
+      route: '/material-types',
+    })
+    await screen.findByText('Tiêu hao')
+    expect(seen.at(-1)?.has('sortBy')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.get('sortBy')).toBe('code')
+      expect(seen.at(-1)?.get('sort')).toBe('ASC')
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('DESC'))
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(seen.at(-1)?.has('sortBy')).toBe(false))
+    expect(seen.at(-1)?.has('sort')).toBe(false)
+  })
+
+  it('cột Mô tả không sắp xếp được', async () => {
+    server.use(mswHttp.get(`${BASE}/material-types`, () => paginated([type])))
+    renderWithProviders(<MaterialTypesPage />, {
+      auth: { userName: 'a', roleName: 'ADMIN', scope: ['MATERIAL_READ'] },
+      route: '/material-types',
+    })
+    await screen.findByText('Tiêu hao')
+    expect(screen.queryByRole('button', { name: 'Mô tả' })).not.toBeInTheDocument()
+  })
+})

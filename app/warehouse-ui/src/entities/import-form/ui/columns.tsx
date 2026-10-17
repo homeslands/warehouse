@@ -18,6 +18,8 @@ export function buildImportFormColumns(
     {
       accessorKey: 'code',
       header: t('importForms:columnCode'),
+      // BE chỉ sắp theo createdAt | code; cột Ngày nhập (`date`) KHÔNG sắp được nên không khai sortField.
+      meta: { sortField: 'code' },
       cell: ({ row }) => {
         const { code } = row.original
         const text = (

@@ -71,12 +71,29 @@ describe('SuppliersPage — sắp xếp (cờ supplierSort bật)', () => {
     expect(screen.getByTestId('location')).toHaveTextContent('sort=code%3AASC')
   })
 
-  it('cột không khai sortField (Người liên hệ) không bấm được', async () => {
-    captureQuery()
-    renderPage()
+  it('bấm Mã lần hai → DESC, lần ba → bỏ sắp xếp (không gửi sort/sortBy)', async () => {
+    const seen = captureQuery()
+    const { user } = renderPage()
     await screen.findByText('Công ty ABC')
-    expect(screen.queryByRole('button', { name: 'Người liên hệ' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(new URLSearchParams(seen.at(-1)).get('sort')).toBe('DESC'))
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(new URLSearchParams(seen.at(-1)).has('sortBy')).toBe(false))
+    expect(new URLSearchParams(seen.at(-1)).has('sort')).toBe(false)
   })
+
+  it.each(['Người liên hệ', 'Mã số thuế', 'Điện thoại'])(
+    'cột %s không khai sortField nên không bấm được (BE chỉ sắp code/name/createdAt)',
+    async (name) => {
+      captureQuery()
+      renderPage()
+      await screen.findByText('Công ty ABC')
+      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
+    },
+  )
 })
 
 describe('SuppliersPage — tìm (cờ supplierSearch bật)', () => {

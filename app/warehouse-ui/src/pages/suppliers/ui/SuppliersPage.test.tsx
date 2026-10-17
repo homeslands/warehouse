@@ -60,16 +60,6 @@ describe('SuppliersPage', () => {
     expect(screen.getByRole('searchbox')).toBeInTheDocument()
   })
 
-  it('không có nút sắp xếp ở tiêu đề cột', async () => {
-    captureQuery()
-    renderWithProviders(<SuppliersPage />, { route: '/suppliers', auth: ADMIN })
-    await screen.findByText('Công ty ABC')
-
-    for (const name of ['Mã', 'Tên']) {
-      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
-    }
-  })
-
   it('menu ⋯: ADMIN có Xem chi tiết/Sửa/Xoá; MANAGER chỉ Xem chi tiết và không có nút Thêm', async () => {
     captureQuery()
     const admin = renderWithProviders(<SuppliersPage />, { route: '/suppliers', auth: ADMIN })

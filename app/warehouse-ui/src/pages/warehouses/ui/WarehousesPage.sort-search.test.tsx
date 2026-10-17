@@ -70,7 +70,7 @@ beforeEach(() => {
 })
 
 describe('WarehousesPage — sắp xếp (cờ bật)', () => {
-  it('header cột bấm được và gửi sort dạng mảng lên backend', async () => {
+  it('header cột bấm được và gửi sortBy + sort lên backend', async () => {
     const seen = captureQuery()
     const { user } = renderPage()
     await screen.findByText('Kho Hà Nội 1')

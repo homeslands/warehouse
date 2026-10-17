@@ -5,7 +5,8 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
-import { useClampPage, useListParams } from '@/shared/lib/list-params'
+import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
 import { ListToolbar } from '@/shared/ui/data-table/ListToolbar'
@@ -38,13 +39,16 @@ const FILTERS = z.object({
   status: z.enum(IMPORT_FORM_STATUSES).optional(),
 }) satisfies z.ZodType<{ warehouse?: string } & ImportFormFilters>
 
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). Không có `importDate`. */
+const IMPORT_FORM_SORT_FIELDS = ['createdAt', 'code'] as const
+
 export function ImportFormsPage() {
   const { t } = useTranslation(['importForms', 'common'])
   const location = useLocation()
   const navigate = useNavigate()
   const hintId = useId()
   const user = useAuthStore((s) => s.user)
-  const { page, size, filters, setPage, setSize, setFilters } = useListParams(FILTERS)
+  const { page, size, filters, sort, setPage, setSize, setFilters, setSort } = useListParams(FILTERS)
   const onResolve = useCallback((slug: string) => setFilters({ warehouse: slug }), [setFilters])
   const selection = useWarehouseSelection(filters.warehouse, onResolve)
   const warehouse = selection.warehouse
@@ -65,6 +69,7 @@ export function ImportFormsPage() {
     page,
     size,
     status: filters.status,
+    ...(BACKEND_SUPPORTS.importFormSort ? sortToParam(sort, IMPORT_FORM_SORT_FIELDS) : {}),
   })
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
 
@@ -212,6 +217,7 @@ export function ImportFormsPage() {
         <DataTable
           columns={columns}
           emptyText={filters.status ? t('importForms:emptyFiltered') : t('importForms:empty')}
+          sorting={BACKEND_SUPPORTS.importFormSort ? { value: sort, onChange: setSort } : undefined}
           onRowClick={(row) => {
             const { to, state } = detailLink(row)
             navigate(to, { state })
