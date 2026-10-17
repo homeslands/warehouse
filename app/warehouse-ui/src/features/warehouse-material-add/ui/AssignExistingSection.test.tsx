@@ -35,13 +35,15 @@ function setup(
     canAssign?: boolean
     locked?: boolean
     found?: Material[]
+    total?: number
   } = {},
 ) {
   const seen: URLSearchParams[] = []
   server.use(
     mswHttp.get(`${BASE}/materials`, ({ request }) => {
       seen.push(new URL(request.url).searchParams)
-      return paginated(opts.found ?? [cement, inWarehouse])
+      const items = opts.found ?? [cement, inWarehouse]
+      return paginated(items, { size: 50, total: opts.total ?? items.length })
     }),
   )
   const onAssigned = vi.fn()
@@ -129,10 +131,31 @@ describe('AssignExistingSection', () => {
     expect(seen).toHaveLength(0)
   })
 
-  it('ô tìm trống → không gọi API', async () => {
+  it('ô tìm trống → tải sẵn 50 vật tư đầu của danh mục (không lọc), bỏ vật tư đã ở kho', async () => {
     const { seen } = setup({ search: '  ' })
-    await new Promise((r) => setTimeout(r, 400))
-    expect(seen).toHaveLength(0)
+    expect(await screen.findByText(/Xi măng PCB40/)).toBeInTheDocument()
+    expect(screen.queryByText(/Xi măng trắng/)).not.toBeInTheDocument()
+    const params = seen.at(-1)!
+    expect(params.get('size')).toBe('50')
+    expect(params.has('name')).toBe(false)
+    expect(params.has('code')).toBe(false)
+    // Danh mục không có thêm → không có dòng "gõ để tìm thêm".
+    expect(screen.queryByText(/gõ mã hoặc tên để tìm thêm/)).not.toBeInTheDocument()
+  })
+
+  it('ô tìm trống, danh mục nhiều hơn số đã tải → dòng "Hiện N vật tư đầu… gõ để tìm thêm"', async () => {
+    setup({ search: '', total: 120 })
+    expect(
+      await screen.findByText(
+        // N = số vật tư thực tải về (dữ liệu giả có 2; thật thì tối đa 50).
+        'Hiện 2 vật tư đầu của danh mục — gõ mã hoặc tên để tìm thêm.',
+      ),
+    ).toBeInTheDocument()
+  })
+
+  it('ô tìm trống, kho đã có hết vật tư tải về → câu "không còn vật tư nào chưa có ở kho"', async () => {
+    setup({ search: '', found: [inWarehouse] })
+    expect(await screen.findByText(/Không tìm thấy vật tư nào chưa có ở kho/)).toBeInTheDocument()
   })
 
   it('Gắn vào kho → PUT rồi onAssigned(material, false); bấm nhanh hai lần chỉ một request', async () => {
@@ -247,8 +270,10 @@ describe('AssignExistingSection', () => {
     rerender(el('xi m'))
     rerender(el('xi măng'))
     expect(await screen.findByText(/Xi măng PCB40/)).toBeInTheDocument()
-    expect(seen).toHaveLength(1)
-    expect(seen[0].get('name')).toBe('xi măng')
+    // Lúc mở (ô trống) có một request liệt kê danh mục; các lần gõ nhanh chỉ thêm MỘT request cho giá trị cuối.
+    await waitFor(() => expect(seen.filter((p) => p.has('name'))).toHaveLength(1))
+    expect(seen.filter((p) => p.has('name'))[0].get('name')).toBe('xi măng')
+    expect(seen.filter((p) => !p.has('name') && !p.has('code'))).toHaveLength(1)
   })
 
   it('onAssigned chạy xong rồi mới mở khoá: bấm dòng khác trong lúc đó không gửi PUT thứ hai', async () => {
