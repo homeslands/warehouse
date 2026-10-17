@@ -234,11 +234,11 @@ export function MaterialsPage() {
         pagination={{
           page: data?.page ?? page,
           size,
-          total: data?.total ?? 0,
-          totalPages: data?.totalPages ?? 0,
+          total: symbolOnlySearch ? 0 : (data?.total ?? 0),
+          totalPages: symbolOnlySearch ? 0 : (data?.totalPages ?? 0),
           onPageChange: setPage,
           onSizeChange: setSize,
-          isFetching: isPlaceholderData,
+          isFetching: !symbolOnlySearch && isPlaceholderData,
         }}
       />
 

@@ -691,7 +691,7 @@ mất công tìm cách sửa nó.
   - Ô tìm "mã hoặc tên" (`toCodeOrNameQuery`, `shared/lib/code.ts`): có số / gạch hoặc gõ toàn chữ hoa một từ (`KG`)
     → `code`, còn lại → `name`. Với `GET /materials` cả hai đều khớp **tiền tố** (không phân biệt hoa thường); `code` chỉ nhận
     `A-Z 0-9 _ -`, `name` chỉ chữ (kể cả tiếng Việt) / số / khoảng trắng — ký tự khác BE trả 400 (100732 / 100731), nên FE làm sạch
-    bằng `toMaterialSearchQuery` (`shared/lib/code.ts`): ký tự không hợp lệ trong tên **đổi thành khoảng trắng**, trong mã thì **bị xoá**.
+    bằng `toMaterialSearchQuery` (`shared/lib/code.ts`): trong tên thì bỏ ký tự lạ ở đầu rồi **cắt tại ký tự lạ đầu tiên** (`Xi măng (PCB40)` → `Xi măng`, để giá trị gửi luôn là tiền tố của tên thật mà BE khớp `LIKE 'x%'`), trong mã thì **bị xoá** ký tự lạ. Đây là hàm dùng chung ở `shared/lib/code.ts`, không phải hàm cùng tên cục bộ của `widgets/supplier-materials/model/search-query.ts`.
     Ô tìm chỉ toàn ký hiệu → **không gửi request**: trang Vật tư hiện trạng thái trống-do-lọc, ô tìm danh mục trong hộp thêm vật tư hiện câu gợi ý.
     Loại vật tư / NCC vẫn `code` khớp đúng. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
     (`CodeOrNameEmpty`, `?searchBy=`).

@@ -1,4 +1,4 @@
-/** URL sửa tay ngược chiều → đảo lại thay vì để backend trả 400 (100422). `YYYY-MM-DD` so sánh được như chuỗi. */
+/** URL sửa tay ngược chiều → đảo lại thay vì để backend trả 400 (mã `*DateRangeInvalid` của từng module). `YYYY-MM-DD` so sánh được như chuỗi. */
 export function toCreatedRange(
   startDate?: string,
   endDate?: string,
