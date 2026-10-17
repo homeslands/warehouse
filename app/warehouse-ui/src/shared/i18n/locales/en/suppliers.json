@@ -130,5 +130,6 @@
   "detachMenu": "Remove from supplier",
   "selectMaterialAria": "Select {{code}}",
   "selectAllOnPage": "Select all materials on this page",
-  "materialListLabel": "Materials not yet attached to this supplier"
+  "materialListLabel": "Materials not yet attached to this supplier",
+  "filterCreatedAt": "Created"
 }

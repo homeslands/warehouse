@@ -124,5 +124,6 @@
   "unitPriceTooLarge": "Unit price is too large",
   "itemDuplicated": "This material and unit already appear on another line",
   "addMaterialEntry": "Add material to warehouse…",
-  "addMaterialDescription": "{{warehouse}} · materials added to the warehouse stay there even if you discard this receipt."
+  "addMaterialDescription": "{{warehouse}} · materials added to the warehouse stay there even if you discard this receipt.",
+  "filterCreatedAt": "Created"
 }

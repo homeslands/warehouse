@@ -5,11 +5,13 @@ import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { toCodeOrNameQuery } from '@/shared/lib/code'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { toCreatedRange } from '@/shared/lib/date-range'
 import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { CodeOrNameEmpty } from '@/shared/ui/data-table/CodeOrNameEmpty'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
 import { ListToolbar } from '@/shared/ui/data-table/ListToolbar'
+import { DateRangeFilter } from '@/shared/ui/data-table/DateRangeFilter'
 import { SearchInput } from '@/shared/ui/data-table/SearchInput'
 import {
   DropdownMenu,
@@ -32,6 +34,9 @@ import { materialTypeAbilities } from '../model/abilities'
 const FILTERS = z.object({
   search: z.string().optional(),
   searchBy: z.enum(['code', 'name']).optional(),
+  // Ngày tạo. Sai định dạng trên URL → bỏ riêng khoá đó (`useListParams`).
+  startDate: z.iso.date().optional(),
+  endDate: z.iso.date().optional(),
 })
 
 /** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
@@ -42,7 +47,8 @@ export function MaterialTypesPage() {
   const user = useAuthStore((s) => s.user)
   const ability = materialTypeAbilities(user)
 
-  const { page, size, filters, sort, setPage, setSize, setFilters, setSort } = useListParams(FILTERS)
+  const { page, size, filters, sort, setPage, setSize, setFilters, setSort } =
+    useListParams(FILTERS)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<MaterialType | undefined>(undefined)
   const [deleting, setDeleting] = useState<MaterialType | null>(null)
@@ -53,6 +59,7 @@ export function MaterialTypesPage() {
     size,
     ...(BACKEND_SUPPORTS.materialTypeSort ? sortToParam(sort, MATERIAL_TYPE_SORT_FIELDS) : {}),
     ...searchQuery,
+    ...toCreatedRange(filters.startDate, filters.endDate),
   })
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
 
@@ -102,7 +109,8 @@ export function MaterialTypesPage() {
     return [...base, actions]
   }, [t, hasActions, ability.update, ability.delete])
 
-  let emptyText: ReactNode = t('materialTypes:empty')
+  let emptyText: ReactNode =
+    filters.startDate || filters.endDate ? t('common:noResults') : t('materialTypes:empty')
   if (searchQuery.code !== undefined || searchQuery.name !== undefined) {
     const searchedBy = searchQuery.code !== undefined ? 'code' : 'name'
     emptyText = (
@@ -134,6 +142,15 @@ export function MaterialTypesPage() {
             placeholder={t('materialTypes:searchPlaceholder')}
           />
         }
+        filters={
+          <DateRangeFilter
+            label={t('materialTypes:filterCreatedAt')}
+            value={{ from: filters.startDate, to: filters.endDate }}
+            onChange={({ from, to }) => setFilters({ startDate: from, endDate: to })}
+          />
+        }
+        activeFilterCount={filters.startDate || filters.endDate ? 1 : 0}
+        onClearFilters={() => setFilters({ startDate: undefined, endDate: undefined })}
         actions={
           ability.create && (
             <Button

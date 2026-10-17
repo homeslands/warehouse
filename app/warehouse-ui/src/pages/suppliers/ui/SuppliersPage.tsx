@@ -5,10 +5,12 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { toCreatedRange } from '@/shared/lib/date-range'
 import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
 import { ListToolbar } from '@/shared/ui/data-table/ListToolbar'
+import { DateRangeFilter } from '@/shared/ui/data-table/DateRangeFilter'
 import { SearchInput } from '@/shared/ui/data-table/SearchInput'
 import {
   DropdownMenu,
@@ -39,7 +41,10 @@ import {
 const FILTERS = z.object({
   search: z.string().optional(),
   searchBy: z.enum(['taxCode', 'phonenumber']).optional(),
-}) satisfies z.ZodType<Pick<SupplierFilters, 'search'>>
+  // Ngày tạo. Sai định dạng trên URL → bỏ riêng khoá đó (`useListParams`).
+  startDate: z.iso.date().optional(),
+  endDate: z.iso.date().optional(),
+}) satisfies z.ZodType<Pick<SupplierFilters, 'search' | 'startDate' | 'endDate'>>
 
 const SEARCH_EMPTY = {
   search: 'suppliers:searchEmptySearch',
@@ -77,6 +82,7 @@ export function SuppliersPage() {
     size,
     ...(ability.sort ? sortToParam(sort, SUPPLIER_SORT_FIELDS) : {}),
     ...searchQuery,
+    ...toCreatedRange(filters.startDate, filters.endDate),
   })
 
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
@@ -133,7 +139,8 @@ export function SuppliersPage() {
   }, [ability.update, ability.delete, t, detailLink, navigate])
 
   // Đang tìm mà trống: nói rõ đã tìm theo trường nào; 10 chữ số thì cho đổi MST ↔ SĐT (đoán có thể sai).
-  let emptyText: ReactNode = t('suppliers:empty')
+  let emptyText: ReactNode =
+    filters.startDate || filters.endDate ? t('common:noResults') : t('suppliers:empty')
   if (searchField !== undefined) {
     const other = searchField === 'taxCode' ? 'phonenumber' : 'taxCode'
     emptyText = (
@@ -174,6 +181,15 @@ export function SuppliersPage() {
             />
           )
         }
+        filters={
+          <DateRangeFilter
+            label={t('suppliers:filterCreatedAt')}
+            value={{ from: filters.startDate, to: filters.endDate }}
+            onChange={({ from, to }) => setFilters({ startDate: from, endDate: to })}
+          />
+        }
+        activeFilterCount={filters.startDate || filters.endDate ? 1 : 0}
+        onClearFilters={() => setFilters({ startDate: undefined, endDate: undefined })}
         actions={
           ability.create && (
             <Button

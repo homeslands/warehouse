@@ -21,4 +21,7 @@ export type MaterialTypeUpdateInput = Partial<MaterialTypeInput>
 export type MaterialTypeFilters = {
   code?: string
   name?: string
+  /** Ngày tạo từ / đến, `YYYY-MM-DD`, tính cả hai đầu. `startDate` > `endDate` → 400. */
+  startDate?: string
+  endDate?: string
 }
