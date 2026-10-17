@@ -68,8 +68,8 @@ export class MaterialController {
     summary: 'Get all materials (paginated)',
     description:
       'Filter by typeSlug, supplierSlug (or hasSupplier), warehouseSlug, code / name (prefix ' +
-      'match), startDate / endDate (creation date); sort = ASC | DESC by creation date ' +
-      '(default DESC); paginated with page / size.',
+      'match), startDate / endDate (creation date); sortBy = createdAt | name | code (default ' +
+      'createdAt), sort = ASC | DESC (default DESC); paginated with page / size.',
   })
   @ApiPaginatedResponse(MaterialResponseDto, 'Retrieved')
   async findAll(

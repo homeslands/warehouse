@@ -21,6 +21,7 @@ import {
   ImportFormAvailableMaterialResponseDto,
   ImportFormResponseDto,
   UpdateImportFormRequestDto,
+  ImportFormSortBy,
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
@@ -42,6 +43,7 @@ import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 import { AuthorityCode, TAuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { RoleEnum } from 'src/role/role.enum';
@@ -179,13 +181,19 @@ export class ImportFormService {
     // báo 404 ở đây, không trả về danh sách rỗng.
     await this.findWarehouse(warehouseSlug);
 
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
+    if (start && end && start >= end)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_DATE_RANGE_INVALID);
+
     const where: FindOptionsWhere<ImportForm> = { warehouse: { slug: warehouseSlug } };
     if (query.status) where.status = query.status;
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) where.createdAt = createdAt;
 
     const [items, total] = await this.importFormRepository.findAndCount({
       where,
       relations: IMPORT_FORM_RELATIONS,
-      order: { createdAt: 'DESC' },
+      order: buildSortOrder<ImportForm, ImportFormSortBy>(query, { code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });

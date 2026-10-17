@@ -24,11 +24,13 @@ import {
   SupplierResponseDto,
   SupplierTransactionResponseDto,
   UpdateSupplierRequestDto,
+  SupplierSortBy,
 } from './supplier.dto';
 import { Supplier } from './supplier.entity';
 import { SupplierTransaction } from './supplier-transaction.entity';
 import { MATERIAL_TRANSACTION_TYPES, MONEY_SCALE } from './supplier.constants';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { SupplierException } from './supplier.exception';
 import { SupplierValidation } from './supplier.validation';
@@ -78,7 +80,13 @@ export class SupplierService {
   async findAll(
     query: GetAllSupplierRequestDto,
   ): Promise<AppPaginatedResponseDto<SupplierResponseDto>> {
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
+    if (start && end && start >= end)
+      throw new SupplierException(SupplierValidation.SUPPLIER_DATE_RANGE_INVALID);
+
     const filters: FindOptionsWhere<Supplier> = {};
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) filters.createdAt = createdAt;
     if (query.code) filters.code = query.code;
     if (query.taxCode) filters.taxCode = query.taxCode;
     if (query.phonenumber) filters.phonenumber = Like(`%${query.phonenumber}%`);
@@ -96,7 +104,7 @@ export class SupplierService {
 
     const [items, total] = await this.supplierRepository.findAndCount({
       where,
-      order: { createdAt: 'DESC' },
+      order: buildSortOrder<Supplier, SupplierSortBy>(query, { name: ['name'], code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });

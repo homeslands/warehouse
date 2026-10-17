@@ -34,6 +34,7 @@ export const IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID = 'IMPORT_FORM_ITEM_CONVER
 export const IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE =
   'IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE';
 export const IMPORT_FORM_FILE_TYPE_NOT_ALLOWED = 'IMPORT_FORM_FILE_TYPE_NOT_ALLOWED';
+export const IMPORT_FORM_DATE_RANGE_INVALID = 'IMPORT_FORM_DATE_RANGE_INVALID';
 export const IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL =
   'IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL';
 
@@ -66,7 +67,8 @@ export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID
   | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE
   | typeof IMPORT_FORM_FILE_TYPE_NOT_ALLOWED
-  | typeof IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL;
+  | typeof IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL
+  | typeof IMPORT_FORM_DATE_RANGE_INVALID;
 
 export type TImportFormErrorCode = Record<TImportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -168,5 +170,10 @@ export const ImportFormValidation: TImportFormErrorCode = {
   IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL: createErrorCode(
     101330,
     'Item supplier is not attached to the material',
+  ),
+  IMPORT_FORM_DATE_RANGE_INVALID: createErrorCode(
+    101331,
+    'startDate must not be after endDate',
+    HttpStatus.BAD_REQUEST,
   ),
 };

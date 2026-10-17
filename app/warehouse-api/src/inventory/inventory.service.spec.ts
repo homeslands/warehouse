@@ -489,7 +489,7 @@ describe('InventoryService', () => {
   });
 
   describe('findAll', () => {
-    const page = { page: 1, size: 10, sort: [] };
+    const page = { page: 1, size: 10 };
 
     it('filters by warehouse/type and paginates without the query builder', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
@@ -601,7 +601,6 @@ describe('InventoryService', () => {
       const result = await service.findHistories('wh-slug-1', 'mat-slug-1', {
         page: 1,
         size: 10,
-        sort: [],
       });
 
       expect(historyRepository.findAndCount.mock.calls[0][0]).toMatchObject({

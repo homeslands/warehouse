@@ -2,8 +2,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
-  IsDateString,
-  IsIn,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsPositive,
@@ -14,7 +13,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
+import { BaseQueryDto, BaseResponseDto, PaginationQueryDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { SEARCH_CODE_REGEX, SEARCH_TEXT_REGEX } from 'src/shared/utils/query.util';
@@ -116,7 +115,14 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   override maximumInventory?: number = undefined;
 }
 
-export class GetAllMaterialRequestDto extends OmitType(BaseQueryDto, ['sort'] as const) {
+/** Field sắp xếp của `GET /materials` — map sang cột ở `buildSortOrder()` trong service. */
+export enum MaterialSortBy {
+  CreatedAt = 'createdAt',
+  Name = 'name',
+  Code = 'code',
+}
+
+export class GetAllMaterialRequestDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
   @IsOptional()
   @Transform(trim)
@@ -142,36 +148,6 @@ export class GetAllMaterialRequestDto extends OmitType(BaseQueryDto, ['sort'] as
   name?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Creation date from (inclusive). `YYYY-MM-DD` counts from 00:00 server time, or a full ' +
-      'ISO 8601 timestamp.',
-    example: '2026-09-01',
-  })
-  @IsOptional()
-  @IsDateString({}, { message: 'MATERIAL_START_DATE_INVALID' })
-  startDate?: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Creation date to (inclusive). `YYYY-MM-DD` covers the whole day, or a full ISO 8601 ' +
-      'timestamp.',
-    example: '2026-09-30',
-  })
-  @IsOptional()
-  @IsDateString({}, { message: 'MATERIAL_END_DATE_INVALID' })
-  endDate?: string;
-
-  @ApiPropertyOptional({
-    description: 'Sort direction by creation date',
-    enum: ['ASC', 'DESC'],
-    default: 'DESC',
-  })
-  @IsOptional()
-  @Transform(upper)
-  @IsIn(['ASC', 'DESC'], { message: 'MATERIAL_SORT_INVALID' })
-  sort?: 'ASC' | 'DESC';
-
-  @ApiPropertyOptional({
     description: 'true = attached to a supplier, false = not attached to any supplier',
   })
   @IsOptional()
@@ -190,6 +166,15 @@ export class GetAllMaterialRequestDto extends OmitType(BaseQueryDto, ['sort'] as
   @IsOptional()
   @Transform(trim)
   warehouseSlug?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: MaterialSortBy,
+    default: MaterialSortBy.CreatedAt,
+  })
+  @IsOptional()
+  @IsEnum(MaterialSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: MaterialSortBy = MaterialSortBy.CreatedAt;
 }
 
 /** 1 kho mà vật tư đã được gán vào (1 dòng `inventory_tbl`), kèm tồn theo đơn vị cơ sở. */

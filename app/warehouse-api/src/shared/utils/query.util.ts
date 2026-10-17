@@ -1,3 +1,8 @@
+import { And, FindOperator, FindOptionsOrder, LessThan, MoreThanOrEqual } from 'typeorm';
+import { SortOrder } from 'src/app/base.dto';
+import { AppException } from 'src/app/app.exception';
+import { AppCommonValidation } from 'src/app/app-common.validation';
+
 /**
  * Chuỗi tìm kiếm dạng văn bản: chỉ chữ cái (gồm tiếng Việt có dấu — `\p{L}` khớp cả dạng dựng sẵn
  * lẫn tổ hợp nhờ `\p{M}`), chữ số và khoảng trắng; từ chối ký tự đặc biệt như `@ # , % _`. Dùng với
@@ -46,4 +51,46 @@ export const resolveDateRange = (
     }
   }
   return { start, end };
+};
+
+/**
+ * Điều kiện `where` cho cột thời gian từ kết quả `resolveDateRange()`: `start` bao gồm, `end` loại
+ * trừ. Không có mốc nào ⇒ `undefined` (caller bỏ qua, không gán vào `where`).
+ */
+export const toDateRangeOperator = (start?: Date, end?: Date): FindOperator<Date> | undefined => {
+  if (start && end) return And(MoreThanOrEqual(start), LessThan(end));
+  if (start) return MoreThanOrEqual(start);
+  if (end) return LessThan(end);
+  return undefined;
+};
+
+/**
+ * Enum `<Module>SortBy` của module (trừ `createdAt`, luôn hỗ trợ) → các cột entity, theo đúng thứ
+ * tự `ORDER BY`. Bắt buộc khai đủ mọi giá trị của enum — thêm giá trị mà quên map là lỗi biên dịch.
+ */
+export type SortColumns<T, S extends string> = Record<
+  Exclude<S, 'createdAt'>,
+  (keyof T & string)[]
+>;
+
+/**
+ * `ORDER BY` từ `sortBy` (enum riêng của từng query DTO, vd `MaterialSortBy`) và `sort` của
+ * `BaseQueryDto`. DTO đã chặn giá trị ngoài enum; `sortBy` không có trong `columns` vẫn ném
+ * `SORT_BY_INVALID` (rào phòng thủ) — tên cột luôn lấy từ `columns` do service khai, không bao giờ
+ * từ client. Luôn thêm `id ASC` cuối để thứ tự ổn định giữa các trang khi trùng giá trị.
+ */
+export const buildSortOrder = <T extends { id: string; createdAt: Date }, S extends string>(
+  query: { sort?: SortOrder; sortBy?: S },
+  columns: SortColumns<T, S>,
+): FindOptionsOrder<T> => {
+  const sortBy: string = query.sortBy ?? 'createdAt';
+  const fields: string[] | undefined =
+    sortBy === 'createdAt' ? ['createdAt'] : (columns as Partial<Record<string, string[]>>)[sortBy];
+  if (!fields?.length) throw new AppException(AppCommonValidation.SORT_BY_INVALID);
+
+  const direction = query.sort ?? SortOrder.DESC;
+  const order: Record<string, SortOrder> = {};
+  for (const field of fields) order[field] = direction;
+  order.id = SortOrder.ASC;
+  return order as FindOptionsOrder<T>;
 };
