@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
-import { toCodeOrNameQuery } from '@/shared/lib/code'
+import { toMaterialSearchQuery } from '@/shared/lib/code'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -46,7 +46,7 @@ export function AssignExistingSection({
   const { t } = useTranslation(['inventory'])
   const hintId = useId()
   const debounced = useDebouncedValue(search.trim(), 300)
-  const query = toCodeOrNameQuery(debounced)
+  const query = toMaterialSearchQuery(debounced)
   const enabled = debounced !== ''
   // Ô tìm trống thì không gọi API.
   const materials = useMaterials({ page: 1, size: 20, ...query }, { enabled })

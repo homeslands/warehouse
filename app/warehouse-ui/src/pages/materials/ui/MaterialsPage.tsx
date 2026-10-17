@@ -4,7 +4,7 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
-import { toCodeOrNameQuery } from '@/shared/lib/code'
+import { toMaterialSearchQuery } from '@/shared/lib/code'
 import { useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { CodeOrNameEmpty } from '@/shared/ui/data-table/CodeOrNameEmpty'
@@ -57,7 +57,7 @@ export function MaterialsPage() {
   const [deleting, setDeleting] = useState<Material | null>(null)
 
   const types = useMaterialTypeOptions()
-  const searchQuery = toCodeOrNameQuery(filters.search, filters.searchBy)
+  const searchQuery = toMaterialSearchQuery(filters.search, filters.searchBy)
   const { data, isPending, error, isPlaceholderData } = useMaterials({
     page,
     size,

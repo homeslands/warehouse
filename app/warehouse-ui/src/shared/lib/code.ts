@@ -20,6 +20,31 @@ export function isCodeLike(value: string): boolean {
 /** Cách tìm người dùng tự chọn khi phần đoán sai (`?searchBy=` trên URL). */
 export type CodeOrNameField = 'code' | 'name'
 
+/**
+ * `toCodeOrNameQuery` rồi làm sạch theo đúng charset BE của `GET /materials` (sai → 100731 / 100732):
+ * `name` chỉ giữ chữ (kể cả tiếng Việt), số, khoảng trắng; `code` viết hoa, chỉ `A-Z 0-9 _ -`.
+ * Khoá rỗng sau khi làm sạch thì bỏ hẳn (không gửi).
+ */
+export function toMaterialSearchQuery(
+  search: string | undefined,
+  prefer?: CodeOrNameField,
+): { code?: string; name?: string } {
+  const query = toCodeOrNameQuery(search, prefer)
+  const result: { code?: string; name?: string } = {}
+  if (query.code !== undefined) {
+    const code = query.code.toUpperCase().replace(/[^A-Z0-9_-]/g, '')
+    if (code !== '') result.code = code
+  }
+  if (query.name !== undefined) {
+    const name = query.name
+      .replace(/[^\p{L}\p{M}\p{N}\s]/gu, '')
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (name !== '') result.name = name
+  }
+  return result
+}
+
 /** Một từ chỉ gồm chữ Latin / số / gạch nối — có thể là mã (để trang cho đổi sang "Tìm theo mã"). */
 export function canSearchByCode(search: string | undefined): boolean {
   return /^[A-Za-z0-9-]+$/.test(search?.trim() ?? '')

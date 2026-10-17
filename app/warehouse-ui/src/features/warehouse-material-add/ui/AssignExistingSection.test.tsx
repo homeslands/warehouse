@@ -89,6 +89,12 @@ describe('AssignExistingSection', () => {
     expect(seen.at(-1)?.get('code')).toBe('VT-09')
   })
 
+  it('gõ ký tự BE không nhận → bỏ ký tự đó trước khi gửi', async () => {
+    const { seen } = setup({ search: 'xi măng (PCB40)' })
+    await screen.findByText(/Xi măng PCB40/)
+    expect(seen.at(-1)?.get('name')).toBe('xi măng PCB40')
+  })
+
   it('ô tìm trống → không gọi API', async () => {
     const { seen } = setup({ search: '  ' })
     await new Promise((r) => setTimeout(r, 400))
