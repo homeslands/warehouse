@@ -42,6 +42,9 @@ const FILTERS = z.object({
   search: z.string().optional(),
 }) satisfies z.ZodType<StoreFilters>
 
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const STORE_SORT_FIELDS = ['code', 'name', 'legalName', 'taxCode', 'createdAt'] as const
+
 export function StoresPage() {
   const { t } = useTranslation(['stores', 'common'])
   const location = useLocation()
@@ -73,7 +76,7 @@ export function StoresPage() {
     size,
     ...backendFilters,
     ...(BACKEND_SUPPORTS.search && search !== undefined ? { search } : {}),
-    sort: BACKEND_SUPPORTS.sort ? sortToParam(sort) : undefined,
+    ...(BACKEND_SUPPORTS.sort ? sortToParam(sort, STORE_SORT_FIELDS) : {}),
   })
   const remove = useDeleteStore()
   const update = useUpdateStore()

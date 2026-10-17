@@ -124,5 +124,6 @@
   "unitPriceTooLarge": "Đơn giá quá lớn",
   "itemDuplicated": "Vật tư và đơn vị này đã có ở dòng khác",
   "addMaterialEntry": "Thêm vật tư vào kho…",
-  "addMaterialDescription": "{{warehouse}} · vật tư đã gắn vào kho sẽ ở lại kho kể cả khi bạn bỏ phiếu này."
+  "addMaterialDescription": "{{warehouse}} · vật tư đã gắn vào kho sẽ ở lại kho kể cả khi bạn bỏ phiếu này.",
+  "filterCreatedAt": "Ngày tạo"
 }

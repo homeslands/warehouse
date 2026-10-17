@@ -1,12 +1,13 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
 import type { Warehouse } from '@/entities/warehouse'
 import { apiError, ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
+import { mockMobileViewport } from '@/shared/test/viewport'
 import { ImportFormsPage } from './ImportFormsPage'
 
 const draftForm: ImportForm = {
@@ -96,13 +97,15 @@ function renderPage(route = '/import-forms', auth: TestAuth = SUP) {
 }
 
 describe('ImportFormsPage', () => {
-  it('thiếu ?warehouse → chọn kho đầu, ghi lên URL, tải phiếu của kho đó (sort createdAt:DESC)', async () => {
+  it('thiếu ?warehouse → chọn kho đầu, ghi lên URL, tải phiếu của kho đó (không gửi sort)', async () => {
     const seen = mock([kho('w-a', 'A'), kho('w-b', 'B')])
     const { router } = renderPage()
     expect(await screen.findByRole('link', { name: 'PN-0001' })).toBeInTheDocument()
     expect(router.state.location.search).toContain('warehouse=w-a')
     expect(seen.at(-1)?.get('_w')).toBe('w-a')
-    expect(seen.at(-1)?.get('sort[]')).toBe('createdAt:DESC')
+    expect(seen.at(-1)?.has('sort')).toBe(false)
+    expect(seen.at(-1)?.has('sortBy')).toBe(false)
+    expect(seen.at(-1)?.has('sort[]')).toBe(false)
   })
 
   it('đổi kho → tải lại theo kho mới, về trang 1', async () => {
@@ -306,5 +309,82 @@ describe('ImportFormsPage', () => {
       expect(screen.queryByRole('menuitem', { name: 'Xoá phiếu' })).not.toBeInTheDocument()
       expect(screen.queryByRole('menuitem', { name: 'Sửa' })).not.toBeInTheDocument()
     })
+  })
+})
+
+describe('ImportFormsPage — sắp xếp theo cột', () => {
+  it('bấm tiêu đề Mã phiếu: tăng dần → giảm dần → bỏ sắp xếp (không gửi sort/sortBy)', async () => {
+    const seen = mock([kho('w-a', 'A')])
+    const { user } = renderPage('/import-forms?warehouse=w-a')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    expect(seen.at(-1)?.has('sortBy')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Mã phiếu' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.get('sortBy')).toBe('code')
+      expect(seen.at(-1)?.get('sort')).toBe('ASC')
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Mã phiếu' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('DESC'))
+
+    await user.click(screen.getByRole('button', { name: 'Mã phiếu' }))
+    await waitFor(() => expect(seen.at(-1)?.has('sortBy')).toBe(false))
+    expect(seen.at(-1)?.has('sort')).toBe(false)
+  })
+
+  it('cột Ngày nhập (importDate) không sắp xếp được — BE không sắp theo trường này', async () => {
+    mock([kho('w-a', 'A')])
+    renderPage('/import-forms?warehouse=w-a')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    expect(screen.queryByRole('button', { name: 'Ngày nhập' })).not.toBeInTheDocument()
+  })
+})
+
+describe('ImportFormsPage — lọc ngày tạo', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('URL startDate/endDate → gửi đúng, nút hiện khoảng', async () => {
+    const seen = mock([kho('w-a', 'A')])
+    renderPage('/import-forms?warehouse=w-a&startDate=2026-10-01&endDate=2026-10-15')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    expect(screen.getByRole('button', { name: /^Ngày tạo: / })).toHaveTextContent(
+      '01/10/2026 – 15/10/2026',
+    )
+    expect(seen.at(-1)?.get('startDate')).toBe('2026-10-01')
+    expect(seen.at(-1)?.get('endDate')).toBe('2026-10-15')
+  })
+
+  it('URL ngược chiều → đảo lại', async () => {
+    const seen = mock([kho('w-a', 'A')])
+    renderPage('/import-forms?warehouse=w-a&startDate=2026-10-15&endDate=2026-10-01')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    expect(seen.at(-1)?.get('startDate')).toBe('2026-10-01')
+    expect(seen.at(-1)?.get('endDate')).toBe('2026-10-15')
+  })
+
+  it('Xoá bộ lọc → hết ngày và trạng thái, nhưng giữ kho', async () => {
+    mockMobileViewport()
+    const seen = mock([kho('w-a', 'A'), kho('w-b', 'B')])
+    const { user, router } = renderPage(
+      '/import-forms?warehouse=w-b&status=DRAFT&startDate=2026-10-01&endDate=2026-10-15',
+    )
+    await screen.findByRole('link', { name: 'PN-0001' })
+    await user.click(screen.getByRole('button', { name: 'Xoá bộ lọc' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.has('startDate')).toBe(false)
+      expect(seen.at(-1)?.has('endDate')).toBe(false)
+      expect(seen.at(-1)?.has('status')).toBe(false)
+    })
+    expect(seen.at(-1)?.get('_w')).toBe('w-b')
+    expect(router.state.location.search).toContain('warehouse=w-b')
+  })
+
+  it('chỉ chọn kho (không lọc gì) → không có nút Xoá bộ lọc', async () => {
+    mock([kho('w-a', 'A')])
+    mockMobileViewport()
+    renderPage('/import-forms?warehouse=w-a')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    expect(screen.queryByRole('button', { name: 'Xoá bộ lọc' })).not.toBeInTheDocument()
   })
 })

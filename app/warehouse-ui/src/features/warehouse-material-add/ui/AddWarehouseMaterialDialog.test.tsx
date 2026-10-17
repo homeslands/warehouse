@@ -25,6 +25,7 @@ const cement: Material = {
   hasSupplier: false,
   suppliers: [],
   warehouses: [],
+  units: [],
 }
 const CEMENT_ADDED: AddedMaterial = {
   slug: 'm-cement',
@@ -211,7 +212,7 @@ describe('AddWarehouseMaterialDialog', () => {
     inv.mockRestore()
   })
 
-  it('tạo mới + NCC gắn lỗi → toast thành công rồi cảnh báo, invalidate NCC, onAdded(AddedMaterial)', async () => {
+  it('tạo mới + NCC → toast thành công (không cảnh báo), invalidate NCC, onAdded(AddedMaterial)', async () => {
     const stamp = { createdAt: '', updatedAt: '' }
     server.use(
       mswHttp.get(`${BASE}/materials`, () => paginated([])),
@@ -235,7 +236,6 @@ describe('AddWarehouseMaterialDialog', () => {
       mswHttp.post(`${BASE}/warehouses/w-a/materials`, () =>
         ok({ materialSlug: 'm-new', materialName: 'Xi măng mới' }),
       ),
-      mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(500, undefined, 'boom')),
     )
     const onAdded = vi.fn()
     const parentSubmit = vi.fn((e: FormEvent) => e.preventDefault())
@@ -266,7 +266,7 @@ describe('AddWarehouseMaterialDialog', () => {
     )
     expect(parentSubmit).not.toHaveBeenCalled()
     expect(toast.success).toHaveBeenCalled()
-    expect(toast.warning).toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
     expect(
       inv.mock.calls.some(
         ([f]) => JSON.stringify(f?.queryKey) === JSON.stringify(supplierKeys.all),
@@ -304,8 +304,8 @@ describe('AddWarehouseMaterialDialog', () => {
     )
   })
 
-  it('hai tab: ô tìm trống hiện gợi ý; qua lại giữa hai tab giữ phần đã nhập ở form tạo', async () => {
-    server.use(mswHttp.get(`${BASE}/materials`, () => paginated([])))
+  it('hai tab: ô tìm trống liệt kê sẵn danh mục; qua lại giữa hai tab giữ phần đã nhập ở form tạo', async () => {
+    server.use(mswHttp.get(`${BASE}/materials`, () => paginated([cement])))
     const { user } = renderWithProviders(<Harness onAdded={vi.fn()} initialSearch="" />, {
       auth: 'admin',
     })
@@ -313,7 +313,8 @@ describe('AddWarehouseMaterialDialog', () => {
       'aria-selected',
       'true',
     )
-    expect(screen.getByText('Gõ mã hoặc tên để tìm vật tư trong danh mục.')).toBeInTheDocument()
+    // Kho chưa có vật tư nào: không cần gõ, danh mục hiện sẵn để chọn.
+    expect(await screen.findByRole('button', { name: 'Gắn vào kho' })).toBeInTheDocument()
     await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
     await user.type(screen.getByRole('textbox', { name: /^Tên vật tư/ }), 'Thép cuộn')
     await user.click(screen.getByRole('tab', { name: 'Chọn từ danh mục' }))

@@ -1,12 +1,13 @@
 import { screen, waitFor } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Material } from '@/entities/material'
 import type { MaterialType } from '@/entities/material-type'
 import { paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
+import { mockMobileViewport } from '@/shared/test/viewport'
 import { MaterialsPage } from './MaterialsPage'
 
 const BASE = 'http://localhost:8085/api/v1'
@@ -31,6 +32,7 @@ const material: Material = {
   hasSupplier: false,
   suppliers: [],
   warehouses: [],
+  units: [],
 }
 
 const ADMIN: TestAuth = {
@@ -52,13 +54,13 @@ function capture() {
   return seen
 }
 
-function renderPage(auth: TestAuth = ADMIN) {
+function renderPage(auth: TestAuth = ADMIN, route = '/materials') {
   return renderWithRouter(
     [
       { path: '/materials', element: <MaterialsPage /> },
       { path: '/materials/:slug', element: <p>CHI TIẾT VẬT TƯ</p> },
     ],
-    { route: '/materials', auth },
+    { route, auth },
   )
 }
 
@@ -96,7 +98,30 @@ describe('MaterialsPage', () => {
     await user.type(screen.getByPlaceholderText('Tên hoặc mã vật tư…'), 'VT-09')
     await waitFor(() => expect(seen.at(-1)?.get('code')).toBe('VT-09'))
     await user.click(await screen.findByRole('button', { name: 'Tìm theo tên' }))
-    await waitFor(() => expect(seen.at(-1)?.get('name')).toBe('VT-09'))
+    // BE không nhận '-' trong name (100731) → cắt tại '-' khi đổi sang tìm theo tên (luôn là tiền tố của chữ đã gõ).
+    await waitFor(() => expect(seen.at(-1)?.get('name')).toBe('VT'))
+  })
+
+  it('ô tìm chỉ toàn ký tự BE không nhận (@@@) → không gọi GET /materials, hiện trạng thái không có kết quả (không liệt kê cả danh mục)', async () => {
+    const seen = capture()
+    renderPage(ADMIN, '/materials?search=%40%40%40')
+
+    expect(await screen.findByText('Không có kết quả.')).toBeInTheDocument()
+    expect(screen.queryByText('Xi măng')).not.toBeInTheDocument()
+    await new Promise((r) => setTimeout(r, 100))
+    expect(seen).toHaveLength(0)
+  })
+
+  it('có dữ liệu rồi gõ @@@ → chân bảng không còn tổng cũ', async () => {
+    capture()
+    const { user } = renderPage()
+    expect(await screen.findByText('Xi măng')).toBeInTheDocument()
+    expect(screen.getByText('Trang 1 / 1 — 1 bản ghi')).toBeInTheDocument()
+
+    await user.type(screen.getByPlaceholderText('Tên hoặc mã vật tư…'), '@@@')
+    expect(await screen.findByText('Không có kết quả.')).toBeInTheDocument()
+    expect(screen.queryByText('Trang 1 / 1 — 1 bản ghi')).not.toBeInTheDocument()
+    expect(screen.getByText('Trang 1 / 1 — 0 bản ghi')).toBeInTheDocument()
   })
 
   it('bấm hàng → mở chi tiết', async () => {
@@ -130,5 +155,54 @@ describe('MaterialsPage', () => {
     await user.click(screen.getByRole('button', { name: 'Tìm theo tên' }))
     await waitFor(() => expect(seen.at(-1)?.get('name')).toBe('PVC'))
     expect(seen.at(-1)?.get('typeSlug')).toBe('mt-1')
+  })
+})
+
+describe('MaterialsPage — sắp xếp theo cột', () => {
+  it('bấm tiêu đề Mã: tăng dần → giảm dần → bỏ sắp xếp (không gửi sort/sortBy)', async () => {
+    const seen = capture()
+    const { user } = renderPage()
+    await screen.findByText('Xi măng')
+    expect(seen.at(-1)?.has('sortBy')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.get('sortBy')).toBe('code')
+      expect(seen.at(-1)?.get('sort')).toBe('ASC')
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('DESC'))
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(seen.at(-1)?.has('sortBy')).toBe(false))
+    expect(seen.at(-1)?.has('sort')).toBe(false)
+  })
+
+  it('cột Loại vật tư không sắp xếp được', async () => {
+    capture()
+    renderPage()
+    await screen.findByText('Xi măng')
+    expect(screen.queryByRole('button', { name: 'Loại vật tư' })).not.toBeInTheDocument()
+  })
+})
+
+describe('MaterialsPage — lọc ngày tạo', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('URL startDate/endDate → gửi đúng; ngược chiều → đảo lại; Xoá bộ lọc → hết tham số', async () => {
+    // Màn hẹp: nút "Xoá bộ lọc" nằm ngoài popover.
+    mockMobileViewport()
+    const seen = capture()
+    const { user } = renderPage(ADMIN, '/materials?startDate=2026-10-15&endDate=2026-10-01')
+    await screen.findByText('Xi măng')
+    expect(seen.at(-1)?.get('startDate')).toBe('2026-10-01')
+    expect(seen.at(-1)?.get('endDate')).toBe('2026-10-15')
+
+    await user.click(screen.getByRole('button', { name: 'Xoá bộ lọc' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.has('startDate')).toBe(false)
+      expect(seen.at(-1)?.has('endDate')).toBe(false)
+    })
   })
 })

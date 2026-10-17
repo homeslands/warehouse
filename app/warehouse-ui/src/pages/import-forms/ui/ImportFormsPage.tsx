@@ -5,10 +5,13 @@ import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
-import { useClampPage, useListParams } from '@/shared/lib/list-params'
+import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { toCreatedRange } from '@/shared/lib/date-range'
+import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
 import { ListToolbar } from '@/shared/ui/data-table/ListToolbar'
+import { DateRangeFilter } from '@/shared/ui/data-table/DateRangeFilter'
 import { SelectFilter } from '@/shared/ui/data-table/SelectFilter'
 import {
   DropdownMenu,
@@ -36,9 +39,13 @@ import { detailPath } from '../model/paths'
 const FILTERS = z.object({
   warehouse: z.string().optional(),
   status: z.enum(IMPORT_FORM_STATUSES).optional(),
+  // Ngày tạo. Sai định dạng trên URL → bỏ riêng khoá đó (`useListParams`).
+  startDate: z.iso.date().optional(),
+  endDate: z.iso.date().optional(),
 }) satisfies z.ZodType<{ warehouse?: string } & ImportFormFilters>
 
-const DEFAULT_SORT = ['createdAt:DESC']
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). Không có `importDate`. */
+const IMPORT_FORM_SORT_FIELDS = ['createdAt', 'code'] as const
 
 export function ImportFormsPage() {
   const { t } = useTranslation(['importForms', 'common'])
@@ -46,7 +53,8 @@ export function ImportFormsPage() {
   const navigate = useNavigate()
   const hintId = useId()
   const user = useAuthStore((s) => s.user)
-  const { page, size, filters, setPage, setSize, setFilters } = useListParams(FILTERS)
+  const { page, size, filters, sort, setPage, setSize, setFilters, setSort } =
+    useListParams(FILTERS)
   const onResolve = useCallback((slug: string) => setFilters({ warehouse: slug }), [setFilters])
   const selection = useWarehouseSelection(filters.warehouse, onResolve)
   const warehouse = selection.warehouse
@@ -66,8 +74,9 @@ export function ImportFormsPage() {
   const { data, isPending, error, isPlaceholderData } = useImportForms(warehouseSlug, {
     page,
     size,
-    sort: DEFAULT_SORT,
     status: filters.status,
+    ...toCreatedRange(filters.startDate, filters.endDate),
+    ...(BACKEND_SUPPORTS.importFormSort ? sortToParam(sort, IMPORT_FORM_SORT_FIELDS) : {}),
   })
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
 
@@ -185,10 +194,19 @@ export function ImportFormsPage() {
                 })),
               ]}
             />
+            <DateRangeFilter
+              label={t('importForms:filterCreatedAt')}
+              value={{ from: filters.startDate, to: filters.endDate }}
+              onChange={({ from, to }) => setFilters({ startDate: from, endDate: to })}
+            />
           </>
         }
-        activeFilterCount={filters.status ? 1 : 0}
-        onClearFilters={() => setFilters({ status: undefined })}
+        activeFilterCount={
+          [filters.status, filters.startDate || filters.endDate].filter(Boolean).length
+        }
+        onClearFilters={() =>
+          setFilters({ status: undefined, startDate: undefined, endDate: undefined })
+        }
         actions={
           canCreateHere &&
           warehouse && (
@@ -214,7 +232,12 @@ export function ImportFormsPage() {
       {warehouse && (
         <DataTable
           columns={columns}
-          emptyText={filters.status ? t('importForms:emptyFiltered') : t('importForms:empty')}
+          emptyText={
+            filters.status || filters.startDate || filters.endDate
+              ? t('importForms:emptyFiltered')
+              : t('importForms:empty')
+          }
+          sorting={BACKEND_SUPPORTS.importFormSort ? { value: sort, onChange: setSort } : undefined}
           onRowClick={(row) => {
             const { to, state } = detailLink(row)
             navigate(to, { state })

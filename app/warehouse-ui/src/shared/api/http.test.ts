@@ -630,14 +630,14 @@ describe('getPaginated — sắp xếp', () => {
     return seen
   }
 
-  it('gửi sort dưới dạng MẢNG — BaseQueryDto khai `sort?: string[]` kèm @IsArray()', async () => {
+  it('gửi sort (chiều) và sortBy (trường) thành hai tham số riêng', async () => {
     const seen = captureParams()
 
-    await getPaginated('/materials', { page: 1, size: 10, sort: ['name:DESC'] })
+    await getPaginated('/materials', { page: 1, size: 10, sort: 'DESC', sortBy: 'name' })
 
-    // `sort[]=…` là dạng axios sinh ra cho mảng và cũng là dạng Express/qs parse ngược về mảng.
-    // Gửi `sort=name:DESC` trần thì backend nhận chuỗi và @IsArray() từ chối.
-    expect(decodeURIComponent(new URL(seen.url).search)).toContain('sort[]=name:DESC')
+    const q = new URL(seen.url).searchParams
+    expect(q.get('sort')).toBe('DESC')
+    expect(q.get('sortBy')).toBe('name')
   })
 
   it('không sắp xếp thì không gửi tham số sort', async () => {
@@ -646,7 +646,7 @@ describe('getPaginated — sắp xếp', () => {
     await getPaginated('/materials', { page: 1, size: 10, sort: undefined })
 
     expect(new URL(seen.url).searchParams.has('sort')).toBe(false)
-    expect(new URL(seen.url).searchParams.has('sort[]')).toBe(false)
+    expect(new URL(seen.url).searchParams.has('sortBy')).toBe(false)
   })
 })
 

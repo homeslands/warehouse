@@ -59,6 +59,19 @@ describe('inventory.api', () => {
     expect(body).toEqual({ material, quantity: 0 })
   })
 
+  it('POST có NCC → body thêm supplierSlug', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok(item)
+      }),
+    )
+    const material = { code: 'VT-09', name: 'Xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' }
+    await createMaterialInWarehouse('w-a', material, 's-1')
+    expect(body).toEqual({ material, quantity: 0, supplierSlug: 's-1' })
+  })
+
   it('GET danh sách gửi đúng bộ lọc, bỏ bộ lọc trống', async () => {
     let url: URL | undefined
     server.use(

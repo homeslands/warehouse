@@ -10,10 +10,15 @@ export function buildMaterialTypeColumns(
 ): ColumnDef<MaterialType>[] {
   return [
     // Khung hẹp ẩn cột Mã (mã dài 32 ký tự sẽ chiếm hết bảng) → mã thành dòng phụ dưới tên.
-    { accessorKey: 'code', header: t('materialTypes:columnCode'), meta: { hideBelow: '@sm' } },
+    {
+      accessorKey: 'code',
+      header: t('materialTypes:columnCode'),
+      meta: { sortField: 'code', hideBelow: '@sm' },
+    },
     {
       accessorKey: 'name',
       header: t('materialTypes:columnName'),
+      meta: { sortField: 'name' },
       cell: ({ row }) => (
         <>
           <span className="block max-w-44 min-w-32 font-medium break-words whitespace-normal @sm:max-w-64">
@@ -45,7 +50,7 @@ export function buildMaterialTypeColumns(
     {
       accessorKey: 'createdAt',
       header: t('materialTypes:columnCreatedAt'),
-      meta: { hideBelow: '@4xl' },
+      meta: { sortField: 'createdAt', hideBelow: '@4xl' },
       cell: ({ row }) => formatDateTime(row.original.createdAt),
     },
   ]

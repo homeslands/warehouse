@@ -87,5 +87,6 @@
   "detachTitle": "Gỡ đơn vị quy đổi?",
   "detachConfirm": "Gỡ đơn vị <1>{{unit}}</1> khỏi vật tư này?",
   "detachAction": "Gỡ",
-  "detaching": "Đang gỡ..."
+  "detaching": "Đang gỡ...",
+  "filterCreatedAt": "Ngày tạo"
 }

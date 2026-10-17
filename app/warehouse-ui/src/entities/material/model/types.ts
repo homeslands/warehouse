@@ -30,7 +30,12 @@ export type Material = {
   suppliers: MaterialRef[]
   /** Kho đang có vật tư (rỗng khi chưa gắn kho nào). */
   warehouses: MaterialWarehouse[]
+  /** Đơn vị gốc trước; rỗng khi chưa có đơn vị. */
+  units: MaterialUnit[]
 }
+
+/** Một phần tử `units[]` của `MaterialResponseDto` — trùng hình dạng với một dòng đơn vị quy đổi. */
+export type MaterialUnit = MaterialConversionUnit
 
 /** Một phần tử `warehouses[]` của `MaterialResponseDto` — kho đang có vật tư, kèm tồn (đơn vị gốc). */
 export type MaterialWarehouse = {
@@ -63,6 +68,9 @@ export type MaterialFilters = {
   code?: string
   typeSlug?: string
   hasSupplier?: boolean
+  /** Ngày tạo từ / đến, `YYYY-MM-DD`, tính cả hai đầu. `startDate` > `endDate` → 400. */
+  startDate?: string
+  endDate?: string
 }
 
 /**

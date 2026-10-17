@@ -2,7 +2,7 @@ import { useEffect, useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
-import { toCodeOrNameQuery } from '@/shared/lib/code'
+import { toMaterialSearchQuery } from '@/shared/lib/code'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { Skeleton } from '@/shared/ui/skeleton'
@@ -34,7 +34,10 @@ type Props = {
   onBusyChange?: (busy: boolean) => void
 }
 
-/** Tìm danh mục vật tư (chưa có ở kho) và gắn vào kho. */
+/** Số vật tư tải sẵn khi ô tìm trống — BE không lọc được "chưa thuộc kho X" nên FE tự loại trong trang này. */
+const BROWSE_SIZE = 50
+
+/** Danh mục vật tư chưa có ở kho (ô trống: 50 vật tư đầu; có chữ: tìm phía BE) và gắn vào kho. */
 export function AssignExistingSection({
   warehouseSlug,
   search,
@@ -46,10 +49,15 @@ export function AssignExistingSection({
   const { t } = useTranslation(['inventory'])
   const hintId = useId()
   const debounced = useDebouncedValue(search.trim(), 300)
-  const query = toCodeOrNameQuery(debounced)
-  const enabled = debounced !== ''
-  // Ô tìm trống thì không gọi API.
-  const materials = useMaterials({ page: 1, size: 20, ...query }, { enabled })
+  const query = toMaterialSearchQuery(debounced)
+  // Ô trống → liệt kê sẵn trang đầu danh mục (kho mới không phải đoán tên để gõ). Có chữ mà toàn ký tự BE không nhận
+  // (sanitize ra rỗng) → không gọi API, hiện câu gợi ý.
+  const browsing = debounced === ''
+  const enabled = browsing || Object.keys(query).length > 0
+  const materials = useMaterials(
+    browsing ? { page: 1, size: BROWSE_SIZE } : { page: 1, size: 20, ...query },
+    { enabled },
+  )
   const assign = useAssignWarehouseMaterial()
   const [rowError, setRowError] = useState<{ search: string; message: string } | null>(null)
   const inFlight = useRef(false)
@@ -115,7 +123,7 @@ export function AssignExistingSection({
         <Skeleton className="h-16" />
       ) : candidates.length === 0 ? (
         <p className="text-muted-foreground text-sm">
-          {found.length === 1
+          {!browsing && found.length === 1
             ? t('inventory:catalogAlreadyInWarehouse')
             : t('inventory:catalogEmpty')}
         </p>
@@ -133,7 +141,9 @@ export function AssignExistingSection({
                   <p className="text-muted-foreground text-xs">
                     {t('inventory:catalogTypeUnit', {
                       type: m.type.name,
-                      unit: m.baseUnit?.code ?? t('inventory:noBaseUnit'),
+                      unit: m.units.length
+                        ? m.units.map((u) => u.unitCode).join(', ')
+                        : (m.baseUnit?.code ?? t('inventory:noBaseUnit')),
                     })}
                     {m.suppliers.length > 0 && (
                       <>
@@ -164,6 +174,12 @@ export function AssignExistingSection({
             )
           })}
         </ul>
+      )}
+      {/* Chỉ tải trang đầu: còn vật tư chưa hiện thì nói rõ để người dùng gõ tìm (kể cả khi trang đầu đều đã ở kho). */}
+      {browsing && materials.data && materials.data.total > found.length && (
+        <p className="text-muted-foreground text-xs">
+          {t('inventory:catalogBrowseLimit', { count: found.length })}
+        </p>
       )}
       {!canAssign && (
         <p id={hintId} className="text-muted-foreground text-xs">

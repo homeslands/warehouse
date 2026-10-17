@@ -118,6 +118,7 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100606: 'materialTypeCodeDoesExist',
   100607: 'materialTypeCodeReserved',
   100609: 'materialTypeInUse',
+  100610: 'materialTypeDateRangeInvalid',
   // warehouse-api src/material/material.validation.ts (WMS-15). 100711/100713/100719 backend không dùng.
   100701: 'materialNotFound',
   100702: 'materialNameIsRequired',
@@ -142,6 +143,7 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100724: 'materialBaseUnitSlugIsRequired',
   // `GET /materials?hasSupplier=` không phải true/false (WMS-13-be(9), 2026-10-12).
   100725: 'materialHasSupplierInvalid',
+  100729: 'materialDateRangeInvalid',
   // warehouse-api src/unit/unit.validation.ts (WMS-15). 100908 backend không dùng.
   100901: 'unitNotFound',
   100902: 'unitNameIsRequired',
@@ -194,6 +196,7 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   101220: 'supplierTransactionPaymentHasMaterial',
   101221: 'supplierMaterialDateInvalid',
   101222: 'supplierMaterialSlugsInvalid',
+  101223: 'supplierDateRangeInvalid',
   // warehouse-api src/import-form/import-form.validation.ts (WMS-16, 2026-10-13). 101309 backend đã bỏ.
   101301: 'importFormNotFound',
   101302: 'importFormCodeRequired',
@@ -222,6 +225,7 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   101326: 'importFormItemUnitNotOfMaterial',
   101327: 'importFormItemConversionRateInvalid',
   101328: 'importFormItemMaterialNotInWarehouse',
+  101331: 'importFormDateRangeInvalid',
   // warehouse-api src/inventory/inventory.validation.ts (2026-10-14). 100800 là DATA_VERSION_CONFLICT (khai ở trên).
   100801: 'inventoryNotFound',
   100802: 'inventoryDoesExist',
@@ -238,4 +242,12 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100813: 'inventoryReservedNotEmpty',
   100814: 'inventoryNoteInvalid',
   100815: 'inventoryMaterialRequired',
+  // BE sort/filter sync (2026-10-17): tìm vật tư, NCC của tồn kho, ngày lọc và sắp xếp.
+  100731: 'materialNameSearchInvalid',
+  100732: 'materialCodeSearchInvalid',
+  100816: 'inventorySupplierSlugInvalid',
+  100850: 'startDateInvalid',
+  100851: 'endDateInvalid',
+  100852: 'sortInvalid',
+  100853: 'sortByInvalid',
 }
