@@ -9,6 +9,7 @@
   "baseUnitPlaceholder": "Chọn đơn vị gốc",
   "baseUnitRequired": "Chọn đơn vị gốc",
   "catalogAlreadyInWarehouse": "Vật tư này đã có ở kho.",
+  "catalogBrowseLimit": "Hiện {{count}} vật tư đầu của danh mục — gõ mã hoặc tên để tìm thêm.",
   "catalogEmpty": "Không tìm thấy vật tư nào chưa có ở kho — có thể tạo ở tab \"Tạo vật tư mới\".",
   "catalogHint": "Gõ mã hoặc tên để tìm vật tư trong danh mục.",
   "catalogNotInWarehouse": "Trong danh mục, chưa có ở kho",

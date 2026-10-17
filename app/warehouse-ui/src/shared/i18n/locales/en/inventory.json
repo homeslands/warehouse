@@ -9,6 +9,7 @@
   "baseUnitPlaceholder": "Select base unit",
   "baseUnitRequired": "Select a base unit",
   "catalogAlreadyInWarehouse": "This material is already in the warehouse.",
+  "catalogBrowseLimit": "Showing the first {{count}} catalog materials — type a code or name to find more.",
   "catalogEmpty": "No materials outside this warehouse match — you can create one in the \"Create a new material\" tab.",
   "catalogHint": "Type a code or name to search the catalog.",
   "catalogNotInWarehouse": "In the catalog, not in this warehouse",

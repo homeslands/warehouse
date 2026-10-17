@@ -363,7 +363,8 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     → hộp thêm vật tư nằm ở `features/warehouse-material-add`; phiếu nhập nhận nó qua prop `AddMaterialDialog` do `pages/import-forms`
     truyền (feature không import feature). Kiểu dùng chung (`AddMaterialDialogProps`, `AddedMaterial`, `MaterialAddAbilities`,
     `NO_MATERIAL_ADD`) ở `entities/inventory`. Hộp có hai tab: "Chọn từ danh mục" (`GET /materials`, "đã ở kho" tính theo
-    `Material.warehouses`, + "Gắn vào kho" `PUT /warehouses/{w}/materials`) và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC;
+    `Material.warehouses`, + "Gắn vào kho" `PUT /warehouses/{w}/materials`; ô tìm **trống** liệt kê sẵn 50 vật tư đầu của danh mục rồi
+    loại vật tư đã ở kho — BE chưa có bộ lọc "chưa thuộc kho X" (`notInWarehouseSlug`) nên danh mục > 50 thì có dòng "gõ để tìm thêm") và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC;
     nút "Tạo và gắn vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp
     có thể nằm trong form phiếu). Câu mô tả của hộp là prop (phiếu nhập truyền câu riêng); chữ của hộp ở namespace `inventory`.
     Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`. Quyền
