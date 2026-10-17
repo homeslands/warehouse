@@ -672,7 +672,7 @@ mất công tìm cách sửa nó.
 
   | Thiếu / chặn tạm | Hệ quả ở FE |
   |---|---|
-  | Tìm `search`/`code`/`taxCode`/`phonenumber` (WMS-13, `dev` qua PR #89) **đã bật** `supplierSearch`; `sort` backend đang làm | `search` chỉ khớp tên / người liên hệ / email (KHÔNG khớp mã), `code` khớp đủ mã. Sắp xếp cột dựng sẵn sau `supplierSort` (**tắt**) — bật chỉ khi đã thử với API thật. Một ô tìm, đoán tham số theo dạng nhập (`pages/suppliers/model/search-query.ts`); 10 chữ số (MST hay SĐT) đoán sai thì câu báo trống có nút đổi (`?searchBy=`). Test với cờ bật: `SuppliersPage.sort-search.test.tsx` |
+  | Tìm `search`/`code`/`taxCode`/`phonenumber` (WMS-13, `dev` qua PR #89) **đã bật** `supplierSearch`; sắp xếp cột **đã bật** `supplierSort` | `search` chỉ khớp tên / người liên hệ / email (KHÔNG khớp mã), `code` khớp đủ mã. Sắp xếp cột Mã / Tên / Ngày tạo (`sortBy` `code|name|createdAt`), có thêm lọc khoảng ngày tạo (`startDate`/`endDate`). Một ô tìm, đoán tham số theo dạng nhập (`pages/suppliers/model/search-query.ts`); 10 chữ số (MST hay SĐT) đoán sai thì câu báo trống có nút đổi (`?searchBy=`). Test với cờ bật: `SuppliersPage.sort-search.test.tsx` |
   | Lọc `GET /suppliers/{slug}/materials` (`code` / `name` / `from` / `to`, WMS-13) | tab Vật tư có ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng "Ngày tạo vật tư", cờ `supplierMaterialFilters` **đã bật**. Bộ lọc giữ ở state của tab, không lên URL (tab Giao dịch đã dùng `page` / `startDate` / `endDate`). `from`/`to` theo ngày tạo VẬT TƯ, không phải ngày gắn |
   | WMS-13 **tạm ẩn** `GET`/`POST /suppliers/{slug}/transactions` | tab Giao dịch sau cờ `supplierTransactions` (**tắt**): trang chỉ còn Hồ sơ + Vật tư, `?tab=transactions` rơi về Vật tư. Code tab / form ghi giao dịch giữ nguyên |
   | Gắn / gỡ theo lô (WMS-13-be: `PUT`/`DELETE /suppliers/{slug}/materials`, body `{ materialSlugs }` 1–100; route cũ `/:materialSlug` đã bị xoá) — **tất cả hoặc không**, lỗi không nói vật tư nào hỏng | hộp Gắn = danh sách có ô tìm (bỏ dấu, `shared/lib/search-text.ts`) + ô tick, "Gắn (n)"; chọn nhiều mà bị 100701 thì câu báo nói rõ CẢ LÔ chưa gắn. Bảng Vật tư có cột ô tick (chỉ trang đang xem; đổi trang/bộ lọc là bỏ chọn) + nút "Gỡ (n)"; gỡ một vật tư qua menu ⋯. Ô tick là component cố định đọc `SelectionContext`, mảng cột `useMemo` — `flexRender` coi `header`/`cell` inline là component, dựng lại mảng cột sẽ remount ô và mất focus bàn phím |
@@ -686,11 +686,17 @@ mất công tìm cách sửa nó.
   Vật tư cần thêm `MATERIAL_READ`. Trên sandbox (2026-10-08) chỉ ADMIN có quyền ghi; MANAGER / SUPERVISOR chỉ xem.
 - **Vật tư / Loại vật tư / Đơn vị (`/materials`, `/material-types`, `/units`, WMS-15): đã dùng API thật.** Test tay:
   `docs/test-checklists/WMS-15-fe-material-checklist.md`. Còn treo:
-  - BE bỏ qua `sort` → không sắp xếp theo cột. Ô chọn Loại / Đơn vị / đơn vị gắn được chỉ lấy **100 bản ghi đầu**
+  - Sắp xếp cột Mã / Tên / Ngày tạo (`materialSort`, `materialTypeSort` **đã bật**) và lọc khoảng ngày tạo (`toCreatedRange`, `shared/lib/date-range.ts`) — xem mục "Sắp xếp theo cột và tìm kiếm". Ô chọn Loại / Đơn vị / đơn vị gắn được chỉ lấy **100 bản ghi đầu**
     (lọc tại client; giá trị đang gán nằm ngoài vẫn được chèn vào ô chọn của form sửa); vượt thì cần tìm phía server.
   - Ô tìm "mã hoặc tên" (`toCodeOrNameQuery`, `shared/lib/code.ts`): có số / gạch hoặc gõ toàn chữ hoa một từ (`KG`)
-    → `code` (khớp đúng), còn lại → `name`. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
+    → `code`, còn lại → `name`. Với `GET /materials` cả hai đều khớp **tiền tố** (không phân biệt hoa thường); `code` chỉ nhận
+    `A-Z 0-9 _ -`, `name` chỉ chữ (kể cả tiếng Việt) / số / khoảng trắng — ký tự khác BE trả 400 (100732 / 100731), nên FE làm sạch
+    bằng `toMaterialSearchQuery` (`shared/lib/code.ts`): ký tự không hợp lệ trong tên **đổi thành khoảng trắng**, trong mã thì **bị xoá**.
+    Ô tìm chỉ toàn ký hiệu → **không gửi request**: trang Vật tư hiện trạng thái trống-do-lọc, ô tìm danh mục trong hộp thêm vật tư hiện câu gợi ý.
+    Loại vật tư / NCC vẫn `code` khớp đúng. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
     (`CodeOrNameEmpty`, `?searchBy=`).
+  - Vật tư trả `units[]` (`unitSlug`, `unitCode`, `unitName`, `conversionRate`, `isBaseUnit`; đơn vị gốc đứng trước); `MaterialUnit` là alias của
+    `MaterialConversionUnit`. Hiện ở ô tìm danh mục trong hộp thêm vật tư.
   - **Cấu trúc `MaterialResponseDto` đổi ở WMS-13-be(9) (2026-10-12)**: loại / đơn vị gốc là object lồng `type`, `baseUnit`
     (`null` = chưa có), thêm `hasSupplier` + `suppliers[]` (nhiều NCC từ 2026-10-15, trước đó là `supplier` đơn lẻ); các trường phẳng `typeSlug`/`typeCode`/`baseUnitCode`… **đã bỏ**.
     Body gửi lên và bộ lọc vẫn là `typeSlug` / `baseUnitSlug`. `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng
@@ -709,7 +715,8 @@ mất công tìm cách sửa nó.
   - Ô tìm sau cờ `inventorySearch` (**tắt**) — BE đang làm `name` / `code`; bật chỉ khi đã thử với API thật.
   - Đơn vị gốc khai **tuỳ chọn** `baseUnitSlug` / `baseUnitCode` / `baseUnitName` trong `InventoryItem` (BE đang thêm; đặt tên khác
     thì sửa type). Chưa có thì ô số lượng không kèm đơn vị.
-  - Không sort (BE bỏ qua `sort`).
+  - Không sort: `GET /warehouses/{w}/materials` chưa đổi (chưa nhận `sort`/`sortBy`), bảng không khai `sortField`.
+  - Tạo vật tư mới trong hộp thêm vật tư gửi `supplierSlug` ngay trong `POST` (một request, một transaction: tạo + gắn kho + gắn NCC). NCC không tồn tại (101201) / `supplierSlug` sai (100816) hiện ngay tại ô Nhà cung cấp, không tạo gì; không còn toast lỗi nửa chừng.
   - Sheet lịch sử mở bằng `?material=` — mở bằng URL thì lấy tồn từ `GET /materials/{slug}` (`warehouses[]`) nên **không hiện ngưỡng**.
     Lỗi tải hiện tại chỗ trong sheet kèm nút "Thử lại". Ghi chú "Import form X" đổi thành "Phiếu nhập X" bằng mẫu chuỗi.
   - Gỡ chặn sẵn khi tồn / giữ chỗ > 0; mã 100801 coi như đã gỡ (không còn nhánh riêng).
@@ -735,20 +742,37 @@ mất công tìm cách sửa nó.
 - **`phonenumber` / `email` gửi `undefined` khi trống nên không xoá được giá trị cũ qua form** (khác với
   `description`/`address`/`invoiceAddress`, gửi `''` xoá được bình thường) — hệ quả trực tiếp của bẫy
   "Ô tuỳ chọn và chuỗi rỗng" ở trên; cần API riêng hoặc backend nới `@IsOptional()` mới xoá được.
-- **Sắp xếp theo cột và tìm kiếm: FE ĐÃ DỰNG SẴN, backend chưa làm.** Cả hai nằm sau cờ trong
-  `shared/api/backend-capabilities.ts` (`BACKEND_SUPPORTS.sort` / `.search`), mặc định `false`.
-  - Sort: `useListParams` giữ trạng thái trên URL (`?sort=name:DESC`), `sortToParam` đổi sang dạng
-    `['name:DESC']` mà `BaseQueryDto` khai (`@IsArray()` → phải là mảng, `sort[]=…` trên query
-    string). `DataTable` nhận prop `sorting`; cột nào sắp được thì khai
-    `meta: { sortField: '<trường>' }` trong `ColumnDef`. Bấm lần lượt tăng → giảm → thôi sắp.
+- **Sắp xếp theo cột, lọc ngày và tìm kiếm.** Mỗi màn sau cờ riêng trong `shared/api/backend-capabilities.ts`;
+  cờ `sort` / `search` chung (mặc định `false`) chỉ còn dành cho Kho và Cửa hàng.
+  - Sort: `useListParams` giữ trạng thái trên URL (`?sort=name:DESC`, không đổi). `sortToParam(sort, allowed)`
+    (`shared/lib/list-params.ts`) đổi sang định dạng BE mới `sort=ASC|DESC` + `sortBy=<trường>`
+    (`ListParams.sort` / `.sortBy`); trường không nằm trong `allowed` (URL cũ / bookmark, vd `?sort=firstName:ASC`)
+    bị bỏ → `{}`, không gửi `sortBy` lạ (BE trả 400 `SORT_BY_INVALID` 100853), bảng hiện không sắp. Không có `sort` thì BE
+    mặc định `createdAt DESC`. **Đừng gửi `sort[]=x:DESC`** (định dạng cũ, BE trả 400 `SORT_INVALID` 100852).
+    `DataTable` nhận prop `sorting`; cột nào sắp được thì khai `meta: { sortField: '<trường>' }` trong `ColumnDef`
+    và trường đó phải có trong danh sách `allowed` của màn. Bấm lần lượt tăng → giảm → thôi sắp.
     **Không dùng `getSortedRowModel`** của TanStack: nó chỉ sắp trong trang hiện tại (10–50 dòng)
     nên người dùng tưởng cả danh sách đã sắp — sai âm thầm, tệ hơn là không có.
-  - Search: `SearchInput` đã gắn sẵn vào `ListToolbar` của hai màn, khoá bộ lọc là `search`.
+  - Trường sắp được theo màn (đúng enum `sortBy` của BE):
+
+    | Màn | Cờ | Trường |
+    | --- | --- | --- |
+    | Người dùng | `userSort` (bật) | `createdAt`, `name` (BE còn `dob` nhưng chưa có cột) |
+    | Nhà cung cấp | `supplierSort` (bật) | `code`, `name`, `createdAt` |
+    | Vật tư | `materialSort` (bật) | `code`, `name`, `createdAt` |
+    | Loại vật tư | `materialTypeSort` (bật) | `code`, `name`, `createdAt` |
+    | Phiếu nhập | `importFormSort` (bật) | `code` (không có cột ngày tạo → Ngày nhập không sắp được) |
+    | Kho, Cửa hàng | `sort` (**tắt**) | BE chưa đổi |
+
+  - Lọc ngày tạo: `startDate` / `endDate` (`YYYY-MM-DD`, gồm hai đầu) ở Người dùng, Vật tư, Loại vật tư, NCC, Phiếu nhập,
+    dùng `DateRangeFilter` + `toCreatedRange` (`shared/lib/date-range.ts`; khoảng đảo ngược thì tự đổi chỗ). Test bấm "Xoá bộ lọc":
+    trong jsdom nút chỉ hiện ở hàng chip mobile hoặc popover → dùng `mockMobileViewport` (`shared/test/viewport.ts`).
+  - Search Kho / Cửa hàng: `SearchInput` đã gắn sẵn vào `ListToolbar` của hai màn, khoá bộ lọc là `search`.
     **Tên tham số chưa chốt với backend** — nếu backend đặt `q`/`keyword`/`name` thì đổi khoá đó ở
     `WarehouseFilters`/`StoreFilters` và trong `FILTERS` của hai màn.
   - **Bật cờ chỉ khi đã thử với API thật.** Bật nhầm thì UI hiện mũi tên / ô tìm mà dữ liệu không
     đổi. Phần sau cờ có test riêng chạy với cờ BẬT
-    (`pages/warehouses/ui/WarehousesPage.sort-search.test.tsx`) — sửa phần này thì chạy cả file đó.
+    (`pages/warehouses/ui/WarehousesPage.sort-search.test.tsx`, `pages/suppliers/ui/SuppliersPage.sort-search.test.tsx`) — sửa phần này thì chạy cả các file đó.
 - **Root `tsconfig.json` dùng `baseUrl`**, field mà TypeScript 6 deprecate. Xem lại khi nâng cấp TS,
   và kiểm lại `npx shadcn add` vẫn ghi đúng vào `src/shared/ui/` sau khi sửa.
 - **Refresh token nằm ở `localStorage`.** XSS đọc được và giữ phiên **vô thời hạn**: mỗi lần
@@ -809,7 +833,7 @@ mất công tìm cách sửa nó.
   đó chưa có endpoint — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend làm module đó và gác bằng `@RequireAuthority`.
 - **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
   key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
-  không có chỉ số dòng → chỉ toast; chưa lọc theo mã / ngày → không có ô tìm; dòng phiếu không có mã đơn vị gốc → cột quy đổi
+  không có chỉ số dòng → chỉ toast; đã lọc theo ngày tạo (`toCreatedRange`) và sắp xếp theo Mã (`importFormSort`; cột Ngày nhập không sắp được vì danh sách không có cột ngày tạo), nhưng chưa lọc theo mã → không có ô tìm; dòng phiếu không có mã đơn vị gốc → cột quy đổi
   thiếu mã khi phiếu không có dòng 1:1; ô chọn vật tư tải 100 vật tư đầu của kho. Test tay:
   `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
   `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
