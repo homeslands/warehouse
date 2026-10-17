@@ -11,8 +11,7 @@ import { WarehouseStatusBadge } from './WarehouseStatusBadge'
 export type DetailLink<T> = (row: T) => { to: string; state?: unknown }
 
 /**
- * Không có cột sắp xếp: `BaseQueryDto` nhận `sort` nhưng chưa service nào xử lý (mọi danh sách
- * `createdAt DESC`). Cột Quản lý hiện "Họ tên (số điện thoại)" từ `manager`.
+ * `sortField` chỉ có tác dụng khi màn bật `sorting` (cờ `sort`). Cột Quản lý hiện "Họ tên (số điện thoại)" từ `manager`.
  * Khung bảng hẹp ẩn cột phụ (`meta.hideBelow`, theo container) — hẹp nhất còn Tên, Trạng thái, Thao tác;
  * đủ thông tin ở trang chi tiết. Tên được xuống dòng nhưng giữ tối thiểu 5rem.
  * Ô ngày format lúc render: bảng render lại khi đổi ngôn ngữ vì trang gọi `useTranslation()`.

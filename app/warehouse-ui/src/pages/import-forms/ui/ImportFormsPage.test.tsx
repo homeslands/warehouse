@@ -310,3 +310,32 @@ describe('ImportFormsPage', () => {
     })
   })
 })
+
+describe('ImportFormsPage — sắp xếp theo cột', () => {
+  it('bấm tiêu đề Mã phiếu: tăng dần → giảm dần → bỏ sắp xếp (không gửi sort/sortBy)', async () => {
+    const seen = mock([kho('w-a', 'A')])
+    const { user } = renderPage('/import-forms?warehouse=w-a')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    expect(seen.at(-1)?.has('sortBy')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Mã phiếu' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.get('sortBy')).toBe('code')
+      expect(seen.at(-1)?.get('sort')).toBe('ASC')
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Mã phiếu' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('DESC'))
+
+    await user.click(screen.getByRole('button', { name: 'Mã phiếu' }))
+    await waitFor(() => expect(seen.at(-1)?.has('sortBy')).toBe(false))
+    expect(seen.at(-1)?.has('sort')).toBe(false)
+  })
+
+  it('cột Ngày nhập (importDate) không sắp xếp được — BE không sắp theo trường này', async () => {
+    mock([kho('w-a', 'A')])
+    renderPage('/import-forms?warehouse=w-a')
+    await screen.findByRole('link', { name: 'PN-0001' })
+    expect(screen.queryByRole('button', { name: 'Ngày nhập' })).not.toBeInTheDocument()
+  })
+})

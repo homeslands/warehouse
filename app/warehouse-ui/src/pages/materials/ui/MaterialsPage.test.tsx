@@ -144,3 +144,32 @@ describe('MaterialsPage', () => {
     expect(seen.at(-1)?.get('typeSlug')).toBe('mt-1')
   })
 })
+
+describe('MaterialsPage — sắp xếp theo cột', () => {
+  it('bấm tiêu đề Mã: tăng dần → giảm dần → bỏ sắp xếp (không gửi sort/sortBy)', async () => {
+    const seen = capture()
+    const { user } = renderPage()
+    await screen.findByText('Xi măng')
+    expect(seen.at(-1)?.has('sortBy')).toBe(false)
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.get('sortBy')).toBe('code')
+      expect(seen.at(-1)?.get('sort')).toBe('ASC')
+    })
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(seen.at(-1)?.get('sort')).toBe('DESC'))
+
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
+    await waitFor(() => expect(seen.at(-1)?.has('sortBy')).toBe(false))
+    expect(seen.at(-1)?.has('sort')).toBe(false)
+  })
+
+  it('cột Loại vật tư không sắp xếp được', async () => {
+    capture()
+    renderPage()
+    await screen.findByText('Xi măng')
+    expect(screen.queryByRole('button', { name: 'Loại vật tư' })).not.toBeInTheDocument()
+  })
+})

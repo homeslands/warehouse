@@ -4,8 +4,9 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
+import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
 import { toMaterialSearchQuery } from '@/shared/lib/code'
-import { useClampPage, useListParams } from '@/shared/lib/list-params'
+import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { CodeOrNameEmpty } from '@/shared/ui/data-table/CodeOrNameEmpty'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
@@ -38,6 +39,9 @@ const FILTERS = z.object({
   typeSlug: z.string().optional(),
 }) satisfies z.ZodType<Pick<MaterialFilters, 'typeSlug'>>
 
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const MATERIAL_SORT_FIELDS = ['createdAt', 'name', 'code'] as const
+
 export function MaterialsPage() {
   const { t } = useTranslation(['materials', 'common'])
   const location = useLocation()
@@ -51,7 +55,7 @@ export function MaterialsPage() {
   const user = useAuthStore((s) => s.user)
   const ability = materialAbilities(user)
 
-  const { page, size, filters, setPage, setSize, setFilters } = useListParams(FILTERS)
+  const { page, size, filters, sort, setPage, setSize, setFilters, setSort } = useListParams(FILTERS)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Material | undefined>(undefined)
   const [deleting, setDeleting] = useState<Material | null>(null)
@@ -62,7 +66,13 @@ export function MaterialsPage() {
   const symbolOnlySearch =
     (filters.search ?? '').trim() !== '' && Object.keys(searchQuery).length === 0
   const { data, isPending, error, isPlaceholderData } = useMaterials(
-    { page, size, typeSlug: filters.typeSlug, ...searchQuery },
+    {
+      page,
+      size,
+      typeSlug: filters.typeSlug,
+      ...(BACKEND_SUPPORTS.materialSort ? sortToParam(sort, MATERIAL_SORT_FIELDS) : {}),
+      ...searchQuery,
+    },
     { enabled: !symbolOnlySearch },
   )
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
@@ -192,6 +202,7 @@ export function MaterialsPage() {
       <DataTable
         columns={columns}
         emptyText={emptyText}
+        sorting={BACKEND_SUPPORTS.materialSort ? { value: sort, onChange: setSort } : undefined}
         onRowClick={(row) => {
           const { to, state } = detailLink(row)
           navigate(to, { state })

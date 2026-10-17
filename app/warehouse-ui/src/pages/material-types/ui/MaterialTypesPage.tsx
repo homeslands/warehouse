@@ -4,7 +4,8 @@ import { useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
 import { toCodeOrNameQuery } from '@/shared/lib/code'
-import { useClampPage, useListParams } from '@/shared/lib/list-params'
+import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { CodeOrNameEmpty } from '@/shared/ui/data-table/CodeOrNameEmpty'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
@@ -33,12 +34,15 @@ const FILTERS = z.object({
   searchBy: z.enum(['code', 'name']).optional(),
 })
 
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const MATERIAL_TYPE_SORT_FIELDS = ['createdAt', 'name', 'code'] as const
+
 export function MaterialTypesPage() {
   const { t } = useTranslation(['materialTypes', 'common'])
   const user = useAuthStore((s) => s.user)
   const ability = materialTypeAbilities(user)
 
-  const { page, size, filters, setPage, setSize, setFilters } = useListParams(FILTERS)
+  const { page, size, filters, sort, setPage, setSize, setFilters, setSort } = useListParams(FILTERS)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<MaterialType | undefined>(undefined)
   const [deleting, setDeleting] = useState<MaterialType | null>(null)
@@ -47,6 +51,7 @@ export function MaterialTypesPage() {
   const { data, isPending, error, isPlaceholderData } = useMaterialTypes({
     page,
     size,
+    ...(BACKEND_SUPPORTS.materialTypeSort ? sortToParam(sort, MATERIAL_TYPE_SORT_FIELDS) : {}),
     ...searchQuery,
   })
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
@@ -148,6 +153,7 @@ export function MaterialTypesPage() {
       <DataTable
         columns={columns}
         emptyText={emptyText}
+        sorting={BACKEND_SUPPORTS.materialTypeSort ? { value: sort, onChange: setSort } : undefined}
         data={data?.items}
         isLoading={isPending}
         error={error}
