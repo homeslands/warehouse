@@ -35,6 +35,7 @@ export const IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE =
   'IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE';
 export const IMPORT_FORM_FILE_TYPE_NOT_ALLOWED = 'IMPORT_FORM_FILE_TYPE_NOT_ALLOWED';
 export const IMPORT_FORM_DATE_RANGE_INVALID = 'IMPORT_FORM_DATE_RANGE_INVALID';
+export const IMPORT_FORM_CODE_SEARCH_INVALID = 'IMPORT_FORM_CODE_SEARCH_INVALID';
 export const IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL =
   'IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL';
 
@@ -68,7 +69,8 @@ export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE
   | typeof IMPORT_FORM_FILE_TYPE_NOT_ALLOWED
   | typeof IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL
-  | typeof IMPORT_FORM_DATE_RANGE_INVALID;
+  | typeof IMPORT_FORM_DATE_RANGE_INVALID
+  | typeof IMPORT_FORM_CODE_SEARCH_INVALID;
 
 export type TImportFormErrorCode = Record<TImportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -174,6 +176,12 @@ export const ImportFormValidation: TImportFormErrorCode = {
   IMPORT_FORM_DATE_RANGE_INVALID: createErrorCode(
     101331,
     'startDate must not be after endDate',
+    HttpStatus.BAD_REQUEST,
+  ),
+  // `code` của `GET .../import-forms` và `GET .../import-forms/available-materials`.
+  IMPORT_FORM_CODE_SEARCH_INVALID: createErrorCode(
+    101332,
+    'code may only contain letters, digits, "_" and "-"',
     HttpStatus.BAD_REQUEST,
   ),
 };

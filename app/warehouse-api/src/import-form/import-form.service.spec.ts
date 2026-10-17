@@ -560,11 +560,14 @@ describe('ImportFormService', () => {
         page: 1,
         size: 10,
         name: 'Xi',
+        code: 'XM_',
       } as never);
 
       const [options] = inventoryRepository.findAndCount.mock.calls[0];
       expect(options.where.warehouse).toEqual({ id: 'wh-1' });
       expect(options.where.material.name.value).toBe('%Xi%');
+      // Tiền tố, `_` được escape để không thành ký tự đại diện của LIKE.
+      expect(options.where.material.code.value).toBe('XM\\_%');
       expect(result).toMatchObject({ total: 1, page: 1, totalPages: 1, hasNext: false });
       expect(result.items).toEqual([
         {
@@ -629,6 +632,18 @@ describe('ImportFormService', () => {
         'items',
       );
       expect(result.items[0].items).toBeUndefined(); // undefined ⇒ JSON bỏ hẳn key
+    });
+
+    it('filters code by prefix, escaping LIKE wildcards', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug', { page: 1, size: 10, code: 'PN_2026' });
+
+      expect(importFormRepository.findAndCount.mock.calls[0][0].where.code).toMatchObject({
+        _type: 'like',
+        _value: 'PN\\_2026%',
+      });
     });
 
     it('filters createdAt by startDate / endDate and orders by sort (default DESC)', async () => {

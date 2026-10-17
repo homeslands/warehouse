@@ -24,7 +24,7 @@ export const AppCommonValidation: TAppCommonErrorCode = {
     'Data has been modified by another request, please reload and try again',
     HttpStatus.CONFLICT,
   ),
-  // `PaginationQueryDto` (`src/app/base.dto.ts`). 100801+ đã bị inventory dùng ⇒ nhảy lên 1008(5x).
+  // `BaseQueryDto` (`src/app/base.dto.ts`). 100801+ đã bị inventory dùng ⇒ nhảy lên 1008(5x).
   START_DATE_INVALID: createErrorCode(
     100850,
     'startDate must be a valid date (YYYY-MM-DD or ISO 8601)',

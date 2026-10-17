@@ -43,7 +43,12 @@ import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
-import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
 import { AuthorityCode, TAuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { RoleEnum } from 'src/role/role.enum';
@@ -187,6 +192,8 @@ export class ImportFormService {
 
     const where: FindOptionsWhere<ImportForm> = { warehouse: { slug: warehouseSlug } };
     if (query.status) where.status = query.status;
+    // Tìm theo tiền tố (`LIKE 'x%'`) — dùng được index UNIQUE của `code_column`.
+    if (query.code) where.code = Like(`${escapeLike(query.code)}%`);
     const createdAt = toDateRangeOperator(start, end);
     if (createdAt) where.createdAt = createdAt;
 
@@ -221,7 +228,7 @@ export class ImportFormService {
     const warehouse = await this.findWarehouse(warehouseSlug);
 
     const materialWhere: FindOptionsWhere<Material> = {};
-    if (query.code) materialWhere.code = query.code;
+    if (query.code) materialWhere.code = Like(`${escapeLike(query.code)}%`);
     if (query.name) materialWhere.name = Like(`%${query.name}%`);
 
     const [rows, total] = await this.inventoryRepository.findAndCount({

@@ -17,15 +17,11 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import {
-  BaseQueryDto,
-  BaseResponseDto,
-  PaginationQueryDto,
-  VersionedResponseDto,
-} from 'src/app/base.dto';
+import { BaseQueryDto, BaseResponseDto, VersionedResponseDto } from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { QUANTITY_SCALE } from 'src/shared/utils/decimal.transformer';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
+import { SEARCH_CODE_REGEX } from 'src/shared/utils/query.util';
 import {
   IMPORT_FORM_DATE_REGEX,
   IMPORT_FORM_FILE_MAX_LENGTH,
@@ -36,6 +32,8 @@ import {
 } from './import-form.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
+const upper = ({ value }: { value: unknown }) =>
+  typeof value === 'string' ? value.trim().toUpperCase() : value;
 
 /**
  * 1 dòng vật tư trong body. Chỉ nhận slug + số lượng + đơn giá: tỉ lệ quy đổi, mã/tên vật tư/đơn vị,
@@ -184,11 +182,20 @@ export enum ImportFormSortBy {
   Code = 'code',
 }
 
-export class GetAllImportFormRequestDto extends PaginationQueryDto {
+export class GetAllImportFormRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ enum: ImportFormStatus })
   @IsOptional()
   @IsEnum(ImportFormStatus, { message: 'IMPORT_FORM_STATUS_INVALID' })
   status?: ImportFormStatus;
+
+  @ApiPropertyOptional({
+    description: 'Filter by form code (prefix match, case-insensitive)',
+    example: 'PN-2026',
+  })
+  @IsOptional()
+  @Transform(upper)
+  @Matches(SEARCH_CODE_REGEX, { message: 'IMPORT_FORM_CODE_SEARCH_INVALID' })
+  code?: string;
 
   @ApiPropertyOptional({
     description: 'Sort field',
@@ -201,10 +208,13 @@ export class GetAllImportFormRequestDto extends PaginationQueryDto {
 }
 
 export class GetImportFormAvailableMaterialRequestDto extends BaseQueryDto {
-  @ApiPropertyOptional({ description: 'Exact material code' })
+  @ApiPropertyOptional({
+    description: 'Filter by material code (prefix match, case-insensitive)',
+    example: 'MAT-',
+  })
   @IsOptional()
-  @Transform(trim)
-  @IsString()
+  @Transform(upper)
+  @Matches(SEARCH_CODE_REGEX, { message: 'IMPORT_FORM_CODE_SEARCH_INVALID' })
   code?: string;
 
   @ApiPropertyOptional({ description: 'Part of the material name' })
