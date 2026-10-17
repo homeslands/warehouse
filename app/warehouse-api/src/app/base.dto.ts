@@ -8,15 +8,18 @@ export enum SortOrder {
   DESC = 'DESC',
 }
 
+/**
+ * Query phân trang + sắp xếp + lọc theo ngày tạo (`createdAt`) dùng chung cho mọi endpoint danh sách.
+ */
 export class BaseQueryDto {
-  @ApiPropertyOptional({ description: 'Page number', example: 1, default: 1 })
+  @ApiPropertyOptional({ type: Number, description: 'Page number', example: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
   @Min(1)
   page = 1;
 
-  @ApiPropertyOptional({ description: 'Page size', example: 10, default: 10 })
+  @ApiPropertyOptional({ type: Number, description: 'Page size', example: 10, default: 10 })
   @IsOptional()
   @Type(() => Number)
   @IsInt()
@@ -34,13 +37,7 @@ export class BaseQueryDto {
   )
   @IsEnum(SortOrder, { message: 'SORT_INVALID' })
   sort?: SortOrder = SortOrder.DESC;
-}
 
-/**
- * Query phân trang kèm lọc theo ngày tạo (`createdAt`). Cả 2 mốc đều optional, service tự quy đổi
- * bằng `resolveDateRange()` (`src/shared/utils/query.util.ts`) và tự kiểm `startDate <= endDate`.
- */
-export class PaginationQueryDto extends BaseQueryDto {
   @ApiPropertyOptional({
     description:
       'Creation date from (inclusive). `YYYY-MM-DD` counts from 00:00 server time, or a full ' +
