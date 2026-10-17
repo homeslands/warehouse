@@ -29,6 +29,7 @@ export type {
   Material,
   MaterialRef,
   MaterialWarehouse,
+  MaterialUnit,
   MaterialInput,
   MaterialUpdateInput,
   MaterialFilters,

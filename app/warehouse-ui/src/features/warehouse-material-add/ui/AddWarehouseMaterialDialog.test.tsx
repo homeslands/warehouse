@@ -25,6 +25,7 @@ const cement: Material = {
   hasSupplier: false,
   suppliers: [],
   warehouses: [],
+  units: [],
 }
 const CEMENT_ADDED: AddedMaterial = {
   slug: 'm-cement',

@@ -133,7 +133,9 @@ export function AssignExistingSection({
                   <p className="text-muted-foreground text-xs">
                     {t('inventory:catalogTypeUnit', {
                       type: m.type.name,
-                      unit: m.baseUnit?.code ?? t('inventory:noBaseUnit'),
+                      unit: m.units.length
+                        ? m.units.map((u) => u.unitCode).join(', ')
+                        : (m.baseUnit?.code ?? t('inventory:noBaseUnit')),
                     })}
                     {m.suppliers.length > 0 && (
                       <>
