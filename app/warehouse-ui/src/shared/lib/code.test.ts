@@ -4,6 +4,7 @@ import {
   canSearchByCode,
   isCodeLike,
   toCodeOrNameQuery,
+  toMaterialSearchQuery,
   UNIT_CODE_REGEX,
 } from './code'
 
@@ -75,5 +76,25 @@ describe('canSearchByCode', () => {
     expect(canSearchByCode('đá')).toBe(false)
     expect(canSearchByCode('  ')).toBe(false)
     expect(canSearchByCode(undefined)).toBe(false)
+  })
+})
+
+describe('toMaterialSearchQuery — chỉ gửi ký tự BE nhận (GET /materials)', () => {
+  it('ngoặc / dấu phẩy bị bỏ, khoảng trắng gộp lại', () => {
+    expect(toMaterialSearchQuery('xi măng (PCB40)')).toEqual({ name: 'xi măng PCB40' })
+    expect(toMaterialSearchQuery('bột, đường')).toEqual({ name: 'bột đường' })
+    expect(toMaterialSearchQuery('  xi   măng  ')).toEqual({ name: 'xi măng' })
+  })
+  it('toàn ký tự không hợp lệ → {} (không gửi khoá nào)', () => {
+    expect(toMaterialSearchQuery('@@@')).toEqual({})
+    expect(toMaterialSearchQuery('   ')).toEqual({})
+    expect(toMaterialSearchQuery(undefined)).toEqual({})
+  })
+  it('dạng mã → code viết hoa', () => {
+    expect(toMaterialSearchQuery('vt-09')).toEqual({ code: 'VT-09' })
+  })
+  it('prefer = code: chuỗi có thể là mã → code; chuỗi không thể là mã rơi về name đã làm sạch', () => {
+    expect(toMaterialSearchQuery('ab-c', 'code')).toEqual({ code: 'AB-C' })
+    expect(toMaterialSearchQuery('ab.c', 'code')).toEqual({ name: 'abc' })
   })
 })

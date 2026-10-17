@@ -96,7 +96,8 @@ describe('MaterialsPage', () => {
     await user.type(screen.getByPlaceholderText('Tên hoặc mã vật tư…'), 'VT-09')
     await waitFor(() => expect(seen.at(-1)?.get('code')).toBe('VT-09'))
     await user.click(await screen.findByRole('button', { name: 'Tìm theo tên' }))
-    await waitFor(() => expect(seen.at(-1)?.get('name')).toBe('VT-09'))
+    // BE không nhận '-' trong name (100731) → gạch bị bỏ khi đổi sang tìm theo tên.
+    await waitFor(() => expect(seen.at(-1)?.get('name')).toBe('VT09'))
   })
 
   it('bấm hàng → mở chi tiết', async () => {
