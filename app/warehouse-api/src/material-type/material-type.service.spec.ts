@@ -5,6 +5,9 @@ import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MaterialTypeService } from './material-type.service';
+import { SortOrder } from 'src/app/base.dto';
+import { MaterialTypeSortBy } from './material-type.dto';
+import { AppCommonValidation } from 'src/app/app-common.validation';
 import { MaterialTypeProfile } from './material-type.mapper';
 import { MaterialType } from './material-type.entity';
 import { MaterialTypeException } from './material-type.exception';
@@ -105,6 +108,69 @@ describe('MaterialTypeService', () => {
         service.createMaterialType({ name: 'Vật tư tiêu hao', code: 'MT-02' }),
         MaterialTypeValidation.MATERIAL_TYPE_NAME_DOES_EXIST.code,
       );
+    });
+  });
+
+  describe('findAll', () => {
+    it('filters createdAt by startDate / endDate, date-only endDate covers the whole day', async () => {
+      materialTypeRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
+      });
+
+      const { where } = materialTypeRepository.findAndCount.mock.calls[0][0];
+      const [from, to] = where.createdAt.value;
+      expect(from).toMatchObject({ _type: 'moreThanOrEqual', _value: new Date(2026, 8, 1) });
+      expect(to).toMatchObject({ _type: 'lessThan', _value: new Date(2026, 9, 1) });
+    });
+
+    it('does not filter createdAt when no date is given', async () => {
+      materialTypeRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10 });
+
+      const { where } = materialTypeRepository.findAndCount.mock.calls[0][0];
+      expect(where).not.toHaveProperty('createdAt');
+    });
+
+    it.each([
+      [undefined, SortOrder.DESC],
+      [SortOrder.ASC, SortOrder.ASC],
+    ])('orders by createdAt %s (default DESC), id ASC as tie-breaker', async (sort, expected) => {
+      materialTypeRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, sort });
+
+      const { order } = materialTypeRepository.findAndCount.mock.calls[0][0];
+      expect(order).toEqual({ createdAt: expected, id: 'ASC' });
+    });
+
+    it('orders by sortBy=name, rejects sortBy=dob', async () => {
+      materialTypeRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, sortBy: MaterialTypeSortBy.Name });
+      expect(materialTypeRepository.findAndCount.mock.calls[0][0].order).toEqual({
+        name: 'DESC',
+        id: 'ASC',
+      });
+
+      await expect(
+        service.findAll({ page: 1, size: 10, sortBy: 'dob' as MaterialTypeSortBy }),
+      ).rejects.toMatchObject({
+        code: AppCommonValidation.SORT_BY_INVALID.code,
+      });
+    });
+
+    it('rejects startDate after endDate', async () => {
+      await expectError(
+        service.findAll({ page: 1, size: 10, startDate: '2026-09-30', endDate: '2026-09-01' }),
+        MaterialTypeValidation.MATERIAL_TYPE_DATE_RANGE_INVALID.code,
+      );
+      expect(materialTypeRepository.findAndCount).not.toHaveBeenCalled();
     });
   });
 

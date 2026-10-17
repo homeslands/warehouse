@@ -21,6 +21,7 @@ import {
   ImportFormAvailableMaterialResponseDto,
   ImportFormResponseDto,
   UpdateImportFormRequestDto,
+  ImportFormSortBy,
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
@@ -35,10 +36,14 @@ import { pickDefined } from 'src/shared/utils/obj.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { Material } from 'src/material/material.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
+import { SupplierException } from 'src/supplier/supplier.exception';
+import { SupplierValidation } from 'src/supplier/supplier.validation';
+import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 import { AuthorityCode, TAuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { RoleEnum } from 'src/role/role.enum';
@@ -76,6 +81,9 @@ const roundMoney = (value: number) => Number(value.toFixed(2));
 
 const fullName = (user: User) => `${user.lastName} ${user.firstName}`.trim();
 
+/** Cặp (vật tư, nhà cung cấp) chưa gắn, cần ghi vào `material_supplier_tbl` cùng transaction phiếu. */
+type MaterialSupplierLink = { materialId: string; supplierId: string };
+
 /**
  * Mọi thao tác đều khoá theo kho ở route: tra phiếu luôn kèm `warehouse.slug`, nên member của kho A
  * không đọc/sửa được phiếu kho B bằng cách gắn slug phiếu B vào URL của kho A (`WarehouseScopeGuard`
@@ -88,6 +96,7 @@ export class ImportFormService {
     @InjectRepository(Warehouse) private readonly warehouseRepository: Repository<Warehouse>,
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(Material) private readonly materialRepository: Repository<Material>,
+    @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
     @InjectRepository(Inventory) private readonly inventoryRepository: Repository<Inventory>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
@@ -138,7 +147,7 @@ export class ImportFormService {
 
     const data = this.mapper.map(dto, CreateImportFormRequestDto, ImportForm);
     await this.assertCodeIsFree(data.code);
-    const { items, total } = await this.buildItems(dto.items, warehouse.id);
+    const { items, total, supplierLinks } = await this.buildItems(dto.items, warehouse.id);
     const requester = await this.findUser(currentUser.userId);
 
     const form = this.importFormRepository.create({
@@ -152,8 +161,10 @@ export class ImportFormService {
       total,
     });
     // Đầu phiếu + dòng vật tư trong 1 transaction: ghi dòng nào lỗi (FK, UNIQUE, mất kết nối...)
-    // thì rollback cả phiếu — không để lại phiếu không có dòng hoặc thiếu dòng.
+    // thì rollback cả phiếu — không để lại phiếu không có dòng hoặc thiếu dòng. Gắn nhà cung cấp
+    // mới vào vật tư cũng nằm trong transaction này: phiếu lỗi thì không để lại cặp gắn dở.
     const created = await this.transactionManagerService.execute(async (manager) => {
+      await insertMaterialSuppliers(manager, supplierLinks);
       const saved = await manager.save(form);
       saved.items = await this.saveItems(manager, saved, items);
       return saved;
@@ -170,13 +181,19 @@ export class ImportFormService {
     // báo 404 ở đây, không trả về danh sách rỗng.
     await this.findWarehouse(warehouseSlug);
 
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
+    if (start && end && start >= end)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_DATE_RANGE_INVALID);
+
     const where: FindOptionsWhere<ImportForm> = { warehouse: { slug: warehouseSlug } };
     if (query.status) where.status = query.status;
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) where.createdAt = createdAt;
 
     const [items, total] = await this.importFormRepository.findAndCount({
       where,
       relations: IMPORT_FORM_RELATIONS,
-      order: { createdAt: 'DESC' },
+      order: buildSortOrder<ImportForm, ImportFormSortBy>(query, { code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
@@ -297,6 +314,7 @@ export class ImportFormService {
           ImportFormItem,
           oldItems.map((item) => item.id),
         );
+      await insertMaterialSuppliers(manager, replacement.supplierLinks);
       saved.items = await this.saveItems(manager, saved, replacement.items);
       return saved;
     });
@@ -429,11 +447,13 @@ export class ImportFormService {
    * tỉ lệ quy đổi + mã/tên + nhà cung cấp của vật tư, tính `baseQuantity`/`amount`, và `total` = Σ `amount`.
    * Vật tư phải đã gán vào kho của phiếu (có dòng `inventory_tbl`) — nếu không, xác nhận phiếu sẽ
    * không có dòng tồn để cộng; chặn ngay lúc ghi thay vì để phiếu nháp không bao giờ xác nhận được.
+   * `supplierLinks`: các cặp (vật tư, nhà cung cấp) mà dòng chỉ ra nhưng chưa gắn — caller ghi trong
+   * transaction của phiếu.
    */
   private async buildItems(
     dtos: CreateImportFormItemDto[],
     warehouseId: string,
-  ): Promise<{ items: ImportFormItem[]; total: number }> {
+  ): Promise<{ items: ImportFormItem[]; total: number; supplierLinks: MaterialSupplierLink[] }> {
     const seen = new Set<string>();
     for (const dto of dtos) {
       const key = `${dto.materialSlug}|${dto.unitSlug}`;
@@ -458,6 +478,8 @@ export class ImportFormService {
         })
       : [];
     const assignedMaterialIds = new Set(assigned.map((row) => row.material.id));
+    const unattachedSupplierBySlug = await this.findUnattachedSuppliers(dtos, materialBySlug);
+    const supplierLinks = new Map<string, MaterialSupplierLink>();
 
     let total = 0;
     const items = dtos.map((dto, index) => {
@@ -479,7 +501,12 @@ export class ImportFormService {
           ImportFormValidation.IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID,
         );
 
-      const supplier = this.pickSupplier(material, dto.supplierSlug);
+      const supplier = this.pickSupplier(material, dto.supplierSlug, unattachedSupplierBySlug);
+      if (supplier && !material.suppliers?.some(({ id }) => id === supplier.id))
+        supplierLinks.set(`${material.id}|${supplier.id}`, {
+          materialId: material.id,
+          supplierId: supplier.id,
+        });
 
       const baseQuantity = roundToScale(dto.quantity * conversionRate);
       if (dto.quantity >= QUANTITY_MAX || baseQuantity >= QUANTITY_MAX || baseQuantity <= 0)
@@ -515,25 +542,49 @@ export class ImportFormService {
     if (total >= MONEY_MAX)
       throw new ImportFormException(ImportFormValidation.IMPORT_FORM_TOTAL_INVALID);
 
-    return { items, total };
+    return { items, total, supplierLinks: [...supplierLinks.values()] };
+  }
+
+  /**
+   * Nhà cung cấp mà dòng chỉ ra nhưng CHƯA gắn với vật tư của dòng đó — tra 1 query cho cả mảng,
+   * trả map theo slug. Slug không tồn tại (hoặc đã xoá mềm) ⇒ `SUPPLIER_NOT_FOUND` (lỗi của module
+   * supplier, cố ý không bọc lại), ném trước khi mở transaction.
+   */
+  private async findUnattachedSuppliers(
+    dtos: CreateImportFormItemDto[],
+    materialBySlug: Map<string, Material>,
+  ): Promise<Map<string, Supplier>> {
+    const slugs = new Set<string>();
+    for (const { materialSlug, supplierSlug } of dtos) {
+      const material = materialBySlug.get(materialSlug);
+      // Vật tư không tồn tại: để vòng dựng dòng ném `IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND` như cũ.
+      if (!material || !supplierSlug) continue;
+      if (!material.suppliers?.some(({ slug }) => slug === supplierSlug)) slugs.add(supplierSlug);
+    }
+    if (!slugs.size) return new Map();
+
+    const suppliers = await this.supplierRepository.find({ where: { slug: In([...slugs]) } });
+    if (suppliers.length !== slugs.size)
+      throw new SupplierException(SupplierValidation.SUPPLIER_NOT_FOUND);
+    return new Map(suppliers.map((supplier) => [supplier.slug, supplier]));
   }
 
   /**
    * Nhà cung cấp snapshot vào dòng phiếu. Vật tư - nhà cung cấp là n - n nên dòng phải chỉ ra
-   * nhà cung cấp nào: gửi `supplierSlug` thì nó phải nằm trong các nhà cung cấp của vật tư; không
-   * gửi thì lấy nhà cung cấp DUY NHẤT của vật tư, còn 0 hoặc nhiều nhà cung cấp thì để trống (không
-   * tự đoán).
+   * nhà cung cấp nào: gửi `supplierSlug` thì lấy nhà cung cấp đó — chưa gắn với vật tư thì lấy từ
+   * `unattached` (caller tự gắn); không gửi thì lấy nhà cung cấp DUY NHẤT của vật tư, còn 0 hoặc
+   * nhiều nhà cung cấp thì để trống (không tự đoán).
    */
-  private pickSupplier(material: Material, supplierSlug?: string): Supplier | null {
+  private pickSupplier(
+    material: Material,
+    supplierSlug: string | undefined,
+    unattached: Map<string, Supplier>,
+  ): Supplier | null {
     const suppliers = material.suppliers ?? [];
-    if (supplierSlug) {
-      const supplier = suppliers.find(({ slug }) => slug === supplierSlug);
-      if (!supplier)
-        throw new ImportFormException(
-          ImportFormValidation.IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL,
-        );
-      return supplier;
-    }
+    if (supplierSlug)
+      return (
+        suppliers.find(({ slug }) => slug === supplierSlug) ?? unattached.get(supplierSlug) ?? null
+      );
     return suppliers.length === 1 ? suppliers[0] : null;
   }
 

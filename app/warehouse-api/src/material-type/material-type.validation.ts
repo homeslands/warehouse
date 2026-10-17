@@ -9,6 +9,7 @@ export const MATERIAL_TYPE_CODE_INVALID = 'MATERIAL_TYPE_CODE_INVALID';
 export const MATERIAL_TYPE_CODE_DOES_EXIST = 'MATERIAL_TYPE_CODE_DOES_EXIST';
 export const MATERIAL_TYPE_CODE_RESERVED_BY_DELETED = 'MATERIAL_TYPE_CODE_RESERVED_BY_DELETED';
 export const MATERIAL_TYPE_IN_USE = 'MATERIAL_TYPE_IN_USE';
+export const MATERIAL_TYPE_DATE_RANGE_INVALID = 'MATERIAL_TYPE_DATE_RANGE_INVALID';
 
 export type TMaterialTypeErrorCodeKey =
   | typeof MATERIAL_TYPE_NOT_FOUND
@@ -18,7 +19,8 @@ export type TMaterialTypeErrorCodeKey =
   | typeof MATERIAL_TYPE_CODE_INVALID
   | typeof MATERIAL_TYPE_CODE_DOES_EXIST
   | typeof MATERIAL_TYPE_CODE_RESERVED_BY_DELETED
-  | typeof MATERIAL_TYPE_IN_USE;
+  | typeof MATERIAL_TYPE_IN_USE
+  | typeof MATERIAL_TYPE_DATE_RANGE_INVALID;
 
 export type TMaterialTypeErrorCode = Record<TMaterialTypeErrorCodeKey, TErrorCodeValue>;
 
@@ -50,5 +52,10 @@ export const MaterialTypeValidation: TMaterialTypeErrorCode = {
   MATERIAL_TYPE_IN_USE: createErrorCode(
     100609,
     'Material type is still referenced by materials - move or delete them first',
+  ),
+  MATERIAL_TYPE_DATE_RANGE_INVALID: createErrorCode(
+    100610,
+    'startDate must not be after endDate',
+    HttpStatus.BAD_REQUEST,
   ),
 };

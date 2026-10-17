@@ -80,7 +80,9 @@ export class InventoryController {
     summary: 'Create a new material and assign it to this warehouse (one transaction)',
     description:
       '`material` takes every required field of `POST /materials`; the outer ' +
-      '`minimumInventory`/`maximumInventory` are overrides for this warehouse only.',
+      '`minimumInventory`/`maximumInventory` are overrides for this warehouse only. Optional ' +
+      '`supplierSlug` attaches the new material to that supplier in the same transaction ' +
+      '(`SUPPLIER_NOT_FOUND` if the slug is unknown — nothing is created).',
   })
   @ApiResponseWithType({
     status: HttpStatus.CREATED,

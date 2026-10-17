@@ -34,6 +34,19 @@ describe('CreateInventoryMaterialRequestDto', () => {
     expect(messagesOf({ material: partial })).toContain(message);
   });
 
+  it('accepts an optional supplierSlug (trimmed)', () => {
+    const dto = plainToInstance(CreateInventoryMaterialRequestDto, {
+      material,
+      supplierSlug: '  sup-slug-1 ',
+    });
+    expect(validateSync(dto, { whitelist: true })).toEqual([]);
+    expect(dto.supplierSlug).toBe('sup-slug-1');
+  });
+
+  it.each([[''], ['   '], [123]])('rejects supplierSlug = %p', (supplierSlug) => {
+    expect(messagesOf({ material, supplierSlug })).toContain('INVENTORY_SUPPLIER_SLUG_INVALID');
+  });
+
   it('does not take materialSlug (that is the PUT assign body)', () => {
     const dto = plainToInstance(CreateInventoryMaterialRequestDto, { material, materialSlug: 'x' });
     validateSync(dto, { whitelist: true });

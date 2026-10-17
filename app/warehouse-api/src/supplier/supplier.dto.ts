@@ -15,7 +15,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
+import { BaseQueryDto, BaseResponseDto, PaginationQueryDto } from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { QUANTITY_SCALE } from 'src/shared/utils/decimal.transformer';
 import {
@@ -92,7 +92,14 @@ export class CreateSupplierRequestDto {
  */
 export class UpdateSupplierRequestDto extends PartialType(CreateSupplierRequestDto) {}
 
-export class GetAllSupplierRequestDto extends BaseQueryDto {
+/** Field sắp xếp của `GET /suppliers` — map sang cột ở `buildSortOrder()` trong service. */
+export enum SupplierSortBy {
+  CreatedAt = 'createdAt',
+  Name = 'name',
+  Code = 'code',
+}
+
+export class GetAllSupplierRequestDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'SUP-HN-01' })
   @IsOptional()
   @Transform(upper)
@@ -115,6 +122,15 @@ export class GetAllSupplierRequestDto extends BaseQueryDto {
   @IsOptional()
   @Transform(trim)
   phonenumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: SupplierSortBy,
+    default: SupplierSortBy.CreatedAt,
+  })
+  @IsOptional()
+  @IsEnum(SupplierSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: SupplierSortBy = SupplierSortBy.CreatedAt;
 }
 
 export class SupplierResponseDto extends BaseResponseDto {

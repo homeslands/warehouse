@@ -92,6 +92,18 @@ export class CreateInventoryMaterialRequestDto extends OmitType(AssignInventoryR
   @ValidateNested()
   @Type(() => CreateMaterialRequestDto)
   material: CreateMaterialRequestDto;
+
+  // Nằm ngoài `material` vì `CreateMaterialRequestDto` cố ý không nhận nhà cung cấp (xem
+  // `Material.suppliers`). Có gửi thì gắn cặp (vật tư mới, nhà cung cấp) cùng transaction tạo vật tư.
+  @ApiPropertyOptional({
+    description: 'Slug of a supplier to attach the new material to (same transaction)',
+    example: 'sup-slug-1',
+  })
+  @Transform(trim)
+  @IsOptional()
+  @IsString({ message: 'INVENTORY_SUPPLIER_SLUG_INVALID' })
+  @IsNotEmpty({ message: 'INVENTORY_SUPPLIER_SLUG_INVALID' })
+  supplierSlug?: string;
 }
 
 export class UpdateInventoryRequestDto {

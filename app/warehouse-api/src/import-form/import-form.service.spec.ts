@@ -10,12 +10,14 @@ import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ImportFormService } from './import-form.service';
+import { SortOrder } from 'src/app/base.dto';
+import { AppCommonValidation } from 'src/app/app-common.validation';
 import { ImportFormProfile } from './import-form.mapper';
 import { ImportForm } from './import-form.entity';
 import { ImportFormStatus } from './import-form.constants';
 import { ImportFormException } from './import-form.exception';
 import { ImportFormValidation } from './import-form.validation';
-import { CreateImportFormRequestDto } from './import-form.dto';
+import { CreateImportFormRequestDto, ImportFormSortBy } from './import-form.dto';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { RoleEnum } from 'src/role/role.enum';
@@ -23,12 +25,17 @@ import { User } from 'src/user/user.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { Material } from 'src/material/material.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
+import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { ImportFormItem } from './import-form-item.entity';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { S3Service } from 'src/file/s3/s3.service';
 import { FileValidation } from 'src/file/file.validation';
+import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+
+// Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
+jest.mock('src/material/material-supplier.util');
 
 describe('ImportFormService', () => {
   let service: ImportFormService;
@@ -42,6 +49,7 @@ describe('ImportFormService', () => {
   const warehouseRepository = { findOneBy: jest.fn() };
   const userRepository = { findOneBy: jest.fn() };
   const materialRepository = { find: jest.fn() };
+  const supplierRepository = { find: jest.fn() };
   const inventoryRepository = { find: jest.fn(), findAndCount: jest.fn() };
   // Mặc định: mọi vật tư được hỏi đều đã gán vào kho (trả 1 dòng tồn cho mỗi id trong `In(...)`).
   const allAssigned = async ({ where }: { where: { material: { id: { value: string[] } } } }) =>
@@ -137,6 +145,7 @@ describe('ImportFormService', () => {
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(Material), useValue: materialRepository },
+        { provide: getRepositoryToken(Supplier), useValue: supplierRepository },
         { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
         { provide: InventoryService, useValue: inventoryService },
@@ -277,17 +286,52 @@ describe('ImportFormService', () => {
       );
     });
 
-    it('rejects a supplierSlug that is not a supplier of the material', async () => {
+    it('does not touch the supplier join table when every supplier is already attached', async () => {
       const dto = {
         ...createDto,
-        items: [{ ...createDto.items[0], supplierSlug: 'sup-b' }],
+        items: createDto.items.map((item) => ({ ...item, supplierSlug: 'sup-slug' })),
+      };
+
+      await service.createImportForm('wh-slug', dto, actor());
+
+      expect(supplierRepository.find).not.toHaveBeenCalled();
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, []);
+    });
+
+    it('auto-attaches a supplier not yet attached to the material, in the SAME transaction', async () => {
+      supplierRepository.find.mockResolvedValue([supplierB]);
+      const dto = {
+        ...createDto,
+        items: createDto.items.map((item) => ({ ...item, supplierSlug: 'sup-b' })),
+      };
+
+      await service.createImportForm('wh-slug', dto, actor());
+
+      expect(supplierRepository.find).toHaveBeenCalledTimes(1);
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      // 2 dòng cùng cặp (vật tư, nhà cung cấp) ⇒ chỉ gắn 1 lần.
+      expect(insertMaterialSuppliers).toHaveBeenCalledTimes(1);
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, [
+        { materialId: 'mat-1', supplierId: 'sup-2' },
+      ]);
+      savedItems().forEach((item) =>
+        expect(item).toMatchObject({ supplierSlug: 'sup-b', supplierCode: 'NCC-02' }),
+      );
+    });
+
+    it('rejects an unknown supplierSlug before opening a transaction', async () => {
+      supplierRepository.find.mockResolvedValue([]);
+      const dto = {
+        ...createDto,
+        items: [{ ...createDto.items[0], supplierSlug: 'missing' }],
       };
 
       await expectError(
         service.createImportForm('wh-slug', dto, actor()),
-        ImportFormValidation.IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL.code,
+        SupplierValidation.SUPPLIER_NOT_FOUND.code,
       );
       expect(transactionManager.execute).not.toHaveBeenCalled();
+      expect(insertMaterialSuppliers).not.toHaveBeenCalled();
     });
 
     it('writes the form and its items in ONE transaction, items pointing at the saved form', async () => {
@@ -587,6 +631,62 @@ describe('ImportFormService', () => {
       expect(result.items[0].items).toBeUndefined(); // undefined ⇒ JSON bỏ hẳn key
     });
 
+    it('filters createdAt by startDate / endDate and orders by sort (default DESC)', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug', {
+        page: 1,
+        size: 10,
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
+      });
+      await service.findAll('wh-slug', { page: 1, size: 10, sort: SortOrder.ASC });
+
+      const [first, second] = importFormRepository.findAndCount.mock.calls.map(([opts]) => opts);
+      const [from, to] = first.where.createdAt.value;
+      expect(from).toMatchObject({ _type: 'moreThanOrEqual', _value: new Date(2026, 8, 1) });
+      expect(to).toMatchObject({ _type: 'lessThan', _value: new Date(2026, 9, 1) });
+      expect(first.order).toEqual({ createdAt: SortOrder.DESC, id: 'ASC' });
+      expect(second.where).not.toHaveProperty('createdAt');
+      expect(second.order).toEqual({ createdAt: SortOrder.ASC, id: 'ASC' });
+    });
+
+    it('orders by sortBy=code, rejects sortBy=name', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug', {
+        page: 1,
+        size: 10,
+        sortBy: ImportFormSortBy.Code,
+        sort: SortOrder.ASC,
+      });
+      expect(importFormRepository.findAndCount.mock.calls[0][0].order).toEqual({
+        code: 'ASC',
+        id: 'ASC',
+      });
+
+      await expect(
+        service.findAll('wh-slug', { page: 1, size: 10, sortBy: 'name' as ImportFormSortBy }),
+      ).rejects.toMatchObject({ code: AppCommonValidation.SORT_BY_INVALID.code });
+    });
+
+    it('rejects startDate after endDate', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+
+      await expectError(
+        service.findAll('wh-slug', {
+          page: 1,
+          size: 10,
+          startDate: '2026-09-30',
+          endDate: '2026-09-01',
+        }),
+        ImportFormValidation.IMPORT_FORM_DATE_RANGE_INVALID.code,
+      );
+      expect(importFormRepository.findAndCount).not.toHaveBeenCalled();
+    });
+
     it('returns WAREHOUSE_NOT_FOUND instead of an empty list for an unknown warehouse', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(null);
 
@@ -659,6 +759,24 @@ describe('ImportFormService', () => {
       expect(saved.items).not.toContain(oldItem);
       expect(saved.items).toEqual([expect.objectContaining({ lineNo: 1, amount: 800 })]);
       expect(saved.total).toBe(800);
+    });
+
+    it('auto-attaches a supplier not yet attached to the material when items is sent', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft({ items: [] }));
+      materialRepository.find.mockResolvedValue([cement]);
+      supplierRepository.find.mockResolvedValue([{ ...supplier, id: 'sup-2', slug: 'sup-b' }]);
+
+      await service.updateImportForm(
+        'wh-slug',
+        'form-slug',
+        { items: [{ ...createDto.items[0], supplierSlug: 'sup-b' }], version: 1 },
+        full(),
+      );
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(insertMaterialSuppliers).toHaveBeenCalledWith(manager, [
+        { materialId: 'mat-1', supplierId: 'sup-2' },
+      ]);
     });
 
     it('deletes the old lines before inserting the new ones, inside the transaction', async () => {

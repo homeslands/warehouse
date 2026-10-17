@@ -1,8 +1,8 @@
-import { IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
+import { BaseResponseDto, PaginationQueryDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -35,7 +35,14 @@ export class CreateMaterialTypeRequestDto {
  */
 export class UpdateMaterialTypeRequestDto extends PartialType(CreateMaterialTypeRequestDto) {}
 
-export class GetAllMaterialTypeRequestDto extends BaseQueryDto {
+/** Field sắp xếp của `GET /material-types` — map sang cột ở `buildSortOrder()` trong service. */
+export enum MaterialTypeSortBy {
+  CreatedAt = 'createdAt',
+  Name = 'name',
+  Code = 'code',
+}
+
+export class GetAllMaterialTypeRequestDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'MT-01' })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) =>
@@ -49,6 +56,15 @@ export class GetAllMaterialTypeRequestDto extends BaseQueryDto {
   @IsOptional()
   @Transform(trim)
   name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: MaterialTypeSortBy,
+    default: MaterialTypeSortBy.CreatedAt,
+  })
+  @IsOptional()
+  @IsEnum(MaterialTypeSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: MaterialTypeSortBy = MaterialTypeSortBy.CreatedAt;
 }
 
 export class MaterialTypeResponseDto extends BaseResponseDto {

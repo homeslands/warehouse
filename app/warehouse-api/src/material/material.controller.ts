@@ -66,7 +66,10 @@ export class MaterialController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary: 'Get all materials (paginated)',
-    description: 'Filter by typeSlug, supplierSlug (or hasSupplier), warehouseSlug, code, name',
+    description:
+      'Filter by typeSlug, supplierSlug (or hasSupplier), warehouseSlug, code / name (prefix ' +
+      'match), startDate / endDate (creation date); sortBy = createdAt | name | code (default ' +
+      'createdAt), sort = ASC | DESC (default DESC); paginated with page / size.',
   })
   @ApiPaginatedResponse(MaterialResponseDto, 'Retrieved')
   async findAll(

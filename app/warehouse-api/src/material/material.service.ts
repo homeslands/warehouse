@@ -24,6 +24,7 @@ import {
   UpdateMaterialConversionUnitRequestDto,
   UpdateMaterialRequestDto,
   AssignMaterialSuppliersRequestDto,
+  MaterialSortBy,
 } from './material.dto';
 import { Material, MATERIAL_SUPPLIER_TABLE } from './material.entity';
 import { deleteMaterialSuppliers, insertMaterialSuppliers } from './material-supplier.util';
@@ -37,6 +38,12 @@ import { Unit } from 'src/unit/unit.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { Supplier } from 'src/supplier/supplier.entity';
@@ -137,7 +144,7 @@ export class MaterialService {
   ): Promise<Material> {
     const material = await manager.save(this.materialRepository.create(data));
 
-    await manager.save(
+    const baseUnitRow = await manager.save(
       this.materialUnitRepository.create({
         materialId: material.id,
         unitId: baseUnit.id,
@@ -145,16 +152,26 @@ export class MaterialService {
       }),
     );
     material.baseUnit = baseUnit;
-    return manager.save(material);
+    const saved = await manager.save(material);
+    // Gán SAU lần `save` cuối — chỉ để response có `units`, không để TypeORM xử lý quan hệ 1-N này.
+    saved.unitsCanHave = [{ ...baseUnitRow, unit: baseUnit } as MaterialUnit];
+    return saved;
   }
 
   async findAll(
     query: GetAllMaterialRequestDto,
   ): Promise<AppPaginatedResponseDto<MaterialResponseDto>> {
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
+    if (start && end && start >= end)
+      throw new MaterialException(MaterialValidation.MATERIAL_DATE_RANGE_INVALID);
+
     const where: FindOptionsWhere<Material> = {};
     if (query.typeSlug) where.type = { slug: query.typeSlug };
-    if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
+    // Tìm theo tiền tố (`LIKE 'x%'`) — dùng được index của `code_column`, khác substring `%x%`.
+    if (query.code) where.code = Like(`${escapeLike(query.code)}%`);
+    if (query.name) where.name = Like(`${escapeLike(query.name)}%`);
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) where.createdAt = createdAt;
     // Lọc bằng subquery trên bảng join, KHÔNG bằng `where.suppliers`: `suppliers` cũng được load qua
     // `relations`, `where` trên nó thì TypeORM lọc luôn danh sách nhà cung cấp trả về (chỉ còn đúng
     // nhà cung cấp đang lọc). Chỉ tính nhà cung cấp chưa xoá mềm — khớp `hasSupplier`/`suppliers`
@@ -175,7 +192,7 @@ export class MaterialService {
     const [items, total] = await this.materialRepository.findAndCount({
       where,
       relations: MATERIAL_RELATIONS,
-      order: { createdAt: 'DESC' },
+      order: buildSortOrder<Material, MaterialSortBy>(query, { name: ['name'], code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
@@ -199,20 +216,31 @@ export class MaterialService {
   }
 
   /**
-   * Map sang response kèm `warehouses` — tra `inventory_tbl` bằng 1 query cho cả trang, KHÔNG qua
-   * relation `inventories` của query chính (có `where` trên nó thì TypeORM lọc luôn danh sách kho).
+   * Map sang response kèm `warehouses` và `units` — tra `inventory_tbl` / `material_unit_can_have_tbl`
+   * bằng 1 query mỗi bảng cho cả trang, KHÔNG qua relation của query chính: có `where` trên
+   * `inventories` thì TypeORM lọc luôn danh sách kho, và JOIN thêm 1 quan hệ 1-N nữa vào query phân
+   * trang thì số dòng nhân lên theo kho × đơn vị × nhà cung cấp.
    */
   private async toResponses(materials: Material[]): Promise<MaterialResponseDto[]> {
-    const rows = materials.length
-      ? await this.inventoryRepository.find({
-          where: { material: { id: In(materials.map((material) => material.id)) } },
-          relations: { warehouse: true, material: true },
-          order: { warehouse: { code: 'ASC' } },
-        })
-      : [];
+    const ids = materials.map((material) => material.id);
+    const [inventories, units] = ids.length
+      ? await Promise.all([
+          this.inventoryRepository.find({
+            where: { material: { id: In(ids) } },
+            relations: { warehouse: true, material: true },
+            order: { warehouse: { code: 'ASC' } },
+          }),
+          this.materialUnitRepository.find({
+            where: { materialId: In(ids) },
+            relations: { unit: true },
+            order: { unit: { code: 'ASC' } },
+          }),
+        ])
+      : [[], []];
 
     return materials.map((material) => {
-      material.inventories = rows.filter((row) => row.material.id === material.id);
+      material.inventories = inventories.filter((row) => row.material.id === material.id);
+      material.unitsCanHave = units.filter((row) => row.materialId === material.id);
       return this.mapper.map(material, Material, MaterialResponseDto);
     });
   }
