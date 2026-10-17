@@ -95,6 +95,15 @@ describe('AssignExistingSection', () => {
     expect(seen.at(-1)?.get('name')).toBe('xi măng PCB40')
   })
 
+  it('chỉ toàn ký tự bị bỏ (@@@) → không gọi API, hiện câu gợi ý như ô trống', async () => {
+    const { seen } = setup({ search: '@@@' })
+    expect(
+      await screen.findByText('Gõ mã hoặc tên để tìm vật tư trong danh mục.'),
+    ).toBeInTheDocument()
+    await new Promise((r) => setTimeout(r, 400))
+    expect(seen).toHaveLength(0)
+  })
+
   it('ô tìm trống → không gọi API', async () => {
     const { seen } = setup({ search: '  ' })
     await new Promise((r) => setTimeout(r, 400))
