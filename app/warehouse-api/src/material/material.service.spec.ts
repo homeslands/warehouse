@@ -22,6 +22,9 @@ import { UnitProfile } from 'src/unit/unit.mapper';
 import { SupplierProfile } from 'src/supplier/supplier.mapper';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { deleteMaterialSuppliers, insertMaterialSuppliers } from './material-supplier.util';
+import { SortOrder } from 'src/app/base.dto';
+import { MaterialSortBy } from './material.dto';
+import { AppCommonValidation } from 'src/app/app-common.validation';
 
 // Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng) — ở đây chỉ
 // kiểm service gọi đúng cặp nào, trong transaction nào.
@@ -323,6 +326,24 @@ describe('MaterialService', () => {
         skip: 5,
         take: 5,
       });
+    });
+
+    it.each([
+      [MaterialSortBy.Name, { name: 'ASC', id: 'ASC' }],
+      [MaterialSortBy.Code, { code: 'ASC', id: 'ASC' }],
+    ])('sortBy=%s sort theo đúng cột', async (sortBy, expected) => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, sortBy, sort: SortOrder.ASC } as never);
+
+      expect(materialRepository.findAndCount.mock.calls[0][0].order).toEqual(expected);
+    });
+
+    it('từ chối sortBy vật tư không có (dob)', async () => {
+      await expect(
+        service.findAll({ page: 1, size: 10, sortBy: 'dob' } as never),
+      ).rejects.toMatchObject({ code: AppCommonValidation.SORT_BY_INVALID.code });
+      expect(materialRepository.findAndCount).not.toHaveBeenCalled();
     });
 
     it('trả warehouses của từng vật tư bằng 1 query cho cả trang (không bị lọc theo warehouseSlug)', async () => {

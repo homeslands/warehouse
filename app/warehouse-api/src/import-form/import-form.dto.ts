@@ -17,7 +17,12 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseQueryDto, BaseResponseDto, VersionedResponseDto } from 'src/app/base.dto';
+import {
+  BaseQueryDto,
+  BaseResponseDto,
+  PaginationQueryDto,
+  VersionedResponseDto,
+} from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { QUANTITY_SCALE } from 'src/shared/utils/decimal.transformer';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
@@ -173,11 +178,26 @@ export class ChangeImportFormStatusRequestDto {
   version: number;
 }
 
-export class GetAllImportFormRequestDto extends BaseQueryDto {
+/** Field sắp xếp của `GET /warehouses/{warehouseSlug}/import-forms` — map sang cột ở `buildSortOrder()` trong service. */
+export enum ImportFormSortBy {
+  CreatedAt = 'createdAt',
+  Code = 'code',
+}
+
+export class GetAllImportFormRequestDto extends PaginationQueryDto {
   @ApiPropertyOptional({ enum: ImportFormStatus })
   @IsOptional()
   @IsEnum(ImportFormStatus, { message: 'IMPORT_FORM_STATUS_INVALID' })
   status?: ImportFormStatus;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: ImportFormSortBy,
+    default: ImportFormSortBy.CreatedAt,
+  })
+  @IsOptional()
+  @IsEnum(ImportFormSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: ImportFormSortBy = ImportFormSortBy.CreatedAt;
 }
 
 export class GetImportFormAvailableMaterialRequestDto extends BaseQueryDto {

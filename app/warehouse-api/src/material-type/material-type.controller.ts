@@ -57,7 +57,8 @@ export class MaterialTypeController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Get all material types (paginated, filter by code / name / startDate-endDate (creation date))',
+      'Get all material types (paginated, filter by code / name / startDate-endDate (creation ' +
+      'date); sortBy = createdAt | name | code)',
   })
   @ApiPaginatedResponse(MaterialTypeResponseDto, 'Retrieved')
   async findAll(

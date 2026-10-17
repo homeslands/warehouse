@@ -10,12 +10,14 @@ import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { ImportFormService } from './import-form.service';
+import { SortOrder } from 'src/app/base.dto';
+import { AppCommonValidation } from 'src/app/app-common.validation';
 import { ImportFormProfile } from './import-form.mapper';
 import { ImportForm } from './import-form.entity';
 import { ImportFormStatus } from './import-form.constants';
 import { ImportFormException } from './import-form.exception';
 import { ImportFormValidation } from './import-form.validation';
-import { CreateImportFormRequestDto } from './import-form.dto';
+import { CreateImportFormRequestDto, ImportFormSortBy } from './import-form.dto';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { RoleEnum } from 'src/role/role.enum';
@@ -627,6 +629,62 @@ describe('ImportFormService', () => {
         'items',
       );
       expect(result.items[0].items).toBeUndefined(); // undefined ⇒ JSON bỏ hẳn key
+    });
+
+    it('filters createdAt by startDate / endDate and orders by sort (default DESC)', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug', {
+        page: 1,
+        size: 10,
+        startDate: '2026-09-01',
+        endDate: '2026-09-30',
+      });
+      await service.findAll('wh-slug', { page: 1, size: 10, sort: SortOrder.ASC });
+
+      const [first, second] = importFormRepository.findAndCount.mock.calls.map(([opts]) => opts);
+      const [from, to] = first.where.createdAt.value;
+      expect(from).toMatchObject({ _type: 'moreThanOrEqual', _value: new Date(2026, 8, 1) });
+      expect(to).toMatchObject({ _type: 'lessThan', _value: new Date(2026, 9, 1) });
+      expect(first.order).toEqual({ createdAt: SortOrder.DESC, id: 'ASC' });
+      expect(second.where).not.toHaveProperty('createdAt');
+      expect(second.order).toEqual({ createdAt: SortOrder.ASC, id: 'ASC' });
+    });
+
+    it('orders by sortBy=code, rejects sortBy=name', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug', {
+        page: 1,
+        size: 10,
+        sortBy: ImportFormSortBy.Code,
+        sort: SortOrder.ASC,
+      });
+      expect(importFormRepository.findAndCount.mock.calls[0][0].order).toEqual({
+        code: 'ASC',
+        id: 'ASC',
+      });
+
+      await expect(
+        service.findAll('wh-slug', { page: 1, size: 10, sortBy: 'name' as ImportFormSortBy }),
+      ).rejects.toMatchObject({ code: AppCommonValidation.SORT_BY_INVALID.code });
+    });
+
+    it('rejects startDate after endDate', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+
+      await expectError(
+        service.findAll('wh-slug', {
+          page: 1,
+          size: 10,
+          startDate: '2026-09-30',
+          endDate: '2026-09-01',
+        }),
+        ImportFormValidation.IMPORT_FORM_DATE_RANGE_INVALID.code,
+      );
+      expect(importFormRepository.findAndCount).not.toHaveBeenCalled();
     });
 
     it('returns WAREHOUSE_NOT_FOUND instead of an empty list for an unknown warehouse', async () => {

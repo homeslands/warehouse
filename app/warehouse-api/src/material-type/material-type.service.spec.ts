@@ -6,6 +6,8 @@ import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { MaterialTypeService } from './material-type.service';
 import { SortOrder } from 'src/app/base.dto';
+import { MaterialTypeSortBy } from './material-type.dto';
+import { AppCommonValidation } from 'src/app/app-common.validation';
 import { MaterialTypeProfile } from './material-type.mapper';
 import { MaterialType } from './material-type.entity';
 import { MaterialTypeException } from './material-type.exception';
@@ -145,6 +147,22 @@ describe('MaterialTypeService', () => {
 
       const { order } = materialTypeRepository.findAndCount.mock.calls[0][0];
       expect(order).toEqual({ createdAt: expected, id: 'ASC' });
+    });
+
+    it('orders by sortBy=name, rejects sortBy=dob', async () => {
+      materialTypeRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, sortBy: MaterialTypeSortBy.Name });
+      expect(materialTypeRepository.findAndCount.mock.calls[0][0].order).toEqual({
+        name: 'DESC',
+        id: 'ASC',
+      });
+
+      await expect(
+        service.findAll({ page: 1, size: 10, sortBy: 'dob' as MaterialTypeSortBy }),
+      ).rejects.toMatchObject({
+        code: AppCommonValidation.SORT_BY_INVALID.code,
+      });
     });
 
     it('rejects startDate after endDate', async () => {

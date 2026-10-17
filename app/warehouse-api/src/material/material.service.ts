@@ -24,6 +24,7 @@ import {
   UpdateMaterialConversionUnitRequestDto,
   UpdateMaterialRequestDto,
   AssignMaterialSuppliersRequestDto,
+  MaterialSortBy,
 } from './material.dto';
 import { Material, MATERIAL_SUPPLIER_TABLE } from './material.entity';
 import { deleteMaterialSuppliers, insertMaterialSuppliers } from './material-supplier.util';
@@ -36,9 +37,13 @@ import { UnitResponseDto } from 'src/unit/unit.dto';
 import { Unit } from 'src/unit/unit.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
-import { SortOrder } from 'src/app/base.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { escapeLike, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { Supplier } from 'src/supplier/supplier.entity';
@@ -187,7 +192,7 @@ export class MaterialService {
     const [items, total] = await this.materialRepository.findAndCount({
       where,
       relations: MATERIAL_RELATIONS,
-      order: { createdAt: query.sort ?? SortOrder.DESC, id: 'ASC' },
+      order: buildSortOrder<Material, MaterialSortBy>(query, { name: ['name'], code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });

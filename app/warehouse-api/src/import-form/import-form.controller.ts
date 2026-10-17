@@ -123,7 +123,11 @@ export class ImportFormController {
   @Get()
   @RequireAuthority(AuthorityCode.ImportFormRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get the import forms of this warehouse (paginated)' })
+  @ApiOperation({
+    summary:
+      'Get the import forms of this warehouse (paginated, filter by status / ' +
+      'startDate-endDate (creation date); sortBy = createdAt | code, sort = ASC | DESC)',
+  })
   @ApiPaginatedResponse(ImportFormResponseDto, 'Retrieved')
   async findAll(
     @Param('warehouseSlug') warehouseSlug: string,

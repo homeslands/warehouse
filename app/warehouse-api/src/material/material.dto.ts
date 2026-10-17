@@ -2,6 +2,7 @@ import {
   ArrayMaxSize,
   IsArray,
   IsBoolean,
+  IsEnum,
   IsNotEmpty,
   IsOptional,
   IsPositive,
@@ -114,6 +115,13 @@ export class UpdateMaterialRequestDto extends PartialType(CreateMaterialRequestD
   override maximumInventory?: number = undefined;
 }
 
+/** Field sắp xếp của `GET /materials` — map sang cột ở `buildSortOrder()` trong service. */
+export enum MaterialSortBy {
+  CreatedAt = 'createdAt',
+  Name = 'name',
+  Code = 'code',
+}
+
 export class GetAllMaterialRequestDto extends PaginationQueryDto {
   @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
   @IsOptional()
@@ -158,6 +166,15 @@ export class GetAllMaterialRequestDto extends PaginationQueryDto {
   @IsOptional()
   @Transform(trim)
   warehouseSlug?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: MaterialSortBy,
+    default: MaterialSortBy.CreatedAt,
+  })
+  @IsOptional()
+  @IsEnum(MaterialSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: MaterialSortBy = MaterialSortBy.CreatedAt;
 }
 
 /** 1 kho mà vật tư đã được gán vào (1 dòng `inventory_tbl`), kèm tồn theo đơn vị cơ sở. */

@@ -24,17 +24,17 @@ import {
   SupplierResponseDto,
   SupplierTransactionResponseDto,
   UpdateSupplierRequestDto,
+  SupplierSortBy,
 } from './supplier.dto';
 import { Supplier } from './supplier.entity';
 import { SupplierTransaction } from './supplier-transaction.entity';
 import { MATERIAL_TRANSACTION_TYPES, MONEY_SCALE } from './supplier.constants';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { SupplierException } from './supplier.exception';
 import { SupplierValidation } from './supplier.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
-import { SortOrder } from 'src/app/base.dto';
 import { Material } from 'src/material/material.entity';
 import {
   deleteMaterialSuppliers,
@@ -104,7 +104,7 @@ export class SupplierService {
 
     const [items, total] = await this.supplierRepository.findAndCount({
       where,
-      order: { createdAt: query.sort ?? SortOrder.DESC, id: 'ASC' },
+      order: buildSortOrder<Supplier, SupplierSortBy>(query, { name: ['name'], code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
