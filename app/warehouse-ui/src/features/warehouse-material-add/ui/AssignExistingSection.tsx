@@ -47,8 +47,8 @@ export function AssignExistingSection({
   const hintId = useId()
   const debounced = useDebouncedValue(search.trim(), 300)
   const query = toMaterialSearchQuery(debounced)
-  const enabled = debounced !== ''
-  // Ô tìm trống thì không gọi API.
+  // Ô tìm trống, hoặc chỉ toàn ký tự BE không nhận (sanitize ra rỗng): không gọi API.
+  const enabled = Object.keys(query).length > 0
   const materials = useMaterials({ page: 1, size: 20, ...query }, { enabled })
   const assign = useAssignWarehouseMaterial()
   const [rowError, setRowError] = useState<{ search: string; message: string } | null>(null)

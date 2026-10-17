@@ -58,12 +58,13 @@ export function MaterialsPage() {
 
   const types = useMaterialTypeOptions()
   const searchQuery = toMaterialSearchQuery(filters.search, filters.searchBy)
-  const { data, isPending, error, isPlaceholderData } = useMaterials({
-    page,
-    size,
-    typeSlug: filters.typeSlug,
-    ...searchQuery,
-  })
+  // Ô tìm có chữ nhưng toàn ký tự BE không nhận: không gọi API, không liệt kê cả danh mục.
+  const symbolOnlySearch =
+    (filters.search ?? '').trim() !== '' && Object.keys(searchQuery).length === 0
+  const { data, isPending, error, isPlaceholderData } = useMaterials(
+    { page, size, typeSlug: filters.typeSlug, ...searchQuery },
+    { enabled: !symbolOnlySearch },
+  )
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
 
   const columns = useMemo<ColumnDef<Material>[]>(() => {
@@ -119,6 +120,7 @@ export function MaterialsPage() {
 
   // Trống: nói rõ đã tìm theo mã hay tên (kèm "trong loại đang lọc" khi có lọc loại) và cho đổi cách tìm.
   let emptyText: ReactNode = filters.typeSlug ? t('common:noResults') : t('materials:empty')
+  if (symbolOnlySearch) emptyText = t('common:noResults')
   if (searchQuery.code !== undefined || searchQuery.name !== undefined) {
     const searchedBy = searchQuery.code !== undefined ? 'code' : 'name'
     const inType = Boolean(filters.typeSlug)
@@ -194,8 +196,8 @@ export function MaterialsPage() {
           const { to, state } = detailLink(row)
           navigate(to, { state })
         }}
-        data={data?.items}
-        isLoading={isPending}
+        data={symbolOnlySearch ? [] : data?.items}
+        isLoading={!symbolOnlySearch && isPending}
         error={error}
         pagination={{
           page: data?.page ?? page,

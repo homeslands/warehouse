@@ -32,12 +32,14 @@ export function toMaterialSearchQuery(
   const query = toCodeOrNameQuery(search, prefer)
   const result: { code?: string; name?: string } = {}
   if (query.code !== undefined) {
+    // `_` là phòng thủ: toCodeOrNameQuery không bao giờ chuyển chuỗi có `_` sang code.
     const code = query.code.toUpperCase().replace(/[^A-Z0-9_-]/g, '')
     if (code !== '') result.code = code
   }
   if (query.name !== undefined) {
+    // Ký tự ngoài charset thay bằng khoảng trắng để không dính từ ("bột-giặt" → "bột giặt").
     const name = query.name
-      .replace(/[^\p{L}\p{M}\p{N}\s]/gu, '')
+      .replace(/[^\p{L}\p{M}\p{N}\s]+/gu, ' ')
       .replace(/\s+/g, ' ')
       .trim()
     if (name !== '') result.name = name
