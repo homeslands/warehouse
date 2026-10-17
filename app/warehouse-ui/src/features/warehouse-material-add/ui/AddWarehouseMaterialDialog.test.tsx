@@ -211,7 +211,7 @@ describe('AddWarehouseMaterialDialog', () => {
     inv.mockRestore()
   })
 
-  it('tạo mới + NCC gắn lỗi → toast thành công rồi cảnh báo, invalidate NCC, onAdded(AddedMaterial)', async () => {
+  it('tạo mới + NCC → toast thành công (không cảnh báo), invalidate NCC, onAdded(AddedMaterial)', async () => {
     const stamp = { createdAt: '', updatedAt: '' }
     server.use(
       mswHttp.get(`${BASE}/materials`, () => paginated([])),
@@ -235,7 +235,6 @@ describe('AddWarehouseMaterialDialog', () => {
       mswHttp.post(`${BASE}/warehouses/w-a/materials`, () =>
         ok({ materialSlug: 'm-new', materialName: 'Xi măng mới' }),
       ),
-      mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(500, undefined, 'boom')),
     )
     const onAdded = vi.fn()
     const parentSubmit = vi.fn((e: FormEvent) => e.preventDefault())
@@ -266,7 +265,7 @@ describe('AddWarehouseMaterialDialog', () => {
     )
     expect(parentSubmit).not.toHaveBeenCalled()
     expect(toast.success).toHaveBeenCalled()
-    expect(toast.warning).toHaveBeenCalled()
+    expect(toast.warning).not.toHaveBeenCalled()
     expect(
       inv.mock.calls.some(
         ([f]) => JSON.stringify(f?.queryKey) === JSON.stringify(supplierKeys.all),

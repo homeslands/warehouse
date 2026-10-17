@@ -37,7 +37,6 @@
   "removedToast": "Đã gỡ {{name}} khỏi kho",
   "removeTitle": "Gỡ {{name}} khỏi kho?",
   "removing": "Đang gỡ…",
-  "supplierAttachFailed": "Đã tạo và gắn vào kho, nhưng chưa gắn được nhà cung cấp — gắn lại ở màn Nhà cung cấp.",
   "supplierPlaceholder": "Chọn nhà cung cấp",
   "typePlaceholder": "Chọn loại",
   "searchPlaceholder": "Tìm theo mã hoặc tên vật tư",

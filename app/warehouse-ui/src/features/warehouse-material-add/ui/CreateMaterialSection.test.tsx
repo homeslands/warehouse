@@ -91,7 +91,7 @@ async function fill(user: UserEvent) {
 }
 
 describe('CreateMaterialSection', () => {
-  it('điền sẵn tên từ chữ đã gõ; tạo → POST { material, quantity: 0 } → onCreated(…, null)', async () => {
+  it('điền sẵn tên từ chữ đã gõ; tạo → POST { material, quantity: 0 } → onCreated(…, false)', async () => {
     let body: unknown
     server.use(
       mswHttp.post(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
@@ -103,7 +103,7 @@ describe('CreateMaterialSection', () => {
     expect(screen.getByRole('textbox', { name: /^Tên vật tư/ })).toHaveValue('xi măng')
     await fill(user)
     await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
-    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', null))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', false))
     expect(parentSubmit).not.toHaveBeenCalled()
     expect(body).toEqual({
       material: { code: 'VT-09', name: 'xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' },
@@ -111,23 +111,43 @@ describe('CreateMaterialSection', () => {
     })
   })
 
-  it('có chọn NCC → gắn NCC sau khi tạo; NCC lỗi → onCreated(…, false)', async () => {
-    let attachBody: unknown
+  it('có chọn NCC → một POST có supplierSlug, không PUT /suppliers/{s}/materials; onCreated(…, true)', async () => {
+    let body: unknown
+    let puts = 0
     server.use(
-      mswHttp.post(`${BASE}/warehouses/w-a/materials`, () =>
-        ok({ materialSlug: 'm-new', materialName: 'xi măng' }),
-      ),
-      mswHttp.put(`${BASE}/suppliers/s-1/materials`, async ({ request }) => {
-        attachBody = await request.json()
-        return apiError(500, undefined, 'boom')
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
+      }),
+      mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => {
+        puts++
+        return ok([])
       }),
     )
     const { user, onCreated } = setup()
     await fill(user)
     await pick(user, /^Nhà cung cấp/, 'NCC-1 · NCC Bột')
     await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
-    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', false))
-    expect(attachBody).toEqual({ materialSlugs: ['m-new'] })
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', true))
+    expect(body).toEqual({
+      material: { code: 'VT-09', name: 'xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' },
+      quantity: 0,
+      supplierSlug: 's-1',
+    })
+    expect(puts).toBe(0)
+  })
+
+  it.each([101201, 100816])('%i → lỗi tại ô Nhà cung cấp, onCreated không gọi', async (code) => {
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, () => apiError(400, code, 'supplier')),
+    )
+    const { user, onCreated } = setup()
+    await fill(user)
+    await pick(user, /^Nhà cung cấp/, 'NCC-1 · NCC Bột')
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    const combo = screen.getByRole('combobox', { name: /^Nhà cung cấp/ })
+    await waitFor(() => expect(combo).toHaveAttribute('aria-invalid', 'true'))
+    expect(onCreated).not.toHaveBeenCalled()
   })
 
   it('100705 (mã trùng) → lỗi tại ô Mã', async () => {

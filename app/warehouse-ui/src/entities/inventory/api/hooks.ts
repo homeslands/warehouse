@@ -85,9 +85,10 @@ export function useCreateWarehouseMaterial() {
   return useMutation<
     InventoryItem,
     ApiError,
-    { warehouseSlug: string; material: WarehouseMaterialInput }
+    { warehouseSlug: string; material: WarehouseMaterialInput; supplierSlug?: string }
   >({
-    mutationFn: ({ warehouseSlug, material }) => createMaterialInWarehouse(warehouseSlug, material),
+    mutationFn: ({ warehouseSlug, material, supplierSlug }) =>
+      createMaterialInWarehouse(warehouseSlug, material, supplierSlug),
     meta: { suppressErrorToast: true },
     onSuccess: (_, { warehouseSlug }) => {
       void qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouseSlug) })

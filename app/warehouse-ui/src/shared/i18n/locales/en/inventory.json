@@ -37,7 +37,6 @@
   "removedToast": "Removed {{name}} from the warehouse",
   "removeTitle": "Remove {{name}} from the warehouse?",
   "removing": "Removing…",
-  "supplierAttachFailed": "Created and added to the warehouse, but the supplier could not be attached — attach it on the Suppliers screen.",
   "supplierPlaceholder": "Select supplier",
   "typePlaceholder": "Select type",
   "searchPlaceholder": "Search by material code or name",

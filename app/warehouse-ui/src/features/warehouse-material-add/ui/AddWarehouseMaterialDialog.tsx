@@ -79,7 +79,6 @@ function DialogBody({
     added: AddedMaterial,
     toastKey:
       'inventory:assignedToast' | 'inventory:alreadyInWarehouseToast' | 'inventory:createdToast',
-    supplierFailed = false,
   ) => {
     await Promise.all([
       qc.invalidateQueries({ queryKey: importFormKeys.available(warehouseSlug) }),
@@ -89,7 +88,6 @@ function DialogBody({
     const message = t(toastKey, { name })
     if (toastKey === 'inventory:alreadyInWarehouseToast') toast.info(message)
     else toast.success(message)
-    if (supplierFailed) toast.warning(t('inventory:supplierAttachFailed'))
     onAdded(added)
     onOpenChange(false)
   }
@@ -177,10 +175,9 @@ function DialogBody({
                   canAttachSupplier={abilities.attachSupplier}
                   onBusyChange={setCreateBusy}
                   onWarehouseInactive={() => onOpenChange(false)}
-                  onCreated={async (added, name, supplierAttached) => {
-                    if (supplierAttached !== null)
-                      void qc.invalidateQueries({ queryKey: supplierKeys.all })
-                    await finish(name, added, 'inventory:createdToast', supplierAttached === false)
+                  onCreated={async (added, name, withSupplier) => {
+                    if (withSupplier) void qc.invalidateQueries({ queryKey: supplierKeys.all })
+                    await finish(name, added, 'inventory:createdToast')
                   }}
                 />
               </TabsContent>
