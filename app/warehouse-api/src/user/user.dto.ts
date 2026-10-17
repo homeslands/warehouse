@@ -10,7 +10,7 @@ import {
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseResponseDto, PaginationQueryDto } from 'src/app/base.dto';
+import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { VN_PHONENUMBER_REGEX } from './user.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -99,7 +99,7 @@ export enum UserSortBy {
   Dob = 'dob',
 }
 
-export class GetAllUserRequestDto extends PaginationQueryDto {
+export class GetAllUserRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by role slug', example: 'admin' })
   @IsOptional()
   roleSlug?: string;

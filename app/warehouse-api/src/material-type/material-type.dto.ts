@@ -2,7 +2,7 @@ import { IsEnum, IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseResponseDto, PaginationQueryDto } from 'src/app/base.dto';
+import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -42,7 +42,7 @@ export enum MaterialTypeSortBy {
   Code = 'code',
 }
 
-export class GetAllMaterialTypeRequestDto extends PaginationQueryDto {
+export class GetAllMaterialTypeRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'MT-01' })
   @IsOptional()
   @Transform(({ value }: { value: unknown }) =>

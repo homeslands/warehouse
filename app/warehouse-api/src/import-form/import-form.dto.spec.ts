@@ -5,6 +5,7 @@ import {
   CreateImportFormItemDto,
   CreateImportFormRequestDto,
   GetAllImportFormRequestDto,
+  GetImportFormAvailableMaterialRequestDto,
   UpdateImportFormRequestDto,
 } from './import-form.dto';
 
@@ -201,6 +202,22 @@ describe.each([
 
   it('accepts version 1', () => {
     expect(messagesOf(cls as new () => object, { version: 1 }, 'version')).toEqual([]);
+  });
+});
+
+describe.each([
+  ['GetAllImportFormRequestDto', GetAllImportFormRequestDto],
+  ['GetImportFormAvailableMaterialRequestDto', GetImportFormAvailableMaterialRequestDto],
+])('%s.code', (_, cls: new () => { code?: string }) => {
+  it('upper-cases and trims the code', () => {
+    const dto = plainToInstance(cls, { code: '  pn-2026_a ' });
+
+    expect(dto.code).toBe('PN-2026_A');
+    expect(messagesOf(cls, { code: '  pn-2026_a ' }, 'code')).toEqual([]);
+  });
+
+  it.each(['PN%', 'PN 01', 'PN@1'])('rejects %s', (code) => {
+    expect(messagesOf(cls, { code }, 'code')).toContain('IMPORT_FORM_CODE_SEARCH_INVALID');
   });
 });
 
