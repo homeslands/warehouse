@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { useQueryClient } from '@tanstack/react-query'
 import { useRef } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -14,7 +15,7 @@ import {
   type AddedMaterial,
 } from '@/entities/inventory'
 import { useMaterialTypeOptions } from '@/entities/material-type'
-import { useSuppliers } from '@/entities/supplier'
+import { supplierKeys, useSuppliers } from '@/entities/supplier'
 import { useUnitOptions } from '@/entities/unit'
 import {
   addMaterialDefaults,
@@ -71,6 +72,7 @@ export function CreateMaterialSection({
 }: Props) {
   const { t } = useTranslation(['inventory', 'common'])
   const create = useCreateWarehouseMaterial()
+  const qc = useQueryClient()
   const types = useMaterialTypeOptions({ enabled: canCreate })
   const units = useUnitOptions({ enabled: canCreate })
   const suppliers = useSuppliers(
@@ -124,6 +126,10 @@ export function CreateMaterialSection({
             toastApiError(error)
             onWarehouseInactive()
             return
+          }
+          // NCC vừa bị xoá nhưng còn trong ô chọn: làm mới danh sách để nó biến mất.
+          if (isApiError(error) && error.code === 101201) {
+            void qc.invalidateQueries({ queryKey: supplierKeys.all })
           }
           if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) return
           toastApiError(error)

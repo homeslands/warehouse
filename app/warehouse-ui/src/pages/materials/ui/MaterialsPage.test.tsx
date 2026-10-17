@@ -98,8 +98,8 @@ describe('MaterialsPage', () => {
     await user.type(screen.getByPlaceholderText('Tên hoặc mã vật tư…'), 'VT-09')
     await waitFor(() => expect(seen.at(-1)?.get('code')).toBe('VT-09'))
     await user.click(await screen.findByRole('button', { name: 'Tìm theo tên' }))
-    // BE không nhận '-' trong name (100731) → gạch thành khoảng trắng khi đổi sang tìm theo tên.
-    await waitFor(() => expect(seen.at(-1)?.get('name')).toBe('VT 09'))
+    // BE không nhận '-' trong name (100731) → cắt tại '-' khi đổi sang tìm theo tên (luôn là tiền tố của chữ đã gõ).
+    await waitFor(() => expect(seen.at(-1)?.get('name')).toBe('VT'))
   })
 
   it('ô tìm chỉ toàn ký tự BE không nhận (@@@) → không gọi GET /materials, hiện trạng thái không có kết quả (không liệt kê cả danh mục)', async () => {
@@ -110,6 +110,18 @@ describe('MaterialsPage', () => {
     expect(screen.queryByText('Xi măng')).not.toBeInTheDocument()
     await new Promise((r) => setTimeout(r, 100))
     expect(seen).toHaveLength(0)
+  })
+
+  it('có dữ liệu rồi gõ @@@ → chân bảng không còn tổng cũ', async () => {
+    capture()
+    const { user } = renderPage()
+    expect(await screen.findByText('Xi măng')).toBeInTheDocument()
+    expect(screen.getByText('Trang 1 / 1 — 1 bản ghi')).toBeInTheDocument()
+
+    await user.type(screen.getByPlaceholderText('Tên hoặc mã vật tư…'), '@@@')
+    expect(await screen.findByText('Không có kết quả.')).toBeInTheDocument()
+    expect(screen.queryByText('Trang 1 / 1 — 1 bản ghi')).not.toBeInTheDocument()
+    expect(screen.getByText('Trang 1 / 1 — 0 bản ghi')).toBeInTheDocument()
   })
 
   it('bấm hàng → mở chi tiết', async () => {

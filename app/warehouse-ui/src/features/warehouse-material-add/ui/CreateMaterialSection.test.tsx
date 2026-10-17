@@ -8,7 +8,7 @@ import { apiError, ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import type { MaterialType } from '@/entities/material-type'
-import type { Supplier } from '@/entities/supplier'
+import { supplierKeys, type Supplier } from '@/entities/supplier'
 import type { Unit } from '@/entities/unit'
 import { CreateMaterialSection } from './CreateMaterialSection'
 
@@ -148,6 +148,18 @@ describe('CreateMaterialSection', () => {
     const combo = screen.getByRole('combobox', { name: /^Nhà cung cấp/ })
     await waitFor(() => expect(combo).toHaveAttribute('aria-invalid', 'true'))
     expect(onCreated).not.toHaveBeenCalled()
+  })
+
+  it('101201 (NCC không còn) → làm mới danh sách NCC để NCC đã xoá khỏi ô chọn', async () => {
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 101201, 'supplier')),
+    )
+    const { user, queryClient } = setup()
+    const spy = vi.spyOn(queryClient, 'invalidateQueries')
+    await fill(user)
+    await pick(user, /^Nhà cung cấp/, 'NCC-1 · NCC Bột')
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await waitFor(() => expect(spy).toHaveBeenCalledWith({ queryKey: supplierKeys.all }))
   })
 
   it('100705 (mã trùng) → lỗi tại ô Mã', async () => {

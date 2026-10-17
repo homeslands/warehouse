@@ -22,7 +22,9 @@ export type CodeOrNameField = 'code' | 'name'
 
 /**
  * `toCodeOrNameQuery` rồi làm sạch theo đúng charset BE của `GET /materials` (sai → 100731 / 100732):
- * `name` chỉ giữ chữ (kể cả tiếng Việt), số, khoảng trắng; `code` viết hoa, chỉ `A-Z 0-9 _ -`.
+ * `name` chỉ nhận chữ (kể cả tiếng Việt), số, khoảng trắng; `code` viết hoa, chỉ `A-Z 0-9 _ -`.
+ * BE khớp `name LIKE '<giá trị>%'` trên tên thật (tên có thể chứa dấu câu) nên giá trị gửi phải là TIỀN TỐ của chữ
+ * đã gõ: bỏ ký tự lạ ở đầu rồi cắt tại ký tự lạ đầu tiên ("Xi măng (PCB40)" → "Xi măng").
  * Khoá rỗng sau khi làm sạch thì bỏ hẳn (không gửi).
  */
 export function toMaterialSearchQuery(
@@ -37,9 +39,10 @@ export function toMaterialSearchQuery(
     if (code !== '') result.code = code
   }
   if (query.name !== undefined) {
-    // Ký tự ngoài charset thay bằng khoảng trắng để không dính từ ("bột-giặt" → "bột giặt").
-    const name = query.name
-      .replace(/[^\p{L}\p{M}\p{N}\s]+/gu, ' ')
+    // Bỏ ký tự lạ ở đầu, cắt tại ký tự lạ đầu tiên ("bột-giặt" → "bột"): giữ nguyên tính tiền tố.
+    const name = (
+      query.name.replace(/^[^\p{L}\p{M}\p{N}\s]+/u, '').split(/[^\p{L}\p{M}\p{N}\s]/u)[0] ?? ''
+    )
       .replace(/\s+/g, ' ')
       .trim()
     if (name !== '') result.name = name
