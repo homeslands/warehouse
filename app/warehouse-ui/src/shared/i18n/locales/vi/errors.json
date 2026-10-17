@@ -204,5 +204,12 @@
   "inventoryQuantityBelowReserved": "Điều chỉnh làm tồn thấp hơn phần đang giữ chỗ",
   "inventoryReservedNotEmpty": "Phần giữ chỗ phải về 0 trước khi gỡ vật tư khỏi kho",
   "inventoryNoteInvalid": "Ghi chú tối đa 255 ký tự",
-  "inventoryMaterialRequired": "Thiếu thông tin vật tư"
+  "inventoryMaterialRequired": "Thiếu thông tin vật tư",
+  "materialNameSearchInvalid": "Tên tìm kiếm chỉ gồm chữ, số và khoảng trắng",
+  "materialCodeSearchInvalid": "Mã tìm kiếm chỉ gồm chữ, số, '_' và '-'",
+  "inventorySupplierSlugInvalid": "Nhà cung cấp không hợp lệ",
+  "startDateInvalid": "Ngày bắt đầu không hợp lệ",
+  "endDateInvalid": "Ngày kết thúc không hợp lệ",
+  "sortInvalid": "Thứ tự sắp xếp không hợp lệ",
+  "sortByInvalid": "Không sắp xếp được theo cột này"
 }

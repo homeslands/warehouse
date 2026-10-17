@@ -238,4 +238,12 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100813: 'inventoryReservedNotEmpty',
   100814: 'inventoryNoteInvalid',
   100815: 'inventoryMaterialRequired',
+  // BE sort/filter sync (2026-10-17): tìm vật tư, NCC của tồn kho, ngày lọc và sắp xếp.
+  100731: 'materialNameSearchInvalid',
+  100732: 'materialCodeSearchInvalid',
+  100816: 'inventorySupplierSlugInvalid',
+  100850: 'startDateInvalid',
+  100851: 'endDateInvalid',
+  100852: 'sortInvalid',
+  100853: 'sortByInvalid',
 }

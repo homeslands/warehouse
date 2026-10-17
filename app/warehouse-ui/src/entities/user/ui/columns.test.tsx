@@ -111,7 +111,7 @@ describe('buildUserColumns', () => {
     expect(screen.getByText('Chưa có')).toBeInTheDocument()
   })
 
-  it('khai sortField cho Họ tên / Tên đăng nhập / Ngày tạo', () => {
+  it('khai sortField cho Họ tên / Ngày tạo, SĐT không sắp xếp được', () => {
     const columns = buildUserColumns(((k: string) => k) as never, {
       roleLabel: (n) => n,
       isSelf: () => false,
@@ -123,10 +123,10 @@ describe('buildUserColumns', () => {
       ]),
     )
     expect(sortFields).toMatchObject({
-      name: 'firstName',
-      phonenumber: 'phonenumber',
+      name: 'name',
       createdAt: 'createdAt',
     })
+    expect(sortFields.phonenumber).toBeUndefined()
   })
 
   it('nhiều kho → hiện 2 kho đầu + "+N"; title và trình đọc màn hình có đủ danh sách', async () => {

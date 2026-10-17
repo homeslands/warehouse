@@ -48,6 +48,9 @@ const SEARCH_EMPTY = {
   phonenumber: 'suppliers:searchEmptyPhonenumber',
 } as const satisfies Record<SupplierSearchField, string>
 
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const SUPPLIER_SORT_FIELDS = ['createdAt', 'name', 'code'] as const
+
 export function SuppliersPage() {
   const { t } = useTranslation(['suppliers', 'common'])
   const location = useLocation()
@@ -72,7 +75,7 @@ export function SuppliersPage() {
   const { data, isPending, error, isPlaceholderData } = useSuppliers({
     page,
     size,
-    sort: ability.sort ? sortToParam(sort) : undefined,
+    ...(ability.sort ? sortToParam(sort, SUPPLIER_SORT_FIELDS) : {}),
     ...searchQuery,
   })
 

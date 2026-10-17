@@ -26,12 +26,18 @@ describe('import-form.api', () => {
         return paginated([draftForm])
       }),
     )
-    await fetchImportForms('w-a', { page: 2, size: 10, sort: ['createdAt:DESC'], status: 'DRAFT' })
+    await fetchImportForms('w-a', {
+      page: 2,
+      size: 10,
+      sort: 'DESC',
+      sortBy: 'createdAt',
+      status: 'DRAFT',
+    })
     await fetchImportForms('w-a', { page: 1, size: 10, status: undefined })
     expect(seen[0]).toContain('page=2')
     expect(seen[0]).toContain('status=DRAFT')
-    // Mảng sort serialize thành `sort[]=…` (xem shared/api/http.test.ts): backend @IsArray() yêu cầu dạng này.
-    expect(decodeURIComponent(seen[0])).toContain('sort[]=createdAt:DESC')
+    expect(seen[0]).toContain('sort=DESC')
+    expect(seen[0]).toContain('sortBy=createdAt')
     expect(seen[1]).not.toContain('status')
   })
 

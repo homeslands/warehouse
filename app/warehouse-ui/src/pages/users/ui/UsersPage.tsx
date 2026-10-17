@@ -57,6 +57,9 @@ function toCreatedRange(startDate?: string, endDate?: string) {
   return { ...(from ? { startDate: from } : {}), ...(to ? { endDate: to } : {}) }
 }
 
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const USER_SORT_FIELDS = ['createdAt', 'name', 'dob'] as const
+
 export function UsersPage() {
   const { t } = useTranslation(['users', 'common'])
   const me = useAuthStore((s) => s.user)
@@ -81,7 +84,7 @@ export function UsersPage() {
     page,
     size,
     // Cờ riêng `userSort`, không dùng `sort` chung (Kho/Cửa hàng chưa có).
-    sort: BACKEND_SUPPORTS.userSort ? sortToParam(sort) : undefined,
+    ...(BACKEND_SUPPORTS.userSort ? sortToParam(sort, USER_SORT_FIELDS) : {}),
     ...(ability.filterByRole && filters.roleSlug ? { roleSlug: filters.roleSlug } : {}),
     ...(ability.search ? toUserSearchQuery(filters.search) : {}),
     ...(ability.search && filters.isActive !== undefined ? { isActive: filters.isActive } : {}),

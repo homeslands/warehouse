@@ -56,15 +56,19 @@ function renderPage(route = '/suppliers') {
 }
 
 describe('SuppliersPage — sắp xếp (cờ supplierSort bật)', () => {
-  it('bấm tiêu đề Mã số thuế → gửi sort[]=taxCode:ASC, ghi lên URL', async () => {
+  it('bấm tiêu đề Mã → gửi sortBy=code&sort=ASC, ghi lên URL', async () => {
     const seen = captureQuery()
     const { user } = renderPage()
     await screen.findByText('Công ty ABC')
 
-    await user.click(screen.getByRole('button', { name: 'Mã số thuế' }))
+    await user.click(screen.getByRole('button', { name: 'Mã' }))
 
-    await waitFor(() => expect(seen.at(-1)).toContain('sort[]=taxCode:ASC'))
-    expect(screen.getByTestId('location')).toHaveTextContent('sort=taxCode%3AASC')
+    await waitFor(() => {
+      const q = new URLSearchParams(seen.at(-1))
+      expect(q.get('sortBy')).toBe('code')
+      expect(q.get('sort')).toBe('ASC')
+    })
+    expect(screen.getByTestId('location')).toHaveTextContent('sort=code%3AASC')
   })
 
   it('cột không khai sortField (Người liên hệ) không bấm được', async () => {

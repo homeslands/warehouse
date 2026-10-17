@@ -96,13 +96,15 @@ function renderPage(route = '/import-forms', auth: TestAuth = SUP) {
 }
 
 describe('ImportFormsPage', () => {
-  it('thiếu ?warehouse → chọn kho đầu, ghi lên URL, tải phiếu của kho đó (sort createdAt:DESC)', async () => {
+  it('thiếu ?warehouse → chọn kho đầu, ghi lên URL, tải phiếu của kho đó (không gửi sort)', async () => {
     const seen = mock([kho('w-a', 'A'), kho('w-b', 'B')])
     const { router } = renderPage()
     expect(await screen.findByRole('link', { name: 'PN-0001' })).toBeInTheDocument()
     expect(router.state.location.search).toContain('warehouse=w-a')
     expect(seen.at(-1)?.get('_w')).toBe('w-a')
-    expect(seen.at(-1)?.get('sort[]')).toBe('createdAt:DESC')
+    expect(seen.at(-1)?.has('sort')).toBe(false)
+    expect(seen.at(-1)?.has('sortBy')).toBe(false)
+    expect(seen.at(-1)?.has('sort[]')).toBe(false)
   })
 
   it('đổi kho → tải lại theo kho mới, về trang 1', async () => {
