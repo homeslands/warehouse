@@ -14,7 +14,7 @@ import {
   type AddedMaterial,
 } from '@/entities/inventory'
 import { useMaterialTypeOptions } from '@/entities/material-type'
-import { attachSupplierMaterials, useSuppliers } from '@/entities/supplier'
+import { useSuppliers } from '@/entities/supplier'
 import { useUnitOptions } from '@/entities/unit'
 import {
   addMaterialDefaults,
@@ -35,6 +35,9 @@ const FIELD_BY_CODE = {
   100723: 'baseUnitSlug',
   100724: 'baseUnitSlug',
   100901: 'baseUnitSlug',
+  // Phần `supplierSlug` của cùng POST: NCC không tồn tại (101201) / không hợp lệ (100816).
+  101201: 'supplierSlug',
+  100816: 'supplierSlug',
 } as const
 
 type Props = {
@@ -46,15 +49,8 @@ type Props = {
   initialSearch: string
   canCreate: boolean
   canAttachSupplier: boolean
-  /**
-   * `name` = tên server trả về (cho toast). `supplierAttached`: `null` = không chọn NCC; `false` = tạo + gắn kho xong
-   * nhưng gắn NCC lỗi.
-   */
-  onCreated: (
-    added: AddedMaterial,
-    name: string,
-    supplierAttached: boolean | null,
-  ) => Promise<void> | void
+  /** `name` = tên server trả về (cho toast). `withSupplier`: có chọn NCC — server gắn NCC trong cùng POST. */
+  onCreated: (added: AddedMaterial, name: string, withSupplier: boolean) => Promise<void> | void
   /** Hộp chặn đóng khi đang gửi. */
   onBusyChange: (busy: boolean) => void
   onWarehouseInactive: () => void
@@ -87,13 +83,14 @@ export function CreateMaterialSection({
     defaultValues: addMaterialDefaults(initialSearch),
   })
 
-  // `isPending` về false ngay khi POST xong, còn gắn NCC / onCreated vẫn chạy → chốt cả luồng bằng ref.
+  // `isPending` về false ngay khi POST xong, còn onCreated vẫn chạy → chốt cả luồng bằng ref.
   const inFlight = useRef(false)
 
   const onSubmit = (values: AddMaterialValues) => {
     if (inFlight.current) return
     inFlight.current = true
     onBusyChange(true)
+    const withSupplier = canAttachSupplier && values.supplierSlug !== ''
     create.mutate(
       {
         warehouseSlug,
@@ -103,6 +100,7 @@ export function CreateMaterialSection({
           typeSlug: values.typeSlug,
           baseUnitSlug: values.baseUnitSlug,
         },
+        supplierSlug: withSupplier ? values.supplierSlug : undefined,
       },
       {
         onSuccess: async (item) => {
@@ -112,17 +110,8 @@ export function CreateMaterialSection({
             label: label(values.code.trim().toUpperCase(), values.name.trim()),
             baseUnit: { slug: values.baseUnitSlug, label: unitLabel?.label ?? values.baseUnitSlug },
           }
-          let attached: boolean | null = null
-          if (canAttachSupplier && values.supplierSlug !== '') {
-            try {
-              await attachSupplierMaterials(values.supplierSlug, [item.materialSlug])
-              attached = true
-            } catch {
-              attached = false
-            }
-          }
           try {
-            await onCreated(added, item.materialName, attached)
+            await onCreated(added, item.materialName, withSupplier)
           } finally {
             inFlight.current = false
             onBusyChange(false)
