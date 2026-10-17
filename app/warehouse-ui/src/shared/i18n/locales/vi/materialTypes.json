@@ -31,5 +31,6 @@
   "actions": "Thao tác",
   "rowActions": "Thao tác với {{name}}",
   "editAction": "Sửa",
-  "deleteMenu": "Xoá"
+  "deleteMenu": "Xoá",
+  "filterCreatedAt": "Ngày tạo"
 }

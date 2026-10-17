@@ -80,6 +80,9 @@ export type ImportFormUpdateInput = Partial<ImportFormInput> & Versioned
 
 export type ImportFormFilters = {
   status?: ImportFormStatus
+  /** Ngày tạo từ / đến, `YYYY-MM-DD`, tính cả hai đầu. `startDate` > `endDate` → 400. */
+  startDate?: string
+  endDate?: string
 }
 
 /** `ImportFormAvailableUnitResponseDto`. `conversionRate` = số đơn vị gốc trong 1 đơn vị này. */

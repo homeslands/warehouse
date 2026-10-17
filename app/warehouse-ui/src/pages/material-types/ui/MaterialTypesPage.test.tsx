@@ -1,10 +1,11 @@
 import { screen, waitFor } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { MaterialType } from '@/entities/material-type'
 import { paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
+import { mockMobileViewport } from '@/shared/test/viewport'
 import { MaterialTypesPage } from './MaterialTypesPage'
 
 const BASE = 'http://localhost:8085/api/v1'
@@ -86,5 +87,34 @@ describe('MaterialTypesPage — sắp xếp theo cột', () => {
     })
     await screen.findByText('Tiêu hao')
     expect(screen.queryByRole('button', { name: 'Mô tả' })).not.toBeInTheDocument()
+  })
+})
+
+describe('MaterialTypesPage — lọc ngày tạo', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('URL startDate/endDate → gửi đúng; ngược chiều → đảo lại; Xoá bộ lọc → hết tham số', async () => {
+    // Màn hẹp: nút "Xoá bộ lọc" nằm ngoài popover.
+    mockMobileViewport()
+    const seen: URLSearchParams[] = []
+    server.use(
+      mswHttp.get(`${BASE}/material-types`, ({ request }) => {
+        seen.push(new URL(request.url).searchParams)
+        return paginated([type])
+      }),
+    )
+    const { user } = renderWithProviders(<MaterialTypesPage />, {
+      auth: { userName: 'a', roleName: 'ADMIN', scope: ['MATERIAL_READ'] },
+      route: '/material-types?startDate=2026-10-15&endDate=2026-10-01',
+    })
+    await screen.findByText('Tiêu hao')
+    expect(seen.at(-1)?.get('startDate')).toBe('2026-10-01')
+    expect(seen.at(-1)?.get('endDate')).toBe('2026-10-15')
+
+    await user.click(screen.getByRole('button', { name: 'Xoá bộ lọc' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.has('startDate')).toBe(false)
+      expect(seen.at(-1)?.has('endDate')).toBe(false)
+    })
   })
 })

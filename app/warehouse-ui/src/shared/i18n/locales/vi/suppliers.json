@@ -130,5 +130,6 @@
   "detachMenu": "Gỡ khỏi nhà cung cấp",
   "selectMaterialAria": "Chọn {{code}}",
   "selectAllOnPage": "Chọn tất cả vật tư trên trang",
-  "materialListLabel": "Vật tư chưa gắn với nhà cung cấp này"
+  "materialListLabel": "Vật tư chưa gắn với nhà cung cấp này",
+  "filterCreatedAt": "Ngày tạo"
 }

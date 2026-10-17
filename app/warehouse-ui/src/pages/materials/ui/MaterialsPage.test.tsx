@@ -1,12 +1,13 @@
 import { screen, waitFor } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Material } from '@/entities/material'
 import type { MaterialType } from '@/entities/material-type'
 import { paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
+import { mockMobileViewport } from '@/shared/test/viewport'
 import { MaterialsPage } from './MaterialsPage'
 
 const BASE = 'http://localhost:8085/api/v1'
@@ -171,5 +172,25 @@ describe('MaterialsPage — sắp xếp theo cột', () => {
     renderPage()
     await screen.findByText('Xi măng')
     expect(screen.queryByRole('button', { name: 'Loại vật tư' })).not.toBeInTheDocument()
+  })
+})
+
+describe('MaterialsPage — lọc ngày tạo', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('URL startDate/endDate → gửi đúng; ngược chiều → đảo lại; Xoá bộ lọc → hết tham số', async () => {
+    // Màn hẹp: nút "Xoá bộ lọc" nằm ngoài popover.
+    mockMobileViewport()
+    const seen = capture()
+    const { user } = renderPage(ADMIN, '/materials?startDate=2026-10-15&endDate=2026-10-01')
+    await screen.findByText('Xi măng')
+    expect(seen.at(-1)?.get('startDate')).toBe('2026-10-01')
+    expect(seen.at(-1)?.get('endDate')).toBe('2026-10-15')
+
+    await user.click(screen.getByRole('button', { name: 'Xoá bộ lọc' }))
+    await waitFor(() => {
+      expect(seen.at(-1)?.has('startDate')).toBe(false)
+      expect(seen.at(-1)?.has('endDate')).toBe(false)
+    })
   })
 })

@@ -68,6 +68,9 @@ export type MaterialFilters = {
   code?: string
   typeSlug?: string
   hasSupplier?: boolean
+  /** Ngày tạo từ / đến, `YYYY-MM-DD`, tính cả hai đầu. `startDate` > `endDate` → 400. */
+  startDate?: string
+  endDate?: string
 }
 
 /**
