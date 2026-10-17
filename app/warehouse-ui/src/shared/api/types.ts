@@ -46,8 +46,10 @@ export type Paginated<T> = {
 export type ListParams<F extends object = Record<never, never>> = {
   page: number
   size: number
-  /** Dạng `['createdAt:DESC']` theo `BaseQueryDto`. Dựng bằng `sortToParam`. */
-  sort?: string[]
+  /** Chiều sắp xếp; đi cặp với `sortBy`. Dựng bằng `sortToParam`. */
+  sort?: 'ASC' | 'DESC'
+  /** Tên trường backend sắp theo. */
+  sortBy?: string
 } & F
 
 /** Vì sao phiên kết thúc — interceptor và vòng đời phiên dùng chung, màn login hiện câu tương ứng. */

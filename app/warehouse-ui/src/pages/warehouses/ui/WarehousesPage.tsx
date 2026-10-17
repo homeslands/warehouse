@@ -90,6 +90,9 @@ function ManagerFilter({
   )
 }
 
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const WAREHOUSE_SORT_FIELDS = ['code', 'name', 'address', 'phonenumber', 'createdAt'] as const
+
 export function WarehousesPage() {
   const { t } = useTranslation(['warehouses', 'common'])
   const location = useLocation()
@@ -129,7 +132,7 @@ export function WarehousesPage() {
     ...rest,
     ...(scopedToOwnWarehouses ? {} : { managerSlug, hasManager }),
     ...(BACKEND_SUPPORTS.search && search !== undefined ? { search } : {}),
-    sort: BACKEND_SUPPORTS.sort ? sortToParam(sort) : undefined,
+    ...(BACKEND_SUPPORTS.sort ? sortToParam(sort, WAREHOUSE_SORT_FIELDS) : {}),
   })
   const remove = useDeleteWarehouse()
   const update = useUpdateWarehouse()

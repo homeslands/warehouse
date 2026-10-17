@@ -4,7 +4,7 @@ import { MemoryRouter, useLocation, useNavigationType } from 'react-router-dom'
 import { describe, expect, expectTypeOf, it, vi } from 'vitest'
 import { z } from 'zod'
 import type { ListParams } from '@/shared/api/types'
-import { PAGE_SIZE_OPTIONS, useClampPage, useListParams } from './list-params'
+import { PAGE_SIZE_OPTIONS, sortToParam, useClampPage, useListParams } from './list-params'
 
 const FILTERS = z.object({
   name: z.string().optional(),
@@ -233,5 +233,22 @@ describe('useListParams — sắp xếp', () => {
     act(() => result.current.setFilters({ name: 'oc' }))
 
     expect(location.search).toContain('sort=name%3AASC')
+  })
+})
+
+describe('sortToParam', () => {
+  it('chưa chọn cột → không gửi gì', () => {
+    expect(sortToParam(undefined, ['name'])).toEqual({})
+  })
+
+  it('cột nằm trong danh sách cho phép → sortBy + sort', () => {
+    expect(sortToParam({ field: 'name', dir: 'ASC' }, ['name'])).toEqual({
+      sortBy: 'name',
+      sort: 'ASC',
+    })
+  })
+
+  it('cột ngoài danh sách (URL cũ / bookmark) → không gửi trường lạ', () => {
+    expect(sortToParam({ field: 'firstName', dir: 'DESC' }, ['createdAt', 'name'])).toEqual({})
   })
 })

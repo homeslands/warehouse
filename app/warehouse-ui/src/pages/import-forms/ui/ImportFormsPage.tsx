@@ -38,8 +38,6 @@ const FILTERS = z.object({
   status: z.enum(IMPORT_FORM_STATUSES).optional(),
 }) satisfies z.ZodType<{ warehouse?: string } & ImportFormFilters>
 
-const DEFAULT_SORT = ['createdAt:DESC']
-
 export function ImportFormsPage() {
   const { t } = useTranslation(['importForms', 'common'])
   const location = useLocation()
@@ -66,7 +64,6 @@ export function ImportFormsPage() {
   const { data, isPending, error, isPlaceholderData } = useImportForms(warehouseSlug, {
     page,
     size,
-    sort: DEFAULT_SORT,
     status: filters.status,
   })
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)

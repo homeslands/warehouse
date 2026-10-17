@@ -77,7 +77,11 @@ describe('WarehousesPage — sắp xếp (cờ bật)', () => {
 
     await user.click(screen.getByRole('button', { name: /Tên kho|Tên/ }))
 
-    await waitFor(() => expect(decodeURIComponent(seen.at(-1) ?? '')).toContain('sort[]=name:ASC'))
+    await waitFor(() => {
+      const q = new URLSearchParams(seen.at(-1))
+      expect(q.get('sortBy')).toBe('name')
+      expect(q.get('sort')).toBe('ASC')
+    })
     expect(screen.getByTestId('location')).toHaveTextContent('sort=name%3AASC')
   })
 
@@ -88,7 +92,7 @@ describe('WarehousesPage — sắp xếp (cờ bật)', () => {
 
     await user.click(screen.getByRole('button', { name: /Tên kho|Tên/ }))
 
-    await waitFor(() => expect(decodeURIComponent(seen.at(-1) ?? '')).toContain('sort[]=name:DESC'))
+    await waitFor(() => expect(new URLSearchParams(seen.at(-1)).get('sort')).toBe('DESC'))
   })
 
   it('cột không khai sortField thì không bấm được', async () => {

@@ -204,5 +204,12 @@
   "inventoryQuantityBelowReserved": "The adjustment would make the stock lower than the reserved quantity",
   "inventoryReservedNotEmpty": "Reserved quantity must be 0 before removing the material from the warehouse",
   "inventoryNoteInvalid": "Note must be at most 255 characters",
-  "inventoryMaterialRequired": "Material details are missing"
+  "inventoryMaterialRequired": "Material details are missing",
+  "materialNameSearchInvalid": "Name search may only contain letters, digits and spaces",
+  "materialCodeSearchInvalid": "Code search may only contain letters, digits, '_' and '-'",
+  "inventorySupplierSlugInvalid": "Invalid supplier",
+  "startDateInvalid": "Invalid start date",
+  "endDateInvalid": "Invalid end date",
+  "sortInvalid": "Invalid sort order",
+  "sortByInvalid": "Can't sort by this column"
 }
