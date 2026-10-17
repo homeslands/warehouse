@@ -13,7 +13,7 @@ import {
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
-import { BaseQueryDto, BaseResponseDto, PaginationQueryDto } from 'src/app/base.dto';
+import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { SEARCH_CODE_REGEX, SEARCH_TEXT_REGEX } from 'src/shared/utils/query.util';
@@ -122,7 +122,7 @@ export enum MaterialSortBy {
   Code = 'code',
 }
 
-export class GetAllMaterialRequestDto extends PaginationQueryDto {
+export class GetAllMaterialRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by the slug of the material type' })
   @IsOptional()
   @Transform(trim)

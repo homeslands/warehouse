@@ -93,7 +93,7 @@ Test khoá 3 điểm trên nằm ở `<module>.dto.spec.ts` (body rỗng phải 
 
 **Quan trọng — message class-validator phải trùng KEY trong `<module>.validation.ts`** (vd `@IsNotEmpty({ message: 'EXAMPLE_NAME_IS_REQUIRED' })` phải khớp key đã khai báo), không phải câu văn tự do — `HttpExceptionFilter` tra `AppValidation[message]` để map ra `statusCode: 422` + mã lỗi chuẩn. Không khớp → trả nguyên message thô với statusCode 400 mặc định.
 
-Query phân trang kế thừa `BaseQueryDto` (`page`, `size`, `sort: string[]`).
+Query danh sách kế thừa `BaseQueryDto` (`page`, `size`, `sort: SortOrder`, `startDate`/`endDate` lọc `createdAt` qua `resolveDateRange()`). `sortBy` không nằm ở base: mỗi query DTO tự khai enum `<Module>SortBy` + field `sortBy`, service map sang cột bằng `buildSortOrder<Entity, <Module>SortBy>()` (`src/shared/utils/query.util.ts`).
 
 ## Response chuẩn (bắt buộc, controller tự build — không có interceptor tự wrap)
 
