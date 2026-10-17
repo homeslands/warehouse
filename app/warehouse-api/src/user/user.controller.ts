@@ -68,7 +68,9 @@ export class UserController {
       'Each user includes `role` (slug/name/description/level) and `warehouses` — the warehouses ' +
       'the user is a member of (excluding warehouses the user manages).\n\n' +
       '`ADMIN`/`SUPER_ADMIN` see everyone. Other roles (including `MANAGER`) only see users who ' +
-      'are a manager/member of (at least 1) warehouse the caller is a manager/member of.',
+      'are a manager/member of (at least 1) warehouse the caller is a manager/member of.\n\n' +
+      'Filter by startDate / endDate (creation date). `sortBy` = createdAt | name (last name, ' +
+      'then first name) | dob, `sort` = ASC | DESC (default `createdAt` DESC).',
   })
   @ApiPaginatedResponse(UserResponseDto, 'Retrieved')
   async findAll(

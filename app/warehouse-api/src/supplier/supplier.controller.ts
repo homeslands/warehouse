@@ -62,7 +62,7 @@ export class SupplierController {
   @ApiOperation({
     summary:
       'Get all suppliers (paginated, filter by code / taxCode / search(name|contactPerson|email) / ' +
-      'phonenumber / startDate-endDate (creation date))',
+      'phonenumber / startDate-endDate (creation date); sortBy = createdAt | name | code)',
   })
   @ApiPaginatedResponse(SupplierResponseDto, 'Retrieved')
   async findAll(

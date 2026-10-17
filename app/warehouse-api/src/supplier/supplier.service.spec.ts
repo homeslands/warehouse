@@ -7,6 +7,8 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { Between, In, LessThanOrEqual, Like, MoreThanOrEqual } from 'typeorm';
 import { SupplierService } from './supplier.service';
 import { SortOrder } from 'src/app/base.dto';
+import { SupplierSortBy } from './supplier.dto';
+import { AppCommonValidation } from 'src/app/app-common.validation';
 import { SupplierProfile } from './supplier.mapper';
 import { Supplier } from './supplier.entity';
 import { SupplierTransaction } from './supplier-transaction.entity';
@@ -168,6 +170,27 @@ describe('SupplierService', () => {
 
       const { order } = supplierRepository.findAndCount.mock.calls[0][0];
       expect(order).toEqual({ createdAt: expected, id: 'ASC' });
+    });
+
+    it('orders by sortBy=code, rejects sortBy=dob', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        sortBy: SupplierSortBy.Code,
+        sort: SortOrder.ASC,
+      });
+      expect(supplierRepository.findAndCount.mock.calls[0][0].order).toEqual({
+        code: 'ASC',
+        id: 'ASC',
+      });
+
+      await expect(
+        service.findAll({ page: 1, size: 10, sortBy: 'dob' as SupplierSortBy }),
+      ).rejects.toMatchObject({
+        code: AppCommonValidation.SORT_BY_INVALID.code,
+      });
     });
 
     it('rejects startDate after endDate', async () => {

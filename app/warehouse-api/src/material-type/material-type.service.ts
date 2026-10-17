@@ -9,15 +9,15 @@ import {
   GetAllMaterialTypeRequestDto,
   MaterialTypeResponseDto,
   UpdateMaterialTypeRequestDto,
+  MaterialTypeSortBy,
 } from './material-type.dto';
 import { MaterialType } from './material-type.entity';
 import { MaterialTypeException } from './material-type.exception';
 import { MaterialTypeValidation } from './material-type.validation';
 import { Material } from 'src/material/material.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
-import { SortOrder } from 'src/app/base.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 
 @Injectable()
 export class MaterialTypeService {
@@ -60,7 +60,10 @@ export class MaterialTypeService {
 
     const [items, total] = await this.materialTypeRepository.findAndCount({
       where,
-      order: { createdAt: query.sort ?? SortOrder.DESC, id: 'ASC' },
+      order: buildSortOrder<MaterialType, MaterialTypeSortBy>(query, {
+        name: ['name'],
+        code: ['code'],
+      }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
