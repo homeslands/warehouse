@@ -18,6 +18,7 @@ const legacy: Material = {
   hasSupplier: false,
   suppliers: [],
   warehouses: [],
+  units: [],
 }
 
 function Table({ rows }: { rows: Material[] }) {

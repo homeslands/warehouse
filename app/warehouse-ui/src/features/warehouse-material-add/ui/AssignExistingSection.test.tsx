@@ -21,6 +21,7 @@ const mat = (slug: string, code: string, name: string): Material => ({
   hasSupplier: false,
   suppliers: [],
   warehouses: [],
+  units: [],
 })
 const cement = mat('m-cement', 'VT-09', 'Xi măng PCB40')
 const inWarehouse: Material = {
@@ -81,6 +82,30 @@ describe('AssignExistingSection', () => {
     const shown = await screen.findByText('NCC Bột, NCC Đường')
     expect(shown.parentElement).toHaveTextContent('NCC Bột, NCC Đường +1')
     expect(shown.closest('[title]')).toHaveAttribute('title', 'NCC Bột, NCC Đường, NCC Muối')
+  })
+
+  it('có units → dòng phụ liệt kê mã mọi đơn vị, đơn vị gốc trước', async () => {
+    const unit = (unitCode: string, conversionRate: number, isBaseUnit: boolean) => ({
+      unitSlug: `u-${unitCode.toLowerCase()}`,
+      unitCode,
+      unitName: unitCode,
+      conversionRate,
+      isBaseUnit,
+    })
+    setup({
+      found: [
+        {
+          ...cement,
+          units: [unit('KG', 1, true), unit('BAO', 50, false), unit('THUNG', 20, false)],
+        },
+      ],
+    })
+    expect(await screen.findByText('Vật liệu · KG, BAO, THUNG')).toBeInTheDocument()
+  })
+
+  it('units rỗng nhưng có baseUnit → vẫn hiện mã đơn vị gốc', async () => {
+    setup({ found: [{ ...cement, units: [] }] })
+    expect(await screen.findByText('Vật liệu · KG')).toBeInTheDocument()
   })
 
   it('gõ giống mã → gửi code viết hoa', async () => {

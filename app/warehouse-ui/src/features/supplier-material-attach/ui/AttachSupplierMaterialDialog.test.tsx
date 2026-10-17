@@ -26,6 +26,7 @@ const base = {
   hasSupplier: false,
   suppliers: [],
   warehouses: [],
+  units: [],
 }
 const kg = { slug: 'u-kg', code: 'KG', name: 'kg' }
 const m1: Material = { ...base, slug: 'm-1', code: 'NL01', name: 'Đường', baseUnit: kg }

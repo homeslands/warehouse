@@ -77,6 +77,7 @@ const material = (over: Record<string, unknown> = {}) => ({
   hasSupplier: false,
   suppliers: [],
   warehouses: [{ slug: 'w-a', code: 'A', name: 'Kho A', quantity: 30, availableQuantity: 25 }],
+  units: [],
   ...over,
 })
 
