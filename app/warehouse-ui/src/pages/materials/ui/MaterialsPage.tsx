@@ -4,13 +4,16 @@ import { useCallback, useMemo, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
-import { toCodeOrNameQuery } from '@/shared/lib/code'
-import { useClampPage, useListParams } from '@/shared/lib/list-params'
+import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { toMaterialSearchQuery } from '@/shared/lib/code'
+import { toCreatedRange } from '@/shared/lib/date-range'
+import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { CodeOrNameEmpty } from '@/shared/ui/data-table/CodeOrNameEmpty'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
 import { ListToolbar } from '@/shared/ui/data-table/ListToolbar'
 import { SearchInput } from '@/shared/ui/data-table/SearchInput'
+import { DateRangeFilter } from '@/shared/ui/data-table/DateRangeFilter'
 import { SelectFilter } from '@/shared/ui/data-table/SelectFilter'
 import {
   DropdownMenu,
@@ -36,7 +39,13 @@ const FILTERS = z.object({
   search: z.string().optional(),
   searchBy: z.enum(['code', 'name']).optional(),
   typeSlug: z.string().optional(),
-}) satisfies z.ZodType<Pick<MaterialFilters, 'typeSlug'>>
+  // Ngày tạo. Sai định dạng trên URL → bỏ riêng khoá đó (`useListParams`).
+  startDate: z.iso.date().optional(),
+  endDate: z.iso.date().optional(),
+}) satisfies z.ZodType<Pick<MaterialFilters, 'typeSlug' | 'startDate' | 'endDate'>>
+
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const MATERIAL_SORT_FIELDS = ['createdAt', 'name', 'code'] as const
 
 export function MaterialsPage() {
   const { t } = useTranslation(['materials', 'common'])
@@ -51,19 +60,28 @@ export function MaterialsPage() {
   const user = useAuthStore((s) => s.user)
   const ability = materialAbilities(user)
 
-  const { page, size, filters, setPage, setSize, setFilters } = useListParams(FILTERS)
+  const { page, size, filters, sort, setPage, setSize, setFilters, setSort } =
+    useListParams(FILTERS)
   const [formOpen, setFormOpen] = useState(false)
   const [editing, setEditing] = useState<Material | undefined>(undefined)
   const [deleting, setDeleting] = useState<Material | null>(null)
 
   const types = useMaterialTypeOptions()
-  const searchQuery = toCodeOrNameQuery(filters.search, filters.searchBy)
-  const { data, isPending, error, isPlaceholderData } = useMaterials({
-    page,
-    size,
-    typeSlug: filters.typeSlug,
-    ...searchQuery,
-  })
+  const searchQuery = toMaterialSearchQuery(filters.search, filters.searchBy)
+  // Ô tìm có chữ nhưng toàn ký tự BE không nhận: không gọi API, không liệt kê cả danh mục.
+  const symbolOnlySearch =
+    (filters.search ?? '').trim() !== '' && Object.keys(searchQuery).length === 0
+  const { data, isPending, error, isPlaceholderData } = useMaterials(
+    {
+      page,
+      size,
+      typeSlug: filters.typeSlug,
+      ...toCreatedRange(filters.startDate, filters.endDate),
+      ...(BACKEND_SUPPORTS.materialSort ? sortToParam(sort, MATERIAL_SORT_FIELDS) : {}),
+      ...searchQuery,
+    },
+    { enabled: !symbolOnlySearch },
+  )
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
 
   const columns = useMemo<ColumnDef<Material>[]>(() => {
@@ -118,7 +136,11 @@ export function MaterialsPage() {
   }, [t, detailLink, navigate, ability.update, ability.delete])
 
   // Trống: nói rõ đã tìm theo mã hay tên (kèm "trong loại đang lọc" khi có lọc loại) và cho đổi cách tìm.
-  let emptyText: ReactNode = filters.typeSlug ? t('common:noResults') : t('materials:empty')
+  let emptyText: ReactNode =
+    filters.typeSlug || filters.startDate || filters.endDate
+      ? t('common:noResults')
+      : t('materials:empty')
+  if (symbolOnlySearch) emptyText = t('common:noResults')
   if (searchQuery.code !== undefined || searchQuery.name !== undefined) {
     const searchedBy = searchQuery.code !== undefined ? 'code' : 'name'
     const inType = Boolean(filters.typeSlug)
@@ -156,21 +178,32 @@ export function MaterialsPage() {
           />
         }
         filters={
-          <SelectFilter
-            label={t('materials:filterType')}
-            value={filters.typeSlug ?? ''}
-            onChange={(value) => setFilters({ typeSlug: value === '' ? undefined : value })}
-            options={[
-              { value: '', label: t('materials:typeAll') },
-              ...(types.data?.items ?? []).map((x) => ({
-                value: x.slug,
-                label: `${x.code} · ${x.name}`,
-              })),
-            ]}
-          />
+          <>
+            <SelectFilter
+              label={t('materials:filterType')}
+              value={filters.typeSlug ?? ''}
+              onChange={(value) => setFilters({ typeSlug: value === '' ? undefined : value })}
+              options={[
+                { value: '', label: t('materials:typeAll') },
+                ...(types.data?.items ?? []).map((x) => ({
+                  value: x.slug,
+                  label: `${x.code} · ${x.name}`,
+                })),
+              ]}
+            />
+            <DateRangeFilter
+              label={t('materials:filterCreatedAt')}
+              value={{ from: filters.startDate, to: filters.endDate }}
+              onChange={({ from, to }) => setFilters({ startDate: from, endDate: to })}
+            />
+          </>
         }
-        activeFilterCount={filters.typeSlug ? 1 : 0}
-        onClearFilters={() => setFilters({ typeSlug: undefined })}
+        activeFilterCount={
+          [filters.typeSlug, filters.startDate || filters.endDate].filter(Boolean).length
+        }
+        onClearFilters={() =>
+          setFilters({ typeSlug: undefined, startDate: undefined, endDate: undefined })
+        }
         actions={
           ability.create && (
             <Button
@@ -190,21 +223,22 @@ export function MaterialsPage() {
       <DataTable
         columns={columns}
         emptyText={emptyText}
+        sorting={BACKEND_SUPPORTS.materialSort ? { value: sort, onChange: setSort } : undefined}
         onRowClick={(row) => {
           const { to, state } = detailLink(row)
           navigate(to, { state })
         }}
-        data={data?.items}
-        isLoading={isPending}
+        data={symbolOnlySearch ? [] : data?.items}
+        isLoading={!symbolOnlySearch && isPending}
         error={error}
         pagination={{
           page: data?.page ?? page,
           size,
-          total: data?.total ?? 0,
-          totalPages: data?.totalPages ?? 0,
+          total: symbolOnlySearch ? 0 : (data?.total ?? 0),
+          totalPages: symbolOnlySearch ? 0 : (data?.totalPages ?? 0),
           onPageChange: setPage,
           onSizeChange: setSize,
-          isFetching: isPlaceholderData,
+          isFetching: !symbolOnlySearch && isPlaceholderData,
         }}
       />
 

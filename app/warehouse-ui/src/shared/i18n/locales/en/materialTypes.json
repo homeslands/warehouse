@@ -31,5 +31,6 @@
   "actions": "Actions",
   "rowActions": "Actions for {{name}}",
   "editAction": "Edit",
-  "deleteMenu": "Delete"
+  "deleteMenu": "Delete",
+  "filterCreatedAt": "Created"
 }

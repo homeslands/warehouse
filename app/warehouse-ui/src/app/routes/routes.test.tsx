@@ -101,6 +101,10 @@ describe('createRoutes', () => {
 })
 
 describe('createRoutes — màn Kho', () => {
+  // `@/pages/warehouses` kéo theo cả widget Vật tư trong kho (bảng, sheet lịch sử, hộp thêm/gỡ) — lần
+  // transform NGUỘI có thể vượt 1000ms mặc định của `findBy*`. Nạp module trước, ngoài mọi test.
+  beforeAll(() => import('@/pages/warehouses'), 15000)
+
   beforeEach(() => {
     // Màn Kho của ADMIN nạp thêm ứng viên quản lý cho ô lọc (`useManagerCandidates`).
     server.use(
@@ -171,6 +175,7 @@ describe('createRoutes — màn Cửa hàng', () => {
       '/materials',
       '/material-types',
       '/units',
+      '/import-forms',
       '/users',
       '/roles',
       '/permissions',
@@ -507,7 +512,9 @@ describe('createRoutes — màn Vật tư', () => {
           type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
           baseUnit: null,
           hasSupplier: false,
-          supplier: null,
+          suppliers: [],
+          warehouses: [],
+          units: [],
         }),
       ),
     )
@@ -552,5 +559,51 @@ describe('createRoutes — màn Vai trò', () => {
     })
 
     await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+  })
+})
+
+describe('createRoutes — màn Phiếu nhập', () => {
+  const READER = {
+    userName: 'r',
+    userSlug: 'u-r',
+    roleName: 'MANAGER',
+    scope: ['IMPORT_FORM_READ', 'WAREHOUSE_READ'],
+  }
+  beforeEach(() => {
+    server.use(
+      mswHttp.get(`${BASE}/warehouses`, () =>
+        paginated([{ slug: 'w-a', code: 'KHO-A', name: 'Kho A', isActive: true }]),
+      ),
+      mswHttp.get(`${BASE}/warehouses/w-a/import-forms`, () => paginated([])),
+    )
+  })
+
+  it('có READ + WAREHOUSE_READ → vào được, menu nhóm "Nghiệp vụ kho" có "Phiếu nhập"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), { route: '/import-forms', auth: READER })
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Phiếu nhập kho' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Phiếu nhập' })).toHaveAttribute(
+      'href',
+      '/import-forms',
+    )
+    expect(screen.getByText('Nghiệp vụ kho')).toBeInTheDocument()
+  })
+
+  it('thiếu WAREHOUSE_READ → /forbidden', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/import-forms',
+      auth: { ...READER, scope: ['IMPORT_FORM_READ'] },
+    })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+  })
+
+  it('/import-forms/new (link cũ) → chuyển về danh sách, giữ ?warehouse', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/import-forms/new?warehouse=w-a',
+      auth: READER,
+    })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/import-forms'))
+    expect(router.state.location.search).toContain('warehouse=w-a')
   })
 })

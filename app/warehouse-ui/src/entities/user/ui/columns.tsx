@@ -20,7 +20,7 @@ export function userDisplayName(
 /**
  * `roleLabel` và `isSelf` do tầng page cấp: entity không được đọc `entities/session` (import ngang). Có `onOpen`
  * thì tên là nút mở chi tiết — cho bàn phím, vì cả dòng bấm được (`DataTable` `onRowClick`) nhưng `<tr>` không nhận focus.
- * `sortField` khớp field `sort` của `GET /users` (chỉ có tác dụng khi màn bật `sorting`). Khung hẹp giữ Họ tên, Trạng thái, Thao tác.
+ * `sortField` khớp `sortBy` của `GET /users` (name, createdAt; SĐT không sắp xếp được) — chỉ có tác dụng khi màn bật `sorting`. Khung hẹp giữ Họ tên, Trạng thái, Thao tác.
  */
 const MAX_WAREHOUSES_SHOWN = 2
 
@@ -37,7 +37,7 @@ export function buildUserColumns(
     {
       id: 'name',
       header: t('users:columnName'),
-      meta: { sortField: 'firstName' },
+      meta: { sortField: 'name' },
       cell: ({ row }) => (
         // Nhãn "Bạn" chạy theo dòng chữ (inline) — tên xuống 2-3 dòng thì nhãn nằm ngay sau chữ cuối, không
         // lơ lửng giữa ô như khi là một cột flex.
@@ -65,7 +65,7 @@ export function buildUserColumns(
     {
       accessorKey: 'phonenumber',
       header: t('users:columnLogin'),
-      meta: { sortField: 'phonenumber', hideBelow: '@sm' },
+      meta: { hideBelow: '@sm' },
     },
     {
       id: 'email',

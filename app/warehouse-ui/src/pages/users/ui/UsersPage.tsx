@@ -5,6 +5,7 @@ import { useTranslation } from 'react-i18next'
 import { useSearchParams } from 'react-router-dom'
 import { z } from 'zod'
 import { BACKEND_SUPPORTS } from '@/shared/api/backend-capabilities'
+import { toCreatedRange } from '@/shared/lib/date-range'
 import { sortToParam, useClampPage, useListParams } from '@/shared/lib/list-params'
 import { Button } from '@/shared/ui/button'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
@@ -50,12 +51,8 @@ const FILTERS = z.object({
   endDate: z.iso.date().optional(),
 })
 
-/** URL sửa tay ngược chiều → đảo lại thay vì để backend trả 400 (100422). `YYYY-MM-DD` so sánh được như chuỗi. */
-function toCreatedRange(startDate?: string, endDate?: string) {
-  const [from, to] =
-    startDate && endDate && startDate > endDate ? [endDate, startDate] : [startDate, endDate]
-  return { ...(from ? { startDate: from } : {}), ...(to ? { endDate: to } : {}) }
-}
+/** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). */
+const USER_SORT_FIELDS = ['createdAt', 'name', 'dob'] as const
 
 export function UsersPage() {
   const { t } = useTranslation(['users', 'common'])
@@ -81,7 +78,7 @@ export function UsersPage() {
     page,
     size,
     // Cờ riêng `userSort`, không dùng `sort` chung (Kho/Cửa hàng chưa có).
-    sort: BACKEND_SUPPORTS.userSort ? sortToParam(sort) : undefined,
+    ...(BACKEND_SUPPORTS.userSort ? sortToParam(sort, USER_SORT_FIELDS) : {}),
     ...(ability.filterByRole && filters.roleSlug ? { roleSlug: filters.roleSlug } : {}),
     ...(ability.search ? toUserSearchQuery(filters.search) : {}),
     ...(ability.search && filters.isActive !== undefined ? { isActive: filters.isActive } : {}),

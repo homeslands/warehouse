@@ -45,9 +45,21 @@ type FormSheetProps = {
   isDirty?: boolean
   /** Có → hỏi lại trước khi gửi (nghiệp vụ chốt: thao tác TẠO phải xác nhận). Xem `FormSheetConfirmation`. */
   confirmation?: FormSheetConfirmation
+  /** `default` = ~480px; `wide` = ~1024px (form nhiều dòng như phiếu nhập). Dưới 640px luôn full width. */
+  size?: 'default' | 'wide'
+  /** Nội dung bên TRÁI chân sheet, cùng hàng với Huỷ / Lưu (vd tổng tiền). */
+  footerStart?: ReactNode
+  /** Nút phụ ngay bên trái nút gửi chính (vd "Lưu & xác nhận"). Bên gọi tự khoá khi `isPending`. */
+  secondaryAction?: ReactNode
   onSubmit: FormEventHandler<HTMLFormElement>
   children: ReactNode
 }
+
+// Class ghi đè chiều rộng phải cùng tiền tố biến thể với `sheet.tsx` (xem CLAUDE.md), nếu không thua specificity.
+const WIDTH_CLASS = {
+  default: 'data-[side=right]:sm:max-w-[480px]',
+  wide: 'data-[side=right]:sm:max-w-5xl',
+} as const
 
 /**
  * Khung cho form nhiều ô: ngăn trượt bên phải, tiêu đề cố định, vùng nội dung cuộn được, chân
@@ -67,6 +79,9 @@ export function FormSheet({
   submitDisabled = false,
   isDirty = false,
   confirmation,
+  size = 'default',
+  footerStart,
+  secondaryAction,
   onSubmit,
   children,
 }: FormSheetProps) {
@@ -86,7 +101,7 @@ export function FormSheet({
       <Sheet open={open} onOpenChange={(next) => (next ? onOpenChange(true) : requestClose())}>
         <SheetContent
           side="right"
-          className="gap-0 p-0 data-[side=right]:w-full data-[side=right]:sm:max-w-[480px]"
+          className={`gap-0 p-0 data-[side=right]:w-full ${WIDTH_CLASS[size]}`}
           // `Dialog.Close` của Radix gọi thẳng `onOpenChange`, KHÔNG đi qua `onEscapeKeyDown` /
           // `onPointerDownOutside` — nút × ở góc vì thế vượt được chốt isPending. Giấu nó lúc đang
           // gửi, để không còn lối đóng nào lọt qua — đúng như Esc, bấm ra ngoài và nút Huỷ.
@@ -106,10 +121,16 @@ export function FormSheet({
           <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">{children}</div>
 
-            <SheetFooter className="flex-row justify-end gap-2 border-t">
+            <SheetFooter className="flex-row items-center justify-end gap-2 border-t">
+              {footerStart !== undefined && (
+                <div className="mr-auto min-w-0 text-sm font-medium tabular-nums">
+                  {footerStart}
+                </div>
+              )}
               <Button type="button" variant="outline" disabled={isPending} onClick={requestClose}>
                 {t('common:cancel')}
               </Button>
+              {secondaryAction}
               <Button type="submit" disabled={isPending || submitDisabled}>
                 {isPending ? t('common:saving') : submitLabel}
               </Button>

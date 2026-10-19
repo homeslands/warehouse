@@ -14,6 +14,7 @@ import { Button } from '@/shared/ui/button'
 import { Combobox } from '@/shared/ui/Combobox'
 import { DatePicker } from '@/shared/ui/DatePicker'
 import { FormSheet } from '@/shared/ui/FormSheet'
+import { MoneyInput } from '@/shared/ui/MoneyInput'
 import { NumberInput } from '@/shared/ui/NumberInput'
 import { SummaryList, type SummaryItem } from '@/shared/ui/SummaryList'
 import {
@@ -322,7 +323,7 @@ export function SupplierTransactionFormSheet({
                 <FormItem required>
                   <FormLabel>{t('suppliers:fieldUnitPrice')}</FormLabel>
                   <FormControl>
-                    <NumberInput
+                    <MoneyInput
                       value={field.value}
                       onChange={field.onChange}
                       onBlur={field.onBlur}
@@ -351,7 +352,7 @@ export function SupplierTransactionFormSheet({
               <FormItem required>
                 <FormLabel>{t('suppliers:fieldAmount')}</FormLabel>
                 <FormControl>
-                  <NumberInput
+                  <MoneyInput
                     value={field.value}
                     onChange={field.onChange}
                     onBlur={field.onBlur}

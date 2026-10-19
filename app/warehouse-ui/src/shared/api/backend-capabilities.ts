@@ -10,10 +10,10 @@
  */
 export const BACKEND_SUPPORTS = {
   /**
-   * Sắp xếp theo cột. `BaseQueryDto` của backend ĐÃ khai `sort?: string[]`
-   * (`app/warehouse-api/src/app/base.dto.ts`, mô tả ghi rõ dạng `['createdAt:DESC']`) nhưng
-   * **không service nào đọc nó** — mọi danh sách phân trang đang cứng `createdAt DESC`.
-   * Định dạng FE gửi bám đúng mô tả đó, nên khi backend hiện thực là khớp luôn.
+   * Sắp xếp theo cột cho Kho/Cửa hàng. Hợp đồng chung của backend (WMS-16-be(14)): `sort=ASC|DESC` +
+   * `sortBy=<trường>` (mặc định `createdAt DESC`); gửi `sort[]=field:DIR` (dạng cũ) → 400 `SORT_INVALID`.
+   * `sortBy` enum của Kho/Cửa hàng chưa được kiểm với API thật nên cờ này vẫn tắt — các màn đã có enum
+   * đi theo cờ riêng (`userSort`, `supplierSort`, `materialSort`, `materialTypeSort`, `importFormSort`).
    */
   sort: false,
 
@@ -90,8 +90,8 @@ export const BACKEND_SUPPORTS = {
   userSearch: true,
 
   /**
-   * Sắp xếp theo cột RIÊNG màn Người dùng — backend `GET /users` đã đọc `sort` (PR #78; field: createdAt,
-   * updatedAt, firstName, lastName, phonenumber, dob). Cờ `sort` chung vẫn tắt vì Kho/Cửa hàng chưa có.
+   * Sắp xếp theo cột RIÊNG màn Người dùng — backend `GET /users` nhận `sort=ASC|DESC` + `sortBy`
+   * (createdAt | name | dob — WMS-16-be(14)). Cờ `sort` chung vẫn tắt vì Kho/Cửa hàng chưa có.
    */
   userSort: true,
 
@@ -104,11 +104,22 @@ export const BACKEND_SUPPORTS = {
   supplierSearch: true,
 
   /**
-   * Sắp xếp theo cột màn Nhà cung cấp (FE gửi `sort[]=field:ASC|DESC`; cột khai `sortField`: code, name,
-   * taxCode, phonenumber, createdAt). Backend đang làm — 2026-10-08 sandbox nhận `sort[]` nhưng vẫn cứng
-   * `createdAt DESC`.
+   * Sắp xếp theo cột màn Nhà cung cấp — ĐÃ BẬT: `GET /suppliers` nhận `sort=ASC|DESC` + `sortBy`
+   * (`code` | `name` | `createdAt`) từ WMS-16-be(14). Chỉ cột Mã / Tên / Ngày tạo khai `sortField`.
    */
-  supplierSort: false,
+  supplierSort: true,
+
+  /** Sắp xếp theo cột màn Vật tư — ĐÃ BẬT: `GET /materials` nhận `sortBy` code | name | createdAt (WMS-16-be(14)). */
+  materialSort: true,
+
+  /** Sắp xếp theo cột màn Loại vật tư — ĐÃ BẬT: `GET /material-types` nhận `sortBy` code | name | createdAt (WMS-16-be(14)). */
+  materialTypeSort: true,
+
+  /**
+   * Sắp xếp theo cột màn Phiếu nhập — ĐÃ BẬT: `GET /warehouses/{w}/import-forms` nhận `sortBy` createdAt | code
+   * (WMS-16-be(14)). Cột Ngày nhập (`date`) không sắp được nên không khai `sortField`.
+   */
+  importFormSort: true,
 
   /**
    * Tab Giao dịch ở trang chi tiết nhà cung cấp (`GET`/`POST /suppliers/{slug}/transactions`). WMS-13 đã TẠM ẨN
@@ -123,6 +134,12 @@ export const BACKEND_SUPPORTS = {
    * 2026-10-08; `from` sai định dạng → 101221).
    */
   supplierMaterialFilters: true,
+
+  /**
+   * Ô tìm mã / tên ở tab Vật tư của trang chi tiết kho — `GET /warehouses/{w}/materials` nhận `name` / `code`. BE đang
+   * làm (2026-10-15 sandbox còn bỏ qua). Bật khi BE deploy và đã thử với API thật.
+   */
+  inventorySearch: false,
 } as const
 
 /** Kiểu của một bộ cờ — để hàm nhận cờ làm tham số (test truyền `true` được; `as const` ghim `false`). */
