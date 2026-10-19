@@ -12,6 +12,7 @@ export {
   useImportForms,
   useImportForm,
   useAvailableMaterials,
+  useAvailableMaterialSearch,
   useCreateImportForm,
   useUpdateImportForm,
   useDeleteImportForm,
@@ -35,6 +36,7 @@ export type {
   ImportFormUpdateInput,
   ImportFormFilters,
   AvailableMaterial,
+  AvailableSupplier,
   AvailableUnit,
 } from './model/types'
 export { ImportFormStatusBadge } from './ui/ImportFormStatusBadge'

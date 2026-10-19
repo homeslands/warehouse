@@ -1,16 +1,18 @@
 import { NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
-import { useId, useState, type ComponentType } from 'react'
+import { useEffect, useId, useState, type ComponentType } from 'react'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { toCodeOrNameQuery } from '@/shared/lib/code'
 import { translateFormMessage } from '@/shared/lib/form-message'
 import { formatCurrency, formatQuantity } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { MoneyInput } from '@/shared/ui/MoneyInput'
 import { NumberInput } from '@/shared/ui/NumberInput'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import type { AvailableMaterial } from '@/entities/import-form'
+import { useAvailableMaterialSearch, type AvailableMaterial } from '@/entities/import-form'
 import {
   NO_MATERIAL_ADD,
   type AddedMaterial,
@@ -21,11 +23,16 @@ import {
   EMPTY_ITEM,
   IMPORT_FORM_ITEMS_MAX,
   baseUnitOf,
+  effectiveSupplier,
   lineAmount,
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
 
 type Props = {
+  /** Báo lên sheet vật tư vừa chọn từ kết quả tìm — hộp Kiểm tra cần chúng dù nằm ngoài 100 bản ghi đầu. */
+  onMaterialPicked?: (material: AvailableMaterial) => void
+  /** Báo lên sheet vật tư vừa thêm từ hộp "Thêm vật tư vào kho" — hộp Kiểm tra lấy nhãn của nó làm tên dự phòng. */
+  onMaterialAdded?: (material: AddedMaterial) => void
   form: UseFormReturn<ImportFormValues>
   materials: AvailableMaterial[]
   /** Vật tư của dòng cũ không còn trong danh sách (bị gỡ khỏi kho / ngoài 100 bản ghi đầu): slug → "mã · tên". */
@@ -38,8 +45,21 @@ type Props = {
   materialAbilities?: MaterialAddAbilities
   /** Hộp "Thêm vật tư vào kho" do page truyền vào (feature không import feature). Không có → không có dòng "＋ Thêm vật tư vào kho…". */
   AddMaterialDialog?: ComponentType<AddMaterialDialogProps>
-  /** Tải vật tư khả dụng của kho lỗi: báo ngay dưới tiêu đề "Dòng vật tư" (kèm Thử lại) và trong danh sách của ô chọn. */
+  /** Tải vật tư khả dụng của kho lỗi: báo ngay dưới tiêu đề "Chi tiết vật tư" (kèm Thử lại) và trong danh sách của ô chọn. */
   loadError?: { message: string; onRetry: () => void }
+  /** Người dùng được chọn bên bán (có quyền đọc NCC): bật nút "đổi bên bán" theo dòng. */
+  canPickSupplier?: boolean
+  /** Danh sách NCC để chọn cho dòng và để lấy tên cho tiêu đề nhóm / nhãn "Bên bán: …". */
+  suppliers?: { slug: string; code: string; name: string }[]
+}
+
+function useDebouncedValue<T>(value: T, ms: number): T {
+  const [debounced, setDebounced] = useState(value)
+  useEffect(() => {
+    const id = setTimeout(() => setDebounced(value), ms)
+    return () => clearTimeout(id)
+  }, [value, ms])
+  return debounced
 }
 
 /**
@@ -47,9 +67,11 @@ type Props = {
  * dựng lưới ~50rem trong khung ~46rem, đẩy nút ghi chú / xoá ra ngoài card. Hẹp hơn: mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra.
  */
 const ROW_GRID =
-  'grid gap-3 rounded-lg border p-3 @3xl:grid-cols-[2rem_minmax(10rem,2fr)_minmax(6rem,1fr)_minmax(5rem,1fr)_minmax(6rem,1fr)_minmax(6rem,1fr)_auto] @3xl:items-start @3xl:rounded-none @3xl:border-0 @3xl:border-b @3xl:px-0'
+  'grid gap-3 rounded-lg border p-3 @3xl:grid-cols-[1.5rem_minmax(11rem,2.2fr)_minmax(5.5rem,0.9fr)_minmax(5rem,0.8fr)_minmax(7.5rem,1.2fr)_minmax(6.5rem,1fr)_auto] @3xl:items-start @3xl:rounded-none @3xl:border-0 @3xl:border-b @3xl:px-0'
 
 export function ImportFormItemsField({
+  onMaterialPicked,
+  onMaterialAdded: reportMaterialAdded,
   form,
   materials,
   fallbackLabels,
@@ -59,6 +81,8 @@ export function ImportFormItemsField({
   materialAbilities = NO_MATERIAL_ADD,
   AddMaterialDialog,
   loadError,
+  canPickSupplier = false,
+  suppliers = [],
 }: Props) {
   const { t } = useTranslation(['importForms', 'common'])
   const hintId = useId()
@@ -69,9 +93,34 @@ export function ImportFormItemsField({
     () => new Set(fields.filter((_, i) => (items[i]?.note ?? '') !== '').map((f) => f.id)),
   )
 
-  const bySlug = new Map(materials.map((m) => [m.slug, m]))
-  const baseSlugOf = (slug: string | undefined) => {
-    const m = slug ? bySlug.get(slug) : undefined
+  const headerSupplier = useWatch({ control: form.control, name: 'supplierSlug' })
+  // Ô tìm đang gõ (một ô mở tại một thời điểm) → tìm phía BE sau 300 ms.
+  const [search, setSearch] = useState('')
+  const debouncedSearch = useDebouncedValue(search.trim(), 300)
+  const searching = search.trim() !== ''
+  const searchResult = useAvailableMaterialSearch(
+    warehouseSlug,
+    toCodeOrNameQuery(debouncedSearch),
+    { enabled: searching && debouncedSearch !== '' },
+  )
+  const found = searching ? (searchResult.data?.items ?? []) : []
+  // Vật tư chọn từ kết quả tìm có thể nằm ngoài 100 bản ghi đầu của `materials` → giữ lại để nhãn / đơn vị / tồn còn.
+  const [picked, setPicked] = useState<ReadonlyMap<string, AvailableMaterial>>(new Map())
+  const bySlug = new Map<string, AvailableMaterial>([
+    ...picked,
+    ...materials.map((m): [string, AvailableMaterial] => [m.slug, m]),
+  ])
+  const supplierName = (slug: string) =>
+    suppliers.find((x) => x.slug === slug)?.name ??
+    [...bySlug.values()].flatMap((m) => m.suppliers).find((x) => x.slug === slug)?.name ??
+    slug
+  const supplierOptions: ComboboxOption[] = suppliers.map((x) => ({
+    value: x.slug,
+    label: `${x.code} · ${x.name}`,
+  }))
+  const [pickingSupplier, setPickingSupplier] = useState<ReadonlySet<string>>(new Set())
+  const baseSlugOf = (slug: string | undefined, chosen?: AvailableMaterial) => {
+    const m = chosen ?? (slug ? bySlug.get(slug) : undefined)
     return m ? (baseUnitOf(m)?.unitSlug ?? '') : ''
   }
   const [adding, setAdding] = useState<{ index: number; search: string } | null>(null)
@@ -82,6 +131,7 @@ export function ImportFormItemsField({
   const unitLabels = { ...fallbackUnits, ...addedUnits }
   const onMaterialAdded = (added: AddedMaterial) => {
     if (!adding) return
+    reportMaterialAdded?.(added)
     setAddedLabels((prev) => ({ ...prev, [added.slug]: added.label }))
     if (added.baseUnit) {
       const { slug, label } = added.baseUnit
@@ -91,12 +141,30 @@ export function ImportFormItemsField({
     form.setValue(`items.${adding.index}.materialSlug`, added.slug, opts)
     form.setValue(`items.${adding.index}.unitSlug`, added.baseUnit?.slug ?? '', opts)
   }
-  const options: ComboboxOption[] = [
-    ...Object.entries(labels)
-      .filter(([slug]) => !bySlug.has(slug))
-      .map(([value, label]) => ({ value, label })),
-    ...materials.map((m) => ({ value: m.slug, label: `${m.code} · ${m.name}` })),
-  ]
+  const toOption = (m: AvailableMaterial): ComboboxOption => ({
+    value: m.slug,
+    label: `${m.code} · ${m.name}`,
+  })
+  // Bảng tra nhãn của ô chọn: mọi vật tư đã biết (kể cả vật tư chọn từ kết quả tìm), không phụ thuộc cái đang vẽ.
+  const fallbackOptions = Object.entries(labels)
+    .filter(([slug]) => !bySlug.has(slug))
+    .map(([value, label]) => ({ value, label }))
+  const options: ComboboxOption[] = [...fallbackOptions, ...[...bySlug.values()].map(toOption)]
+  /** Danh sách vẽ của dòng: có NCC hiệu lực → nhóm "hàng thường mua" trước, còn lại sau; không có → một nhóm. */
+  const groupsFor = (supplierSlug: string) => {
+    const source = searching ? found : materials
+    const extra = searching ? [] : fallbackOptions
+    if (!supplierSlug) return [{ heading: '', options: [...extra, ...source.map(toOption)] }]
+    const usual = source.filter((m) => m.suppliers.some((x) => x.slug === supplierSlug))
+    const rest = source.filter((m) => !usual.includes(m))
+    return [
+      {
+        heading: t('importForms:groupSupplierMaterials', { name: supplierName(supplierSlug) }),
+        options: usual.map(toOption),
+      },
+      { heading: t('importForms:groupOtherMaterials'), options: [...extra, ...rest.map(toOption)] },
+    ].filter((g) => g.options.length > 0)
+  }
   const full = fields.length >= IMPORT_FORM_ITEMS_MAX
   const rootError =
     form.formState.errors.items?.root?.message ?? form.formState.errors.items?.message
@@ -129,7 +197,7 @@ export function ImportFormItemsField({
 
       <div
         aria-hidden
-        className="text-muted-foreground hidden border-b pb-2 text-sm @3xl:grid @3xl:grid-cols-[2rem_minmax(10rem,2fr)_minmax(6rem,1fr)_minmax(5rem,1fr)_minmax(6rem,1fr)_minmax(6rem,1fr)_auto] @3xl:gap-3"
+        className="text-muted-foreground hidden border-b pb-2 text-sm @3xl:grid @3xl:grid-cols-[1.5rem_minmax(11rem,2.2fr)_minmax(5.5rem,0.9fr)_minmax(5rem,0.8fr)_minmax(7.5rem,1.2fr)_minmax(6.5rem,1fr)_auto] @3xl:gap-3"
       >
         <span>{t('importForms:lineNo')}</span>
         <span>{t('importForms:fieldMaterial')}</span>
@@ -145,8 +213,26 @@ export function ImportFormItemsField({
         const material = bySlug.get(row.materialSlug)
         const base = material ? baseUnitOf(material) : undefined
         const unit = material?.units.find((u) => u.unitSlug === row.unitSlug)
+        const unitFullLabel = unit
+          ? `${unit.unitCode} · ${unit.unitName}`
+          : row.unitSlug
+            ? unitLabels[row.unitSlug]
+            : undefined
         const amount = lineAmount(row.quantity, row.unitPrice)
         const noteOpen = openNotes.has(field.id)
+        const lineSupplier = effectiveSupplier(
+          { ...form.getValues(), supplierSlug: headerSupplier ?? '', items },
+          index,
+        )
+        const overridden = row.supplierOverride !== ''
+        const picking = pickingSupplier.has(field.id)
+        const setPicking = (on: boolean) =>
+          setPickingSupplier((prev) => {
+            const next = new Set(prev)
+            if (on) next.add(field.id)
+            else next.delete(field.id)
+            return next
+          })
 
         return (
           <div key={field.id} data-testid={`line-${index}`} className={ROW_GRID}>
@@ -163,11 +249,23 @@ export function ImportFormItemsField({
                   <FormControl>
                     <Combobox
                       options={options}
+                      groups={groupsFor(lineSupplier)}
+                      serverFiltered={searching}
+                      onSearchChange={setSearch}
+                      isLoading={
+                        searching && (searchResult.isFetching || debouncedSearch !== search.trim())
+                      }
+                      loadingText={t('importForms:searching')}
                       value={f.value || undefined}
                       onChange={(next) => {
+                        const chosen = next ? found.find((m) => m.slug === next) : undefined
+                        if (chosen) {
+                          setPicked((prev) => new Map(prev).set(chosen.slug, chosen))
+                          onMaterialPicked?.(chosen)
+                        }
                         f.onChange(next ?? '')
                         // Đơn vị của vật tư cũ không áp dụng cho vật tư mới (backend 101326) → về đơn vị gốc.
-                        form.setValue(`items.${index}.unitSlug`, baseSlugOf(next), {
+                        form.setValue(`items.${index}.unitSlug`, baseSlugOf(next, chosen), {
                           shouldDirty: true,
                           shouldValidate: form.formState.isSubmitted,
                         })
@@ -175,7 +273,8 @@ export function ImportFormItemsField({
                       placeholder={t('importForms:materialPlaceholder')}
                       searchPlaceholder={t('importForms:materialSearch')}
                       emptyText={
-                        loadError
+                        // Tìm phía BE lỗi cũng là "không tải được" — đừng nói kho không có vật tư phù hợp.
+                        loadError || (searching && searchResult.isError)
                           ? t('importForms:materialLoadFailedShort')
                           : t('importForms:materialEmpty')
                       }
@@ -209,6 +308,64 @@ export function ImportFormItemsField({
                       })}
                     </p>
                   )}
+                  {canPickSupplier && (
+                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
+                      {overridden && (
+                        <span className="text-muted-foreground">
+                          {t('importForms:lineSupplier', {
+                            name: supplierName(row.supplierOverride),
+                          })}
+                        </span>
+                      )}
+                      {picking && (
+                        <Combobox
+                          defaultOpen
+                          // Đóng mà không chọn (Esc, bấm ra ngoài) → bỏ ô chọn, dòng về như trước.
+                          onOpenChange={(isOpen) => !isOpen && setPicking(false)}
+                          className="min-w-48"
+                          aria-label={`${t('importForms:supplier')} ${t('importForms:lineLabel', { line: index + 1 })}`}
+                          options={supplierOptions}
+                          value={row.supplierOverride || undefined}
+                          placeholder={t('importForms:supplierPlaceholder')}
+                          onChange={(next) => {
+                            form.setValue(
+                              `items.${index}.supplierOverride`,
+                              !next || next === headerSupplier ? '' : next,
+                              { shouldDirty: true },
+                            )
+                            setPicking(false)
+                          }}
+                        />
+                      )}
+                      {!picking && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="xs"
+                          className="h-auto p-0 text-xs"
+                          onClick={() => setPicking(true)}
+                        >
+                          {t('importForms:changeLineSupplier')}
+                        </Button>
+                      )}
+                      {(overridden || picking) && (
+                        <Button
+                          type="button"
+                          variant="link"
+                          size="xs"
+                          className="h-auto p-0 text-xs"
+                          onClick={() => {
+                            form.setValue(`items.${index}.supplierOverride`, '', {
+                              shouldDirty: true,
+                            })
+                            setPicking(false)
+                          }}
+                        >
+                          {t('importForms:followHeaderSupplier')}
+                        </Button>
+                      )}
+                    </div>
+                  )}
                   <FormMessage />
                 </FormItem>
               )}
@@ -233,9 +390,13 @@ export function ImportFormItemsField({
                     <FormControl>
                       <SelectTrigger
                         className="w-full"
+                        title={unitFullLabel}
                         aria-label={`${t('importForms:fieldUnit')} ${t('importForms:lineLabel', { line: index + 1 })}`}
                       >
-                        <SelectValue placeholder={t('importForms:unitPlaceholder')} />
+                        {/* Ô hẹp: chỉ hiện MÃ đơn vị (khớp "Tồn: 120 KG"), tên đầy đủ ở danh sách thả xuống và `title`. */}
+                        <SelectValue placeholder={t('importForms:unitPlaceholder')}>
+                          {unitFullLabel?.split(' · ')[0]}
+                        </SelectValue>
                       </SelectTrigger>
                     </FormControl>
                     <SelectContent>
@@ -263,7 +424,12 @@ export function ImportFormItemsField({
                     {lineLabel(t('importForms:fieldQuantity'), index)}
                   </FormLabel>
                   <FormControl>
-                    <NumberInput value={f.value} onChange={f.onChange} onBlur={f.onBlur} />
+                    <NumberInput
+                      ref={f.ref}
+                      value={f.value}
+                      onChange={f.onChange}
+                      onBlur={f.onBlur}
+                    />
                   </FormControl>
                   {unit && !unit.isBaseUnit && row.quantity !== undefined && base && (
                     <p className="text-muted-foreground text-xs">
@@ -286,7 +452,12 @@ export function ImportFormItemsField({
                     {lineLabel(t('importForms:fieldUnitPrice'), index)}
                   </FormLabel>
                   <FormControl>
-                    <NumberInput value={f.value} onChange={f.onChange} onBlur={f.onBlur} />
+                    <MoneyInput
+                      ref={f.ref}
+                      value={f.value}
+                      onChange={f.onChange}
+                      onBlur={f.onBlur}
+                    />
                   </FormControl>
                   <FormMessage />
                 </FormItem>
@@ -386,6 +557,14 @@ export function ImportFormItemsField({
           initialSearch={adding?.search ?? ''}
           description={t('importForms:addMaterialDescription', { warehouse: warehouseName })}
           abilities={materialAbilities}
+          defaultSupplierSlug={
+            adding
+              ? effectiveSupplier(
+                  { ...form.getValues(), supplierSlug: headerSupplier ?? '', items },
+                  adding.index,
+                ) || undefined
+              : undefined
+          }
           onAdded={onMaterialAdded}
         />
       )}

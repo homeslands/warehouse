@@ -49,6 +49,8 @@ type FormSheetProps = {
   size?: 'default' | 'wide'
   /** Nội dung bên TRÁI chân sheet, cùng hàng với Huỷ / Lưu (vd tổng tiền). */
   footerStart?: ReactNode
+  /** Nút phụ ngay bên trái nút gửi chính (vd "Lưu & xác nhận"). Bên gọi tự khoá khi `isPending`. */
+  secondaryAction?: ReactNode
   onSubmit: FormEventHandler<HTMLFormElement>
   children: ReactNode
 }
@@ -79,6 +81,7 @@ export function FormSheet({
   confirmation,
   size = 'default',
   footerStart,
+  secondaryAction,
   onSubmit,
   children,
 }: FormSheetProps) {
@@ -127,6 +130,7 @@ export function FormSheet({
               <Button type="button" variant="outline" disabled={isPending} onClick={requestClose}>
                 {t('common:cancel')}
               </Button>
+              {secondaryAction}
               <Button type="submit" disabled={isPending || submitDisabled}>
                 {isPending ? t('common:saving') : submitLabel}
               </Button>

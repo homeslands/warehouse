@@ -54,7 +54,25 @@ export function useAvailableMaterials(warehouseSlug: string, options: { enabled?
   })
 }
 
-export function useCreateImportForm() {
+/** Tìm vật tư phía BE cho ô chọn vật tư: trang 1, `size: 50`, lọc theo `code` / `name`. */
+export function useAvailableMaterialSearch(
+  warehouseSlug: string,
+  query: { code?: string; name?: string },
+  options: { enabled?: boolean } = {},
+) {
+  const params = { page: 1, size: 50, ...query }
+  return useQuery({
+    queryKey: [...importFormKeys.available(warehouseSlug), 'search', params],
+    queryFn: () => fetchAvailableMaterials(warehouseSlug, params),
+    enabled: warehouseSlug !== '' && (options.enabled ?? true),
+    placeholderData: keepPreviousData,
+  })
+}
+
+/** `successToast: false` = nơi gọi tự báo thành công (vd. luồng Review có thông báo riêng). */
+type MutationOptions = { successToast?: boolean }
+
+export function useCreateImportForm({ successToast = true }: MutationOptions = {}) {
   const qc = useQueryClient()
   const { t } = useTranslation(['importForms'])
   return useMutation<ImportForm, ApiError, { warehouseSlug: string; input: ImportFormInput }>({
@@ -62,13 +80,13 @@ export function useCreateImportForm() {
     // Form tự báo lỗi tại ô.
     meta: { suppressErrorToast: true },
     onSuccess: (form) => {
-      toast.success(t('importForms:created'))
+      if (successToast) toast.success(t('importForms:created'))
       void qc.invalidateQueries({ queryKey: importFormKeys.lists(form.warehouseSlug) })
     },
   })
 }
 
-export function useUpdateImportForm() {
+export function useUpdateImportForm({ successToast = true }: MutationOptions = {}) {
   const qc = useQueryClient()
   const { t } = useTranslation(['importForms'])
   return useMutation<
@@ -79,7 +97,7 @@ export function useUpdateImportForm() {
     mutationFn: ({ warehouseSlug, slug, input }) => updateImportForm(warehouseSlug, slug, input),
     meta: { suppressErrorToast: true },
     onSuccess: (form, { warehouseSlug, slug }) => {
-      toast.success(t('importForms:updated'))
+      if (successToast) toast.success(t('importForms:updated'))
       qc.setQueryData(importFormKeys.detail(warehouseSlug, slug), form)
       void qc.invalidateQueries({ queryKey: importFormKeys.lists(warehouseSlug) })
     },
@@ -106,6 +124,7 @@ type StatusChange = { warehouseSlug: string; slug: string; version: number }
 function useStatusChange(
   fn: (warehouseSlug: string, slug: string, version: number) => Promise<ImportForm>,
   successKey: 'importForms:confirmed' | 'importForms:cancelled',
+  successToast: boolean,
 ) {
   const qc = useQueryClient()
   const { t } = useTranslation(['importForms'])
@@ -113,7 +132,7 @@ function useStatusChange(
     mutationFn: ({ warehouseSlug, slug, version }) => fn(warehouseSlug, slug, version),
     meta: { suppressErrorToast: true },
     onSuccess: (form, { warehouseSlug, slug }) => {
-      toast.success(t(successKey))
+      if (successToast) toast.success(t(successKey))
       qc.setQueryData(importFormKeys.detail(warehouseSlug, slug), form)
       // Danh sách + vật tư khả dụng (tồn vừa đổi khi xác nhận).
       void qc.invalidateQueries({ queryKey: importFormKeys.lists(warehouseSlug) })
@@ -122,10 +141,10 @@ function useStatusChange(
   })
 }
 
-export function useConfirmImportForm() {
-  return useStatusChange(confirmImportForm, 'importForms:confirmed')
+export function useConfirmImportForm({ successToast = true }: MutationOptions = {}) {
+  return useStatusChange(confirmImportForm, 'importForms:confirmed', successToast)
 }
 
 export function useCancelImportForm() {
-  return useStatusChange(cancelImportForm, 'importForms:cancelled')
+  return useStatusChange(cancelImportForm, 'importForms:cancelled', true)
 }

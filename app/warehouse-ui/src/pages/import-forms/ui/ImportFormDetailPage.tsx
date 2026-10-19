@@ -28,6 +28,7 @@ import { AddWarehouseMaterialDialog, materialAddAbilities } from '@/features/war
 import { useCrumbTitle } from '@/widgets/app-shell'
 import { importFormAbilities } from '../model/abilities'
 import { IMPORT_FORMS_PATH, listPath } from '../model/paths'
+import { toastSaveOutcome } from '../model/saveToast'
 import { ImportFormItemsTable } from './ImportFormItemsTable'
 import { ImportFormPrintView } from './ImportFormPrintView'
 import { useWarehouseParam } from './useWarehouseParam'
@@ -233,6 +234,9 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
         formCode={form.code}
         materialAbilities={materialAddAbilities(user)}
         AddMaterialDialog={AddWarehouseMaterialDialog}
+        canPickSupplier={ability.pickSupplier}
+        canConfirm={ability.confirmOnSave}
+        onSaved={(outcome) => toastSaveOutcome(t, outcome, false)}
       />
       <ConfirmImportFormDialog
         warehouseSlug={warehouseSlug}

@@ -1,6 +1,8 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
+import { toast } from 'sonner'
 import { afterEach, describe, expect, it, vi } from 'vitest'
+import { confirmDialog } from '@/shared/test/confirm'
 import type { ImportForm } from '@/entities/import-form'
 import type { Warehouse } from '@/entities/warehouse'
 import { apiError, ok, paginated } from '@/shared/test/api'
@@ -386,5 +388,172 @@ describe('ImportFormsPage — lọc ngày tạo', () => {
     renderPage('/import-forms?warehouse=w-a')
     await screen.findByRole('link', { name: 'PN-0001' })
     expect(screen.queryByRole('button', { name: 'Xoá bộ lọc' })).not.toBeInTheDocument()
+  })
+})
+
+/** Kích hoạt nút `action` / `cancel` của sonner như khi người dùng bấm. */
+const press = (button: unknown) => (button as { onClick: (e: unknown) => void }).onClick({})
+
+describe('ImportFormsPage - toast sau khi lưu có lối tắt', () => {
+  const MANAGER: TestAuth = {
+    ...SUP,
+    roleName: 'MANAGER',
+    scope: [...SUP.scope, 'IMPORT_FORM_CONFIRM', 'MATERIAL_READ'],
+  }
+  const flour = {
+    slug: 'm-flour',
+    code: 'VT-01',
+    name: 'Bột mì',
+    baseUnitSlug: 'u-kg',
+    quantity: 120,
+    suppliers: [{ slug: 's-1', code: 'NCC-01', name: 'NCC Bột' }],
+    units: [
+      {
+        unitSlug: 'u-kg',
+        unitCode: 'KG',
+        unitName: 'Kilogram',
+        conversionRate: 1,
+        isBaseUnit: true,
+      },
+    ],
+  }
+
+  async function fillCreate(user: ReturnType<typeof renderPage>['user']) {
+    await user.click(await screen.findByRole('button', { name: 'Tạo phiếu' }))
+    await screen.findByRole('dialog', { name: 'Tạo phiếu nhập · Kho A' })
+    await user.type(screen.getByRole('textbox', { name: /^Số hoá đơn/ }), 'HD-9')
+    await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
+    await user.click(await screen.findByText('VT-01 · Bột mì'))
+    await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
+    await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '1000')
+    await user.click(screen.getByRole('button', { name: 'Kiểm tra & lưu' }))
+  }
+
+  function setup(auth: TestAuth) {
+    mock([kho('w-a', 'A')])
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/available-materials`, () =>
+        paginated([flour]),
+      ),
+      mswHttp.get(`${BASE}/suppliers`, () => paginated([])),
+      mswHttp.post(`${BASE}/warehouses/w-a/import-forms`, () => ok(draftForm)),
+      mswHttp.post(`${BASE}/warehouses/w-a/import-forms/if-1/confirm`, () =>
+        ok({ ...draftForm, status: 'CONFIRMED' }),
+      ),
+    )
+    return renderPage('/import-forms?warehouse=w-a', auth)
+  }
+
+  it('tạo nháp → toast ngắn "Đã tạo phiếu PN-0001" với một nút "Xem" mở chi tiết', async () => {
+    const spy = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const { user, router } = setup(SUP)
+    await fillCreate(user)
+    await confirmDialog(user, 'Lưu nháp')
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    const [msg, opts] = spy.mock.calls[0]
+    expect(msg).toBe('Đã tạo phiếu PN-0001')
+    expect(opts?.action).toMatchObject({ label: 'Xem' })
+    expect(opts?.cancel).toBeUndefined()
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    press(opts?.action)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/import-forms/if-1'))
+    expect(router.state.location.search).toContain('warehouse=w-a')
+    spy.mockRestore()
+  })
+
+  it('nút "Xem" trên toast bấm khi sheet đang mở (đang nhập phiếu khác) → bỏ qua, không mất phần đang nhập', async () => {
+    const spy = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const { user, router } = setup(SUP)
+    await fillCreate(user)
+    await confirmDialog(user, 'Lưu nháp')
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    const [, opts] = spy.mock.calls[0]
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    // Đang sửa phiếu khác: "Xem" sẽ rời trang.
+    server.use(mswHttp.get(`${BASE}/warehouses/w-a/import-forms/if-1`, () => ok(draftForm)))
+    const sheet = await openEdit(user)
+    await user.type(within(sheet).getByRole('textbox', { name: /^Số hoá đơn/ }), '-SUA')
+
+    press(opts?.action)
+    await new Promise((r) => setTimeout(r, 50))
+    expect(router.state.location.pathname).toBe('/import-forms')
+    const still = screen.getByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
+    expect(within(still).getByRole('textbox', { name: /^Số hoá đơn/ })).toHaveValue(
+      `${draftForm.invoiceCode}-SUA`,
+    )
+    spy.mockRestore()
+  })
+
+  it('MANAGER Lưu & xác nhận → toast "Đã tạo và xác nhận PN-0001"', async () => {
+    const spy = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const { user } = setup(MANAGER)
+    await fillCreate(user)
+    await confirmDialog(user, 'Lưu & xác nhận')
+    await waitFor(() => expect(spy.mock.calls[0]?.[0]).toBe('Đã tạo và xác nhận PN-0001'))
+    spy.mockRestore()
+  })
+
+  it('xác nhận lỗi → toast cảnh báo "Đã lưu PN-0001, chưa xác nhận", lý do ở dòng phụ, có nút Xem', async () => {
+    const spy = vi.spyOn(toast, 'warning').mockImplementation(() => 'id')
+    const { user, router } = setup(MANAGER)
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/import-forms/if-1/confirm`, () =>
+        apiError(500, 100500, 'boom'),
+      ),
+    )
+    await fillCreate(user)
+    await confirmDialog(user, 'Lưu & xác nhận')
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy.mock.calls[0][0]).toBe('Đã lưu PN-0001, chưa xác nhận')
+    const opts = spy.mock.calls[0][1]
+    expect(opts?.description).toBe('boom')
+    expect(opts?.action).toMatchObject({ label: 'Xem' })
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    press(opts?.action)
+    await waitFor(() => expect(router.state.location.pathname).toBe('/import-forms/if-1'))
+    spy.mockRestore()
+  })
+
+  async function openEdit(user: ReturnType<typeof renderPage>['user']) {
+    await user.click(await screen.findByRole('button', { name: 'Thao tác cho phiếu PN-0001' }))
+    await user.click(await screen.findByRole('menuitem', { name: 'Sửa' }))
+    const sheet = await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
+    await within(sheet).findByRole('textbox', { name: /^Ghi chú$/ })
+    return sheet
+  }
+
+  it('sửa + Lưu: đúng MỘT toast "Đã lưu phiếu nhập"', async () => {
+    const spy = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const { user } = setup(SUP)
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/import-forms/if-1`, () => ok(draftForm)),
+      mswHttp.patch(`${BASE}/warehouses/w-a/import-forms/if-1`, () =>
+        ok({ ...draftForm, version: 4 }),
+      ),
+    )
+    const sheet = await openEdit(user)
+    await user.clear(within(sheet).getByRole('textbox', { name: /^Ghi chú$/ }))
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy).toHaveBeenCalledWith('Đã lưu phiếu nhập')
+    spy.mockRestore()
+  })
+
+  it('sửa + Lưu & xác nhận: đúng MỘT toast "Đã lưu và xác nhận PN-0001 …"', async () => {
+    const spy = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
+    const { user } = setup(MANAGER)
+    server.use(mswHttp.get(`${BASE}/warehouses/w-a/import-forms/if-1`, () => ok(draftForm)))
+    const sheet = await openEdit(user)
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu & xác nhận' }))
+    await waitFor(() => expect(spy).toHaveBeenCalled())
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(spy).toHaveBeenCalledTimes(1)
+    expect(spy).toHaveBeenCalledWith('Đã lưu và xác nhận PN-0001')
+    spy.mockRestore()
   })
 })

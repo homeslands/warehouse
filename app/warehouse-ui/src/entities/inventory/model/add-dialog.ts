@@ -38,6 +38,8 @@ export type AddMaterialDialogProps = {
   /** Câu dưới tiêu đề — mỗi nơi dùng nói đúng ngữ cảnh của mình. */
   description: string
   abilities: MaterialAddAbilities
+  /** NCC chọn sẵn ở tab "Tạo vật tư mới" (NCC của dòng phiếu); bỏ qua khi không có quyền gắn NCC. */
+  defaultSupplierSlug?: string
   /** Gọi SAU KHI `available-materials` của kho đã tải lại; kèm nhãn + đơn vị gốc để dòng chọn ngay. */
   onAdded: (added: AddedMaterial) => void
 }

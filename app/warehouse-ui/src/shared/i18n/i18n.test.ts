@@ -29,3 +29,27 @@ describe('vi/en key parity', () => {
     expect(enKeys, `namespace "${ns}" lệch khoá giữa vi và en`).toEqual(viKeys)
   })
 })
+
+describe('số nhiều tiếng Anh (importForms)', () => {
+  const en = () => i18n.getFixedT('en', 'importForms')
+
+  it('supplierChangedLines: 1 line / 2 lines', () => {
+    expect(en()('supplierChangedLines', { count: 1 })).toBe('Seller changed on 1 line')
+    expect(en()('supplierChangedLines', { count: 2 })).toBe('Seller changed on 2 lines')
+  })
+
+  it('infoNewSupplier: 1 material / 3 materials', () => {
+    expect(en()('infoNewSupplier', { supplier: 'X', count: 1 })).toBe(
+      'X will be added as a supplier of 1 material not bought from them before.',
+    )
+    expect(en()('infoNewSupplier', { supplier: 'X', count: 3 })).toBe(
+      'X will be added as a supplier of 3 materials not bought from them before.',
+    )
+  })
+
+  it('tiếng Việt không đổi theo số', () => {
+    const vi = i18n.getFixedT('vi', 'importForms')
+    expect(vi('supplierChangedLines', { count: 1 })).toBe('Đã đổi bên bán cho 1 dòng')
+    expect(vi('supplierChangedLines', { count: 2 })).toBe('Đã đổi bên bán cho 2 dòng')
+  })
+})

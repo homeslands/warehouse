@@ -89,6 +89,27 @@ describe('Combobox', () => {
     expect(onChange).not.toHaveBeenCalled()
   })
 
+  it('onOpenChange báo mở, đóng bằng Esc và đóng sau khi chọn', async () => {
+    const onOpenChange = vi.fn()
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={OPTIONS}
+        value={undefined}
+        onChange={vi.fn()}
+        onOpenChange={onOpenChange}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    expect(onOpenChange).toHaveBeenLastCalledWith(true)
+    await user.keyboard('{Escape}')
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    await user.click(await screen.findByRole('option', { name: 'Đà Nẵng' }))
+    expect(onOpenChange).toHaveBeenLastCalledWith(false)
+  })
+
   it('nút xoá → onChange(undefined), trở về placeholder', async () => {
     const { onChange, user } = setup('hn')
     await user.click(screen.getByRole('button', { name: 'Xoá lựa chọn' }))
@@ -251,5 +272,73 @@ describe('Combobox', () => {
       await user.click(trigger)
       expect(screen.getByRole('button', { name: 'Thêm “”' })).toBeInTheDocument()
     })
+  })
+
+  it('groups → vẽ tiêu đề nhóm đúng thứ tự, chọn vẫn trả value', async () => {
+    const onChange = vi.fn()
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={OPTIONS}
+        value={undefined}
+        onChange={onChange}
+        groups={[
+          { heading: 'Miền Nam', options: [OPTIONS[1]] },
+          { heading: 'Khác', options: [OPTIONS[0], OPTIONS[2]] },
+        ]}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+
+    const headings = document.querySelectorAll('[cmdk-group-heading]')
+    expect(Array.from(headings).map((h) => h.textContent)).toEqual(['Miền Nam', 'Khác'])
+    expect(screen.getAllByRole('option').map((o) => o.textContent)).toEqual([
+      'Hồ Chí Minh',
+      'Hà Nội',
+      'Đà Nẵng',
+    ])
+    await user.click(screen.getByRole('option', { name: 'Hà Nội' }))
+    expect(onChange).toHaveBeenLastCalledWith('hn')
+  })
+
+  it('serverFiltered + onSearchChange → báo chữ gõ, không lọc tại chỗ; đóng thì báo rỗng', async () => {
+    const onSearchChange = vi.fn()
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={OPTIONS}
+        value={undefined}
+        onChange={vi.fn()}
+        serverFiltered
+        onSearchChange={onSearchChange}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    await user.type(screen.getByPlaceholderText('Tìm...'), 'xi')
+
+    expect(onSearchChange).toHaveBeenLastCalledWith('xi')
+    expect(screen.getAllByRole('option')).toHaveLength(3)
+    await user.keyboard('{Escape}')
+    expect(onSearchChange).toHaveBeenLastCalledWith('')
+  })
+
+  it('isLoading → hiện loadingText thay cho "Không có kết quả."', async () => {
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={[]}
+        value={undefined}
+        onChange={vi.fn()}
+        serverFiltered
+        isLoading
+        loadingText="Đang tìm…"
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    expect(screen.getByText('Đang tìm…')).toBeInTheDocument()
+    expect(screen.queryByText('Không có kết quả.')).not.toBeInTheDocument()
   })
 })
