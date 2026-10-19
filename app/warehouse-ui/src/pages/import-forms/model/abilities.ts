@@ -16,6 +16,10 @@ export type ImportFormAbilities = {
   cancel: boolean
   /** IMPORT_FORM_EXPORT — FE tự in, mọi trạng thái. */
   print: boolean
+  /** SUPPLIER_READ: được chọn Bên bán ở đầu phiếu (bắt buộc khi có quyền này). */
+  pickSupplier: boolean
+  /** IMPORT_FORM_CONFIRM, không xét phiếu: có nút "Lưu & xác nhận" trong sheet (tạo mới lẫn sửa). */
+  confirmOnSave: boolean
 }
 
 type Ctx = {
@@ -48,5 +52,7 @@ export function importFormAbilities(
     confirm: decide,
     cancel: decide,
     print: can(user, 'IMPORT_FORM_EXPORT'),
+    pickSupplier: can(user, 'SUPPLIER_READ'),
+    confirmOnSave: can(user, 'IMPORT_FORM_CONFIRM'),
   }
 }

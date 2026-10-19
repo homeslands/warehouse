@@ -51,6 +51,7 @@ function setup(
     canCreate?: boolean
     canAttachSupplier?: boolean
     initialSearch?: string
+    defaultSupplierSlug?: string
   } = {},
 ) {
   mockCatalog()
@@ -68,6 +69,7 @@ function setup(
             initialSearch={opts.initialSearch ?? 'xi măng'}
             canCreate={opts.canCreate ?? true}
             canAttachSupplier={opts.canAttachSupplier ?? true}
+            defaultSupplierSlug={opts.defaultSupplierSlug}
             onCreated={onCreated}
             onBusyChange={vi.fn()}
             onWarehouseInactive={vi.fn()}
@@ -135,6 +137,42 @@ describe('CreateMaterialSection', () => {
       supplierSlug: 's-1',
     })
     expect(puts).toBe(0)
+  })
+
+  it('defaultSupplierSlug + có quyền NCC → ô NCC chọn sẵn; tạo → POST có supplierSlug', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
+      }),
+    )
+    const { user, onCreated } = setup({ defaultSupplierSlug: 's-1' })
+    await waitFor(() =>
+      expect(screen.getByRole('combobox', { name: /^Nhà cung cấp/ })).toHaveTextContent(
+        'NCC-1 · NCC Bột',
+      ),
+    )
+    await fill(user)
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', true))
+    expect(body).toMatchObject({ supplierSlug: 's-1' })
+  })
+
+  it('defaultSupplierSlug nhưng không có quyền gắn NCC → không có ô, POST không có supplierSlug', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
+      }),
+    )
+    const { user, onCreated } = setup({ canAttachSupplier: false, defaultSupplierSlug: 's-1' })
+    expect(screen.queryByRole('combobox', { name: /^Nhà cung cấp/ })).not.toBeInTheDocument()
+    await fill(user)
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalledWith(ADDED, 'xi măng', false))
+    expect(body).not.toHaveProperty('supplierSlug')
   })
 
   it.each([101201, 100816])('%i → lỗi tại ô Nhà cung cấp, onCreated không gọi', async (code) => {

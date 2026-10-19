@@ -50,6 +50,17 @@ describe('FormSheet', () => {
       expect(footer?.firstElementChild).toHaveTextContent('Tổng: 5')
     })
 
+    it('secondaryAction hiện trong chân sheet, bên trái nút gửi chính', () => {
+      renderSheet({ secondaryAction: <button type="button">Lưu &amp; xác nhận</button> })
+      const footer = screen
+        .getByRole('button', { name: 'Lưu & xác nhận' })
+        .closest('[data-slot="sheet-footer"]') as HTMLElement
+      const names = within(footer)
+        .getAllByRole('button')
+        .map((b) => b.textContent)
+      expect(names.indexOf('Lưu & xác nhận')).toBe(names.indexOf('Lưu') - 1)
+    })
+
     it('không truyền footerStart thì không thêm gì', () => {
       renderSheet()
       expect(screen.queryByText('Tổng: 5')).not.toBeInTheDocument()

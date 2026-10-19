@@ -1,5 +1,6 @@
 import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
+import { toast } from 'sonner'
 import { describe, expect, it, vi } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
 import type { Warehouse } from '@/entities/warehouse'
@@ -121,6 +122,7 @@ describe('ImportFormDetailPage', () => {
         return ok({ ...draftForm, version: 4, note: '' })
       }),
     )
+    const successSpy = vi.spyOn(toast, 'success').mockImplementation(() => 'id')
     const { user, router } = renderPage()
     await user.click(await screen.findByRole('button', { name: 'Sửa' }))
     const sheet = await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
@@ -128,11 +130,14 @@ describe('ImportFormDetailPage', () => {
     const note = await within(sheet).findByRole('textbox', { name: /^Ghi chú$/ })
     expect(note).toHaveValue('Giao buổi sáng')
     await user.clear(note)
-    await user.click(within(sheet).getByRole('button', { name: 'Lưu nháp' }))
+    await user.click(within(sheet).getByRole('button', { name: 'Lưu' }))
     await waitFor(() => expect(saved).toBe(true))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(router.state.location.pathname).toBe('/import-forms/if-1')
     expect(screen.queryByText('Giao buổi sáng')).not.toBeInTheDocument()
+    expect(successSpy).toHaveBeenCalledTimes(1)
+    expect(successSpy).toHaveBeenCalledWith('Đã lưu phiếu nhập')
+    successSpy.mockRestore()
   })
 
   it('CONFIRMED: chỉ còn nút In, hiện người xác nhận', async () => {

@@ -27,7 +27,21 @@ describe('importFormAbilities', () => {
       confirm: true,
       cancel: true,
       print: true,
+      pickSupplier: false,
+      confirmOnSave: true,
     })
+  })
+
+  it('pickSupplier = SUPPLIER_READ; confirmOnSave = IMPORT_FORM_CONFIRM kể cả khi chưa có phiếu', () => {
+    expect(importFormAbilities(user([]), { warehouseActive: true })).toMatchObject({
+      pickSupplier: false,
+      confirmOnSave: false,
+    })
+    expect(
+      importFormAbilities(user(['SUPPLIER_READ', 'IMPORT_FORM_CONFIRM']), {
+        warehouseActive: true,
+      }),
+    ).toMatchObject({ pickSupplier: true, confirmOnSave: true, confirm: false })
   })
 
   it('chỉ _OWN: phiếu mình được, phiếu người khác không', () => {
@@ -78,6 +92,8 @@ describe('importFormAbilities', () => {
         confirm: false,
         cancel: false,
         print: true,
+        pickSupplier: false,
+        confirmOnSave: true,
       })
     },
   )
@@ -105,6 +121,8 @@ describe('importFormAbilities', () => {
       confirm: true,
       cancel: true,
       print: true,
+      pickSupplier: true,
+      confirmOnSave: true,
     })
     expect(importFormAbilities(null, { form: mine, warehouseActive: true })).toEqual({
       create: false,
@@ -113,6 +131,8 @@ describe('importFormAbilities', () => {
       confirm: false,
       cancel: false,
       print: false,
+      pickSupplier: false,
+      confirmOnSave: false,
     })
   })
 })

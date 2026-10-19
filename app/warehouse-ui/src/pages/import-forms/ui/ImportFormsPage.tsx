@@ -1,6 +1,6 @@
 import type { ColumnDef } from '@tanstack/react-table'
 import { MoreHorizontalIcon, PlusIcon } from 'lucide-react'
-import { useCallback, useId, useMemo, useState } from 'react'
+import { useCallback, useEffect, useId, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { useLocation, useNavigate } from 'react-router-dom'
 import { z } from 'zod'
@@ -35,6 +35,7 @@ import { AddWarehouseMaterialDialog, materialAddAbilities } from '@/features/war
 import { WarehousePicker, useWarehouseSelection } from '@/features/warehouse-picker'
 import { importFormAbilities } from '../model/abilities'
 import { detailPath } from '../model/paths'
+import { toastSaveOutcome } from '../model/saveToast'
 
 const FILTERS = z.object({
   warehouse: z.string().optional(),
@@ -64,6 +65,11 @@ export function ImportFormsPage() {
   const [sheet, setSheet] = useState<{ open: boolean; formSlug?: string; formCode?: string }>({
     open: false,
   })
+  // Lối tắt trên toast sống lâu hơn lần render tạo ra nó → đọc trạng thái sheet HIỆN TẠI qua ref.
+  const sheetOpen = useRef(sheet.open)
+  useEffect(() => {
+    sheetOpen.current = sheet.open
+  }, [sheet.open])
 
   const backTo = location.pathname + location.search
   const detailLink = useCallback(
@@ -267,6 +273,17 @@ export function ImportFormsPage() {
           formCode={sheet.formCode}
           materialAbilities={materialAddAbilities(user)}
           AddMaterialDialog={AddWarehouseMaterialDialog}
+          canPickSupplier={pageAbility.pickSupplier}
+          canConfirm={pageAbility.confirmOnSave}
+          onSaved={(outcome) =>
+            // "Xem" bấm khi sheet đang mở (đang nhập phiếu khác) → bỏ qua, không làm mất phần đang nhập mà không hỏi.
+            toastSaveOutcome(t, outcome, sheet.formSlug === undefined, () => {
+              if (sheetOpen.current) return
+              navigate(detailPath(outcome.form.warehouseSlug, outcome.form.slug), {
+                state: { backTo },
+              })
+            })
+          }
         />
       )}
 

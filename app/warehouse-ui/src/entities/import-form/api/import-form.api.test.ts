@@ -52,6 +52,22 @@ describe('import-form.api', () => {
     ).toHaveLength(2)
   })
 
+  it('available-materials gửi code / name khi có, bỏ khi rỗng', async () => {
+    const seen: string[] = []
+    server.use(
+      mswHttp.get(`${URL_W}/available-materials`, ({ request }) => {
+        seen.push(new URL(request.url).search)
+        return paginated([flour])
+      }),
+    )
+    await fetchAvailableMaterials('w-a', { page: 1, size: 50, code: 'VT', name: 'xi' })
+    await fetchAvailableMaterials('w-a', { page: 1, size: 50, code: '', name: undefined })
+    expect(seen[0]).toContain('code=VT')
+    expect(seen[0]).toContain('name=xi')
+    expect(seen[1]).not.toContain('code')
+    expect(seen[1]).not.toContain('name')
+  })
+
   it('POST / PATCH / DELETE / confirm / cancel đúng URL và body', async () => {
     const bodies: Record<string, unknown> = {}
     server.use(
