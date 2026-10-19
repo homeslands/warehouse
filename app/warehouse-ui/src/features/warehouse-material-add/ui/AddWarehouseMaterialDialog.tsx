@@ -60,6 +60,7 @@ function DialogBody({
   initialSearch,
   description,
   abilities,
+  defaultSupplierSlug,
   onAdded,
 }: Props) {
   const { t } = useTranslation(['inventory', 'common'])
@@ -173,6 +174,7 @@ function DialogBody({
                   initialSearch={creating}
                   canCreate={abilities.create}
                   canAttachSupplier={abilities.attachSupplier}
+                  defaultSupplierSlug={defaultSupplierSlug}
                   onBusyChange={setCreateBusy}
                   onWarehouseInactive={() => onOpenChange(false)}
                   onCreated={async (added, name, withSupplier) => {

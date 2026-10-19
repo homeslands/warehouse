@@ -54,3 +54,16 @@ MANAGER, SUPERVISOR (thuộc ít nhất 1 kho). Bật cho MANAGER ở `/permissi
 - [ ] Mã trùng → lỗi tại ô Mã trong hộp.
 - [ ] Đăng nhập MANAGER (seed mặc định) → vẫn tìm được, nút "Gắn vào kho" / "Tạo và gắn vào kho" khoá kèm lý do.
 - [ ] Bỏ phiếu sau khi gắn → vật tư vẫn ở kho (màn tạo phiếu mới thấy vật tư trong ô chọn).
+
+## Luồng cho người mới (bên bán, kiểm tra, lưu & xác nhận)
+- [ ] Tài khoản có `SUPPLIER_READ`: ô "Bên bán" ở đầu phiếu bắt buộc, bỏ trống → lỗi tại ô, không lưu được. Tài khoản thiếu quyền → ô ẩn, vẫn tạo được phiếu.
+- [ ] Đổi bên bán ở đầu phiếu khi có dòng đã đổi bên bán riêng → dòng đổi riêng giữ nguyên, dòng theo đầu phiếu đổi theo; dòng đặt lại đúng bên bán đầu phiếu thì quay về "theo đầu phiếu".
+- [ ] Mở một nháp cũ (tạo trước khi có bên bán) → bên bán đầu phiếu được suy từ các dòng; lưu lại không lỗi.
+- [ ] Ô chọn vật tư: gõ mã / tên của vật tư nằm ngoài 100 vật tư đầu của kho → vẫn tìm thấy; có 2 nhóm "Hàng thường mua của …" và "Vật tư khác"; có trạng thái đang tải.
+- [ ] "Kiểm tra & lưu" mở hộp Kiểm tra; đủ 4 loại cảnh báo (giá lệch, số lượng bất thường, tồn vượt max, dòng thiếu/trùng) hiện đúng và KHÔNG chặn lưu. Tồn vượt max chỉ hiện khi BE trả `effectiveMaximumInventory` (hiện chưa có → im lặng).
+- [ ] MANAGER: hộp Kiểm tra có "Lưu nháp" và "Lưu & xác nhận"; "Lưu & xác nhận" → phiếu Đã xác nhận, tồn tăng.
+- [ ] SUPERVISOR (không có `IMPORT_FORM_CONFIRM`): chỉ có "Lưu nháp"; sheet sửa không có nút "Lưu & xác nhận".
+- [ ] Sửa nháp: "Lưu" lưu thẳng; "Lưu & xác nhận" khi chưa đổi gì → xác nhận luôn; khi đã đổi → lưu rồi xác nhận.
+- [ ] Xác nhận lỗi sau khi đã lưu (vd. hai tab, hoặc BE từ chối) → toast cảnh báo "đã lưu nhưng chưa xác nhận", sheet đóng, phiếu vẫn là Nháp.
+- [ ] Toast sau khi tạo ngắn gọn ("Đã tạo phiếu PN-…" / "Đã tạo và xác nhận PN-…") với một nút "Xem" (mở chi tiết); xác nhận lỗi → "Đã lưu PN-…, chưa xác nhận", lý do ở dòng phụ; không bị hiện toast thành công hai lần.
+- [ ] Hộp thêm vật tư mở từ dòng đã chọn bên bán: tab "Tạo vật tư mới" chọn sẵn NCC đó (chỉ khi có quyền gắn NCC); tạo xong dòng được chọn.

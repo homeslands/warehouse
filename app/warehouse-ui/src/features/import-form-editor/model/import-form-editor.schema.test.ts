@@ -6,6 +6,8 @@ import {
   baseUnitOf,
   emptyFormValues,
   formTotal,
+  buildImportFormSchema,
+  effectiveSupplier,
   importFormSchema,
   lineAmount,
   suggestCode,
@@ -22,8 +24,7 @@ const flour: AvailableMaterial = {
   name: 'Bột mì',
   baseUnitSlug: 'u-kg',
   quantity: 120,
-  supplierSlug: 's-1',
-  supplierName: 'NCC Bột',
+  suppliers: [{ slug: 's-1', code: 'NCC-01', name: 'NCC Bột' }],
   units: [
     { unitSlug: 'u-kg', unitCode: 'KG', unitName: 'Kilogram', conversionRate: 1, isBaseUnit: true },
     {
@@ -84,13 +85,23 @@ const draftForm: ImportForm = {
 const NOW = new Date(2026, 9, 13, 8, 5) // 13/10/2026 08:05 giờ máy
 
 const valid = (): ImportFormValues => ({
+  supplierSlug: '',
   code: 'pn-0002',
   invoiceCode: ' HD-1 ',
   purchaseOrder: '',
   date: '2026-10-13',
   file: '',
   note: '',
-  items: [{ materialSlug: 'm-flour', unitSlug: 'u-bag', quantity: 2, unitPrice: 375000, note: '' }],
+  items: [
+    {
+      materialSlug: 'm-flour',
+      unitSlug: 'u-bag',
+      quantity: 2,
+      unitPrice: 375000,
+      note: '',
+      supplierOverride: '',
+    },
+  ],
 })
 
 const issues = (values: ImportFormValues) => {
@@ -231,5 +242,56 @@ describe('chuyển đổi', () => {
 
   it('baseUnitOf', () => {
     expect(baseUnitOf(flour)?.unitSlug).toBe('u-kg')
+  })
+})
+
+describe('bên bán đầu phiếu / dòng', () => {
+  const line = (supplierSlug: string | null) => ({
+    ...draftForm.items![0],
+    supplierSlug,
+  })
+  const multi: ImportForm = {
+    ...draftForm,
+    items: [line('s-1'), line('s-1'), line('s-2'), line(null)],
+  }
+
+  it('buildImportFormSchema: requireSupplier bắt buộc đầu phiếu', () => {
+    const strict = buildImportFormSchema({ requireSupplier: true }).safeParse(valid())
+    expect(strict.success).toBe(false)
+    expect(strict.error?.issues.map((i) => i.message)).toContain('importForms:supplierRequired')
+    expect(buildImportFormSchema({ requireSupplier: false }).safeParse(valid()).success).toBe(true)
+  })
+
+  it('toCreateInput: gửi NCC hiệu lực, rỗng thì bỏ khoá', () => {
+    const base = valid()
+    const two = {
+      ...base,
+      supplierSlug: 's-1',
+      items: [base.items[0], { ...base.items[0], unitSlug: 'u-kg', supplierOverride: 's-2' }],
+    }
+    const out = toCreateInput(two)
+    expect(out.items[0].supplierSlug).toBe('s-1')
+    expect(out.items[1].supplierSlug).toBe('s-2')
+    expect('supplierSlug' in toCreateInput(base).items[0]).toBe(false)
+  })
+
+  it('toFormValues canPickSupplier:true: đầu phiếu phổ biến nhất, chỉ dòng khác mới override', () => {
+    const v = toFormValues(multi, { canPickSupplier: true })
+    expect(v.supplierSlug).toBe('s-1')
+    expect(v.items.map((i) => i.supplierOverride)).toEqual(['', '', 's-2', ''])
+  })
+
+  it('toFormValues canPickSupplier:false: giữ NCC cũ để PATCH không làm mất', () => {
+    const v = toFormValues(multi, { canPickSupplier: false })
+    expect(v.supplierSlug).toBe('')
+    expect(v.items.map((i) => i.supplierOverride)).toEqual(['s-1', 's-1', 's-2', ''])
+    const sent = toUpdateInput(v, 3).items?.map((i) => i.supplierSlug)
+    expect(sent).toEqual(['s-1', 's-1', 's-2', undefined])
+  })
+
+  it('effectiveSupplier: đổi đầu phiếu chỉ ảnh hưởng dòng theo đầu phiếu', () => {
+    const v = { ...toFormValues(multi, { canPickSupplier: true }), supplierSlug: 's-3' }
+    expect(effectiveSupplier(v, 0)).toBe('s-3')
+    expect(effectiveSupplier(v, 2)).toBe('s-2')
   })
 })

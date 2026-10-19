@@ -63,6 +63,8 @@ export type ImportFormItemInput = {
   quantity: number
   unitPrice: number
   note?: string
+  /** Bên bán của dòng; bỏ qua = không ghi NCC. */
+  supplierSlug?: string
 }
 
 export type ImportFormInput = {
@@ -94,6 +96,9 @@ export type AvailableUnit = {
   isBaseUnit: boolean
 }
 
+/** NCC đã gán cho vật tư trong `ImportFormAvailableMaterialResponseDto.suppliers`. */
+export type AvailableSupplier = { slug: string; code: string; name: string }
+
 /** `ImportFormAvailableMaterialResponseDto` — vật tư đã gán vào kho, `quantity` = tồn hiện tại (đơn vị gốc). */
 export type AvailableMaterial = {
   slug: string
@@ -101,7 +106,8 @@ export type AvailableMaterial = {
   name: string
   baseUnitSlug: string | null
   quantity: number
-  supplierSlug: string | null
-  supplierName: string | null
+  suppliers: AvailableSupplier[]
   units: AvailableUnit[]
+  /** BE chưa trả — khai tuỳ chọn để cảnh báo "tồn vượt max" tự bật khi có (spec §6). */
+  effectiveMaximumInventory?: number
 }

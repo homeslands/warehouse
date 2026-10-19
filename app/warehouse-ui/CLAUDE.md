@@ -356,8 +356,27 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     (`features/import-form-editor`) luôn mount, trang cha điều khiển `open` (+ `formSlug` khi sửa); sheet tự tải
     chi tiết khi sửa (`useImportForm(..., { enabled: open })`), chỉ kiểm `status === 'DRAFT'` — quyền sửa do trang cha kiểm
     trước khi truyền `formSlug`. **Không có URL riêng cho form**: F5 / Back khi đang mở sẽ mất phần đang nhập, như mọi sheet
-    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo vẫn hỏi xác nhận, sửa lưu thẳng; 409 / 101314 khi sửa →
-    đóng sheet + toast + invalidate cả kho. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
+    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo đi qua hộp Kiểm tra (thay hộp xác nhận chung, xem dưới), sửa lưu thẳng; 409 / 101314 khi sửa →
+    đóng sheet + toast + invalidate cả kho.
+    **Luồng cho người mới (WMS-17-FE 5)**: NCC = **bên bán** (người xuất hoá đơn / mình trả tiền). Đầu phiếu có `supplierSlug`
+    (bắt buộc khi có `SUPPLIER_READ`, ẩn khi thiếu quyền — prop `canPickSupplier`); mỗi dòng có thể đổi bên bán riêng
+    (`supplierOverride`), bên bán dòng trùng đầu phiếu thì lưu `''` (theo đầu phiếu); payload gửi `items[].supplierSlug`.
+    Phiếu nháp cũ không có bên bán thì suy từ các dòng. Tìm vật tư chạy **phía BE** (`useAvailableMaterialSearch`: size 50, debounce
+    300 ms, `toCodeOrNameQuery`) và chia 2 nhóm "Hàng thường mua của X" / "Vật tư khác" (`Combobox` có thêm `groups`, `onSearchChange`,
+    `serverFiltered`, `isLoading`, `loadingText`, `defaultOpen`, `onOpenChange` — báo cả lúc đóng không chọn gì). Tạo: "Kiểm tra & lưu" mở `ImportFormReviewDialog` (thay `confirmation`
+    cũ) với "Lưu nháp" / "Lưu & xác nhận"; mọi cảnh báo trong hộp đều MỀM, không chặn lưu. Sửa: "Lưu" lưu thẳng, `FormSheet.secondaryAction`
+    là "Lưu & xác nhận" (không đổi gì → chỉ xác nhận với `original.version`, xác nhận lỗi thì KHÔNG báo "đã lưu": 409 / 101314 → như PATCH bị
+    409, lỗi khác → toast, giữ sheet; có đổi → PATCH rồi xác nhận). Nháp cũ có dòng chưa lưu bên bán (hiện "theo đầu phiếu") cũng tính là cần PATCH
+    (`needsPatch`, chỉ khi `canPickSupplier`) — nút Lưu mở dù form không dirty. Bước ③ của dải bước: tạo = gửi form (mở hộp Kiểm tra), sửa = chỉ
+    focus nút "Lưu", không gửi. Dải là vòng số nối bằng đường kẻ (đường sau bước đã xong đổi màu; < sm chỉ giữ nhãn bước đang xem). ①/② đổi số thành ✓ khi đủ (`importFormStepStatus`: ① = số HĐ + bên bán nếu chọn được NCC; ② = ≥ 1
+    dòng đủ, kèm "· n dòng"), bước đang xem tô đậm (`aria-current="step"`) theo vị trí cuộn (`useActiveSection`, IntersectionObserver dải
+    40% trên; jsdom không có IO → giữ ①). Toast sau khi lưu ngắn (một dòng, tối đa một nút "Xem"; lý do xác nhận lỗi ở `description`), nút "Xem" bị bỏ qua khi sheet đang mở. "Lưu & xác nhận" cần ability
+    `confirmOnSave` = `can('IMPORT_FORM_CONFIRM')` (`canConfirm` của sheet; thiếu quyền thì chỉ có Lưu nháp); `pickSupplier` = `can('SUPPLIER_READ')`.
+    Sheet gọi `onSaved(outcome: ImportFormSaveOutcome { form, confirmed, confirmError? })`; hook create / update / confirm nhận option
+    `successToast: false` và sheet luôn tắt, **trang cha tự toast** qua `toastSaveOutcome` (`pages/import-forms/model/saveToast.ts`, hàm thuần):
+    xác nhận lỗi sau khi đã lưu → toast cảnh báo "đã lưu nhưng chưa xác nhận", sheet vẫn đóng. `AddMaterialDialogProps.defaultSupplierSlug`
+    chọn sẵn NCC ở tab "Tạo vật tư mới" (chỉ khi có ability `attachSupplier`). Cảnh báo "tồn vượt max" dùng `effectiveMaximumInventory?` của
+    `available-materials` — **BE chưa trả trường này** nên cảnh báo im lặng cho tới khi BE thêm. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
     (`pages/import-forms/model/paths.ts`).
     Ô chọn vật tư của dòng có `footer` "＋ Thêm vật tư vào kho…" (prop `footer` của `Combobox`: nhận chữ đang gõ + hàm đóng)
     → hộp thêm vật tư nằm ở `features/warehouse-material-add`; phiếu nhập nhận nó qua prop `AddMaterialDialog` do `pages/import-forms`
@@ -367,7 +386,7 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     loại vật tư đã ở kho — BE chưa có bộ lọc "chưa thuộc kho X" (`notInWarehouseSlug`) nên danh mục > 50 thì có dòng "gõ để tìm thêm") và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC;
     nút "Tạo và gắn vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp
     có thể nằm trong form phiếu). Câu mô tả của hộp là prop (phiếu nhập truyền câu riêng); chữ của hộp ở namespace `inventory`.
-    Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`. Quyền
+    Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`; ô Đơn vị chỉ hiện MÃ đơn vị (tên đủ ở danh sách + `title`) vì cột hẹp. Quyền
     `MaterialAddAbilities` do trang tính (`materialAddAbilities`). Hộp chờ `available-materials` tải lại rồi mới `onAdded(AddedMaterial)`; items field
     chọn dòng NGAY bằng nhãn + đơn vị gốc hộp trả về (không chờ vật tư xuất hiện trong `materials`). Invalidate chéo (vật tư khả dụng, danh mục
     vật tư, NCC) nằm ở hộp — entity `inventory` không import entity khác.
@@ -409,8 +428,10 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     `AssignStoreWarehouseDialog`) đều chặn `onEscapeKeyDown` / `onPointerDownOutside` và giấu nút ×
     (`showCloseButton={!isPending}`) lúc đang gửi — `Dialog.Close`/`SheetContent` của Radix gọi thẳng
     `onOpenChange` khi bấm ×, không đi qua hai handler kia, nên phải xử lý riêng.
-- **Linh kiện**: `Combobox` (lọc tại client, không phân biệt dấu), `DatePicker` (giá trị `YYYY-MM-DD`),
-  `NumberInput` (`number | undefined`, không bao giờ `NaN`), `Checkbox`, `Switch`, `Textarea`, `Badge`,
+- **Linh kiện**: `Combobox` (nút xoá × nằm TRONG khung ô, trước mũi tên; lọc tại client, không phân biệt dấu — trừ khi `serverFiltered` (nhóm `groups`, `onSearchChange`, `isLoading`: tìm phía server)), `DatePicker` (giá trị `YYYY-MM-DD`),
+  `NumberInput` (`number | undefined`, không bao giờ `NaN`), `MoneyInput` (ô **tiền** — định dạng ngay khi gõ theo ngôn ngữ:
+  vi `1.500.000,5`, en `1,500,000.5`, tối đa 2 số lẻ, hậu tố ₫; dán `1,500,000` vẫn là một triệu rưỡi; luật thuần ở
+  `shared/lib/money-input.ts` — mọi ô tiền dùng nó, **không** dùng `NumberInput` cho tiền), `Checkbox`, `Switch`, `Textarea`, `Badge`,
   `Skeleton`, `AlertDialog` / `ConfirmDialog` (xác nhận phá huỷ), `Select` (`shared/ui/select.tsx`, shadcn/Radix — mọi ô
   chọn trong app đều dùng nó, **không còn `<select>` gốc ở đâu**), `SelectFilter`
   (`shared/ui/data-table/SelectFilter.tsx` — ô lọc một-trong-vài-giá-trị trên `ListToolbar`, bọc quanh
@@ -706,7 +727,7 @@ mất công tìm cách sửa nó.
     cột "Đang dùng" trừ ra khi hiện phần tách.
   - Đổi đơn vị gốc chỉ biết bị khoá sau khi gửi (100723 — đã có tồn hoặc đơn vị quy đổi khác); xoá Loại / Vật tư chỉ
     biết bị chặn sau khi gửi (100609 / 100712) — báo trong hộp. Xoá Đơn vị khoá sẵn theo `materialCount.total`.
-  - `NumberInput` coi `.` và `,` đều là dấu thập phân ("1.000" = 1) và viết lại về dạng chuẩn khi rời ô. Ngưỡng tồn /
+  - `NumberInput` coi `.` và `,` đều là dấu thập phân ("1.000" = 1) và viết lại về dạng chuẩn khi rời ô (ô tiền thì dùng `MoneyInput`). Ngưỡng tồn /
     tỉ lệ chặn ≥ 1e12 (`DECIMAL_18_6_LIMIT`, cột `DECIMAL(18,6)`; backend không chặn → lỗi 500).
   - `POST /materials/:slug/convert` (quy đổi số lượng): **cố ý không dùng** — chốt 2026-10-12 là không cần màn / công cụ
     quy đổi riêng. Đừng dựng lại khi chưa có yêu cầu mới.
@@ -835,7 +856,7 @@ mất công tìm cách sửa nó.
 - **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
   key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
   không có chỉ số dòng → chỉ toast; đã lọc theo ngày tạo (`toCreatedRange`) và sắp xếp theo Mã (`importFormSort`; cột Ngày nhập không sắp được vì danh sách không có cột ngày tạo), nhưng chưa lọc theo mã → không có ô tìm; dòng phiếu không có mã đơn vị gốc → cột quy đổi
-  thiếu mã khi phiếu không có dòng 1:1; ô chọn vật tư tải 100 vật tư đầu của kho. Test tay:
+  thiếu mã khi phiếu không có dòng 1:1. Test tay:
   `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
   `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
   chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang). Thêm vật tư từ phiếu: vật tư tạo nhanh chỉ có đơn vị gốc; seed quyền mặc định chỉ ADMIN gắn / tạo vật tư (MANAGER / SUPERVISOR thấy nút khoá kèm lý do — admin bật `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` (+ `MATERIAL_CREATE`) ở `/permissions`). Hộp thêm vật tư khoá mọi đường đóng khi đang gắn / tạo; dòng chọn vật tư ngay bằng nhãn / đơn vị gốc hộp trả về nên kho > 100 vật tư vẫn chọn được; danh sách NCC trong hộp tạo vật tư chỉ tải 100 NCC đầu; vật tư cũ chưa có đơn vị gốc không gắn được từ phiếu (nút khoá).

@@ -28,6 +28,22 @@ type ComboboxProps = Omit<ComponentProps<'button'>, 'value' | 'onChange'> & {
    * Nhận chữ đang gõ trong ô tìm và hàm đóng danh sách.
    */
   footer?: (search: string, close: () => void) => ReactNode
+  /**
+   * Có → danh sách vẽ theo nhóm (có tiêu đề nếu `heading` không rỗng) thay cho `options`. `options` vẫn là bảng tra
+   * cứu nhãn của giá trị đang chọn, nên nên chứa mọi mục (kể cả mục không nằm trong nhóm nào đang vẽ).
+   */
+  groups?: { heading: string; options: ComboboxOption[] }[]
+  /** Báo chữ đang gõ trong ô tìm (kể cả `''` khi chọn / đóng) — cho tìm phía server. */
+  onSearchChange?: (search: string) => void
+  /** Danh sách do server lọc: tắt bộ lọc tại chỗ của cmdk. */
+  serverFiltered?: boolean
+  /** Đang tải kết quả: hiện `loadingText` thay cho câu "không có kết quả". */
+  isLoading?: boolean
+  loadingText?: string
+  /** Mở sẵn lúc dựng (vd. ô vừa hiện ra sau khi bấm "đổi bên bán"). */
+  defaultOpen?: boolean
+  /** Báo danh sách mở / đóng — kể cả đóng không chọn gì (Esc, bấm ra ngoài) và đóng sau khi chọn. */
+  onOpenChange?: (open: boolean) => void
 }
 
 /**
@@ -53,15 +69,30 @@ export function Combobox({
   searchPlaceholder,
   emptyText,
   footer,
+  groups,
+  onSearchChange,
+  serverFiltered = false,
+  isLoading = false,
+  loadingText,
+  defaultOpen = false,
+  onOpenChange,
   disabled,
   className,
   ref,
   ...triggerProps
 }: ComboboxProps) {
   const { t } = useTranslation(['common'])
-  const [open, setOpen] = useState(false)
+  const [open, setOpenState] = useState(defaultOpen)
+  const setOpen = (next: boolean) => {
+    setOpenState(next)
+    onOpenChange?.(next)
+  }
   // Điều khiển ô tìm để đưa chữ đang gõ cho `footer`; xoá khi đóng (cmdk unmount lúc đóng nên trước đây tự trống).
-  const [search, setSearch] = useState('')
+  const [search, setSearchState] = useState('')
+  const setSearch = (next: string) => {
+    setSearchState(next)
+    onSearchChange?.(next)
+  }
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   // Giữ ref riêng để trả focus về nút mở sau khi xoá, vẫn chuyển tiếp ref ngoài (RHF focus lỗi).
   const setTriggerRef = useCallback(
@@ -73,10 +104,14 @@ export function Combobox({
     [ref],
   )
   const selected = options.find((option) => option.value === value)
+  const clearable = selected !== undefined && !disabled
   const searchText = searchPlaceholder ?? t('common:searchPlaceholder')
+  const drawn = groups ?? [{ heading: '', options }]
 
   return (
-    <div className={cn('flex items-center gap-1', className)}>
+    // Nút xoá nằm TRONG khung ô (đè lên mép phải nút mở, trước mũi tên) thay vì một nút riêng bên cạnh: ô hẹp trong bảng
+    // (dòng phiếu nhập) không mất thêm ~2rem. Không lồng <button> trong <button> được nên đặt tuyệt đối trên lớp vỏ.
+    <div className={cn('relative flex items-center', className)}>
       {/* modal: Popover portal ra ngoài Dialog; không modal thì RemoveScroll của Dialog chặn lăn chuột
           trong danh sách/lịch. */}
       <Popover
@@ -101,12 +136,13 @@ export function Combobox({
             role="combobox"
             aria-expanded={open}
             disabled={disabled}
-            className="flex-1 justify-between font-normal"
+            className="min-w-0 flex-1 justify-between font-normal"
             {...triggerProps}
             ref={setTriggerRef}
           >
             {selected ? (
-              <span className="truncate">{selected.label}</span>
+              // Chừa chỗ cho nút xoá đè lên mép phải (đặt tuyệt đối, xem dưới) để nhãn dài cắt "…" trước nó.
+              <span className={cn('truncate', clearable && 'mr-7')}>{selected.label}</span>
             ) : (
               <span className="text-muted-foreground truncate">
                 {placeholder ?? t('common:selectPlaceholder')}
@@ -125,29 +161,42 @@ export function Combobox({
           collisionPadding={8}
         >
           {/* cmdk gắn aria-labelledby của ô tìm vào `label` của Command (aria-label bị lấn át). */}
-          <Command filter={filterOption} label={searchText} className="min-h-0">
+          <Command
+            filter={filterOption}
+            shouldFilter={!serverFiltered}
+            label={searchText}
+            className="min-h-0"
+          >
             <CommandInput placeholder={searchText} value={search} onValueChange={setSearch} />
             <CommandList className="min-h-0">
-              <CommandEmpty>{emptyText ?? t('common:noResults')}</CommandEmpty>
-              <CommandGroup>
-                {options.map((option) => (
-                  <CommandItem
-                    key={option.value}
-                    value={option.value}
-                    keywords={[option.label]}
-                    // CommandItem (shadcn) tự hiện dấu tích khi data-checked=true.
-                    data-checked={option.value === value}
-                    onSelect={() => {
-                      onChange(option.value)
-                      setSearch('')
-                      setOpen(false)
-                    }}
-                  >
-                    {/* Nhãn dài không khoảng trắng (tên vật tư / đơn vị) phải ngắt dòng, không bị cắt giữa chữ. */}
-                    <span className="min-w-0 break-words">{option.label}</span>
-                  </CommandItem>
-                ))}
-              </CommandGroup>
+              {isLoading ? (
+                <div role="status" className="text-muted-foreground py-6 text-center text-sm">
+                  {loadingText ?? t('common:loading')}
+                </div>
+              ) : (
+                <CommandEmpty>{emptyText ?? t('common:noResults')}</CommandEmpty>
+              )}
+              {drawn.map((group, i) => (
+                <CommandGroup key={`${i}-${group.heading}`} heading={group.heading || undefined}>
+                  {group.options.map((option) => (
+                    <CommandItem
+                      key={option.value}
+                      value={option.value}
+                      keywords={[option.label]}
+                      // CommandItem (shadcn) tự hiện dấu tích khi data-checked=true.
+                      data-checked={option.value === value}
+                      onSelect={() => {
+                        onChange(option.value)
+                        setSearch('')
+                        setOpen(false)
+                      }}
+                    >
+                      {/* Nhãn dài không khoảng trắng (tên vật tư / đơn vị) phải ngắt dòng, không bị cắt giữa chữ. */}
+                      <span className="min-w-0 break-words">{option.label}</span>
+                    </CommandItem>
+                  ))}
+                </CommandGroup>
+              ))}
             </CommandList>
             {footer && (
               <div data-slot="combobox-footer" className="border-t p-1">
@@ -160,11 +209,12 @@ export function Combobox({
           </Command>
         </PopoverContent>
       </Popover>
-      {selected && !disabled && (
+      {clearable && (
         <Button
           type="button"
           variant="ghost"
-          size="icon-sm"
+          size="icon-xs"
+          className="absolute top-1/2 right-8 -translate-y-1/2"
           aria-label={t('common:clearSelection')}
           onClick={() => {
             onChange(undefined)

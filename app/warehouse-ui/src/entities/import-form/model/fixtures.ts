@@ -7,8 +7,7 @@ export const flour: AvailableMaterial = {
   name: 'Bột mì',
   baseUnitSlug: 'u-kg',
   quantity: 120,
-  supplierSlug: 's-1',
-  supplierName: 'NCC Bột',
+  suppliers: [{ slug: 's-1', code: 'NCC-01', name: 'NCC Bột' }],
   units: [
     { unitSlug: 'u-kg', unitCode: 'KG', unitName: 'Kilogram', conversionRate: 1, isBaseUnit: true },
     {
@@ -27,8 +26,7 @@ export const sugar: AvailableMaterial = {
   name: 'Đường',
   baseUnitSlug: 'u-kg',
   quantity: 0,
-  supplierSlug: null,
-  supplierName: null,
+  suppliers: [],
   units: [
     { unitSlug: 'u-kg', unitCode: 'KG', unitName: 'Kilogram', conversionRate: 1, isBaseUnit: true },
   ],

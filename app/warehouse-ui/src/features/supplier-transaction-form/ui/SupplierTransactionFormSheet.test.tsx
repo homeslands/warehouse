@@ -117,17 +117,18 @@ describe('SupplierTransactionFormSheet', () => {
     expect(screen.getByLabelText('Thành tiền (tạm tính)').getAttribute('value')).toContain('0,3')
   })
 
-  it('SL 7 số lẻ / đơn giá 3 số lẻ bị báo lỗi ngay tại ô', async () => {
+  it('SL 7 số lẻ bị báo lỗi ngay tại ô; ô đơn giá (ô tiền) chỉ nhận tối đa 2 số lẻ khi gõ', async () => {
     const { user } = renderSheet()
 
     await user.type(quantityField(), '1.1234567')
-    await user.type(unitPriceField(), '1.005')
+    await user.type(unitPriceField(), '1,005')
     await user.tab()
 
     expect(quantityField()).toHaveAccessibleDescription(
       'Số lượng phải lớn hơn 0, tối đa 6 chữ số thập phân',
     )
-    expect(unitPriceField()).toHaveAccessibleDescription(
+    expect(unitPriceField()).toHaveValue('1')
+    expect(unitPriceField()).not.toHaveAccessibleDescription(
       'Đơn giá không âm, tối đa 2 chữ số thập phân',
     )
   })

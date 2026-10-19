@@ -50,6 +50,8 @@ type Props = {
   initialSearch: string
   canCreate: boolean
   canAttachSupplier: boolean
+  /** NCC chọn sẵn (NCC của dòng phiếu nhập); chỉ áp dụng khi có quyền gắn NCC. */
+  defaultSupplierSlug?: string
   /** `name` = tên server trả về (cho toast). `withSupplier`: có chọn NCC — server gắn NCC trong cùng POST. */
   onCreated: (added: AddedMaterial, name: string, withSupplier: boolean) => Promise<void> | void
   /** Hộp chặn đóng khi đang gửi. */
@@ -66,6 +68,7 @@ export function CreateMaterialSection({
   initialSearch,
   canCreate,
   canAttachSupplier,
+  defaultSupplierSlug,
   onCreated,
   onBusyChange,
   onWarehouseInactive,
@@ -82,7 +85,10 @@ export function CreateMaterialSection({
   const form = useForm<AddMaterialValues>({
     resolver: zodResolver(addMaterialSchema),
     mode: 'onTouched',
-    defaultValues: addMaterialDefaults(initialSearch),
+    defaultValues: {
+      ...addMaterialDefaults(initialSearch),
+      supplierSlug: canAttachSupplier ? (defaultSupplierSlug ?? '') : '',
+    },
   })
 
   // `isPending` về false ngay khi POST xong, còn onCreated vẫn chạy → chốt cả luồng bằng ref.
