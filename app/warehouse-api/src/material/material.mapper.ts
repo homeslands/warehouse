@@ -5,12 +5,15 @@ import {
   CreateMaterialRequestDto,
   MaterialConversionUnitResponseDto,
   MaterialResponseDto,
+  MaterialWarehouseResponseDto,
   UpdateMaterialRequestDto,
 } from './material.dto';
 import { Material } from './material.entity';
 import { MaterialUnit } from './material-unit.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { normalizeCode } from 'src/shared/utils/code.util';
+import { roundToScale } from 'src/shared/utils/decimal.transformer';
+import { Inventory } from 'src/inventory/inventory.entity';
 import { MaterialType } from 'src/material-type/material-type.entity';
 import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
 import { Unit } from 'src/unit/unit.entity';
@@ -94,17 +97,67 @@ export class MaterialProfile extends AutomapperProfile {
           (d) => d.baseUnit,
           mapFrom((s) => (s.baseUnit ? mapper.map(s.baseUnit, Unit, UnitResponseDto) : null)),
         ),
-        // `supplier` cần `relations: { supplier: true }` ở read path — thiếu thì mọi vật tư đều ra
-        // `hasSupplier: false`.
+        // `suppliers` cần `relations: { suppliers: true }` ở read path — thiếu thì mọi vật tư đều ra
+        // `hasSupplier: false` + `suppliers: []`.
         forMember(
           (d) => d.hasSupplier,
-          mapFrom((s) => !!s.supplier),
+          mapFrom((s) => (s.suppliers ?? []).length > 0),
         ),
         forMember(
-          (d) => d.supplier,
+          (d) => d.suppliers,
+          mapFrom((s) => mapper.mapArray(s.suppliers ?? [], Supplier, SupplierResponseDto)),
+        ),
+        // `inventories` chỉ có khi service gán thủ công từ 1 query riêng (xem `toResponses`). Bỏ qua
+        // dòng có `warehouse` = null: kho đã xoá mềm vẫn còn dòng tồn trỏ tới, không được làm sập cả
+        // response.
+        forMember(
+          (d) => d.warehouses,
           mapFrom((s) =>
-            s.supplier ? mapper.map(s.supplier, Supplier, SupplierResponseDto) : null,
+            (s.inventories ?? [])
+              .filter((row) => row.warehouse)
+              .map((row) => mapper.map(row, Inventory, MaterialWarehouseResponseDto)),
           ),
+        ),
+        // `unitsCanHave` cũng chỉ có khi service gán thủ công (xem `toResponses`), không thì ra `[]`.
+        // Bỏ dòng có `unit` = null (đơn vị đã xoá mềm). Đơn vị cơ sở lên đầu, còn lại giữ thứ tự query.
+        forMember(
+          (d) => d.units,
+          mapFrom((s) =>
+            (s.unitsCanHave ?? [])
+              .filter((row) => row.unit)
+              .map((row) => ({
+                ...mapper.map(row, MaterialUnit, MaterialConversionUnitResponseDto),
+                isBaseUnit: row.unitId === s.baseUnit?.id,
+              }))
+              .sort((a, b) => Number(b.isBaseUnit) - Number(a.isBaseUnit)),
+          ),
+        ),
+      );
+
+      // Dòng tồn kho -> 1 kho của vật tư (object lồng trong `warehouses`).
+      createMap(
+        mapper,
+        Inventory,
+        MaterialWarehouseResponseDto,
+        forMember(
+          (d) => d.slug,
+          mapFrom((s) => s.warehouse.slug),
+        ),
+        forMember(
+          (d) => d.code,
+          mapFrom((s) => s.warehouse.code),
+        ),
+        forMember(
+          (d) => d.name,
+          mapFrom((s) => s.warehouse.name),
+        ),
+        forMember(
+          (d) => d.quantity,
+          mapFrom((s) => s.quantity),
+        ),
+        forMember(
+          (d) => d.availableQuantity,
+          mapFrom((s) => roundToScale(s.quantity - s.reservedQuantity)),
         ),
       );
 

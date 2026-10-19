@@ -1,4 +1,4 @@
-import { IsNotEmpty, IsOptional, Matches } from 'class-validator';
+import { IsEnum, IsNotEmpty, IsOptional, Matches } from 'class-validator';
 import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
@@ -35,6 +35,13 @@ export class CreateMaterialTypeRequestDto {
  */
 export class UpdateMaterialTypeRequestDto extends PartialType(CreateMaterialTypeRequestDto) {}
 
+/** Field sắp xếp của `GET /material-types` — map sang cột ở `buildSortOrder()` trong service. */
+export enum MaterialTypeSortBy {
+  CreatedAt = 'createdAt',
+  Name = 'name',
+  Code = 'code',
+}
+
 export class GetAllMaterialTypeRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'MT-01' })
   @IsOptional()
@@ -49,6 +56,15 @@ export class GetAllMaterialTypeRequestDto extends BaseQueryDto {
   @IsOptional()
   @Transform(trim)
   name?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: MaterialTypeSortBy,
+    default: MaterialTypeSortBy.CreatedAt,
+  })
+  @IsOptional()
+  @IsEnum(MaterialTypeSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: MaterialTypeSortBy = MaterialTypeSortBy.CreatedAt;
 }
 
 export class MaterialTypeResponseDto extends BaseResponseDto {

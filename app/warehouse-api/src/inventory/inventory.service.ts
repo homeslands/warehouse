@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EntityManager, FindOptionsWhere, Raw, Repository } from 'typeorm';
+import { EntityManager, FindOptionsWhere, In, Raw, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -7,6 +7,7 @@ import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
   AdjustInventoryQuantityRequestDto,
   AssignInventoryRequestDto,
+  CreateInventoryMaterialRequestDto,
   GetInventoryHistoryRequestDto,
   GetInventoryRequestDto,
   UpdateInventoryRequestDto,
@@ -22,6 +23,10 @@ import { effectiveMaximum, effectiveMinimum } from './inventory.util';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { Material } from 'src/material/material.entity';
 import { MaterialService } from 'src/material/material.service';
+import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+import { Supplier } from 'src/supplier/supplier.entity';
+import { SupplierException } from 'src/supplier/supplier.exception';
+import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
@@ -57,6 +62,8 @@ export class InventoryService {
     @InjectRepository(InventoryHistory)
     private readonly historyRepository: Repository<InventoryHistory>,
     @InjectRepository(Warehouse) private readonly warehouseRepository: Repository<Warehouse>,
+    // Chỉ tra nhà cung cấp theo slug cho `createMaterialInWarehouse` — entity, không import `SupplierModule`.
+    @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly materialService: MaterialService,
@@ -107,6 +114,59 @@ export class InventoryService {
     });
     this.logger.log(
       `Material ${material.id} assigned to warehouse ${warehouse.id}: ${created.id}`,
+      context,
+    );
+    return this.toResponse(created);
+  }
+
+  /**
+   * Tạo vật tư MỚI rồi gán luôn vào kho — tất cả trong 1 transaction: tạo vật tư (+ dòng join đơn
+   * vị cơ sở), dòng tồn, dòng lịch sử `ASSIGN`. Lỗi ở bất kỳ bước nào (trùng mã vật tư, ngưỡng của
+   * kho mâu thuẫn với ngưỡng mặc định...) thì không để lại vật tư "mồ côi" không thuộc kho nào.
+   * Vật tư mới nên không cần tra trùng `(kho, vật tư)` như `assignMaterial`. Có `supplierSlug` thì
+   * gắn luôn cặp (vật tư, nhà cung cấp) vào `material_supplier_tbl` trong cùng transaction.
+   */
+  async createMaterialInWarehouse(
+    warehouseSlug: string,
+    dto: CreateInventoryMaterialRequestDto,
+    actor: CurrentUserDto,
+  ): Promise<InventoryResponseDto> {
+    const context = `${InventoryService.name}.${this.createMaterialInWarehouse.name}`;
+    const warehouse = await this.findWarehouse(warehouseSlug);
+    if (!warehouse.isActive)
+      throw new InventoryException(InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE);
+    // Tra TRƯỚC transaction để slug sai không chạm DB. Bỏ qua nhà cung cấp đã xoá mềm.
+    const supplier = dto.supplierSlug ? await this.findSupplier(dto.supplierSlug) : null;
+
+    const created = await this.transactionManager.execute(async (manager) => {
+      const material = await this.materialService.createMaterialIn(manager, dto.material);
+      if (supplier)
+        await insertMaterialSuppliers(manager, [
+          { materialId: material.id, supplierId: supplier.id },
+        ]);
+      const row = this.inventoryRepository.create({
+        warehouse,
+        material,
+        quantity: roundToScale(Number(dto.quantity ?? 0)),
+        reservedQuantity: 0,
+        minimumInventory: dto.minimumInventory ?? null,
+        maximumInventory: dto.maximumInventory ?? null,
+      });
+      this.assertEffectiveRange(row);
+
+      const saved = await manager.getRepository(Inventory).save(row);
+      await this.recordHistory(
+        manager,
+        saved,
+        { action: InventoryHistoryAction.Assign, quantityDelta: saved.quantity },
+        { quantity: 0, reservedQuantity: 0 },
+        actor,
+      );
+      return saved;
+    });
+    this.logger.log(
+      `Material ${created.material.id} created in warehouse ${warehouse.id}: ${created.id}` +
+        (supplier ? `, supplier ${supplier.id}` : ''),
       context,
     );
     return this.toResponse(created);
@@ -200,6 +260,48 @@ export class InventoryService {
 
     this.logger.log(`Inventory ${row.id} quantity adjusted by ${delta}`, context);
     return this.toResponse(await this.findRow(warehouseSlug, materialSlug));
+  }
+
+  /**
+   * Nhập hàng vào kho từ phiếu nhập đã xác nhận. Chạy trong transaction của CALLER — cộng tồn và đổi
+   * trạng thái phiếu cùng commit/rollback. `lines[].quantity` theo đơn vị cơ sở (`baseQuantity` của
+   * dòng phiếu); nhiều dòng cùng vật tư (khác đơn vị) gộp thành 1 lần cộng + 1 dòng lịch sử `IMPORT`.
+   *
+   * Vật tư chưa gán vào kho ⇒ `INVENTORY_NOT_FOUND`, KHÔNG tự gán: gán vật tư vào kho là thao tác
+   * quản trị riêng (`POST /warehouses/:slug/materials`). Khoá các dòng tồn theo thứ tự `id` cố định
+   * để 2 phiếu cùng vật tư xác nhận đồng thời không deadlock.
+   */
+  async receive(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: { materialId: string; quantity: number }[],
+    actor: CurrentUserDto,
+    note?: string | null,
+  ): Promise<void> {
+    const totals = new Map<string, number>();
+    for (const line of lines)
+      totals.set(line.materialId, roundToScale((totals.get(line.materialId) ?? 0) + line.quantity));
+    if (!totals.size) return;
+
+    const rows = await manager.getRepository(Inventory).find({
+      where: { warehouse: { id: warehouseId }, material: { id: In([...totals.keys()]) } },
+      relations: { material: true },
+    });
+    if (rows.length !== totals.size)
+      throw new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND);
+
+    const ordered = [...rows].sort((a, b) => a.id.localeCompare(b.id));
+    for (const row of ordered)
+      await this.mutate(
+        manager,
+        row.id,
+        {
+          action: InventoryHistoryAction.Import,
+          quantityDelta: totals.get(row.material.id),
+          note,
+        },
+        actor,
+      );
   }
 
   async removeMaterial(
@@ -325,6 +427,13 @@ export class InventoryService {
     const warehouse = await this.warehouseRepository.findOneBy({ slug });
     if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
     return warehouse;
+  }
+
+  /** Ném `SUPPLIER_NOT_FOUND` (lỗi của module supplier, cố ý không bọc lại) nếu slug sai. */
+  private async findSupplier(slug: string): Promise<Supplier> {
+    const supplier = await this.supplierRepository.findOneBy({ slug });
+    if (!supplier) throw new SupplierException(SupplierValidation.SUPPLIER_NOT_FOUND);
+    return supplier;
   }
 
   private async findRow(warehouseSlug: string, materialSlug: string): Promise<Inventory> {

@@ -93,7 +93,7 @@ Test khoá 3 điểm trên nằm ở `<module>.dto.spec.ts` (body rỗng phải 
 
 **Quan trọng — message class-validator phải trùng KEY trong `<module>.validation.ts`** (vd `@IsNotEmpty({ message: 'EXAMPLE_NAME_IS_REQUIRED' })` phải khớp key đã khai báo), không phải câu văn tự do — `HttpExceptionFilter` tra `AppValidation[message]` để map ra `statusCode: 422` + mã lỗi chuẩn. Không khớp → trả nguyên message thô với statusCode 400 mặc định.
 
-Query phân trang kế thừa `BaseQueryDto` (`page`, `size`, `sort: string[]`).
+Query danh sách kế thừa `BaseQueryDto` (`page`, `size`, `sort: SortOrder`, `startDate`/`endDate` lọc `createdAt` qua `resolveDateRange()`). `sortBy` không nằm ở base: mỗi query DTO tự khai enum `<Module>SortBy` + field `sortBy`, service map sang cột bằng `buildSortOrder<Entity, <Module>SortBy>()` (`src/shared/utils/query.util.ts`).
 
 ## Response chuẩn (bắt buộc, controller tự build — không có interceptor tự wrap)
 
@@ -152,7 +152,8 @@ Feature mới chỉ có CRUD (`<X>_CREATE`/`_READ`/`_UPDATE`/`_DELETE`). Route n
 | `POST` / `GET` / `PATCH` / `DELETE /units...` | `UNIT_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) |
 | `GET /warehouses/{slug}/materials` | `MATERIAL_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
 | `GET /warehouses/{slug}/materials/{materialSlug}/histories` | `MATERIAL_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |
-| `POST` / `PATCH` / `DELETE /warehouses/{slug}/materials...` (kể cả `.../quantity`) | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
+| `PUT` (gán vật tư có sẵn) / `PATCH` / `DELETE /warehouses/{slug}/materials...` (kể cả `.../quantity`) | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
+| `POST /warehouses/{slug}/materials` (tạo vật tư mới + gán vào kho, 1 transaction) | `MATERIAL_CREATE` + `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
 | `POST` / `GET` / `PATCH` / `DELETE /stores...` | `STORE_CREATE` / `_READ` / `_UPDATE` / `_DELETE` | `ADMIN` (READ: `ADMIN`, `MANAGER`, `SUPERVISOR`) — `GET /stores` với `MANAGER` bị service lọc về cửa hàng gắn kho mình phụ trách |
 | `PUT /stores/{slug}/warehouse`, `POST /stores/{slug}/warehouse-histories/{historySlug}/restore` | `STORE_UPDATE` + `WAREHOUSE_UPDATE` | `ADMIN` |
 | `GET /stores/{slug}/warehouse-histories` | `STORE_READ` + `WAREHOUSE_READ` | `ADMIN`, `MANAGER`, `SUPERVISOR` |

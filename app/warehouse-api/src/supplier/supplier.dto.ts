@@ -92,6 +92,13 @@ export class CreateSupplierRequestDto {
  */
 export class UpdateSupplierRequestDto extends PartialType(CreateSupplierRequestDto) {}
 
+/** Field sắp xếp của `GET /suppliers` — map sang cột ở `buildSortOrder()` trong service. */
+export enum SupplierSortBy {
+  CreatedAt = 'createdAt',
+  Name = 'name',
+  Code = 'code',
+}
+
 export class GetAllSupplierRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by exact business code', example: 'SUP-HN-01' })
   @IsOptional()
@@ -115,6 +122,15 @@ export class GetAllSupplierRequestDto extends BaseQueryDto {
   @IsOptional()
   @Transform(trim)
   phonenumber?: string;
+
+  @ApiPropertyOptional({
+    description: 'Sort field',
+    enum: SupplierSortBy,
+    default: SupplierSortBy.CreatedAt,
+  })
+  @IsOptional()
+  @IsEnum(SupplierSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: SupplierSortBy = SupplierSortBy.CreatedAt;
 }
 
 export class SupplierResponseDto extends BaseResponseDto {

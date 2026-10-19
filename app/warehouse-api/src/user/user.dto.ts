@@ -1,8 +1,7 @@
 import {
-  IsArray,
   IsBoolean,
-  IsDateString,
   IsEmail,
+  IsEnum,
   IsISO8601,
   IsNotEmpty,
   IsOptional,
@@ -12,7 +11,7 @@ import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
-import { USER_SORT_FIELDS, USER_SORT_REGEX, VN_PHONENUMBER_REGEX } from './user.constants';
+import { VN_PHONENUMBER_REGEX } from './user.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -93,9 +92,12 @@ export class ChangeUserRoleRequestDto {
   roleSlug: string;
 }
 
-// Query string `?sort=a` ra string, `?sort=a&sort=b` mới ra mảng — gói lại cho `@IsArray`.
-const toArray = ({ value }: { value: unknown }) =>
-  value === undefined || Array.isArray(value) ? value : [value];
+/** Field sắp xếp của `GET /users` — map sang cột ở `buildSortOrder()` trong service. */
+export enum UserSortBy {
+  CreatedAt = 'createdAt',
+  Name = 'name',
+  Dob = 'dob',
+}
 
 export class GetAllUserRequestDto extends BaseQueryDto {
   @ApiPropertyOptional({ description: 'Filter by role slug', example: 'admin' })
@@ -123,26 +125,6 @@ export class GetAllUserRequestDto extends BaseQueryDto {
   warehouseSlug?: string;
 
   @ApiPropertyOptional({
-    description:
-      'Account creation date from (inclusive). `YYYY-MM-DD` counts from 00:00 server time, or a ' +
-      'full ISO 8601 timestamp.',
-    example: '2026-09-01',
-  })
-  @IsOptional()
-  @IsDateString({}, { message: 'USER_START_DATE_INVALID' })
-  startDate?: string;
-
-  @ApiPropertyOptional({
-    description:
-      'Account creation date to (inclusive). `YYYY-MM-DD` covers the whole day, or a full ' +
-      'ISO 8601 timestamp.',
-    example: '2026-09-30',
-  })
-  @IsOptional()
-  @IsDateString({}, { message: 'USER_END_DATE_INVALID' })
-  endDate?: string;
-
-  @ApiPropertyOptional({
     description: 'Date of birth (exact match, YYYY-MM-DD)',
     example: '1990-05-20',
   })
@@ -162,17 +144,13 @@ export class GetAllUserRequestDto extends BaseQueryDto {
   isActive?: boolean;
 
   @ApiPropertyOptional({
-    description: `Sort \`field:ASC|DESC\`, repeat for multi-level sorting. Field: ${Object.keys(
-      USER_SORT_FIELDS,
-    ).join(', ')}. Default \`createdAt:DESC\`.`,
-    example: ['lastName:ASC', 'firstName:ASC'],
-    isArray: true,
+    description: 'Sort field',
+    enum: UserSortBy,
+    default: UserSortBy.CreatedAt,
   })
   @IsOptional()
-  @Transform(toArray)
-  @IsArray({ message: 'USER_SORT_INVALID' })
-  @Matches(USER_SORT_REGEX, { each: true, message: 'USER_SORT_INVALID' })
-  sort?: string[];
+  @IsEnum(UserSortBy, { message: 'SORT_BY_INVALID' })
+  sortBy?: UserSortBy = UserSortBy.CreatedAt;
 }
 
 export class UserRoleDto {

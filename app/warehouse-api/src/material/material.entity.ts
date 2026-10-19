@@ -1,11 +1,15 @@
-import { Entity, Column, ManyToOne, JoinColumn, OneToMany } from 'typeorm';
+import { Entity, Column, ManyToOne, JoinColumn, OneToMany, ManyToMany, JoinTable } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { Base } from 'src/app/base.entity';
 import { MaterialType } from 'src/material-type/material-type.entity';
 import { Unit } from 'src/unit/unit.entity';
 import { MaterialUnit } from './material-unit.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
+import { Inventory } from 'src/inventory/inventory.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
+
+/** Bảng join vật tư - nhà cung cấp (n - n). Ghi qua `material-supplier.util.ts` (`relation(Material, 'suppliers')`). */
+export const MATERIAL_SUPPLIER_TABLE = 'material_supplier_tbl';
 
 @Entity('material_tbl')
 export class Material extends Base {
@@ -23,13 +27,18 @@ export class Material extends Base {
   type: MaterialType;
 
   /**
-   * Nhà cung cấp của vật tư (1 nhà cung cấp - n vật tư). NULL = chưa gắn. Chỉ ghi qua
-   * `PUT|DELETE /suppliers/:slug/materials` (body `materialSlugs`) — `Create/UpdateMaterialRequestDto` không
-   * nhận field này.
+   * Nhà cung cấp của vật tư (n - n, bảng join `material_supplier_tbl`, migration `1783728000041`).
+   * Rỗng = chưa gắn. Ghi qua `PUT /materials/:slug/suppliers` (thay cả tập) hoặc
+   * `PUT|DELETE /suppliers/:slug/materials` (gắn/gỡ hàng loạt) — `Create/UpdateMaterialRequestDto`
+   * không nhận field này. Vật tư là phía sở hữu bảng join.
    */
-  @ManyToOne(() => Supplier, (supplier) => supplier.materials, { nullable: true })
-  @JoinColumn({ name: 'supplier_id_column' })
-  supplier?: Supplier | null;
+  @ManyToMany(() => Supplier, (supplier) => supplier.materials)
+  @JoinTable({
+    name: MATERIAL_SUPPLIER_TABLE,
+    joinColumn: { name: 'material_id_column', referencedColumnName: 'id' },
+    inverseJoinColumn: { name: 'supplier_id_column', referencedColumnName: 'id' },
+  })
+  suppliers?: Supplier[];
 
   /**
    * Đơn vị CƠ SỞ của vật tư — mốc quy đổi cho mọi đơn vị khác trong `unitsCanHave`
@@ -87,4 +96,12 @@ export class Material extends Base {
    */
   @OneToMany(() => MaterialUnit, (materialUnit) => materialUnit.material)
   unitsCanHave: MaterialUnit[];
+
+  /**
+   * Phía ngược của `Inventory.material` (1 dòng = vật tư này trong 1 kho) — không thêm cột nào.
+   * Chỉ dùng để LỌC (`GET /materials?warehouseSlug=`); đừng load nó kèm `where` trên chính nó, TypeORM
+   * lọc luôn các dòng được load ⇒ response chỉ còn kho đang lọc. `MaterialService` tra kho riêng.
+   */
+  @OneToMany(() => Inventory, (inventory) => inventory.material)
+  inventories?: Inventory[];
 }

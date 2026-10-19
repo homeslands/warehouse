@@ -8,12 +8,14 @@ import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
 import { TokenRevocationService } from 'src/auth/token-revocation.service';
 import { UserService } from './user.service';
+import { SortOrder } from 'src/app/base.dto';
+import { AppCommonValidation } from 'src/app/app-common.validation';
 import { UserProfile } from './user.mapper';
 import { User } from './user.entity';
 import { UserException } from './user.exception';
 import { UserValidation } from './user.validation';
 import { CurrentUserDto } from './user.decorator';
-import { GetAllUserRequestDto } from './user.dto';
+import { GetAllUserRequestDto, UserSortBy } from './user.dto';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 import { And, In, LessThan, Like, MoreThanOrEqual, Not } from 'typeorm';
@@ -505,12 +507,23 @@ describe('UserService', () => {
       },
     );
 
-    it('applies multi-level sort in order, first occurrence of a field wins', async () => {
-      await service.findAll(query({ sort: ['lastName:asc', 'dob:DESC', 'lastName:DESC'] }));
+    it.each([
+      [UserSortBy.Name, SortOrder.ASC, { lastName: 'ASC', firstName: 'ASC', id: 'ASC' }],
+      [UserSortBy.Dob, SortOrder.DESC, { dob: 'DESC', id: 'ASC' }],
+      [UserSortBy.CreatedAt, SortOrder.ASC, { createdAt: 'ASC', id: 'ASC' }],
+    ])('orders by sortBy=%s sort=%s', async (sortBy, sort, expected) => {
+      await service.findAll(query({ sortBy, sort }));
 
       const order = options().order;
-      expect(order).toEqual({ lastName: 'ASC', dob: 'DESC', id: 'ASC' });
-      expect(Object.keys(order)).toEqual(['lastName', 'dob', 'id']);
+      expect(order).toEqual(expected);
+      expect(Object.keys(order)).toEqual(Object.keys(expected));
+    });
+
+    it('rejects a sortBy users do not have (code) before querying', async () => {
+      await expect(service.findAll(query({ sortBy: 'code' as UserSortBy }))).rejects.toMatchObject({
+        code: AppCommonValidation.SORT_BY_INVALID.code,
+      });
+      expect(userRepository.findAndCount).not.toHaveBeenCalled();
     });
 
     it.each([true, false])('filters by isActive=%s from the query', async (isActive) => {

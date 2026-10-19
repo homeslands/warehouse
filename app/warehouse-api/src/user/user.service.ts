@@ -2,7 +2,6 @@ import { Injectable } from '@nestjs/common';
 import { InjectRepository } from '@nestjs/typeorm';
 import {
   And,
-  FindOptionsOrder,
   FindOptionsWhere,
   In,
   LessThan,
@@ -26,6 +25,7 @@ import {
   UpdateUserRequestDto,
   UserProfileWarehouseDto,
   UserResponseDto,
+  UserSortBy,
 } from './user.dto';
 import { UserException } from './user.exception';
 import { UserValidation } from './user.validation';
@@ -38,11 +38,11 @@ import { RoleService } from 'src/role/role.service';
 import { RoleEnum } from 'src/role/role.enum';
 import { hasRole } from 'src/role/role.decorator';
 import { CurrentUserDto } from './user.decorator';
-import { USER_SORT_FIELDS } from './user.constants';
 import { TokenRevocationService } from 'src/auth/token-revocation.service';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import { buildSortOrder, resolveDateRange } from 'src/shared/utils/query.util';
 import { WAREHOUSE_UNSCOPED_ROLES } from 'src/warehouse/warehouse.constants';
 
 @Injectable()
@@ -156,7 +156,11 @@ export class UserService {
     const [items, total] = await this.userRepository.findAndCount({
       where: query.name ? this.nameSearchWhere(where, query.name) : where,
       relations: { role: true, warehouseMembers: { warehouse: true } },
-      order: this.buildOrder(query.sort),
+      // `name` = họ rồi tên, khớp cách hiển thị "last first" của tìm kiếm theo tên.
+      order: buildSortOrder<User, UserSortBy>(query, {
+        name: ['lastName', 'firstName'],
+        dob: ['dob'],
+      }),
       // Có relation 1-N nên TypeORM tự phân trang theo id user trước, 1 user nhiều kho không làm
       // trang bị thiếu.
       skip: (query.page - 1) * query.size,
@@ -494,52 +498,12 @@ export class UserService {
     );
   }
 
-  /**
-   * `YYYY-MM-DD` = trọn ngày theo giờ server: `startDate` từ 00:00, `endDate` tới hết ngày (so sánh
-   * `< 00:00 ngày kế`). ISO 8601 đầy đủ thì dùng nguyên mốc, `endDate` vẫn bao gồm.
-   */
+  /** Xem `resolveDateRange` — ở đây chỉ thêm rào `start < end` bằng mã lỗi của module user. */
   private resolveCreatedAtRange(query: GetAllUserRequestDto): { start?: Date; end?: Date } {
-    const isDateOnly = (value: string) => /^\d{4}-\d{2}-\d{2}$/.test(value);
-    const toLocalMidnight = (value: string) => {
-      const [y, m, d] = value.split('-').map(Number);
-      return new Date(y, m - 1, d);
-    };
-
-    let start: Date | undefined;
-    let end: Date | undefined;
-    if (query.startDate)
-      start = isDateOnly(query.startDate)
-        ? toLocalMidnight(query.startDate)
-        : new Date(query.startDate);
-    if (query.endDate) {
-      if (isDateOnly(query.endDate)) {
-        end = toLocalMidnight(query.endDate);
-        end.setDate(end.getDate() + 1);
-      } else {
-        end = new Date(new Date(query.endDate).getTime() + 1);
-      }
-    }
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
     if (start && end && start >= end)
       throw new UserException(UserValidation.USER_DATE_RANGE_INVALID);
     return { start, end };
-  }
-
-  /**
-   * `sort` đã được DTO whitelist (`USER_SORT_REGEX`); map qua `USER_SORT_FIELDS` thêm 1 lần nữa để
-   * không bao giờ nhận tên field tự do của client. Thứ tự key của object = thứ tự `ORDER BY`; field
-   * lặp lại thì lần đầu thắng (giống `ORDER BY`). Luôn thêm `id` cuối cùng cho thứ tự ổn định giữa
-   * các trang khi nhiều user trùng giá trị sort.
-   */
-  private buildOrder(sort: string[] = []): FindOptionsOrder<User> {
-    const order: FindOptionsOrder<User> = {};
-    for (const item of sort.length ? sort : ['createdAt:DESC']) {
-      const [field, direction] = item.split(':');
-      const column = USER_SORT_FIELDS[field as keyof typeof USER_SORT_FIELDS];
-      if (!column || column in order) continue;
-      order[column] = direction.toUpperCase() === 'ASC' ? 'ASC' : 'DESC';
-    }
-    order.id = 'ASC';
-    return order;
   }
 
   private async findTargetOrFail(userSlug: string): Promise<User> {

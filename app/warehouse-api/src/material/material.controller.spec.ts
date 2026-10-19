@@ -8,6 +8,7 @@ describe('MaterialController', () => {
   let controller: MaterialController;
   const materialService = {
     createMaterial: jest.fn(),
+    assignSuppliers: jest.fn(),
     findAll: jest.fn(),
     findOne: jest.fn(),
     updateMaterial: jest.fn(),
@@ -135,6 +136,10 @@ describe('MaterialController', () => {
       expect(authority(controller.findOne)).toEqual([AuthorityCode.MaterialRead]);
       expect(authority(controller.updateMaterial)).toEqual([AuthorityCode.MaterialUpdate]);
       expect(authority(controller.deleteMaterial)).toEqual([AuthorityCode.MaterialDelete]);
+      expect(authority(controller.assignSuppliers)).toEqual([
+        AuthorityCode.MaterialUpdate,
+        AuthorityCode.SupplierUpdate,
+      ]);
       expect(authority(controller.findConversionUnits)).toEqual([
         AuthorityCode.MaterialRead,
         AuthorityCode.UnitRead,

@@ -11,8 +11,10 @@ import {
   Param,
   Delete,
   Query,
+  Put,
 } from '@nestjs/common';
 import {
+  AssignMaterialSuppliersRequestDto,
   ConvertMaterialQuantityRequestDto,
   CreateMaterialConversionUnitRequestDto,
   CreateMaterialRequestDto,
@@ -62,7 +64,13 @@ export class MaterialController {
   @Get()
   @RequireAuthority(AuthorityCode.MaterialRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get all materials (paginated)' })
+  @ApiOperation({
+    summary: 'Get all materials (paginated)',
+    description:
+      'Filter by typeSlug, supplierSlug (or hasSupplier), warehouseSlug, code / name (prefix ' +
+      'match), startDate / endDate (creation date); sortBy = createdAt | name | code (default ' +
+      'createdAt), sort = ASC | DESC (default DESC); paginated with page / size.',
+  })
   @ApiPaginatedResponse(MaterialResponseDto, 'Retrieved')
   async findAll(
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
@@ -237,6 +245,38 @@ export class MaterialController {
       timestamp: new Date().toISOString(),
       result: `${result} conversion unit have been detached successfully`,
     } as AppResponseDto<string>;
+  }
+
+  // Route nối 2 tài nguyên ⇒ AND 2 authority, cùng bộ quyền với `PUT /suppliers/:slug/materials`
+  // (cả 2 đều ghi bảng join `material_supplier_tbl`).
+  @Put(':slug/suppliers')
+  @RequireAuthority(AuthorityCode.MaterialUpdate, AuthorityCode.SupplierUpdate)
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Replace the suppliers of a material',
+    description:
+      'Sets the full supplier list: suppliers missing from `supplierSlugs` are detached, an empty ' +
+      'array detaches every supplier. All-or-nothing: an unknown slug (`SUPPLIER_NOT_FOUND`) ' +
+      'rejects the whole request.',
+  })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Updated',
+    type: MaterialResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async assignSuppliers(
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: AssignMaterialSuppliersRequestDto,
+  ) {
+    const result = await this.materialService.assignSuppliers(slug, requestData);
+    return {
+      message: 'Material suppliers have been updated successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<MaterialResponseDto>;
   }
 
   @Patch(':slug')

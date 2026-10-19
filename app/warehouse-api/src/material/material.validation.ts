@@ -22,7 +22,11 @@ export const MATERIAL_BASE_UNIT_RATE_IS_FIXED = 'MATERIAL_BASE_UNIT_RATE_IS_FIXE
 export const MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED = 'MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED';
 export const MATERIAL_BASE_UNIT_LOCKED = 'MATERIAL_BASE_UNIT_LOCKED';
 export const MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED = 'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED';
+export const MATERIAL_SUPPLIER_SLUGS_INVALID = 'MATERIAL_SUPPLIER_SLUGS_INVALID';
 export const MATERIAL_HAS_SUPPLIER_INVALID = 'MATERIAL_HAS_SUPPLIER_INVALID';
+export const MATERIAL_DATE_RANGE_INVALID = 'MATERIAL_DATE_RANGE_INVALID';
+export const MATERIAL_NAME_SEARCH_INVALID = 'MATERIAL_NAME_SEARCH_INVALID';
+export const MATERIAL_CODE_SEARCH_INVALID = 'MATERIAL_CODE_SEARCH_INVALID';
 
 export type TMaterialErrorCodeKey =
   | typeof MATERIAL_NOT_FOUND
@@ -46,7 +50,11 @@ export type TMaterialErrorCodeKey =
   | typeof MATERIAL_BASE_UNIT_CANNOT_BE_DETACHED
   | typeof MATERIAL_BASE_UNIT_LOCKED
   | typeof MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED
-  | typeof MATERIAL_HAS_SUPPLIER_INVALID;
+  | typeof MATERIAL_HAS_SUPPLIER_INVALID
+  | typeof MATERIAL_SUPPLIER_SLUGS_INVALID
+  | typeof MATERIAL_DATE_RANGE_INVALID
+  | typeof MATERIAL_NAME_SEARCH_INVALID
+  | typeof MATERIAL_CODE_SEARCH_INVALID;
 
 export type TMaterialErrorCode = Record<TMaterialErrorCodeKey, TErrorCodeValue>;
 
@@ -144,4 +152,23 @@ export const MaterialValidation: TMaterialErrorCode = {
   ),
   MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED: createErrorCode(100724, 'baseUnitSlug is required'),
   MATERIAL_HAS_SUPPLIER_INVALID: createErrorCode(100725, 'hasSupplier must be true or false'),
+  MATERIAL_SUPPLIER_SLUGS_INVALID: createErrorCode(
+    100726,
+    'supplierSlugs must be an array of at most 50 non-empty strings',
+  ),
+  MATERIAL_DATE_RANGE_INVALID: createErrorCode(
+    100729,
+    'startDate must not be after endDate',
+    HttpStatus.BAD_REQUEST,
+  ),
+  MATERIAL_NAME_SEARCH_INVALID: createErrorCode(
+    100731,
+    'name may only contain letters, digits and spaces',
+    HttpStatus.BAD_REQUEST,
+  ),
+  MATERIAL_CODE_SEARCH_INVALID: createErrorCode(
+    100732,
+    'code may only contain letters, digits, "_" and "-"',
+    HttpStatus.BAD_REQUEST,
+  ),
 };

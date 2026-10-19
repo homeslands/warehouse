@@ -4,7 +4,6 @@ import {
   FindOptionsRelations,
   FindOptionsWhere,
   In,
-  IsNull,
   LessThanOrEqual,
   Like,
   MoreThanOrEqual,
@@ -25,16 +24,22 @@ import {
   SupplierResponseDto,
   SupplierTransactionResponseDto,
   UpdateSupplierRequestDto,
+  SupplierSortBy,
 } from './supplier.dto';
 import { Supplier } from './supplier.entity';
 import { SupplierTransaction } from './supplier-transaction.entity';
 import { MATERIAL_TRANSACTION_TYPES, MONEY_SCALE } from './supplier.constants';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { SupplierException } from './supplier.exception';
 import { SupplierValidation } from './supplier.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { Material } from 'src/material/material.entity';
+import {
+  deleteMaterialSuppliers,
+  insertMaterialSuppliers,
+} from 'src/material/material-supplier.util';
 import { MaterialException } from 'src/material/material.exception';
 import { MaterialValidation } from 'src/material/material.validation';
 import { CurrentUserDto } from 'src/user/user.decorator';
@@ -75,7 +80,13 @@ export class SupplierService {
   async findAll(
     query: GetAllSupplierRequestDto,
   ): Promise<AppPaginatedResponseDto<SupplierResponseDto>> {
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
+    if (start && end && start >= end)
+      throw new SupplierException(SupplierValidation.SUPPLIER_DATE_RANGE_INVALID);
+
     const filters: FindOptionsWhere<Supplier> = {};
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) filters.createdAt = createdAt;
     if (query.code) filters.code = query.code;
     if (query.taxCode) filters.taxCode = query.taxCode;
     if (query.phonenumber) filters.phonenumber = Like(`%${query.phonenumber}%`);
@@ -93,7 +104,7 @@ export class SupplierService {
 
     const [items, total] = await this.supplierRepository.findAndCount({
       where,
-      order: { createdAt: 'DESC' },
+      order: buildSortOrder<Supplier, SupplierSortBy>(query, { name: ['name'], code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
@@ -123,13 +134,13 @@ export class SupplierService {
   }
 
   /**
-   * Chặn xoá khi còn vật tư đang gắn: xoá mềm nhà cung cấp không gỡ FK ở `material_tbl`, vật tư sẽ
-   * trỏ vào 1 nhà cung cấp "đã biến mất" mà không gắn lại được vào đâu cho tới khi gỡ tay.
+   * Chặn xoá khi còn vật tư đang gắn: xoá mềm nhà cung cấp không gỡ dòng ở `material_supplier_tbl`,
+   * vật tư sẽ còn dòng join trỏ vào 1 nhà cung cấp "đã biến mất" cho tới khi gỡ tay.
    */
   async deleteSupplier(slug: string): Promise<number> {
     const supplier = await this.getSupplierOrThrow(slug);
     const materialCount = await this.materialRepository.countBy({
-      supplier: { id: supplier.id },
+      suppliers: { id: supplier.id },
     });
     if (materialCount > 0) throw new SupplierException(SupplierValidation.SUPPLIER_HAS_MATERIALS);
 
@@ -137,14 +148,15 @@ export class SupplierService {
     return 1;
   }
 
-  // ---------- Vật tư của nhà cung cấp (1 - n) ----------
+  // ---------- Vật tư của nhà cung cấp (n - n, bảng join `material_supplier_tbl`) ----------
 
   async findMaterials(
     slug: string,
     query: GetSupplierMaterialRequestDto,
   ): Promise<AppPaginatedResponseDto<SupplierMaterialResponseDto>> {
     const supplier = await this.getSupplierOrThrow(slug);
-    const where: FindOptionsWhere<Material> = { supplier: { id: supplier.id } };
+    // `suppliers` không nằm trong `MATERIAL_RELATIONS` nên `where` trên nó chỉ lọc, không cắt gì.
+    const where: FindOptionsWhere<Material> = { suppliers: { id: supplier.id } };
     if (query.typeSlug) where.type = { slug: query.typeSlug };
     if (query.code) where.code = query.code;
     if (query.name) where.name = Like(`%${query.name}%`);
@@ -169,14 +181,9 @@ export class SupplierService {
   }
 
   /**
-   * Gắn vật tư vào nhà cung cấp. Idempotent khi đã gắn đúng nhà cung cấp này; đã gắn nhà cung cấp
-   * KHÁC thì báo lỗi thay vì âm thầm chuyển — muốn đổi phải gỡ khỏi bên cũ trước.
-   */
-  /**
-   * Gắn hàng loạt, tất-cả-hoặc-không: 1 vật tư không tồn tại / đang thuộc nhà cung cấp khác là cả lô
-   * bị từ chối. Vật tư đã thuộc chính nhà cung cấp này thì bỏ qua (idempotent). UPDATE kèm điều kiện
-   * `supplier IS NULL` trong transaction: vật tư bị nhà cung cấp khác gắn chen giữa lúc đọc và lúc
-   * ghi thì số dòng đổi lệch ⇒ rollback cả lô thay vì ghi đè.
+   * Gắn hàng loạt, tất-cả-hoặc-không về tồn tại: 1 slug không tồn tại là cả lô bị từ chối. Quan hệ
+   * n - n nên vật tư đang thuộc nhà cung cấp khác KHÔNG còn bị chặn — chỉ thêm 1 dòng join nữa. Vật
+   * tư đã gắn với chính nhà cung cấp này thì bỏ qua (idempotent, xem `insertMaterialSuppliers`).
    */
   async attachMaterials(
     slug: string,
@@ -185,45 +192,34 @@ export class SupplierService {
     const supplier = await this.getSupplierOrThrow(slug);
     const materials = await this.getMaterialsOrThrow(dto.materialSlugs);
 
-    if (materials.some((material) => material.supplier && material.supplier.id !== supplier.id)) {
-      throw new SupplierException(SupplierValidation.SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER);
-    }
-    const freeIds = materials.filter((material) => !material.supplier).map(({ id }) => id);
-    if (freeIds.length) {
-      await this.materialRepository.manager.transaction(async (manager) => {
-        const { affected } = await manager.update(
-          Material,
-          { id: In(freeIds), supplier: IsNull() },
-          { supplier: { id: supplier.id } },
-        );
-        if (affected !== freeIds.length) {
-          throw new SupplierException(
-            SupplierValidation.SUPPLIER_MATERIAL_BELONGS_TO_OTHER_SUPPLIER,
-          );
-        }
-      });
-    }
+    const freeIds = materials
+      .filter((material) => !this.isAttached(material, supplier))
+      .map(({ id }) => id);
+    if (freeIds.length)
+      await this.materialRepository.manager.transaction((manager) =>
+        insertMaterialSuppliers(
+          manager,
+          freeIds.map((materialId) => ({ materialId, supplierId: supplier.id })),
+        ),
+      );
     return this.mapper.mapArray(materials, Material, SupplierMaterialResponseDto);
   }
 
   /**
-   * Gỡ hàng loạt, tất-cả-hoặc-không: mọi vật tư trong lô phải đang thuộc nhà cung cấp này. UPDATE
-   * kèm điều kiện `supplier = :id` vì cùng lý do với `attachMaterials`.
+   * Gỡ hàng loạt, tất-cả-hoặc-không: mọi vật tư trong lô phải đang gắn với nhà cung cấp này. Số dòng
+   * xoá được lệch (bị gỡ chen giữa lúc đọc và lúc ghi) ⇒ rollback cả lô. Chỉ gỡ cặp với nhà cung cấp
+   * này — vật tư vẫn giữ các nhà cung cấp khác.
    */
   async detachMaterials(slug: string, dto: SupplierMaterialSlugsRequestDto): Promise<number> {
     const supplier = await this.getSupplierOrThrow(slug);
     const materials = await this.getMaterialsOrThrow(dto.materialSlugs);
 
-    if (materials.some((material) => material.supplier?.id !== supplier.id)) {
+    if (materials.some((material) => !this.isAttached(material, supplier))) {
       throw new SupplierException(SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED);
     }
     const ids = materials.map(({ id }) => id);
     await this.materialRepository.manager.transaction(async (manager) => {
-      const { affected } = await manager.update(
-        Material,
-        { id: In(ids), supplier: { id: supplier.id } },
-        { supplier: null },
-      );
+      const affected = await deleteMaterialSuppliers(manager, ids, [supplier.id]);
       if (affected !== ids.length) {
         throw new SupplierException(SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED);
       }
@@ -251,7 +247,7 @@ export class SupplierService {
 
     if (MATERIAL_TRANSACTION_TYPES.includes(dto.type)) {
       const material = await this.getMaterialOrThrow(dto.materialSlug);
-      if (material.supplier?.id !== supplier.id) {
+      if (!this.isAttached(material, supplier)) {
         throw new SupplierException(SupplierValidation.SUPPLIER_MATERIAL_NOT_ATTACHED);
       }
       const quantity = roundToScale(Number(dto.quantity));
@@ -321,6 +317,11 @@ export class SupplierService {
 
   // ---------- helpers ----------
 
+  /** Cần `relations: { suppliers: true }` trên `material` (`getMaterial(s)OrThrow` đã load). */
+  private isAttached(material: Material, supplier: Supplier): boolean {
+    return (material.suppliers ?? []).some(({ id }) => id === supplier.id);
+  }
+
   private async getSupplierOrThrow(slug: string): Promise<Supplier> {
     const supplier = await this.supplierRepository.findOneBy({ slug });
     if (!supplier) throw new SupplierException(SupplierValidation.SUPPLIER_NOT_FOUND);
@@ -332,7 +333,7 @@ export class SupplierService {
     const unique = [...new Set(slugs)];
     const materials = await this.materialRepository.find({
       where: { slug: In(unique) },
-      relations: { ...MATERIAL_RELATIONS, supplier: true },
+      relations: { ...MATERIAL_RELATIONS, suppliers: true },
     });
     if (materials.length !== unique.length)
       throw new MaterialException(MaterialValidation.MATERIAL_NOT_FOUND);
@@ -342,7 +343,7 @@ export class SupplierService {
   private async getMaterialOrThrow(slug: string): Promise<Material> {
     const material = await this.materialRepository.findOne({
       where: { slug },
-      relations: { ...MATERIAL_RELATIONS, supplier: true },
+      relations: { ...MATERIAL_RELATIONS, suppliers: true },
     });
     if (!material) throw new MaterialException(MaterialValidation.MATERIAL_NOT_FOUND);
     return material;

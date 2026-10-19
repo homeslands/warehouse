@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { CreateUserRequestDto, GetAllUserRequestDto } from './user.dto';
+import { CreateUserRequestDto, GetAllUserRequestDto, UserSortBy } from './user.dto';
+import { SortOrder } from 'src/app/base.dto';
 
 const messagesFor = (phonenumber: unknown): string[] => {
   const dto = plainToInstance(CreateUserRequestDto, {
@@ -138,32 +139,36 @@ describe('GetAllUserRequestDto', () => {
     expect(validateSync(build({}), { whitelist: true })).toEqual([]);
   });
 
-  // `?sort=a` ra string chứ không phải mảng.
-  it('wraps a single sort value into an array', () => {
-    const dto = build({ sort: 'firstName:ASC' });
+  it('defaults to sortBy=createdAt, sort=DESC', () => {
+    const dto = build({});
 
-    expect(dto.sort).toEqual(['firstName:ASC']);
-    expect(messages({ sort: 'firstName:ASC' }, 'sort')).toEqual([]);
+    expect(dto.sortBy).toBe(UserSortBy.CreatedAt);
+    expect(dto.sort).toBe(SortOrder.DESC);
   });
 
-  it.each(['createdAt:desc', 'lastName:ASC', 'dob:DESC', 'phonenumber:asc'])(
-    'accepts whitelisted sort %s',
-    (sort) => {
-      expect(messages({ sort: [sort] }, 'sort')).toEqual([]);
-    },
-  );
+  it.each([
+    ['name', 'asc', UserSortBy.Name, SortOrder.ASC],
+    ['dob', 'DESC', UserSortBy.Dob, SortOrder.DESC],
+  ])('accepts sortBy=%s sort=%s', (sortBy, sort, expectedBy, expectedOrder) => {
+    const dto = build({ sortBy, sort });
+
+    expect(dto.sortBy).toBe(expectedBy);
+    expect(dto.sort).toBe(expectedOrder);
+    expect(validateSync(dto, { whitelist: true })).toEqual([]);
+  });
 
   // Whitelist là rào chống SQL injection qua ORDER BY.
-  it.each(['password:ASC', 'firstName', 'firstName:UP', 'firstName:ASC; DROP TABLE user_tbl'])(
-    'rejects sort %s',
-    (sort) => {
-      expect(messages({ sort: [sort] }, 'sort')).toContain('USER_SORT_INVALID');
-    },
-  );
+  it.each(['password', 'firstName', 'name; DROP TABLE user_tbl'])('rejects sortBy %s', (sortBy) => {
+    expect(messages({ sortBy }, 'sortBy')).toContain('SORT_BY_INVALID');
+  });
+
+  it.each(['UP', 'lastName:ASC'])('rejects sort %s', (sort) => {
+    expect(messages({ sort }, 'sort')).toContain('SORT_INVALID');
+  });
 
   it.each([
-    ['startDate', 'USER_START_DATE_INVALID'],
-    ['endDate', 'USER_END_DATE_INVALID'],
+    ['startDate', 'START_DATE_INVALID'],
+    ['endDate', 'END_DATE_INVALID'],
   ])('rejects an invalid %s', (property, code) => {
     expect(messages({ [property]: 'not-a-date' }, property)).toContain(code);
     expect(messages({ [property]: '2026-09-01' }, property)).toEqual([]);

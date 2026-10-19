@@ -1,5 +1,13 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { FindOptionsRelations, FindOptionsWhere, IsNull, Like, Not, Repository } from 'typeorm';
+import {
+  EntityManager,
+  FindOptionsRelations,
+  FindOptionsWhere,
+  In,
+  Like,
+  Raw,
+  Repository,
+} from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -15,8 +23,11 @@ import {
   MaterialResponseDto,
   UpdateMaterialConversionUnitRequestDto,
   UpdateMaterialRequestDto,
+  AssignMaterialSuppliersRequestDto,
+  MaterialSortBy,
 } from './material.dto';
-import { Material } from './material.entity';
+import { Material, MATERIAL_SUPPLIER_TABLE } from './material.entity';
+import { deleteMaterialSuppliers, insertMaterialSuppliers } from './material-supplier.util';
 import { MaterialUnit } from './material-unit.entity';
 import { MaterialException } from './material.exception';
 import { MaterialValidation } from './material.validation';
@@ -27,17 +38,26 @@ import { Unit } from 'src/unit/unit.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
+import { Supplier } from 'src/supplier/supplier.entity';
+import { SupplierException } from 'src/supplier/supplier.exception';
+import { SupplierValidation } from 'src/supplier/supplier.validation';
 
 /**
  * `type`/`baseUnit` cố tình KHÔNG `eager` trên entity, nên mọi read path phải truyền hằng này —
- * thiếu nó thì response im lặng mất `type`/`baseUnit`/`supplier`, không có lỗi nào báo ra.
+ * thiếu nó thì response im lặng mất `type`/`baseUnit`/`suppliers`, không có lỗi nào báo ra.
  */
 const MATERIAL_RELATIONS: FindOptionsRelations<Material> = {
   type: true,
   baseUnit: true,
-  supplier: true,
+  suppliers: true,
 };
 
 @Injectable()
@@ -57,10 +77,20 @@ export class MaterialService {
     private readonly unitService: UnitService,
     // Đặt/đổi đơn vị cơ sở phải ghi 2 bảng theo đúng thứ tự (FK tổ hợp), không thể để nửa chừng.
     private readonly transactionManagerService: TransactionManagerService,
+    // Chỉ tra nhà cung cấp theo slug cho `assignSuppliers` — entity, không import `SupplierModule`.
+    @InjectRepository(Supplier) private readonly supplierRepository: Repository<Supplier>,
   ) {}
 
   /** Tỉ lệ quy đổi của chính đơn vị cơ sở — bất biến, không cho sửa. */
   private static readonly BASE_UNIT_RATE = 1;
+
+  /** id vật tư gắn với ÍT NHẤT 1 nhà cung cấp chưa xoá mềm (subquery cho `findAll`). */
+  private static readonly HAS_SUPPLIER_SQL =
+    `SELECT ms.material_id_column FROM ${MATERIAL_SUPPLIER_TABLE} ms ` +
+    'JOIN supplier_tbl s ON s.id_column = ms.supplier_id_column ' +
+    'WHERE s.deleted_at_column IS NULL';
+
+  private static readonly SUPPLIED_BY_SLUG_SQL = `${MaterialService.HAS_SUPPLIER_SQL} AND s.slug_column = :supplierSlug`;
 
   /**
    * Đặt đơn vị cơ sở phải ghi 2 bảng theo ĐÚNG THỨ TỰ: tạo vật tư (chưa có base) → tạo dòng join
@@ -70,6 +100,31 @@ export class MaterialService {
    */
   async createMaterial(dto: CreateMaterialRequestDto): Promise<MaterialResponseDto> {
     const context = `${MaterialService.name}.${this.createMaterial.name}`;
+    const prepared = await this.prepareMaterial(dto);
+    const created = await this.transactionManagerService.execute((manager) =>
+      this.insertMaterial(manager, prepared),
+    );
+
+    this.logger.log(`Material created: ${created.id}`, context);
+    // Vật tư mới chưa gán vào kho nào.
+    return { ...this.mapper.map(created, Material, MaterialResponseDto), warehouses: [] };
+  }
+
+  /**
+   * Bản chạy trong transaction của CALLER — `InventoryService.createMaterialInWarehouse` tạo vật tư
+   * và gán vào kho cùng 1 transaction. Trả entity (đã có `type`/`baseUnit`), không phải response.
+   */
+  async createMaterialIn(manager: EntityManager, dto: CreateMaterialRequestDto): Promise<Material> {
+    const context = `${MaterialService.name}.${this.createMaterialIn.name}`;
+    const created = await this.insertMaterial(manager, await this.prepareMaterial(dto));
+    this.logger.log(`Material created: ${created.id}`, context);
+    return created;
+  }
+
+  /** Mọi rào + resolve quan hệ của tạo vật tư, chạy TRƯỚC khi ghi để lỗi nghiệp vụ không chạm DB. */
+  private async prepareMaterial(
+    dto: CreateMaterialRequestDto,
+  ): Promise<{ data: Material; baseUnit: Unit }> {
     const data = this.mapper.map(dto, CreateMaterialRequestDto, Material);
 
     await this.assertCodeIsFree(data.code);
@@ -79,48 +134,72 @@ export class MaterialService {
     // `baseUnitSlug` bắt buộc (DTO chặn thiếu/`null`). Ném `UNIT_NOT_FOUND` nếu slug sai (lỗi của
     // module unit, cố ý không bọc lại).
     const baseUnit = await this.unitService.findEntityBySlug(dto.baseUnitSlug);
+    return { data, baseUnit };
+  }
 
-    const created = await this.transactionManagerService.execute(async (manager) => {
-      const material = await manager.save(this.materialRepository.create(data));
+  /** 3 bước ghi theo đúng thứ tự FK tổ hợp (xem `createMaterial`), trong transaction `manager`. */
+  private async insertMaterial(
+    manager: EntityManager,
+    { data, baseUnit }: { data: Material; baseUnit: Unit },
+  ): Promise<Material> {
+    const material = await manager.save(this.materialRepository.create(data));
 
-      await manager.save(
-        this.materialUnitRepository.create({
-          materialId: material.id,
-          unitId: baseUnit.id,
-          conversionRate: MaterialService.BASE_UNIT_RATE,
-        }),
-      );
-      material.baseUnit = baseUnit;
-      return manager.save(material);
-    });
-
-    this.logger.log(`Material created: ${created.id}`, context);
-    return this.mapper.map(created, Material, MaterialResponseDto);
+    const baseUnitRow = await manager.save(
+      this.materialUnitRepository.create({
+        materialId: material.id,
+        unitId: baseUnit.id,
+        conversionRate: MaterialService.BASE_UNIT_RATE,
+      }),
+    );
+    material.baseUnit = baseUnit;
+    const saved = await manager.save(material);
+    // Gán SAU lần `save` cuối — chỉ để response có `units`, không để TypeORM xử lý quan hệ 1-N này.
+    saved.unitsCanHave = [{ ...baseUnitRow, unit: baseUnit } as MaterialUnit];
+    return saved;
   }
 
   async findAll(
     query: GetAllMaterialRequestDto,
   ): Promise<AppPaginatedResponseDto<MaterialResponseDto>> {
+    const { start, end } = resolveDateRange(query.startDate, query.endDate);
+    if (start && end && start >= end)
+      throw new MaterialException(MaterialValidation.MATERIAL_DATE_RANGE_INVALID);
+
     const where: FindOptionsWhere<Material> = {};
     if (query.typeSlug) where.type = { slug: query.typeSlug };
-    if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
-    // Lọc thẳng trên cột FK `supplier_id_column`. Không lệch với `hasSupplier` trong response vì
-    // `deleteSupplier` chặn xoá nhà cung cấp còn gắn vật tư ⇒ không có FK trỏ vào supplier đã xoá mềm.
-    if (query.hasSupplier === true) where.supplier = Not(IsNull());
-    else if (query.hasSupplier === false) where.supplier = IsNull();
+    // Tìm theo tiền tố (`LIKE 'x%'`) — dùng được index của `code_column`, khác substring `%x%`.
+    if (query.code) where.code = Like(`${escapeLike(query.code)}%`);
+    if (query.name) where.name = Like(`${escapeLike(query.name)}%`);
+    const createdAt = toDateRangeOperator(start, end);
+    if (createdAt) where.createdAt = createdAt;
+    // Lọc bằng subquery trên bảng join, KHÔNG bằng `where.suppliers`: `suppliers` cũng được load qua
+    // `relations`, `where` trên nó thì TypeORM lọc luôn danh sách nhà cung cấp trả về (chỉ còn đúng
+    // nhà cung cấp đang lọc). Chỉ tính nhà cung cấp chưa xoá mềm — khớp `hasSupplier`/`suppliers`
+    // trong response (relation tự bỏ bản ghi xoá mềm).
+    // `supplierSlug` cụ thể hơn `hasSupplier` nên được ưu tiên (gửi cả 2 mâu thuẫn nhau thì bỏ cờ).
+    if (query.supplierSlug)
+      where.id = Raw((alias) => `${alias} IN (${MaterialService.SUPPLIED_BY_SLUG_SQL})`, {
+        supplierSlug: query.supplierSlug,
+      });
+    else if (query.hasSupplier === true)
+      where.id = Raw((alias) => `${alias} IN (${MaterialService.HAS_SUPPLIER_SQL})`);
+    else if (query.hasSupplier === false)
+      where.id = Raw((alias) => `${alias} NOT IN (${MaterialService.HAS_SUPPLIER_SQL})`);
+    // JOIN `inventory_tbl` chỉ để lọc (TypeORM tự thêm `deleted_at IS NULL` cho bảng join ⇒ vật tư
+    // đã gỡ khỏi kho không khớp). 1 vật tư có tối đa 1 dòng/kho nên không nhân bản kết quả.
+    if (query.warehouseSlug) where.inventories = { warehouse: { slug: query.warehouseSlug } };
 
     const [items, total] = await this.materialRepository.findAndCount({
       where,
       relations: MATERIAL_RELATIONS,
-      order: { createdAt: 'DESC' },
+      order: buildSortOrder<Material, MaterialSortBy>(query, { name: ['name'], code: ['code'] }),
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
     const totalPages = Math.ceil(total / query.size);
 
     return {
-      items: this.mapper.mapArray(items, Material, MaterialResponseDto),
+      items: await this.toResponses(items),
       total,
       page: query.page,
       pageSize: query.size,
@@ -132,7 +211,38 @@ export class MaterialService {
 
   async findOne(slug: string): Promise<MaterialResponseDto> {
     const material = await this.findEntityBySlug(slug);
-    return this.mapper.map(material, Material, MaterialResponseDto);
+    const [response] = await this.toResponses([material]);
+    return response;
+  }
+
+  /**
+   * Map sang response kèm `warehouses` và `units` — tra `inventory_tbl` / `material_unit_can_have_tbl`
+   * bằng 1 query mỗi bảng cho cả trang, KHÔNG qua relation của query chính: có `where` trên
+   * `inventories` thì TypeORM lọc luôn danh sách kho, và JOIN thêm 1 quan hệ 1-N nữa vào query phân
+   * trang thì số dòng nhân lên theo kho × đơn vị × nhà cung cấp.
+   */
+  private async toResponses(materials: Material[]): Promise<MaterialResponseDto[]> {
+    const ids = materials.map((material) => material.id);
+    const [inventories, units] = ids.length
+      ? await Promise.all([
+          this.inventoryRepository.find({
+            where: { material: { id: In(ids) } },
+            relations: { warehouse: true, material: true },
+            order: { warehouse: { code: 'ASC' } },
+          }),
+          this.materialUnitRepository.find({
+            where: { materialId: In(ids) },
+            relations: { unit: true },
+            order: { unit: { code: 'ASC' } },
+          }),
+        ])
+      : [[], []];
+
+    return materials.map((material) => {
+      material.inventories = inventories.filter((row) => row.material.id === material.id);
+      material.unitsCanHave = units.filter((row) => row.materialId === material.id);
+      return this.mapper.map(material, Material, MaterialResponseDto);
+    });
   }
 
   /** Dùng bởi `InventoryService` để resolve `materialSlug` -> entity. */
@@ -210,7 +320,51 @@ export class MaterialService {
     });
 
     this.logger.log(`Material updated: ${updated.id}`, context);
-    return this.mapper.map(updated, Material, MaterialResponseDto);
+    const [response] = await this.toResponses([updated]);
+    return response;
+  }
+
+  /**
+   * `PUT /materials/:slug/suppliers` — THAY toàn bộ tập nhà cung cấp của vật tư bằng `supplierSlugs`
+   * (rỗng = gỡ hết). Tất-cả-hoặc-không: 1 slug không tồn tại / đã xoá mềm ⇒ `SUPPLIER_NOT_FOUND`
+   * cho cả lô, không ghi gì. Chỉ ghi phần chênh lệch (thêm cặp mới, gỡ cặp thừa) trong 1 transaction.
+   */
+  async assignSuppliers(
+    slug: string,
+    dto: AssignMaterialSuppliersRequestDto,
+  ): Promise<MaterialResponseDto> {
+    const context = `${MaterialService.name}.${this.assignSuppliers.name}`;
+    const material = await this.findEntityBySlug(slug);
+    const suppliers = dto.supplierSlugs.length
+      ? await this.supplierRepository.find({
+          where: { slug: In(dto.supplierSlugs) },
+          order: { code: 'ASC' },
+        })
+      : [];
+    if (suppliers.length !== dto.supplierSlugs.length)
+      throw new SupplierException(SupplierValidation.SUPPLIER_NOT_FOUND);
+
+    const currentIds = new Set((material.suppliers ?? []).map(({ id }) => id));
+    const nextIds = new Set(suppliers.map(({ id }) => id));
+    const toAdd = [...nextIds].filter((id) => !currentIds.has(id));
+    const toRemove = [...currentIds].filter((id) => !nextIds.has(id));
+
+    if (toAdd.length || toRemove.length)
+      await this.transactionManagerService.execute(async (manager) => {
+        await deleteMaterialSuppliers(manager, [material.id], toRemove);
+        await insertMaterialSuppliers(
+          manager,
+          toAdd.map((supplierId) => ({ materialId: material.id, supplierId })),
+        );
+      });
+
+    material.suppliers = suppliers;
+    this.logger.log(
+      `Material ${material.id} suppliers: +${toAdd.length} -${toRemove.length}`,
+      context,
+    );
+    const [response] = await this.toResponses([material]);
+    return response;
   }
 
   /**
