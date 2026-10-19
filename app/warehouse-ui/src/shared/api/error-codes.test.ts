@@ -117,6 +117,19 @@ describe('ERROR_CODE_KEYS — người dùng + thành viên kho (PR #78)', () =>
   })
 })
 
+describe('ERROR_CODE_KEYS — khoảng ngày tạo sai thứ tự (BE sort/filter sync)', () => {
+  it.each([
+    [100729, 'materialDateRangeInvalid'],
+    [100610, 'materialTypeDateRangeInvalid'],
+    [101223, 'supplierDateRangeInvalid'],
+    [101331, 'importFormDateRangeInvalid'],
+  ] as const)('mã %i → khoá %s, có bản dịch vi và en', (code, key) => {
+    expect(ERROR_CODE_KEYS[code]).toBe(key)
+    expect(viErrors[key]).toBe('Ngày bắt đầu không được sau ngày kết thúc')
+    expect(enErrors[key]).toBe('Start date must not be after end date')
+  })
+})
+
 const SUPPLIER_CODES = Array.from({ length: 20 }, (_, i) => 101201 + i)
 
 describe('ERROR_CODE_KEYS — nhà cung cấp (WMS-11)', () => {

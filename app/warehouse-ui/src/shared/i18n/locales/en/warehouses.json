@@ -64,5 +64,9 @@
   "removeMemberTitle": "Remove member",
   "removeMemberConfirm": "Remove <1>{{name}}</1> from the warehouse? They will no longer see this warehouse.",
   "sectionMembers": "Members",
-  "noMembers": "This warehouse has no members."
+  "noMembers": "This warehouse has no members.",
+  "tabsLabel": "Warehouse sections",
+  "tabMaterials": "Materials",
+  "tabMembers": "Members",
+  "sectionInventory": "Materials in this warehouse"
 }

@@ -23,6 +23,9 @@ const BASE = 'http://localhost:8085/api/v1'
 afterEach(() => queryClient.clear())
 
 describe('xoá kho từ trang chi tiết', () => {
+  // Trang kho kéo theo cả widget Vật tư trong kho — nạp module trước để lần transform nguội không ăn vào timeout.
+  beforeAll(() => import('@/pages/warehouses'), 15000)
+
   it('về danh sách và KHÔNG có toast lỗi 404', async () => {
     let deleted = false
     server.use(
@@ -45,6 +48,8 @@ describe('xoá kho từ trang chi tiết', () => {
       }),
       mswHttp.get(`${BASE}/warehouses`, () => paginated([])),
       mswHttp.get(`${BASE}/roles`, () => ok([])),
+      mswHttp.get(`${BASE}/warehouses/kho-ha-noi/materials`, () => paginated([])),
+      mswHttp.get(`${BASE}/material-types`, () => paginated([])),
     )
     const { user, router } = renderWithRouter(createRoutes({ dev: false }), {
       route: '/warehouses/kho-ha-noi',

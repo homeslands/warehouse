@@ -4,6 +4,7 @@ import {
   canSearchByCode,
   isCodeLike,
   toCodeOrNameQuery,
+  toMaterialSearchQuery,
   UNIT_CODE_REGEX,
 } from './code'
 
@@ -75,5 +76,27 @@ describe('canSearchByCode', () => {
     expect(canSearchByCode('đá')).toBe(false)
     expect(canSearchByCode('  ')).toBe(false)
     expect(canSearchByCode(undefined)).toBe(false)
+  })
+})
+
+describe('toMaterialSearchQuery — chỉ gửi ký tự BE nhận (GET /materials)', () => {
+  it('name: bỏ ký tự lạ ở đầu, cắt tại ký tự lạ đầu tiên (luôn là tiền tố của chữ đã gõ), gộp khoảng trắng', () => {
+    expect(toMaterialSearchQuery('xi măng (PCB40)')).toEqual({ name: 'xi măng' })
+    expect(toMaterialSearchQuery('bột, đường')).toEqual({ name: 'bột' })
+    expect(toMaterialSearchQuery('bột-giặt')).toEqual({ name: 'bột' })
+    expect(toMaterialSearchQuery('(abc')).toEqual({ name: 'abc' })
+    expect(toMaterialSearchQuery('  xi   măng  ')).toEqual({ name: 'xi măng' })
+  })
+  it('toàn ký tự không hợp lệ → {} (không gửi khoá nào)', () => {
+    expect(toMaterialSearchQuery('@@@')).toEqual({})
+    expect(toMaterialSearchQuery('   ')).toEqual({})
+    expect(toMaterialSearchQuery(undefined)).toEqual({})
+  })
+  it('dạng mã → code viết hoa', () => {
+    expect(toMaterialSearchQuery('vt-09')).toEqual({ code: 'VT-09' })
+  })
+  it('prefer = code: chuỗi có thể là mã → code; chuỗi không thể là mã rơi về name đã làm sạch', () => {
+    expect(toMaterialSearchQuery('ab-c', 'code')).toEqual({ code: 'AB-C' })
+    expect(toMaterialSearchQuery('ab.c', 'code')).toEqual({ name: 'ab' })
   })
 })

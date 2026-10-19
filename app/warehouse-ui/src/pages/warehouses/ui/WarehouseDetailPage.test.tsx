@@ -40,12 +40,16 @@ function field(label: string) {
 }
 
 beforeEach(() => {
-  server.use(mswHttp.get(`${BASE}/warehouses/kho-ha-noi`, () => ok(warehouse)))
+  server.use(
+    mswHttp.get(`${BASE}/warehouses/kho-ha-noi`, () => ok(warehouse)),
+    mswHttp.get(`${BASE}/warehouses/kho-ha-noi/materials`, () => paginated([])),
+    mswHttp.get(`${BASE}/material-types`, () => paginated([])),
+  )
 })
 
 describe('WarehouseDetailPage — hiển thị', () => {
   it('tiêu đề, mã, trạng thái và card Tổng quan (thời gian ở chân card) + khối Thành viên', async () => {
-    renderPage()
+    renderPage({ route: '/warehouses/kho-ha-noi?tab=members' })
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Kho Hà Nội 1' }),
@@ -210,6 +214,8 @@ describe('WarehouseDetailPage — quay lại và thao tác', () => {
   })
 })
 
+const MEMBERS_ROUTE = '/warehouses/kho-ha-noi?tab=members'
+
 describe('WarehouseDetailPage — khối Thành viên', () => {
   const member = {
     slug: 'u-lan',
@@ -234,7 +240,7 @@ describe('WarehouseDetailPage — khối Thành viên', () => {
 
   it('ADMIN thấy khối Thành viên và nút Thêm thành viên', async () => {
     mockUsers()
-    renderPage()
+    renderPage({ route: MEMBERS_ROUTE })
 
     expect(await screen.findByText('Trần Lan')).toBeInTheDocument()
     expect(screen.getByRole('heading', { level: 2, name: 'Thành viên' })).toBeInTheDocument()
@@ -244,6 +250,7 @@ describe('WarehouseDetailPage — khối Thành viên', () => {
   it('chỉ USER_READ → thấy danh sách, KHÔNG nút Thêm / Gỡ (Review Focus #5)', async () => {
     mockUsers()
     renderPage({
+      route: MEMBERS_ROUTE,
       auth: {
         userName: 'm',
         roleName: 'MANAGER',
@@ -259,11 +266,71 @@ describe('WarehouseDetailPage — khối Thành viên', () => {
   it('thiếu USER_READ → không có khối và không gọi GET /users', async () => {
     const calls = mockUsers()
     renderPage({
+      route: MEMBERS_ROUTE,
       auth: { userName: 'm', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] },
     })
     await screen.findByRole('heading', { level: 1 })
 
     expect(screen.queryByRole('heading', { level: 2, name: 'Thành viên' })).not.toBeInTheDocument()
     expect(calls).toEqual([])
+  })
+})
+
+describe('WarehouseDetailPage — tab Vật tư | Thành viên', () => {
+  function mockMembers() {
+    server.use(mswHttp.get(`${BASE}/users`, () => paginated([])))
+  }
+
+  it('admin: có tablist "Nội dung kho" với 2 tab, Vật tư chọn sẵn; bấm Thành viên → ?tab=members', async () => {
+    mockMembers()
+    const { user, router } = renderPage()
+
+    const list = await screen.findByRole('tablist', { name: 'Nội dung kho' })
+    const tabs = within(list).getAllByRole('tab')
+    expect(tabs.map((t) => t.textContent)).toEqual(['Vật tư', 'Thành viên'])
+    expect(screen.getByRole('tab', { name: 'Vật tư' })).toHaveAttribute('aria-selected', 'true')
+    expect(screen.queryByRole('heading', { level: 2, name: 'Thành viên' })).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('tab', { name: 'Thành viên' }))
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Thành viên' })).toBeInTheDocument()
+    expect(router.state.location.search).toContain('tab=members')
+  })
+
+  it('chỉ USER_READ → không tablist, khối Thành viên hiện; ?tab=materials vẫn ra Thành viên', async () => {
+    mockMembers()
+    renderPage({
+      route: '/warehouses/kho-ha-noi?tab=materials',
+      auth: { userName: 'm', roleName: 'MANAGER', scope: ['USER_READ'] },
+    })
+
+    expect(await screen.findByRole('heading', { level: 2, name: 'Thành viên' })).toBeInTheDocument()
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+  })
+
+  it('chỉ MATERIAL_READ + WAREHOUSE_READ → không tablist, có "Vật tư trong kho" và bảng tồn', async () => {
+    renderPage({
+      auth: {
+        userName: 'm',
+        roleName: 'MANAGER',
+        scope: ['MATERIAL_READ', 'WAREHOUSE_READ'],
+      },
+    })
+
+    expect(
+      await screen.findByRole('heading', { level: 2, name: 'Vật tư trong kho' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(await screen.findByRole('table')).toBeInTheDocument()
+  })
+
+  it('không có quyền nào → chỉ còn card Tổng quan', async () => {
+    renderPage({ auth: { userName: 'm', roleName: 'MANAGER', scope: ['WAREHOUSE_READ'] } })
+    await screen.findByRole('heading', { level: 1 })
+
+    expect(screen.queryByRole('tablist')).not.toBeInTheDocument()
+    expect(screen.getAllByRole('heading', { level: 2 }).map((h) => h.textContent)).toEqual([
+      'Tổng quan',
+    ])
   })
 })

@@ -87,5 +87,6 @@
   "detachTitle": "Remove conversion unit?",
   "detachConfirm": "Remove unit <1>{{unit}}</1> from this material?",
   "detachAction": "Remove",
-  "detaching": "Removing..."
+  "detaching": "Removing...",
+  "filterCreatedAt": "Created"
 }

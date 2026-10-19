@@ -1,6 +1,7 @@
 import {
   FlaskConical,
   Package,
+  PackagePlus,
   Ruler,
   ShieldCheck,
   Store,
@@ -20,6 +21,7 @@ import { NotFoundPage } from '@/pages/not-found'
 import { AppLayout } from './AppLayout'
 import { ProtectedRoute } from './guards'
 import { HydrateFallback } from './HydrateFallback'
+import { LegacyNewImportFormRedirect } from './LegacyNewImportFormRedirect'
 import { RoleGate } from './RoleGate'
 import type { AppRouteHandle } from './handle'
 import { useNavGroups } from './nav-context'
@@ -192,6 +194,34 @@ export function createRoutes({
         nav: { group: 'catalog', labelKey: 'nav:units', icon: Ruler },
         crumb: 'nav:units',
       } satisfies AppRouteHandle,
+    },
+    {
+      path: '/import-forms',
+      // `GET .../import-forms` = IMPORT_FORM_READ; ô chọn kho gọi `GET /warehouses` = WAREHOUSE_READ.
+      // Nút ghi gác riêng trong màn (`pages/import-forms/model/abilities.ts`).
+      handle: {
+        authority: ['IMPORT_FORM_READ', 'WAREHOUSE_READ'],
+        nav: { group: 'forms', labelKey: 'nav:importForms', icon: PackagePlus },
+        crumb: 'nav:importForms',
+      } satisfies AppRouteHandle,
+      children: [
+        {
+          index: true,
+          lazy: () =>
+            import('@/pages/import-forms').then((m) => ({ Component: m.ImportFormsPage })),
+        },
+        {
+          // Link cũ của trang tạo phiếu (nay là sheet): về danh sách, giữ ?warehouse.
+          path: 'new',
+          element: <LegacyNewImportFormRedirect />,
+        },
+        {
+          path: ':slug',
+          lazy: () =>
+            import('@/pages/import-forms').then((m) => ({ Component: m.ImportFormDetailPage })),
+          handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
+        },
+      ],
     },
     {
       path: '/account',

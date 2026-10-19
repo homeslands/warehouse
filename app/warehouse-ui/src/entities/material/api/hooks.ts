@@ -23,24 +23,21 @@ import type {
   MaterialUpdateInput,
 } from '../model/types'
 
-export function useMaterials(params: ListParams<MaterialFilters>) {
+export function useMaterials(
+  params: ListParams<MaterialFilters>,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: materialKeys.list(params),
     queryFn: () => fetchMaterials(params),
     placeholderData: keepPreviousData,
+    enabled: options.enabled ?? true,
   })
 }
 
-/**
- * Danh sách vật tư cho ô chọn: trang 1, `size: 100`; `enabled` để chỉ tải khi mở hộp thoại; `hasSupplier: false` =
- * chỉ vật tư chưa thuộc nhà cung cấp nào (hộp gắn vật tư vào NCC).
- */
-export function useMaterialOptions(options: { enabled?: boolean; hasSupplier?: boolean } = {}) {
-  const params: ListParams<MaterialFilters> = {
-    page: 1,
-    size: 100,
-    hasSupplier: options.hasSupplier,
-  }
+/** Danh sách vật tư cho ô chọn: trang 1, `size: 100`; `enabled` để chỉ tải khi mở hộp thoại. */
+export function useMaterialOptions(options: { enabled?: boolean } = {}) {
+  const params: ListParams<MaterialFilters> = { page: 1, size: 100 }
   return useQuery({
     queryKey: materialKeys.list(params),
     queryFn: () => fetchMaterials(params),
@@ -49,11 +46,12 @@ export function useMaterialOptions(options: { enabled?: boolean; hasSupplier?: b
 }
 
 /** Chi tiết một vật tư — trang tự báo lỗi tại chỗ. */
-export function useMaterial(slug: string) {
+export function useMaterial(slug: string, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: materialKeys.detail(slug),
     queryFn: () => fetchMaterial(slug),
     meta: { suppressErrorToast: true },
+    enabled: options.enabled ?? true,
   })
 }
 

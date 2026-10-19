@@ -28,6 +28,8 @@ export { MATERIAL_NOT_FOUND, MATERIAL_IN_USE } from './model/error-codes'
 export type {
   Material,
   MaterialRef,
+  MaterialWarehouse,
+  MaterialUnit,
   MaterialInput,
   MaterialUpdateInput,
   MaterialFilters,
