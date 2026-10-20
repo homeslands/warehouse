@@ -264,4 +264,59 @@ describe('CreateMaterialSection', () => {
     await new Promise((r) => setTimeout(r, 100))
     expect(gets).toBe(0)
   })
+
+  it('ngưỡng tồn (tuỳ chọn) đi TRONG material — ngưỡng mặc định của vật tư', async () => {
+    let body: { material?: Record<string, unknown> } | undefined
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+        body = (await request.json()) as typeof body
+        return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
+      }),
+    )
+    const { user, onCreated } = setup({ canAttachSupplier: false })
+    await fill(user)
+    await user.type(screen.getByRole('textbox', { name: 'Tồn tối thiểu' }), '5')
+    await user.type(screen.getByRole('textbox', { name: 'Tồn tối đa' }), '50')
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await waitFor(() => expect(onCreated).toHaveBeenCalled())
+    expect(body?.material).toMatchObject({ minimumInventory: 5, maximumInventory: 50 })
+    expect(body).not.toHaveProperty('minimumInventory')
+  })
+
+  it('để trống ngưỡng → không gửi; nhập tối thiểu mà bỏ trống tối đa → lỗi tại ô tối đa, không POST', async () => {
+    let posts = 0
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, () => {
+        posts++
+        return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
+      }),
+    )
+    const { user } = setup({ canAttachSupplier: false })
+    await fill(user)
+    await user.type(screen.getByRole('textbox', { name: 'Tồn tối thiểu' }), '5')
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    expect(await screen.findByRole('textbox', { name: 'Tồn tối đa' })).toHaveAccessibleDescription(
+      'Tồn tối đa phải lớn hơn hoặc bằng tồn tối thiểu',
+    )
+    expect(posts).toBe(0)
+  })
+
+  it('100710 từ backend → lỗi tại ô tối đa', async () => {
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, () =>
+        apiError(400, 100710, 'maximumInventory must be greater than or equal to minimumInventory'),
+      ),
+    )
+    const { user, onCreated } = setup({ canAttachSupplier: false })
+    await fill(user)
+    await user.type(screen.getByRole('textbox', { name: 'Tồn tối đa' }), '50')
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Tồn tối đa' })).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      ),
+    )
+    expect(onCreated).not.toHaveBeenCalled()
+  })
 })

@@ -71,4 +71,16 @@ export type WarehouseMaterialInput = {
   name: string
   typeSlug: string
   baseUnitSlug: string
+  /** Ngưỡng MẶC ĐỊNH của vật tư (mọi kho dùng chung). Bỏ trống thì không gửi — backend lưu 0. */
+  minimumInventory?: number
+  maximumInventory?: number
+}
+
+/**
+ * Ngưỡng RIÊNG của kho khi gắn vật tư có sẵn (`PUT /warehouses/{w}/materials`). Bỏ trống (`undefined`) = không gửi =
+ * dùng ngưỡng mặc định của vật tư. Backend kiểm theo ngưỡng hiệu lực (riêng ?? mặc định): tối đa < tối thiểu → 100811.
+ */
+export type InventoryThresholdInput = {
+  minimumInventory?: number
+  maximumInventory?: number
 }

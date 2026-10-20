@@ -14,7 +14,12 @@ import {
   removeWarehouseMaterial,
 } from './inventory.api'
 import { inventoryKeys } from './query-keys'
-import type { InventoryFilters, InventoryItem, WarehouseMaterialInput } from '../model/types'
+import type {
+  InventoryFilters,
+  InventoryItem,
+  InventoryThresholdInput,
+  WarehouseMaterialInput,
+} from '../model/types'
 
 const HISTORY_PAGE_SIZE = 20
 
@@ -70,9 +75,13 @@ export function useRemoveWarehouseMaterial() {
  */
 export function useAssignWarehouseMaterial() {
   const qc = useQueryClient()
-  return useMutation<InventoryItem, ApiError, { warehouseSlug: string; materialSlug: string }>({
-    mutationFn: ({ warehouseSlug, materialSlug }) =>
-      assignMaterialToWarehouse(warehouseSlug, materialSlug),
+  return useMutation<
+    InventoryItem,
+    ApiError,
+    { warehouseSlug: string; materialSlug: string; thresholds?: InventoryThresholdInput }
+  >({
+    mutationFn: ({ warehouseSlug, materialSlug, thresholds }) =>
+      assignMaterialToWarehouse(warehouseSlug, materialSlug, thresholds),
     meta: { suppressErrorToast: true },
     onSuccess: (_, { warehouseSlug }) => {
       void qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouseSlug) })
