@@ -32,5 +32,6 @@ export type {
   InventoryFilters,
   InventoryHistory,
   InventoryItem,
+  InventoryThresholdInput,
   WarehouseMaterialInput,
 } from './model/types'

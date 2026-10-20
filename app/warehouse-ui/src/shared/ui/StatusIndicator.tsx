@@ -1,13 +1,14 @@
 import type { ReactNode } from 'react'
 import { cn } from '@/shared/lib/cn'
 
-export type StatusTone = 'success' | 'neutral' | 'warning' | 'info'
+export type StatusTone = 'success' | 'neutral' | 'warning' | 'info' | 'danger'
 
 /**
  * Chấm + chữ cùng màu, không nền, không viền — nhẹ hơn badge, không lấn át cột tên khi quét bảng.
  * Chữ xanh dùng thẳng `--success` cho tươi (chốt với nghiệp vụ): tương phản ~3.8:1 trên nền trắng —
  * dưới 4.5:1 của chữ nhỏ nhưng chữ đậm vừa + chấm + nhãn rõ nghĩa nên vẫn đọc được. `neutral` cho
- * trạng thái chủ động tắt (khoá, ngừng hoạt động): không phải lỗi nên không dùng đỏ.
+ * trạng thái chủ động tắt (khoá, ngừng hoạt động): không phải lỗi nên không dùng đỏ. `danger` cho chứng từ bị vô
+ * hiệu (phiếu đã huỷ) — quy ước ERP: nháp xám, đã ghi sổ xanh lá, đã huỷ đỏ.
  */
 const TONES: Record<StatusTone, { text: string; dot: string }> = {
   success: {
@@ -20,6 +21,7 @@ const TONES: Record<StatusTone, { text: string; dot: string }> = {
   },
   warning: { text: 'text-warning', dot: 'bg-warning' },
   info: { text: 'text-info', dot: 'bg-info' },
+  danger: { text: 'text-destructive', dot: 'bg-destructive' },
 }
 
 /**

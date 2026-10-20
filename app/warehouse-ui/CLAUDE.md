@@ -382,8 +382,8 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     → hộp thêm vật tư nằm ở `features/warehouse-material-add`; phiếu nhập nhận nó qua prop `AddMaterialDialog` do `pages/import-forms`
     truyền (feature không import feature). Kiểu dùng chung (`AddMaterialDialogProps`, `AddedMaterial`, `MaterialAddAbilities`,
     `NO_MATERIAL_ADD`) ở `entities/inventory`. Hộp có hai tab: "Chọn từ danh mục" (`GET /materials`, "đã ở kho" tính theo
-    `Material.warehouses`, + "Gắn vào kho" `PUT /warehouses/{w}/materials`; ô tìm **trống** liệt kê sẵn 50 vật tư đầu của danh mục rồi
-    loại vật tư đã ở kho — BE chưa có bộ lọc "chưa thuộc kho X" (`notInWarehouseSlug`) nên danh mục > 50 thì có dòng "gõ để tìm thêm") và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC;
+    `Material.warehouses`, + "Gắn vào kho" `PUT /warehouses/{w}/materials` — bấm "Gắn vào kho" mở ngay trong dòng bước nhập **ngưỡng riêng của kho** (tuỳ chọn, trống = theo ngưỡng vật tư, hiện làm gợi ý), "Xác nhận gắn" mới gửi; FE kiểm theo ngưỡng HIỆU LỰC như backend (`validateAssignThresholds`, lỗi 100809–100811 tại ô); ô tìm **trống** liệt kê sẵn 50 vật tư đầu của danh mục rồi
+    loại vật tư đã ở kho — BE chưa có bộ lọc "chưa thuộc kho X" (`notInWarehouseSlug`) nên danh mục > 50 thì có dòng "gõ để tìm thêm") và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC và **ngưỡng mặc định của vật tư** — 2 ô Tồn tối thiểu / tối đa gửi trong `material`, trống = không gửi = backend lưu 0, lỗi 100708–100710 tại ô;
     nút "Tạo và gắn vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp
     có thể nằm trong form phiếu). Câu mô tả của hộp là prop (phiếu nhập truyền câu riêng); chữ của hộp ở namespace `inventory`.
     Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`; ô Đơn vị chỉ hiện MÃ đơn vị (tên đủ ở danh sách + `title`) vì cột hẹp. Quyền

@@ -4,16 +4,28 @@ import type {
   InventoryFilters,
   InventoryHistory,
   InventoryItem,
+  InventoryThresholdInput,
   WarehouseMaterialInput,
 } from '../model/types'
 
 const base = (warehouseSlug: string) => `/warehouses/${warehouseSlug}/materials`
 
-/** Gắn vật tư có sẵn vào kho. Không gửi tồn ban đầu / ngưỡng — tồn đi qua phiếu nhập. */
+/** Chỉ giữ ngưỡng đã nhập — gửi `undefined` / bỏ khoá là như nhau với JSON, nhưng giữ body gọn và dễ kiểm. */
+const definedThresholds = ({ minimumInventory, maximumInventory }: InventoryThresholdInput) => ({
+  ...(minimumInventory !== undefined ? { minimumInventory } : {}),
+  ...(maximumInventory !== undefined ? { maximumInventory } : {}),
+})
+
+/**
+ * Gắn vật tư có sẵn vào kho, kèm ngưỡng riêng của kho nếu có (trống thì không gửi = theo ngưỡng của vật tư). Không gửi
+ * tồn ban đầu — tồn đi qua phiếu nhập.
+ */
 export const assignMaterialToWarehouse = (
   warehouseSlug: string,
   materialSlug: string,
-): Promise<InventoryItem> => putData<InventoryItem>(base(warehouseSlug), { materialSlug })
+  thresholds: InventoryThresholdInput = {},
+): Promise<InventoryItem> =>
+  putData<InventoryItem>(base(warehouseSlug), { materialSlug, ...definedThresholds(thresholds) })
 
 /**
  * Tạo vật tư mới + gắn vào kho (+ gắn NCC nếu có `supplierSlug`) trong một transaction. `quantity: 0` — tồn đi qua
@@ -21,11 +33,11 @@ export const assignMaterialToWarehouse = (
  */
 export const createMaterialInWarehouse = (
   warehouseSlug: string,
-  material: WarehouseMaterialInput,
+  { minimumInventory, maximumInventory, ...material }: WarehouseMaterialInput,
   supplierSlug?: string,
 ): Promise<InventoryItem> =>
   postData<InventoryItem>(base(warehouseSlug), {
-    material,
+    material: { ...material, ...definedThresholds({ minimumInventory, maximumInventory }) },
     quantity: 0,
     ...(supplierSlug ? { supplierSlug } : {}),
   })

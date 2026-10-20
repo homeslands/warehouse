@@ -8,7 +8,7 @@ describe('StatusIndicator', () => {
     expect(screen.getByText('Hoạt động')).toBeInTheDocument()
   })
 
-  it.each(['success', 'neutral', 'warning', 'info'] as const)(
+  it.each(['success', 'neutral', 'warning', 'info', 'danger'] as const)(
     'tone %s → data-tone để test/CSS bám',
     (tone) => {
       render(<StatusIndicator tone={tone}>Nhãn</StatusIndicator>)
