@@ -9,6 +9,8 @@ import { toastApiError } from '@/shared/lib/toast-error'
 import { Combobox } from '@/shared/ui/Combobox'
 import { Form, FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
+import { NumberInput } from '@/shared/ui/NumberInput'
+import { useRevalidateWhenTouched } from '@/shared/lib/form-validation'
 import {
   INVENTORY_WAREHOUSE_INACTIVE,
   useCreateWarehouseMaterial,
@@ -32,6 +34,10 @@ const FIELD_BY_CODE = {
   100705: 'code',
   100706: 'code',
   100707: 'typeSlug',
+  // Ngưỡng mặc định của vật tư (trong `material`): tối thiểu / tối đa sai, tối đa < tối thiểu.
+  100708: 'minimumInventory',
+  100709: 'maximumInventory',
+  100710: 'maximumInventory',
   100601: 'typeSlug',
   100723: 'baseUnitSlug',
   100724: 'baseUnitSlug',
@@ -91,6 +97,9 @@ export function CreateMaterialSection({
     },
   })
 
+  // Luật "tối đa ≥ tối thiểu" nằm ở ô tối đa — sửa ô tối thiểu thì kiểm lại ô tối đa.
+  useRevalidateWhenTouched(form, 'minimumInventory', 'maximumInventory')
+
   // `isPending` về false ngay khi POST xong, còn onCreated vẫn chạy → chốt cả luồng bằng ref.
   const inFlight = useRef(false)
 
@@ -107,6 +116,8 @@ export function CreateMaterialSection({
           name: values.name.trim(),
           typeSlug: values.typeSlug,
           baseUnitSlug: values.baseUnitSlug,
+          minimumInventory: values.minimumInventory,
+          maximumInventory: values.maximumInventory,
         },
         supplierSlug: withSupplier ? values.supplierSlug : undefined,
       },
@@ -257,6 +268,38 @@ export function CreateMaterialSection({
               )}
             />
           )}
+          {(['minimumInventory', 'maximumInventory'] as const).map((name) => (
+            <FormField
+              key={name}
+              control={form.control}
+              name={name}
+              render={({ field }) => (
+                <FormItem>
+                  <FormLabel>
+                    {t(
+                      name === 'minimumInventory'
+                        ? 'inventory:fieldMinimum'
+                        : 'inventory:fieldMaximum',
+                    )}
+                  </FormLabel>
+                  <FormControl>
+                    <NumberInput
+                      value={field.value}
+                      onChange={field.onChange}
+                      onBlur={field.onBlur}
+                      ref={field.ref}
+                      name={field.name}
+                      disabled={!canCreate}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+          ))}
+          <p className="text-muted-foreground -mt-2 text-sm sm:col-span-2">
+            {t('inventory:thresholdCreateHint')}
+          </p>
         </div>
         <p className="text-muted-foreground text-sm">{t('inventory:createMaterialHint')}</p>
         {!canCreate && (

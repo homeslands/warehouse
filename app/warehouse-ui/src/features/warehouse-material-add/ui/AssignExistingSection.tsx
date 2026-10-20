@@ -3,15 +3,33 @@ import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { toMaterialSearchQuery } from '@/shared/lib/code'
+import { formatQuantity } from '@/shared/lib/format'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
+import { Label } from '@/shared/ui/label'
+import { NumberInput } from '@/shared/ui/NumberInput'
 import { Skeleton } from '@/shared/ui/skeleton'
 import {
   INVENTORY_DOES_EXIST,
   INVENTORY_WAREHOUSE_INACTIVE,
   useAssignWarehouseMaterial,
+  type InventoryThresholdInput,
 } from '@/entities/inventory'
 import { MATERIAL_NOT_FOUND, useMaterials, type Material } from '@/entities/material'
+import { validateAssignThresholds, type ThresholdErrors } from '../model/thresholds'
+
+/** Lỗi ngưỡng của `PUT` (ngưỡng riêng của kho): tối thiểu sai / tối đa sai / tối đa < tối thiểu theo ngưỡng hiệu lực. */
+const INVENTORY_MINIMUM_INVALID = 100809
+const INVENTORY_MAXIMUM_INVALID = 100810
+const INVENTORY_RANGE_INVALID = 100811
+
+/** Dòng đang mở bước nhập ngưỡng trước khi gắn. `tried`: đã bấm xác nhận một lần → kiểm lại mỗi lần sửa. */
+type Pending = {
+  slug: string
+  input: InventoryThresholdInput
+  errors: ThresholdErrors
+  tried: boolean
+}
 
 function useDebouncedValue<T>(value: T, ms: number): T {
   const [debounced, setDebounced] = useState(value)
@@ -60,6 +78,7 @@ export function AssignExistingSection({
   )
   const assign = useAssignWarehouseMaterial()
   const [rowError, setRowError] = useState<{ search: string; message: string } | null>(null)
+  const [pending, setPending] = useState<Pending | null>(null)
   const inFlight = useRef(false)
 
   if (!enabled) return <p className="text-muted-foreground text-sm">{t('inventory:catalogHint')}</p>
@@ -70,7 +89,30 @@ export function AssignExistingSection({
   // Lỗi gắn gắn với từ khoá đã tìm: đổi từ khoá thì tự ẩn; refetch có thể gỡ dòng nên hiển thị ở mức section.
   const sectionError = rowError?.search === debounced ? rowError.message : null
 
-  const onAssign = (m: Material) => {
+  const thresholdDefaults = (m: Material) => ({
+    minimumInventory: m.minimumInventory,
+    maximumInventory: m.maximumInventory,
+  })
+
+  const editThreshold = (m: Material, key: keyof InventoryThresholdInput, value?: number) =>
+    setPending((prev) => {
+      if (!prev || prev.slug !== m.slug) return prev
+      const input = { ...prev.input, [key]: value }
+      return {
+        ...prev,
+        input,
+        errors: prev.tried ? validateAssignThresholds(input, thresholdDefaults(m)) : {},
+      }
+    })
+
+  const confirmAssign = (m: Material) => {
+    if (!pending || pending.slug !== m.slug) return
+    const errors = validateAssignThresholds(pending.input, thresholdDefaults(m))
+    setPending({ ...pending, errors, tried: true })
+    if (Object.keys(errors).length === 0) onAssign(m, pending.input)
+  }
+
+  const onAssign = (m: Material, thresholds: InventoryThresholdInput) => {
     if (inFlight.current) return
     inFlight.current = true
     setRowError(null)
@@ -84,9 +126,12 @@ export function AssignExistingSection({
       }
     }
     assign.mutate(
-      { warehouseSlug, materialSlug: m.slug },
+      { warehouseSlug, materialSlug: m.slug, thresholds },
       {
-        onSuccess: () => void done(false),
+        onSuccess: () => {
+          setPending(null)
+          void done(false)
+        },
         onError: (error) => {
           if (isApiError(error) && error.code === INVENTORY_DOES_EXIST) {
             void done(true)
@@ -94,6 +139,16 @@ export function AssignExistingSection({
           }
           inFlight.current = false
           onBusyChange?.(false)
+          // Lỗi ngưỡng → báo tại ô của dòng đang mở (FE đã kiểm trước, chỉ lọt khi ngưỡng vật tư vừa bị đổi).
+          const thresholdError = isApiError(error) ? thresholdErrorOf(error.code, thresholds) : null
+          if (thresholdError) {
+            setPending((prev) =>
+              prev && prev.slug === m.slug
+                ? { ...prev, errors: thresholdError, tried: true }
+                : prev,
+            )
+            return
+          }
           if (
             isApiError(error) &&
             (error.code === INVENTORY_WAREHOUSE_INACTIVE || error.code === MATERIAL_NOT_FOUND)
@@ -153,22 +208,34 @@ export function AssignExistingSection({
                     )}
                   </p>
                 </div>
-                <Button
-                  type="button"
-                  variant="outline"
-                  size="sm"
-                  disabled={!canAssign || locked || assign.isPending || noBaseUnit}
-                  aria-describedby={!canAssign ? hintId : noBaseUnit ? rowHintId : undefined}
-                  onClick={() => onAssign(m)}
-                >
-                  {assign.isPending && assign.variables?.materialSlug === m.slug
-                    ? t('inventory:assigning')
-                    : t('inventory:assignAction')}
-                </Button>
+                {pending?.slug !== m.slug && (
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="sm"
+                    disabled={!canAssign || locked || assign.isPending || noBaseUnit}
+                    aria-describedby={!canAssign ? hintId : noBaseUnit ? rowHintId : undefined}
+                    onClick={() =>
+                      setPending({ slug: m.slug, input: {}, errors: {}, tried: false })
+                    }
+                  >
+                    {t('inventory:assignAction')}
+                  </Button>
+                )}
                 {noBaseUnit && (
                   <p id={rowHintId} className="text-muted-foreground w-full text-xs">
                     {t('inventory:noBaseUnit')}
                   </p>
+                )}
+                {pending?.slug === m.slug && (
+                  <ThresholdStep
+                    material={m}
+                    pending={pending}
+                    busy={assign.isPending || locked}
+                    onChange={(key, value) => editThreshold(m, key, value)}
+                    onCancel={() => setPending(null)}
+                    onConfirm={() => confirmAssign(m)}
+                  />
                 )}
               </li>
             )
@@ -204,5 +271,113 @@ function SupplierNames({ names }: { names: string[] }) {
       </span>
       <span className="sr-only">{all}</span>
     </span>
+  )
+}
+
+/** Lỗi ngưỡng backend → lỗi tại ô; 100811 đặt ở ô người dùng đã nhập (ô tối đa nếu có). Không phải lỗi ngưỡng → null. */
+function thresholdErrorOf(
+  code: number | undefined,
+  input: InventoryThresholdInput,
+): ThresholdErrors | null {
+  if (code === INVENTORY_MINIMUM_INVALID)
+    return { minimumInventory: { key: 'inventory:thresholdInvalid' } }
+  if (code === INVENTORY_MAXIMUM_INVALID)
+    return { maximumInventory: { key: 'inventory:thresholdInvalid' } }
+  if (code === INVENTORY_RANGE_INVALID)
+    return input.maximumInventory !== undefined
+      ? { maximumInventory: { key: 'inventory:thresholdRange' } }
+      : { minimumInventory: { key: 'inventory:thresholdRange' } }
+  return null
+}
+
+/**
+ * Bước nhập ngưỡng RIÊNG của kho, mở ngay trong dòng vật tư sau khi bấm "Gắn vào kho". Trống = theo ngưỡng mặc định của
+ * vật tư (hiện làm gợi ý trong ô). Lỗi theo ô (khoá i18n) nối `aria-describedby`.
+ */
+function ThresholdStep({
+  material,
+  pending,
+  busy,
+  onChange,
+  onCancel,
+  onConfirm,
+}: {
+  material: Material
+  pending: Pending
+  busy: boolean
+  onChange: (key: keyof InventoryThresholdInput, value?: number) => void
+  onCancel: () => void
+  onConfirm: () => void
+}) {
+  const { t } = useTranslation(['inventory', 'common'])
+  const id = useId()
+  const shown = (n: number) => (n > 0 ? formatQuantity(n) : t('inventory:thresholdNotSet'))
+  const fields = [
+    {
+      key: 'minimumInventory',
+      label: t('inventory:fieldMinimum'),
+      fallback: material.minimumInventory,
+    },
+    {
+      key: 'maximumInventory',
+      label: t('inventory:fieldMaximum'),
+      fallback: material.maximumInventory,
+    },
+  ] as const
+
+  return (
+    <div
+      role="group"
+      aria-labelledby={`${id}-title`}
+      className="bg-muted/40 w-full space-y-3 rounded-md border p-3"
+    >
+      <div>
+        <p id={`${id}-title`} className="text-sm font-medium">
+          {t('inventory:assignThresholdTitle')}
+        </p>
+        <p className="text-muted-foreground text-xs">
+          {t('inventory:assignThresholdDefaults', {
+            min: shown(material.minimumInventory),
+            max: shown(material.maximumInventory),
+          })}
+          {' · '}
+          {t('inventory:assignThresholdHint')}
+        </p>
+      </div>
+      <div className="grid gap-3 sm:grid-cols-2">
+        {fields.map((f, i) => {
+          const error = pending.errors[f.key]
+          const inputId = `${id}-${f.key}`
+          return (
+            <div key={f.key} className="space-y-1.5">
+              <Label htmlFor={inputId}>{f.label}</Label>
+              <NumberInput
+                id={inputId}
+                autoFocus={i === 0}
+                value={pending.input[f.key]}
+                onChange={(v) => onChange(f.key, v)}
+                placeholder={f.fallback > 0 ? formatQuantity(f.fallback) : undefined}
+                disabled={busy}
+                aria-invalid={error ? true : undefined}
+                aria-describedby={error ? `${inputId}-error` : undefined}
+              />
+              {error && (
+                <p id={`${inputId}-error`} className="text-destructive text-sm">
+                  {t(error.key, error.values ?? {})}
+                </p>
+              )}
+            </div>
+          )
+        })}
+      </div>
+      <div className="flex justify-end gap-2">
+        <Button type="button" variant="ghost" size="sm" disabled={busy} onClick={onCancel}>
+          {t('common:cancel')}
+        </Button>
+        <Button type="button" size="sm" disabled={busy} onClick={onConfirm}>
+          {busy ? t('inventory:assigning') : t('inventory:assignConfirm')}
+        </Button>
+      </div>
+    </div>
   )
 }
