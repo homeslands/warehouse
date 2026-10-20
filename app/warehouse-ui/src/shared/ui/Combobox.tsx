@@ -111,7 +111,9 @@ export function Combobox({
   return (
     // Nút xoá nằm TRONG khung ô (đè lên mép phải nút mở, trước mũi tên) thay vì một nút riêng bên cạnh: ô hẹp trong bảng
     // (dòng phiếu nhập) không mất thêm ~2rem. Không lồng <button> trong <button> được nên đặt tuyệt đối trên lớp vỏ.
-    <div className={cn('relative flex items-center', className)}>
+    // `min-w-0`: lớp vỏ là con của lưới (FormItem / cột form) — mặc định `min-width: auto` = độ dài nhãn đầy đủ, nhãn dài
+    // (tên NCC 255 ký tự) đẩy ô tràn sang cột bên cạnh thay vì cắt "…".
+    <div className={cn('relative flex min-w-0 items-center', className)}>
       {/* modal: Popover portal ra ngoài Dialog; không modal thì RemoveScroll của Dialog chặn lăn chuột
           trong danh sách/lịch. */}
       <Popover

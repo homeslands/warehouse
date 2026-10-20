@@ -1,4 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
+import type { UserEvent } from '@testing-library/user-event'
 import { http as mswHttp } from 'msw'
 import { useState, type FormEvent } from 'react'
 import { toast } from 'sonner'
@@ -66,6 +67,12 @@ vi.mock('sonner', () => ({
   toast: { success: vi.fn(), info: vi.fn(), warning: vi.fn(), error: vi.fn() },
 }))
 
+/** Gắn vật tư = bấm "Gắn vào kho" (mở bước nhập ngưỡng của dòng) rồi "Xác nhận gắn" (để trống = theo ngưỡng vật tư). */
+async function assignFirst(user: UserEvent) {
+  await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+  await user.click(await screen.findByRole('button', { name: 'Xác nhận gắn' }))
+}
+
 describe('AddWarehouseMaterialDialog', () => {
   it('ô tìm điền sẵn; gắn → chờ available-materials tải lại → onAdded + đóng', async () => {
     const order: string[] = []
@@ -86,7 +93,7 @@ describe('AddWarehouseMaterialDialog', () => {
     expect(screen.getByRole('textbox', { name: /Tìm vật tư trong danh mục/ })).toHaveValue(
       'xi măng',
     )
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(CEMENT_ADDED))
     expect(toast.success).toHaveBeenCalledWith('Đã gắn Xi măng PCB40 vào kho')
     expect(order).toEqual(['available-refreshed', 'added'])
@@ -102,7 +109,7 @@ describe('AddWarehouseMaterialDialog', () => {
     )
     const onAdded = vi.fn()
     const { user } = renderWithProviders(<Harness onAdded={onAdded} />, { auth: 'admin' })
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     await waitFor(() => expect(onAdded).toHaveBeenCalledWith(CEMENT_ADDED))
     expect(toast.info).toHaveBeenCalledWith('Xi măng PCB40 đã có trong kho')
     expect(toast.success).not.toHaveBeenCalled()
@@ -129,7 +136,7 @@ describe('AddWarehouseMaterialDialog', () => {
       await new Promise((r) => setTimeout(r, 10))
       awaited.push(key)
     })
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     await waitFor(() => expect(onAdded).toHaveBeenCalled())
     expect(awaited).toContain(JSON.stringify(['inventory', 'w-a']))
     expect(awaited.some((k) => k.includes('available'))).toBe(true)
@@ -166,7 +173,7 @@ describe('AddWarehouseMaterialDialog', () => {
     )
     const onAdded = vi.fn()
     const { user } = renderWithProviders(<Harness onAdded={onAdded} />, { auth: 'admin' })
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     await screen.findByRole('button', { name: 'Đang gắn…' })
     await user.keyboard('{Escape}')
     const close = within(screen.getByRole('dialog')).getAllByRole('button', { name: 'Đóng' })
@@ -200,6 +207,7 @@ describe('AddWarehouseMaterialDialog', () => {
     })
     const buttons = await screen.findAllByRole('button', { name: 'Gắn vào kho' })
     await user.click(buttons[0])
+    await user.click(screen.getByRole('button', { name: 'Xác nhận gắn' }))
     await waitFor(() => expect(puts).toBe(1))
     await new Promise((r) => setTimeout(r, 50))
     for (const b of screen.getAllByRole('button', { name: 'Gắn vào kho' })) {
