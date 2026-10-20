@@ -46,6 +46,21 @@ describe('inventory.api', () => {
     expect(body).toEqual({ materialSlug: 'm-1' })
   })
 
+  it('PUT kèm ngưỡng riêng của kho → chỉ gửi ngưỡng đã nhập', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok(item)
+      }),
+    )
+    await assignMaterialToWarehouse('w-a', 'm-1', {
+      minimumInventory: 0,
+      maximumInventory: undefined,
+    })
+    expect(body).toEqual({ materialSlug: 'm-1', minimumInventory: 0 })
+  })
+
   it('POST /warehouses/{w}/materials gửi { material, quantity: 0 }', async () => {
     let body: unknown
     server.use(
@@ -70,6 +85,26 @@ describe('inventory.api', () => {
     const material = { code: 'VT-09', name: 'Xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' }
     await createMaterialInWarehouse('w-a', material, 's-1')
     expect(body).toEqual({ material, quantity: 0, supplierSlug: 's-1' })
+  })
+
+  it('POST có ngưỡng → nằm TRONG material (ngưỡng mặc định của vật tư), không phải ngưỡng riêng của kho', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+        body = await request.json()
+        return ok(item)
+      }),
+    )
+    const material = { code: 'VT-09', name: 'Xi măng', typeSlug: 'mt-1', baseUnitSlug: 'u-kg' }
+    await createMaterialInWarehouse('w-a', {
+      ...material,
+      minimumInventory: 5,
+      maximumInventory: 50,
+    })
+    expect(body).toEqual({
+      material: { ...material, minimumInventory: 5, maximumInventory: 50 },
+      quantity: 0,
+    })
   })
 
   it('GET danh sách gửi đúng bộ lọc, bỏ bộ lọc trống', async () => {

@@ -1,4 +1,5 @@
 import { screen, waitFor } from '@testing-library/react'
+import type { UserEvent } from '@testing-library/user-event'
 import { http as mswHttp } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { Material } from '@/entities/material'
@@ -60,6 +61,12 @@ function setup(
     { auth: 'admin' },
   )
   return { ...r, seen, onAssigned, onBusyChange }
+}
+
+/** Gắn vật tư = bấm "Gắn vào kho" (mở bước nhập ngưỡng của dòng) rồi "Xác nhận gắn" (để trống = theo ngưỡng vật tư). */
+async function assignFirst(user: UserEvent) {
+  await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+  await user.click(await screen.findByRole('button', { name: 'Xác nhận gắn' }))
 }
 
 describe('AssignExistingSection', () => {
@@ -158,7 +165,7 @@ describe('AssignExistingSection', () => {
     expect(await screen.findByText(/Không tìm thấy vật tư nào chưa có ở kho/)).toBeInTheDocument()
   })
 
-  it('Gắn vào kho → PUT rồi onAssigned(material, false); bấm nhanh hai lần chỉ một request', async () => {
+  it('Gắn vào kho → Xác nhận gắn → PUT rồi onAssigned(material, false); bấm nhanh hai lần chỉ một request', async () => {
     let calls = 0
     server.use(
       mswHttp.put(`${BASE}/warehouses/w-a/materials`, async () => {
@@ -168,8 +175,8 @@ describe('AssignExistingSection', () => {
       }),
     )
     const { user, onAssigned } = setup()
-    const btn = await screen.findByRole('button', { name: 'Gắn vào kho' })
-    await user.dblClick(btn)
+    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await user.dblClick(screen.getByRole('button', { name: 'Xác nhận gắn' }))
     await waitFor(() => expect(onAssigned).toHaveBeenCalledWith(cement, false))
     expect(calls).toBe(1)
   })
@@ -185,7 +192,7 @@ describe('AssignExistingSection', () => {
       await new Promise((r) => setTimeout(r, 30))
       order.push('assigned')
     })
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     await waitFor(() => expect(order).toEqual(['busy:true', 'assigned', 'busy:false']))
   })
 
@@ -194,7 +201,7 @@ describe('AssignExistingSection', () => {
       mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100804, 'inactive')),
     )
     const { user, onBusyChange } = setup()
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     await waitFor(() => expect(onBusyChange).toHaveBeenLastCalledWith(false))
     expect(onBusyChange.mock.calls.map((c) => c[0])).toEqual([true, false])
   })
@@ -204,7 +211,7 @@ describe('AssignExistingSection', () => {
       mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100802, 'exists')),
     )
     const { user, onAssigned } = setup()
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     await waitFor(() => expect(onAssigned).toHaveBeenCalledWith(cement, true))
   })
 
@@ -213,7 +220,7 @@ describe('AssignExistingSection', () => {
       mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100804, 'inactive')),
     )
     const { user, onAssigned } = setup()
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     expect(await screen.findByRole('alert')).toHaveTextContent('Kho đang ngừng hoạt động')
     expect(onAssigned).not.toHaveBeenCalled()
   })
@@ -244,7 +251,7 @@ describe('AssignExistingSection', () => {
       />,
       { auth: 'admin' },
     )
-    await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+    await assignFirst(user)
     expect(await screen.findByRole('alert')).toHaveTextContent('VT-09 · Xi măng PCB40:')
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Gắn vào kho' })).not.toBeInTheDocument(),
@@ -289,12 +296,12 @@ describe('AssignExistingSection', () => {
     const other = mat('m-other', 'VT-10', 'Xi măng đen')
     const { user, onAssigned } = setup({ found: [cement, other] })
     onAssigned.mockImplementation(() => gate)
-    const buttons = await screen.findAllByRole('button', { name: 'Gắn vào kho' })
-    await user.click(buttons[0])
+    await user.click((await screen.findAllByRole('button', { name: 'Gắn vào kho' }))[0])
+    await user.click(screen.getByRole('button', { name: 'Xác nhận gắn' }))
     await waitFor(() => expect(onAssigned).toHaveBeenCalledTimes(1))
-    // isPending đã false nhưng onAssigned chưa xong → vẫn khoá.
-    await user.click(screen.getAllByRole('button', { name: 'Gắn vào kho' })[0])
+    // isPending đã false nhưng onAssigned chưa xong → vẫn khoá: mở dòng khác và xác nhận cũng không gửi PUT thứ hai.
     await user.click(screen.getAllByRole('button', { name: 'Gắn vào kho' }).at(-1)!)
+    await user.click(screen.getByRole('button', { name: 'Xác nhận gắn' }))
     expect(puts).toBe(1)
     release()
     await waitFor(() => expect(onAssigned).toHaveBeenCalledTimes(1))
@@ -334,5 +341,91 @@ describe('AssignExistingSection', () => {
     setup({ found: [otherWh, inWarehouse] })
     expect(await screen.findByText(/Xi măng xám/)).toBeInTheDocument()
     expect(screen.queryByText(/Xi măng trắng/)).not.toBeInTheDocument()
+  })
+
+  describe('bước nhập ngưỡng riêng của kho', () => {
+    const steel: Material = {
+      ...mat('m-steel', 'VT-07', 'Thép'),
+      minimumInventory: 10,
+      maximumInventory: 100,
+    }
+
+    it('hiện ngưỡng mặc định của vật tư; nhập tối đa → PUT chỉ kèm ngưỡng đã nhập', async () => {
+      let body: unknown
+      server.use(
+        mswHttp.put(`${BASE}/warehouses/w-a/materials`, async ({ request }) => {
+          body = await request.json()
+          return ok({ materialSlug: 'm-steel' })
+        }),
+      )
+      const { user, onAssigned } = setup({ found: [steel] })
+      await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+      const step = screen.getByRole('group', { name: 'Ngưỡng tồn riêng của kho này' })
+      expect(step).toHaveTextContent('Mặc định của vật tư: tối thiểu 10 · tối đa 100')
+      expect(screen.getByRole('textbox', { name: 'Tồn tối thiểu' })).toHaveFocus()
+      expect(screen.getByRole('textbox', { name: 'Tồn tối đa' })).toHaveAttribute(
+        'placeholder',
+        '100',
+      )
+      await user.type(screen.getByRole('textbox', { name: 'Tồn tối đa' }), '50')
+      await user.click(screen.getByRole('button', { name: 'Xác nhận gắn' }))
+      await waitFor(() => expect(onAssigned).toHaveBeenCalledWith(steel, false))
+      expect(body).toEqual({ materialSlug: 'm-steel', maximumInventory: 50 })
+    })
+
+    it('vật tư chưa đặt ngưỡng → hiện "Chưa đặt"', async () => {
+      const { user } = setup({ found: [cement] })
+      await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+      expect(screen.getByRole('group', { name: 'Ngưỡng tồn riêng của kho này' })).toHaveTextContent(
+        'tối thiểu Chưa đặt · tối đa Chưa đặt',
+      )
+    })
+
+    it('tối đa riêng < tối thiểu mặc định → lỗi tại ô, không PUT; sửa đúng thì lỗi tự mất và gắn được', async () => {
+      let puts = 0
+      server.use(
+        mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => {
+          puts++
+          return ok({ materialSlug: 'm-steel' })
+        }),
+      )
+      const { user, onAssigned } = setup({ found: [steel] })
+      await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+      const max = screen.getByRole('textbox', { name: 'Tồn tối đa' })
+      await user.type(max, '5')
+      await user.click(screen.getByRole('button', { name: 'Xác nhận gắn' }))
+      expect(max).toHaveAccessibleDescription('Tồn tối đa phải lớn hơn hoặc bằng tồn tối thiểu')
+      expect(puts).toBe(0)
+      await user.type(max, '0')
+      expect(max).not.toHaveAccessibleDescription()
+      await user.click(screen.getByRole('button', { name: 'Xác nhận gắn' }))
+      await waitFor(() => expect(onAssigned).toHaveBeenCalled())
+      expect(puts).toBe(1)
+    })
+
+    it('Huỷ → đóng bước nhập, không PUT, nút "Gắn vào kho" hiện lại', async () => {
+      const { user } = setup({ found: [steel] })
+      await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+      await user.click(screen.getByRole('button', { name: 'Huỷ' }))
+      expect(
+        screen.queryByRole('group', { name: 'Ngưỡng tồn riêng của kho này' }),
+      ).not.toBeInTheDocument()
+      expect(screen.getByRole('button', { name: 'Gắn vào kho' })).toBeInTheDocument()
+    })
+
+    it('100811 từ backend → lỗi tại ô đã nhập, không gọi onAssigned', async () => {
+      server.use(
+        mswHttp.put(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100811, 'range')),
+      )
+      const { user, onAssigned } = setup({ found: [steel] })
+      await user.click(await screen.findByRole('button', { name: 'Gắn vào kho' }))
+      const max = screen.getByRole('textbox', { name: 'Tồn tối đa' })
+      await user.type(max, '50')
+      await user.click(screen.getByRole('button', { name: 'Xác nhận gắn' }))
+      await waitFor(() =>
+        expect(max).toHaveAccessibleDescription('Tồn tối đa phải lớn hơn hoặc bằng tồn tối thiểu'),
+      )
+      expect(onAssigned).not.toHaveBeenCalled()
+    })
   })
 })
