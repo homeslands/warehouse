@@ -646,6 +646,39 @@ describe('ImportFormService', () => {
       });
     });
 
+    it('filters invoiceCode / purchaseOrder by prefix and requester / approver by slug', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug', {
+        page: 1,
+        size: 10,
+        invoiceCode: 'HD_001',
+        purchaseOrder: 'PO-2026',
+        requesterSlug: 'user-req',
+        approverSlug: 'user-app',
+      });
+
+      const { where } = importFormRepository.findAndCount.mock.calls[0][0];
+      expect(where.invoiceCode).toMatchObject({ _type: 'like', _value: 'HD\\_001%' });
+      expect(where.purchaseOrder).toMatchObject({ _type: 'like', _value: 'PO-2026%' });
+      expect(where.requester).toEqual({ slug: 'user-req' });
+      expect(where.approver).toEqual({ slug: 'user-app' });
+    });
+
+    it('does not add the new filters when they are omitted', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll('wh-slug', { page: 1, size: 10 });
+
+      const { where } = importFormRepository.findAndCount.mock.calls[0][0];
+      expect(where).not.toHaveProperty('invoiceCode');
+      expect(where).not.toHaveProperty('purchaseOrder');
+      expect(where).not.toHaveProperty('requester');
+      expect(where).not.toHaveProperty('approver');
+    });
+
     it('filters createdAt by startDate / endDate and orders by sort (default DESC)', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse);
       importFormRepository.findAndCount.mockResolvedValue([[], 0]);
