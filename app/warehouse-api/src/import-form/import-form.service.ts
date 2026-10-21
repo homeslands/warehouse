@@ -194,6 +194,10 @@ export class ImportFormService {
     if (query.status) where.status = query.status;
     // Tìm theo tiền tố (`LIKE 'x%'`) — dùng được index UNIQUE của `code_column`.
     if (query.code) where.code = Like(`${escapeLike(query.code)}%`);
+    if (query.invoiceCode) where.invoiceCode = Like(`${escapeLike(query.invoiceCode)}%`);
+    if (query.purchaseOrder) where.purchaseOrder = Like(`${escapeLike(query.purchaseOrder)}%`);
+    if (query.requesterSlug) where.requester = { slug: query.requesterSlug };
+    if (query.approverSlug) where.approver = { slug: query.approverSlug };
     const createdAt = toDateRangeOperator(start, end);
     if (createdAt) where.createdAt = createdAt;
 
