@@ -66,7 +66,7 @@ const EXPORT_FORM_RELATIONS: FindOptionsRelations<ExportForm> = {
   warehouse: true,
 };
 
-/** Chi tiết 1 phiếu kèm dòng (list cố ý KHÔNG load `items`). */
+/** Phiếu kèm dòng vật tư — dùng cho cả list và chi tiết. */
 const EXPORT_FORM_DETAIL_RELATIONS: FindOptionsRelations<ExportForm> = {
   ...EXPORT_FORM_RELATIONS,
   items: { material: true, unit: true, batch: true },
@@ -176,8 +176,11 @@ export class ExportFormService {
 
     const [items, total] = await this.exportFormRepository.findAndCount({
       where,
-      relations: EXPORT_FORM_RELATIONS,
-      order: buildSortOrder<ExportForm, ExportFormSortBy>(query, { code: ['code'] }),
+      relations: EXPORT_FORM_DETAIL_RELATIONS,
+      order: {
+        ...buildSortOrder<ExportForm, ExportFormSortBy>(query, { code: ['code'] }),
+        items: { lineNo: 'ASC' },
+      },
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
