@@ -35,8 +35,14 @@ import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { User } from 'src/user/user.entity';
 
-/** Quan hệ đủ để dựng response: `warehouse`, `material` và `material.type` (cả 3 đều không `eager`). */
-const RELATIONS = { warehouse: true, material: { type: true } } as const;
+/**
+ * Quan hệ đủ để dựng response: `warehouse`, `material` kèm `type`/`baseUnit` và mọi đơn vị của vật
+ * tư (`unitsCanHave.unit`) — đều không `eager`.
+ */
+const RELATIONS = {
+  warehouse: true,
+  material: { type: true, baseUnit: true, unitsCanHave: { unit: true } },
+} as const;
 
 /**
  * Khoá dòng tồn (`SELECT ... FOR UPDATE`) trước khi đọc-rồi-ghi `quantity`/`reservedQuantity`: 2
@@ -116,7 +122,8 @@ export class InventoryService {
       `Material ${material.id} assigned to warehouse ${warehouse.id}: ${created.id}`,
       context,
     );
-    return this.toResponse(created);
+    // Đọc lại kèm `RELATIONS`: `findEntityBySlug` không load đơn vị của vật tư (`units`).
+    return this.toResponse(await this.findRow(warehouseSlug, material.slug));
   }
 
   /**
