@@ -304,6 +304,45 @@ export class InventoryService {
       );
   }
 
+  /**
+   * Xuất hàng khỏi kho theo phiếu xuất đã xác nhận — đối xứng với `receive`: chạy trong transaction
+   * của CALLER, `lines[].quantity` theo đơn vị cơ sở (> 0), gộp theo vật tư thành 1 lần trừ + 1 dòng
+   * lịch sử `EXPORT`, khoá dòng tồn theo thứ tự `id`. Không đủ tồn ⇒ `INVENTORY_QUANTITY_NEGATIVE`;
+   * trừ lấn vào phần đã giữ chỗ ⇒ `INVENTORY_QUANTITY_BELOW_RESERVED` (cả hai từ `mutate`).
+   */
+  async issue(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: { materialId: string; quantity: number }[],
+    actor: CurrentUserDto,
+    note?: string | null,
+  ): Promise<void> {
+    const totals = new Map<string, number>();
+    for (const line of lines)
+      totals.set(line.materialId, roundToScale((totals.get(line.materialId) ?? 0) + line.quantity));
+    if (!totals.size) return;
+
+    const rows = await manager.getRepository(Inventory).find({
+      where: { warehouse: { id: warehouseId }, material: { id: In([...totals.keys()]) } },
+      relations: { material: true },
+    });
+    if (rows.length !== totals.size)
+      throw new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND);
+
+    const ordered = [...rows].sort((a, b) => a.id.localeCompare(b.id));
+    for (const row of ordered)
+      await this.mutate(
+        manager,
+        row.id,
+        {
+          action: InventoryHistoryAction.Export,
+          quantityDelta: -totals.get(row.material.id)!,
+          note,
+        },
+        actor,
+      );
+  }
+
   async removeMaterial(
     warehouseSlug: string,
     materialSlug: string,
