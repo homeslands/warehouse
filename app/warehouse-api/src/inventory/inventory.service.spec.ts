@@ -488,6 +488,64 @@ describe('InventoryService', () => {
     });
   });
 
+  describe('issue (export form confirmed)', () => {
+    const issue = (lines: { materialId: string; quantity: number }[]) =>
+      service.issue(manager as never, 'wh-id-1', lines, actor, 'Export form PX-1');
+
+    it('sums lines per material and records one EXPORT history with a negative delta', async () => {
+      txInventoryRepository.find.mockResolvedValue([row()]);
+      txInventoryRepository.findOne.mockResolvedValue(row({ quantity: 20, warehouse: undefined }));
+
+      await issue([
+        { materialId: 'mat-id-1', quantity: 5 },
+        { materialId: 'mat-id-1', quantity: 0.5 },
+      ]);
+
+      expect(txInventoryRepository.update).toHaveBeenCalledWith(
+        { id: 'wm-id-1' },
+        { quantity: 14.5, reservedQuantity: 0 },
+      );
+      expect(writtenHistory()).toMatchObject({
+        action: InventoryHistoryAction.Export,
+        quantityDelta: -5.5,
+        quantityBefore: 20,
+        quantityAfter: 14.5,
+        note: 'Export form PX-1',
+      });
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+
+    it('rejects taking more than the stock', async () => {
+      txInventoryRepository.find.mockResolvedValue([row()]);
+      txInventoryRepository.findOne.mockResolvedValue(row({ quantity: 3 }));
+
+      await expectError(
+        issue([{ materialId: 'mat-id-1', quantity: 5 }]),
+        InventoryValidation.INVENTORY_QUANTITY_NEGATIVE.code,
+      );
+      expect(txInventoryRepository.update).not.toHaveBeenCalled();
+    });
+
+    it('rejects taking stock that is reserved', async () => {
+      txInventoryRepository.find.mockResolvedValue([row()]);
+      txInventoryRepository.findOne.mockResolvedValue(row({ quantity: 10, reservedQuantity: 8 }));
+
+      await expectError(
+        issue([{ materialId: 'mat-id-1', quantity: 5 }]),
+        InventoryValidation.INVENTORY_QUANTITY_BELOW_RESERVED.code,
+      );
+    });
+
+    it('rejects when a material is not assigned to the warehouse', async () => {
+      txInventoryRepository.find.mockResolvedValue([]);
+
+      await expectError(
+        issue([{ materialId: 'mat-missing', quantity: 1 }]),
+        InventoryValidation.INVENTORY_NOT_FOUND.code,
+      );
+    });
+  });
+
   describe('findAll', () => {
     const page = { page: 1, size: 10 };
 
