@@ -42,7 +42,7 @@ import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
  * Phiếu xuất luôn thuộc 1 kho ⇒ lồng dưới `/warehouses/:warehouseSlug`. `@WarehouseScope` ở mức
  * class: mọi route chỉ cho manager/member của kho đó (`SUPER_ADMIN`/`ADMIN` bypass).
  *
- * `PATCH`/`DELETE` cố ý KHÔNG gắn `@RequireAuthority`: quyền là "bản đầy đủ HOẶC bản `_OWN`" mà
+ * `PATCH`/`DELETE`/`submit` cố ý KHÔNG gắn `@RequireAuthority`: quyền là "bản đầy đủ HOẶC bản `_OWN`" mà
  * decorator chỉ biểu diễn được AND — service tự check (`ExportFormService.assertCanModify`).
  */
 @ApiTags('Export Form')
@@ -196,15 +196,52 @@ export class ExportFormController {
     } as AppResponseDto<ExportFormResponseDto>;
   }
 
+  @Post(':slug/submit')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Submit a DRAFT export form for confirmation (DRAFT -> PENDING)',
+    description:
+      'Reserves the quantity on the material batches (the chosen batch, or earliest expiry first ' +
+      'when none is chosen — a line may be split per batch) and on the warehouse stock, in one ' +
+      'transaction. Fails if remaining - reserved is not enough. A PENDING form can no longer be ' +
+      'edited or deleted, only confirmed or cancelled. Requires EXPORT_FORM_UPDATE_DRAFT, or ' +
+      'EXPORT_FORM_UPDATE_DRAFT_OWN for own forms',
+  })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Submitted',
+    type: ExportFormResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async submitExportForm(
+    @Param('warehouseSlug') warehouseSlug: string,
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: ChangeExportFormStatusRequestDto,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    const result = await this.exportFormService.submitExportForm(
+      warehouseSlug,
+      slug,
+      requestData,
+      currentUser,
+    );
+    return {
+      message: 'Export form has been submitted successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<ExportFormResponseDto>;
+  }
+
   @Post(':slug/confirm')
   @RequireAuthority(AuthorityCode.ExportFormConfirm)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
-    summary: 'Confirm a DRAFT export form (DRAFT -> CONFIRMED)',
+    summary: 'Confirm a PENDING export form (PENDING -> CONFIRMED)',
     description:
-      'Takes the quantity out of the material batches (the chosen batch, or earliest expiry first ' +
-      'when none is chosen — a line may be split per batch) and out of the warehouse stock, in one ' +
-      'transaction. A DISPOSAL form also requires EXPORT_FORM_APPROVE_DISPOSAL',
+      'Takes the reserved quantity out of the batches reserved at submit and out of the warehouse ' +
+      'stock, in one transaction. A DISPOSAL form also requires EXPORT_FORM_APPROVE_DISPOSAL',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,
@@ -236,7 +273,11 @@ export class ExportFormController {
   @Post(':slug/cancel')
   @RequireAuthority(AuthorityCode.ExportFormConfirm)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Cancel a DRAFT export form (DRAFT -> CANCELLED)' })
+  @ApiOperation({
+    summary: 'Cancel a DRAFT or PENDING export form (-> CANCELLED)',
+    description:
+      'Cancelling a PENDING form gives its reserved quantity back to the batches and stock',
+  })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Cancelled',

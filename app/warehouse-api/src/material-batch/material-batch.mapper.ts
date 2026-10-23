@@ -4,6 +4,7 @@ import { Injectable } from '@nestjs/common';
 import { MaterialBatchResponseDto } from './material-batch.dto';
 import { MaterialBatch } from './material-batch.entity';
 import { baseMapper } from 'src/app/base.mapper';
+import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { MaterialType } from 'src/material-type/material-type.entity';
 import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
 import { Unit } from 'src/unit/unit.entity';
@@ -22,6 +23,10 @@ export class MaterialBatchProfile extends AutomapperProfile {
         MaterialBatch,
         MaterialBatchResponseDto,
         extend(baseMapper(mapper)),
+        forMember(
+          (d) => d.availableQuantity,
+          mapFrom((s) => roundToScale(s.remainingQuantity - (s.reservedQuantity ?? 0))),
+        ),
         forMember(
           (d) => d.materialSlug,
           mapFrom((s) => s.material?.slug),

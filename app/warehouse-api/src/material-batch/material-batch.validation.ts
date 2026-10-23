@@ -6,12 +6,14 @@ export const MATERIAL_BATCH_NOT_FOUND = 'MATERIAL_BATCH_NOT_FOUND';
 export const MATERIAL_BATCH_INSUFFICIENT = 'MATERIAL_BATCH_INSUFFICIENT';
 export const MATERIAL_BATCH_STATUS_INVALID = 'MATERIAL_BATCH_STATUS_INVALID';
 export const MATERIAL_BATCH_EXPIRY_BEFORE_INVALID = 'MATERIAL_BATCH_EXPIRY_BEFORE_INVALID';
+export const MATERIAL_BATCH_RESERVED_INVALID = 'MATERIAL_BATCH_RESERVED_INVALID';
 
 export type TMaterialBatchErrorCodeKey =
   | typeof MATERIAL_BATCH_NOT_FOUND
   | typeof MATERIAL_BATCH_INSUFFICIENT
   | typeof MATERIAL_BATCH_STATUS_INVALID
-  | typeof MATERIAL_BATCH_EXPIRY_BEFORE_INVALID;
+  | typeof MATERIAL_BATCH_EXPIRY_BEFORE_INVALID
+  | typeof MATERIAL_BATCH_RESERVED_INVALID;
 
 export type TMaterialBatchErrorCode = Record<TMaterialBatchErrorCodeKey, TErrorCodeValue>;
 
@@ -23,7 +25,7 @@ export const MaterialBatchValidation: TMaterialBatchErrorCode = {
   ),
   MATERIAL_BATCH_INSUFFICIENT: createErrorCode(
     101502,
-    'Not enough quantity left in the material batches to export',
+    'Not enough available quantity (remaining - reserved) in the material batches',
     HttpStatus.CONFLICT,
   ),
   MATERIAL_BATCH_STATUS_INVALID: createErrorCode(
@@ -35,5 +37,10 @@ export const MaterialBatchValidation: TMaterialBatchErrorCode = {
     101504,
     'expiryBefore must be a valid date in YYYY-MM-DD format',
     HttpStatus.BAD_REQUEST,
+  ),
+  MATERIAL_BATCH_RESERVED_INVALID: createErrorCode(
+    101505,
+    'The reserved quantity of the material batch does not match the export form',
+    HttpStatus.CONFLICT,
   ),
 };

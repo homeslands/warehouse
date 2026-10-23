@@ -16,7 +16,8 @@ import { MaterialBatch } from 'src/material-batch/material-batch.entity';
 
 @Module({
   // Kho/user/vật tư/tồn/lô chỉ ĐỌC qua entity (tra theo slug/id). Mọi thay đổi tồn đi qua
-  // `InventoryService.issue`, mọi thay đổi lô đi qua `MaterialBatchService.consume` — cùng
+  // `InventoryService.reserve/issue/release`, mọi thay đổi lô đi qua
+  // `MaterialBatchService.reserve/consumeReserved/release` — cùng
   // transaction đổi trạng thái phiếu (`DbModule` cho `TransactionManagerService`).
   imports: [
     TypeOrmModule.forFeature([

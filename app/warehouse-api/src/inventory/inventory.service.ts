@@ -278,30 +278,11 @@ export class InventoryService {
     actor: CurrentUserDto,
     note?: string | null,
   ): Promise<void> {
-    const totals = new Map<string, number>();
-    for (const line of lines)
-      totals.set(line.materialId, roundToScale((totals.get(line.materialId) ?? 0) + line.quantity));
-    if (!totals.size) return;
-
-    const rows = await manager.getRepository(Inventory).find({
-      where: { warehouse: { id: warehouseId }, material: { id: In([...totals.keys()]) } },
-      relations: { material: true },
-    });
-    if (rows.length !== totals.size)
-      throw new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND);
-
-    const ordered = [...rows].sort((a, b) => a.id.localeCompare(b.id));
-    for (const row of ordered)
-      await this.mutate(
-        manager,
-        row.id,
-        {
-          action: InventoryHistoryAction.Import,
-          quantityDelta: totals.get(row.material.id),
-          note,
-        },
-        actor,
-      );
+    await this.applyPerMaterial(manager, warehouseId, lines, actor, (total) => ({
+      action: InventoryHistoryAction.Import,
+      quantityDelta: total,
+      note,
+    }));
   }
 
   /**
@@ -309,6 +290,8 @@ export class InventoryService {
    * của CALLER, `lines[].quantity` theo đơn vị cơ sở (> 0), gộp theo vật tư thành 1 lần trừ + 1 dòng
    * lịch sử `EXPORT`, khoá dòng tồn theo thứ tự `id`. Không đủ tồn ⇒ `INVENTORY_QUANTITY_NEGATIVE`;
    * trừ lấn vào phần đã giữ chỗ ⇒ `INVENTORY_QUANTITY_BELOW_RESERVED` (cả hai từ `mutate`).
+   *
+   * `fromReserved` ⇒ lượng xuất là lượng phiếu đã giữ chỗ lúc gửi duyệt: trừ cả `reservedQuantity`.
    */
   async issue(
     manager: EntityManager,
@@ -316,6 +299,67 @@ export class InventoryService {
     lines: { materialId: string; quantity: number }[],
     actor: CurrentUserDto,
     note?: string | null,
+    options: { fromReserved?: boolean } = {},
+  ): Promise<void> {
+    await this.applyPerMaterial(manager, warehouseId, lines, actor, (total) => ({
+      action: InventoryHistoryAction.Export,
+      quantityDelta: -total,
+      reservedDelta: options.fromReserved ? -total : 0,
+      note,
+    }));
+  }
+
+  /**
+   * Giữ chỗ cho phiếu xuất gửi duyệt (`DRAFT` → `PENDING`), trong transaction của caller: cộng
+   * `reservedQuantity`, lịch sử `RESERVE`. Phần còn trống (`quantity - reservedQuantity`) không đủ ⇒
+   * `INVENTORY_AVAILABLE_INSUFFICIENT`.
+   */
+  async reserve(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: { materialId: string; quantity: number }[],
+    actor: CurrentUserDto,
+    note?: string | null,
+  ): Promise<void> {
+    await this.applyPerMaterial(
+      manager,
+      warehouseId,
+      lines,
+      actor,
+      (total) => ({ action: InventoryHistoryAction.Reserve, reservedDelta: total, note }),
+      (current, total) => {
+        if (roundToScale(current.quantity - current.reservedQuantity) < total)
+          throw new InventoryException(InventoryValidation.INVENTORY_AVAILABLE_INSUFFICIENT);
+      },
+    );
+  }
+
+  /** Trả lại phần đã giữ chỗ khi huỷ phiếu xuất `PENDING`: trừ `reservedQuantity`, lịch sử `RELEASE`. */
+  async release(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: { materialId: string; quantity: number }[],
+    actor: CurrentUserDto,
+    note?: string | null,
+  ): Promise<void> {
+    await this.applyPerMaterial(manager, warehouseId, lines, actor, (total) => ({
+      action: InventoryHistoryAction.Release,
+      reservedDelta: -total,
+      note,
+    }));
+  }
+
+  /**
+   * Gộp `lines` theo vật tư, khoá + ghi từng dòng tồn theo thứ tự `id` cố định (2 phiếu cùng vật tư
+   * chạy đồng thời không deadlock). Vật tư chưa gán vào kho ⇒ `INVENTORY_NOT_FOUND`.
+   */
+  private async applyPerMaterial(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: { materialId: string; quantity: number }[],
+    actor: CurrentUserDto,
+    toChange: (total: number) => InventoryChange,
+    guard?: (current: Inventory, total: number) => void,
   ): Promise<void> {
     const totals = new Map<string, number>();
     for (const line of lines)
@@ -330,17 +374,16 @@ export class InventoryService {
       throw new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND);
 
     const ordered = [...rows].sort((a, b) => a.id.localeCompare(b.id));
-    for (const row of ordered)
+    for (const row of ordered) {
+      const total = totals.get(row.material.id)!;
       await this.mutate(
         manager,
         row.id,
-        {
-          action: InventoryHistoryAction.Export,
-          quantityDelta: -totals.get(row.material.id)!,
-          note,
-        },
+        toChange(total),
         actor,
+        guard && ((current) => guard(current, total)),
       );
+    }
   }
 
   async removeMaterial(

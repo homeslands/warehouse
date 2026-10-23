@@ -48,8 +48,12 @@ describe('ExportFormService', () => {
   const allAssigned = async ({ where }: { where: { material: { id: { value: string[] } } } }) =>
     where.material.id.value.map((id) => ({ material: { id } }));
   const manager = { save: jest.fn(), delete: jest.fn(), findOne: jest.fn() };
-  const inventoryService = { issue: jest.fn() };
-  const materialBatchService = { consume: jest.fn() };
+  const inventoryService = { issue: jest.fn(), reserve: jest.fn(), release: jest.fn() };
+  const materialBatchService = {
+    reserve: jest.fn(),
+    consumeReserved: jest.fn(),
+    release: jest.fn(),
+  };
   const transactionManager = { execute: jest.fn() };
   const s3Service = { uploadFile: jest.fn(), getFileUrl: jest.fn() };
 
@@ -192,8 +196,8 @@ describe('ExportFormService', () => {
       ]);
       expect(result).toMatchObject({ status: ExportFormStatus.Draft, totalAmount: 805 });
       // Phiếu nháp không giữ chỗ: không đụng lô/tồn.
-      expect(materialBatchService.consume).not.toHaveBeenCalled();
-      expect(inventoryService.issue).not.toHaveBeenCalled();
+      expect(materialBatchService.reserve).not.toHaveBeenCalled();
+      expect(inventoryService.reserve).not.toHaveBeenCalled();
     });
 
     it('rejects an inactive warehouse', async () => {
@@ -410,7 +414,7 @@ describe('ExportFormService', () => {
     });
   });
 
-  describe('confirm / cancel', () => {
+  describe('submit / confirm / cancel', () => {
     const b1 = { id: 'b1', slug: 'b1-slug', expiryDate: '2026-11-01' } as MaterialBatch;
     const b2 = { id: 'b2', slug: 'b2-slug', expiryDate: '2027-01-01' } as MaterialBatch;
     const lineA = () =>
@@ -444,236 +448,396 @@ describe('ExportFormService', () => {
         batch: b2,
       }) as unknown as ExportFormItem;
 
+    const pending = (overrides: Partial<ExportForm> = {}) =>
+      draft({ status: ExportFormStatus.Pending, ...overrides });
+    const owner = () => actor([AuthorityCode.ExportFormUpdateDraftOwn], 'u1');
+
     beforeEach(() => {
       userRepository.findOneBy.mockResolvedValue(approver);
       manager.findOne.mockImplementation(async () => draft());
     });
 
-    it('confirm consumes batches, splits a multi-batch line, takes stock and records the approver', async () => {
-      const a = lineA();
-      const b = lineB();
-      exportFormRepository.findOne.mockResolvedValue(draft({ items: [a, b], totalAmount: 310.03 }));
-      materialBatchService.consume.mockResolvedValue(
-        new Map([
-          [
-            'i1',
+    describe('submit (DRAFT -> PENDING)', () => {
+      it('reserves batches, splits a multi-batch line and reserves stock', async () => {
+        const a = lineA();
+        const b = lineB();
+        exportFormRepository.findOne.mockResolvedValue(
+          draft({ items: [a, b], totalAmount: 310.03 }),
+        );
+        materialBatchService.reserve.mockResolvedValue(
+          new Map([
             [
-              { batch: b1, baseQuantity: 100 },
-              { batch: b2, baseQuantity: 50 },
+              'i1',
+              [
+                { batch: b1, baseQuantity: 100 },
+                { batch: b2, baseQuantity: 50 },
+              ],
             ],
-          ],
-          ['i2', [{ batch: b2, baseQuantity: 5 }]],
-        ]),
-      );
-      const u2 = actor([], 'u2');
+            ['i2', [{ batch: b2, baseQuantity: 5 }]],
+          ]),
+        );
+        const u1 = owner();
 
-      const result = await service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, u2);
+        const result = await service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, u1);
 
-      expect(materialBatchService.consume).toHaveBeenCalledWith(manager, 'wh-1', [
-        { key: 'i1', materialId: 'mat-1', baseQuantity: 150, batchId: null },
-        { key: 'i2', materialId: 'mat-1', baseQuantity: 5, batchId: 'b2' },
-      ]);
-      // Tồn trừ theo lượng GỐC của dòng (trước khi tách).
-      expect(inventoryService.issue).toHaveBeenCalledWith(
-        manager,
-        'wh-1',
-        [
-          { materialId: 'mat-1', quantity: 150 },
-          { materialId: 'mat-1', quantity: 5 },
-        ],
-        u2,
-        'Export form PX-0001',
-      );
-
-      const saved: ExportFormItem[] = manager.save.mock.calls.find(([arg]) =>
-        Array.isArray(arg),
-      )[0];
-      expect(
-        saved.map(({ id, lineNo, batch, quantity, baseQuantity, amount }) => ({
-          id,
-          lineNo,
-          batch: batch?.id,
-          quantity,
-          baseQuantity,
-          amount,
-        })),
-      ).toEqual([
-        { id: 'i1', lineNo: 1, batch: 'b1', quantity: 2, baseQuantity: 100, amount: 200.02 },
-        { id: undefined, lineNo: 2, batch: 'b2', quantity: 1, baseQuantity: 50, amount: 100.01 },
-        { id: 'i2', lineNo: 3, batch: 'b2', quantity: 5, baseQuantity: 5, amount: 10 },
-      ]);
-      // Tổng tiền giữ nguyên sau khi tách.
-      const totalAfter = saved.reduce((sum, item) => sum + item.amount, 0);
-      expect(Number(totalAfter.toFixed(2))).toBe(310.03);
-      expect(saved[1]).toBeInstanceOf(ExportFormItem);
-      expect(saved[1]).toMatchObject({ unit: bag, unitPrice: 100.01, conversionRate: 50 });
-
-      expect(result).toMatchObject({
-        status: ExportFormStatus.Confirmed,
-        approverSlug: 'u2-slug',
-        approverName: 'Tran Binh',
-      });
-      expect(result.items?.map((item) => item.batchSlug)).toEqual([
-        'b1-slug',
-        'b2-slug',
-        'b2-slug',
-      ]);
-    });
-
-    it('the last split piece absorbs rounding so quantity and amount add up exactly', async () => {
-      const a = {
-        ...lineA(),
-        quantity: 1,
-        conversionRate: 3,
-        baseQuantity: 3,
-        unitPrice: 10,
-        amount: 10,
-      };
-      exportFormRepository.findOne.mockResolvedValue(draft({ items: [a as ExportFormItem] }));
-      materialBatchService.consume.mockResolvedValue(
-        new Map([
+        expect(materialBatchService.reserve).toHaveBeenCalledWith(manager, 'wh-1', [
+          { key: 'i1', materialId: 'mat-1', baseQuantity: 150, batchId: null },
+          { key: 'i2', materialId: 'mat-1', baseQuantity: 5, batchId: 'b2' },
+        ]);
+        // Tồn giữ chỗ theo lượng GỐC của dòng (trước khi tách).
+        expect(inventoryService.reserve).toHaveBeenCalledWith(
+          manager,
+          'wh-1',
           [
-            'i1',
-            [
-              { batch: b1, baseQuantity: 1 },
-              { batch: b2, baseQuantity: 2 },
-            ],
+            { materialId: 'mat-1', quantity: 150 },
+            { materialId: 'mat-1', quantity: 5 },
           ],
-        ]),
-      );
+          u1,
+          'Export form PX-0001 submitted',
+        );
+        expect(inventoryService.issue).not.toHaveBeenCalled();
 
-      await service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2'));
+        const saved: ExportFormItem[] = manager.save.mock.calls.find(([arg]) =>
+          Array.isArray(arg),
+        )[0];
+        expect(
+          saved.map(({ id, lineNo, batch, quantity, baseQuantity, amount }) => ({
+            id,
+            lineNo,
+            batch: batch?.id,
+            quantity,
+            baseQuantity,
+            amount,
+          })),
+        ).toEqual([
+          { id: 'i1', lineNo: 1, batch: 'b1', quantity: 2, baseQuantity: 100, amount: 200.02 },
+          { id: undefined, lineNo: 2, batch: 'b2', quantity: 1, baseQuantity: 50, amount: 100.01 },
+          { id: 'i2', lineNo: 3, batch: 'b2', quantity: 5, baseQuantity: 5, amount: 10 },
+        ]);
+        // Tổng tiền giữ nguyên sau khi tách.
+        const totalAfter = saved.reduce((sum, item) => sum + item.amount, 0);
+        expect(Number(totalAfter.toFixed(2))).toBe(310.03);
+        expect(saved[1]).toBeInstanceOf(ExportFormItem);
+        expect(saved[1]).toMatchObject({ unit: bag, unitPrice: 100.01, conversionRate: 50 });
 
-      const saved: ExportFormItem[] = manager.save.mock.calls.find(([arg]) =>
-        Array.isArray(arg),
-      )[0];
-      expect(saved.map(({ quantity, amount }) => ({ quantity, amount }))).toEqual([
-        { quantity: 0.333333, amount: 3.33 },
-        { quantity: 0.666667, amount: 6.67 },
-      ]);
-    });
-
-    it('cancel does not touch batches nor stock', async () => {
-      exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
-
-      const result = await service.cancelExportForm(
-        'wh-slug',
-        'form-slug',
-        { version: 1 },
-        actor([], 'u2'),
-      );
-
-      expect(materialBatchService.consume).not.toHaveBeenCalled();
-      expect(inventoryService.issue).not.toHaveBeenCalled();
-      expect(result.status).toBe(ExportFormStatus.Cancelled);
-    });
-
-    it('a DISPOSAL form needs EXPORT_FORM_APPROVE_DISPOSAL to be confirmed', async () => {
-      exportFormRepository.findOne.mockResolvedValue(draft({ type: ExportFormType.Disposal }));
-
-      await expect(
-        service.confirmExportForm(
-          'wh-slug',
-          'form-slug',
-          { version: 1 },
-          actor([AuthorityCode.ExportFormConfirm], 'u2'),
-        ),
-      ).rejects.toBeInstanceOf(ForbiddenException);
-      expect(transactionManager.execute).not.toHaveBeenCalled();
-    });
-
-    it('a DISPOSAL form is confirmed with EXPORT_FORM_APPROVE_DISPOSAL (or by SUPER_ADMIN)', async () => {
-      // Bản mới mỗi lần: lần xác nhận đầu sửa trạng thái của object trả về.
-      exportFormRepository.findOne.mockImplementation(async () =>
-        draft({ type: ExportFormType.Disposal, items: [] }),
-      );
-      materialBatchService.consume.mockResolvedValue(new Map());
-
-      await expect(
-        service.confirmExportForm(
-          'wh-slug',
-          'form-slug',
-          { version: 1 },
-          actor([AuthorityCode.ExportFormConfirm, AuthorityCode.ExportFormApproveDisposal], 'u2'),
-        ),
-      ).resolves.toMatchObject({ status: ExportFormStatus.Confirmed });
-      await expect(
-        service.confirmExportForm(
-          'wh-slug',
-          'form-slug',
-          { version: 1 },
-          actor([], 'u2', RoleEnum.SuperAdmin),
-        ),
-      ).resolves.toBeDefined();
-    });
-
-    it('cancelling a DISPOSAL form does not need the approval authority', async () => {
-      exportFormRepository.findOne.mockResolvedValue(draft({ type: ExportFormType.Disposal }));
-
-      await expect(
-        service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
-      ).resolves.toMatchObject({ status: ExportFormStatus.Cancelled });
-    });
-
-    it('propagates a batch shortage so the transaction rolls back', async () => {
-      exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
-      materialBatchService.consume.mockRejectedValue(
-        new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT),
-      );
-
-      await expectError(
-        service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
-        MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT.code,
-      );
-      expect(inventoryService.issue).not.toHaveBeenCalled();
-      expect(manager.save).not.toHaveBeenCalled();
-    });
-
-    it('propagates a stock shortage so the transaction rolls back', async () => {
-      exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
-      materialBatchService.consume.mockResolvedValue(
-        new Map([['i1', [{ batch: b1, baseQuantity: 150 }]]]),
-      );
-      inventoryService.issue.mockRejectedValue(
-        new InventoryException(InventoryValidation.INVENTORY_QUANTITY_NEGATIVE),
-      );
-
-      await expectError(
-        service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
-        InventoryValidation.INVENTORY_QUANTITY_NEGATIVE.code,
-      );
-    });
-
-    it('re-checks status and version on the pessimistically locked row', async () => {
-      exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
-      manager.findOne.mockResolvedValue(draft({ status: ExportFormStatus.Confirmed, version: 2 }));
-
-      await expectError(
-        service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
-        ExportFormValidation.EXPORT_FORM_NOT_DRAFT.code,
-      );
-      expect(manager.findOne).toHaveBeenCalledWith(ExportForm, {
-        where: { id: 'form-1' },
-        lock: { mode: 'pessimistic_write' },
+        expect(result).toMatchObject({ status: ExportFormStatus.Pending, approverSlug: null });
+        expect(result.items?.map((item) => item.batchSlug)).toEqual([
+          'b1-slug',
+          'b2-slug',
+          'b2-slug',
+        ]);
       });
-      expect(materialBatchService.consume).not.toHaveBeenCalled();
 
-      manager.findOne.mockResolvedValue(draft({ version: 2 }));
-      await expect(
-        service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
-      ).rejects.toBeInstanceOf(OptimisticLockVersionMismatchError);
-    });
+      it('the last split piece absorbs rounding so quantity and amount add up exactly', async () => {
+        const a = {
+          ...lineA(),
+          quantity: 1,
+          conversionRate: 3,
+          baseQuantity: 3,
+          unitPrice: 10,
+          amount: 10,
+        };
+        exportFormRepository.findOne.mockResolvedValue(draft({ items: [a as ExportFormItem] }));
+        materialBatchService.reserve.mockResolvedValue(
+          new Map([
+            [
+              'i1',
+              [
+                { batch: b1, baseQuantity: 1 },
+                { batch: b2, baseQuantity: 2 },
+              ],
+            ],
+          ]),
+        );
 
-    it.each([ExportFormStatus.Confirmed, ExportFormStatus.Cancelled])(
-      'cannot confirm a %s form again',
-      async (status) => {
-        exportFormRepository.findOne.mockResolvedValue(draft({ status }));
+        await service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, owner());
+
+        const saved: ExportFormItem[] = manager.save.mock.calls.find(([arg]) =>
+          Array.isArray(arg),
+        )[0];
+        expect(saved.map(({ quantity, amount }) => ({ quantity, amount }))).toEqual([
+          { quantity: 0.333333, amount: 3.33 },
+          { quantity: 0.666667, amount: 6.67 },
+        ]);
+      });
+
+      it('needs the update-draft authority (or _OWN on own form)', async () => {
+        exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
+
+        await expect(
+          service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u1')),
+        ).rejects.toBeInstanceOf(ForbiddenException);
         await expectError(
-          service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+          service.submitExportForm(
+            'wh-slug',
+            'form-slug',
+            { version: 1 },
+            actor([AuthorityCode.ExportFormUpdateDraftOwn], 'u2'),
+          ),
+          ExportFormValidation.EXPORT_FORM_NOT_OWNER.code,
+        );
+        expect(transactionManager.execute).not.toHaveBeenCalled();
+      });
+
+      it('propagates a batch shortage so the form stays DRAFT', async () => {
+        exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
+        materialBatchService.reserve.mockRejectedValue(
+          new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT),
+        );
+
+        await expectError(
+          service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, owner()),
+          MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT.code,
+        );
+        expect(inventoryService.reserve).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('propagates a stock shortage so the transaction rolls back', async () => {
+        exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
+        materialBatchService.reserve.mockResolvedValue(
+          new Map([['i1', [{ batch: b1, baseQuantity: 150 }]]]),
+        );
+        inventoryService.reserve.mockRejectedValue(
+          new InventoryException(InventoryValidation.INVENTORY_AVAILABLE_INSUFFICIENT),
+        );
+
+        await expectError(
+          service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, owner()),
+          InventoryValidation.INVENTORY_AVAILABLE_INSUFFICIENT.code,
+        );
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('re-checks status and version on the pessimistically locked row', async () => {
+        exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
+        manager.findOne.mockResolvedValue(pending({ version: 2 }));
+
+        await expectError(
+          service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, owner()),
           ExportFormValidation.EXPORT_FORM_NOT_DRAFT.code,
         );
-      },
-    );
+        expect(manager.findOne).toHaveBeenCalledWith(ExportForm, {
+          where: { id: 'form-1' },
+          lock: { mode: 'pessimistic_write' },
+        });
+        expect(materialBatchService.reserve).not.toHaveBeenCalled();
+
+        manager.findOne.mockResolvedValue(draft({ version: 2 }));
+        await expect(
+          service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, owner()),
+        ).rejects.toBeInstanceOf(OptimisticLockVersionMismatchError);
+      });
+
+      it('a PENDING form can no longer be edited, deleted or submitted again', async () => {
+        exportFormRepository.findOne.mockResolvedValue(pending());
+        const full = actor([
+          AuthorityCode.ExportFormUpdateDraft,
+          AuthorityCode.ExportFormDeleteDraft,
+        ]);
+        const code = ExportFormValidation.EXPORT_FORM_NOT_DRAFT.code;
+
+        await expectError(
+          service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, full),
+          code,
+        );
+        await expectError(
+          service.updateExportForm('wh-slug', 'form-slug', { version: 1 }, full),
+          code,
+        );
+        await expectError(service.deleteExportForm('wh-slug', 'form-slug', full), code);
+      });
+    });
+
+    describe('confirm (PENDING -> CONFIRMED)', () => {
+      beforeEach(() => manager.findOne.mockImplementation(async () => pending()));
+
+      it('takes the reserved batches and reserved stock, without re-picking or splitting', async () => {
+        const a = { ...lineA(), batch: b1 } as ExportFormItem;
+        const b = lineB();
+        exportFormRepository.findOne.mockResolvedValue(pending({ items: [a, b] }));
+        const u2 = actor([], 'u2');
+
+        const result = await service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, u2);
+
+        expect(materialBatchService.consumeReserved).toHaveBeenCalledWith(manager, 'wh-1', [
+          { key: 'i1', materialId: 'mat-1', baseQuantity: 150, batchId: 'b1' },
+          { key: 'i2', materialId: 'mat-1', baseQuantity: 5, batchId: 'b2' },
+        ]);
+        expect(inventoryService.issue).toHaveBeenCalledWith(
+          manager,
+          'wh-1',
+          [
+            { materialId: 'mat-1', quantity: 150 },
+            { materialId: 'mat-1', quantity: 5 },
+          ],
+          u2,
+          'Export form PX-0001',
+          { fromReserved: true },
+        );
+        expect(materialBatchService.reserve).not.toHaveBeenCalled();
+        expect(manager.save.mock.calls.some(([arg]) => Array.isArray(arg))).toBe(false);
+        expect(result).toMatchObject({
+          status: ExportFormStatus.Confirmed,
+          approverSlug: 'u2-slug',
+          approverName: 'Tran Binh',
+        });
+      });
+
+      it('a DRAFT must be submitted first', async () => {
+        exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
+
+        await expectError(
+          service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+          ExportFormValidation.EXPORT_FORM_NOT_PENDING.code,
+        );
+        expect(transactionManager.execute).not.toHaveBeenCalled();
+      });
+
+      it.each([ExportFormStatus.Confirmed, ExportFormStatus.Cancelled])(
+        'cannot confirm a %s form again',
+        async (status) => {
+          exportFormRepository.findOne.mockResolvedValue(draft({ status }));
+          await expectError(
+            service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+            ExportFormValidation.EXPORT_FORM_NOT_PENDING.code,
+          );
+        },
+      );
+
+      it('a DISPOSAL form needs EXPORT_FORM_APPROVE_DISPOSAL to be confirmed', async () => {
+        exportFormRepository.findOne.mockResolvedValue(pending({ type: ExportFormType.Disposal }));
+
+        await expect(
+          service.confirmExportForm(
+            'wh-slug',
+            'form-slug',
+            { version: 1 },
+            actor([AuthorityCode.ExportFormConfirm], 'u2'),
+          ),
+        ).rejects.toBeInstanceOf(ForbiddenException);
+        expect(transactionManager.execute).not.toHaveBeenCalled();
+      });
+
+      it('a DISPOSAL form is confirmed with EXPORT_FORM_APPROVE_DISPOSAL (or by SUPER_ADMIN)', async () => {
+        // Bản mới mỗi lần: lần xác nhận đầu sửa trạng thái của object trả về.
+        exportFormRepository.findOne.mockImplementation(async () =>
+          pending({ type: ExportFormType.Disposal, items: [] }),
+        );
+
+        await expect(
+          service.confirmExportForm(
+            'wh-slug',
+            'form-slug',
+            { version: 1 },
+            actor([AuthorityCode.ExportFormConfirm, AuthorityCode.ExportFormApproveDisposal], 'u2'),
+          ),
+        ).resolves.toMatchObject({ status: ExportFormStatus.Confirmed });
+        await expect(
+          service.confirmExportForm(
+            'wh-slug',
+            'form-slug',
+            { version: 1 },
+            actor([], 'u2', RoleEnum.SuperAdmin),
+          ),
+        ).resolves.toBeDefined();
+      });
+
+      it('propagates a reserved-batch mismatch so the transaction rolls back', async () => {
+        exportFormRepository.findOne.mockResolvedValue(pending({ items: [lineB()] }));
+        materialBatchService.consumeReserved.mockRejectedValue(
+          new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID),
+        );
+
+        await expectError(
+          service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+          MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID.code,
+        );
+        expect(inventoryService.issue).not.toHaveBeenCalled();
+        expect(manager.save).not.toHaveBeenCalled();
+      });
+
+      it('re-checks status on the pessimistically locked row', async () => {
+        exportFormRepository.findOne.mockResolvedValue(pending({ items: [lineB()] }));
+        manager.findOne.mockResolvedValue(draft({ status: ExportFormStatus.Confirmed }));
+
+        await expectError(
+          service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+          ExportFormValidation.EXPORT_FORM_NOT_PENDING.code,
+        );
+        expect(materialBatchService.consumeReserved).not.toHaveBeenCalled();
+      });
+    });
+
+    describe('cancel', () => {
+      it('cancelling a DRAFT does not touch batches nor stock', async () => {
+        exportFormRepository.findOne.mockResolvedValue(draft({ items: [lineA()] }));
+
+        const result = await service.cancelExportForm(
+          'wh-slug',
+          'form-slug',
+          { version: 1 },
+          actor([], 'u2'),
+        );
+
+        expect(materialBatchService.release).not.toHaveBeenCalled();
+        expect(inventoryService.release).not.toHaveBeenCalled();
+        expect(result.status).toBe(ExportFormStatus.Cancelled);
+      });
+
+      it('cancelling a PENDING form gives the reserved quantity back', async () => {
+        exportFormRepository.findOne.mockResolvedValue(pending({ items: [lineB()] }));
+        manager.findOne.mockResolvedValue(pending());
+        const u2 = actor([], 'u2');
+
+        const result = await service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, u2);
+
+        expect(materialBatchService.release).toHaveBeenCalledWith(manager, 'wh-1', [
+          { key: 'i2', materialId: 'mat-1', baseQuantity: 5, batchId: 'b2' },
+        ]);
+        expect(inventoryService.release).toHaveBeenCalledWith(
+          manager,
+          'wh-1',
+          [{ materialId: 'mat-1', quantity: 5 }],
+          u2,
+          'Export form PX-0001 cancelled',
+        );
+        expect(result).toMatchObject({
+          status: ExportFormStatus.Cancelled,
+          approverSlug: 'u2-slug',
+        });
+      });
+
+      it('cancelling a DISPOSAL form does not need the approval authority', async () => {
+        exportFormRepository.findOne.mockResolvedValue(draft({ type: ExportFormType.Disposal }));
+
+        await expect(
+          service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+        ).resolves.toMatchObject({ status: ExportFormStatus.Cancelled });
+      });
+
+      it.each([ExportFormStatus.Confirmed, ExportFormStatus.Cancelled])(
+        'cannot cancel a %s form',
+        async (status) => {
+          exportFormRepository.findOne.mockResolvedValue(draft({ status }));
+          await expectError(
+            service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+            ExportFormValidation.EXPORT_FORM_CANNOT_BE_CANCELLED.code,
+          );
+        },
+      );
+
+      it('fails if the form changed status before the lock was taken', async () => {
+        exportFormRepository.findOne.mockResolvedValue(pending({ items: [lineB()] }));
+        manager.findOne.mockResolvedValue(draft({ status: ExportFormStatus.Confirmed }));
+
+        await expectError(
+          service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
+          ExportFormValidation.EXPORT_FORM_CANNOT_BE_CANCELLED.code,
+        );
+        expect(materialBatchService.release).not.toHaveBeenCalled();
+      });
+    });
   });
 
   describe('uploadFile', () => {

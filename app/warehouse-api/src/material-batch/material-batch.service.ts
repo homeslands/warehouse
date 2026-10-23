@@ -34,10 +34,16 @@ const RELATIONS = {
 export interface BatchConsumeLine {
   key: string;
   materialId: string;
-  /** Lượng cần trừ, đơn vị cơ sở, > 0. */
+  /** Lượng cần giữ/trừ/trả, đơn vị cơ sở, > 0. */
   baseQuantity: number;
-  /** Có ⇒ chỉ trừ đúng lô này; không ⇒ FEFO. */
+  /** Có ⇒ chỉ đụng đúng lô này; không ⇒ FEFO (chỉ dùng cho `reserve`). */
   batchId?: string | null;
+}
+
+/** Thay đổi trên 1 lô, đơn vị cơ sở. */
+interface BatchChange {
+  remainingDelta?: number;
+  reservedDelta?: number;
 }
 
 export interface BatchAllocation {
@@ -63,9 +69,11 @@ export const compareFefo = (a: MaterialBatch, b: MaterialBatch): number => {
 };
 
 /**
- * Lô hàng chỉ ĐỌC qua API. Ghi duy nhất qua 2 cửa, đều chạy trong transaction của caller:
+ * Lô hàng chỉ ĐỌC qua API. Ghi duy nhất qua các cửa sau, đều chạy trong transaction của caller:
  * - `createFromImportItems` — xác nhận phiếu nhập: 1 dòng phiếu ⇒ 1 lô.
- * - `consume` — xác nhận phiếu xuất: trừ lô (chỉ định hoặc FEFO).
+ * - `reserve` — gửi duyệt phiếu xuất (`PENDING`): giữ chỗ trên lô (chỉ định hoặc FEFO).
+ * - `consumeReserved` — xác nhận phiếu xuất: trừ đúng phần đã giữ.
+ * - `release` — huỷ phiếu `PENDING`: trả lại phần đã giữ.
  */
 @Injectable()
 export class MaterialBatchService {
@@ -145,6 +153,7 @@ export class MaterialBatchService {
         expiryDate: item.expiryDate ?? null,
         quantity: item.baseQuantity,
         remainingQuantity: item.baseQuantity,
+        reservedQuantity: 0,
         status: statusOfRemaining(item.baseQuantity),
       }),
     );
@@ -157,48 +166,37 @@ export class MaterialBatchService {
   }
 
   /**
-   * Trừ lô cho phiếu xuất, trong transaction của caller. Trả map `key` → các phần đã lấy (theo thứ
-   * tự lấy). Ném `MATERIAL_BATCH_INSUFFICIENT` nếu lô chỉ định / tổng các lô không đủ.
+   * Gửi duyệt phiếu xuất (`DRAFT` → `PENDING`): GIỮ CHỖ trên lô, trong transaction của caller. Trả
+   * map `key` → các lô đã giữ (theo thứ tự lấy) để caller tách dòng. Chỉ lấy phần còn trống
+   * `remainingQuantity - reservedQuantity`; thiếu ⇒ `MATERIAL_BATCH_INSUFFICIENT`.
    *
-   * - Khoá (`FOR UPDATE`) mọi lô còn hàng của từng vật tư trong kho, vật tư xử lý theo thứ tự `id`
-   *   cố định để 2 phiếu xuất đồng thời không deadlock. Lọc bằng `Equal(id)` trên quan hệ để TypeORM
-   *   so thẳng cột FK — `{ material: { id } }` sinh LEFT JOIN và MySQL khoá luôn dòng vật tư/kho.
-   * - Dòng chỉ định lô được trừ TRƯỚC dòng FEFO: FEFO không được ăn mất lượng mà dòng khác đã
+   * - Dòng chỉ định lô được giữ TRƯỚC dòng FEFO: FEFO không được ăn mất lượng mà dòng khác đã
    *   chỉ định đích danh.
+   * - Dòng không chỉ định lô: FEFO, lô đã chọn được ghi lại trên dòng (caller tách dòng) — lúc xác
+   *   nhận trừ đúng những lô đã giữ, không chọn lại.
    */
-  async consume(
+  async reserve(
     manager: EntityManager,
     warehouseId: string,
     lines: BatchConsumeLine[],
   ): Promise<Map<string, BatchAllocation[]>> {
     const result = new Map<string, BatchAllocation[]>();
-    const byMaterial = new Map<string, BatchConsumeLine[]>();
-    for (const line of lines) {
-      const group = byMaterial.get(line.materialId) ?? [];
-      group.push(line);
-      byMaterial.set(line.materialId, group);
-    }
-
-    const repository = manager.getRepository(MaterialBatch);
-    for (const materialId of [...byMaterial.keys()].sort()) {
-      const group = byMaterial.get(materialId)!;
-      const locked = await repository.find({
-        where: {
-          warehouse: Equal(warehouseId),
-          material: Equal(materialId),
-          status: MaterialBatchStatus.InStock,
-        },
-        lock: { mode: 'pessimistic_write' },
-      });
-      const ordered = [...locked].sort(compareFefo);
-      const left = new Map(ordered.map((batch) => [batch.id, batch.remainingQuantity]));
-      const take = (batch: MaterialBatch, quantity: number) =>
-        left.set(batch.id, roundToScale(left.get(batch.id)! - quantity));
+    await this.forEachMaterial(manager, warehouseId, lines, async (group, ordered, write) => {
+      const free = new Map(
+        ordered.map((batch) => [
+          batch.id,
+          roundToScale(batch.remainingQuantity - batch.reservedQuantity),
+        ]),
+      );
+      const take = (batch: MaterialBatch, quantity: number) => {
+        free.set(batch.id, roundToScale(free.get(batch.id)! - quantity));
+        write(batch, { reservedDelta: quantity });
+      };
 
       for (const line of group.filter((l) => l.batchId)) {
         const batch = ordered.find(({ id }) => id === line.batchId);
         const quantity = roundToScale(line.baseQuantity);
-        if (!batch || left.get(batch.id)! < quantity)
+        if (!batch || free.get(batch.id)! < quantity)
           throw new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT);
         take(batch, quantity);
         result.set(line.key, [{ batch, baseQuantity: quantity }]);
@@ -209,7 +207,7 @@ export class MaterialBatchService {
         const allocations: BatchAllocation[] = [];
         for (const batch of ordered) {
           if (need <= 0) break;
-          const available = left.get(batch.id)!;
+          const available = free.get(batch.id)!;
           if (available <= 0) continue;
           const quantity = Math.min(available, need);
           take(batch, quantity);
@@ -220,17 +218,118 @@ export class MaterialBatchService {
           throw new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT);
         result.set(line.key, allocations);
       }
+    });
+    return result;
+  }
+
+  /**
+   * Xác nhận phiếu `PENDING`: trừ `remainingQuantity` VÀ `reservedQuantity` của đúng lô đã giữ lúc
+   * gửi duyệt. Mỗi dòng phải có `batchId` (gửi duyệt đã tách dòng theo lô).
+   */
+  async consumeReserved(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: BatchConsumeLine[],
+  ): Promise<void> {
+    await this.applyToReserved(manager, warehouseId, lines, (quantity) => ({
+      remainingDelta: -quantity,
+      reservedDelta: -quantity,
+    }));
+  }
+
+  /** Huỷ phiếu `PENDING`: trả lại phần đã giữ trên từng lô (`reservedQuantity` giảm). */
+  async release(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: BatchConsumeLine[],
+  ): Promise<void> {
+    await this.applyToReserved(manager, warehouseId, lines, (quantity) => ({
+      reservedDelta: -quantity,
+    }));
+  }
+
+  private async applyToReserved(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: BatchConsumeLine[],
+    toChange: (quantity: number) => BatchChange,
+  ): Promise<void> {
+    await this.forEachMaterial(manager, warehouseId, lines, async (group, ordered, write) => {
+      for (const line of group) {
+        const batch = ordered.find(({ id }) => id === line.batchId);
+        if (!batch)
+          throw new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID);
+        write(batch, toChange(roundToScale(line.baseQuantity)));
+      }
+    });
+  }
+
+  /**
+   * Khung chung của mọi thay đổi lô từ phiếu xuất, trong transaction của caller:
+   *
+   * - Khoá (`FOR UPDATE`) mọi lô còn hàng của từng vật tư trong kho, vật tư xử lý theo thứ tự `id`
+   *   cố định — CẢ 3 luồng (giữ chỗ / xác nhận / huỷ) khoá cùng 1 kiểu nên không deadlock lẫn nhau.
+   *   Lô đang được giữ chỗ luôn còn hàng (`remaining >= reserved > 0`) nên nằm trong tập đã khoá.
+   *   Lọc bằng `Equal(id)` trên quan hệ để TypeORM so thẳng cột FK — `{ material: { id } }` sinh
+   *   LEFT JOIN và MySQL khoá luôn dòng vật tư/kho.
+   * - `handle` gom thay đổi qua `write`; cuối cùng kiểm bất biến
+   *   `0 <= reserved <= remaining` rồi ghi các lô có đổi, `status` theo `remaining`.
+   */
+  private async forEachMaterial(
+    manager: EntityManager,
+    warehouseId: string,
+    lines: BatchConsumeLine[],
+    handle: (
+      group: BatchConsumeLine[],
+      ordered: MaterialBatch[],
+      write: (batch: MaterialBatch, change: BatchChange) => void,
+    ) => Promise<void>,
+  ): Promise<void> {
+    const byMaterial = new Map<string, BatchConsumeLine[]>();
+    for (const line of lines) {
+      const group = byMaterial.get(line.materialId) ?? [];
+      group.push(line);
+      byMaterial.set(line.materialId, group);
+    }
+
+    const repository = manager.getRepository(MaterialBatch);
+    for (const materialId of [...byMaterial.keys()].sort()) {
+      const locked = await repository.find({
+        where: {
+          warehouse: Equal(warehouseId),
+          material: Equal(materialId),
+          status: MaterialBatchStatus.InStock,
+        },
+        lock: { mode: 'pessimistic_write' },
+      });
+      const ordered = [...locked].sort(compareFefo);
+      const next = new Map(
+        ordered.map((batch) => [
+          batch.id,
+          { remaining: batch.remainingQuantity, reserved: batch.reservedQuantity },
+        ]),
+      );
+      await handle(byMaterial.get(materialId)!, ordered, (batch, change) => {
+        const value = next.get(batch.id)!;
+        value.remaining = roundToScale(value.remaining + (change.remainingDelta ?? 0));
+        value.reserved = roundToScale(value.reserved + (change.reservedDelta ?? 0));
+      });
 
       for (const batch of ordered) {
-        const remainingQuantity = left.get(batch.id)!;
-        if (remainingQuantity === batch.remainingQuantity) continue;
-        const status = statusOfRemaining(remainingQuantity);
-        await repository.update({ id: batch.id }, { remainingQuantity, status });
-        batch.remainingQuantity = remainingQuantity;
+        const { remaining, reserved } = next.get(batch.id)!;
+        if (remaining === batch.remainingQuantity && reserved === batch.reservedQuantity) continue;
+        if (reserved < 0 || remaining < reserved)
+          throw new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID);
+        const status = statusOfRemaining(remaining);
+        await repository.update(
+          { id: batch.id },
+          { remainingQuantity: remaining, reservedQuantity: reserved, status },
+        );
+        batch.remainingQuantity = remaining;
+        batch.reservedQuantity = reserved;
         batch.status = status;
       }
     }
-    return result;
   }
 
   private async findWarehouse(slug: string): Promise<Warehouse> {

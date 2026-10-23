@@ -26,6 +26,7 @@ const batch = (overrides: Partial<MaterialBatch> = {}): MaterialBatch =>
     expiryDate: '2026-12-31',
     quantity: 10,
     remainingQuantity: 10,
+    reservedQuantity: 0,
     status: MaterialBatchStatus.InStock,
     createdAt: new Date('2026-01-01T00:00:00Z'),
     ...overrides,
@@ -86,14 +87,14 @@ describe('MaterialBatchService', () => {
     });
   });
 
-  describe('consume', () => {
-    const consume = (lines: Parameters<MaterialBatchService['consume']>[2]) =>
-      service.consume(manager as never, 'wh-1', lines);
+  describe('reserve', () => {
+    const reserve = (lines: Parameters<MaterialBatchService['reserve']>[2]) =>
+      service.reserve(manager as never, 'wh-1', lines);
 
     it('locks in-stock batches of the material by FK column (no join) with FOR UPDATE', async () => {
       txBatchRepository.find.mockResolvedValue([batch()]);
 
-      await consume([{ key: 'l1', materialId: 'mat-1', baseQuantity: 1 }]);
+      await reserve([{ key: 'l1', materialId: 'mat-1', baseQuantity: 1 }]);
 
       expect(txBatchRepository.find).toHaveBeenCalledWith({
         where: {
@@ -105,12 +106,12 @@ describe('MaterialBatchService', () => {
       });
     });
 
-    it('takes from the earliest-expiry batches first, across several batches', async () => {
+    it('holds from the earliest-expiry batches first without touching remainingQuantity', async () => {
       const late = batch({ id: 'late', expiryDate: '2027-01-01', remainingQuantity: 10 });
       const early = batch({ id: 'early', expiryDate: '2026-02-01', remainingQuantity: 4 });
       txBatchRepository.find.mockResolvedValue([late, early]);
 
-      const result = await consume([{ key: 'l1', materialId: 'mat-1', baseQuantity: 6.5 }]);
+      const result = await reserve([{ key: 'l1', materialId: 'mat-1', baseQuantity: 6.5 }]);
 
       expect(result.get('l1')).toEqual([
         { batch: early, baseQuantity: 4 },
@@ -118,12 +119,41 @@ describe('MaterialBatchService', () => {
       ]);
       expect(txBatchRepository.update).toHaveBeenCalledWith(
         { id: 'early' },
-        { remainingQuantity: 0, status: MaterialBatchStatus.OutOfStock },
+        { remainingQuantity: 4, reservedQuantity: 4, status: MaterialBatchStatus.InStock },
       );
       expect(txBatchRepository.update).toHaveBeenCalledWith(
         { id: 'late' },
-        { remainingQuantity: 7.5, status: MaterialBatchStatus.InStock },
+        { remainingQuantity: 10, reservedQuantity: 2.5, status: MaterialBatchStatus.InStock },
       );
+    });
+
+    it('only uses the free part (remaining - reserved) held by other PENDING forms', async () => {
+      const early = batch({
+        id: 'early',
+        expiryDate: '2026-02-01',
+        remainingQuantity: 10,
+        reservedQuantity: 8,
+      });
+      const late = batch({ id: 'late', expiryDate: '2027-01-01', remainingQuantity: 10 });
+      txBatchRepository.find.mockResolvedValue([early, late]);
+
+      const result = await reserve([{ key: 'l1', materialId: 'mat-1', baseQuantity: 5 }]);
+
+      expect(result.get('l1')).toEqual([
+        { batch: early, baseQuantity: 2 },
+        { batch: late, baseQuantity: 3 },
+      ]);
+    });
+
+    it('rejects a second form asking for what another form already holds', async () => {
+      txBatchRepository.find.mockResolvedValue([
+        batch({ id: 'b-1', remainingQuantity: 10, reservedQuantity: 10 }),
+      ]);
+
+      await expect(
+        reserve([{ key: 'l1', materialId: 'mat-1', baseQuantity: 1 }]),
+      ).rejects.toMatchObject({ code: MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT.code });
+      expect(txBatchRepository.update).not.toHaveBeenCalled();
     });
 
     it('serves lines with an explicit batch before FEFO lines', async () => {
@@ -132,7 +162,7 @@ describe('MaterialBatchService', () => {
       txBatchRepository.find.mockResolvedValue([early, late]);
 
       // FEFO line comes first in the array but must not eat the explicitly chosen batch.
-      const result = await consume([
+      const result = await reserve([
         { key: 'fefo', materialId: 'mat-1', baseQuantity: 5 },
         { key: 'pick', materialId: 'mat-1', baseQuantity: 5, batchId: 'early' },
       ]);
@@ -141,10 +171,12 @@ describe('MaterialBatchService', () => {
       expect(result.get('fefo')).toEqual([{ batch: late, baseQuantity: 5 }]);
     });
 
-    it('rejects when the chosen batch does not have enough left', async () => {
-      txBatchRepository.find.mockResolvedValue([batch({ id: 'b-1', remainingQuantity: 2 })]);
+    it('rejects when the chosen batch does not have enough free', async () => {
+      txBatchRepository.find.mockResolvedValue([
+        batch({ id: 'b-1', remainingQuantity: 5, reservedQuantity: 3 }),
+      ]);
 
-      const promise = consume([
+      const promise = reserve([
         { key: 'l1', materialId: 'mat-1', baseQuantity: 3, batchId: 'b-1' },
       ]);
 
@@ -159,7 +191,7 @@ describe('MaterialBatchService', () => {
       txBatchRepository.find.mockResolvedValue([batch({ id: 'other' })]);
 
       await expect(
-        consume([{ key: 'l1', materialId: 'mat-1', baseQuantity: 1, batchId: 'gone' }]),
+        reserve([{ key: 'l1', materialId: 'mat-1', baseQuantity: 1, batchId: 'gone' }]),
       ).rejects.toMatchObject({ code: MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT.code });
     });
 
@@ -170,7 +202,7 @@ describe('MaterialBatchService', () => {
       ]);
 
       await expect(
-        consume([{ key: 'l1', materialId: 'mat-1', baseQuantity: 2.000001 }]),
+        reserve([{ key: 'l1', materialId: 'mat-1', baseQuantity: 2.000001 }]),
       ).rejects.toMatchObject({ code: MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT.code });
       expect(txBatchRepository.update).not.toHaveBeenCalled();
     });
@@ -180,7 +212,7 @@ describe('MaterialBatchService', () => {
         batch({ id: `b-${where.material.value}` }),
       ]);
 
-      await consume([
+      await reserve([
         { key: 'l1', materialId: 'mat-b', baseQuantity: 1 },
         { key: 'l2', materialId: 'mat-a', baseQuantity: 1 },
       ]);
@@ -189,6 +221,63 @@ describe('MaterialBatchService', () => {
         'mat-a',
         'mat-b',
       ]);
+    });
+  });
+
+  describe('consumeReserved / release', () => {
+    it('confirm takes the held quantity out of remaining and reserved', async () => {
+      txBatchRepository.find.mockResolvedValue([
+        batch({ id: 'b-1', remainingQuantity: 4, reservedQuantity: 4 }),
+        batch({ id: 'b-2', remainingQuantity: 10, reservedQuantity: 3 }),
+      ]);
+
+      await service.consumeReserved(manager as never, 'wh-1', [
+        { key: 'l1', materialId: 'mat-1', baseQuantity: 4, batchId: 'b-1' },
+        { key: 'l2', materialId: 'mat-1', baseQuantity: 2, batchId: 'b-2' },
+      ]);
+
+      expect(txBatchRepository.update).toHaveBeenCalledWith(
+        { id: 'b-1' },
+        { remainingQuantity: 0, reservedQuantity: 0, status: MaterialBatchStatus.OutOfStock },
+      );
+      expect(txBatchRepository.update).toHaveBeenCalledWith(
+        { id: 'b-2' },
+        { remainingQuantity: 8, reservedQuantity: 1, status: MaterialBatchStatus.InStock },
+      );
+    });
+
+    it('cancel gives the held quantity back without touching remaining', async () => {
+      txBatchRepository.find.mockResolvedValue([
+        batch({ id: 'b-1', remainingQuantity: 10, reservedQuantity: 6 }),
+      ]);
+
+      await service.release(manager as never, 'wh-1', [
+        { key: 'l1', materialId: 'mat-1', baseQuantity: 6, batchId: 'b-1' },
+      ]);
+
+      expect(txBatchRepository.update).toHaveBeenCalledWith(
+        { id: 'b-1' },
+        { remainingQuantity: 10, reservedQuantity: 0, status: MaterialBatchStatus.InStock },
+      );
+    });
+
+    it('rejects a line whose batch is missing or holds less than the line', async () => {
+      txBatchRepository.find.mockResolvedValue([
+        batch({ id: 'b-1', remainingQuantity: 10, reservedQuantity: 1 }),
+      ]);
+      const code = MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID.code;
+
+      await expect(
+        service.consumeReserved(manager as never, 'wh-1', [
+          { key: 'l1', materialId: 'mat-1', baseQuantity: 1, batchId: 'gone' },
+        ]),
+      ).rejects.toMatchObject({ code });
+      await expect(
+        service.release(manager as never, 'wh-1', [
+          { key: 'l1', materialId: 'mat-1', baseQuantity: 2, batchId: 'b-1' },
+        ]),
+      ).rejects.toMatchObject({ code });
+      expect(txBatchRepository.update).not.toHaveBeenCalled();
     });
   });
 
@@ -211,6 +300,7 @@ describe('MaterialBatchService', () => {
           expiryDate: '2027-01-01',
           quantity: 100,
           remainingQuantity: 100,
+          reservedQuantity: 0,
           status: MaterialBatchStatus.InStock,
         },
         expect.objectContaining({ importFormItem: { id: 'i2' }, expiryDate: null, quantity: 0.5 }),
