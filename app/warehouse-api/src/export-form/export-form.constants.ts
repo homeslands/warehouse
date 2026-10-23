@@ -8,8 +8,13 @@ import {
  * - Chỉ `DRAFT` sửa/xoá được; `CONFIRMED`/`CANCELLED` bất biến (chặn ở service, không authority nào mở).
  * - Phiếu nháp KHÔNG giữ chỗ tồn/lô: chỉ lúc xác nhận mới kiểm và trừ, dưới khoá.
  */
+/**
+ * `DRAFT` --submit--> `PENDING` --confirm--> `CONFIRMED`; huỷ được từ `DRAFT` hoặc `PENDING`.
+ * Chỉ `PENDING` giữ chỗ tồn/lô (`reservedQuantity`); nháp không giữ gì nên sửa/xoá thoải mái.
+ */
 export enum ExportFormStatus {
   Draft = 'DRAFT',
+  Pending = 'PENDING',
   Confirmed = 'CONFIRMED',
   Cancelled = 'CANCELLED',
 }

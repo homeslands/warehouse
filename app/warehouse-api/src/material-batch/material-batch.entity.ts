@@ -9,8 +9,8 @@ import { MaterialBatchStatus } from './material-batch.constants';
 
 /**
  * 1 lô hàng = 1 dòng phiếu nhập đã xác nhận (`ImportFormService.decide` → `createFromImportItems`).
- * KHÔNG có API tạo/sửa/xoá: lô chỉ sinh ra khi xác nhận phiếu nhập và chỉ giảm khi xác nhận phiếu
- * xuất (`MaterialBatchService.consume`).
+ * KHÔNG có API tạo/sửa/xoá: lô chỉ sinh ra khi xác nhận phiếu nhập; phiếu xuất gửi duyệt giữ chỗ
+ * (`reservedQuantity`), xác nhận thì trừ `remainingQuantity` (`MaterialBatchService`).
  *
  * Kế thừa `Base` chứ không `VersionedBase`: như `Inventory`, chống ghi đè đồng thời bằng
  * pessimistic lock trong transaction, client không gửi `version`.
@@ -65,6 +65,21 @@ export class MaterialBatch extends Base {
     transformer: decimalToNumber,
   })
   remainingQuantity: number;
+
+  /**
+   * Lượng đang giữ chỗ cho phiếu xuất `PENDING` (đơn vị cơ sở), `0 <= reservedQuantity <=
+   * remainingQuantity`. Còn trống để giữ tiếp = `remainingQuantity - reservedQuantity`.
+   */
+  @AutoMap()
+  @Column({
+    name: 'reserved_quantity_column',
+    type: 'decimal',
+    precision: 18,
+    scale: 6,
+    default: 0,
+    transformer: decimalToNumber,
+  })
+  reservedQuantity: number;
 
   @AutoMap()
   @Column({ name: 'status_column', type: 'tinyint', default: MaterialBatchStatus.InStock })

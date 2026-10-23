@@ -98,6 +98,17 @@ export class MaterialBatchResponseDto extends BaseResponseDto {
   remainingQuantity: number;
 
   @AutoMap()
+  @ApiProperty({
+    description: 'Quantity held by PENDING export forms, in the material base unit',
+  })
+  reservedQuantity: number;
+
+  @ApiProperty({
+    description: 'remainingQuantity - reservedQuantity: what a new export form can still take',
+  })
+  availableQuantity: number;
+
+  @AutoMap()
   @ApiProperty({ enum: MaterialBatchStatus, description: '0 = out of stock, 1 = in stock' })
   status: MaterialBatchStatus;
 

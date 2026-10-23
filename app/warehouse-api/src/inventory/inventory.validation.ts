@@ -17,6 +17,7 @@ export const INVENTORY_RESERVED_NOT_EMPTY = 'INVENTORY_RESERVED_NOT_EMPTY';
 export const INVENTORY_NOTE_INVALID = 'INVENTORY_NOTE_INVALID';
 export const INVENTORY_MATERIAL_IS_REQUIRED = 'INVENTORY_MATERIAL_IS_REQUIRED';
 export const INVENTORY_SUPPLIER_SLUG_INVALID = 'INVENTORY_SUPPLIER_SLUG_INVALID';
+export const INVENTORY_AVAILABLE_INSUFFICIENT = 'INVENTORY_AVAILABLE_INSUFFICIENT';
 
 export type TInventoryErrorCodeKey =
   | typeof INVENTORY_NOT_FOUND
@@ -34,7 +35,8 @@ export type TInventoryErrorCodeKey =
   | typeof INVENTORY_RESERVED_NOT_EMPTY
   | typeof INVENTORY_NOTE_INVALID
   | typeof INVENTORY_MATERIAL_IS_REQUIRED
-  | typeof INVENTORY_SUPPLIER_SLUG_INVALID;
+  | typeof INVENTORY_SUPPLIER_SLUG_INVALID
+  | typeof INVENTORY_AVAILABLE_INSUFFICIENT;
 
 export type TInventoryErrorCode = Record<TInventoryErrorCodeKey, TErrorCodeValue>;
 
@@ -106,5 +108,10 @@ export const InventoryValidation: TInventoryErrorCode = {
     100816,
     'supplierSlug must be a non-empty string',
     HttpStatus.BAD_REQUEST,
+  ),
+  INVENTORY_AVAILABLE_INSUFFICIENT: createErrorCode(
+    100817,
+    'Not enough available stock (quantity - reserved) in the warehouse',
+    HttpStatus.CONFLICT,
   ),
 };

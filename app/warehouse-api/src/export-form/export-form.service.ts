@@ -38,7 +38,11 @@ import { Inventory } from 'src/inventory/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { MaterialBatch } from 'src/material-batch/material-batch.entity';
 import { MaterialBatchStatus } from 'src/material-batch/material-batch.constants';
-import { BatchAllocation, MaterialBatchService } from 'src/material-batch/material-batch.service';
+import {
+  BatchAllocation,
+  BatchConsumeLine,
+  MaterialBatchService,
+} from 'src/material-batch/material-batch.service';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import {
@@ -266,101 +270,199 @@ export class ExportFormService {
     return 1;
   }
 
-  confirmExportForm(
-    warehouseSlug: string,
-    slug: string,
-    dto: ChangeExportFormStatusRequestDto,
-    currentUser: CurrentUserDto,
-  ): Promise<ExportFormResponseDto> {
-    return this.decide(warehouseSlug, slug, dto, currentUser, ExportFormStatus.Confirmed);
-  }
-
-  cancelExportForm(
-    warehouseSlug: string,
-    slug: string,
-    dto: ChangeExportFormStatusRequestDto,
-    currentUser: CurrentUserDto,
-  ): Promise<ExportFormResponseDto> {
-    return this.decide(warehouseSlug, slug, dto, currentUser, ExportFormStatus.Cancelled);
-  }
-
   /**
-   * `DRAFT` → `CONFIRMED`/`CANCELLED`, người quyết định ghi vào `approver`. Xác nhận, trong 1
-   * transaction: trừ lô (chỉ định / FEFO) → tách dòng theo lô → trừ tồn kho → đổi trạng thái.
-   * Lỗi ở bất kỳ bước nào (thiếu lô, thiếu tồn) thì rollback hết. Huỷ không đụng tồn/lô — phiếu
-   * nháp không giữ chỗ gì.
+   * `DRAFT` → `PENDING`, 1 transaction: khoá phiếu → giữ chỗ trên lô (chỉ định / FEFO trên phần còn
+   * trống) → tách dòng theo lô → giữ chỗ tồn kho → đổi trạng thái. Thiếu lô/tồn ⇒ rollback hết, phiếu
+   * vẫn là nháp. Quyền như sửa nháp (bản đầy đủ HOẶC `_OWN`) — gửi duyệt là việc của người lập.
    */
-  private async decide(
+  async submitExportForm(
     warehouseSlug: string,
     slug: string,
     dto: ChangeExportFormStatusRequestDto,
     currentUser: CurrentUserDto,
-    status: ExportFormStatus.Confirmed | ExportFormStatus.Cancelled,
   ): Promise<ExportFormResponseDto> {
-    const context = `${ExportFormService.name}.${this.decide.name}`;
+    const context = `${ExportFormService.name}.${this.submitExportForm.name}`;
     const form = await this.findForm(warehouseSlug, slug, dto.version);
     this.assertIsDraft(form);
-    // Xuất huỷ cần thêm quyền duyệt riêng — phụ thuộc dữ liệu phiếu nên guard không kiểm được.
-    if (status === ExportFormStatus.Confirmed && form.type === ExportFormType.Disposal)
-      this.assertHasAny(currentUser, [AuthorityCode.ExportFormApproveDisposal]);
-
-    const approver = await this.findUser(currentUser.userId);
-    const items = form.items ?? [];
+    this.assertCanModify(
+      form,
+      currentUser,
+      AuthorityCode.ExportFormUpdateDraft,
+      AuthorityCode.ExportFormUpdateDraftOwn,
+    );
+    const items = this.assertItemsHaveMaterial(form);
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
-      // Khoá đầu phiếu rồi kiểm lại trạng thái + version trên bản ĐÃ KHOÁ (xem `ImportFormService`):
-      // 2 request xác nhận đồng thời không được trừ tồn 2 lần.
-      const locked = await manager.findOne(ExportForm, {
-        where: { id: form.id },
-        lock: { mode: 'pessimistic_write' },
-      });
-      if (!locked) throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_FOUND);
-      this.assertIsDraft(locked);
-      if (locked.version !== form.version)
-        throw new OptimisticLockVersionMismatchError(ExportForm.name, form.version, locked.version);
+      await this.lockForm(manager, form, [ExportFormStatus.Draft], 'EXPORT_FORM_NOT_DRAFT');
 
-      if (status === ExportFormStatus.Confirmed) {
-        for (const item of items)
-          // Vật tư bị xoá mềm sau khi ghi dòng ⇒ relation không load được.
-          if (!item.material)
-            throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_MATERIAL_NOT_FOUND);
+      const allocations = await this.materialBatchService.reserve(
+        manager,
+        form.warehouse.id,
+        this.toBatchLines(items),
+      );
+      // Giữ chỗ tồn TRƯỚC khi tách dòng: tách dòng sửa `baseQuantity` của dòng gốc tại chỗ.
+      await this.inventoryService.reserve(
+        manager,
+        form.warehouse.id,
+        this.toInventoryLines(items),
+        currentUser,
+        `Export form ${form.code} submitted`,
+      );
+      const split = await this.splitItemsByBatch(manager, form, items, allocations);
 
-        const allocations = await this.materialBatchService.consume(
-          manager,
-          form.warehouse.id,
-          items.map((item) => ({
-            key: item.id,
-            materialId: item.material.id,
-            baseQuantity: item.baseQuantity,
-            batchId: item.batch?.id ?? null,
-          })),
-        );
-        // Trừ tồn TRƯỚC khi tách dòng: tách dòng sửa `baseQuantity` của dòng gốc tại chỗ.
-        await this.inventoryService.issue(
-          manager,
-          form.warehouse.id,
-          items.map((item) => ({ materialId: item.material.id, quantity: item.baseQuantity })),
-          currentUser,
-          `Export form ${form.code}`,
-        );
-        form.items = await this.splitItemsByBatch(manager, form, items, allocations);
-      }
-
-      const responseItems = form.items;
       form.items = undefined;
-      form.status = status;
-      form.approver = approver;
-      form.approverName = fullName(approver);
+      form.status = ExportFormStatus.Pending;
       const saved = await manager.save(form);
-      saved.items = responseItems;
+      saved.items = split;
       return saved;
     });
-    this.logger.log(`Export form ${form.id} -> ${status}`, context);
+    this.logger.log(`Export form ${form.id} -> ${ExportFormStatus.Pending}`, context);
     return this.mapper.map(updated, ExportForm, ExportFormResponseDto);
   }
 
   /**
-   * Gán lô cho từng dòng theo kết quả `consume`. Dòng lấy từ đúng 1 lô giữ nguyên, chỉ gán `batch`.
+   * `PENDING` → `CONFIRMED`, 1 transaction: trừ đúng các lô đã giữ chỗ (cả `remaining` lẫn
+   * `reserved`) → trừ tồn kho kèm phần giữ chỗ (lịch sử `EXPORT`). Không chọn lại lô, không tách
+   * dòng — việc đó xong lúc gửi duyệt.
+   */
+  async confirmExportForm(
+    warehouseSlug: string,
+    slug: string,
+    dto: ChangeExportFormStatusRequestDto,
+    currentUser: CurrentUserDto,
+  ): Promise<ExportFormResponseDto> {
+    const context = `${ExportFormService.name}.${this.confirmExportForm.name}`;
+    const form = await this.findForm(warehouseSlug, slug, dto.version);
+    if (form.status !== ExportFormStatus.Pending)
+      throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_PENDING);
+    // Xuất huỷ cần thêm quyền duyệt riêng — phụ thuộc dữ liệu phiếu nên guard không kiểm được.
+    if (form.type === ExportFormType.Disposal)
+      this.assertHasAny(currentUser, [AuthorityCode.ExportFormApproveDisposal]);
+    const items = this.assertItemsHaveMaterial(form);
+    const approver = await this.findUser(currentUser.userId);
+
+    const updated = await this.transactionManagerService.execute(async (manager) => {
+      await this.lockForm(manager, form, [ExportFormStatus.Pending], 'EXPORT_FORM_NOT_PENDING');
+      await this.materialBatchService.consumeReserved(
+        manager,
+        form.warehouse.id,
+        this.toBatchLines(items),
+      );
+      await this.inventoryService.issue(
+        manager,
+        form.warehouse.id,
+        this.toInventoryLines(items),
+        currentUser,
+        `Export form ${form.code}`,
+        { fromReserved: true },
+      );
+      return this.saveDecision(manager, form, ExportFormStatus.Confirmed, approver);
+    });
+    this.logger.log(`Export form ${form.id} -> ${ExportFormStatus.Confirmed}`, context);
+    return this.mapper.map(updated, ExportForm, ExportFormResponseDto);
+  }
+
+  /**
+   * `DRAFT`/`PENDING` → `CANCELLED`. Nháp không giữ gì nên chỉ đổi trạng thái; `PENDING` trả lại
+   * phần đã giữ trên lô và tồn kho (lịch sử `RELEASE`) trong cùng transaction.
+   */
+  async cancelExportForm(
+    warehouseSlug: string,
+    slug: string,
+    dto: ChangeExportFormStatusRequestDto,
+    currentUser: CurrentUserDto,
+  ): Promise<ExportFormResponseDto> {
+    const context = `${ExportFormService.name}.${this.cancelExportForm.name}`;
+    const form = await this.findForm(warehouseSlug, slug, dto.version);
+    const cancellable = [ExportFormStatus.Draft, ExportFormStatus.Pending];
+    if (!cancellable.includes(form.status))
+      throw new ExportFormException(ExportFormValidation.EXPORT_FORM_CANNOT_BE_CANCELLED);
+    const approver = await this.findUser(currentUser.userId);
+
+    const updated = await this.transactionManagerService.execute(async (manager) => {
+      await this.lockForm(manager, form, [form.status], 'EXPORT_FORM_CANNOT_BE_CANCELLED');
+      if (form.status === ExportFormStatus.Pending) {
+        const items = this.assertItemsHaveMaterial(form);
+        await this.materialBatchService.release(
+          manager,
+          form.warehouse.id,
+          this.toBatchLines(items),
+        );
+        await this.inventoryService.release(
+          manager,
+          form.warehouse.id,
+          this.toInventoryLines(items),
+          currentUser,
+          `Export form ${form.code} cancelled`,
+        );
+      }
+      return this.saveDecision(manager, form, ExportFormStatus.Cancelled, approver);
+    });
+    this.logger.log(`Export form ${form.id} -> ${ExportFormStatus.Cancelled}`, context);
+    return this.mapper.map(updated, ExportForm, ExportFormResponseDto);
+  }
+
+  /**
+   * Khoá đầu phiếu rồi kiểm lại trạng thái + version trên bản ĐÃ KHOÁ (xem `ImportFormService`):
+   * 2 request đồng thời không được giữ chỗ / trừ tồn 2 lần.
+   */
+  private async lockForm(
+    manager: EntityManager,
+    form: ExportForm,
+    expected: ExportFormStatus[],
+    error: keyof typeof ExportFormValidation,
+  ): Promise<void> {
+    const locked = await manager.findOne(ExportForm, {
+      where: { id: form.id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!locked) throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_FOUND);
+    if (!expected.includes(locked.status))
+      throw new ExportFormException(ExportFormValidation[error]);
+    if (locked.version !== form.version)
+      throw new OptimisticLockVersionMismatchError(ExportForm.name, form.version, locked.version);
+  }
+
+  private async saveDecision(
+    manager: EntityManager,
+    form: ExportForm,
+    status: ExportFormStatus.Confirmed | ExportFormStatus.Cancelled,
+    approver: User,
+  ): Promise<ExportForm> {
+    const responseItems = form.items;
+    form.items = undefined;
+    form.status = status;
+    form.approver = approver;
+    form.approverName = fullName(approver);
+    const saved = await manager.save(form);
+    saved.items = responseItems;
+    return saved;
+  }
+
+  /** Vật tư bị xoá mềm sau khi ghi dòng ⇒ relation không load được. */
+  private assertItemsHaveMaterial(form: ExportForm): ExportFormItem[] {
+    const items = form.items ?? [];
+    for (const item of items)
+      if (!item.material)
+        throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_MATERIAL_NOT_FOUND);
+    return items;
+  }
+
+  private toBatchLines(items: ExportFormItem[]): BatchConsumeLine[] {
+    return items.map((item) => ({
+      key: item.id,
+      materialId: item.material.id,
+      baseQuantity: item.baseQuantity,
+      batchId: item.batch?.id ?? null,
+    }));
+  }
+
+  private toInventoryLines(items: ExportFormItem[]) {
+    return items.map((item) => ({ materialId: item.material.id, quantity: item.baseQuantity }));
+  }
+
+  /**
+   * Gán lô cho từng dòng theo kết quả `reserve`. Dòng lấy từ đúng 1 lô giữ nguyên, chỉ gán `batch`.
    * Dòng lấy từ N lô bị tách: phần đầu ghi đè lên dòng cũ, N-1 phần sau là dòng mới (cùng vật tư,
    * đơn vị, đơn giá, tỉ lệ). `quantity`/`amount` của từng phần tính theo lượng lấy; phần CUỐI nhận
    * phần dư để tổng số lượng và tổng tiền của dòng gốc giữ nguyên tuyệt đối (không lệch do làm
@@ -448,7 +550,7 @@ export class ExportFormService {
    * Dựng dòng phiếu từ body: resolve vật tư (1 query), kiểm đơn vị thuộc vật tư, vật tư đã gán vào
    * kho, lô chỉ định (nếu có) thuộc kho + vật tư và còn hàng; snapshot tỉ lệ + mã/tên; tính
    * `baseQuantity`/`amount` và `total`. KHÔNG kiểm đủ tồn/lô ở đây — phiếu nháp không giữ chỗ, việc
-   * đó làm dưới khoá lúc xác nhận.
+   * đó làm dưới khoá lúc gửi duyệt (`submitExportForm`).
    */
   private async buildItems(
     dtos: CreateExportFormItemDto[],
