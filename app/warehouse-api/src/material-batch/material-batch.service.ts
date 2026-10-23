@@ -25,7 +25,7 @@ import { buildSortOrder } from 'src/shared/utils/query.util';
 
 /** Quan hệ đủ để dựng response (không `eager`). */
 const RELATIONS = {
-  material: true,
+  material: { type: true, baseUnit: true },
   warehouse: true,
   importFormItem: { importForm: true },
 } as const;
