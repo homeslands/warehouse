@@ -5,6 +5,8 @@ import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { IMPORT_FORM_DATE_REGEX } from 'src/import-form/import-form.constants';
 import { MaterialBatchStatus } from './material-batch.constants';
+import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
+import { UnitResponseDto } from 'src/unit/unit.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -56,6 +58,28 @@ export class GetAllMaterialBatchRequestDto extends BaseQueryDto {
   sortBy?: MaterialBatchSortBy = MaterialBatchSortBy.CreatedAt;
 }
 
+/** Vật tư của lô, kèm loại và đơn vị cơ sở (đơn vị của `quantity`/`remainingQuantity`). */
+export class MaterialBatchMaterialResponseDto {
+  @ApiProperty()
+  slug: string;
+
+  @ApiProperty()
+  code: string;
+
+  @ApiProperty()
+  name: string;
+
+  @ApiPropertyOptional({ type: MaterialTypeResponseDto, description: 'Material type' })
+  type?: MaterialTypeResponseDto | null;
+
+  @ApiPropertyOptional({
+    type: UnitResponseDto,
+    nullable: true,
+    description: 'Base unit — the unit of quantity/remainingQuantity. null if not set',
+  })
+  baseUnit?: UnitResponseDto | null;
+}
+
 export class MaterialBatchResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty({ example: '2026-10-12' })
@@ -85,6 +109,9 @@ export class MaterialBatchResponseDto extends BaseResponseDto {
 
   @ApiProperty()
   materialName: string;
+
+  @ApiProperty({ type: MaterialBatchMaterialResponseDto })
+  material: MaterialBatchMaterialResponseDto;
 
   @ApiProperty()
   warehouseSlug: string;

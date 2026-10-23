@@ -15,6 +15,8 @@ import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { ImportForm } from 'src/import-form/import-form.entity';
 import { ImportFormItem } from 'src/import-form/import-form-item.entity';
+import { UnitProfile } from 'src/unit/unit.mapper';
+import { MaterialTypeProfile } from 'src/material-type/material-type.mapper';
 
 const batch = (overrides: Partial<MaterialBatch> = {}): MaterialBatch =>
   ({
@@ -48,6 +50,8 @@ describe('MaterialBatchService', () => {
       providers: [
         MaterialBatchService,
         MaterialBatchProfile,
+        UnitProfile,
+        MaterialTypeProfile,
         { provide: getRepositoryToken(MaterialBatch), useValue: batchRepository },
         { provide: getRepositoryToken(Warehouse), useValue: warehouseRepository },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
@@ -225,7 +229,13 @@ describe('MaterialBatchService', () => {
       batchRepository.findAndCount.mockResolvedValue([
         [
           batch({
-            material: { slug: 'mat-slug', code: 'M-1', name: 'Mat' },
+            material: {
+              slug: 'mat-slug',
+              code: 'M-1',
+              name: 'Mat',
+              type: { slug: 'type-slug', code: 'XD', name: 'Xay dung' },
+              baseUnit: { slug: 'kg', code: 'KG', name: 'Kilogram' },
+            },
             warehouse: { slug: 'wh-slug' },
             importFormItem: { importForm: { slug: 'pn-slug', code: 'PN-1' } },
           } as unknown as Partial<MaterialBatch>),
@@ -260,6 +270,13 @@ describe('MaterialBatchService', () => {
         warehouseSlug: 'wh-slug',
         importFormSlug: 'pn-slug',
         importFormCode: 'PN-1',
+        material: {
+          slug: 'mat-slug',
+          code: 'M-1',
+          name: 'Mat',
+          type: { slug: 'type-slug', code: 'XD', name: 'Xay dung' },
+          baseUnit: { slug: 'kg', code: 'KG', name: 'Kilogram' },
+        },
       });
       expect(result.items[0]).not.toHaveProperty('id');
     });
