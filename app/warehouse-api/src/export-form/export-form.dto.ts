@@ -359,7 +359,7 @@ export class ExportFormResponseDto extends VersionedResponseDto {
 
   @ApiPropertyOptional({
     type: () => [ExportFormItemResponseDto],
-    description: 'Material lines. Omitted in the list endpoint.',
+    description: 'Material lines, ordered by lineNo',
   })
   items?: ExportFormItemResponseDto[];
 }

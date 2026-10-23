@@ -340,6 +340,53 @@ describe('ExportFormService', () => {
     });
   });
 
+  describe('findAll', () => {
+    it('returns each form with its material lines', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      const item = {
+        id: 'item-1',
+        slug: 'item-slug',
+        lineNo: 1,
+        material: cement,
+        materialCode: 'XM-01',
+        materialName: 'Xi mang',
+        unit: bag,
+        unitCode: 'BAO',
+        unitName: 'Bao',
+        batch: stockBatch(),
+        quantity: 2,
+        conversionRate: 50,
+        baseQuantity: 100,
+        unitPrice: 400,
+        amount: 800,
+        createdAt: new Date('2026-10-12T00:00:00Z'),
+        updatedAt: new Date('2026-10-12T00:00:00Z'),
+      } as unknown as ExportFormItem;
+      exportFormRepository.findAndCount.mockResolvedValue([[draft({ items: [item] })], 1]);
+
+      const result = await service.findAll('wh-slug', { page: 1, size: 10 } as never);
+
+      expect(exportFormRepository.findAndCount).toHaveBeenCalledWith(
+        expect.objectContaining({
+          relations: expect.objectContaining({
+            items: { material: true, unit: true, batch: true },
+          }),
+          order: expect.objectContaining({ items: { lineNo: 'ASC' } }),
+        }),
+      );
+      expect(result.items[0].items).toEqual([
+        expect.objectContaining({
+          lineNo: 1,
+          materialSlug: 'cement',
+          unitSlug: 'bag',
+          batchSlug: 'batch-slug',
+          quantity: 2,
+          amount: 800,
+        }),
+      ]);
+    });
+  });
+
   describe('deleteExportForm', () => {
     it('soft removes a DRAFT the user may delete', async () => {
       const form = draft();

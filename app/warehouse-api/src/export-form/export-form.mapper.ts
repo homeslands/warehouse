@@ -98,7 +98,7 @@ export class ExportFormProfile extends AutomapperProfile {
           (d) => d.warehouseSlug,
           mapFrom((s) => s.warehouse?.slug),
         ),
-        // `items` chỉ có khi đã load relation (list cố ý không load) — không load thì bỏ hẳn field.
+        // `items` chỉ có khi đã load relation — không load thì bỏ hẳn field.
         forMember(
           (d) => d.items,
           mapFrom((s) =>
