@@ -33,6 +33,7 @@ import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { S3Service } from 'src/file/s3/s3.service';
 import { FileValidation } from 'src/file/file.validation';
 import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+import { MaterialBatchService } from 'src/material-batch/material-batch.service';
 
 // Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
 jest.mock('src/material/material-supplier.util');
@@ -58,6 +59,7 @@ describe('ImportFormService', () => {
   // Rollback thật do `TransactionManagerService` lo (xem `transaction-manager.service.spec.ts`).
   const manager = { save: jest.fn(), delete: jest.fn(), findOne: jest.fn() };
   const inventoryService = { receive: jest.fn() };
+  const materialBatchService = { createFromImportItems: jest.fn() };
   const transactionManager = { execute: jest.fn() };
   const s3Service = { uploadFile: jest.fn(), getFileUrl: jest.fn() };
 
@@ -150,6 +152,7 @@ describe('ImportFormService', () => {
         { provide: TransactionManagerService, useValue: transactionManager },
         { provide: InventoryService, useValue: inventoryService },
         { provide: S3Service, useValue: s3Service },
+        { provide: MaterialBatchService, useValue: materialBatchService },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
       ],
@@ -489,6 +492,58 @@ describe('ImportFormService', () => {
         where: { code: 'PN-0001' },
         withDeleted: true,
       });
+    });
+  });
+
+  describe('item expiry date', () => {
+    beforeEach(() => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      importFormRepository.findOne.mockResolvedValue(null);
+      userRepository.findOneBy.mockResolvedValue(requester);
+      materialRepository.find.mockResolvedValue([cement]);
+    });
+
+    const withExpiry = (expiryDate?: string): CreateImportFormRequestDto => ({
+      ...createDto,
+      items: [{ materialSlug: 'cement', unitSlug: 'bag', quantity: 1, unitPrice: 1, expiryDate }],
+    });
+
+    it('copies expiryDate to the line (null when omitted)', async () => {
+      await service.createImportForm('wh-slug', withExpiry('2027-01-01'), actor());
+      expect(manager.save.mock.calls[0][0].items[0].expiryDate).toBe('2027-01-01');
+
+      manager.save.mockClear();
+      await service.createImportForm('wh-slug', withExpiry(undefined), actor());
+      expect(manager.save.mock.calls[0][0].items[0].expiryDate).toBeNull();
+    });
+
+    it('accepts an expiry date equal to the form date', async () => {
+      await expect(
+        service.createImportForm('wh-slug', withExpiry('2026-10-12'), actor()),
+      ).resolves.toBeDefined();
+    });
+
+    it('rejects an expiry date before the form date', async () => {
+      await expectError(
+        service.createImportForm('wh-slug', withExpiry('2026-10-11'), actor()),
+        ImportFormValidation.IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID.code,
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+    });
+
+    it('PATCH moving the form date after an existing line expiry is rejected', async () => {
+      const items = [{ id: 'i1', expiryDate: '2026-10-20' }] as ImportFormItem[];
+      importFormRepository.findOne.mockResolvedValue(draft({ items }));
+
+      await expectError(
+        service.updateImportForm(
+          'wh-slug',
+          'form-slug',
+          { version: 1, date: '2026-10-21' },
+          actor([AuthorityCode.ImportFormUpdateDraft]),
+        ),
+        ImportFormValidation.IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID.code,
+      );
     });
   });
 
@@ -1167,12 +1222,25 @@ describe('ImportFormService', () => {
       );
     });
 
-    it('cancel does not touch the stock', async () => {
+    it('confirm creates 1 batch per line after adding the stock, in the same transaction', async () => {
+      const form = draft({ items: lines });
+      importFormRepository.findOne.mockResolvedValue(form);
+
+      await service.confirmImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2'));
+
+      expect(materialBatchService.createFromImportItems).toHaveBeenCalledWith(manager, form, lines);
+      expect(inventoryService.receive.mock.invocationCallOrder[0]).toBeLessThan(
+        materialBatchService.createFromImportItems.mock.invocationCallOrder[0],
+      );
+    });
+
+    it('cancel does not touch the stock nor create batches', async () => {
       importFormRepository.findOne.mockResolvedValue(draft({ items: lines }));
 
       await service.cancelImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2'));
 
       expect(inventoryService.receive).not.toHaveBeenCalled();
+      expect(materialBatchService.createFromImportItems).not.toHaveBeenCalled();
     });
 
     it('propagates an inventory error (material not in warehouse) so the transaction rolls back', async () => {

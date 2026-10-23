@@ -1,10 +1,11 @@
-import { Column, Entity, JoinColumn, ManyToOne, Unique } from 'typeorm';
+import { Column, Entity, JoinColumn, ManyToOne, OneToMany, Unique } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { Base } from 'src/app/base.entity';
 import { Material } from 'src/material/material.entity';
 import { Unit } from 'src/unit/unit.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 import { ImportForm } from './import-form.entity';
+import { MaterialBatch } from 'src/material-batch/material-batch.entity';
 
 /**
  * 1 dòng vật tư của phiếu nhập. Chỉ ghi qua API của phiếu cha, không có API riêng.
@@ -136,4 +137,16 @@ export class ImportFormItem extends Base {
   @AutoMap()
   @Column({ name: 'note_column', type: 'text', nullable: true })
   note?: string | null;
+
+  /**
+   * Hạn dùng (`YYYY-MM-DD`) của hàng trên dòng này, không bắt buộc. Xác nhận phiếu chép nó sang lô
+   * (`MaterialBatch.expiryDate`) sinh từ dòng.
+   */
+  @AutoMap()
+  @Column({ name: 'expiry_date_column', type: 'date', nullable: true })
+  expiryDate?: string | null;
+
+  /** Lô sinh ra khi phiếu được xác nhận (1 dòng ⇒ 1 lô). Không cascade — lô do `MaterialBatchService` ghi. */
+  @OneToMany(() => MaterialBatch, (batch) => batch.importFormItem)
+  batches?: MaterialBatch[];
 }

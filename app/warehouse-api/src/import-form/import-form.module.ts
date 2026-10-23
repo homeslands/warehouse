@@ -12,6 +12,7 @@ import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { DbModule } from 'src/db/db.module';
 import { InventoryModule } from 'src/inventory/inventory.module';
 import { Inventory } from 'src/inventory/inventory.entity';
+import { MaterialBatchModule } from 'src/material-batch/material-batch.module';
 
 @Module({
   // Kho/nhà cung cấp/user/vật tư chỉ cần tra theo slug/id ⇒ đăng ký entity thay vì import module
@@ -31,6 +32,7 @@ import { Inventory } from 'src/inventory/inventory.entity';
     ]),
     DbModule,
     InventoryModule,
+    MaterialBatchModule,
   ],
   controllers: [ImportFormController],
   providers: [ImportFormService, ImportFormProfile],
