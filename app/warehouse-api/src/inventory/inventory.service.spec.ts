@@ -6,6 +6,8 @@ import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { InventoryService } from './inventory.service';
 import { InventoryProfile } from './inventory.mapper';
+import { UnitProfile } from 'src/unit/unit.mapper';
+import { MaterialProfile } from 'src/material/material.mapper';
 import { Inventory } from './inventory.entity';
 import { InventoryHistory } from './inventory-history.entity';
 import { InventoryHistoryAction } from './inventory.constants';
@@ -35,6 +37,29 @@ const material = (overrides: Partial<Material> = {}): Material =>
     code: 'MAT-001',
     name: 'Găng tay',
     type: { id: 'type-id-1', slug: 'type-slug-1', name: 'Tiêu hao' },
+    baseUnit: { id: 'unit-id-1', slug: 'unit-slug-1', code: 'DOI', name: 'Đôi' },
+    unitsCanHave: [
+      {
+        materialId: 'mat-id-1',
+        unitId: 'unit-id-3',
+        unit: { id: 'unit-id-3', slug: 'unit-slug-3', code: 'THUNG', name: 'Thùng' },
+        conversionRate: 100,
+      },
+      {
+        materialId: 'mat-id-1',
+        unitId: 'unit-id-2',
+        unit: { id: 'unit-id-2', slug: 'unit-slug-2', code: 'HOP', name: 'Hộp' },
+        conversionRate: 10,
+      },
+      {
+        materialId: 'mat-id-1',
+        unitId: 'unit-id-1',
+        unit: { id: 'unit-id-1', slug: 'unit-slug-1', code: 'DOI', name: 'Đôi' },
+        conversionRate: 1,
+      },
+      // Đơn vị đã xoá mềm ⇒ relation null, bị bỏ khỏi response.
+      { materialId: 'mat-id-1', unitId: 'unit-id-9', unit: null, conversionRate: 5 },
+    ],
     minimumInventory: 10,
     maximumInventory: 100,
     ...overrides,
@@ -102,6 +127,8 @@ describe('InventoryService', () => {
       providers: [
         InventoryService,
         InventoryProfile,
+        UnitProfile,
+        MaterialProfile,
         {
           provide: getRepositoryToken(Inventory),
           useValue: inventoryRepository,
@@ -223,10 +250,23 @@ describe('InventoryService', () => {
     it('creates the row and falls back to the material thresholds when no override is given', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      inventoryRepository.findOne.mockResolvedValue(null);
+      // 1: tra trùng (chưa gán) — 2: đọc lại dòng vừa ghi kèm relations để dựng response.
+      inventoryRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(row({ quantity: 5 }));
       inventoryRepository.create.mockImplementation((data) => data);
 
       const result = await assign({ quantity: 5 });
+
+      expect(inventoryRepository.findOne).toHaveBeenLastCalledWith(
+        expect.objectContaining({
+          where: { warehouse: { slug: 'wh-slug-1' }, material: { slug: 'mat-slug-1' } },
+          relations: expect.objectContaining({
+            material: expect.objectContaining({ unitsCanHave: { unit: true } }),
+          }),
+        }),
+      );
+      expect(result.units.map((unit) => unit.unitCode)).toEqual(['DOI', 'HOP', 'THUNG']);
 
       expect(result).toMatchObject({
         quantity: 5,
@@ -246,7 +286,7 @@ describe('InventoryService', () => {
     it('writes the row and an ASSIGN history entry in the same transaction', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      inventoryRepository.findOne.mockResolvedValue(null);
+      inventoryRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(row());
       inventoryRepository.create.mockImplementation((data) => ({ id: 'wm-id-1', ...data }));
 
       await assign({ quantity: 5 });
@@ -558,7 +598,10 @@ describe('InventoryService', () => {
       const options = inventoryRepository.findAndCount.mock.calls[0][0];
       expect(options).toMatchObject({
         where: { warehouse: { id: 'wh-id-1' }, material: { type: { slug: 'type-slug-1' } } },
-        relations: { warehouse: true, material: { type: true } },
+        relations: {
+          warehouse: true,
+          material: { type: true, baseUnit: true, unitsCanHave: { unit: true } },
+        },
         order: { createdAt: 'DESC' },
         skip: 0,
         take: 10,
@@ -566,6 +609,39 @@ describe('InventoryService', () => {
       expect(options.where.material.minimumInventory).toBeUndefined();
       expect(options.where.material.maximumInventory).toBeUndefined();
       expect(result).toMatchObject({ total: 11, totalPages: 2, hasNext: true, hasPrevios: false });
+      expect(result.items[0].baseUnit).toMatchObject({
+        slug: 'unit-slug-1',
+        code: 'DOI',
+        name: 'Đôi',
+      });
+      expect(result.items[0].baseUnit).not.toHaveProperty('id');
+      expect(
+        result.items[0].units.map(({ unitCode, conversionRate, isBaseUnit }) => ({
+          unitCode,
+          conversionRate,
+          isBaseUnit,
+        })),
+      ).toEqual([
+        { unitCode: 'DOI', conversionRate: 1, isBaseUnit: true },
+        { unitCode: 'HOP', conversionRate: 10, isBaseUnit: false },
+        { unitCode: 'THUNG', conversionRate: 100, isBaseUnit: false },
+      ]);
+      expect(result.items[0].units[0]).toMatchObject({
+        unitSlug: 'unit-slug-1',
+        unit: { slug: 'unit-slug-1', code: 'DOI', name: 'Đôi' },
+      });
+    });
+
+    it('returns baseUnit null for a material without a base unit', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse());
+      inventoryRepository.findAndCount.mockResolvedValue([
+        [row({ material: material({ baseUnit: undefined }) })],
+        1,
+      ]);
+
+      const result = await service.findAll('wh-slug-1', page);
+
+      expect(result.items[0].baseUnit).toBeNull();
     });
 
     // Phải so với ngưỡng EFFECTIVE (override ?? mặc định của material), không phải chỉ override.

@@ -14,7 +14,11 @@ import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { InventoryHistoryAction } from './inventory.constants';
-import { CreateMaterialRequestDto } from 'src/material/material.dto';
+import {
+  CreateMaterialRequestDto,
+  MaterialConversionUnitResponseDto,
+} from 'src/material/material.dto';
+import { UnitResponseDto } from 'src/unit/unit.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -217,6 +221,23 @@ export class InventoryResponseDto extends BaseResponseDto {
 
   @ApiPropertyOptional({ description: 'Material type name' })
   typeName?: string;
+
+  @ApiPropertyOptional({
+    type: UnitResponseDto,
+    nullable: true,
+    description:
+      'Base unit of the material — the unit of quantity/reservedQuantity/availableQuantity and ' +
+      'the thresholds. null if the material has no base unit yet',
+  })
+  baseUnit?: UnitResponseDto | null;
+
+  @ApiProperty({
+    type: [MaterialConversionUnitResponseDto],
+    description:
+      'Every unit of the material with its conversion rate to the base unit — base unit first ' +
+      '(`isBaseUnit`), the rest by unit code. Same shape as `units` of `GET /materials`',
+  })
+  units: MaterialConversionUnitResponseDto[];
 }
 
 export class GetInventoryHistoryRequestDto extends BaseQueryDto {}

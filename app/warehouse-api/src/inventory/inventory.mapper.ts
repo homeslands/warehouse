@@ -3,6 +3,10 @@ import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core'
 import { Injectable } from '@nestjs/common';
 import { InventoryHistoryResponseDto, InventoryResponseDto } from './inventory.dto';
 import { Inventory } from './inventory.entity';
+import { Unit } from 'src/unit/unit.entity';
+import { UnitResponseDto } from 'src/unit/unit.dto';
+import { MaterialUnit } from 'src/material/material-unit.entity';
+import { MaterialConversionUnitResponseDto } from 'src/material/material.dto';
 import { InventoryHistory } from './inventory-history.entity';
 import { effectiveMaximum, effectiveMinimum } from './inventory.util';
 import { baseMapper } from 'src/app/base.mapper';
@@ -74,6 +78,31 @@ export class InventoryProfile extends AutomapperProfile {
         forMember(
           (d) => d.typeName,
           mapFrom((s) => s.material?.type?.name),
+        ),
+        // Map qua profile của module Unit (cùng mapper global).
+        forMember(
+          (d) => d.baseUnit,
+          mapFrom((s) =>
+            s.material?.baseUnit ? mapper.map(s.material.baseUnit, Unit, UnitResponseDto) : null,
+          ),
+        ),
+        // Map từng dòng qua profile của module Material. Bỏ dòng có `unit` = null (đơn vị đã xoá
+        // mềm); đơn vị cơ sở lên đầu, còn lại theo mã đơn vị — giống `units` của `GET /materials`.
+        forMember(
+          (d) => d.units,
+          mapFrom((s) =>
+            (s.material?.unitsCanHave ?? [])
+              .filter((row) => row.unit)
+              .map((row) => ({
+                ...mapper.map(row, MaterialUnit, MaterialConversionUnitResponseDto),
+                isBaseUnit: row.unitId === s.material?.baseUnit?.id,
+              }))
+              .sort(
+                (a, b) =>
+                  Number(b.isBaseUnit) - Number(a.isBaseUnit) ||
+                  a.unitCode.localeCompare(b.unitCode),
+              ),
+          ),
         ),
       );
 
