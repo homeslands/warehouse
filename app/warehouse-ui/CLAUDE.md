@@ -288,6 +288,11 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   - **Desktop vừa một hàng**: ô tìm trái, bộ lọc + nút hành động phải.
   - **Desktop không vừa** (laptop có sidebar — `toolbar-fit.ts` đo chỗ thật của thanh, không theo cửa sổ): gom
     vào nút "Bộ lọc (n)" mở popover; thanh luôn một hàng, nút hành động không rơi xuống hàng riêng.
+    Popover (`FilterDisplay` = `popover`): tiêu đề "Bộ lọc", rộng `w-80`, **nhãn phía trên mỗi ô**; `SelectFilter` có ≤ 4
+    lựa chọn thật (không tính "Tất cả") thành **nút bấm nhanh** (bấm lại để bỏ chọn), nhiều hơn thì `Select` có nhãn.
+    Bộ lọc tự viết (Combobox…) bọc `FilterField label` (nhãn chỉ hiện ở popover) và truyền `chevron="down"` cho
+    đồng bộ mũi tên ⌄ với `Select`. **Ngữ cảnh của cả trang (vd Kho ở phiếu nhập) không phải bộ lọc** → đặt ở đầu
+    trang cạnh tiêu đề, không trong `filters`, không tính vào `activeFilterCount`.
   - **Mobile < 768px**: hàng 1 ô tìm + nút hành động, hàng 2 **chip lướt ngang** (không có ô tìm thì nút hành
     động đứng cuối hàng chip). `SelectFilter`/`DateRangeFilter` tự đổi sang dạng chip qua `filter-display.ts`:
     chưa chọn ghi tên bộ lọc, đã chọn ghi giá trị + ✕. Bộ lọc khác loại (Combobox, ô tick) được hàng chip bo tròn.
@@ -330,7 +335,9 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   - **form nhiều ô → `FormSheet`** (`shared/ui/FormSheet.tsx`): ngăn trượt bên phải ~480px (full width
     dưới 640px), tiêu đề cố định, vùng nội dung cuộn được, chân sheet cố định chứa Huỷ/Lưu. Props:
     `open`, `onOpenChange`, `title`, `description?`, `submitLabel`, `isPending`, `submitDisabled?`,
-    `isDirty?`, `confirmation?`, `onSubmit`, `children`. Truyền `isDirty={form.formState.isDirty}`: đóng
+    `isDirty?`, `confirmation?`, `actions?`, `onSubmit`, `children`. `actions({ requestClose, isPending })` thay cả bộ Huỷ /
+    `secondaryAction` / nút gửi ở chân sheet (wizard nhiều bước; khi đó `submitLabel` không cần), `footerStart` vẫn giữ; chân sheet
+    `flex-wrap`, `footerStart` chiếm cả hàng dưới `sm`. Truyền `isDirty={form.formState.isDirty}`: đóng
     form đã sửa mà chưa lưu (Huỷ, ×, Esc, bấm ra ngoài) thì hỏi "Bỏ thay đổi chưa lưu?" trước.
     **Thao tác TẠO phải xác nhận** (nghiệp vụ chốt): `handleSubmit` chỉ giữ giá trị đã hợp lệ vào state
     rồi mở `confirmation` ("Xác nhận tạo …", tóm tắt mã/tên); bấm xác nhận mới gọi API; gửi lỗi thì đóng
@@ -356,21 +363,54 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     (`features/import-form-editor`) luôn mount, trang cha điều khiển `open` (+ `formSlug` khi sửa); sheet tự tải
     chi tiết khi sửa (`useImportForm(..., { enabled: open })`), chỉ kiểm `status === 'DRAFT'` — quyền sửa do trang cha kiểm
     trước khi truyền `formSlug`. **Không có URL riêng cho form**: F5 / Back khi đang mở sẽ mất phần đang nhập, như mọi sheet
-    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo đi qua hộp Kiểm tra (thay hộp xác nhận chung, xem dưới), sửa lưu thẳng; 409 / 101314 khi sửa →
+    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo đi qua bước ③ Kiểm tra (thay hộp xác nhận chung, xem dưới), sửa lưu thẳng ở mọi bước; 409 / 101314 khi sửa →
     đóng sheet + toast + invalidate cả kho.
     **Luồng cho người mới (WMS-17-FE 5)**: NCC = **bên bán** (người xuất hoá đơn / mình trả tiền). Đầu phiếu có `supplierSlug`
     (bắt buộc khi có `SUPPLIER_READ`, ẩn khi thiếu quyền — prop `canPickSupplier`); mỗi dòng có thể đổi bên bán riêng
     (`supplierOverride`), bên bán dòng trùng đầu phiếu thì lưu `''` (theo đầu phiếu); payload gửi `items[].supplierSlug`.
     Phiếu nháp cũ không có bên bán thì suy từ các dòng. Tìm vật tư chạy **phía BE** (`useAvailableMaterialSearch`: size 50, debounce
     300 ms, `toCodeOrNameQuery`) và chia 2 nhóm "Hàng thường mua của X" / "Vật tư khác" (`Combobox` có thêm `groups`, `onSearchChange`,
-    `serverFiltered`, `isLoading`, `loadingText`, `defaultOpen`, `onOpenChange` — báo cả lúc đóng không chọn gì). Tạo: "Kiểm tra & lưu" mở `ImportFormReviewDialog` (thay `confirmation`
-    cũ) với "Lưu nháp" / "Lưu & xác nhận"; mọi cảnh báo trong hộp đều MỀM, không chặn lưu. Sửa: "Lưu" lưu thẳng, `FormSheet.secondaryAction`
-    là "Lưu & xác nhận" (không đổi gì → chỉ xác nhận với `original.version`, xác nhận lỗi thì KHÔNG báo "đã lưu": 409 / 101314 → như PATCH bị
-    409, lỗi khác → toast, giữ sheet; có đổi → PATCH rồi xác nhận). Nháp cũ có dòng chưa lưu bên bán (hiện "theo đầu phiếu") cũng tính là cần PATCH
-    (`needsPatch`, chỉ khi `canPickSupplier`) — nút Lưu mở dù form không dirty. Bước ③ của dải bước: tạo = gửi form (mở hộp Kiểm tra), sửa = chỉ
-    focus nút "Lưu", không gửi. Dải là vòng số nối bằng đường kẻ (đường sau bước đã xong đổi màu; < sm chỉ giữ nhãn bước đang xem). ①/② đổi số thành ✓ khi đủ (`importFormStepStatus`: ① = số HĐ + bên bán nếu chọn được NCC; ② = ≥ 1
-    dòng đủ, kèm "· n dòng"), bước đang xem tô đậm (`aria-current="step"`) theo vị trí cuộn (`useActiveSection`, IntersectionObserver dải
-    40% trên; jsdom không có IO → giữ ①). Toast sau khi lưu ngắn (một dòng, tối đa một nút "Xem"; lý do xác nhận lỗi ở `description`), nút "Xem" bị bỏ qua khi sheet đang mở. "Lưu & xác nhận" cần ability
+    `serverFiltered`, `isLoading`, `loadingText`, `defaultOpen`, `onOpenChange` — báo cả lúc đóng không chọn gì).
+    **Ô xổ vật tư của dòng rộng bằng cả bảng dòng** (dạng thẻ: bằng thẻ) — `widthAnchor` = `<section>` của `ImportFormItemsField`,
+    danh sách cao tới `max-h-[60vh]`; mỗi mục (`renderOption`) là mã đậm · tên đủ (xuống dòng, không cắt) | "Tồn: …" + mã đơn vị gốc
+    | các mã đơn vị. Cột của mục theo **container query** (`@container` trên mục, cột từ `@2xl`, bề rộng cố định để các mục thẳng cột;
+    hẹp hơn thì xếp dọc) — không theo `sm:` của cửa sổ, vì danh sách rộng bằng bảng chứ không bằng cửa sổ.
+    **"Chọn nhiều vật tư"** (cạnh "Thêm dòng") mở `ImportFormMaterialPicker`: ô tìm (BE, như ô xổ) + bảng ô tick · mã · tên · tồn ·
+    đơn vị · NCC, nhóm theo bên bán đầu phiếu (`splitBySupplier`, `model/material-groups.ts`, dùng chung với ô xổ); bảng nhiều cột chỉ
+    từ `lg` (hộp `lg:max-w-5xl`), hẹp hơn thì ba ô sau xuống dòng dưới tên kèm nhãn; số tồn `whitespace-nowrap` (không gãy giữa chữ
+    số). Vật tư đã có trong phiếu (bất kỳ đơn vị) hiện "đã có", vật tư chưa có đơn vị gốc hiện câu `inventory:noBaseUnit` — cả hai không
+    tick được. "Thêm (n) dòng" → mỗi vật tư một dòng với đơn vị gốc, SL / đơn giá trống, bên bán theo đầu phiếu, thứ tự ổn định (danh
+    sách tải sẵn đã nhóm, rồi vật tư chỉ có trong kết quả tìm theo thứ tự tick). Luật thuần `addPickedLines` (`model/add-picked-lines.ts`):
+    **chỉ lấp dòng trống HẲN** (`isBlankLine`: không vật tư, không SL, không đơn giá, không ghi chú, không đổi bên bán — dòng gõ dở
+    không có vật tư được giữ nguyên) rồi mới nối cuối; focus vào ô Số lượng của dòng mới đầu tiên (huỷ → về nút "Chọn nhiều vật tư",
+    nút đó ẩn thì `h2` của section). **Tối đa 200 dòng**: `capacity = IMPORT_FORM_ITEMS_MAX − số dòng không trống hẳn`; tick đủ thì
+    khoá các ô còn lại, câu `pickerLimit` ("Phiếu tối đa 200 dòng — còn chọn được n", nối `aria-describedby`) hiện khi giới hạn chặn
+    được thật; hết chỗ thì ẩn nút mở hộp và footer. Hộp có footer "＋ Thêm vật tư vào kho…" (cùng điều kiện với ô xổ) — vật tư vừa tạo
+    thành dòng ngay (lấp dòng trống đầu tiên), hộp chọn vẫn mở và giữ các ô đã tick.
+    **Wizard 3 bước** trong chính `FormSheet`: ① Thông tin phiếu (`ImportFormInfoStep`) → ② Chi tiết vật tư (dòng tóm tắt
+    `ImportFormInfoSummary` "Mua của … · HĐ … · ngày" + "sửa", rồi `ImportFormItemsField`) → ③ Kiểm tra & lưu (`ImportFormReviewStep`:
+    tóm tắt, "Cần xem lại (n)" với "sửa" về đúng ô của dòng, bảng dòng chỉ xem; mọi cảnh báo đều MỀM, không chặn lưu). Ba bước
+    **luôn mount, bước khác bị `hidden`** (giữ upload / `useFieldArray`, để `trigger` / `setFocus` với tới ô ẩn) — ô ẩn không nhận
+    focus nên luôn đổi bước TRƯỚC (`flushSync`) rồi mới focus; đổi bước không có ô đích thì cuộn lên đầu và focus `h2[tabIndex=-1]`
+    của bước. Luật bước là hàm thuần ở `model/wizard.ts` (`stepFields`, `firstStepWithError`, `firstErrorField`). **Lùi tự do, tiến
+    phải hợp lệ**: tiến (Tiếp tục, bấm bước sau trên dải) chạy `form.trigger` lần lượt cho mọi bước trước đích, dừng ở bước sai đầu
+    tiên và focus ô lỗi (Combobox / DatePicker / `SelectTrigger` phải nhận `ref={field.ref}`, không thì `setFocus` im lặng; `show()` dự phòng bằng ô `aria-invalid` đầu tiên rồi `h2` của bước); đang upload chứng từ thì không tiến (dải bước khoá các bước sau, `lockForward`). Nút chân sheet có `key` riêng và bỏ qua cú bấm `detail > 1` — bấm đúp "Tiếp tục" ở ② không được rơi vào nút lưu của ③. Bẫy: `visibleError` giấu lỗi "bắt buộc" của ô trống chưa chạm tới lần
+    gửi đầu, nên khi bước sai mà form chưa submit lần nào sheet chạy một `handleSubmit` "khan" (không lưu gì) để bật `isSubmitted`,
+    rồi `clearErrors` các ô của những bước sau — đừng gỡ nó (có test "② không còn lỗi Chọn vật tư sót lại"). Mở: tạo → ①, sửa → ②
+    (đóng / mở lại → bắt đầu lại). Dải bước (`ImportFormStepper`) là điều hướng thật: vòng số nối bằng đường kẻ (< sm chỉ giữ nhãn bước
+    đang xem), `aria-current="step"` = bước đang hiện, ✓ khi đủ (`importFormStepStatus`: ① = số HĐ + bên bán nếu chọn được NCC;
+    ② = ≥ 1 dòng đủ, kèm "· n dòng") — ✓ chỉ là gợi ý, quyền đi tiếp do `trigger` quyết. Chân sheet đi qua **`FormSheet.actions`**
+    (Tổng ở `footerStart`, khi tạo chỉ từ ②): tạo ① Huỷ · Tiếp tục, ② Quay lại · Tiếp tục, ③ Quay lại · Lưu nháp · Lưu & xác nhận (khi gửi, chỉ nút vừa bấm đổi thành "Đang lưu...",
+    nút kia giữ chữ và bị khoá; không có `canConfirm` thì Lưu nháp là nút chính) — **tạo chỉ lưu được ở ③**; sửa ở MỌI bước: Huỷ · Lưu & xác nhận
+    (`canConfirm`) · **Lưu**, không có Quay lại / Tiếp tục (đi qua dải bước và "sửa"). **Enter**: tạo ở ① / ② = Tiếp tục, ở ③ KHÔNG làm
+    gì (mọi nút ở ③ là `type="button"` — một phím Enter lỡ tay không được "Lưu & xác nhận", hành động cộng tồn ngay); sửa = Lưu.
+    Mọi lần lưu (③ khi tạo, Lưu / Lưu & xác nhận / Enter khi sửa) chạy `handleSubmit` toàn phiếu với `onInvalid` → sang bước có lỗi
+    đầu tiên và focus ô đó; lỗi backend gắn vào ô (`applyApiErrorToForm`) cũng chuyển bước, lỗi theo dòng 101319–101328 và lỗi cả danh sách dòng (101311 tổng, 101317 / 101318 số dòng) → toast +
+    về ②. Sửa: "Lưu" lưu thẳng, "Lưu & xác nhận" (không đổi gì → chỉ xác nhận với `original.version`, xác nhận lỗi thì KHÔNG báo "đã
+    lưu": 409 / 101314 → như PATCH bị 409, lỗi khác → toast, giữ sheet; có đổi → PATCH rồi xác nhận). Nháp cũ có dòng chưa lưu bên bán
+    (hiện "theo đầu phiếu") cũng tính là cần PATCH (`needsPatch`, chỉ khi `canPickSupplier`) — nút Lưu mở dù form không dirty.
+    Bước ③ tự `useWatch` toàn form trong một khung nhỏ (`ReviewStepWatcher`) — đừng đặt `form.watch()` ở gốc sheet (cả sheet vẽ lại
+    mỗi phím gõ). Toast sau khi lưu ngắn (một dòng, tối đa một nút "Xem"; lý do xác nhận lỗi ở `description`), nút "Xem" bị bỏ qua khi sheet đang mở. "Lưu & xác nhận" cần ability
     `confirmOnSave` = `can('IMPORT_FORM_CONFIRM')` (`canConfirm` của sheet; thiếu quyền thì chỉ có Lưu nháp); `pickSupplier` = `can('SUPPLIER_READ')`.
     Sheet gọi `onSaved(outcome: ImportFormSaveOutcome { form, confirmed, confirmError? })`; hook create / update / confirm nhận option
     `successToast: false` và sheet luôn tắt, **trang cha tự toast** qua `toastSaveOutcome` (`pages/import-forms/model/saveToast.ts`, hàm thuần):
@@ -428,7 +468,11 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     `AssignStoreWarehouseDialog`) đều chặn `onEscapeKeyDown` / `onPointerDownOutside` và giấu nút ×
     (`showCloseButton={!isPending}`) lúc đang gửi — `Dialog.Close`/`SheetContent` của Radix gọi thẳng
     `onOpenChange` khi bấm ×, không đi qua hai handler kia, nên phải xử lý riêng.
-- **Linh kiện**: `Combobox` (nút xoá × nằm TRONG khung ô, trước mũi tên; lọc tại client, không phân biệt dấu — trừ khi `serverFiltered` (nhóm `groups`, `onSearchChange`, `isLoading`: tìm phía server)), `DatePicker` (giá trị `YYYY-MM-DD`),
+- **Linh kiện**: `Combobox` (nút xoá × nằm TRONG khung ô, trước mũi tên; lọc tại client, không phân biệt dấu — trừ khi `serverFiltered` (nhóm `groups`, `onSearchChange`, `isLoading`: tìm phía server);
+  `widthAnchor` (ref phần tử neo: lúc mở, danh sách có mép trái + bề rộng trùng phần tử đó, đo mỗi lần mở, vẫn ≥ 18rem — ô hẹp trong
+  bảng mà danh sách cần rộng bằng cả bảng), `renderOption` (thay nhãn trong mỗi mục; `value` / tìm theo nhãn / dấu tích giữ nguyên),
+  `listClassName` (lớp thêm cho `CommandList`, vd `max-h-[60vh]` thay trần `max-h-72`)), `NameList` (`shared/ui/NameList.tsx` — `max`
+  tên đầu (mặc định 2) + "+N", đủ tên ở `title` và `sr-only`; dùng ở hộp thêm vật tư và hộp chọn nhiều vật tư), `DatePicker` (giá trị `YYYY-MM-DD`),
   `NumberInput` (`number | undefined`, không bao giờ `NaN`), `MoneyInput` (ô **tiền** — định dạng ngay khi gõ theo ngôn ngữ:
   vi `1.500.000,5`, en `1,500,000.5`, tối đa 2 số lẻ, hậu tố ₫; dán `1,500,000` vẫn là một triệu rưỡi; luật thuần ở
   `shared/lib/money-input.ts` — mọi ô tiền dùng nó, **không** dùng `NumberInput` cho tiền), `Checkbox`, `Switch`, `Textarea`, `Badge`,
@@ -735,8 +779,8 @@ mất công tìm cách sửa nó.
   (`pages/warehouses/model/detail-tab.ts`); bảng ở `widgets/warehouse-inventory` (lọc `typeSlug` / `belowMinimum` / `aboveMaximum`;
   trang + bộ lọc giữ ở state, không lên URL). Chữ của cả khối (tab, sheet lịch sử, hộp thêm / gỡ) ở namespace `inventory`. Còn treo:
   - Ô tìm sau cờ `inventorySearch` (**tắt**) — BE đang làm `name` / `code`; bật chỉ khi đã thử với API thật.
-  - Đơn vị gốc khai **tuỳ chọn** `baseUnitSlug` / `baseUnitCode` / `baseUnitName` trong `InventoryItem` (BE đang thêm; đặt tên khác
-    thì sửa type). Chưa có thì ô số lượng không kèm đơn vị.
+  - Đơn vị: `InventoryItem.baseUnit` (`{ slug, code, name }` | `null`) + `units[]` (BE đã trả). Ô Tồn / Giữ chỗ / Khả dụng và cột Ngưỡng
+    kèm `baseUnit.code` ("502 CHAI", "10 – 100 CHAI"); `baseUnit: null` → chỉ số.
   - Không sort: `GET /warehouses/{w}/materials` chưa đổi (chưa nhận `sort`/`sortBy`), bảng không khai `sortField`.
   - Tạo vật tư mới trong hộp thêm vật tư gửi `supplierSlug` ngay trong `POST` (một request, một transaction: tạo + gắn kho + gắn NCC). NCC không tồn tại (101201) / `supplierSlug` sai (100816) hiện ngay tại ô Nhà cung cấp, không tạo gì; không còn toast lỗi nửa chừng.
   - Sheet lịch sử mở bằng `?material=` — mở bằng URL thì lấy tồn từ `GET /materials/{slug}` (`warehouses[]`) nên **không hiện ngưỡng**.
@@ -855,7 +899,7 @@ mất công tìm cách sửa nó.
   đó chưa có endpoint — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend làm module đó và gác bằng `@RequireAuthority`.
 - **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
   key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
-  không có chỉ số dòng → chỉ toast; đã lọc theo ngày tạo (`toCreatedRange`) và sắp xếp theo Mã (`importFormSort`; cột Ngày nhập không sắp được vì danh sách không có cột ngày tạo), nhưng chưa lọc theo mã → không có ô tìm; dòng phiếu không có mã đơn vị gốc → cột quy đổi
+  không có chỉ số dòng → chỉ toast; đã lọc theo ngày tạo (`toCreatedRange`) và sắp xếp theo Mã (`importFormSort`; cột Ngày nhập không sắp được vì danh sách không có cột ngày tạo); ô "Tìm theo" Mã phiếu / Số hoá đơn / Số PO cạnh ô tìm (`?search=&searchBy=`, mặc định `code`; gửi đúng MỘT khoá `code`|`invoiceCode`|`purchaseOrder`; `code` làm sạch + viết hoa, toàn ký hiệu → không gọi API và hiện trạng thái trống-do-lọc; số HĐ / PO trim + cắt 64 ký tự — `pages/import-forms/model/search-query.ts`); bộ lọc "Người lập" / "Người xác nhận" (`?requester=` / `?approver=` → `requesterSlug` / `approverSlug`; `PersonFilter` tìm phía server qua `GET /users`, chữ → `name`, toàn số → `phonenumber`; chỉ hiện khi `can(user,'USER_READ')`, thiếu quyền thì không gửi dù URL có; `activeFilterCount` không đếm ô tìm, khớp MaterialsPage, và "Xoá bộ lọc" KHÔNG xoá `search` / `searchBy` — như mọi trang danh sách; nút chỉ hiện khi có bộ lọc khác đang bật; nút của ô ghi "Người lập: <người>" / "Người xác nhận: <người>" để hai ô khác nhau, danh sách xổ chỉ ghi người; `?requester=` trỏ người không tải được → "<nhãn>: Người không xác định" kèm ✕; `GET /users` chỉ chạy khi mở ô hoặc đang gõ tìm, `GET /users/{slug}` lấy nhãn chạy ngay khi có giá trị; chip mobile đã chọn ẩn mũi tên, ✕ ở cuối); dòng phiếu không có mã đơn vị gốc → cột quy đổi
   thiếu mã khi phiếu không có dòng 1:1. Test tay:
   `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
   `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;

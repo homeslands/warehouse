@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { screen, waitFor, within } from '@testing-library/react'
-import { useState } from 'react'
+import { useState, type ComponentType } from 'react'
 import type { UserEvent } from '@testing-library/user-event'
 import { http as mswHttp } from 'msw'
 import { useForm } from 'react-hook-form'
@@ -9,6 +9,7 @@ import type { AvailableMaterial } from '@/entities/import-form'
 import type { AddMaterialDialogProps } from '@/entities/inventory'
 import { apiError, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
+import { Dialog, DialogContent, DialogTitle } from '@/shared/ui/dialog'
 import { Form } from '@/shared/ui/form'
 import { renderWithProviders } from '@/shared/test/render'
 import { chooseOption, selectedLabel } from '@/shared/test/select'
@@ -111,6 +112,39 @@ function FakeAddDialog({
   )
 }
 
+/** Như `FakeAddDialog` nhưng là `Dialog` thật (Radix) — mở chồng lên hộp "Chọn vật tư" như hộp thật. */
+function FakeRadixAddDialog({
+  open,
+  initialSearch,
+  onAdded,
+  onOpenChange,
+}: AddMaterialDialogProps) {
+  return (
+    <Dialog open={open} onOpenChange={onOpenChange}>
+      <DialogContent>
+        <DialogTitle>Thêm vật tư giả</DialogTitle>
+        <p>Tìm: {initialSearch}</p>
+        <button type="button" onClick={() => onOpenChange(false)}>
+          Đóng giả
+        </button>
+        <button
+          type="button"
+          onClick={() => {
+            onAdded({
+              slug: 'm-cement',
+              label: 'VT-09 · Xi măng',
+              baseUnit: { slug: 'u-kg', label: 'KG · Kilogram' },
+            })
+            onOpenChange(false)
+          }}
+        >
+          Gắn giả
+        </button>
+      </DialogContent>
+    </Dialog>
+  )
+}
+
 let current: ImportFormValues | undefined
 
 function Harness({
@@ -118,11 +152,13 @@ function Harness({
   loadError,
   supplierSlug = '',
   canPickSupplier = false,
+  onMaterialPicked,
 }: {
   items?: ImportFormValues['items']
   loadError?: { message: string; onRetry: () => void }
   supplierSlug?: string
   canPickSupplier?: boolean
+  onMaterialPicked?: (m: AvailableMaterial) => void
 }) {
   const form = useForm<ImportFormValues>({
     resolver: zodResolver(importFormSchema),
@@ -144,6 +180,7 @@ function Harness({
         loadError={loadError}
         canPickSupplier={canPickSupplier}
         suppliers={SUPPLIERS}
+        onMaterialPicked={onMaterialPicked}
       />
     </Form>
   )
@@ -153,10 +190,12 @@ function HarnessWithReload({
   withDialog = true,
   supplierSlug = '',
   overrideLine3 = '',
+  Dialog: AddDialog = FakeAddDialog,
 }: {
   withDialog?: boolean
   supplierSlug?: string
   overrideLine3?: string
+  Dialog?: ComponentType<AddMaterialDialogProps>
 }) {
   const [mats, setMats] = useState<AvailableMaterial[]>([flour])
   const form = useForm<ImportFormValues>({
@@ -184,7 +223,7 @@ function HarnessWithReload({
         warehouseSlug="w-a"
         warehouseName="Kho A"
         materialAbilities={{ search: true, assign: true, create: true, attachSupplier: true }}
-        AddMaterialDialog={withDialog ? FakeAddDialog : undefined}
+        AddMaterialDialog={withDialog ? AddDialog : undefined}
       />
     </Form>
   )
@@ -192,7 +231,7 @@ function HarnessWithReload({
 
 async function pickMaterial(user: UserEvent, line: number, label: string) {
   await user.click(screen.getByRole('combobox', { name: `Vật tư dòng ${line}` }))
-  await user.click(await screen.findByText(label))
+  await user.click(await screen.findByRole('option', { name: new RegExp(label) }))
 }
 
 describe('ImportFormItemsField', () => {
@@ -246,14 +285,6 @@ describe('ImportFormItemsField', () => {
     await user.click(screen.getByRole('button', { name: 'Xoá dòng 2' }))
     expect(current?.items).toHaveLength(1)
   })
-
-  // Render 200 dòng thật nên chậm khi chạy cả bộ test song song; cho timeout riêng.
-  it('đủ 200 dòng → khoá Thêm dòng kèm lý do', () => {
-    renderWithProviders(<Harness items={Array.from({ length: 200 }, () => ({ ...EMPTY_ITEM }))} />)
-    const add = screen.getByRole('button', { name: 'Thêm dòng' })
-    expect(add).toBeDisabled()
-    expect(add).toHaveAccessibleDescription('Đã đủ 200 dòng — tối đa của một phiếu.')
-  }, 20_000)
 
   it('ghi chú dòng ẩn, bấm biểu tượng thì hiện ô', async () => {
     const { user } = renderWithProviders(<Harness />)
@@ -362,8 +393,35 @@ describe('ImportFormItemsField', () => {
     expect(headings).toEqual(['Hàng thường mua của Minh Phát', 'Vật tư khác trong kho'])
     const groups = Array.from(document.querySelectorAll('[cmdk-group]'))
     expect(within(groups[0] as HTMLElement).getAllByRole('option')).toHaveLength(1)
-    expect(within(groups[0] as HTMLElement).getByText('VT-01 · Bột mì')).toBeInTheDocument()
-    expect(within(groups[1] as HTMLElement).getByText('VT-02 · Đường')).toBeInTheDocument()
+    expect(
+      within(groups[0] as HTMLElement).getByRole('option', { name: /VT-01 · Bột mì/ }),
+    ).toBeInTheDocument()
+    expect(
+      within(groups[1] as HTMLElement).getByRole('option', { name: /VT-02 · Đường/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('ô xổ vật tư: mỗi mục có mã, tên, "Tồn: <số> <đơn vị gốc>" và các mã đơn vị; danh sách cao ~60vh; chọn vẫn điền đơn vị gốc', async () => {
+    const { user } = renderWithProviders(<Harness supplierSlug="s-1" canPickSupplier />)
+    await user.click(screen.getByRole('combobox', { name: 'Vật tư dòng 1' }))
+
+    const row = screen.getByRole('option', { name: /VT-01/ })
+    expect(within(row).getByText('VT-01')).toBeInTheDocument()
+    expect(within(row).getByText(/Bột mì/)).toBeInTheDocument()
+    expect(within(row).getByText('Tồn: 120 KG')).toBeInTheDocument()
+    expect(within(row).getByText('KG, BAG')).toBeInTheDocument()
+    expect(document.querySelector('[cmdk-list]')).toHaveClass('max-h-[60vh]')
+    // Nhóm vẫn đúng thứ tự.
+    const headings = Array.from(document.querySelectorAll('[cmdk-group-heading]')).map(
+      (h) => h.textContent,
+    )
+    expect(headings).toEqual(['Hàng thường mua của Minh Phát', 'Vật tư khác trong kho'])
+
+    await user.click(row)
+    expect(current?.items[0]).toMatchObject({ materialSlug: 'm-flour', unitSlug: 'u-kg' })
+    expect(screen.getByRole('combobox', { name: 'Vật tư dòng 1' })).toHaveTextContent(
+      'VT-01 · Bột mì',
+    )
   })
 
   it('chưa có bên bán hiệu lực → một nhóm, không tiêu đề', async () => {
@@ -445,5 +503,166 @@ describe('ImportFormItemsField', () => {
   it('không có quyền chọn bên bán → không có nút "đổi bên bán"', () => {
     renderWithProviders(<Harness supplierSlug="s-1" />)
     expect(screen.queryByRole('button', { name: 'đổi bên bán' })).not.toBeInTheDocument()
+  })
+
+  it('"Chọn nhiều vật tư": tick → lấp dòng trống trước, đơn vị gốc, báo lên sheet, focus Số lượng dòng mới đầu tiên', async () => {
+    const onMaterialPicked = vi.fn()
+    const { user } = renderWithProviders(
+      <Harness
+        onMaterialPicked={onMaterialPicked}
+        items={[
+          { ...EMPTY_ITEM, materialSlug: 'm-sugar', unitSlug: 'u-kg', quantity: 3 },
+          { ...EMPTY_ITEM },
+        ]}
+      />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    // Đường đã có ở dòng 1 → khoá.
+    expect(within(dialog).getByRole('checkbox', { name: /VT-02 · Đường/ })).toBeDisabled()
+    await user.click(within(dialog).getByRole('checkbox', { name: /VT-01 · Bột mì/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm 1 dòng' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    expect(current?.items).toHaveLength(2)
+    expect(current?.items[0]).toMatchObject({
+      materialSlug: 'm-sugar',
+      unitSlug: 'u-kg',
+      quantity: 3,
+    })
+    expect(current?.items[1]).toMatchObject({ materialSlug: 'm-flour', unitSlug: 'u-kg' })
+    expect(onMaterialPicked).toHaveBeenCalledWith(flour)
+    expect(screen.getByRole('combobox', { name: 'Vật tư dòng 2' })).toHaveTextContent(
+      'VT-01 · Bột mì',
+    )
+    expect(selectedLabel('Đơn vị dòng 2')).toBe('KG')
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Số lượng dòng 2' })).toHaveFocus(),
+    )
+  })
+
+  it('"Chọn nhiều vật tư": tick 2 vật tư (1 từ kết quả tìm BE) → 2 dòng mới nối cuối với đơn vị gốc', async () => {
+    server.use(mswHttp.get(URL_AVAILABLE, () => paginated([steel], { size: 50 })))
+    const { user } = renderWithProviders(
+      <Harness items={[{ ...EMPTY_ITEM, materialSlug: 'm-sugar', unitSlug: 'u-kg' }]} />,
+    )
+    await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    await user.click(within(dialog).getByRole('checkbox', { name: /VT-01 · Bột mì/ }))
+    await user.type(within(dialog).getByRole('textbox', { name: 'Tìm theo mã hoặc tên' }), 'thép')
+    await user.click(await within(dialog).findByRole('checkbox', { name: /VT-07 · Thép cuộn/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm 2 dòng' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+
+    expect(current?.items.map((i) => [i.materialSlug, i.unitSlug])).toEqual([
+      ['m-sugar', 'u-kg'],
+      // Thứ tự: danh sách tải sẵn trước, vật tư chỉ có trong kết quả tìm sau (không theo ô tìm lúc bấm).
+      ['m-flour', 'u-kg'],
+      ['m-steel', 'u-ton'],
+    ])
+    // Vật tư chỉ có trong kết quả tìm vẫn có nhãn và đơn vị ở dòng.
+    expect(screen.getByRole('combobox', { name: 'Vật tư dòng 3' })).toHaveTextContent(
+      'VT-07 · Thép cuộn',
+    )
+    expect(selectedLabel('Đơn vị dòng 3')).toBe('TON')
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Số lượng dòng 2' })).toHaveFocus(),
+    )
+  })
+
+  it('hộp "Chọn vật tư" có "＋ Thêm vật tư vào kho…": vật tư vừa thêm thành dòng ngay (dòng trống đầu tiên)', async () => {
+    const { user } = renderWithProviders(<HarnessWithReload Dialog={FakeRadixAddDialog} />)
+    await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+    const picker = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    await user.click(within(picker).getByRole('button', { name: /Thêm vật tư vào kho/ }))
+    await user.click(await screen.findByRole('button', { name: 'Gắn giả' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Thêm vật tư giả' })).not.toBeInTheDocument(),
+    )
+    expect(current?.items[0]).toMatchObject({ materialSlug: 'm-cement', unitSlug: 'u-kg' })
+    expect(current?.items).toHaveLength(3)
+    // Hộp "Chọn vật tư" vẫn mở (giữ các ô đã tick); dòng đã mang nhãn của vật tư vừa thêm.
+    expect(screen.getByRole('dialog', { name: 'Chọn vật tư' })).toBeInTheDocument()
+    expect(within(screen.getByTestId('line-0')).getByText('VT-09 · Xi măng')).toBeInTheDocument()
+  })
+
+  it('footer của hộp "Chọn vật tư": chữ đang tìm thành initialSearch; đóng hộp thêm → focus vẫn nằm trong hộp chọn', async () => {
+    server.use(mswHttp.get(URL_AVAILABLE, () => paginated([steel], { size: 50 })))
+    const { user } = renderWithProviders(<HarnessWithReload Dialog={FakeRadixAddDialog} />)
+    await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+    const picker = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    await user.type(within(picker).getByRole('textbox', { name: /Tìm theo mã hoặc tên/ }), 'thép')
+    await user.click(within(picker).getByRole('button', { name: /Thêm vật tư vào kho/ }))
+    const adding = await screen.findByRole('dialog', { name: 'Thêm vật tư giả' })
+    expect(adding).toHaveTextContent('Tìm: thép')
+    await user.click(within(adding).getByRole('button', { name: 'Đóng giả' }))
+    await waitFor(() =>
+      expect(screen.queryByRole('dialog', { name: 'Thêm vật tư giả' })).not.toBeInTheDocument(),
+    )
+    await waitFor(() => expect(picker).toContainElement(document.activeElement as HTMLElement))
+    expect(document.body).not.toHaveFocus()
+  })
+
+  it('huỷ hộp "Chọn vật tư" → không đổi dòng, focus về nút mở hộp', async () => {
+    const { user } = renderWithProviders(<Harness />)
+    const open = screen.getByRole('button', { name: 'Chọn nhiều vật tư' })
+    await user.click(open)
+    const dialog = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    await user.click(within(dialog).getByRole('checkbox', { name: /VT-01 · Bột mì/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Huỷ' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(current?.items).toEqual([EMPTY_ITEM])
+    await waitFor(() => expect(open).toHaveFocus())
+  })
+
+  // Render 200 dòng thật nên chậm khi chạy cả bộ test song song: một lần render cho cả hai khẳng định, timeout riêng,
+  // và truy vấn bằng chữ (`getByText`) — tính vai trò / tên khả truy cập cho 200 dòng rất chậm.
+  const filledLines = (count: number) =>
+    Array.from({ length: count }, (_, i) => ({
+      ...EMPTY_ITEM,
+      materialSlug: `m-${i}`,
+      unitSlug: 'u-kg',
+    }))
+  const addLineButton = () => screen.getByText('Thêm dòng').closest('button')
+
+  it('200 dòng đều có vật tư → khoá "Thêm dòng" kèm lý do và ẩn "Chọn nhiều vật tư"', () => {
+    renderWithProviders(<Harness items={filledLines(200)} />)
+    const add = addLineButton()
+    expect(add).toBeDisabled()
+    expect(add).toHaveAccessibleDescription('Đã đủ 200 dòng — tối đa của một phiếu.')
+    expect(screen.queryByText('Chọn nhiều vật tư')).not.toBeInTheDocument()
+  }, 20_000)
+
+  it('dòng trống hẳn đang mở ô ghi chú (chưa gõ) → được lấp thì ô ghi chú đóng lại', async () => {
+    const { user } = renderWithProviders(<Harness />)
+    await user.click(screen.getByRole('button', { name: 'Ghi chú dòng 1' }))
+    expect(screen.getByRole('textbox', { name: /Ghi chú dòng/ })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    await user.click(within(dialog).getByRole('checkbox', { name: /VT-01 · Bột mì/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm 1 dòng' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(current?.items).toEqual([{ ...EMPTY_ITEM, materialSlug: 'm-flour', unitSlug: 'u-kg' }])
+    expect(screen.queryByRole('textbox', { name: /Ghi chú dòng/ })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ghi chú dòng 1' })).toHaveAttribute(
+      'aria-pressed',
+      'false',
+    )
+  })
+
+  it('dòng chưa có vật tư nhưng đã gõ số lượng → giữ nguyên, vật tư chọn từ hộp thành dòng mới phía sau', async () => {
+    const { user } = renderWithProviders(<Harness items={[{ ...EMPTY_ITEM, quantity: 4 }]} />)
+    await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+    const dialog = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    await user.click(within(dialog).getByRole('checkbox', { name: /VT-02 · Đường/ }))
+    await user.click(within(dialog).getByRole('button', { name: 'Thêm 1 dòng' }))
+    await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
+    expect(current?.items).toEqual([
+      { ...EMPTY_ITEM, quantity: 4 },
+      { ...EMPTY_ITEM, materialSlug: 'm-sugar', unitSlug: 'u-kg' },
+    ])
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: 'Số lượng dòng 2' })).toHaveFocus(),
+    )
   })
 })

@@ -10,6 +10,8 @@ import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { Checkbox } from '@/shared/ui/checkbox'
 import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
+import { FilterField } from '@/shared/ui/data-table/FilterField'
+import { useFilterDisplay } from '@/shared/ui/data-table/filter-display'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
 import { ListToolbar } from '@/shared/ui/data-table/ListToolbar'
 import { SearchInput } from '@/shared/ui/data-table/SearchInput'
@@ -63,7 +65,8 @@ function ManagerFilter({
   value: string | undefined
   onChange: (value: string | undefined) => void
 }) {
-  const { t } = useTranslation(['warehouses'])
+  const { t } = useTranslation(['warehouses', 'common'])
+  const display = useFilterDisplay()
   const { candidates } = useManagerCandidates()
 
   const options: ComboboxOption[] = candidates.map((c) => ({
@@ -78,15 +81,18 @@ function ManagerFilter({
   }
 
   return (
-    <Combobox
-      aria-label={t('warehouses:managerFilter')}
-      className="w-56"
-      options={options}
-      value={value}
-      onChange={onChange}
-      placeholder={t('warehouses:managerFilter')}
-      emptyText={t('warehouses:noManagerCandidate')}
-    />
+    <FilterField label={t('warehouses:managerFilter')}>
+      <Combobox
+        aria-label={t('warehouses:managerFilter')}
+        className={display === 'popover' ? 'w-full' : 'w-56'}
+        chevron="down"
+        options={options}
+        value={value}
+        onChange={onChange}
+        placeholder={display === 'popover' ? t('common:anyone') : t('warehouses:managerFilter')}
+        emptyText={t('warehouses:noManagerCandidate')}
+      />
+    </FilterField>
   )
 }
 

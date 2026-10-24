@@ -85,6 +85,13 @@ export type ImportFormFilters = {
   /** Ngày tạo từ / đến, `YYYY-MM-DD`, tính cả hai đầu. `startDate` > `endDate` → 400. */
   startDate?: string
   endDate?: string
+  /** Tìm theo tiền tố, không phân biệt hoa thường; BE không tìm gộp nên mỗi lần gửi một khoá. */
+  code?: string
+  invoiceCode?: string
+  purchaseOrder?: string
+  /** Khớp đúng slug người lập / người xác nhận. */
+  requesterSlug?: string
+  approverSlug?: string
 }
 
 /** `ImportFormAvailableUnitResponseDto`. `conversionRate` = số đơn vị gốc trong 1 đơn vị này. */

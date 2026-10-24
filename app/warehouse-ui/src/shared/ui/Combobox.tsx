@@ -1,5 +1,12 @@
-import { ChevronsUpDownIcon, XIcon } from 'lucide-react'
-import { useCallback, useRef, useState, type ComponentProps, type ReactNode } from 'react'
+import { ChevronDownIcon, ChevronsUpDownIcon, XIcon } from 'lucide-react'
+import {
+  useCallback,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ReactNode,
+  type RefObject,
+} from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { matchesSearch } from '@/shared/lib/search-text'
@@ -44,13 +51,29 @@ type ComboboxProps = Omit<ComponentProps<'button'>, 'value' | 'onChange'> & {
   defaultOpen?: boolean
   /** Báo danh sách mở / đóng — kể cả đóng không chọn gì (Esc, bấm ra ngoài) và đóng sau khi chọn. */
   onOpenChange?: (open: boolean) => void
+  /**
+   * Có → lúc mở, danh sách có mép trái và bề rộng trùng phần tử neo (đo lúc mở; vẫn không hẹp hơn 18rem) thay vì
+   * rộng bằng nút mở — vd. ô vật tư trong một dòng hẹp mà danh sách cần rộng bằng cả bảng dòng.
+   */
+  widthAnchor?: RefObject<HTMLElement | null>
+  /** Có → thay nhãn mặc định trong mỗi mục (vẫn giữ `value` / tìm theo nhãn / dấu tích). */
+  renderOption?: (option: ComboboxOption) => ReactNode
+  /** Lớp thêm cho `CommandList` (vd. `max-h-[60vh]` thay trần mặc định `max-h-72`). */
+  listClassName?: string
+  /**
+   * Chỗ tối thiểu (px) cần dưới ô chọn trước khi mở mà không cuộn ô lên giữa. Mặc định 320 (khớp `max-h-72`); danh sách
+   * cao hơn (`listClassName`) thì truyền theo chiều cao đó.
+   */
+  minListSpace?: number
+  /** Mũi tên ở nút mở: `updown` (⇅, mặc định) hoặc `down` (⌄ — dùng trong bộ lọc cho thống nhất với `Select`). */
+  chevron?: 'updown' | 'down'
 }
 
 /**
  * Chỗ cần dưới ô chọn để danh sách hiện đủ (~ô tìm + `max-h-72` của `CommandList`). Ít hơn → cuộn ô chọn lên
  * giữa vùng nhìn thấy TRƯỚC khi mở: ô ở cuối form (dòng vật tư cuối sheet) nếu không thì chỉ còn vài mục hiện ra.
  */
-const LIST_SPACE_PX = 320
+const LIST_SPACE_PX = 320 // mặc định của `minListSpace`
 
 function filterOption(value: string, search: string, keywords?: string[]): number {
   // Bỏ dấu: gõ "da nang" vẫn ra "Đà Nẵng" — bộ lọc mặc định của cmdk không làm việc này.
@@ -76,6 +99,11 @@ export function Combobox({
   loadingText,
   defaultOpen = false,
   onOpenChange,
+  widthAnchor,
+  renderOption,
+  listClassName,
+  minListSpace = LIST_SPACE_PX,
+  chevron = 'updown',
   disabled,
   className,
   ref,
@@ -93,6 +121,8 @@ export function Combobox({
     setSearchState(next)
     onSearchChange?.(next)
   }
+  // Hình học danh sách theo `widthAnchor`, đo mỗi lần mở (khung có thể đã đổi cỡ từ lần trước).
+  const [anchorBox, setAnchorBox] = useState<{ offset: number; width: number } | null>(null)
   const triggerRef = useRef<HTMLButtonElement | null>(null)
   // Giữ ref riêng để trả focus về nút mở sau khi xoá, vẫn chuyển tiếp ref ngoài (RHF focus lỗi).
   const setTriggerRef = useCallback(
@@ -124,9 +154,17 @@ export function Combobox({
           if (
             next &&
             trigger &&
-            window.innerHeight - trigger.getBoundingClientRect().bottom < LIST_SPACE_PX
+            window.innerHeight - trigger.getBoundingClientRect().bottom < minListSpace
           )
             trigger.scrollIntoView({ block: 'center' })
+          const anchor = widthAnchor?.current
+          if (next && trigger && anchor) {
+            const box = anchor.getBoundingClientRect()
+            setAnchorBox({
+              offset: box.left - trigger.getBoundingClientRect().left,
+              width: box.width,
+            })
+          } else if (next) setAnchorBox(null)
           if (!next) setSearch('')
           setOpen(next)
         }}
@@ -150,7 +188,11 @@ export function Combobox({
                 {placeholder ?? t('common:selectPlaceholder')}
               </span>
             )}
-            <ChevronsUpDownIcon className="opacity-50" aria-hidden />
+            {chevron === 'down' ? (
+              <ChevronDownIcon className="opacity-50" aria-hidden />
+            ) : (
+              <ChevronsUpDownIcon className="opacity-50" aria-hidden />
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent
@@ -160,6 +202,8 @@ export function Combobox({
           // chữ ô tìm và câu "không có kết quả".
           className="max-h-(--radix-popover-content-available-height) w-(--radix-popover-trigger-width) min-w-72 p-0"
           align="start"
+          alignOffset={anchorBox?.offset}
+          style={anchorBox ? { width: anchorBox.width } : undefined}
           collisionPadding={8}
         >
           {/* cmdk gắn aria-labelledby của ô tìm vào `label` của Command (aria-label bị lấn át). */}
@@ -170,7 +214,7 @@ export function Combobox({
             className="min-h-0"
           >
             <CommandInput placeholder={searchText} value={search} onValueChange={setSearch} />
-            <CommandList className="min-h-0">
+            <CommandList className={cn('min-h-0', listClassName)}>
               {isLoading ? (
                 <div role="status" className="text-muted-foreground py-6 text-center text-sm">
                   {loadingText ?? t('common:loading')}
@@ -194,7 +238,11 @@ export function Combobox({
                       }}
                     >
                       {/* Nhãn dài không khoảng trắng (tên vật tư / đơn vị) phải ngắt dòng, không bị cắt giữa chữ. */}
-                      <span className="min-w-0 break-words">{option.label}</span>
+                      {renderOption ? (
+                        renderOption(option)
+                      ) : (
+                        <span className="min-w-0 break-words">{option.label}</span>
+                      )}
                     </CommandItem>
                   ))}
                 </CommandGroup>

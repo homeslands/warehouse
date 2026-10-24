@@ -29,9 +29,11 @@ export type {
 export { removeBlockReason } from './model/rules'
 export type {
   InventoryAction,
+  InventoryBaseUnit,
   InventoryFilters,
   InventoryHistory,
   InventoryItem,
+  InventoryUnit,
   InventoryThresholdInput,
   WarehouseMaterialInput,
 } from './model/types'

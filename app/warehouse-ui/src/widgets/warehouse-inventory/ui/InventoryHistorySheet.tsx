@@ -47,7 +47,7 @@ function fromItem(item: InventoryItem): Summary {
     code: item.materialCode,
     name: item.materialName,
     typeName: item.typeName,
-    unitCode: item.baseUnitCode,
+    unitCode: item.baseUnit?.code,
     quantity: item.quantity,
     reservedQuantity: item.reservedQuantity,
     availableQuantity: item.availableQuantity,
@@ -187,8 +187,11 @@ export function InventoryHistorySheet({
                 {summary.threshold && (
                   <DetailField label={t('inventory:columnThreshold')}>
                     <span className="tabular-nums">
-                      {thresholdRange(summary.threshold.min, summary.threshold.max) ??
-                        t('inventory:thresholdNotSet')}
+                      {thresholdRange(
+                        summary.threshold.min,
+                        summary.threshold.max,
+                        summary.unitCode,
+                      ) ?? t('inventory:thresholdNotSet')}
                     </span>
                   </DetailField>
                 )}
