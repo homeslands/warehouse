@@ -1,11 +1,12 @@
 import { createContext, useContext } from 'react'
 
 /**
- * Bộ lọc đang hiện kiểu nào: `inline` — ô chọn đầy đủ trên thanh / trong popover; `chip` — chip gọn trong
- * hàng lướt ngang trên mobile (`ListToolbar`). `SelectFilter`, `DateRangeFilter` tự đổi giao diện theo đây:
+ * Bộ lọc đang hiện kiểu nào: `inline` — ô chọn đầy đủ trên thanh; `chip` — chip gọn trong hàng lướt ngang
+ * trên mobile (`ListToolbar`); `popover` — popover "Bộ lọc" (desktop không vừa một hàng): nhãn phía trên mỗi ô,
+ * lựa chọn ít → nút bấm nhanh. `SelectFilter`, `DateRangeFilter` tự đổi giao diện theo đây:
  * chip chưa chọn ghi TÊN bộ lọc ("Vai trò ▾"), đã chọn ghi GIÁ TRỊ + nút ✕, nền màu nhấn (`data-active`).
  */
-export type FilterDisplay = 'inline' | 'chip'
+export type FilterDisplay = 'inline' | 'chip' | 'popover'
 
 const FilterDisplayContext = createContext<FilterDisplay>('inline')
 
@@ -21,3 +22,6 @@ export const CHIP_FRAME =
 
 /** Phần bấm được bên trong chip: không tự vẽ viền focus — viền nằm ở cả khung chip (`CHIP_FRAME`). */
 export const CHIP_INNER = 'focus-visible:border-0 focus-visible:ring-0'
+
+/** Class dùng chung cho nhãn phía trên mỗi ô trong popover bộ lọc. */
+export const FILTER_LABEL_CLASS = 'text-muted-foreground text-xs font-medium'

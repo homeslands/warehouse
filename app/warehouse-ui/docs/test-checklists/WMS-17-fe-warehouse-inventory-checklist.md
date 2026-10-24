@@ -8,7 +8,7 @@ ma trận quyền seed).
 
 - [ ] Vào chi tiết kho → tab "Vật tư" mặc định; đổi sang tab thành viên → URL `?tab=members`; F5 giữ tab.
 - [ ] Bảng hiện tồn, giữ chỗ, còn xuất, ngưỡng min / max; nhãn "Dưới min" / "Trên max" đúng chỗ; ngưỡng chưa đặt hiện "Chưa đặt".
-- [ ] Vật tư có đơn vị gốc hiện kèm đơn vị; chưa có thì không kèm (khi BE deploy đơn vị: kiểm tên trường `baseUnitSlug/Code/Name`).
+- [ ] Vật tư có đơn vị gốc hiện kèm đơn vị; chưa có thì không kèm (trường BE là `baseUnit.code`). Ngưỡng hiển thị dạng "20 – 70 KG" (tối thiểu – tối đa + mã đơn vị gốc); `baseUnit: null` thì chỉ hiện số, không kèm đơn vị.
 
 ## Lọc
 

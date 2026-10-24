@@ -31,6 +31,8 @@ const item: InventoryItem = {
   materialName: 'Xi măng',
   typeSlug: 'mt-1',
   typeName: 'Vật liệu',
+  baseUnit: null,
+  units: [],
 }
 
 describe('inventory.api', () => {

@@ -127,6 +127,8 @@ describe('ImportFormDetailPage', () => {
     await user.click(await screen.findByRole('button', { name: 'Sửa' }))
     const sheet = await screen.findByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })
     expect(router.state.location.pathname).toBe('/import-forms/if-1')
+    // Sửa mở ở bước ②; ô Ghi chú ở bước ① (lùi luôn được).
+    await user.click(await within(sheet).findByRole('button', { name: /Thông tin phiếu$/ }))
     const note = await within(sheet).findByRole('textbox', { name: /^Ghi chú$/ })
     expect(note).toHaveValue('Giao buổi sáng')
     await user.clear(note)

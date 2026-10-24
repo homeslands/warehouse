@@ -123,3 +123,20 @@ describe('DateRangeFilter — dạng chip (mobile)', () => {
     ).toHaveAttribute('data-active', 'true')
   })
 })
+
+describe('DateRangeFilter — dạng popover', () => {
+  it('hiện nhãn phía trên; inline không có nhãn nhìn thấy riêng', () => {
+    const { unmount } = render(
+      <FilterDisplayProvider value="popover">
+        <DateRangeFilter label="Ngày lập" value={{}} onChange={vi.fn()} />
+      </FilterDisplayProvider>,
+    )
+    // Nhãn chỉ ở phía trên; placeholder trên nút là chữ trung tính, không lặp lại tên.
+    expect(screen.getAllByText('Ngày lập')).toHaveLength(1)
+    expect(screen.getByRole('button', { name: 'Ngày lập' })).toHaveTextContent('Mọi thời điểm')
+    unmount()
+
+    render(<DateRangeFilter label="Ngày lập" value={{}} onChange={vi.fn()} />)
+    expect(screen.getAllByText('Ngày lập')).toHaveLength(1)
+  })
+})

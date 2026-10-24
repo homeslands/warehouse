@@ -240,3 +240,54 @@ export const DEMO_DRAFT: ImportForm = {
     }),
   ],
 }
+
+/** Tên đúng 100 ký tự, mã 32 ký tự, 3 NCC (NameList "+1"), 3 đơn vị, tồn có 6 số lẻ — cho ô xổ vật tư và hộp "Chọn vật tư". */
+export const WORST_LONG_MATERIAL: AvailableMaterial = {
+  slug: 'm-pipe',
+  code: 'ONG-THEP-DUC-SCH40-DN150-6M-A106',
+  name: 'Ống thép đúc mạ kẽm nhúng nóng SCH40 DN150 (phi 168,3 x 7,11 mm) dài 6 m, tiêu chuẩn ASTM A106 Gr. B',
+  baseUnitSlug: 'u-cay',
+  quantity: 98_765_432.123456,
+  suppliers: WORST_SUPPLIERS.map(({ slug, code, name }) => ({ slug, code, name })),
+  units: [
+    {
+      unitSlug: 'u-cay',
+      unitCode: 'CAY-6M',
+      unitName: 'Cây 6 mét',
+      conversionRate: 1,
+      isBaseUnit: true,
+    },
+    {
+      unitSlug: 'u-met',
+      unitCode: 'MET',
+      unitName: 'Mét',
+      conversionRate: 1 / 6,
+      isBaseUnit: false,
+    },
+    {
+      unitSlug: 'u-bo',
+      unitCode: 'BO-10-CAY-TC',
+      unitName: 'Bó 10 cây tiêu chuẩn',
+      conversionRate: 10,
+      isBaseUnit: false,
+    },
+  ],
+}
+
+/** Vật tư chưa có đơn vị gốc: hộp "Chọn vật tư" khoá ô tick + câu "chưa có đơn vị gốc". */
+export const WORST_NO_BASE_MATERIAL: AvailableMaterial = {
+  slug: 'm-nobase',
+  code: 'GACH-80X80-BC',
+  name: 'Gạch ốp lát bóng kiếng 80x80 (chưa khai báo đơn vị)',
+  baseUnitSlug: null,
+  quantity: 0,
+  suppliers: [],
+  units: [],
+}
+
+/** Danh sách vật tư của kho cho ô xổ dòng cuối và hộp chọn nhiều (thép trong WORST_DRAFT → "đã có"). */
+export const WORST_PICKER_MATERIALS: AvailableMaterial[] = [
+  WORST_LONG_MATERIAL,
+  ...WORST_MATERIALS,
+  WORST_NO_BASE_MATERIAL,
+]

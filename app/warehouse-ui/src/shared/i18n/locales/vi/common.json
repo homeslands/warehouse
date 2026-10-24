@@ -22,6 +22,8 @@
   "searchPlaceholder": "Tìm...",
   "noResults": "Không có kết quả.",
   "clearSelection": "Xoá lựa chọn",
+  "anyone": "Tất cả",
+  "anyTime": "Mọi thời điểm",
   "pickDate": "Chọn ngày",
   "dateFrom": "Từ {{date}}",
   "dateTo": "Đến {{date}}",

@@ -9,6 +9,7 @@ import { Button } from '@/shared/ui/button'
 import { Label } from '@/shared/ui/label'
 import { NumberInput } from '@/shared/ui/NumberInput'
 import { Skeleton } from '@/shared/ui/skeleton'
+import { NameList } from '@/shared/ui/NameList'
 import {
   INVENTORY_DOES_EXIST,
   INVENTORY_WAREHOUSE_INACTIVE,
@@ -203,7 +204,7 @@ export function AssignExistingSection({
                     {m.suppliers.length > 0 && (
                       <>
                         {' · '}
-                        <SupplierNames names={m.suppliers.map((s) => s.name)} />
+                        <NameList names={m.suppliers.map((s) => s.name)} />
                       </>
                     )}
                   </p>
@@ -254,23 +255,6 @@ export function AssignExistingSection({
         </p>
       )}
     </section>
-  )
-}
-
-const MAX_SUPPLIERS_SHOWN = 2
-
-/** Nhiều nhà cung cấp: 2 tên đầu + "+N" (như cột Kho của màn Người dùng); đủ tên ở `title` và cho trình đọc màn hình. */
-function SupplierNames({ names }: { names: string[] }) {
-  const all = names.join(', ')
-  if (names.length <= MAX_SUPPLIERS_SHOWN) return <span>{all}</span>
-  return (
-    <span title={all}>
-      <span aria-hidden="true">
-        <span>{names.slice(0, MAX_SUPPLIERS_SHOWN).join(', ')}</span> +
-        {names.length - MAX_SUPPLIERS_SHOWN}
-      </span>
-      <span className="sr-only">{all}</span>
-    </span>
   )
 }
 
