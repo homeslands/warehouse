@@ -103,11 +103,12 @@ export function useRoles(options: { enabled?: boolean } = {}) {
 }
 
 /** Một trang người dùng. Chuyển trang vẫn hiện trang cũ tới khi trang mới về. */
-export function useUsers(params: ListParams<UserFilters>) {
+export function useUsers(params: ListParams<UserFilters>, options: { enabled?: boolean } = {}) {
   return useQuery({
     queryKey: userKeys.list(params),
     queryFn: () => fetchUsers(params),
     placeholderData: keepPreviousData,
+    enabled: options.enabled ?? true,
   })
 }
 

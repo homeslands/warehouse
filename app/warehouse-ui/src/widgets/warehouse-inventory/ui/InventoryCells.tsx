@@ -27,7 +27,7 @@ export function StockCell({
 }) {
   return (
     <span className="inline-flex flex-wrap items-center gap-1.5 tabular-nums">
-      {formatStock(item.quantity, item.baseUnitCode)}
+      {formatStock(item.quantity, item.baseUnit?.code)}
       {item.isBelowMinimum && <Badge variant="destructive">{t('inventory:badgeBelow')}</Badge>}
       {item.isAboveMaximum && <Badge variant="destructive">{t('inventory:badgeAbove')}</Badge>}
     </span>

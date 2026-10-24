@@ -1,5 +1,5 @@
-import { NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
-import { useEffect, useId, useState, type ComponentType } from 'react'
+import { ListChecksIcon, NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
+import { useEffect, useId, useRef, useState, type ComponentType } from 'react'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toCodeOrNameQuery } from '@/shared/lib/code'
@@ -27,6 +27,10 @@ import {
   lineAmount,
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
+import { addPickedLines, isBlankLine } from '../model/add-picked-lines'
+import { splitBySupplier } from '../model/material-groups'
+import { ImportFormMaterialPicker } from './ImportFormMaterialPicker'
+import { useDebouncedValue } from './useDebouncedValue'
 
 type Props = {
   /** Báo lên sheet vật tư vừa chọn từ kết quả tìm — hộp Kiểm tra cần chúng dù nằm ngoài 100 bản ghi đầu. */
@@ -53,15 +57,6 @@ type Props = {
   suppliers?: { slug: string; code: string; name: string }[]
 }
 
-function useDebouncedValue<T>(value: T, ms: number): T {
-  const [debounced, setDebounced] = useState(value)
-  useEffect(() => {
-    const id = setTimeout(() => setDebounced(value), ms)
-    return () => clearTimeout(id)
-  }, [value, ms])
-  return debounced
-}
-
 /**
  * Lưới 7 cột khi KHUNG (container query `@3xl` = 48rem, không phải cửa sổ) đủ rộng — sheet hẹp hơn cửa sổ nên `md:` từng
  * dựng lưới ~50rem trong khung ~46rem, đẩy nút ghi chú / xoá ra ngoài card. Hẹp hơn: mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra.
@@ -86,7 +81,12 @@ export function ImportFormItemsField({
 }: Props) {
   const { t } = useTranslation(['importForms', 'common'])
   const hintId = useId()
+  // Neo bề rộng của ô xổ vật tư: mọi dòng (lưới hay thẻ) đều rộng bằng khung này.
+  const sectionRef = useRef<HTMLElement | null>(null)
   const { fields, append, remove } = useFieldArray({ control: form.control, name: 'items' })
+  // Đích focus khi hộp "Chọn vật tư" đóng mà không thêm dòng: nút mở hộp, nút đó đã ẩn thì tiêu đề.
+  const pickButtonRef = useRef<HTMLButtonElement | null>(null)
+  const headingRef = useRef<HTMLHeadingElement | null>(null)
   const items = useWatch({ control: form.control, name: 'items' })
   // Chỉ khởi tạo một lần từ ghi chú có sẵn; sau đó người dùng toàn quyền đóng/mở (xoá hết chữ không làm ô biến mất).
   const [openNotes, setOpenNotes] = useState<ReadonlySet<string>>(
@@ -123,7 +123,8 @@ export function ImportFormItemsField({
     const m = chosen ?? (slug ? bySlug.get(slug) : undefined)
     return m ? (baseUnitOf(m)?.unitSlug ?? '') : ''
   }
-  const [adding, setAdding] = useState<{ index: number; search: string } | null>(null)
+  // `index: null` = mở từ hộp "Chọn vật tư": vật tư vừa thêm thành dòng mới (lấp dòng trống đầu tiên trước).
+  const [adding, setAdding] = useState<{ index: number | null; search: string } | null>(null)
   // Vật tư vừa thêm từ hộp có thể nằm ngoài 100 bản ghi đầu của `materials` → giữ nhãn / đơn vị tại chỗ cho dòng đã chọn.
   const [addedLabels, setAddedLabels] = useState<Record<string, string>>({})
   const [addedUnits, setAddedUnits] = useState<Record<string, string>>({})
@@ -137,9 +138,98 @@ export function ImportFormItemsField({
       const { slug, label } = added.baseUnit
       setAddedUnits((prev) => ({ ...prev, [slug]: label }))
     }
+    if (adding.index === null) {
+      addLines([{ slug: added.slug, baseUnitSlug: added.baseUnit?.slug ?? '' }])
+      return
+    }
     const opts = { shouldDirty: true, shouldValidate: form.formState.isSubmitted }
     form.setValue(`items.${adding.index}.materialSlug`, added.slug, opts)
     form.setValue(`items.${adding.index}.unitSlug`, added.baseUnit?.slug ?? '', opts)
+  }
+  /** Vật tư → dòng (lấp dòng trống hẳn trước, rồi nối cuối, tối đa 200). Chỉ đụng dòng đổi để giữ id / ghi chú đang mở của dòng khác. */
+  const addLines = (picks: { slug: string; baseUnitSlug: string }[]): number | null => {
+    const currentItems = form.getValues('items')
+    const { items: next, firstIndex } = addPickedLines(currentItems, picks)
+    const opts = { shouldDirty: true, shouldValidate: form.formState.isSubmitted }
+    const filledIds = new Set<string>()
+    next.slice(0, currentItems.length).forEach((item, i) => {
+      if (item === currentItems[i]) return
+      form.setValue(`items.${i}`, item, opts)
+      const id = fields[i]?.id
+      if (id) filledIds.add(id)
+    })
+    // Dòng được lấp là dòng mới hoàn toàn: ô ghi chú (trống) / ô đổi bên bán đang mở của nó không còn nghĩa.
+    if (filledIds.size > 0) {
+      const without = (prev: ReadonlySet<string>) => {
+        const kept = new Set([...prev].filter((id) => !filledIds.has(id)))
+        return kept.size === prev.size ? prev : kept
+      }
+      setOpenNotes(without)
+      setPickingSupplier(without)
+    }
+    if (next.length > currentItems.length)
+      append(next.slice(currentItems.length), { shouldFocus: false })
+    return firstIndex
+  }
+
+  // Hộp "Chọn vật tư": số chỗ còn = 200 − số dòng KHÔNG trống hẳn (chỉ dòng trống hẳn được lấp). Đếm dòng, không đếm
+  // vật tư (một vật tư có thể ở nhiều dòng khác đơn vị).
+  const [pickerOpen, setPickerOpen] = useState(false)
+  const existingSlugs = new Set(items.map((i) => i.materialSlug).filter((slug) => slug !== ''))
+  const capacity = IMPORT_FORM_ITEMS_MAX - items.filter((i) => !isBlankLine(i)).length
+  // Hộp không có DialogTrigger nên Radix không trả focus khi đóng: thêm xong → ô Số lượng dòng mới đầu tiên; không thêm
+  // gì → nút mở hộp; nút đó đã ẩn (hết chỗ, vd vừa thêm qua footer của hộp) thì tiêu đề — không để focus rơi về body.
+  // Không lùi về "Thêm dòng": hết chỗ nghĩa là đủ 200 dòng nên nút đó luôn đang khoá.
+  const focusAfterPick = useRef<`items.${number}.quantity` | null>(null)
+  const pickerWasOpen = useRef(false)
+  const pickerFooterRef = useRef<HTMLButtonElement | null>(null)
+  const pickerContentRef = useRef<HTMLDivElement | null>(null)
+  // Hộp thêm vật tư mở từ footer của hộp chọn đóng lại → Radix trả focus về nút footer; nút đó có thể đã ẩn (hết chỗ)
+  // thì focus rơi về <body>, ngoài hộp chọn. Trả vào footer, không có thì vào chính hộp. Chạy sau timeout của Radix.
+  const addingFromPicker = adding !== null && adding.index === null
+  const wasAddingFromPicker = useRef(false)
+  useEffect(() => {
+    if (addingFromPicker) {
+      wasAddingFromPicker.current = true
+      return
+    }
+    if (!wasAddingFromPicker.current) return
+    wasAddingFromPicker.current = false
+    const timer = setTimeout(() => {
+      const content = pickerContentRef.current
+      if (!content || content.contains(document.activeElement)) return
+      const footer = pickerFooterRef.current
+      ;(footer && content.contains(footer) ? footer : content).focus()
+    }, 0)
+    return () => clearTimeout(timer)
+  }, [addingFromPicker])
+  useEffect(() => {
+    if (pickerOpen) {
+      pickerWasOpen.current = true
+      return
+    }
+    if (!pickerWasOpen.current) return
+    pickerWasOpen.current = false
+    const target = focusAfterPick.current
+    focusAfterPick.current = null
+    if (target) {
+      form.setFocus(target)
+      return
+    }
+    const fallback = pickButtonRef.current ?? headingRef.current
+    fallback?.focus()
+  }, [pickerOpen, form])
+  const onPicked = (chosen: AvailableMaterial[]) => {
+    setPicked((prev) => {
+      const next = new Map(prev)
+      chosen.forEach((m) => next.set(m.slug, m))
+      return next
+    })
+    chosen.forEach((m) => onMaterialPicked?.(m))
+    const firstIndex = addLines(
+      chosen.map((m) => ({ slug: m.slug, baseUnitSlug: baseUnitOf(m)?.unitSlug ?? '' })),
+    )
+    if (firstIndex !== null) focusAfterPick.current = `items.${firstIndex}.quantity`
   }
   const toOption = (m: AvailableMaterial): ComboboxOption => ({
     value: m.slug,
@@ -155,8 +245,7 @@ export function ImportFormItemsField({
     const source = searching ? found : materials
     const extra = searching ? [] : fallbackOptions
     if (!supplierSlug) return [{ heading: '', options: [...extra, ...source.map(toOption)] }]
-    const usual = source.filter((m) => m.suppliers.some((x) => x.slug === supplierSlug))
-    const rest = source.filter((m) => !usual.includes(m))
+    const { usual, rest } = splitBySupplier(source, supplierSlug)
     return [
       {
         heading: t('importForms:groupSupplierMaterials', { name: supplierName(supplierSlug) }),
@@ -164,6 +253,31 @@ export function ImportFormItemsField({
       },
       { heading: t('importForms:groupOtherMaterials'), options: [...extra, ...rest.map(toOption)] },
     ].filter((g) => g.options.length > 0)
+  }
+  /**
+   * Mục của ô xổ vật tư: mã (đậm) · tên (xuống dòng) | tồn + đơn vị gốc | các mã đơn vị. Vật tư lạ (dự phòng) chỉ có nhãn.
+   * Cột theo bề rộng thật của danh sách (`@container`, danh sách rộng bằng bảng dòng chứ không bằng cửa sổ) và có bề rộng
+   * cố định — mỗi mục là một lưới riêng, cột `auto` sẽ lệch nhau giữa các mục và bóp tên khi tồn / đơn vị dài.
+   */
+  const renderMaterialOption = (option: ComboboxOption) => {
+    const m = bySlug.get(option.value)
+    if (!m) return <span className="min-w-0 break-words">{option.label}</span>
+    const baseCode = baseUnitOf(m)?.unitCode ?? ''
+    return (
+      <span className="@container block w-full min-w-0">
+        <span className="grid items-start gap-x-4 gap-y-0.5 @2xl:grid-cols-[minmax(0,1fr)_12rem_8rem]">
+          <span className="min-w-0 break-words">
+            <span className="font-semibold">{m.code}</span> · {m.name}
+          </span>
+          <span className="text-muted-foreground text-xs tabular-nums @2xl:pt-0.5 @2xl:text-right">
+            {t('importForms:stock', { value: `${formatQuantity(m.quantity)} ${baseCode}`.trim() })}
+          </span>
+          <span className="text-muted-foreground min-w-0 text-xs break-words @2xl:pt-0.5">
+            {m.units.map((u) => u.unitCode).join(', ')}
+          </span>
+        </span>
+      </span>
+    )
   }
   const full = fields.length >= IMPORT_FORM_ITEMS_MAX
   const rootError =
@@ -178,8 +292,14 @@ export function ImportFormItemsField({
   )
 
   return (
-    <section className="@container space-y-3" aria-labelledby={`${hintId}-title`}>
-      <h2 id={`${hintId}-title`} className="font-heading text-base font-semibold">
+    <section ref={sectionRef} className="@container space-y-3" aria-labelledby={`${hintId}-title`}>
+      {/* `tabIndex={-1}`: sheet focus tiêu đề này khi chuyển sang bước ②. */}
+      <h2
+        ref={headingRef}
+        id={`${hintId}-title`}
+        tabIndex={-1}
+        className="font-heading text-base font-semibold outline-none"
+      >
         {t('importForms:items')}
       </h2>
 
@@ -248,9 +368,14 @@ export function ImportFormItemsField({
                   </FormLabel>
                   <FormControl>
                     <Combobox
+                      ref={f.ref}
                       options={options}
                       groups={groupsFor(lineSupplier)}
                       serverFiltered={searching}
+                      widthAnchor={sectionRef}
+                      listClassName="max-h-[60vh]"
+                      minListSpace={Math.round(window.innerHeight * 0.6)}
+                      renderOption={renderMaterialOption}
                       onSearchChange={setSearch}
                       isLoading={
                         searching && (searchResult.isFetching || debouncedSearch !== search.trim())
@@ -389,6 +514,7 @@ export function ImportFormItemsField({
                   >
                     <FormControl>
                       <SelectTrigger
+                        ref={f.ref}
                         className="w-full"
                         title={unitFullLabel}
                         aria-label={`${t('importForms:fieldUnit')} ${t('importForms:lineLabel', { line: index + 1 })}`}
@@ -532,22 +658,65 @@ export function ImportFormItemsField({
       )}
 
       <div className="space-y-1">
-        <Button
-          type="button"
-          variant="outline"
-          disabled={full}
-          aria-describedby={full ? `${hintId}-full` : undefined}
-          onClick={() => append({ ...EMPTY_ITEM })}
-        >
-          <PlusIcon aria-hidden />
-          {t('importForms:addLine')}
-        </Button>
+        <div className="flex flex-wrap gap-2">
+          <Button
+            type="button"
+            variant="outline"
+            disabled={full}
+            aria-describedby={full ? `${hintId}-full` : undefined}
+            onClick={() => append({ ...EMPTY_ITEM })}
+          >
+            <PlusIcon aria-hidden />
+            {t('importForms:addLine')}
+          </Button>
+          {capacity > 0 && (
+            <Button
+              ref={pickButtonRef}
+              type="button"
+              variant="outline"
+              onClick={() => setPickerOpen(true)}
+            >
+              <ListChecksIcon aria-hidden />
+              {t('importForms:pickManyMaterials')}
+            </Button>
+          )}
+        </div>
         {full && (
           <p id={`${hintId}-full`} className="text-muted-foreground text-xs">
             {t('importForms:itemsMaxReached')}
           </p>
         )}
       </div>
+
+      <ImportFormMaterialPicker
+        open={pickerOpen}
+        onOpenChange={setPickerOpen}
+        warehouseSlug={warehouseSlug}
+        materials={materials}
+        headerSupplierSlug={headerSupplier ?? ''}
+        supplierName={supplierName}
+        existingSlugs={existingSlugs}
+        capacity={capacity}
+        onConfirm={onPicked}
+        contentRef={pickerContentRef}
+        addMaterialFooter={
+          materialAbilities.search && AddMaterialDialog
+            ? (search) => (
+                <Button
+                  ref={pickerFooterRef}
+                  type="button"
+                  variant="ghost"
+                  size="sm"
+                  className="w-full justify-start px-3"
+                  onClick={() => setAdding({ index: null, search })}
+                >
+                  <PlusIcon aria-hidden />
+                  {t('importForms:addMaterialEntry')}
+                </Button>
+              )
+            : undefined
+        }
+      />
 
       {AddMaterialDialog && (
         <AddMaterialDialog
@@ -559,10 +728,12 @@ export function ImportFormItemsField({
           abilities={materialAbilities}
           defaultSupplierSlug={
             adding
-              ? effectiveSupplier(
-                  { ...form.getValues(), supplierSlug: headerSupplier ?? '', items },
-                  adding.index,
-                ) || undefined
+              ? (adding.index === null
+                  ? headerSupplier
+                  : effectiveSupplier(
+                      { ...form.getValues(), supplierSlug: headerSupplier ?? '', items },
+                      adding.index,
+                    )) || undefined
               : undefined
           }
           onAdded={onMaterialAdded}

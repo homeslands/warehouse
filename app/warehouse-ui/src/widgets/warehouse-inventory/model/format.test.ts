@@ -14,4 +14,6 @@ describe('thresholdRange', () => {
   it('cả hai 0 → null (Chưa đặt)', () => expect(thresholdRange(0, 0)).toBeNull())
   it('một bên 0 vẫn hiện', () => expect(thresholdRange(0, 70)).toBe('0 – 70'))
   it('bình thường', () => expect(thresholdRange(20, 70)).toBe('20 – 70'))
+  it('có đơn vị → thêm đơn vị', () => expect(thresholdRange(20, 70, 'CHAI')).toBe('20 – 70 CHAI'))
+  it('chưa đặt vẫn null dù có đơn vị', () => expect(thresholdRange(0, 0, 'CHAI')).toBeNull())
 })
