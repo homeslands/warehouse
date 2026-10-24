@@ -1,8 +1,14 @@
 import { XIcon } from 'lucide-react'
+import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
+import { Button } from '@/shared/ui/button'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
-import { CHIP_FRAME, CHIP_INNER, useFilterDisplay } from './filter-display'
+import { FilterField } from './FilterField'
+import { CHIP_FRAME, CHIP_INNER, FILTER_LABEL_CLASS, useFilterDisplay } from './filter-display'
+
+/** Tối đa bấy nhiêu lựa chọn thật (không tính "Tất cả") thì popover vẽ thành nút bấm nhanh thay cho dropdown. */
+const MAX_QUICK_BUTTONS = 4
 
 export type SelectFilterOption = { value: string; label: string }
 
@@ -32,6 +38,7 @@ export function SelectFilter({ label, value, onChange, options, className }: Sel
   const selectedLabel = options.find((option) => option.value === value)?.label
   const display = useFilterDisplay()
   const { t } = useTranslation(['common'])
+  const triggerId = useId()
 
   const content = (
     <SelectContent>
@@ -77,6 +84,56 @@ export function SelectFilter({ label, value, onChange, options, className }: Sel
             <XIcon className="size-3.5" aria-hidden />
           </button>
         )}
+      </div>
+    )
+  }
+
+  if (display === 'popover') {
+    const real = options.filter((option) => option.value !== '')
+    if (real.length > 0 && real.length <= MAX_QUICK_BUTTONS) {
+      // Ít lựa chọn → nút bấm nhanh; bấm nút đang bật = bỏ lọc.
+      return (
+        <div className={className}>
+          <FilterField label={label} group>
+            <div className="flex flex-wrap gap-1.5">
+              {real.map((option) => {
+                const pressed = option.value === value
+                return (
+                  <Button
+                    key={option.value}
+                    type="button"
+                    size="sm"
+                    variant={pressed ? 'default' : 'outline'}
+                    // Nhãn dài (vai trò tự đặt tên) xuống dòng trong bề rộng popover thay vì tràn ra ngoài.
+                    className="h-auto min-h-8 max-w-full py-1 text-left whitespace-normal [overflow-wrap:anywhere]"
+                    aria-pressed={pressed}
+                    onClick={() => onChange(pressed ? '' : option.value)}
+                  >
+                    {option.label}
+                  </Button>
+                )
+              })}
+            </div>
+          </FilterField>
+        </div>
+      )
+    }
+    return (
+      <div className={cn('flex flex-col gap-1.5', className)}>
+        <label htmlFor={triggerId} className={FILTER_LABEL_CLASS}>
+          {label}
+        </label>
+        <Select {...selectProps}>
+          <SelectTrigger
+            id={triggerId}
+            aria-label={label}
+            title={selectedLabel}
+            className="w-full max-w-none"
+          >
+            <SelectValue />
+          </SelectTrigger>
+          {content}
+        </Select>
       </div>
     )
   }

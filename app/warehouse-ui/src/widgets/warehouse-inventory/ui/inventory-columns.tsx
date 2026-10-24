@@ -43,13 +43,13 @@ export function buildInventoryColumns(
       id: 'reserved',
       header: t('inventory:columnReserved'),
       meta: { hideBelow: '@4xl' },
-      cell: ({ row }) => formatStock(row.original.reservedQuantity, row.original.baseUnitCode),
+      cell: ({ row }) => formatStock(row.original.reservedQuantity, row.original.baseUnit?.code),
     },
     {
       id: 'available',
       header: t('inventory:columnAvailable'),
       meta: { hideBelow: '@sm' },
-      cell: ({ row }) => formatStock(row.original.availableQuantity, row.original.baseUnitCode),
+      cell: ({ row }) => formatStock(row.original.availableQuantity, row.original.baseUnit?.code),
     },
     {
       id: 'threshold',
@@ -59,6 +59,7 @@ export function buildInventoryColumns(
         thresholdRange(
           row.original.effectiveMinimumInventory,
           row.original.effectiveMaximumInventory,
+          row.original.baseUnit?.code,
         ) ?? <span className="text-muted-foreground">{t('inventory:thresholdNotSet')}</span>,
     },
     {

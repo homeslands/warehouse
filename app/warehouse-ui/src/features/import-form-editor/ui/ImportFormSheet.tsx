@@ -1,29 +1,28 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { useEffect, useRef, useState, type ComponentType, type ReactNode } from 'react'
-import { useForm, useWatch } from 'react-hook-form'
+import {
+  useEffect,
+  useRef,
+  useState,
+  type ComponentProps,
+  type ComponentType,
+  type FormEvent,
+  type MouseEvent,
+  type ReactNode,
+} from 'react'
+import { flushSync } from 'react-dom'
+import { useForm, useWatch, type Control, type FieldErrors, type FieldPath } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
+import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { formatCurrency } from '@/shared/lib/format'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
-import { DatePicker } from '@/shared/ui/DatePicker'
-import { FormSheet } from '@/shared/ui/FormSheet'
+import { FormSheet, type FormSheetActionsContext } from '@/shared/ui/FormSheet'
 import { Skeleton } from '@/shared/ui/skeleton'
-import { Textarea } from '@/shared/ui/textarea'
-import {
-  Form,
-  FormControl,
-  FormDescription,
-  FormField,
-  FormItem,
-  FormLabel,
-  FormMessage,
-} from '@/shared/ui/form'
-import { Input } from '@/shared/ui/input'
-import { Combobox } from '@/shared/ui/Combobox'
+import { Form } from '@/shared/ui/form'
 import {
   importFormKeys,
   isStaleImportFormError,
@@ -38,12 +37,14 @@ import {
 import {
   NO_MATERIAL_ADD,
   type AddMaterialDialogProps,
+  type AddedMaterial,
   type MaterialAddAbilities,
 } from '@/entities/inventory'
 import { useSuppliers } from '@/entities/supplier'
-import { ImportFormFileField } from './ImportFormFileField'
+import { ImportFormInfoStep } from './ImportFormInfoStep'
+import { ImportFormInfoSummary } from './ImportFormInfoSummary'
 import { ImportFormItemsField } from './ImportFormItemsField'
-import { ImportFormReviewDialog } from './ImportFormReviewDialog'
+import { ImportFormReviewStep } from './ImportFormReviewStep'
 import { ImportFormStepper } from './ImportFormStepper'
 import {
   buildImportFormSchema,
@@ -56,8 +57,14 @@ import {
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
 import { importFormStepStatus } from '../model/steps'
-import { countFollowingLines } from '../model/supplier'
-import { useActiveSection } from './useActiveSection'
+import {
+  WIZARD_STEPS,
+  firstErrorField,
+  firstStepWithError,
+  stepFields,
+  stepIndex,
+  type WizardStep,
+} from '../model/wizard'
 
 const FIELD_BY_CODE = {
   101302: 'code',
@@ -69,7 +76,43 @@ const FIELD_BY_CODE = {
   101308: 'invoiceCode',
   101310: 'date',
   101312: 'file',
+  101329: 'file',
 } as const
+
+/** Lỗi của cả danh sách dòng: tổng (101311), số dòng (101317 / 101318). */
+const ITEMS_LIST_ERROR_CODES: ReadonlySet<number> = new Set([101311, 101317, 101318])
+
+/**
+ * Lỗi thuộc bước ② mà không gắn được vào ô: lỗi theo dòng (101319–101328 và 101330 bên bán của dòng — backend không
+ * trả chỉ số dòng) và lỗi của cả danh sách dòng (`ITEMS_LIST_ERROR_CODES`).
+ */
+const isItemsError = (error: unknown) =>
+  isApiError(error) &&
+  error.code !== undefined &&
+  ((error.code >= 101319 && error.code <= 101328) ||
+    error.code === 101330 ||
+    ITEMS_LIST_ERROR_CODES.has(error.code))
+
+/**
+ * Cú bấm thứ hai trở đi của một lần bấm đúp (`detail > 1`). Chân sheet đổi nút ngay khi đổi bước, nên cú bấm thứ hai
+ * rơi vào nút mới ở cùng chỗ (vd "Tiếp tục" ② → "Lưu & xác nhận" ③) — phải bỏ qua. Bàn phím có `detail === 0`.
+ */
+const isRepeatClick = (event: MouseEvent<HTMLButtonElement>) => event.detail > 1
+
+/**
+ * Bước ③ tự theo dõi giá trị form (`useWatch` toàn form) — chỉ khung nhỏ này vẽ lại theo từng phím gõ, không phải cả
+ * sheet. Vẫn mount khi ẩn như hai bước kia.
+ */
+function ReviewStepWatcher({
+  control,
+  ...rest
+}: Omit<ComponentProps<typeof ImportFormReviewStep>, 'values'> & {
+  control: Control<ImportFormValues>
+}) {
+  // Không truyền `name` → RHF trả toàn bộ giá trị form (kiểu khai là DeepPartial, giá trị thật là đủ).
+  const values = useWatch({ control }) as ImportFormValues
+  return <ImportFormReviewStep values={values} {...rest} />
+}
 
 /** Kết quả lưu gửi cho trang cha (trang tự báo toast): đã xác nhận hay mới chỉ là nháp, và vì sao chưa xác nhận được. */
 export type ImportFormSaveOutcome = {
@@ -95,14 +138,16 @@ type ImportFormSheetProps = {
   AddMaterialDialog?: ComponentType<AddMaterialDialogProps>
   /** Có SUPPLIER_READ: hiện ô Bên bán (bắt buộc) ở đầu phiếu. */
   canPickSupplier?: boolean
-  /** Có IMPORT_FORM_CONFIRM: hiện "Lưu & xác nhận" (hộp Kiểm tra khi tạo, chân sheet khi sửa). */
+  /** Có IMPORT_FORM_CONFIRM: hiện "Lưu & xác nhận" (bước ③ khi tạo, chân sheet khi sửa). */
   canConfirm?: boolean
 }
 
 /**
- * Form phiếu nhập (tạo + sửa) trong `FormSheet` rộng. Sheet luôn mount, trang cha điều khiển `open`;
- * dữ liệu chỉ tải khi mở. Trang cha chỉ truyền `formSlug` sau khi đã kiểm quyền sửa — sheet chỉ kiểm
- * trạng thái `DRAFT`.
+ * Form phiếu nhập (tạo + sửa) trong `FormSheet` rộng, dạng wizard 3 bước (① Thông tin phiếu → ② Chi tiết vật tư →
+ * ③ Kiểm tra & lưu). Ba bước luôn mount, bước không hiện có `hidden` — giữ trạng thái upload / dòng và để
+ * `trigger` / `setFocus` với tới ô ở bước khác. Tạo chỉ lưu được ở ③; sửa lưu ở mọi bước. Sheet luôn mount, trang cha
+ * điều khiển `open`; dữ liệu chỉ tải khi mở. Trang cha chỉ truyền `formSlug` sau khi đã kiểm quyền sửa — sheet chỉ
+ * kiểm trạng thái `DRAFT`.
  */
 export function ImportFormSheet({
   open,
@@ -130,25 +175,37 @@ export function ImportFormSheet({
   const update = useUpdateImportForm({ successToast: false })
   // `saving` phủ cả khoảng giữa hai request của "Lưu & xác nhận", nơi cả hai mutation đều không pending.
   const [saving, setSaving] = useState(false)
+  // Nút nào đang lưu (tạo: Lưu nháp / Lưu & xác nhận; sửa: Lưu / Lưu & xác nhận) — chỉ nút đó đổi chữ thành
+  // "Đang lưu...".
+  const [pendingAction, setPendingAction] = useState<'draft' | 'confirm' | 'save' | null>(null)
   const isPending = saving || create.isPending || update.isPending || confirm.isPending
   const [uploading, setUploading] = useState(false)
   const suppliers = useSuppliers({ page: 1, size: 100 }, { enabled: open && canPickSupplier })
-  const [changedLines, setChangedLines] = useState<number | null>(null)
-  const sellerRef = useRef<HTMLElement>(null)
-  const itemsRef = useRef<HTMLElement>(null)
-  // Giá trị giữ lại khi hộp đóng: hộp còn cần chúng lúc mờ dần và để nhảy tới dòng sau khi đóng.
-  const [toReview, setToReview] = useState<ImportFormValues | null>(null)
-  const [reviewOpen, setReviewOpen] = useState(false)
-  // Vật tư chọn từ kết quả tìm có thể nằm ngoài 100 bản ghi đầu — hộp Kiểm tra vẫn cần tồn / đơn vị của chúng.
+  // Mở sheet → bắt đầu lại: tạo ở ①, sửa ở ② (phần hay sửa nhất).
+  const initialStep: WizardStep = editing ? 'items' : 'info'
+  const [step, setStep] = useState<WizardStep>(initialStep)
+  const [wasOpen, setWasOpen] = useState(open)
+  if (open !== wasOpen) {
+    setWasOpen(open)
+    if (open) setStep(initialStep)
+  }
+  const contentRef = useRef<HTMLDivElement>(null)
+  const sectionRefs = {
+    info: useRef<HTMLElement>(null),
+    items: useRef<HTMLElement>(null),
+    review: useRef<HTMLElement>(null),
+  }
+  // Vật tư chọn từ kết quả tìm có thể nằm ngoài 100 bản ghi đầu — bước Kiểm tra vẫn cần tồn / đơn vị của chúng.
   const [pickedMaterials, setPickedMaterials] = useState<ReadonlyMap<string, AvailableMaterial>>(
     new Map(),
   )
-  // Vật tư vừa thêm từ hộp: slug → nhãn đang hiển thị, làm tên dự phòng cho cảnh báo của hộp Kiểm tra.
-  const [addedLabels, setAddedLabels] = useState<ReadonlyMap<string, string>>(new Map())
-  // Đóng sheet thì bỏ luôn hộp Kiểm tra và cờ đang upload (ô file đã unmount cùng sheet).
-  if (!open && reviewOpen) setReviewOpen(false)
+  // Vật tư vừa thêm từ hộp (slug → nhãn + đơn vị gốc hộp trả về): tên / đơn vị dự phòng cho bước Kiểm tra.
+  const [addedMaterials, setAddedMaterials] = useState<ReadonlyMap<string, AddedMaterial>>(
+    new Map(),
+  )
+  // Đóng sheet thì bỏ vật tư đã chọn / vừa thêm và cờ đang upload (ô file đã unmount cùng sheet).
   if (!open && pickedMaterials.size > 0) setPickedMaterials(new Map())
-  if (!open && addedLabels.size > 0) setAddedLabels(new Map())
+  if (!open && addedMaterials.size > 0) setAddedMaterials(new Map())
   if (!open && uploading) setUploading(false)
 
   const form = useForm<ImportFormValues>({
@@ -163,14 +220,6 @@ export function ImportFormSheet({
     else if (original) form.reset(toFormValues(original, { canPickSupplier }))
   }, [open, editing, original, form, canPickSupplier])
 
-  // Dòng "Đã đổi bên bán…" mất khi sửa ô khác (hoặc form được reset).
-  useEffect(() => {
-    const sub = form.watch((_, { name }) => {
-      if (name !== 'supplierSlug') setChangedLines(null)
-    })
-    return () => sub.unsubscribe()
-  }, [form])
-
   const supplierOptions = (suppliers.data?.items ?? []).map((x) => ({
     value: x.slug,
     label: `${x.code} · ${x.name}`,
@@ -179,6 +228,7 @@ export function ImportFormSheet({
   const items = useWatch({ control: form.control, name: 'items' })
   const headerSupplier = useWatch({ control: form.control, name: 'supplierSlug' })
   const invoiceCode = useWatch({ control: form.control, name: 'invoiceCode' })
+  const date = useWatch({ control: form.control, name: 'date' })
   const total = formTotal(items)
   const isDirty = form.formState.isDirty
   /**
@@ -216,7 +266,6 @@ export function ImportFormSheet({
   )
 
   const finish = (outcome: ImportFormSaveOutcome) => {
-    setReviewOpen(false)
     onOpenChange(false)
     onSaved?.(outcome)
   }
@@ -230,15 +279,93 @@ export function ImportFormSheet({
     [...knownMaterials.values()].flatMap((m) => m.suppliers).find((x) => x.slug === slug)?.name ??
     slug
 
-  /** Từ hộp Kiểm tra: tới ô liên quan của dòng — đơn giá nếu đang 0, còn lại là số lượng. */
+  /** Nhãn vật tư như bước ② đang hiện: danh sách khả dụng + vật tư vừa chọn / vừa thêm, rồi tới nhãn đã lưu. */
+  const materialLabel = (slug: string) => {
+    const m = knownMaterials.get(slug)
+    return m ? `${m.code} · ${m.name}` : (addedMaterials.get(slug)?.label ?? fallbackLabels[slug])
+  }
+  const unitLabel = (materialSlug: string, unitSlug: string) => {
+    const unit = knownMaterials.get(materialSlug)?.units.find((u) => u.unitSlug === unitSlug)
+    if (unit) return `${unit.unitCode} · ${unit.unitName}`
+    // Vật tư vừa thêm chưa có trong `available-materials` → đơn vị gốc hộp trả về.
+    const added = addedMaterials.get(materialSlug)?.baseUnit
+    return added?.slug === unitSlug ? added.label : fallbackUnits[unitSlug]
+  }
+
+  /**
+   * Hiện bước `target` rồi mới focus — ô ở bước bị `hidden` không nhận focus. Có `field` → focus ô đó (ô lỗi, ô của
+   * dòng); không có → cuộn vùng nội dung lên đầu và focus tiêu đề bước cho bàn phím / trình đọc màn hình.
+   */
+  const show = (target: WizardStep, field?: FieldPath<ImportFormValues> | null) => {
+    flushSync(() => setStep(target))
+    const section = sectionRefs[target].current
+    const heading = () => section?.querySelector<HTMLElement>('h2[tabindex="-1"]')
+    // `items` (lỗi cấp mảng) không phải một ô — focus tiêu đề bước.
+    if (field && field !== 'items') {
+      form.setFocus(field)
+      // Dự phòng khi ô không nhận focus qua RHF (ô không chuyển tiếp `ref` — ô file đính kèm, lỗi cấp dòng…): ô
+      // `aria-invalid` đầu tiên của bước, không có thì tiêu đề bước.
+      if (section && !section.contains(document.activeElement)) {
+        const invalid = section.querySelector<HTMLElement>('[aria-invalid="true"]')
+        if (invalid) {
+          invalid.scrollIntoView?.({ block: 'center' })
+          invalid.focus()
+        } else heading()?.focus()
+      }
+      return
+    }
+    const scroller = contentRef.current?.parentElement
+    if (scroller) scroller.scrollTop = 0
+    heading()?.focus()
+  }
+
+  /** Lỗi hiện tại của các bước, đọc qua `getFieldState` (luôn mới) — `formState` chỉ mới ở lần render sau. */
+  const liveErrors = (steps: readonly WizardStep[] = WIZARD_STEPS) =>
+    Object.fromEntries(
+      steps.flatMap(stepFields).map((f) => [f, form.getFieldState(f).error]),
+    ) as FieldErrors<ImportFormValues>
+
+  /**
+   * Lùi luôn được. Tiến: kiểm lần lượt các bước trước `target`, dừng ở bước sai đầu tiên (hiện lỗi, focus ô lỗi).
+   * Đang upload chứng từ (bước ①) thì không tiến.
+   */
+  const goTo = async (target: WizardStep) => {
+    if (target === step) return
+    if (stepIndex(target) < stepIndex(step)) return show(target)
+    if (uploading) return
+    for (const s of WIZARD_STEPS.slice(0, stepIndex(target))) {
+      if (await form.trigger(stepFields(s))) continue
+      if (!form.formState.isSubmitted) {
+        // `visibleError` giấu lỗi của ô trống chưa chạm cho tới lần gửi đầu: gửi "khan" (không lưu gì) để lỗi hiện
+        // ra, rồi bỏ lỗi của các bước sau — người dùng chưa tới đó.
+        await form.handleSubmit(
+          () => {},
+          () => {},
+        )()
+        form.clearErrors(WIZARD_STEPS.slice(stepIndex(s) + 1).flatMap(stepFields))
+      }
+      return show(s, firstErrorField(liveErrors([s]), s))
+    }
+    show(target)
+  }
+
+  /** Có lỗi (lưu toàn phiếu không qua, lỗi backend tại ô): sang bước chứa ô lỗi đầu tiên rồi focus ô đó. */
+  const showFirstError = (errors: FieldErrors<ImportFormValues>) => {
+    const s = firstStepWithError(errors)
+    if (s) show(s, firstErrorField(errors, s))
+  }
+
+  /** Từ bước Kiểm tra: về ② và tới ô liên quan của dòng — đơn giá nếu đang 0, còn lại là số lượng. */
   const jumpToLine = (index: number) => {
     const zeroPrice = form.getValues(`items.${index}.unitPrice`) === 0
-    form.setFocus(zeroPrice ? `items.${index}.unitPrice` : `items.${index}.quantity`)
+    show('items', zeroPrice ? `items.${index}.unitPrice` : `items.${index}.quantity`)
   }
 
   const handleError = (error: unknown) => {
-    if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) return
+    // Ô lỗi có thể nằm ở bước đang ẩn (vd Mã phiếu khi đang ở ③) → sang bước đó rồi focus.
+    if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) return showFirstError(liveErrors())
     toastApiError(error)
+    if (isItemsError(error)) show('items')
   }
 
   const handleStale = () => {
@@ -249,13 +376,12 @@ export function ImportFormSheet({
 
   const saveNew = async (values: ImportFormValues, andConfirm: boolean) => {
     setSaving(true)
+    setPendingAction(andConfirm ? 'confirm' : 'draft')
     try {
       let saved: ImportForm
       try {
         saved = await create.mutateAsync({ warehouseSlug, input: toCreateInput(values) })
       } catch (error) {
-        // Đóng hộp để lỗi tại ô hiện ra.
-        setReviewOpen(false)
         handleError(error)
         return
       }
@@ -276,11 +402,13 @@ export function ImportFormSheet({
       }
     } finally {
       setSaving(false)
+      setPendingAction(null)
     }
   }
 
   const saveEdit = (values: ImportFormValues) => {
     if (!original) return
+    setPendingAction('save')
     update.mutate(
       { warehouseSlug, slug: original.slug, input: toUpdateInput(values, original.version) },
       {
@@ -289,6 +417,7 @@ export function ImportFormSheet({
           if (isStaleImportFormError(error)) return handleStale()
           handleError(error)
         },
+        onSettled: () => setPendingAction(null),
       },
     )
   }
@@ -300,6 +429,7 @@ export function ImportFormSheet({
   const saveEditAndConfirm = async (values: ImportFormValues) => {
     if (!original) return
     setSaving(true)
+    setPendingAction('confirm')
     try {
       let current = original
       const patching = isDirty || sellerUnsaved(values)
@@ -335,27 +465,87 @@ export function ImportFormSheet({
       }
     } finally {
       setSaving(false)
+      setPendingAction(null)
     }
   }
 
   /**
-   * Sửa không có hộp Kiểm tra: bước ③ chỉ đưa chân sheet vào tầm nhìn và focus nút "Lưu" — KHÔNG gửi form (gửi là
-   * lưu thẳng rồi đóng sheet, quá tay với một nút trên dải bước). Nút Lưu nằm trong cùng `<form>` với dải bước.
+   * Enter / nút gửi. Sửa: Lưu ở mọi bước (kiểm toàn phiếu, lỗi ở bước khác → sang bước đó). Tạo: ① / ② = Tiếp tục;
+   * ③ không làm gì — một phím Enter lỡ tay không được "Lưu & xác nhận" (cộng tồn ngay), lưu chỉ qua nút ở chân sheet.
    */
-  const focusSave = () => {
-    const save = sellerRef.current
-      ?.closest('form')
-      ?.querySelector<HTMLButtonElement>('button[type="submit"]')
-    save?.scrollIntoView({ behavior: 'smooth', block: 'nearest' })
-    save?.focus()
+  const onSubmit = (event: FormEvent<HTMLFormElement>) => {
+    if (editing) {
+      void form.handleSubmit(saveEdit, showFirstError)(event)
+      return
+    }
+    event.preventDefault()
+    if (step === 'info') void goTo('items')
+    else if (step === 'items') void goTo('review')
   }
 
-  const onSubmit = (values: ImportFormValues) => {
-    if (editing) saveEdit(values)
-    else {
-      setToReview(values)
-      setReviewOpen(true)
+  /** Nhãn nút lưu: "Đang lưu..." khi đang gửi (và `active` — tức chính nút này được bấm), như chân sheet mặc định. */
+  const savingLabel = (label: string, active = true) =>
+    isPending && active ? t('common:saving') : label
+
+  /**
+   * Chân sheet khi tạo: ① Huỷ · Tiếp tục; ② Quay lại · Tiếp tục; ③ Quay lại · Lưu nháp · Lưu & xác nhận. Mỗi nút một
+   * `key` riêng — React không được dùng lại node của "Tiếp tục" cho nút lưu khi sang ③.
+   */
+  const createActions = ({ requestClose }: FormSheetActionsContext) => {
+    const back = (
+      <Button
+        key={step === 'info' ? 'cancel' : 'back'}
+        type="button"
+        variant="outline"
+        disabled={isPending}
+        onClick={
+          step === 'info' ? requestClose : () => void goTo(step === 'review' ? 'items' : 'info')
+        }
+      >
+        {step === 'info' ? t('common:cancel') : t('importForms:back')}
+      </Button>
+    )
+    if (step !== 'review') {
+      return (
+        <>
+          {back}
+          <Button
+            key="next"
+            type="submit"
+            disabled={isPending || uploading}
+            onClick={(e) => {
+              if (isRepeatClick(e)) e.preventDefault()
+            }}
+          >
+            {t('importForms:next')}
+          </Button>
+        </>
+      )
     }
+    // Mọi nút ở ③ là `type="button"`: Enter trong form không được kích hoạt lưu.
+    const save = (andConfirm: boolean) => (e: MouseEvent<HTMLButtonElement>) => {
+      if (isRepeatClick(e)) return
+      void form.handleSubmit((values) => saveNew(values, andConfirm), showFirstError)()
+    }
+    return (
+      <>
+        {back}
+        <Button
+          key="draft"
+          type="button"
+          variant={canConfirm ? 'outline' : 'default'}
+          disabled={isPending}
+          onClick={save(false)}
+        >
+          {savingLabel(t('importForms:saveDraft'), pendingAction === 'draft')}
+        </Button>
+        {canConfirm && (
+          <Button key="confirm" type="button" disabled={isPending} onClick={save(true)}>
+            {savingLabel(t('importForms:saveAndConfirm'), pendingAction === 'confirm')}
+          </Button>
+        )}
+      </>
+    )
   }
 
   const loadingBlock = (
@@ -390,231 +580,162 @@ export function ImportFormSheet({
   } else {
     body = null
   }
-  const activeStep = useActiveSection(
-    [
-      { key: 'seller', ref: sellerRef },
-      { key: 'items', ref: itemsRef },
-    ],
-    open && body === null,
+
+  /**
+   * Chân sheet khi sửa, ở mọi bước: Huỷ · Lưu & xác nhận (`canConfirm`) · Lưu. Không có Quay lại / Tiếp tục — đi
+   * giữa các bước qua dải bước và "sửa" của dòng tóm tắt. Cả hai nút lưu kiểm toàn phiếu; lỗi ở bước đang ẩn → sang
+   * bước đó (`showFirstError`).
+   */
+  const editActions = ({ requestClose }: FormSheetActionsContext) => (
+    <>
+      <Button
+        key="cancel"
+        type="button"
+        variant="outline"
+        disabled={isPending}
+        onClick={requestClose}
+      >
+        {t('common:cancel')}
+      </Button>
+      {canConfirm && body === null && (
+        <Button
+          key="confirm"
+          type="button"
+          variant="outline"
+          disabled={isPending || uploading}
+          onClick={(e) => {
+            if (isRepeatClick(e)) return
+            void form.handleSubmit(saveEditAndConfirm, showFirstError)()
+          }}
+        >
+          {savingLabel(t('importForms:saveAndConfirm'), pendingAction === 'confirm')}
+        </Button>
+      )}
+      <Button
+        key="save"
+        type="submit"
+        disabled={isPending || uploading || !editable || !needsPatch}
+      >
+        {savingLabel(t('common:save'), pendingAction === 'save')}
+      </Button>
+    </>
   )
+
   const steps = importFormStepStatus(
     { supplierSlug: headerSupplier ?? '', invoiceCode: invoiceCode ?? '', items },
     { requireSupplier: canPickSupplier },
   )
 
   return (
-    <>
-      <FormSheet
-        open={open}
-        onOpenChange={onOpenChange}
-        size="wide"
-        title={
-          editing
-            ? t('importForms:editTitle', { code: original?.code ?? formCode ?? '' })
-            : t('importForms:createTitle', { warehouse: warehouseName })
-        }
-        submitLabel={editing ? t('common:save') : t('importForms:reviewAndSave')}
-        isPending={isPending}
-        submitDisabled={uploading || (editing && (!editable || !needsPatch))}
-        isDirty={isDirty}
-        footerStart={
-          body === null
-            ? t('importForms:total', { value: formatCurrency(total, { maximumFractionDigits: 2 }) })
-            : undefined
-        }
-        secondaryAction={
-          editing && canConfirm && body === null ? (
-            <Button
-              type="button"
-              variant="outline"
-              disabled={isPending || uploading}
-              onClick={() => void form.handleSubmit(saveEditAndConfirm)()}
+    <FormSheet
+      open={open}
+      onOpenChange={onOpenChange}
+      size="wide"
+      title={
+        editing
+          ? t('importForms:editTitle', { code: original?.code ?? formCode ?? '' })
+          : t('importForms:createTitle', { warehouse: warehouseName })
+      }
+      actions={editing ? editActions : createActions}
+      isPending={isPending}
+      isDirty={isDirty}
+      footerStart={
+        // Tạo: Tổng chỉ ở ② và ③ (bước ① chưa có dòng nào để cộng).
+        body === null && (editing || step !== 'info')
+          ? t('importForms:total', { value: formatCurrency(total, { maximumFractionDigits: 2 }) })
+          : undefined
+      }
+      onSubmit={onSubmit}
+    >
+      {body ?? (
+        <Form {...form}>
+          <div ref={contentRef} className="space-y-6">
+            <ImportFormStepper
+              current={step}
+              infoDone={steps.sellerDone}
+              itemsDone={steps.itemsDone}
+              lineCount={steps.lineCount}
+              onSelect={(target) => void goTo(target)}
+              disabled={isPending}
+              lockForward={uploading}
+            />
+            <section
+              ref={sectionRefs.info}
+              hidden={step !== 'info'}
+              className="bg-card space-y-5 rounded-xl border p-5 sm:p-6"
             >
-              {t('importForms:saveAndConfirm')}
-            </Button>
-          ) : undefined
-        }
-        onSubmit={form.handleSubmit(onSubmit)}
-      >
-        {body ?? (
-          <Form {...form}>
-            <div className="space-y-6">
-              <ImportFormStepper
-                active={activeStep}
-                sellerDone={steps.sellerDone}
-                itemsDone={steps.itemsDone}
-                lineCount={steps.lineCount}
-                onSeller={() =>
-                  sellerRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }
-                onItems={() =>
-                  itemsRef.current?.scrollIntoView({ behavior: 'smooth', block: 'start' })
-                }
-                onReview={editing ? focusSave : () => void form.handleSubmit(onSubmit)()}
-                reviewDisabled={isPending || uploading || (editing && (!editable || !needsPatch))}
+              <ImportFormInfoStep
+                form={form}
+                canPickSupplier={canPickSupplier}
+                supplierOptions={supplierOptions}
+                onUploadingChange={setUploading}
               />
-              <section ref={sellerRef} className="bg-card space-y-5 rounded-xl border p-5 sm:p-6">
-                {/* `items-start`: FormItem là grid — bị kéo giãn theo ô cao nhất hàng (Mã phiếu có dòng gợi ý) thì
-                  nhãn và ô nhập của các ô bên cạnh bị đẩy lệch xuống. */}
-                <div className="grid items-start gap-x-6 gap-y-5 sm:grid-cols-2 lg:grid-cols-3">
-                  {canPickSupplier && (
-                    <FormField
-                      control={form.control}
-                      name="supplierSlug"
-                      render={({ field }) => (
-                        <FormItem required>
-                          <FormLabel>{t('importForms:supplier')}</FormLabel>
-                          <FormControl>
-                            <Combobox
-                              options={supplierOptions}
-                              value={field.value || undefined}
-                              onChange={(next) => {
-                                const value = next ?? ''
-                                if (value === field.value) return
-                                field.onChange(value)
-                                const count = countFollowingLines(form.getValues())
-                                setChangedLines(count > 0 ? count : null)
-                              }}
-                              placeholder={t('importForms:supplierPlaceholder')}
-                            />
-                          </FormControl>
-                          {changedLines !== null && (
-                            <FormDescription>
-                              {t('importForms:supplierChangedLines', { count: changedLines })}
-                            </FormDescription>
-                          )}
-                          <FormMessage />
-                        </FormItem>
-                      )}
-                    />
-                  )}
-                  <FormField
-                    control={form.control}
-                    name="invoiceCode"
-                    render={({ field }) => (
-                      <FormItem required>
-                        <FormLabel>{t('importForms:fieldInvoiceCode')}</FormLabel>
-                        <FormControl>
-                          <Input {...field} autoComplete="off" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="date"
-                    render={({ field }) => (
-                      <FormItem required>
-                        <FormLabel>{t('importForms:fieldDate')}</FormLabel>
-                        <FormControl>
-                          <DatePicker value={field.value} onChange={field.onChange} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <div className="sm:col-span-2">
-                    <ImportFormFileField form={form} onUploadingChange={setUploading} />
-                  </div>
-                  <FormField
-                    control={form.control}
-                    name="purchaseOrder"
-                    render={({ field }) => (
-                      <FormItem>
-                        <FormLabel>{t('importForms:fieldPurchaseOrder')}</FormLabel>
-                        <FormControl>
-                          <Input {...field} autoComplete="off" />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="note"
-                    render={({ field }) => (
-                      <FormItem className="sm:col-span-full">
-                        <FormLabel>{t('importForms:fieldNote')}</FormLabel>
-                        <FormControl>
-                          <Textarea {...field} rows={2} />
-                        </FormControl>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                  <FormField
-                    control={form.control}
-                    name="code"
-                    render={({ field }) => (
-                      <FormItem required>
-                        <FormLabel>{t('importForms:fieldCode')}</FormLabel>
-                        <FormControl>
-                          <Input {...field} autoComplete="off" />
-                        </FormControl>
-                        <FormDescription>{t('importForms:fieldCodeHint')}</FormDescription>
-                        <FormMessage />
-                      </FormItem>
-                    )}
-                  />
-                </div>
-              </section>
+            </section>
 
-              <section ref={itemsRef} className="bg-card rounded-xl border p-5 sm:p-6">
-                {materials.isPending ? (
-                  <div className="space-y-3" role="status" aria-label={t('common:loading')}>
-                    <Skeleton className="h-6 w-40" />
-                    <Skeleton className="h-10 w-full" />
-                    <Skeleton className="h-10 w-full" />
-                  </div>
-                ) : (
-                  <ImportFormItemsField
-                    onMaterialPicked={(m) =>
-                      setPickedMaterials((prev) => new Map(prev).set(m.slug, m))
-                    }
-                    onMaterialAdded={(m) =>
-                      setAddedLabels((prev) => new Map(prev).set(m.slug, m.label))
-                    }
-                    form={form}
-                    materials={materials.data?.items ?? []}
-                    fallbackLabels={fallbackLabels}
-                    fallbackUnits={fallbackUnits}
-                    warehouseSlug={warehouseSlug}
-                    warehouseName={warehouseName}
-                    materialAbilities={materialAbilities}
-                    AddMaterialDialog={AddMaterialDialog}
-                    canPickSupplier={canPickSupplier}
-                    suppliers={suppliers.data?.items}
-                    loadError={
-                      materials.isError
-                        ? {
-                            message: resolveApiErrorMessage(materials.error),
-                            onRetry: () => void materials.refetch(),
-                          }
-                        : undefined
-                    }
-                  />
-                )}
-              </section>
-            </div>
-          </Form>
-        )}
-      </FormSheet>
-      {toReview && (
-        <ImportFormReviewDialog
-          open={open && reviewOpen}
-          onOpenChange={setReviewOpen}
-          values={toReview}
-          materials={knownMaterials}
-          supplierName={supplierName}
-          materialLabel={(slug) => addedLabels.get(slug) ?? fallbackLabels[slug]}
-          canConfirm={canConfirm}
-          isPending={isPending}
-          onSaveDraft={() => void saveNew(toReview, false)}
-          onSaveAndConfirm={() => void saveNew(toReview, true)}
-          onJumpToLine={jumpToLine}
-        />
+            <section
+              ref={sectionRefs.items}
+              hidden={step !== 'items'}
+              className="bg-card space-y-4 rounded-xl border p-5 sm:p-6"
+            >
+              <ImportFormInfoSummary
+                seller={
+                  canPickSupplier && headerSupplier ? supplierName(headerSupplier) : undefined
+                }
+                invoiceCode={invoiceCode ?? ''}
+                date={date ?? ''}
+                onEdit={() => void goTo('info')}
+                disabled={isPending}
+              />
+              {materials.isPending ? (
+                loadingBlock
+              ) : (
+                <ImportFormItemsField
+                  onMaterialPicked={(m) =>
+                    setPickedMaterials((prev) => new Map(prev).set(m.slug, m))
+                  }
+                  onMaterialAdded={(m) => setAddedMaterials((prev) => new Map(prev).set(m.slug, m))}
+                  form={form}
+                  materials={materials.data?.items ?? []}
+                  fallbackLabels={fallbackLabels}
+                  fallbackUnits={fallbackUnits}
+                  warehouseSlug={warehouseSlug}
+                  warehouseName={warehouseName}
+                  materialAbilities={materialAbilities}
+                  AddMaterialDialog={AddMaterialDialog}
+                  canPickSupplier={canPickSupplier}
+                  suppliers={suppliers.data?.items}
+                  loadError={
+                    materials.isError
+                      ? {
+                          message: resolveApiErrorMessage(materials.error),
+                          onRetry: () => void materials.refetch(),
+                        }
+                      : undefined
+                  }
+                />
+              )}
+            </section>
+
+            <section
+              ref={sectionRefs.review}
+              hidden={step !== 'review'}
+              className="bg-card rounded-xl border p-5 sm:p-6"
+            >
+              <ReviewStepWatcher
+                control={form.control}
+                materials={knownMaterials}
+                supplierName={supplierName}
+                materialLabel={materialLabel}
+                unitLabel={unitLabel}
+                canConfirm={canConfirm}
+                editing={editing}
+                disabled={isPending}
+                onJumpToLine={jumpToLine}
+              />
+            </section>
+          </div>
+        </Form>
       )}
-    </>
+    </FormSheet>
   )
 }

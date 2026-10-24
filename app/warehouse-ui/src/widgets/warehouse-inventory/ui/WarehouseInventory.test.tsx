@@ -36,6 +36,8 @@ const row = (over: Partial<InventoryItem>): InventoryItem => ({
   materialName: 'Matcha',
   typeSlug: 'mt-1',
   typeName: 'Nguyên liệu',
+  baseUnit: null,
+  units: [],
   ...over,
 })
 const matcha = row({})
@@ -128,8 +130,25 @@ describe('WarehouseInventory', () => {
   })
 
   it('có đơn vị gốc → "30 KG"', async () => {
-    setup({ items: [row({ baseUnitCode: 'KG', baseUnitName: 'Kilogram', baseUnitSlug: 'u-kg' })] })
-    expect((await screen.findAllByText('30 KG')).length).toBeGreaterThan(0)
+    setup({
+      items: [
+        row({
+          baseUnit: { slug: 'u-kg', code: 'KG', name: 'Kilogram' },
+          units: [
+            {
+              unitSlug: 'u-kg',
+              unitCode: 'KG',
+              unitName: 'Kilogram',
+              conversionRate: 1,
+              isBaseUnit: true,
+            },
+          ],
+        }),
+      ],
+    })
+    const r = (await screen.findByText(/Matcha/)).closest('tr')!
+    expect(within(r).getAllByText('30 KG')).toHaveLength(2)
+    expect(within(r).getByText('20 – 70 KG')).toBeInTheDocument()
   })
 
   it('lọc Cảnh báo "Dưới ngưỡng min" → belowMinimum=true, về trang 1', async () => {

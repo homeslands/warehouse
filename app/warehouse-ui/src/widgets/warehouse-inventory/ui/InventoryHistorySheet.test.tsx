@@ -28,6 +28,8 @@ const item = (over: Partial<InventoryItem> = {}): InventoryItem => ({
   materialName: 'Matcha',
   typeSlug: 'mt-1',
   typeName: 'Nguyên liệu',
+  baseUnit: null,
+  units: [],
   ...over,
 })
 
@@ -150,6 +152,13 @@ describe('InventoryHistorySheet', () => {
     expect(importRow).not.toHaveTextContent('bởi')
     expect(within(dialog).getByText('Giữ chỗ +10 (0 → 10)')).toBeInTheDocument()
     expect(within(dialog).queryByText(/0 → 0/)).not.toBeInTheDocument()
+  })
+
+  it('mở từ dòng có baseUnit → số kèm mã đơn vị, ngưỡng kèm đơn vị', async () => {
+    setup({ item: item({ baseUnit: { slug: 'u-chai', code: 'CHAI', name: 'Chai' } }) })
+    const dialog = await screen.findByRole('dialog')
+    expect(within(dialog).getAllByText('30 CHAI')).toHaveLength(2)
+    expect(within(dialog).getByText('20 – 70 CHAI')).toBeInTheDocument()
   })
 
   it('mở bằng URL (không có dòng): tải vật tư, không hiện ngưỡng', async () => {

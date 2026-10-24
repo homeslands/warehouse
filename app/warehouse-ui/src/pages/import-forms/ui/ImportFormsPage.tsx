@@ -12,6 +12,7 @@ import { Button } from '@/shared/ui/button'
 import { DataTable } from '@/shared/ui/data-table/DataTable'
 import { ListToolbar } from '@/shared/ui/data-table/ListToolbar'
 import { DateRangeFilter } from '@/shared/ui/data-table/DateRangeFilter'
+import { SearchInput } from '@/shared/ui/data-table/SearchInput'
 import { SelectFilter } from '@/shared/ui/data-table/SelectFilter'
 import {
   DropdownMenu,
@@ -20,6 +21,7 @@ import {
   DropdownMenuSeparator,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { Skeleton } from '@/shared/ui/skeleton'
 import {
   IMPORT_FORM_STATUSES,
@@ -28,22 +30,46 @@ import {
   type ImportForm,
   type ImportFormFilters,
 } from '@/entities/import-form'
-import { useAuthStore } from '@/entities/session'
+import { can, useAuthStore } from '@/entities/session'
 import { DeleteImportFormDialog } from '@/features/import-form-delete'
 import { ImportFormSheet } from '@/features/import-form-editor'
 import { AddWarehouseMaterialDialog, materialAddAbilities } from '@/features/warehouse-material-add'
 import { WarehousePicker, useWarehouseSelection } from '@/features/warehouse-picker'
 import { importFormAbilities } from '../model/abilities'
 import { detailPath } from '../model/paths'
+import {
+  IMPORT_FORM_SEARCH_FIELDS,
+  toImportFormSearchQuery,
+  type ImportFormSearchField,
+} from '../model/search-query'
 import { toastSaveOutcome } from '../model/saveToast'
+import { PersonFilter } from './PersonFilter'
 
 const FILTERS = z.object({
   warehouse: z.string().optional(),
   status: z.enum(IMPORT_FORM_STATUSES).optional(),
+  // `search` là chữ gõ; `searchBy` chọn khoá BE (mặc định `code`) — `toImportFormSearchQuery`.
+  search: z.string().optional(),
+  searchBy: z.enum(IMPORT_FORM_SEARCH_FIELDS).optional(),
   // Ngày tạo. Sai định dạng trên URL → bỏ riêng khoá đó (`useListParams`).
   startDate: z.iso.date().optional(),
   endDate: z.iso.date().optional(),
-}) satisfies z.ZodType<{ warehouse?: string } & ImportFormFilters>
+  // Người lập / người xác nhận (slug). Khoá URL ngắn; sang BE thành `requesterSlug` / `approverSlug`.
+  requester: z.string().optional(),
+  approver: z.string().optional(),
+}) satisfies z.ZodType<{ warehouse?: string; search?: string } & ImportFormFilters>
+
+const SEARCH_BY_LABEL = {
+  code: 'importForms:searchByCode',
+  invoiceCode: 'importForms:searchByInvoice',
+  purchaseOrder: 'importForms:searchByPurchaseOrder',
+} as const satisfies Record<ImportFormSearchField, string>
+
+const SEARCH_PLACEHOLDER = {
+  code: 'importForms:searchPlaceholderCode',
+  invoiceCode: 'importForms:searchPlaceholderInvoice',
+  purchaseOrder: 'importForms:searchPlaceholderPurchaseOrder',
+} as const satisfies Record<ImportFormSearchField, string>
 
 /** Trường backend cho phép sắp xếp (cột khai `sortField` ở entity). Không có `importDate`. */
 const IMPORT_FORM_SORT_FIELDS = ['createdAt', 'code'] as const
@@ -53,6 +79,7 @@ export function ImportFormsPage() {
   const location = useLocation()
   const navigate = useNavigate()
   const hintId = useId()
+  const warehousePickerId = useId()
   const user = useAuthStore((s) => s.user)
   const { page, size, filters, sort, setPage, setSize, setFilters, setSort } =
     useListParams(FILTERS)
@@ -77,13 +104,30 @@ export function ImportFormsPage() {
     [backTo],
   )
 
-  const { data, isPending, error, isPlaceholderData } = useImportForms(warehouseSlug, {
-    page,
-    size,
-    status: filters.status,
-    ...toCreatedRange(filters.startDate, filters.endDate),
-    ...(BACKEND_SUPPORTS.importFormSort ? sortToParam(sort, IMPORT_FORM_SORT_FIELDS) : {}),
-  })
+  const searchBy = filters.searchBy ?? 'code'
+  const { query: searchQuery, symbolOnly: symbolOnlySearch } = toImportFormSearchQuery(
+    filters.search,
+    filters.searchBy,
+  )
+  // Hai bộ lọc người cần `GET /users` (USER_READ). Không có quyền → không hiện và bỏ qua khoá trên URL.
+  const canFilterByPerson = can(user, 'USER_READ')
+  const requester = canFilterByPerson ? filters.requester : undefined
+  const approver = canFilterByPerson ? filters.approver : undefined
+  const { data, isPending, error, isPlaceholderData } = useImportForms(
+    warehouseSlug,
+    {
+      page,
+      size,
+      status: filters.status,
+      requesterSlug: requester,
+      approverSlug: approver,
+      ...searchQuery,
+      ...toCreatedRange(filters.startDate, filters.endDate),
+      ...(BACKEND_SUPPORTS.importFormSort ? sortToParam(sort, IMPORT_FORM_SORT_FIELDS) : {}),
+    },
+    // Ô tìm có chữ nhưng toàn ký tự BE không nhận: không gọi API, không liệt kê cả danh sách.
+    { enabled: !symbolOnlySearch },
+  )
   useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)
 
   const pageAbility = importFormAbilities(user, { warehouseActive: warehouse?.isActive ?? false })
@@ -175,17 +219,59 @@ export function ImportFormsPage() {
 
   return (
     <div className="space-y-4">
-      {header}
+      {/* Kho là ngữ cảnh của cả trang (không phải bộ lọc, không tính vào "Bộ lọc (n)"): đứng cạnh tiêu đề, mobile xuống hàng dưới. */}
+      <div className="flex flex-col gap-2 sm:flex-row sm:items-center sm:justify-between">
+        {header}
+        <div className="flex min-w-0 items-center gap-2 sm:max-w-[60%]">
+          {/* Dấu ":" vẽ bằng CSS để tên khả truy cập của ô vẫn là "Kho". */}
+          <label
+            htmlFor={warehousePickerId}
+            className="text-muted-foreground shrink-0 text-sm after:content-[':']"
+          >
+            {t('importForms:warehouse')}
+          </label>
+          <WarehousePicker
+            id={warehousePickerId}
+            warehouses={selection.warehouses}
+            value={warehouse?.slug}
+            onChange={(slug) => setFilters({ warehouse: slug })}
+          />
+        </div>
+      </div>
 
       <ListToolbar
-        // Kho đứng đầu thanh lọc nhưng không tính vào "Bộ lọc (n)" / "Xoá bộ lọc": luôn phải có một kho.
+        search={
+          <div className="flex w-full max-w-md items-center gap-2">
+            <Select
+              value={searchBy}
+              // Giữ chữ đang gõ, đổi khoá tìm; `useListParams` tự về trang 1.
+              onValueChange={(value) =>
+                setFilters({
+                  searchBy: value === 'code' ? undefined : (value as ImportFormSearchField),
+                })
+              }
+            >
+              <SelectTrigger aria-label={t('importForms:searchBy')} className="w-fit shrink-0">
+                <SelectValue />
+              </SelectTrigger>
+              <SelectContent>
+                {IMPORT_FORM_SEARCH_FIELDS.map((field) => (
+                  <SelectItem key={field} value={field}>
+                    {t(SEARCH_BY_LABEL[field])}
+                  </SelectItem>
+                ))}
+              </SelectContent>
+            </Select>
+            <SearchInput
+              className="min-w-0 flex-1"
+              value={filters.search ?? ''}
+              onChange={(value) => setFilters({ search: value === '' ? undefined : value })}
+              placeholder={t(SEARCH_PLACEHOLDER[searchBy])}
+            />
+          </div>
+        }
         filters={
           <>
-            <WarehousePicker
-              warehouses={selection.warehouses}
-              value={warehouse?.slug}
-              onChange={(slug) => setFilters({ warehouse: slug })}
-            />
             <SelectFilter
               label={t('importForms:filterStatus')}
               value={filters.status ?? ''}
@@ -205,13 +291,36 @@ export function ImportFormsPage() {
               value={{ from: filters.startDate, to: filters.endDate }}
               onChange={({ from, to }) => setFilters({ startDate: from, endDate: to })}
             />
+            {canFilterByPerson && (
+              <>
+                <PersonFilter
+                  label={t('importForms:filterRequester')}
+                  value={requester}
+                  onChange={(slug) => setFilters({ requester: slug })}
+                />
+                <PersonFilter
+                  label={t('importForms:filterApprover')}
+                  value={approver}
+                  onChange={(slug) => setFilters({ approver: slug })}
+                />
+              </>
+            )}
           </>
         }
+        // Ô tìm không tính vào số (khớp MaterialsPage): nó đã hiện chữ ngay trên thanh, "Xoá bộ lọc" cũng không xoá nó (như mọi trang danh sách).
         activeFilterCount={
-          [filters.status, filters.startDate || filters.endDate].filter(Boolean).length
+          [filters.status, filters.startDate || filters.endDate, requester, approver].filter(
+            Boolean,
+          ).length
         }
         onClearFilters={() =>
-          setFilters({ status: undefined, startDate: undefined, endDate: undefined })
+          setFilters({
+            status: undefined,
+            startDate: undefined,
+            endDate: undefined,
+            requester: undefined,
+            approver: undefined,
+          })
         }
         actions={
           canCreateHere &&
@@ -239,7 +348,12 @@ export function ImportFormsPage() {
         <DataTable
           columns={columns}
           emptyText={
-            filters.status || filters.startDate || filters.endDate
+            filters.status ||
+            filters.startDate ||
+            filters.endDate ||
+            filters.search ||
+            requester ||
+            approver
               ? t('importForms:emptyFiltered')
               : t('importForms:empty')
           }
@@ -248,17 +362,17 @@ export function ImportFormsPage() {
             const { to, state } = detailLink(row)
             navigate(to, { state })
           }}
-          data={data?.items}
-          isLoading={isPending}
-          error={error}
+          data={symbolOnlySearch ? [] : data?.items}
+          isLoading={!symbolOnlySearch && isPending}
+          error={symbolOnlySearch ? null : error}
           pagination={{
-            page: data?.page ?? page,
+            page: symbolOnlySearch ? page : (data?.page ?? page),
             size,
-            total: data?.total ?? 0,
-            totalPages: data?.totalPages ?? 0,
+            total: symbolOnlySearch ? 0 : (data?.total ?? 0),
+            totalPages: symbolOnlySearch ? 0 : (data?.totalPages ?? 0),
             onPageChange: setPage,
             onSizeChange: setSize,
-            isFetching: isPlaceholderData,
+            isFetching: !symbolOnlySearch && isPlaceholderData,
           }}
         />
       )}
