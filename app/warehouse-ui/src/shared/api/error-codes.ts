@@ -225,7 +225,10 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   101326: 'importFormItemUnitNotOfMaterial',
   101327: 'importFormItemConversionRateInvalid',
   101328: 'importFormItemMaterialNotInWarehouse',
+  101329: 'importFormFileTypeInvalid',
+  101330: 'importFormItemSupplierInvalid',
   101331: 'importFormDateRangeInvalid',
+  101332: 'importFormCodeSearchInvalid',
   // warehouse-api src/inventory/inventory.validation.ts (2026-10-14). 100800 là DATA_VERSION_CONFLICT (khai ở trên).
   100801: 'inventoryNotFound',
   100802: 'inventoryDoesExist',

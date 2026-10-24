@@ -1,4 +1,4 @@
-/** `InventoryResponseDto` — một dòng tồn của vật tư trong một kho. Không có đơn vị gốc (backend chưa trả). */
+/** `InventoryResponseDto` — một dòng tồn của vật tư trong một kho. Kèm đơn vị gốc `baseUnit` và `units[]`. */
 export type InventoryItem = {
   slug: string
   createdAt: string
@@ -21,12 +21,21 @@ export type InventoryItem = {
   materialName: string
   typeSlug: string
   typeName: string
-  /**
-   * Đơn vị gốc — BE đang bổ sung (tên theo đề xuất gửi BE). Chưa có thì FE chỉ hiện số. BE đặt tên khác → sửa ở đây.
-   */
-  baseUnitSlug?: string
-  baseUnitCode?: string
-  baseUnitName?: string
+  /** Đơn vị gốc của vật tư; `null` = vật tư chưa khai → chỉ hiện số. */
+  baseUnit: InventoryBaseUnit | null
+  /** Các đơn vị quy đổi của vật tư (gồm cả đơn vị gốc, `isBaseUnit`). */
+  units: InventoryUnit[]
+}
+
+/** Khai lại ở entity inventory (entity không import entity). BE còn trả `description`, `createdAt`… — FE không dùng. */
+export type InventoryBaseUnit = { slug: string; code: string; name: string }
+
+export type InventoryUnit = {
+  unitSlug: string
+  unitCode: string
+  unitName: string
+  conversionRate: number
+  isBaseUnit: boolean
 }
 
 /**

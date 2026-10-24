@@ -67,6 +67,84 @@ describe('FormSheet', () => {
     })
   })
 
+  describe('actions và chân sheet xuống hàng', () => {
+    it('có actions thì render nó THAY cho Huỷ / nút gửi mặc định', () => {
+      renderSheet({
+        submitLabel: undefined,
+        actions: () => <button type="button">Tiếp tục</button>,
+      } as Overrides)
+      expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Huỷ' })).not.toBeInTheDocument()
+      expect(screen.queryByRole('button', { name: 'Lưu' })).not.toBeInTheDocument()
+    })
+
+    it('có actions thì vẫn giữ footerStart ở đầu chân sheet', () => {
+      renderSheet({
+        footerStart: <p>Tổng: 5</p>,
+        actions: () => <button type="button">Tiếp tục</button>,
+      })
+      const footer = screen.getByText('Tổng: 5').closest('[data-slot="sheet-footer"]')
+      expect(footer?.firstElementChild).toHaveTextContent('Tổng: 5')
+      expect(within(footer as HTMLElement).getByRole('button', { name: 'Tiếp tục' })).toBeVisible()
+    })
+
+    it('requestClose khi form đã sửa thì hỏi "Bỏ thay đổi chưa lưu?"', async () => {
+      const { user, onOpenChange } = renderSheet({
+        isDirty: true,
+        actions: ({ requestClose }) => (
+          <button type="button" onClick={requestClose}>
+            Đóng thử
+          </button>
+        ),
+      })
+      await user.click(screen.getByRole('button', { name: 'Đóng thử' }))
+      expect(screen.getByText('Bỏ thay đổi chưa lưu?')).toBeInTheDocument()
+      expect(onOpenChange).not.toHaveBeenCalled()
+    })
+
+    it('requestClose khi chưa sửa thì đóng ngay', async () => {
+      const { user, onOpenChange } = renderSheet({
+        actions: ({ requestClose }) => (
+          <button type="button" onClick={requestClose}>
+            Đóng thử
+          </button>
+        ),
+      })
+      await user.click(screen.getByRole('button', { name: 'Đóng thử' }))
+      expect(onOpenChange).toHaveBeenCalledWith(false)
+    })
+
+    it('ctx.isPending phản ánh prop isPending', () => {
+      const { rerender } = renderSheet({
+        isPending: true,
+        actions: ({ isPending }) => <p>{isPending ? 'đang gửi' : 'rảnh'}</p>,
+      })
+      expect(screen.getByText('đang gửi')).toBeInTheDocument()
+      rerender(
+        <FormSheet
+          open
+          onOpenChange={vi.fn()}
+          title="Tạo kho"
+          isPending={false}
+          onSubmit={vi.fn()}
+          actions={({ isPending }) => <p>{isPending ? 'đang gửi' : 'rảnh'}</p>}
+        >
+          <input />
+        </FormSheet>,
+      )
+      expect(screen.getByText('rảnh')).toBeInTheDocument()
+    })
+
+    it('chân sheet xuống hàng được, footerStart chiếm cả hàng dưới sm', () => {
+      renderSheet({ footerStart: <p>Tổng: 9.877.674.552.775,31 ₫</p> })
+      const start = screen.getByText('Tổng: 9.877.674.552.775,31 ₫').parentElement as HTMLElement
+      expect(start.className).toContain('basis-full')
+      expect(start.className).toContain('sm:basis-auto')
+      expect(start.className).toContain('sm:mr-auto')
+      expect(start.closest('[data-slot="sheet-footer"]')?.className).toContain('flex-wrap')
+    })
+  })
+
   it('đóng thì không render gì', () => {
     renderSheet({ open: false })
     expect(screen.queryByRole('dialog')).not.toBeInTheDocument()

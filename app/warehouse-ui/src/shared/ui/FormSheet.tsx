@@ -28,13 +28,18 @@ export type FormSheetConfirmation = {
   onConfirm: () => void
 }
 
-type FormSheetProps = {
+/** Ngữ cảnh truyền cho `actions`. */
+export type FormSheetActionsContext = {
+  /** Lối đóng có hỏi "Bỏ thay đổi chưa lưu?" khi `isDirty` — y như nút Huỷ mặc định. */
+  requestClose: () => void
+  isPending: boolean
+}
+
+type FormSheetBaseProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   title: string
   description?: string
-  /** Nhãn nút gửi ("Tạo kho" / "Lưu"); lúc đang gửi tự đổi thành `common:saving`. */
-  submitLabel: string
   isPending: boolean
   /** Form sửa khoá nút Lưu khi chưa đổi gì. KHÔNG khoá vì form chưa hợp lệ. */
   submitDisabled?: boolean
@@ -55,6 +60,24 @@ type FormSheetProps = {
   children: ReactNode
 }
 
+type FormSheetProps = FormSheetBaseProps &
+  (
+    | {
+        /** Nhãn nút gửi ("Tạo kho" / "Lưu"); lúc đang gửi tự đổi thành `common:saving`. */
+        submitLabel: string
+        actions?: undefined
+      }
+    | {
+        /**
+         * Chân sheet tuỳ biến (vd wizard nhiều bước): có → render `footerStart` + kết quả `actions(...)`
+         * THAY cho Huỷ / `secondaryAction` / nút gửi mặc định, nên `submitLabel` không còn cần. Bên gọi tự
+         * khoá nút khi `isPending` và tự dùng `requestClose` cho nút đóng.
+         */
+        actions: (ctx: FormSheetActionsContext) => ReactNode
+        submitLabel?: string
+      }
+  )
+
 // Class ghi đè chiều rộng phải cùng tiền tố biến thể với `sheet.tsx` (xem CLAUDE.md), nếu không thua specificity.
 const WIDTH_CLASS = {
   default: 'data-[side=right]:sm:max-w-[480px]',
@@ -66,6 +89,9 @@ const WIDTH_CLASS = {
  * sheet cố định chứa Huỷ/Lưu. Quy ước của dự án: **form nhiều ô → `FormSheet`; thao tác một ô
  * (gán, chọn) → `Dialog`; xác nhận phá huỷ → `AlertDialog`.**
  *
+ * Chân sheet xuống hàng được (`flex-wrap`): dưới `sm`, `footerStart` chiếm cả hàng riêng để một tổng tiền
+ * dài không đè lên nút. Cần chân khác bộ mặc định thì truyền `actions`.
+ *
  * Nút Lưu nằm TRONG `<form>` nên submit được bằng cả chuột lẫn Enter, không cần thuộc tính `form=`
  * (jsdom không nối `form=` qua portal của Radix).
  */
@@ -75,6 +101,7 @@ export function FormSheet({
   title,
   description,
   submitLabel,
+  actions,
   isPending,
   submitDisabled = false,
   isDirty = false,
@@ -121,19 +148,30 @@ export function FormSheet({
           <form onSubmit={onSubmit} className="flex min-h-0 flex-1 flex-col">
             <div className="min-h-0 flex-1 space-y-4 overflow-y-auto p-4">{children}</div>
 
-            <SheetFooter className="flex-row items-center justify-end gap-2 border-t">
+            <SheetFooter className="flex-row flex-wrap items-center justify-end gap-2 border-t">
               {footerStart !== undefined && (
-                <div className="mr-auto min-w-0 text-sm font-medium tabular-nums">
+                <div className="min-w-0 basis-full text-sm font-medium tabular-nums sm:mr-auto sm:basis-auto">
                   {footerStart}
                 </div>
               )}
-              <Button type="button" variant="outline" disabled={isPending} onClick={requestClose}>
-                {t('common:cancel')}
-              </Button>
-              {secondaryAction}
-              <Button type="submit" disabled={isPending || submitDisabled}>
-                {isPending ? t('common:saving') : submitLabel}
-              </Button>
+              {actions ? (
+                actions({ requestClose, isPending })
+              ) : (
+                <>
+                  <Button
+                    type="button"
+                    variant="outline"
+                    disabled={isPending}
+                    onClick={requestClose}
+                  >
+                    {t('common:cancel')}
+                  </Button>
+                  {secondaryAction}
+                  <Button type="submit" disabled={isPending || submitDisabled}>
+                    {isPending ? t('common:saving') : submitLabel}
+                  </Button>
+                </>
+              )}
             </SheetFooter>
           </form>
         </SheetContent>

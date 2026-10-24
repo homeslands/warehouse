@@ -21,11 +21,15 @@ import type {
 } from '../model/types'
 
 /** `warehouseSlug` rỗng = chưa chọn kho → không gọi. */
-export function useImportForms(warehouseSlug: string, params: ListParams<ImportFormFilters>) {
+export function useImportForms(
+  warehouseSlug: string,
+  params: ListParams<ImportFormFilters>,
+  options: { enabled?: boolean } = {},
+) {
   return useQuery({
     queryKey: importFormKeys.list(warehouseSlug, params),
     queryFn: () => fetchImportForms(warehouseSlug, params),
-    enabled: warehouseSlug !== '',
+    enabled: warehouseSlug !== '' && (options.enabled ?? true),
     placeholderData: keepPreviousData,
   })
 }
@@ -44,9 +48,12 @@ export function useImportForm(
   })
 }
 
+/** Số vật tư tải sẵn cho ô chọn (một trang). Đủ số này nghĩa là kho có thể còn nhiều hơn. */
+export const AVAILABLE_MATERIALS_PRELOAD = 100
+
 /** Vật tư cho ô chọn của form phiếu: trang 1, `size: 100`, lọc tại client. */
 export function useAvailableMaterials(warehouseSlug: string, options: { enabled?: boolean } = {}) {
-  const params = { page: 1, size: 100 }
+  const params = { page: 1, size: AVAILABLE_MATERIALS_PRELOAD }
   return useQuery({
     queryKey: [...importFormKeys.available(warehouseSlug), params],
     queryFn: () => fetchAvailableMaterials(warehouseSlug, params),

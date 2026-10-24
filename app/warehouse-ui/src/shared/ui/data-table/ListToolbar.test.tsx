@@ -2,6 +2,7 @@ import { render, screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import { ListToolbar } from './ListToolbar'
+import { SelectFilter } from './SelectFilter'
 
 // jsdom không đo kích thước — giả kết quả đo "vừa / không vừa một hàng". Mặc định: vừa.
 const fit = vi.hoisted(() => ({ fits: true }))
@@ -180,5 +181,35 @@ describe('ListToolbar — tự gom khi không vừa một hàng (desktop)', () =
     await userEvent.click(screen.getByRole('button', { name: /Bộ lọc/ }))
     await screen.findByRole('dialog', { name: 'Bộ lọc' })
     expect(screen.queryByRole('button', { name: 'Xoá bộ lọc' })).not.toBeInTheDocument()
+  })
+
+  it('popover: có tiêu đề, rộng w-80, mỗi ô lọc có nhãn phía trên', async () => {
+    fit.fits = false
+    render(
+      <ListToolbar
+        activeFilterCount={0}
+        filters={
+          <SelectFilter
+            label="Vai trò"
+            value=""
+            onChange={vi.fn()}
+            options={[
+              { value: '', label: 'Tất cả' },
+              { value: 'a', label: 'A' },
+            ]}
+          />
+        }
+      />,
+    )
+    await userEvent.click(screen.getByRole('button', { name: /Bộ lọc/ }))
+    const panel = await screen.findByRole('dialog', { name: 'Bộ lọc' })
+    expect(panel).toHaveClass('w-80')
+    expect(within(panel).getByText('Bộ lọc')).toBeInTheDocument()
+    // Nhãn nhìn thấy được (ngoài aria-label của nút).
+    expect(within(panel).getAllByText('Vai trò').length).toBeGreaterThan(0)
+    // Tên khả truy cập lấy từ tiêu đề nhìn thấy được.
+    const labelledBy = panel.getAttribute('aria-labelledby')
+    expect(labelledBy).toBeTruthy()
+    expect(document.getElementById(labelledBy as string)).toHaveTextContent('Bộ lọc')
   })
 })

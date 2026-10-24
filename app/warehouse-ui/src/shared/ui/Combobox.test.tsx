@@ -1,4 +1,4 @@
-import { render, screen } from '@testing-library/react'
+import { cleanup, render, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createRef, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
@@ -218,6 +218,31 @@ describe('Combobox', () => {
       expect(screen.getAllByRole('option')).toHaveLength(3)
     })
 
+    it('minListSpace lớn hơn chỗ còn lại → cuộn dù đủ 320px; mặc định thì không', async () => {
+      const bottom = window.innerHeight - 400
+      const { user } = setup()
+      const trigger = placeTrigger(bottom)
+      const scroll = vi.spyOn(trigger, 'scrollIntoView')
+      await user.click(trigger)
+      expect(scroll).not.toHaveBeenCalled()
+      await user.keyboard('{Escape}')
+
+      cleanup()
+      render(
+        <Combobox
+          aria-label="Tỉnh"
+          options={OPTIONS}
+          value={undefined}
+          onChange={vi.fn()}
+          minListSpace={480}
+        />,
+      )
+      const tall = placeTrigger(bottom)
+      const tallScroll = vi.spyOn(tall, 'scrollIntoView')
+      await user.click(tall)
+      expect(tallScroll).toHaveBeenCalledWith({ block: 'center' })
+    })
+
     it('phía dưới đủ chỗ → không cuộn', async () => {
       const { user } = setup()
       const trigger = placeTrigger(100)
@@ -340,5 +365,97 @@ describe('Combobox', () => {
     await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
     expect(screen.getByText('Đang tìm…')).toBeInTheDocument()
     expect(screen.queryByText('Không có kết quả.')).not.toBeInTheDocument()
+  })
+
+  it('renderOption → mục vẽ nội dung của hàm; value / chọn / dấu tích vẫn như cũ', async () => {
+    const onChange = vi.fn()
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={OPTIONS}
+        value="hn"
+        onChange={onChange}
+        renderOption={(o) => <b data-testid={`opt-${o.value}`}>{`** ${o.label} **`}</b>}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+
+    expect(screen.getByTestId('opt-dn')).toHaveTextContent('** Đà Nẵng **')
+    expect(screen.getAllByRole('option').map((o) => o.getAttribute('data-checked'))).toEqual([
+      'true',
+      'false',
+      'false',
+    ])
+    await user.type(screen.getByPlaceholderText('Tìm...'), 'da nang')
+    expect(screen.getAllByRole('option')).toHaveLength(1)
+    await user.click(screen.getByTestId('opt-dn'))
+    expect(onChange).toHaveBeenLastCalledWith('dn')
+  })
+
+  it('listClassName → ghép vào [cmdk-list], vẫn giữ lớp cũ', async () => {
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={OPTIONS}
+        value={undefined}
+        onChange={vi.fn()}
+        listClassName="max-h-[60vh]"
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    const list = document.querySelector('[cmdk-list]')
+    expect(list).toHaveClass('max-h-[60vh]', 'min-h-0')
+  })
+
+  it('widthAnchor → lúc mở, danh sách rộng bằng phần tử neo; không có thì rộng theo nút mở như cũ', async () => {
+    const anchor = document.createElement('div')
+    anchor.getBoundingClientRect = () => ({ left: 40, width: 640 }) as DOMRect
+    const anchorRef = { current: anchor }
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={OPTIONS}
+        value={undefined}
+        onChange={vi.fn()}
+        widthAnchor={anchorRef}
+      />,
+    )
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    const content = document.querySelector('[data-slot="popover-content"]') as HTMLElement
+    expect(content.style.width).toBe('640px')
+  })
+
+  it('không widthAnchor → không đặt bề rộng nội tuyến', async () => {
+    setup()
+    const user = userEvent.setup()
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    const content = document.querySelector('[data-slot="popover-content"]') as HTMLElement
+    expect(content.style.width).toBe('')
+  })
+})
+
+describe('Combobox — mũi tên', () => {
+  it('mặc định dùng icon ⇅; chevron="down" dùng icon ⌄', () => {
+    const { rerender } = render(
+      <Combobox aria-label="Tỉnh" options={OPTIONS} value={undefined} onChange={vi.fn()} />,
+    )
+    const trigger = () => screen.getByRole('combobox', { name: 'Tỉnh' })
+    expect(trigger().querySelector('svg.lucide-chevrons-up-down')).not.toBeNull()
+    expect(trigger().querySelector('svg.lucide-chevron-down')).toBeNull()
+
+    rerender(
+      <Combobox
+        aria-label="Tỉnh"
+        options={OPTIONS}
+        value={undefined}
+        onChange={vi.fn()}
+        chevron="down"
+      />,
+    )
+    expect(trigger().querySelector('svg.lucide-chevron-down')).not.toBeNull()
+    expect(trigger().querySelector('svg.lucide-chevrons-up-down')).toBeNull()
   })
 })

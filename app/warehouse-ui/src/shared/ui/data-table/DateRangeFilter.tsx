@@ -1,6 +1,6 @@
 import { format, isAfter, isValid, parse } from 'date-fns'
 import { CalendarIcon, XIcon } from 'lucide-react'
-import { useRef, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { enUS, vi } from 'react-day-picker/locale'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
@@ -8,7 +8,7 @@ import { formatDate } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { Calendar } from '@/shared/ui/calendar'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
-import { CHIP_FRAME, CHIP_INNER, useFilterDisplay } from './filter-display'
+import { CHIP_FRAME, CHIP_INNER, FILTER_LABEL_CLASS, useFilterDisplay } from './filter-display'
 
 /** Ngày không giờ, không múi giờ — cùng định dạng với `DatePicker` và tham số ngày của backend. */
 const VALUE_FORMAT = 'yyyy-MM-dd'
@@ -76,9 +76,11 @@ export function DateRangeFilter({ label, value, onChange, className }: DateRange
     setOpen(false)
   }
 
-  const chip = useFilterDisplay() === 'chip'
+  const mode = useFilterDisplay()
+  const chip = mode === 'chip'
+  const triggerId = useId()
 
-  return (
+  const field = (
     <div
       data-active={chip ? hasValue : undefined}
       className={cn(chip ? CHIP_FRAME : 'flex items-center gap-1', className)}
@@ -86,6 +88,7 @@ export function DateRangeFilter({ label, value, onChange, className }: DateRange
       <Popover modal open={open} onOpenChange={handleOpenChange}>
         <PopoverTrigger asChild>
           <Button
+            id={triggerId}
             ref={triggerRef}
             type="button"
             variant={chip ? 'ghost' : 'outline'}
@@ -101,7 +104,12 @@ export function DateRangeFilter({ label, value, onChange, className }: DateRange
             )}
           >
             <CalendarIcon aria-hidden />
-            {display ?? <span className="text-muted-foreground">{label}</span>}
+            {display ?? (
+              <span className="text-muted-foreground">
+                {/* Popover đã có nhãn phía trên ô → placeholder trung tính, không lặp lại tên bộ lọc. */}
+                {mode === 'popover' ? t('common:anyTime') : label}
+              </span>
+            )}
           </Button>
         </PopoverTrigger>
         <PopoverContent className="w-auto p-0" align="end">
@@ -131,6 +139,16 @@ export function DateRangeFilter({ label, value, onChange, className }: DateRange
           <XIcon />
         </Button>
       )}
+    </div>
+  )
+
+  if (mode !== 'popover') return field
+  return (
+    <div className="flex flex-col gap-1.5">
+      <label htmlFor={triggerId} className={FILTER_LABEL_CLASS}>
+        {label}
+      </label>
+      {field}
     </div>
   )
 }
