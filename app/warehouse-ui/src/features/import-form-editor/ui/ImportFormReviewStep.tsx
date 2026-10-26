@@ -4,6 +4,7 @@ import { useTranslation } from 'react-i18next'
 import type { AvailableMaterial } from '@/entities/import-form'
 import { formatCurrency, formatDate, formatQuantity } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
+import { EmptyValue } from '@/shared/ui/EmptyValue'
 import { SummaryList, type SummaryItem } from '@/shared/ui/SummaryList'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
 import { formTotal, lineAmount, type ImportFormValues } from '../model/import-form-editor.schema'
@@ -110,6 +111,7 @@ export function ImportFormReviewStep({
       quantity: `${formatQuantity(item.quantity)} ${unit}`.trim(),
       price: money(item.unitPrice),
       amount: money(lineAmount(item.quantity, item.unitPrice)),
+      expiry: item.expiryDate,
     }
   })
 
@@ -181,7 +183,7 @@ export function ImportFormReviewStep({
           {t('importForms:reviewLinesTitle')}
         </h3>
         <ol aria-labelledby={linesTitleId} className="divide-y text-sm @3xl:hidden">
-          {lines.map(({ index, name, quantity, price, amount }) => (
+          {lines.map(({ index, name, quantity, price, amount, expiry }) => (
             <li key={index} className="space-y-1 py-2.5 first:pt-0">
               <div className="flex gap-2">
                 <span className="text-muted-foreground w-5 shrink-0 tabular-nums">{index + 1}</span>
@@ -197,6 +199,11 @@ export function ImportFormReviewStep({
                   <span className="text-muted-foreground font-normal">→</span> {amount}
                 </span>
               </div>
+              {expiry && (
+                <div className="text-muted-foreground pl-7 text-right text-xs tabular-nums">
+                  {t('importForms:fieldExpiryDate')}: {formatDate(expiry)}
+                </div>
+              )}
             </li>
           ))}
         </ol>
@@ -209,10 +216,11 @@ export function ImportFormReviewStep({
                 <TableHead className="text-right">{t('importForms:fieldQuantity')}</TableHead>
                 <TableHead className="text-right">{t('importForms:fieldUnitPrice')}</TableHead>
                 <TableHead className="text-right">{t('importForms:fieldAmount')}</TableHead>
+                <TableHead>{t('importForms:fieldExpiryDate')}</TableHead>
               </TableRow>
             </TableHeader>
             <TableBody>
-              {lines.map(({ index, name, quantity, price, amount }) => (
+              {lines.map(({ index, name, quantity, price, amount, expiry }) => (
                 <TableRow key={index}>
                   <TableCell className="text-muted-foreground align-top tabular-nums">
                     {index + 1}
@@ -226,6 +234,9 @@ export function ImportFormReviewStep({
                   </TableCell>
                   <TableCell className="text-right align-top font-medium whitespace-nowrap tabular-nums">
                     {amount}
+                  </TableCell>
+                  <TableCell className="align-top whitespace-nowrap tabular-nums">
+                    {expiry ? formatDate(expiry) : <EmptyValue />}
                   </TableCell>
                 </TableRow>
               ))}

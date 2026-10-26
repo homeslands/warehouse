@@ -5,12 +5,14 @@ import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
 import { resources } from '@/shared/i18n'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { formatNumber } from '@/shared/lib/format'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
 import { NumberInput } from '@/shared/ui/NumberInput'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import { DetailField } from '@/shared/ui/detail'
 import {
   Form,
@@ -235,16 +237,31 @@ function EditRoleSheet({ open, onOpenChange, role }: Props & { role: Role }) {
     if (open) form.reset({ description: role.description ?? '' })
   }, [open, role, form])
 
-  const onSubmit = (values: RoleEditValues) => {
-    update.mutate(
-      // Xoá trống → gửi `''` (backend nhận và xoá mô tả cũ).
-      { slug: role.slug, input: { description: values.description.trim() } },
-      {
-        onSuccess: () => onOpenChange(false),
-        onError: (error) => toastApiError(error),
-      },
-    )
-  }
+  // Form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH.
+  const saveConfirmation = useSaveChangesConfirmation<RoleEditValues>({
+    open,
+    entity: t('roles:entityName'),
+    name: roleLabel(role.name),
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      description: t('roles:fieldDescription'),
+    }),
+    icon: <UserCogIcon />,
+    onConfirm: (values) => {
+      update.mutate(
+        // Xoá trống → gửi `''` (backend nhận và xoá mô tả cũ).
+        { slug: role.slug, input: { description: values.description.trim() } },
+        {
+          onSuccess: () => onOpenChange(false),
+          onError: (error) => {
+            saveConfirmation.close()
+            toastApiError(error)
+          },
+        },
+      )
+    },
+  })
+
+  const onSubmit = (values: RoleEditValues) => saveConfirmation.request(values)
 
   return (
     <FormSheet
@@ -255,6 +272,7 @@ function EditRoleSheet({ open, onOpenChange, role }: Props & { role: Role }) {
       isPending={update.isPending}
       submitDisabled={!form.formState.isDirty}
       isDirty={form.formState.isDirty}
+      confirmation={saveConfirmation.confirmation}
       onSubmit={form.handleSubmit(onSubmit)}
     >
       <dl className="grid grid-cols-2 gap-4">

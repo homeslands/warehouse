@@ -1,5 +1,5 @@
 import { screen, waitFor, within } from '@testing-library/react'
-import { http as mswHttp } from 'msw'
+import { delay, http as mswHttp } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
@@ -188,10 +188,12 @@ describe('WarehouseFormSheet — sửa', () => {
     expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
   })
 
-  it('đổi một ô → mở khoá nút Lưu, PATCH không kèm version', async () => {
+  it('đổi một ô → mở khoá Lưu; hỏi "Lưu thay đổi kho WH-HN-01?" kèm "Đã sửa: Tên", chưa PATCH; xác nhận → PATCH đúng body', async () => {
     let body: unknown
+    let calls = 0
     server.use(
       mswHttp.patch(`${BASE}/warehouses/kho-ha-noi`, async ({ request }) => {
+        calls += 1
         body = await request.json()
         return ok(warehouse)
       }),
@@ -203,9 +205,77 @@ describe('WarehouseFormSheet — sửa', () => {
     await user.type(screen.getByLabelText(/^Tên/), 'Kho Hà Nội 1B')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
 
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Lưu thay đổi kho WH-HN-01?')
+    expect(within(dialog).getByText('Đã sửa: Tên')).toBeInTheDocument()
+    expect(calls).toBe(0)
+
+    await confirmDialog(user, 'Lưu thay đổi')
+
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toMatchObject({ name: 'Kho Hà Nội 1B' })
     expect(body).not.toHaveProperty('version')
+  })
+
+  it('huỷ hộp xác nhận → không PATCH, sheet vẫn mở với dữ liệu đã sửa', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/warehouses/kho-ha-noi`, () => {
+        calls += 1
+        return ok(warehouse)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(warehouse)
+    await waitFor(() => expect(screen.getByLabelText(/^Tên/)).toHaveValue('Kho Hà Nội 1'))
+
+    await user.type(screen.getByLabelText(/^Tên/), ' B')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(calls).toBe(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(/^Tên/)).toHaveValue('Kho Hà Nội 1 B')
+  })
+
+  it('PATCH trả mã trùng (100506) → hộp đóng, lỗi tại ô Mã, sheet vẫn mở', async () => {
+    server.use(mswHttp.patch(`${BASE}/warehouses/kho-ha-noi`, () => apiError(422, 100506)))
+    const { user, onOpenChange } = renderSheet(warehouse)
+    await waitFor(() => expect(screen.getByLabelText(/^Mã/)).toHaveValue('WH-HN-01'))
+
+    await user.type(screen.getByLabelText(/^Mã/), 'X')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
+
+    expect(await screen.findByText('Mã kho đã tồn tại')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
+  })
+
+  it('bấm đúp nút xác nhận khi PATCH đang bay → đúng một PATCH', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/warehouses/kho-ha-noi`, async () => {
+        calls += 1
+        await delay(150)
+        return ok(warehouse)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(warehouse)
+    await waitFor(() => expect(screen.getByLabelText(/^Tên/)).toHaveValue('Kho Hà Nội 1'))
+
+    await user.type(screen.getByLabelText(/^Tên/), ' B')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    const confirm = within(dialog).getByRole('button', { name: 'Lưu thay đổi' })
+    await user.dblClick(confirm)
+    // Đang gửi: nút xác nhận đổi chữ và bị khoá.
+    expect(within(dialog).getByRole('button', { name: 'Đang lưu...' })).toBeDisabled()
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(calls).toBe(1)
   })
 
   it('tên trùng (100503) hiện dưới ô Tên; điện thoại sai (100509) dưới ô Điện thoại', async () => {
@@ -215,12 +285,14 @@ describe('WarehouseFormSheet — sửa', () => {
 
     await user.type(screen.getByLabelText(/^Tên/), ' B')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
     expect(await screen.findByText('Tên kho đã tồn tại')).toBeInTheDocument()
 
     server.use(mswHttp.patch(`${BASE}/warehouses/kho-ha-noi`, () => apiError(400, 100509)))
     rerender(<WarehouseFormSheet open onOpenChange={vi.fn()} warehouse={warehouse} />)
     await user.type(screen.getByLabelText('Điện thoại'), '9')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
 
     expect(await screen.findByText('Số điện thoại kho không hợp lệ')).toBeInTheDocument()
   })

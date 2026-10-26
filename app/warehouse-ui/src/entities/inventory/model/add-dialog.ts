@@ -34,6 +34,8 @@ export type AddMaterialDialogProps = {
   open: boolean
   onOpenChange: (open: boolean) => void
   warehouseSlug: string
+  /** Tên kho — hiện ở bước xác nhận "Tạo vật tư … và gắn vào kho …". */
+  warehouseName: string
   initialSearch: string
   /** Câu dưới tiêu đề — mỗi nơi dùng nói đúng ngữ cảnh của mình. */
   description: string

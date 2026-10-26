@@ -1,5 +1,6 @@
 {
   "title": "Material types",
+  "entityName": "material type",
   "create": "Add material type",
   "edit": "Edit material type",
   "created": "Material type added",

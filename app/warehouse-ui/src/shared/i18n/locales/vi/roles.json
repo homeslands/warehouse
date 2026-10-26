@@ -1,5 +1,6 @@
 {
   "title": "Vai trò",
+  "entityName": "vai trò",
   "description": "Thêm vai trò mới, sửa mô tả, xoá vai trò không còn dùng. Bật / tắt quyền ở màn Phân quyền.",
   "create": "Thêm vai trò",
   "edit": "Sửa vai trò",

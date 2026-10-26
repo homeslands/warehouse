@@ -4,6 +4,7 @@ import { PackageIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { useRevalidateWhenTouched } from '@/shared/lib/form-validation'
 import { formatQuantity } from '@/shared/lib/format'
@@ -12,6 +13,7 @@ import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
 import { FormSheet } from '@/shared/ui/FormSheet'
 import { NumberInput } from '@/shared/ui/NumberInput'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import {
   Form,
   FormControl,
@@ -114,7 +116,7 @@ export function MaterialFormSheet({ open, onOpenChange, material }: Props) {
     toastApiError(error)
   }
 
-  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: lưu thẳng.
+  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: cũng hỏi "Lưu thay đổi …?" (useSaveChangesConfirmation).
   const [toCreate, setToCreate] = useState<MaterialFormValues | null>(null)
   if (!open && toCreate) setToCreate(null)
 
@@ -133,26 +135,50 @@ export function MaterialFormSheet({ open, onOpenChange, material }: Props) {
     })
   }
 
+  // Sửa: form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH.
+  const saveConfirmation = useSaveChangesConfirmation<MaterialFormValues>({
+    open,
+    entity: t('materials:entityName'),
+    name: material?.code ?? '',
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      code: t('materials:fieldCode'),
+      name: t('materials:fieldName'),
+      typeSlug: t('materials:fieldType'),
+      baseUnitSlug: t('materials:fieldBaseUnit'),
+      minimumInventory: t('materials:fieldMinimum'),
+      maximumInventory: t('materials:fieldMaximum'),
+    }),
+    icon: <PackageIcon />,
+    onConfirm: (values) => {
+      if (!material) return
+      update.mutate(
+        { slug: material.slug, input: toUpdateInput(values, material) },
+        {
+          onSuccess: () => {
+            invalidateRelated()
+            onOpenChange(false)
+          },
+          onError: (error) => {
+            // Đóng hộp xác nhận để lỗi tại ô hiện ra.
+            saveConfirmation.close()
+            handleError(error)
+          },
+        },
+      )
+    },
+  })
+
   const onSubmit = (values: MaterialFormValues) => {
     if (!material) {
       setToCreate(values)
       return
     }
-    const input = toUpdateInput(values, material)
-    if (Object.keys(input).length === 0) {
+    // Không có gì khác bản gốc (vd chỉ đổi khoảng trắng) → không có gì để hỏi / lưu.
+    if (Object.keys(toUpdateInput(values, material)).length === 0) {
       onOpenChange(false)
       return
     }
-    update.mutate(
-      { slug: material.slug, input },
-      {
-        onSuccess: () => {
-          invalidateRelated()
-          onOpenChange(false)
-        },
-        onError: handleError,
-      },
-    )
+    saveConfirmation.request(values)
   }
 
   const labelOf = (options: ComboboxOption[], value: string) =>
@@ -169,7 +195,7 @@ export function MaterialFormSheet({ open, onOpenChange, material }: Props) {
       isDirty={form.formState.isDirty}
       confirmation={
         material
-          ? undefined
+          ? saveConfirmation.confirmation
           : {
               open: toCreate !== null,
               onOpenChange: (next) => {

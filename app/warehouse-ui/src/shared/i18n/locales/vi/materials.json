@@ -1,5 +1,6 @@
 {
   "title": "Vật tư",
+  "entityName": "vật tư",
   "create": "Thêm vật tư",
   "edit": "Sửa vật tư",
   "created": "Đã thêm vật tư",
@@ -88,5 +89,10 @@
   "detachConfirm": "Gỡ đơn vị <1>{{unit}}</1> khỏi vật tư này?",
   "detachAction": "Gỡ",
   "detaching": "Đang gỡ...",
-  "filterCreatedAt": "Ngày tạo"
+  "filterCreatedAt": "Ngày tạo",
+  "conversionAttachConfirmTitle": "Gắn đơn vị {{unit}} (1 {{unit}} = {{rate}} {{base}})?",
+  "conversionAttachConfirmAction": "Xác nhận gắn đơn vị",
+  "conversionEditConfirmTitle": "Đổi tỉ lệ {{unit}} thành {{rate}} {{base}}?",
+  "conversionEditConfirmAction": "Xác nhận đổi tỉ lệ",
+  "conversionConfirmDescription": "Số lượng theo đơn vị này sẽ quy đổi theo tỉ lệ mới."
 }

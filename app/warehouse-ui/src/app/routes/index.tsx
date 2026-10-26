@@ -1,6 +1,7 @@
 import {
   FlaskConical,
   Package,
+  PackageMinus,
   PackagePlus,
   Ruler,
   ShieldCheck,
@@ -219,6 +220,29 @@ export function createRoutes({
           path: ':slug',
           lazy: () =>
             import('@/pages/import-forms').then((m) => ({ Component: m.ImportFormDetailPage })),
+          handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
+        },
+      ],
+    },
+    {
+      path: '/export-forms',
+      // `GET .../export-forms` = EXPORT_FORM_READ; ô chọn kho gọi `GET /warehouses` = WAREHOUSE_READ.
+      // Nút ghi gác riêng trong màn (`pages/export-forms/model/abilities.ts`).
+      handle: {
+        authority: ['EXPORT_FORM_READ', 'WAREHOUSE_READ'],
+        nav: { group: 'forms', labelKey: 'nav:exportForms', icon: PackageMinus },
+        crumb: 'nav:exportForms',
+      } satisfies AppRouteHandle,
+      children: [
+        {
+          index: true,
+          lazy: () =>
+            import('@/pages/export-forms').then((m) => ({ Component: m.ExportFormsPage })),
+        },
+        {
+          path: ':slug',
+          lazy: () =>
+            import('@/pages/export-forms').then((m) => ({ Component: m.ExportFormDetailPage })),
           handle: { crumb: 'nav:detail' } satisfies AppRouteHandle,
         },
       ],

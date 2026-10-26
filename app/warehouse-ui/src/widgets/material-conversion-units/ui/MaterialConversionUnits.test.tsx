@@ -3,6 +3,7 @@ import { http as mswHttp } from 'msw'
 import { describe, expect, it, vi } from 'vitest'
 import type { MaterialConversionUnit } from '@/entities/material'
 import { ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { MaterialConversionUnits } from '../index'
@@ -125,6 +126,7 @@ describe('MaterialConversionUnits', () => {
     await user.click(await screen.findByText('BOX · Thùng'))
     await user.type(screen.getByLabelText('Tỉ lệ'), '12')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gắn đơn vị')
 
     await waitFor(() => expect(listCalls).toBe(2))
   })

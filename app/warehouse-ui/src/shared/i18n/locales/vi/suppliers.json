@@ -1,5 +1,6 @@
 {
   "title": "Nhà cung cấp",
+  "entityName": "nhà cung cấp",
   "create": "Thêm nhà cung cấp",
   "created": "Đã thêm nhà cung cấp",
   "updated": "Đã lưu nhà cung cấp",
@@ -131,5 +132,8 @@
   "selectMaterialAria": "Chọn {{code}}",
   "selectAllOnPage": "Chọn tất cả vật tư trên trang",
   "materialListLabel": "Vật tư chưa gắn với nhà cung cấp này",
-  "filterCreatedAt": "Ngày tạo"
+  "filterCreatedAt": "Ngày tạo",
+  "attachConfirmTitle": "Gắn {{count}} vật tư cho {{code}}?",
+  "attachConfirmDescription": "Các vật tư này sẽ thuộc nhà cung cấp.",
+  "attachConfirmAction": "Xác nhận gắn"
 }

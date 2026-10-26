@@ -49,6 +49,7 @@ const draftForm: ImportForm = {
       baseQuantity: 250,
       unitPrice: 375_000,
       amount: 3_750_000,
+      expiryDate: null,
       note: null,
     },
   ],
@@ -73,6 +74,20 @@ describe('ConfirmImportFormDialog', () => {
     await confirmDialog(user, 'Xác nhận')
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ version: 3 })
+  })
+
+  it('xác nhận thành công → làm mới tồn + lô của kho (phiếu xuất không báo thiếu giả)', async () => {
+    server.use(mswHttp.post(URL_C, () => ok({ ...draftForm, status: 'CONFIRMED' })))
+    const onOpenChange = vi.fn()
+    const { user, queryClient } = renderWithProviders(
+      <ConfirmImportFormDialog warehouseSlug="w-a" form={draftForm} onOpenChange={onOpenChange} />,
+    )
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    await confirmDialog(user, 'Xác nhận')
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    const keys = invalidate.mock.calls.map((c) => c[0]?.queryKey)
+    expect(keys).toContainEqual(['inventory'])
+    expect(keys).toContainEqual(['material-batches', 'w-a'])
   })
 
   it('409 → toast "đã bị thay đổi", đóng hộp', async () => {

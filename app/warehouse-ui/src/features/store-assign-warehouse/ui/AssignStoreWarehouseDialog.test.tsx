@@ -6,6 +6,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { toast } from 'sonner'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { mutationToastQueryClient } from '@/shared/test/query-client'
 import { renderWithProviders } from '@/shared/test/render'
@@ -139,6 +140,7 @@ describe('AssignStoreWarehouseDialog', () => {
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByText('Kho trống'))
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
 
     await waitFor(() => expect(body).toEqual({ warehouseSlug: 'kho-1' }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -157,8 +159,19 @@ describe('AssignStoreWarehouseDialog', () => {
     await screen.findByText('Cửa hàng Hà Nội 1')
 
     await user.click(screen.getByRole('button', { name: 'Bỏ gán' }))
+    await confirmStep(user, 'Xác nhận bỏ gán')
 
     await waitFor(() => expect(body).toEqual({ warehouseSlug: null }))
+  })
+
+  it('mở với kho hiện tại được chọn sẵn → Lưu khoá, không có bước xác nhận', async () => {
+    const { user } = renderDialog({ ...store, warehouseSlug: 'kho-2', warehouseName: 'Kho 2' })
+    await screen.findByText('Cửa hàng Hà Nội 1')
+
+    const save = screen.getByRole('button', { name: 'Lưu' })
+    expect(save).toBeDisabled()
+    await user.click(save)
+    expect(screen.queryByText(/Xác nhận gán/)).not.toBeInTheDocument()
   })
 
   it('cửa hàng chưa gắn kho: không có nút Bỏ gán, Lưu khoá khi chưa chọn', async () => {
@@ -189,10 +202,14 @@ describe('AssignStoreWarehouseDialog', () => {
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByText('Kho trống'))
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
     expect(toast.error).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
+    // Lỗi thuộc ô chọn → về màn nhập (ô chọn hiện lại, lựa chọn còn nguyên).
+    expect(screen.getByRole('combobox')).toHaveTextContent('Kho trống')
+    expect(screen.queryByRole('button', { name: 'Xác nhận gán' })).not.toBeInTheDocument()
     // Cả hai danh sách đều đã cũ: "kho còn trống" ở StoresPage tính từ dữ liệu CỬA HÀNG
     // (`warehouseSlug` của từng dòng), không phải từ chính danh sách kho. Chỉ tải lại
     // `warehouseKeys.all` không xoá được cái khiến ô chọn tiếp tục gợi ý đúng kho vừa bị từ chối —
@@ -202,7 +219,7 @@ describe('AssignStoreWarehouseDialog', () => {
     expect(invalidate).toHaveBeenCalledWith({ queryKey: storeKeys.all })
   })
 
-  it('lỗi ngoài ô chọn → toast và đóng hộp', async () => {
+  it('lỗi ngoài ô chọn → toast, ở lại màn xác nhận', async () => {
     server.use(mswHttp.put(`${BASE}/stores/ch-ha-noi/warehouse`, () => apiError(500)))
     const { user, onOpenChange } = renderDialog()
     await screen.findByText('Cửa hàng Hà Nội 1')
@@ -210,9 +227,11 @@ describe('AssignStoreWarehouseDialog', () => {
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByText('Kho trống'))
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
-    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Xác nhận gán' })).toBeEnabled()
   })
 
   // Carry-over Task 9: hộp một ô đối xứng với AssignWarehouseManagerDialog (Task 6) — cùng chốt
@@ -236,6 +255,7 @@ describe('AssignStoreWarehouseDialog', () => {
     expect(screen.getByRole('button', { name: 'Đóng' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
     await screen.findByRole('button', { name: 'Đang lưu...' })
 
     await user.keyboard('{Escape}')
@@ -244,6 +264,64 @@ describe('AssignStoreWarehouseDialog', () => {
 
     release()
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('bấm Lưu → màn xác nhận đúng câu, CHƯA gửi; xác nhận mới gửi', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.put(`${BASE}/stores/ch-ha-noi/warehouse`, () => {
+        calls += 1
+        return ok({ ...store, warehouseSlug: 'kho-1' })
+      }),
+    )
+    const { user } = renderDialog()
+    await screen.findByText('Cửa hàng Hà Nội 1')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('Kho trống'))
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Gán kho Kho trống cho cửa hàng Cửa hàng Hà Nội 1?',
+      }),
+    ).toBeInTheDocument()
+    expect(calls).toBe(0)
+
+    await confirmStep(user, 'Xác nhận gán')
+    await waitFor(() => expect(calls).toBe(1))
+  })
+
+  it('"Quay lại" giữ lựa chọn; bấm Lưu lần nữa hỏi lại đúng tên kho', async () => {
+    const { user } = renderDialog()
+    await screen.findByText('Cửa hàng Hà Nội 1')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('Kho trống'))
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await screen.findByRole('button', { name: 'Xác nhận gán' })
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByRole('combobox')).toHaveTextContent('Kho trống')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Gán kho Kho trống cho cửa hàng Cửa hàng Hà Nội 1?',
+      }),
+    ).toBeInTheDocument()
+  })
+
+  it('Bỏ gán → màn xác nhận riêng, tông destructive (nút "Xác nhận bỏ gán")', async () => {
+    const { user } = renderDialog({ ...store, warehouseSlug: 'kho-2', warehouseName: 'Kho 2' })
+    await screen.findByText('Cửa hàng Hà Nội 1')
+
+    await user.click(screen.getByRole('button', { name: 'Bỏ gán' }))
+
+    expect(
+      await screen.findByRole('heading', {
+        name: 'Bỏ gán kho Kho 2 khỏi cửa hàng Cửa hàng Hà Nội 1?',
+      }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Xác nhận bỏ gán' })).toBeInTheDocument()
   })
 
   it('lúc rảnh thì Esc vẫn đóng được hộp', async () => {

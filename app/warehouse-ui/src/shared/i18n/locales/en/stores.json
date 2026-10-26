@@ -1,5 +1,6 @@
 {
   "title": "Stores",
+  "entityName": "store",
   "columnCode": "Code",
   "columnName": "Name",
   "columnLegalName": "Legal name",
@@ -58,5 +59,11 @@
   "notFound": "This store was not found — it may have been deleted.",
   "fieldManager": "Manager",
   "noManager": "No manager assigned",
-  "mineEmpty": "No store is linked to your warehouses yet."
+  "mineEmpty": "No store is linked to your warehouses yet.",
+  "assignWarehouseConfirmTitle": "Assign warehouse {{warehouse}} to store {{store}}?",
+  "assignWarehouseConfirmDescription": "The store will use this warehouse instead of the current one (if any).",
+  "assignWarehouseConfirmAction": "Confirm assignment",
+  "unassignWarehouseConfirmTitle": "Unassign warehouse {{warehouse}} from store {{store}}?",
+  "unassignWarehouseConfirmDescription": "The store will have no warehouse until one is assigned again.",
+  "unassignWarehouseConfirmAction": "Confirm unassign"
 }

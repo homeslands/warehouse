@@ -9,9 +9,11 @@ import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
 import { Checkbox } from '@/shared/ui/checkbox'
 import { Dialog, DialogContent, DialogFooter, DialogHeader, DialogTitle } from '@/shared/ui/dialog'
+import { DialogConfirmStep } from '@/shared/ui/DialogConfirmStep'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Input } from '@/shared/ui/input'
 import { Label } from '@/shared/ui/label'
+import { NameList } from '@/shared/ui/NameList'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { MATERIAL_NOT_FOUND, materialKeys, useMaterialOptions } from '@/entities/material'
 import { useAttachSupplierMaterial } from '@/entities/supplier'
@@ -40,6 +42,8 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
   const [selected, setSelected] = useState<ReadonlySet<string>>(new Set())
   const [query, setQuery] = useState('')
   const [fieldError, setFieldError] = useState<string | null>(null)
+  // Nhóm C: bước xác nhận nằm ngay trong hộp.
+  const [step, setStep] = useState<'edit' | 'confirm'>('edit')
   // Giữ mã cuối khi hộp đang mờ dần — tiêu đề không mất chữ.
   const [lastCode, setLastCode] = useState(supplier?.code)
   if (supplier !== null && supplier.code !== lastCode) setLastCode(supplier.code)
@@ -50,6 +54,7 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
       setSelected(new Set())
       setQuery('')
       setFieldError(null)
+      setStep('edit')
     }
   }, [slug])
 
@@ -84,6 +89,15 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
     update(next)
   }
 
+  const handleOpenChange = (next: boolean) => {
+    if (!next) setStep('edit')
+    onOpenChange(next)
+  }
+
+  const selectedNames = (materials.data?.items ?? [])
+    .filter((m) => selected.has(m.slug))
+    .map((m) => `${m.code} · ${m.name}`)
+
   const submit = () => {
     if (!supplier || selected.size === 0) return
     setFieldError(null)
@@ -93,7 +107,7 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
         onSuccess: () => {
           // Vật tư đổi nhà cung cấp → danh sách vật tư (entity material) cũng phải tải lại.
           void qc.invalidateQueries({ queryKey: materialKeys.all })
-          onOpenChange(false)
+          handleOpenChange(false)
         },
         onError: (error) => {
           const code = isApiError(error) ? error.code : undefined
@@ -104,17 +118,18 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
                 ? resolveApiErrorMessage(error)
                 : t('suppliers:attachBatchNotFound'),
             )
+            setStep('edit')
             return
           }
+          // Lỗi khác → toast, ở lại màn xác nhận.
           toastApiError(error)
-          onOpenChange(false)
         },
       },
     )
   }
 
   return (
-    <Dialog open={open} onOpenChange={onOpenChange}>
+    <Dialog open={open} onOpenChange={handleOpenChange}>
       <DialogContent
         className="sm:max-w-md"
         // `Dialog.Close` gọi thẳng `onOpenChange` nên nút × vượt được chốt isPending — giấu nó lúc
@@ -127,124 +142,146 @@ export function AttachSupplierMaterialDialog({ supplier, onOpenChange }: Props) 
           if (busy) event.preventDefault()
         }}
       >
-        <DialogHeader className="items-center text-center">
-          <DialogIcon>
-            <PackagePlusIcon />
-          </DialogIcon>
-          <DialogTitle>{t('suppliers:attachMaterialTitle', { code: lastCode ?? '' })}</DialogTitle>
-        </DialogHeader>
-
-        <div className="grid min-w-0 gap-2">
-          <div className="flex items-baseline justify-between gap-3">
-            <Label htmlFor={searchId}>{t('suppliers:columnMaterial')}</Label>
-            <span className="text-muted-foreground text-xs tabular-nums" aria-live="polite">
-              {t('suppliers:selectedCount', { count: selected.size })}
-            </span>
-          </div>
-          <Input
-            id={searchId}
-            value={query}
-            onChange={(event) => setQuery(event.target.value)}
-            placeholder={t('suppliers:materialSearchPlaceholder')}
-            disabled={busy || isLoading || loadError !== null}
-            autoComplete="off"
-          />
-
-          <div
-            role="group"
-            aria-label={t('suppliers:materialListLabel')}
-            aria-busy={isLoading}
-            aria-invalid={fieldError !== null || loadError !== null}
-            className="max-h-64 overflow-y-auto rounded-md border"
-          >
-            {isLoading ? (
-              <div className="space-y-2 p-3">
-                <Skeleton className="h-5" />
-                <Skeleton className="h-5" />
-                <Skeleton className="h-5" />
-              </div>
-            ) : loadError !== null ? null : candidates.length === 0 ? (
-              <p className="text-muted-foreground p-3 text-sm">
-                {t('suppliers:noMaterialCandidate')}
+        {step === 'confirm' ? (
+          <DialogConfirmStep
+            icon={<PackagePlusIcon />}
+            title={t('suppliers:attachConfirmTitle', {
+              count: selected.size,
+              code: lastCode ?? '',
+            })}
+            description={t('suppliers:attachConfirmDescription')}
+            details={
+              <p className="text-center text-sm font-medium break-words">
+                <NameList names={selectedNames} nameClassName="line-clamp-2" />
               </p>
-            ) : shown.length === 0 ? (
-              <p className="text-muted-foreground p-3 text-sm">{t('common:noResults')}</p>
-            ) : (
-              <>
-                {shown.length > 1 && (
-                  <label className="bg-muted/50 hover:bg-muted flex cursor-pointer items-center gap-3 border-b px-3 py-2 text-sm font-medium">
-                    <Checkbox
-                      checked={
-                        allShownSelected ? true : someShownSelected ? 'indeterminate' : false
-                      }
-                      onCheckedChange={toggleAllShown}
-                      disabled={busy}
-                    />
-                    {t('suppliers:selectAllShown', { count: shown.length })}
-                  </label>
+            }
+            confirmLabel={busy ? t('common:saving') : t('suppliers:attachConfirmAction')}
+            isPending={busy}
+            onBack={() => setStep('edit')}
+            onConfirm={submit}
+          />
+        ) : (
+          <>
+            <DialogHeader className="items-center text-center">
+              <DialogIcon>
+                <PackagePlusIcon />
+              </DialogIcon>
+              <DialogTitle>
+                {t('suppliers:attachMaterialTitle', { code: lastCode ?? '' })}
+              </DialogTitle>
+            </DialogHeader>
+
+            <div className="grid min-w-0 gap-2">
+              <div className="flex items-baseline justify-between gap-3">
+                <Label htmlFor={searchId}>{t('suppliers:columnMaterial')}</Label>
+                <span className="text-muted-foreground text-xs tabular-nums" aria-live="polite">
+                  {t('suppliers:selectedCount', { count: selected.size })}
+                </span>
+              </div>
+              <Input
+                id={searchId}
+                value={query}
+                onChange={(event) => setQuery(event.target.value)}
+                placeholder={t('suppliers:materialSearchPlaceholder')}
+                disabled={busy || isLoading || loadError !== null}
+                autoComplete="off"
+              />
+
+              <div
+                role="group"
+                aria-label={t('suppliers:materialListLabel')}
+                aria-busy={isLoading}
+                aria-invalid={fieldError !== null || loadError !== null}
+                className="max-h-64 overflow-y-auto rounded-md border"
+              >
+                {isLoading ? (
+                  <div className="space-y-2 p-3">
+                    <Skeleton className="h-5" />
+                    <Skeleton className="h-5" />
+                    <Skeleton className="h-5" />
+                  </div>
+                ) : loadError !== null ? null : candidates.length === 0 ? (
+                  <p className="text-muted-foreground p-3 text-sm">
+                    {t('suppliers:noMaterialCandidate')}
+                  </p>
+                ) : shown.length === 0 ? (
+                  <p className="text-muted-foreground p-3 text-sm">{t('common:noResults')}</p>
+                ) : (
+                  <>
+                    {shown.length > 1 && (
+                      <label className="bg-muted/50 hover:bg-muted flex cursor-pointer items-center gap-3 border-b px-3 py-2 text-sm font-medium">
+                        <Checkbox
+                          checked={
+                            allShownSelected ? true : someShownSelected ? 'indeterminate' : false
+                          }
+                          onCheckedChange={toggleAllShown}
+                          disabled={busy}
+                        />
+                        {t('suppliers:selectAllShown', { count: shown.length })}
+                      </label>
+                    )}
+                    {shown.map((m) => (
+                      <label
+                        key={m.slug}
+                        className="hover:bg-muted flex cursor-pointer items-start gap-3 border-b px-3 py-2 text-sm last:border-b-0"
+                      >
+                        <Checkbox
+                          className="mt-0.5"
+                          checked={selected.has(m.slug)}
+                          onCheckedChange={() => toggle(m.slug)}
+                          disabled={busy}
+                        />
+                        <span className="min-w-0 break-words">
+                          <span className="font-medium">{m.code}</span> · {m.name}
+                          {/* Khoảng trắng nằm NGOÀI span: khoảng trắng đầu span bị cắt khi tính tên khả truy cập. */}
+                          {m.baseUnit && (
+                            <>
+                              {' '}
+                              <span className="text-muted-foreground">· {m.baseUnit.name}</span>
+                            </>
+                          )}
+                        </span>
+                      </label>
+                    ))}
+                  </>
                 )}
-                {shown.map((m) => (
-                  <label
-                    key={m.slug}
-                    className="hover:bg-muted flex cursor-pointer items-start gap-3 border-b px-3 py-2 text-sm last:border-b-0"
-                  >
-                    <Checkbox
-                      className="mt-0.5"
-                      checked={selected.has(m.slug)}
-                      onCheckedChange={() => toggle(m.slug)}
-                      disabled={busy}
-                    />
-                    <span className="min-w-0 break-words">
-                      <span className="font-medium">{m.code}</span> · {m.name}
-                      {/* Khoảng trắng nằm NGOÀI span: khoảng trắng đầu span bị cắt khi tính tên khả truy cập. */}
-                      {m.baseUnit && (
-                        <>
-                          {' '}
-                          <span className="text-muted-foreground">· {m.baseUnit.name}</span>
-                        </>
-                      )}
-                    </span>
-                  </label>
-                ))}
-              </>
-            )}
-          </div>
+              </div>
 
-          {loadError !== null && (
-            <p role="alert" className="text-destructive text-sm">
-              {resolveApiErrorMessage(loadError)}
-            </p>
-          )}
-          {fieldError !== null && (
-            <p role="alert" className="text-destructive text-sm">
-              {fieldError}
-            </p>
-          )}
-        </div>
+              {loadError !== null && (
+                <p role="alert" className="text-destructive text-sm">
+                  {resolveApiErrorMessage(loadError)}
+                </p>
+              )}
+              {fieldError !== null && (
+                <p role="alert" className="text-destructive text-sm">
+                  {fieldError}
+                </p>
+              )}
+            </div>
 
-        <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="xl"
-            disabled={busy}
-            onClick={() => onOpenChange(false)}
-          >
-            {t('common:cancel')}
-          </Button>
-          <Button
-            type="button"
-            size="xl"
-            disabled={busy || selected.size === 0 || loadError !== null}
-            onClick={submit}
-          >
-            {busy
-              ? t('common:saving')
-              : selected.size > 0
-                ? t('suppliers:attachCount', { count: selected.size })
-                : t('suppliers:attach')}
-          </Button>
-        </DialogFooter>
+            <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="xl"
+                disabled={busy}
+                onClick={() => handleOpenChange(false)}
+              >
+                {t('common:cancel')}
+              </Button>
+              <Button
+                type="button"
+                size="xl"
+                disabled={busy || selected.size === 0 || loadError !== null}
+                onClick={() => setStep('confirm')}
+              >
+                {selected.size > 0
+                  ? t('suppliers:attachCount', { count: selected.size })
+                  : t('suppliers:attach')}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

@@ -113,6 +113,7 @@ const item = (over: Partial<Item>): Item => ({
   baseQuantity: 1,
   unitPrice: 0,
   amount: 0,
+  expiryDate: null,
   note: null,
   ...over,
 })
@@ -185,6 +186,7 @@ export const WORST_DRAFT: ImportForm = {
       quantity: 12_000,
       unitPrice: 95_000,
       amount: 1_140_000_000,
+      expiryDate: '2099-12-31',
       note: 'Bao rách phải đổi lại, ghi biên bản riêng',
     }),
   ],

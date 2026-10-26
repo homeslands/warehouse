@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -173,8 +173,39 @@ describe('StoreFormSheet — sửa', () => {
     await user.type(screen.getByLabelText(/^Tên(?! pháp)/), ' B')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
 
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Lưu thay đổi cửa hàng ST-HN-01?')
+    expect(within(dialog).getByText('Đã sửa: Tên')).toBeInTheDocument()
+    expect(body).toBeUndefined()
+
+    await confirmDialog(user, 'Lưu thay đổi')
+
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toMatchObject({ name: 'Cửa hàng Hà Nội 1 B' })
     expect(body).not.toHaveProperty('version')
+  })
+
+  it('huỷ hộp xác nhận → không PATCH, sheet vẫn mở với dữ liệu đã sửa', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/stores/ch-ha-noi`, () => {
+        calls += 1
+        return ok(store)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(store)
+    await waitFor(() =>
+      expect(screen.getByLabelText(/^Tên(?! pháp)/)).toHaveValue('Cửa hàng Hà Nội 1'),
+    )
+
+    await user.type(screen.getByLabelText(/^Tên(?! pháp)/), ' B')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(calls).toBe(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(/^Tên(?! pháp)/)).toHaveValue('Cửa hàng Hà Nội 1 B')
   })
 })

@@ -7,6 +7,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { toast } from 'sonner'
 import { server } from '@/shared/test/msw'
+import { confirmStep } from '@/shared/test/confirm'
 import { renderWithProviders } from '@/shared/test/render'
 import { getTokens, setTokens } from '@/shared/api/token-storage'
 import { useAuthStore } from '@/entities/session'
@@ -110,8 +111,12 @@ describe('ChangePasswordDialog', () => {
     renderDialog()
 
     await fill(u, 'wrong', 'matkhau-moi', 'matkhau-moi')
+    await confirmStep(u, 'Xác nhận đổi mật khẩu')
 
+    // Lỗi thuộc ô → về màn nhập, lỗi tại ô, mật khẩu đã gõ vẫn còn.
     expect(await screen.findByText('Mật khẩu hiện tại không đúng')).toBeInTheDocument()
+    expect(screen.getByLabelText(/^Mật khẩu hiện tại/)).toHaveValue('wrong')
+    expect(screen.getByLabelText(/^Mật khẩu mới/)).toHaveValue('matkhau-moi')
     expect(toast.error).not.toHaveBeenCalled()
     expect(getTokens()).toEqual({ accessToken: 'acc-old', refreshToken: 'ref-old' })
   })
@@ -129,8 +134,11 @@ describe('ChangePasswordDialog', () => {
     renderDialog()
 
     await fill(u, 'old', 'matkhau-moi', 'matkhau-moi')
+    await confirmStep(u, 'Xác nhận đổi mật khẩu')
 
     await vi.waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    // Lỗi khác → ở lại màn xác nhận.
+    expect(screen.getByRole('dialog', { name: 'Đổi mật khẩu của bạn?' })).toBeInTheDocument()
   })
 
   it('thành công → thay token (giữ user), toast, đóng dialog', async () => {
@@ -150,6 +158,7 @@ describe('ChangePasswordDialog', () => {
     const { onOpenChange } = renderDialog()
 
     await fill(u, 'old', 'matkhau-moi', 'matkhau-moi')
+    await confirmStep(u, 'Xác nhận đổi mật khẩu')
 
     await vi.waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     // confirmNewPassword chỉ kiểm ở client, không gửi lên.
@@ -163,5 +172,64 @@ describe('ChangePasswordDialog', () => {
     expect(toast.success).toHaveBeenCalledWith(
       'Đã đổi mật khẩu. Các thiết bị khác đã bị đăng xuất.',
     )
+  })
+
+  it('hợp lệ → hỏi "Đổi mật khẩu của bạn?", chưa gửi request, không hiện mật khẩu', async () => {
+    const called = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/auth/change-password`, () => {
+        called()
+        return HttpResponse.json({})
+      }),
+    )
+    const u = userEvent.setup()
+    renderDialog()
+
+    await fill(u, 'old-secret', 'matkhau-moi', 'matkhau-moi')
+
+    const dialog = await screen.findByRole('dialog', { name: 'Đổi mật khẩu của bạn?' })
+    expect(dialog).not.toHaveTextContent('old-secret')
+    expect(dialog).not.toHaveTextContent('matkhau-moi')
+    expect(screen.queryByDisplayValue('matkhau-moi')).not.toBeInTheDocument()
+    expect(called).not.toHaveBeenCalled()
+  })
+
+  it('"Quay lại" giữ nguyên cả 3 ô mật khẩu; bấm lại thì hỏi lại', async () => {
+    const u = userEvent.setup()
+    renderDialog()
+    await fill(u, 'old-secret', 'matkhau-moi', 'matkhau-moi')
+    await screen.findByRole('dialog', { name: 'Đổi mật khẩu của bạn?' })
+
+    await u.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByLabelText(/^Mật khẩu hiện tại/)).toHaveValue('old-secret')
+    expect(screen.getByLabelText(/^Mật khẩu mới/)).toHaveValue('matkhau-moi')
+    expect(screen.getByLabelText(/^Nhập lại mật khẩu mới/)).toHaveValue('matkhau-moi')
+    await u.click(screen.getByRole('button', { name: 'Đổi mật khẩu' }))
+    expect(await screen.findByRole('dialog', { name: 'Đổi mật khẩu của bạn?' })).toBeInTheDocument()
+  })
+
+  it('bấm đúp nút xác nhận chỉ gửi một request', async () => {
+    const called = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/auth/change-password`, async () => {
+        called()
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        return HttpResponse.json({
+          message: 'ok',
+          statusCode: 200,
+          timestamp: '',
+          result: { tokens: { accessToken: 'acc-new', refreshToken: 'ref-new' } },
+        })
+      }),
+    )
+    const u = userEvent.setup()
+    const { onOpenChange } = renderDialog()
+    await fill(u, 'old', 'matkhau-moi', 'matkhau-moi')
+
+    await u.dblClick(await screen.findByRole('button', { name: 'Xác nhận đổi mật khẩu' }))
+
+    await vi.waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(called).toHaveBeenCalledTimes(1)
   })
 })

@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -187,9 +187,38 @@ describe('RoleFormSheet — sửa', () => {
 
     await user.clear(descriptionField())
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(
+      'Lưu thay đổi vai trò Trưởng nhóm?',
+    )
+    expect(within(dialog).getByText('Đã sửa: Mô tả')).toBeInTheDocument()
+    expect(body).toBeUndefined()
+    await confirmDialog(user, 'Lưu thay đổi')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ description: '' })
     expect(toast.success).toHaveBeenCalledWith('Đã lưu vai trò')
+  })
+
+  it('Quay lại trong hộp xác nhận → không PATCH, sheet còn mở', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/roles/tl`, () => {
+        calls += 1
+        return ok(tl)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(tl)
+    await waitFor(() => expect(descriptionField()).toHaveValue('cũ'))
+
+    await user.type(descriptionField(), ' hơn')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(calls).toBe(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(descriptionField()).toHaveValue('cũ hơn')
   })
 })

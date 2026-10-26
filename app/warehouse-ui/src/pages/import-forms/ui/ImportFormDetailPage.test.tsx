@@ -5,6 +5,7 @@ import { describe, expect, it, vi } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
 import type { Warehouse } from '@/entities/warehouse'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmDialog } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { ImportFormDetailPage } from './ImportFormDetailPage'
@@ -52,6 +53,7 @@ const draftForm: ImportForm = {
       baseQuantity: 250,
       unitPrice: 375_000,
       amount: 3_750_000,
+      expiryDate: null,
       note: null,
     },
   ],
@@ -104,6 +106,20 @@ describe('ImportFormDetailPage', () => {
     expect(screen.getAllByText('hoa-don.pdf').length).toBeGreaterThan(0)
   })
 
+  it('bảng dòng có cột Hạn dùng: có hạn → ngày dd/MM/yyyy, không có → gạch', async () => {
+    const withExpiry = {
+      ...draftForm,
+      items: [
+        { ...draftForm.items![0], expiryDate: '2027-01-31' },
+        { ...draftForm.items![0], slug: 'it-2', lineNo: 2, expiryDate: null },
+      ],
+    }
+    renderPage(undefined, undefined, withExpiry)
+    await screen.findByRole('heading', { level: 1, name: /PN-0001/ })
+    expect(screen.getAllByRole('columnheader', { name: 'Hạn dùng' }).length).toBeGreaterThan(0)
+    expect(screen.getAllByText('31/01/2027').length).toBeGreaterThan(0)
+  })
+
   it('DRAFT + đủ quyền: Xác nhận, Sửa, menu thao tác khác (Huỷ, Xoá, In)', async () => {
     const { user } = renderPage()
     expect(await screen.findByRole('button', { name: 'Xác nhận phiếu' })).toBeInTheDocument()
@@ -133,6 +149,7 @@ describe('ImportFormDetailPage', () => {
     expect(note).toHaveValue('Giao buổi sáng')
     await user.clear(note)
     await user.click(within(sheet).getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
     await waitFor(() => expect(saved).toBe(true))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(router.state.location.pathname).toBe('/import-forms/if-1')

@@ -7,6 +7,7 @@ import { translateFormMessage } from '@/shared/lib/form-message'
 import { formatCurrency, formatQuantity } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
+import { DatePicker } from '@/shared/ui/DatePicker'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 import { Input } from '@/shared/ui/input'
 import { MoneyInput } from '@/shared/ui/MoneyInput'
@@ -58,11 +59,13 @@ type Props = {
 }
 
 /**
- * Lưới 7 cột khi KHUNG (container query `@3xl` = 48rem, không phải cửa sổ) đủ rộng — sheet hẹp hơn cửa sổ nên `md:` từng
- * dựng lưới ~50rem trong khung ~46rem, đẩy nút ghi chú / xoá ra ngoài card. Hẹp hơn: mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra.
+ * Lưới 8 cột khi KHUNG (container query `@4xl` = 56rem, không phải cửa sổ) đủ rộng — sheet hẹp hơn cửa sổ nên `md:` từng
+ * dựng lưới ~50rem trong khung ~46rem, đẩy nút ghi chú / xoá ra ngoài card. Tổng bề rộng tối thiểu của các cột + khe = 56rem,
+ * nên thêm / nới cột thì phải nâng breakpoint theo (ở `@3xl` = 48rem, cột Hạn dùng từng đẩy nút ra khỏi khung). Cột Hạn dùng
+ * 10.25rem = nút ngày + nút xoá ngày của `DatePicker`. Hẹp hơn: mỗi dòng là một thẻ xếp dọc, nhãn ô hiện ra.
  */
 const ROW_GRID =
-  'grid gap-3 rounded-lg border p-3 @3xl:grid-cols-[1.5rem_minmax(11rem,2.2fr)_minmax(5.5rem,0.9fr)_minmax(5rem,0.8fr)_minmax(7.5rem,1.2fr)_minmax(6.5rem,1fr)_auto] @3xl:items-start @3xl:rounded-none @3xl:border-0 @3xl:border-b @3xl:px-0'
+  'grid gap-3 rounded-lg border p-3 @4xl:grid-cols-[1.5rem_minmax(10rem,2.2fr)_minmax(5rem,0.9fr)_minmax(5rem,0.8fr)_minmax(7rem,1.2fr)_minmax(10.25rem,1fr)_minmax(7.5rem,1fr)_auto] @4xl:items-start @4xl:rounded-none @4xl:border-0 @4xl:border-b @4xl:px-0'
 
 export function ImportFormItemsField({
   onMaterialPicked,
@@ -317,13 +320,14 @@ export function ImportFormItemsField({
 
       <div
         aria-hidden
-        className="text-muted-foreground hidden border-b pb-2 text-sm @3xl:grid @3xl:grid-cols-[1.5rem_minmax(11rem,2.2fr)_minmax(5.5rem,0.9fr)_minmax(5rem,0.8fr)_minmax(7.5rem,1.2fr)_minmax(6.5rem,1fr)_auto] @3xl:gap-3"
+        className="text-muted-foreground hidden border-b pb-2 text-sm @4xl:grid @4xl:grid-cols-[1.5rem_minmax(10rem,2.2fr)_minmax(5rem,0.9fr)_minmax(5rem,0.8fr)_minmax(7rem,1.2fr)_minmax(10.25rem,1fr)_minmax(7.5rem,1fr)_auto] @4xl:gap-3"
       >
         <span>{t('importForms:lineNo')}</span>
         <span>{t('importForms:fieldMaterial')}</span>
         <span>{t('importForms:fieldUnit')}</span>
         <span>{t('importForms:fieldQuantity')}</span>
         <span>{t('importForms:fieldUnitPrice')}</span>
+        <span>{t('importForms:fieldExpiryDate')}</span>
         <span className="text-right">{t('importForms:fieldAmount')}</span>
         <span className="w-18" />
       </div>
@@ -363,7 +367,7 @@ export function ImportFormItemsField({
               name={`items.${index}.materialSlug`}
               render={({ field: f }) => (
                 <FormItem required>
-                  <FormLabel className="@3xl:sr-only">
+                  <FormLabel className="@4xl:sr-only">
                     {lineLabel(t('importForms:fieldMaterial'), index)}
                   </FormLabel>
                   <FormControl>
@@ -501,7 +505,7 @@ export function ImportFormItemsField({
               name={`items.${index}.unitSlug`}
               render={({ field: f }) => (
                 <FormItem required>
-                  <FormLabel className="@3xl:sr-only">
+                  <FormLabel className="@4xl:sr-only">
                     {lineLabel(t('importForms:fieldUnit'), index)}
                   </FormLabel>
                   <Select
@@ -545,8 +549,8 @@ export function ImportFormItemsField({
               control={form.control}
               name={`items.${index}.quantity`}
               render={({ field: f }) => (
-                <FormItem required>
-                  <FormLabel className="@3xl:sr-only">
+                <FormItem required className="min-w-0">
+                  <FormLabel className="@4xl:sr-only">
                     {lineLabel(t('importForms:fieldQuantity'), index)}
                   </FormLabel>
                   <FormControl>
@@ -558,7 +562,7 @@ export function ImportFormItemsField({
                     />
                   </FormControl>
                   {unit && !unit.isBaseUnit && row.quantity !== undefined && base && (
-                    <p className="text-muted-foreground text-xs">
+                    <p className="text-muted-foreground text-xs [overflow-wrap:anywhere]">
                       {t('importForms:converted', {
                         value: `${formatQuantity(row.quantity * unit.conversionRate)} ${base.unitCode}`,
                       })}
@@ -574,7 +578,7 @@ export function ImportFormItemsField({
               name={`items.${index}.unitPrice`}
               render={({ field: f }) => (
                 <FormItem required>
-                  <FormLabel className="@3xl:sr-only">
+                  <FormLabel className="@4xl:sr-only">
                     {lineLabel(t('importForms:fieldUnitPrice'), index)}
                   </FormLabel>
                   <FormControl>
@@ -590,19 +594,42 @@ export function ImportFormItemsField({
               )}
             />
 
-            <div className="flex items-center justify-between gap-2 @3xl:block @3xl:pt-2 @3xl:text-right">
-              <span className="text-muted-foreground text-sm @3xl:sr-only">
+            <FormField
+              control={form.control}
+              name={`items.${index}.expiryDate`}
+              render={({ field: f }) => (
+                <FormItem>
+                  <FormLabel className="@4xl:sr-only">
+                    {lineLabel(t('importForms:fieldExpiryDate'), index)}
+                  </FormLabel>
+                  <FormControl>
+                    <DatePicker
+                      ref={f.ref}
+                      value={f.value || undefined}
+                      onChange={(next) => f.onChange(next ?? '')}
+                      onBlur={f.onBlur}
+                      aria-label={`${t('importForms:fieldExpiryDate')} ${t('importForms:lineLabel', { line: index + 1 })}`}
+                    />
+                  </FormControl>
+                  <FormMessage />
+                </FormItem>
+              )}
+            />
+
+            <div className="flex min-w-0 items-center justify-between gap-2 @4xl:block @4xl:pt-2 @4xl:text-right">
+              <span className="text-muted-foreground text-sm @4xl:sr-only">
                 {t('importForms:fieldAmount')}
               </span>
+              {/* Số tiền rất lớn xuống dòng trong cột thay vì đè lên nút ghi chú / xoá (cột có bề rộng tối thiểu cố định). */}
               <span
                 data-testid={`line-amount-${index}`}
-                className="text-sm font-medium tabular-nums"
+                className="min-w-0 text-right text-sm font-medium tabular-nums [overflow-wrap:anywhere]"
               >
                 {formatCurrency(amount, { maximumFractionDigits: 2 })}
               </span>
             </div>
 
-            <div className="flex gap-1 @3xl:pt-0.5">
+            <div className="flex gap-1 @4xl:pt-0.5">
               <Button
                 type="button"
                 variant="ghost"
@@ -637,7 +664,7 @@ export function ImportFormItemsField({
                 control={form.control}
                 name={`items.${index}.note`}
                 render={({ field: f }) => (
-                  <FormItem className="@3xl:col-start-2 @3xl:col-end-7">
+                  <FormItem className="@4xl:col-start-2 @4xl:col-end-8">
                     <FormLabel>{lineLabel(t('importForms:fieldLineNote'), index)}</FormLabel>
                     <FormControl>
                       <Input {...f} />
@@ -723,6 +750,7 @@ export function ImportFormItemsField({
           open={adding !== null}
           onOpenChange={(open) => !open && setAdding(null)}
           warehouseSlug={warehouseSlug}
+          warehouseName={warehouseName}
           initialSearch={adding?.search ?? ''}
           description={t('importForms:addMaterialDescription', { warehouse: warehouseName })}
           abilities={materialAbilities}

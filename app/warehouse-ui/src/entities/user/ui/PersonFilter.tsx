@@ -5,7 +5,8 @@ import { formatPersonLabel } from '@/shared/lib/person-name'
 import { Combobox } from '@/shared/ui/Combobox'
 import { FilterField } from '@/shared/ui/data-table/FilterField'
 import { CHIP_FRAME, useFilterDisplay } from '@/shared/ui/data-table/filter-display'
-import { useUser, useUsers, type User } from '@/entities/user'
+import { useUser, useUsers } from '../api/hooks'
+import type { User } from '../model/types'
 
 const SEARCH_DEBOUNCE_MS = 300
 /** Trang kết quả của một lần tìm — ô chọn không phân trang; người cần tìm thì gõ thêm. */
@@ -26,7 +27,7 @@ type Props = {
  * thể không nằm trong trang kết quả (URL, hoặc đã gõ chữ khác) → lấy nhãn bằng `GET /users/{slug}`.
  */
 export function PersonFilter({ label, value, onChange, className }: Props) {
-  const { t } = useTranslation(['importForms', 'common'])
+  const { t } = useTranslation('common')
   const display = useFilterDisplay()
   const chip = display === 'chip'
   const popover = display === 'popover'
@@ -73,7 +74,7 @@ export function PersonFilter({ label, value, onChange, className }: Props) {
       return { value: u.slug, label: popover ? person : `${label}: ${person}` }
     })
     if (unknownSelected && value !== undefined && !plain.has(value)) {
-      const person = t('importForms:filterPersonUnknown')
+      const person = t('filterPersonUnknown')
       plain.set(value, person)
       list.unshift({ value, label: popover ? person : `${label}: ${person}` })
     }
@@ -108,8 +109,8 @@ export function PersonFilter({ label, value, onChange, className }: Props) {
           options={options}
           value={value}
           onChange={onChange}
-          placeholder={popover ? t('common:anyone') : label}
-          searchPlaceholder={t('importForms:filterPersonSearch')}
+          placeholder={popover ? t('anyone') : label}
+          searchPlaceholder={t('filterPersonSearch')}
           serverFiltered
           renderOption={(option) => (
             <span className="min-w-0 break-words">
