@@ -1,5 +1,5 @@
 import { SlidersHorizontalIcon } from 'lucide-react'
-import { useLayoutEffect, useRef, useState, type ReactNode } from 'react'
+import { useId, useLayoutEffect, useRef, useState, type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { useIsMobile } from '@/shared/lib/use-mobile'
@@ -45,6 +45,7 @@ export function ListToolbar({
     enabled: Boolean(filters) && !isMobile,
     hasSearch: Boolean(search),
   })
+  const popoverTitleId = useId()
   const canClear = onClearFilters !== undefined && activeFilterCount > 0
 
   if (isMobile && filters) {
@@ -125,9 +126,12 @@ export function ListToolbar({
                 )}
               </Button>
             </PopoverTrigger>
-            <PopoverContent align="end" aria-label={t('common:filters')} className="w-64 gap-3 p-3">
-              <div className="flex flex-col items-stretch gap-3 *:w-full [&_[data-slot=select-trigger]]:max-w-none">
-                {filters}
+            <PopoverContent align="end" aria-labelledby={popoverTitleId} className="w-80 gap-4 p-4">
+              <div id={popoverTitleId} className="text-sm font-medium">
+                {t('common:filters')}
+              </div>
+              <div className="flex flex-col items-stretch gap-4 *:w-full [&_[data-slot=select-trigger]]:max-w-none">
+                <FilterDisplayProvider value="popover">{filters}</FilterDisplayProvider>
               </div>
               {canClear && (
                 <Button variant="ghost" size="sm" className="self-end" onClick={onClearFilters}>

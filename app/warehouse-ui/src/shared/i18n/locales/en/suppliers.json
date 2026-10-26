@@ -123,7 +123,6 @@
   "selectedCount": "{{count}} selected",
   "selectAllShown": "Select all ({{count}})",
   "attachCount": "Attach ({{count}})",
-  "attachBatchBelongsToOther": "Nothing was attached: at least one selected material already belongs to another supplier. Deselect some and try again.",
   "attachBatchNotFound": "Nothing was attached: at least one selected material no longer exists. Close and reopen this dialog, then try again.",
   "detachSelected": "Remove ({{count}})",
   "detachManyTitle": "Remove {{count}} materials?",
@@ -131,5 +130,6 @@
   "detachMenu": "Remove from supplier",
   "selectMaterialAria": "Select {{code}}",
   "selectAllOnPage": "Select all materials on this page",
-  "materialListLabel": "Materials not attached to any supplier"
+  "materialListLabel": "Materials not yet attached to this supplier",
+  "filterCreatedAt": "Created"
 }

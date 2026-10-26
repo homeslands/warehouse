@@ -43,6 +43,9 @@ export type SupplierFilters = {
   taxCode?: string
   /** Chứa chuỗi. */
   phonenumber?: string
+  /** Ngày tạo từ / đến, `YYYY-MM-DD`, tính cả hai đầu. `startDate` > `endDate` → 400. */
+  startDate?: string
+  endDate?: string
 }
 
 /** Vật tư gắn với nhà cung cấp (`SupplierMaterialResponseDto`). */

@@ -25,7 +25,9 @@ const material: Material = {
   type: { slug: 'mt-1', code: 'MT-01', name: 'Vật liệu' },
   baseUnit: null,
   hasSupplier: false,
-  supplier: null,
+  suppliers: [],
+  warehouses: [],
+  units: [],
 }
 
 beforeEach(() => {

@@ -123,7 +123,6 @@
   "selectedCount": "Đã chọn {{count}}",
   "selectAllShown": "Chọn tất cả ({{count}})",
   "attachCount": "Gắn ({{count}})",
-  "attachBatchBelongsToOther": "Chưa gắn vật tư nào: ít nhất một vật tư đã chọn đã thuộc nhà cung cấp khác. Bỏ bớt rồi thử lại.",
   "attachBatchNotFound": "Chưa gắn vật tư nào: ít nhất một vật tư đã chọn không còn tồn tại. Đóng hộp, mở lại rồi thử lại.",
   "detachSelected": "Gỡ ({{count}})",
   "detachManyTitle": "Gỡ {{count}} vật tư?",
@@ -131,5 +130,6 @@
   "detachMenu": "Gỡ khỏi nhà cung cấp",
   "selectMaterialAria": "Chọn {{code}}",
   "selectAllOnPage": "Chọn tất cả vật tư trên trang",
-  "materialListLabel": "Vật tư chưa thuộc nhà cung cấp nào"
+  "materialListLabel": "Vật tư chưa gắn với nhà cung cấp này",
+  "filterCreatedAt": "Ngày tạo"
 }

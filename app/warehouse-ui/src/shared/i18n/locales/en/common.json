@@ -22,6 +22,8 @@
   "searchPlaceholder": "Search...",
   "noResults": "No results.",
   "clearSelection": "Clear selection",
+  "anyone": "Anyone",
+  "anyTime": "Any time",
   "pickDate": "Pick a date",
   "dateFrom": "From {{date}}",
   "dateTo": "Until {{date}}",

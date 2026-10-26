@@ -58,13 +58,13 @@ export function buildSupplierColumns(
     {
       accessorKey: 'taxCode',
       header: t('suppliers:columnTaxCode'),
-      meta: { sortField: 'taxCode', hideBelow: '@2xl' },
+      meta: { hideBelow: '@2xl' },
       cell: ({ row }) => row.original.taxCode || <EmptyValue />,
     },
     {
       accessorKey: 'phonenumber',
       header: t('suppliers:columnPhonenumber'),
-      meta: { sortField: 'phonenumber', hideBelow: '@sm' },
+      meta: { hideBelow: '@sm' },
       cell: ({ row }) => row.original.phonenumber || <EmptyValue />,
     },
     {
