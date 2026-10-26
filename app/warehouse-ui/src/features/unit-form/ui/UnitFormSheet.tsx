@@ -4,10 +4,12 @@ import { RulerIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import {
   Form,
   FormControl,
@@ -73,7 +75,7 @@ export function UnitFormSheet({ open, onOpenChange, unit }: Props) {
     toastApiError(error)
   }
 
-  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: lưu thẳng.
+  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: cũng hỏi "Lưu thay đổi …?" (useSaveChangesConfirmation).
   const [toCreate, setToCreate] = useState<UnitFormValues | null>(null)
   if (!open && toCreate) setToCreate(null)
 
@@ -92,26 +94,52 @@ export function UnitFormSheet({ open, onOpenChange, unit }: Props) {
     })
   }
 
+  // Sửa: form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH.
+  const saveConfirmation = useSaveChangesConfirmation<UnitFormValues>({
+    open,
+    entity: t('units:entityName'),
+    name: unit?.code ?? '',
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      code: t('units:fieldCode'),
+      name: t('units:fieldName'),
+      description: t('units:fieldDescription'),
+    }),
+    icon: <RulerIcon />,
+    onConfirm: (values) => {
+      if (!unit) return
+      const input = toUpdateInput(values, unit)
+      if (Object.keys(input).length === 0) {
+        saveConfirmation.close()
+        onOpenChange(false)
+        return
+      }
+      update.mutate(
+        { slug: unit.slug, input },
+        {
+          onSuccess: () => {
+            void invalidateMaterials()
+            onOpenChange(false)
+          },
+          onError: (error) => {
+            // Đóng hộp xác nhận để lỗi tại ô (vd mã đã tồn tại) hiện ra.
+            saveConfirmation.close()
+            handleError(error)
+          },
+        },
+      )
+    },
+  })
+
   const onSubmit = (values: UnitFormValues) => {
     if (!unit) {
       setToCreate(values)
       return
     }
-    const input = toUpdateInput(values, unit)
-    if (Object.keys(input).length === 0) {
+    if (Object.keys(toUpdateInput(values, unit)).length === 0) {
       onOpenChange(false)
       return
     }
-    update.mutate(
-      { slug: unit.slug, input },
-      {
-        onSuccess: () => {
-          void invalidateMaterials()
-          onOpenChange(false)
-        },
-        onError: handleError,
-      },
-    )
+    saveConfirmation.request(values)
   }
 
   return (
@@ -125,7 +153,7 @@ export function UnitFormSheet({ open, onOpenChange, unit }: Props) {
       isDirty={form.formState.isDirty}
       confirmation={
         unit
-          ? undefined
+          ? saveConfirmation.confirmation
           : {
               open: toCreate !== null,
               onOpenChange: (next) => {

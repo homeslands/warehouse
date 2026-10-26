@@ -1,6 +1,6 @@
 import { zodResolver } from '@hookform/resolvers/zod'
 import { useQueryClient } from '@tanstack/react-query'
-import { useRef } from 'react'
+import { useImperativeHandle, useRef, type Ref } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { isApiError } from '@/shared/api/http'
@@ -47,7 +47,23 @@ const FIELD_BY_CODE = {
   100816: 'supplierSlug',
 } as const
 
+/** Tóm tắt ở bước xác nhận (nằm trong hộp cha). `supplier` chỉ có khi sẽ gắn NCC. */
+export type CreateMaterialSummary = {
+  code: string
+  name: string
+  unit: string
+  supplier: string | null
+}
+
+/** Hộp cha bấm nút xác nhận ở bước xác nhận → gửi đúng giá trị đã hỏi. */
+export type CreateMaterialHandle = { submit: () => void }
+
 type Props = {
+  ref?: Ref<CreateMaterialHandle>
+  /** Form hợp lệ → hộp cha chuyển sang bước xác nhận (chưa gửi). */
+  onAsk: (summary: CreateMaterialSummary) => void
+  /** Lỗi thuộc ô sau khi xác nhận → hộp cha về màn nhập. */
+  onFieldError: () => void
   /** Nút submit nằm ở footer của hộp (`<Button type="submit" form={formId}>`), không nằm trong section. */
   formId: string
   /** `id` của dòng lý do thiếu quyền — nút submit ở footer trỏ `aria-describedby` vào đây. */
@@ -68,6 +84,9 @@ type Props = {
 const label = codeNameLabel
 
 export function CreateMaterialSection({
+  ref,
+  onAsk,
+  onFieldError,
   formId,
   hintId,
   warehouseSlug,
@@ -103,7 +122,30 @@ export function CreateMaterialSection({
   // `isPending` về false ngay khi POST xong, còn onCreated vẫn chạy → chốt cả luồng bằng ref.
   const inFlight = useRef(false)
 
-  const onSubmit = (values: AddMaterialValues) => {
+  // Giá trị đã hỏi xác nhận — gửi đúng bản này (không đọc lại form).
+  const asked = useRef<AddMaterialValues | null>(null)
+
+  const ask = (values: AddMaterialValues) => {
+    asked.current = values
+    onAsk({
+      code: values.code.trim().toUpperCase(),
+      name: values.name.trim(),
+      unit: unitOptions.find((o) => o.value === values.baseUnitSlug)?.label ?? values.baseUnitSlug,
+      supplier:
+        canAttachSupplier && values.supplierSlug !== ''
+          ? (supplierOptions.find((o) => o.value === values.supplierSlug)?.label ??
+            values.supplierSlug)
+          : null,
+    })
+  }
+
+  useImperativeHandle(ref, () => ({
+    submit: () => {
+      if (asked.current) send(asked.current)
+    },
+  }))
+
+  const send = (values: AddMaterialValues) => {
     if (inFlight.current) return
     inFlight.current = true
     onBusyChange(true)
@@ -148,7 +190,10 @@ export function CreateMaterialSection({
           if (isApiError(error) && error.code === 101201) {
             void qc.invalidateQueries({ queryKey: supplierKeys.all })
           }
-          if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) return
+          if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) {
+            onFieldError()
+            return
+          }
           toastApiError(error)
         },
       },
@@ -179,7 +224,7 @@ export function CreateMaterialSection({
         aria-label={t('inventory:createMaterialSection')}
         onSubmit={(e) => {
           e.stopPropagation()
-          void form.handleSubmit(onSubmit)(e)
+          void form.handleSubmit(ask)(e)
         }}
       >
         <div className="grid items-start gap-4 sm:grid-cols-2">

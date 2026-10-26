@@ -105,6 +105,7 @@ function renderDialog(found: Material[]) {
       open
       onOpenChange={vi.fn()}
       warehouseSlug="w-a"
+      warehouseName="Kho A"
       initialSearch=""
       description="Vật tư thêm ở đây được chọn ngay vào dòng phiếu nhập."
       abilities={{ search: true, assign: true, create: true, attachSupplier: true }}

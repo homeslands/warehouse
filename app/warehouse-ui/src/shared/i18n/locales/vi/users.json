@@ -1,5 +1,6 @@
 {
   "title": "Người dùng",
+  "entityName": "người dùng",
   "columnName": "Họ tên",
   "columnLogin": "Tên đăng nhập",
   "columnEmail": "Email",
@@ -72,5 +73,11 @@
   "changeRoleAction": "Đổi vai trò",
   "changeRoleTitle": "Đổi vai trò",
   "changeRoleWarning": "<1>{{name}}</1> đang là {{role}}. Đổi xong, người này sẽ bị đăng xuất khỏi mọi thiết bị và phải đăng nhập lại.",
-  "fieldNewRole": "Vai trò mới"
+  "fieldNewRole": "Vai trò mới",
+  "resetPasswordConfirmTitle": "Đặt lại mật khẩu cho {{person}}?",
+  "resetPasswordConfirmDescription": "Mọi phiên đăng nhập của họ sẽ bị đăng xuất; họ phải đăng nhập lại bằng mật khẩu mới.",
+  "resetPasswordConfirmAction": "Xác nhận đặt lại",
+  "changeRoleConfirmTitle": "Đổi vai trò của {{person}} từ {{from}} sang {{to}}?",
+  "changeRoleConfirmDescription": "Người này sẽ bị đăng xuất khỏi mọi thiết bị và phải đăng nhập lại.",
+  "changeRoleConfirmAction": "Xác nhận đổi vai trò"
 }

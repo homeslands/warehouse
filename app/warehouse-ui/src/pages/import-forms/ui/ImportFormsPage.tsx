@@ -31,6 +31,7 @@ import {
   type ImportFormFilters,
 } from '@/entities/import-form'
 import { can, useAuthStore } from '@/entities/session'
+import { PersonFilter } from '@/entities/user'
 import { DeleteImportFormDialog } from '@/features/import-form-delete'
 import { ImportFormSheet } from '@/features/import-form-editor'
 import { AddWarehouseMaterialDialog, materialAddAbilities } from '@/features/warehouse-material-add'
@@ -43,7 +44,6 @@ import {
   type ImportFormSearchField,
 } from '../model/search-query'
 import { toastSaveOutcome } from '../model/saveToast'
-import { PersonFilter } from './PersonFilter'
 
 const FILTERS = z.object({
   warehouse: z.string().optional(),

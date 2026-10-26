@@ -1,5 +1,6 @@
 {
   "title": "Roles",
+  "entityName": "role",
   "description": "Add new roles, edit descriptions, delete roles no longer used. Toggle authorities on the Permissions screen.",
   "create": "Add role",
   "edit": "Edit role",

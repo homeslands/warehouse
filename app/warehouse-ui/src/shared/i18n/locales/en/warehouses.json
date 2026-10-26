@@ -1,5 +1,6 @@
 {
   "title": "Warehouses",
+  "entityName": "warehouse",
   "columnCode": "Code",
   "columnName": "Name",
   "columnAddress": "Address",
@@ -68,5 +69,14 @@
   "tabsLabel": "Warehouse sections",
   "tabMaterials": "Materials",
   "tabMembers": "Members",
-  "sectionInventory": "Materials in this warehouse"
+  "sectionInventory": "Materials in this warehouse",
+  "assignManagerConfirmTitle": "Assign {{name}} as manager of warehouse {{warehouse}}?",
+  "assignManagerConfirmDescription": "They will replace the current manager of the warehouse (if any).",
+  "assignManagerConfirmAction": "Confirm assignment",
+  "unassignManagerConfirmTitle": "Remove the manager of warehouse {{warehouse}}?",
+  "unassignManagerConfirmDescription": "The warehouse will have no manager until someone else is assigned.",
+  "unassignManagerConfirmAction": "Confirm unassign",
+  "addMemberConfirmTitle": "Add {{count}} user(s) to warehouse {{warehouse}}?",
+  "addMemberConfirmDescription": "They will be able to see and work in this warehouse.",
+  "addMemberConfirmAction": "Confirm add"
 }

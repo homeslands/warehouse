@@ -1,5 +1,5 @@
 import { useTranslation } from 'react-i18next'
-import { formatCurrency, formatQuantity } from '@/shared/lib/format'
+import { formatCurrency, formatDate, formatQuantity } from '@/shared/lib/format'
 import { EmptyValue } from '@/shared/ui/EmptyValue'
 import {
   Table,
@@ -34,6 +34,7 @@ export function ImportFormItemsTable({
           <TableHead className="text-right">{t('importForms:fieldBaseQuantity')}</TableHead>
           <TableHead className="text-right">{t('importForms:fieldUnitPrice')}</TableHead>
           <TableHead className="text-right">{t('importForms:fieldAmount')}</TableHead>
+          <TableHead>{t('importForms:fieldExpiryDate')}</TableHead>
           <TableHead>{t('importForms:fieldLineNote')}</TableHead>
         </TableRow>
       </TableHeader>
@@ -73,6 +74,9 @@ export function ImportFormItemsTable({
             <TableCell className="text-right tabular-nums">
               {formatCurrency(item.amount, { maximumFractionDigits: 2 })}
             </TableCell>
+            <TableCell className="whitespace-nowrap tabular-nums">
+              {item.expiryDate ? formatDate(item.expiryDate) : <EmptyValue />}
+            </TableCell>
             <TableCell>
               {item.note ? (
                 <span className="block max-w-48 whitespace-normal break-words">{item.note}</span>
@@ -91,7 +95,7 @@ export function ImportFormItemsTable({
           <TableCell className="text-right font-semibold tabular-nums">
             {formatCurrency(form.total, { maximumFractionDigits: 2 })}
           </TableCell>
-          <TableCell />
+          <TableCell colSpan={2} />
         </TableRow>
       </TableFooter>
     </Table>

@@ -7,6 +7,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { toast } from 'sonner'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { mutationToastQueryClient } from '@/shared/test/query-client'
 import { renderWithProviders } from '@/shared/test/render'
@@ -65,6 +66,7 @@ describe('ConversionUnitDialog', () => {
     await user.type(screen.getByLabelText('Tỉ lệ'), '50')
     expect(screen.getByText('1 BAG = 50 KG')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gắn đơn vị')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ unitSlug: 'u-bag', conversionRate: 50 })
@@ -103,10 +105,13 @@ describe('ConversionUnitDialog', () => {
     await user.type(screen.getByLabelText('Tỉ lệ'), '50')
     expect(availableCalls).toBe(1)
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gắn đơn vị')
 
+    // Lỗi thuộc ô → về màn nhập, lỗi tại ô, tỉ lệ đã nhập còn.
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Đơn vị này đã là đơn vị quy đổi của vật tư',
     )
+    expect(screen.getByLabelText('Tỉ lệ')).toHaveValue('50')
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
     await waitFor(() => expect(availableCalls).toBe(2))
   })
@@ -129,6 +134,7 @@ describe('ConversionUnitDialog', () => {
     await user.clear(screen.getByLabelText('Tỉ lệ'))
     await user.type(screen.getByLabelText('Tỉ lệ'), '25')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận đổi tỉ lệ')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ conversionRate: 25 })
@@ -199,6 +205,7 @@ describe('ConversionUnitDialog', () => {
     await user.clear(screen.getByLabelText('Tỉ lệ'))
     await user.type(screen.getByLabelText('Tỉ lệ'), '25')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận đổi tỉ lệ')
     expect(await screen.findByRole('alert')).toHaveTextContent(
       'Tỉ lệ phải lớn hơn 0, tối đa 6 chữ số thập phân',
     )
@@ -208,7 +215,106 @@ describe('ConversionUnitDialog', () => {
       mswHttp.patch(`${BASE}/materials/m-1/conversion-units/u-bag`, () => apiError(404, 100717)),
     )
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận đổi tỉ lệ')
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(toast.error).toHaveBeenCalled()
+  })
+
+  it('gắn: hỏi "Gắn đơn vị BAG (1 BAG = 50 KG)?", chưa gửi; "Quay lại" giữ đơn vị + tỉ lệ', async () => {
+    const posted = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/materials/m-1/conversion-units`, () => {
+        posted()
+        return ok(bag)
+      }),
+    )
+    const { user } = renderDialog()
+    await pickBag(user)
+    await user.type(screen.getByLabelText('Tỉ lệ'), '50')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    const confirmDialogBox = await screen.findByRole('dialog', {
+      name: 'Gắn đơn vị BAG (1 BAG = 50 KG)?',
+    })
+    expect(confirmDialogBox).toHaveTextContent(
+      'Số lượng theo đơn vị này sẽ quy đổi theo tỉ lệ mới.',
+    )
+    expect(posted).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByRole('combobox', { name: 'Đơn vị' })).toHaveTextContent('BAG · Bao 50kg')
+    expect(screen.getByLabelText('Tỉ lệ')).toHaveValue('50')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Gắn đơn vị BAG (1 BAG = 50 KG)?' }),
+    ).toBeInTheDocument()
+  })
+
+  it('sửa: hỏi "Đổi tỉ lệ BAG thành 25 KG?"; "Quay lại" giữ tỉ lệ mới', async () => {
+    const { user } = renderDialog(bag)
+    await user.clear(screen.getByLabelText('Tỉ lệ'))
+    await user.type(screen.getByLabelText('Tỉ lệ'), '25')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    expect(
+      await screen.findByRole('dialog', { name: 'Đổi tỉ lệ BAG thành 25 KG?' }),
+    ).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+    expect(screen.getByLabelText('Tỉ lệ')).toHaveValue('25')
+  })
+
+  it('validate lỗi → không mở bước xác nhận', async () => {
+    const { user } = renderDialog()
+    await user.type(screen.getByLabelText('Tỉ lệ'), '5')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    expect((await screen.findAllByRole('alert'))[0]).toHaveTextContent('Vui lòng chọn đơn vị')
+    expect(screen.queryByRole('button', { name: 'Quay lại' })).not.toBeInTheDocument()
+  })
+
+  it('bấm đúp nút xác nhận chỉ gửi một request', async () => {
+    const posted = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/materials/m-1/conversion-units`, async () => {
+        posted()
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        return ok(bag)
+      }),
+    )
+    const { user, onOpenChange } = renderDialog()
+    await pickBag(user)
+    await user.type(screen.getByLabelText('Tỉ lệ'), '50')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    await user.dblClick(await screen.findByRole('button', { name: 'Xác nhận gắn đơn vị' }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(posted).toHaveBeenCalledTimes(1)
+  })
+
+  it('lỗi 500 sau xác nhận → toast, ở lại màn xác nhận, xác nhận lần nữa gửi lại', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.post(`${BASE}/materials/m-1/conversion-units`, () => {
+        calls++
+        return apiError(500)
+      }),
+    )
+    const { user, onOpenChange } = renderDialog()
+    await pickBag(user)
+    await user.type(screen.getByLabelText('Tỉ lệ'), '50')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gắn đơn vị')
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    expect(
+      screen.getByRole('dialog', { name: 'Gắn đơn vị BAG (1 BAG = 50 KG)?' }),
+    ).toBeInTheDocument()
+
+    await confirmStep(user, 'Xác nhận gắn đơn vị')
+    await waitFor(() => expect(calls).toBe(2))
   })
 })

@@ -1,6 +1,6 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { PackagePlusIcon } from 'lucide-react'
-import { useId, useState } from 'react'
+import { useId, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { Button } from '@/shared/ui/button'
@@ -12,6 +12,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { DialogConfirmStep } from '@/shared/ui/DialogConfirmStep'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Input } from '@/shared/ui/input'
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/shared/ui/tabs'
@@ -24,7 +25,11 @@ import { importFormKeys } from '@/entities/import-form'
 import { materialKeys, type Material } from '@/entities/material'
 import { supplierKeys } from '@/entities/supplier'
 import { AssignExistingSection } from './AssignExistingSection'
-import { CreateMaterialSection } from './CreateMaterialSection'
+import {
+  CreateMaterialSection,
+  type CreateMaterialHandle,
+  type CreateMaterialSummary,
+} from './CreateMaterialSection'
 import { codeNameLabel } from '../model/labels'
 
 type Props = AddMaterialDialogProps
@@ -57,6 +62,7 @@ function DialogBody({
   open,
   onOpenChange,
   warehouseSlug,
+  warehouseName,
   initialSearch,
   description,
   abilities,
@@ -71,6 +77,10 @@ function DialogBody({
   const [createBusy, setCreateBusy] = useState(false)
   const [assignBusy, setAssignBusy] = useState(false)
   const busy = createBusy || assignBusy
+  // Nhóm C: tab tạo mới có bước xác nhận ngay trong hộp (tab danh mục giữ bước "Xác nhận gắn" sẵn có).
+  // Form vẫn mount (chỉ ẩn) khi hỏi để "Quay lại" giữ nguyên dữ liệu đã nhập.
+  const [confirming, setConfirming] = useState<CreateMaterialSummary | null>(null)
+  const createRef = useRef<CreateMaterialHandle>(null)
   const createFormId = useId()
   const createHintId = useId()
 
@@ -101,13 +111,50 @@ function DialogBody({
         onEscapeKeyDown={(e) => busy && e.preventDefault()}
         onPointerDownOutside={(e) => busy && e.preventDefault()}
       >
-        <DialogHeader className="items-center text-center">
-          <DialogIcon>
-            <PackagePlusIcon />
-          </DialogIcon>
-          <DialogTitle>{t('inventory:addMaterialTitle')}</DialogTitle>
-          <DialogDescription>{description}</DialogDescription>
-        </DialogHeader>
+        {confirming !== null && (
+          <DialogConfirmStep
+            icon={<PackagePlusIcon />}
+            title={t('inventory:createAndAssignConfirmTitle', {
+              code: confirming.code,
+              warehouse: warehouseName,
+            })}
+            description={t('inventory:createAndAssignConfirmDescription')}
+            details={
+              <dl className="bg-muted/50 grid grid-cols-[auto_1fr] gap-x-4 gap-y-1 rounded-xl p-4 text-sm">
+                <dt className="text-muted-foreground">{t('inventory:fieldMaterialCode')}</dt>
+                <dd className="font-medium break-words">{confirming.code}</dd>
+                <dt className="text-muted-foreground">{t('inventory:fieldMaterialName')}</dt>
+                <dd className="font-medium break-words">{confirming.name}</dd>
+                <dt className="text-muted-foreground">{t('inventory:fieldBaseUnit')}</dt>
+                <dd className="font-medium break-words">{confirming.unit}</dd>
+                {confirming.supplier !== null && (
+                  <>
+                    <dt className="text-muted-foreground">{t('inventory:confirmSupplier')}</dt>
+                    <dd className="font-medium break-words">{confirming.supplier}</dd>
+                  </>
+                )}
+              </dl>
+            }
+            confirmLabel={
+              createBusy
+                ? t('inventory:creatingMaterial')
+                : t('inventory:createAndAssignConfirmAction')
+            }
+            isPending={createBusy}
+            onBack={() => setConfirming(null)}
+            onConfirm={() => createRef.current?.submit()}
+          />
+        )}
+
+        {confirming === null && (
+          <DialogHeader className="items-center text-center">
+            <DialogIcon>
+              <PackagePlusIcon />
+            </DialogIcon>
+            <DialogTitle>{t('inventory:addMaterialTitle')}</DialogTitle>
+            <DialogDescription>{description}</DialogDescription>
+          </DialogHeader>
+        )}
 
         <Tabs
           value={tab}
@@ -118,6 +165,7 @@ function DialogBody({
             setTab(value)
           }}
           className="min-h-0 gap-4"
+          hidden={confirming !== null}
         >
           <TabsList className="w-full">
             <TabsTrigger value="catalog" className="flex-1" disabled={busy}>
@@ -168,6 +216,9 @@ function DialogBody({
                 className="-m-1 h-[calc(100%+0.5rem)] overflow-y-auto p-1 data-[state=inactive]:hidden"
               >
                 <CreateMaterialSection
+                  ref={createRef}
+                  onAsk={setConfirming}
+                  onFieldError={() => setConfirming(null)}
                   formId={createFormId}
                   hintId={createHintId}
                   warehouseSlug={warehouseSlug}
@@ -187,28 +238,30 @@ function DialogBody({
           </div>
         </Tabs>
 
-        <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="xl"
-            disabled={busy}
-            onClick={() => onOpenChange(false)}
-          >
-            {t('common:close')}
-          </Button>
-          {tab === 'create' && (
+        {confirming === null && (
+          <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
             <Button
-              type="submit"
-              form={createFormId}
+              type="button"
+              variant="outline"
               size="xl"
-              disabled={!abilities.create || busy}
-              aria-describedby={abilities.create ? undefined : createHintId}
+              disabled={busy}
+              onClick={() => onOpenChange(false)}
             >
-              {createBusy ? t('inventory:creatingMaterial') : t('inventory:createAndAssign')}
+              {t('common:close')}
             </Button>
-          )}
-        </DialogFooter>
+            {tab === 'create' && (
+              <Button
+                type="submit"
+                form={createFormId}
+                size="xl"
+                disabled={!abilities.create || busy}
+                aria-describedby={abilities.create ? undefined : createHintId}
+              >
+                {createBusy ? t('inventory:creatingMaterial') : t('inventory:createAndAssign')}
+              </Button>
+            )}
+          </DialogFooter>
+        )}
       </DialogContent>
     </Dialog>
   )

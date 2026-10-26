@@ -21,7 +21,12 @@ import {
 } from '@/shared/ui/command'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 
-export type ComboboxOption = { value: string; label: string }
+export type ComboboxOption = {
+  value: string
+  label: string
+  /** Hiện mờ, không chọn được (vd. vật tư hết hàng). */
+  disabled?: boolean
+}
 
 type ComboboxProps = Omit<ComponentProps<'button'>, 'value' | 'onChange'> & {
   options: ComboboxOption[]
@@ -229,6 +234,7 @@ export function Combobox({
                       key={option.value}
                       value={option.value}
                       keywords={[option.label]}
+                      disabled={option.disabled}
                       // CommandItem (shadcn) tự hiện dấu tích khi data-checked=true.
                       data-checked={option.value === value}
                       onSelect={() => {

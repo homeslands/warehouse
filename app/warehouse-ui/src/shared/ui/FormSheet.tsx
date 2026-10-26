@@ -25,6 +25,8 @@ export type FormSheetConfirmation = {
   /** Tóm tắt bản ghi sắp tạo — thường là `SummaryList`. */
   details?: ReactNode
   confirmLabel: string
+  /** Nhãn nút lùi; bỏ trống = "Huỷ" mặc định của ConfirmDialog. */
+  cancelLabel?: string
   onConfirm: () => void
 }
 
@@ -45,10 +47,10 @@ type FormSheetBaseProps = {
   submitDisabled?: boolean
   /**
    * Form đã đổi so với lúc mở (`formState.isDirty`). Có → mọi lối đóng KHÔNG qua Lưu (Huỷ, ×, Esc,
-   * bấm ra ngoài) hỏi "Bỏ thay đổi chưa lưu?" trước. Bấm Lưu không hỏi — nút Lưu đã là lần xác nhận.
+   * bấm ra ngoài) hỏi "Bỏ thay đổi chưa lưu?" trước. Nút Lưu không bỏ qua việc hỏi lại — việc đó do `confirmation` lo (mọi thao tác ghi đều hỏi).
    */
   isDirty?: boolean
-  /** Có → hỏi lại trước khi gửi (nghiệp vụ chốt: thao tác TẠO phải xác nhận). Xem `FormSheetConfirmation`. */
+  /** Có → hỏi lại trước khi gửi (nghiệp vụ chốt: MỌI thao tác ghi — tạo lẫn sửa — đều phải xác nhận). Xem `FormSheetConfirmation`. */
   confirmation?: FormSheetConfirmation
   /** `default` = ~480px; `wide` = ~1024px (form nhiều dòng như phiếu nhập). Dưới 640px luôn full width. */
   size?: 'default' | 'wide'
@@ -200,7 +202,8 @@ export function FormSheet({
           title={confirmation.title}
           description={confirmation.description}
           details={confirmation.details}
-          confirmLabel={confirmation.confirmLabel}
+          confirmLabel={isPending ? t('common:saving') : confirmation.confirmLabel}
+          cancelLabel={confirmation.cancelLabel}
           isPending={isPending}
           onConfirm={confirmation.onConfirm}
         />

@@ -8,6 +8,7 @@ import type { AddedMaterial } from '@/entities/inventory'
 import { supplierKeys } from '@/entities/supplier'
 import type { Material } from '@/entities/material'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { AddWarehouseMaterialDialog } from './AddWarehouseMaterialDialog'
@@ -54,6 +55,7 @@ function Harness({
         open={open}
         onOpenChange={setOpen}
         warehouseSlug="w-a"
+        warehouseName="Kho A"
         initialSearch={initialSearch}
         description="Mô tả thử"
         abilities={abilities}
@@ -265,6 +267,7 @@ describe('AddWarehouseMaterialDialog', () => {
     await pick(/^Đơn vị gốc/, 'KG · Kilogram')
     await pick(/^Nhà cung cấp/, 'NCC-1 · NCC Bột')
     await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await confirmStep(user, 'Xác nhận tạo vật tư')
     await waitFor(() =>
       expect(onAdded).toHaveBeenCalledWith({
         slug: 'm-new',
@@ -330,5 +333,140 @@ describe('AddWarehouseMaterialDialog', () => {
     expect(screen.getByRole('textbox', { name: /Tìm vật tư trong danh mục/ })).toBeVisible()
     await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
     expect(screen.getByRole('textbox', { name: /^Tên vật tư/ })).toHaveValue('Thép cuộn')
+  })
+
+  describe('tab "Tạo vật tư mới" — bước xác nhận trong hộp', () => {
+    const stamp = { createdAt: '', updatedAt: '' }
+    function mockCreateCatalog(post: Parameters<typeof mswHttp.post>[1]) {
+      server.use(
+        mswHttp.get(`${BASE}/materials`, () => paginated([])),
+        mswHttp.get(`${BASE}/material-types`, () =>
+          paginated([{ slug: 'mt-1', code: 'MT', name: 'Vật liệu', ...stamp }]),
+        ),
+        mswHttp.get(`${BASE}/units`, () =>
+          paginated([
+            {
+              slug: 'u-kg',
+              code: 'KG',
+              name: 'Kilogram',
+              materialCount: { asBaseUnit: 0, asConversionUnit: 0, total: 0 },
+              ...stamp,
+            },
+          ]),
+        ),
+        mswHttp.get(`${BASE}/suppliers`, () =>
+          paginated([{ slug: 's-1', code: 'NCC-1', name: 'NCC Bột', ...stamp }]),
+        ),
+        mswHttp.post(`${BASE}/warehouses/w-a/materials`, post),
+      )
+    }
+    async function fillCreate(user: UserEvent, withSupplier = true) {
+      await user.click(screen.getByRole('tab', { name: 'Tạo vật tư mới' }))
+      await user.type(await screen.findByRole('textbox', { name: /^Mã vật tư/ }), 'vt-99')
+      const pick = async (field: RegExp, label: string) => {
+        await user.click(screen.getByRole('combobox', { name: field }))
+        await user.click(await screen.findByText(label))
+      }
+      await pick(/^Loại vật tư/, 'MT · Vật liệu')
+      await pick(/^Đơn vị gốc/, 'KG · Kilogram')
+      if (withSupplier) await pick(/^Nhà cung cấp/, 'NCC-1 · NCC Bột')
+    }
+
+    it('hỏi "Tạo vật tư … và gắn vào kho …?" kèm tóm tắt, chưa POST; "Quay lại" giữ dữ liệu', async () => {
+      const posted = vi.fn()
+      mockCreateCatalog(() => {
+        posted()
+        return ok({ materialSlug: 'm-new', materialName: 'Xi măng mới' })
+      })
+      const { user } = renderWithProviders(
+        <Harness onAdded={vi.fn()} initialSearch="Xi măng mới" />,
+        {
+          auth: 'admin',
+        },
+      )
+      await fillCreate(user)
+      await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+
+      const dialog = await screen.findByRole('dialog', {
+        name: 'Tạo vật tư VT-99 và gắn vào kho Kho A?',
+      })
+      expect(dialog).toHaveTextContent('Xi măng mới')
+      expect(dialog).toHaveTextContent('KG · Kilogram')
+      expect(dialog).toHaveTextContent('NCC-1 · NCC Bột')
+      expect(dialog).toHaveTextContent('Vật tư mới được thêm vào danh mục và gắn vào kho ngay.')
+      expect(posted).not.toHaveBeenCalled()
+
+      await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+      expect(screen.getByRole('textbox', { name: /^Mã vật tư/ })).toHaveValue('vt-99')
+      expect(screen.getByRole('textbox', { name: /^Tên vật tư/ })).toHaveValue('Xi măng mới')
+      expect(screen.getByRole('combobox', { name: /^Đơn vị gốc/ })).toHaveTextContent(
+        'KG · Kilogram',
+      )
+      await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+      expect(
+        await screen.findByRole('dialog', { name: 'Tạo vật tư VT-99 và gắn vào kho Kho A?' }),
+      ).toBeInTheDocument()
+      expect(posted).not.toHaveBeenCalled()
+    })
+
+    it('không chọn NCC → tóm tắt không có dòng nhà cung cấp', async () => {
+      mockCreateCatalog(() => ok({ materialSlug: 'm-new', materialName: 'Xi măng mới' }))
+      const { user } = renderWithProviders(
+        <Harness onAdded={vi.fn()} initialSearch="Xi măng mới" />,
+        {
+          auth: 'admin',
+        },
+      )
+      await fillCreate(user, false)
+      await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+
+      const dialog = await screen.findByRole('dialog', { name: /^Tạo vật tư VT-99/ })
+      // Form ẩn vẫn nằm trong DOM → chỉ xét phần tóm tắt.
+      expect(within(dialog).getByText('Mã vật tư', { selector: 'dt' })).toBeInTheDocument()
+      expect(within(dialog).queryByText('Nhà cung cấp', { selector: 'dt' })).not.toBeInTheDocument()
+    })
+
+    it('mã trùng (100705) sau xác nhận → về màn nhập, lỗi tại ô Mã, hộp vẫn mở', async () => {
+      mockCreateCatalog(() => apiError(400, 100705, 'dup'))
+      const onAdded = vi.fn()
+      const { user } = renderWithProviders(
+        <Harness onAdded={onAdded} initialSearch="Xi măng mới" />,
+        {
+          auth: 'admin',
+        },
+      )
+      await fillCreate(user)
+      await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+      await confirmStep(user, 'Xác nhận tạo vật tư')
+
+      expect(await screen.findByText('Mã vật tư đã tồn tại')).toBeInTheDocument()
+      expect(screen.getByRole('textbox', { name: /^Mã vật tư/ })).toHaveValue('vt-99')
+      expect(screen.getByRole('button', { name: 'Tạo và gắn vào kho' })).toBeEnabled()
+      expect(onAdded).not.toHaveBeenCalled()
+    })
+
+    it('bấm đúp nút xác nhận chỉ gửi một POST', async () => {
+      const posted = vi.fn()
+      mockCreateCatalog(async () => {
+        posted()
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        return ok({ materialSlug: 'm-new', materialName: 'Xi măng mới' })
+      })
+      const onAdded = vi.fn()
+      const { user } = renderWithProviders(
+        <Harness onAdded={onAdded} initialSearch="Xi măng mới" />,
+        {
+          auth: 'admin',
+        },
+      )
+      await fillCreate(user)
+      await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+
+      await user.dblClick(await screen.findByRole('button', { name: 'Xác nhận tạo vật tư' }))
+
+      await waitFor(() => expect(onAdded).toHaveBeenCalledTimes(1))
+      expect(posted).toHaveBeenCalledTimes(1)
+    })
   })
 })

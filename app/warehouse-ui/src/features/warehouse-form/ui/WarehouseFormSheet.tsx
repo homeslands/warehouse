@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import {
   Form,
   FormControl,
@@ -131,7 +133,7 @@ export function WarehouseFormSheet({ open, onOpenChange, warehouse }: Props) {
     toastApiError(error)
   }
 
-  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận tạo …" rồi mới gửi. Sửa: lưu thẳng.
+  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận tạo …" rồi mới gửi. Sửa: cũng hỏi "Lưu thay đổi …?" (useSaveChangesConfirmation).
   const [toCreate, setToCreate] = useState<WarehouseInput | null>(null)
   if (!open && toCreate) setToCreate(null)
 
@@ -147,15 +149,42 @@ export function WarehouseFormSheet({ open, onOpenChange, warehouse }: Props) {
     })
   }
 
+  // Sửa: form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH.
+  const saveConfirmation = useSaveChangesConfirmation<WarehouseInput>({
+    open,
+    entity: t('warehouses:entityName'),
+    name: warehouse?.code ?? '',
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      code: t('warehouses:columnCode'),
+      name: t('warehouses:columnName'),
+      address: t('warehouses:columnAddress'),
+      phonenumber: t('warehouses:columnPhonenumber'),
+      description: t('warehouses:fieldDescription'),
+      isActive: t('warehouses:fieldIsActive'),
+    }),
+    icon: <WarehouseIcon />,
+    onConfirm: (values) => {
+      if (!warehouse) return
+      update.mutate(
+        { slug: warehouse.slug, input: toApiInput(values) },
+        {
+          onSuccess: () => onOpenChange(false),
+          onError: (error) => {
+            // Đóng hộp xác nhận để lỗi tại ô (vd mã đã tồn tại) hiện ra.
+            saveConfirmation.close()
+            handleError(error)
+          },
+        },
+      )
+    },
+  })
+
   const onSubmit = (values: WarehouseInput) => {
     if (!warehouse) {
       setToCreate(values)
       return
     }
-    update.mutate(
-      { slug: warehouse.slug, input: toApiInput(values) },
-      { onSuccess: () => onOpenChange(false), onError: handleError },
-    )
+    saveConfirmation.request(values)
   }
 
   return (
@@ -169,7 +198,7 @@ export function WarehouseFormSheet({ open, onOpenChange, warehouse }: Props) {
       isDirty={form.formState.isDirty}
       confirmation={
         warehouse
-          ? undefined
+          ? saveConfirmation.confirmation
           : {
               open: toCreate !== null,
               onOpenChange: (next) => {

@@ -176,6 +176,7 @@ describe('createRoutes — màn Cửa hàng', () => {
       '/material-types',
       '/units',
       '/import-forms',
+      '/export-forms',
       '/users',
       '/roles',
       '/permissions',
@@ -605,5 +606,95 @@ describe('createRoutes — màn Phiếu nhập', () => {
     })
     await waitFor(() => expect(router.state.location.pathname).toBe('/import-forms'))
     expect(router.state.location.search).toContain('warehouse=w-a')
+  })
+})
+
+describe('createRoutes — màn Phiếu xuất', () => {
+  const READER = {
+    userName: 'r',
+    userSlug: 'u-r',
+    roleName: 'MANAGER',
+    scope: ['EXPORT_FORM_READ', 'WAREHOUSE_READ'],
+  }
+  beforeEach(() => {
+    server.use(
+      mswHttp.get(`${BASE}/warehouses`, () =>
+        paginated([{ slug: 'w-a', code: 'KHO-A', name: 'Kho A', isActive: true }]),
+      ),
+      mswHttp.get(`${BASE}/warehouses/w-a/export-forms`, () => paginated([])),
+    )
+  })
+
+  it('có EXPORT_FORM_READ + WAREHOUSE_READ → vào được, menu "Nghiệp vụ kho" có "Phiếu xuất" sau "Phiếu nhập"', async () => {
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/export-forms',
+      auth: { ...READER, scope: [...READER.scope, 'IMPORT_FORM_READ'] },
+    })
+    expect(
+      await screen.findByRole('heading', { level: 1, name: 'Phiếu xuất kho' }),
+    ).toBeInTheDocument()
+    expect(screen.getByRole('link', { name: 'Phiếu xuất' })).toHaveAttribute(
+      'href',
+      '/export-forms',
+    )
+    expect(screen.getByText('Nghiệp vụ kho')).toBeInTheDocument()
+    const menu = within(screen.getByRole('navigation', { name: 'Menu chính' }))
+    const links = menu.getAllByRole('link').map((a) => a.getAttribute('href'))
+    expect(links.indexOf('/export-forms')).toBe(links.indexOf('/import-forms') + 1)
+  })
+
+  it('thiếu WAREHOUSE_READ → /forbidden, không có mục menu', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/export-forms',
+      auth: { ...READER, scope: ['EXPORT_FORM_READ'] },
+    })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+    expect(screen.queryByRole('link', { name: 'Phiếu xuất' })).not.toBeInTheDocument()
+  })
+
+  it('thiếu EXPORT_FORM_READ → /forbidden (cả trang chi tiết)', async () => {
+    const { router } = renderWithRouter(createRoutes({ dev: false }), {
+      route: '/export-forms/xf-1?warehouse=w-a',
+      auth: { ...READER, scope: ['WAREHOUSE_READ'] },
+    })
+    await waitFor(() => expect(router.state.location.pathname).toBe('/forbidden'))
+  })
+
+  it('/export-forms/:slug → trang chi tiết', async () => {
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a`, () =>
+        ok({ slug: 'w-a', code: 'KHO-A', name: 'Kho A', isActive: true }),
+      ),
+      mswHttp.get(`${BASE}/warehouses/w-a/export-forms/xf-1`, () =>
+        ok({
+          slug: 'xf-1',
+          createdAt: '2026-10-26T02:00:00.000Z',
+          updatedAt: '2026-10-26T02:00:00.000Z',
+          version: 1,
+          code: 'PX-0001',
+          type: 'OTHER',
+          status: 'DRAFT',
+          purchaseOrder: 'PO-1',
+          invoiceCode: null,
+          requesterSlug: 'u-x',
+          requesterName: 'X',
+          approverSlug: null,
+          approverName: null,
+          receiver: 'Y',
+          totalAmount: 0,
+          note: null,
+          file: null,
+          warehouseSlug: 'w-a',
+          items: [],
+        }),
+      ),
+    )
+    renderWithRouter(createRoutes({ dev: false }), {
+      route: '/export-forms/xf-1?warehouse=w-a',
+      auth: READER,
+    })
+    expect(
+      await screen.findByRole('heading', { level: 1, name: /PX-0001/ }, { timeout: 5000 }),
+    ).toBeInTheDocument()
   })
 })

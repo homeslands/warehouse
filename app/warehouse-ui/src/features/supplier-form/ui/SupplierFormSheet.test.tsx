@@ -166,7 +166,7 @@ describe('SupplierFormSheet — sửa', () => {
     expect(screen.getByText('Bắt đầu bằng 0, 9–11 chữ số')).toBeInTheDocument()
   })
 
-  it('xoá trống Email + đổi Tên → PATCH chỉ { name }, không hỏi xác nhận', async () => {
+  it('xoá trống Email + đổi Tên → hỏi xác nhận (Đã sửa: Tên, Email) → PATCH chỉ { name }', async () => {
     let body: unknown
     server.use(
       mswHttp.patch(`${BASE}/suppliers/ncc-hn-01`, async ({ request }) => {
@@ -180,10 +180,53 @@ describe('SupplierFormSheet — sửa', () => {
     await user.clear(screen.getByLabelText('Email'))
     await user.type(nameField(), ' B')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(
+      'Lưu thay đổi nhà cung cấp NCC-HN-01?',
+    )
+    expect(within(dialog).getByText('Đã sửa: Tên, Email')).toBeInTheDocument()
+    expect(body).toBeUndefined()
+    await confirmDialog(user, 'Lưu thay đổi')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ name: 'Công ty ABC B' })
+  })
+
+  it('Quay lại trong hộp xác nhận → không PATCH, sheet còn mở với dữ liệu đã sửa', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/suppliers/ncc-hn-01`, () => {
+        calls += 1
+        return ok(supplier)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(supplier)
+    await waitFor(() => expect(nameField()).toHaveValue('Công ty ABC'))
+
+    await user.type(nameField(), ' B')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(calls).toBe(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(nameField()).toHaveValue('Công ty ABC B')
+  })
+
+  it('PATCH trả mã trùng (101205) → hộp đóng, lỗi tại ô Mã, sheet vẫn mở', async () => {
+    server.use(mswHttp.patch(`${BASE}/suppliers/ncc-hn-01`, () => apiError(409, 101205)))
+    const { user, onOpenChange } = renderSheet(supplier)
+    await waitFor(() => expect(nameField()).toHaveValue('Công ty ABC'))
+
+    await user.type(codeField(), 'X')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
+
+    expect(await screen.findByText('Mã nhà cung cấp đã tồn tại')).toBeInTheDocument()
     expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 
   it('chỉ xoá trống Email (không có gì để gửi) → đóng luôn, không gọi API', async () => {

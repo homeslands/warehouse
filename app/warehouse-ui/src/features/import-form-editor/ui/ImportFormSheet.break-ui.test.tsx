@@ -92,6 +92,16 @@ describe('ImportFormSheet — break-ui', () => {
     )
     // Bước ② (sửa mở ở đây): dòng tóm tắt bước ① có tên bên bán dài.
     await screen.findAllByText(/Tồn:/)
+    // Lưới 8 cột (thêm Hạn dùng) chỉ bật từ khung 56rem (`@4xl`) — ở 48rem tổng cột tối thiểu tràn khung, đẩy nút
+    // ghi chú / xoá ra ngoài. Cột Hạn dùng đủ cho nút ngày + nút xoá ngày; thành tiền lớn xuống dòng trong cột.
+    const row3 = screen.getByTestId('line-2')
+    expect(row3.className).toContain('@4xl:grid-cols-')
+    expect(row3.className).toContain('minmax(10.25rem,1fr)')
+    expect(within(row3).getByRole('button', { name: /Hạn dùng dòng 3/ })).toHaveTextContent(
+      '31/12/2099',
+    )
+    expect(screen.getByTestId('line-amount-0').className).toContain('[overflow-wrap:anywhere]')
+    expect(screen.getByTestId('line-amount-2')).toHaveTextContent(/1\.140\.000\.000/)
     await dump('worst-step-items')
 
     await user.click(screen.getByRole('button', { name: /Thông tin phiếu$/ }))

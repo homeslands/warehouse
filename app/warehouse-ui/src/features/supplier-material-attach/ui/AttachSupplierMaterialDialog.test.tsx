@@ -6,6 +6,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { toast } from 'sonner'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { mutationToastQueryClient } from '@/shared/test/query-client'
 import { renderWithProviders } from '@/shared/test/render'
@@ -137,6 +138,7 @@ describe('AttachSupplierMaterialDialog', () => {
     await check(user, /NL05/)
     expect(screen.getByText('Đã chọn 2')).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Gắn (2)' }))
+    await confirmStep(user, 'Xác nhận gắn')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(putUrl).toBe('/api/v1/suppliers/s-1/materials')
@@ -164,10 +166,13 @@ describe('AttachSupplierMaterialDialog', () => {
     await ready()
     await check(user, /NL04/)
     await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
+    await confirmStep(user, 'Xác nhận gắn')
 
     expect(await screen.findByRole('alert')).toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
+    // Về màn nhập, lựa chọn còn nguyên.
+    expect(screen.getByRole('checkbox', { name: /NL04/ })).toBeChecked()
   })
 
   it('100701 khi chọn NHIỀU → nói rõ cả lô chưa gắn (BE không nói vật tư nào)', async () => {
@@ -178,6 +183,7 @@ describe('AttachSupplierMaterialDialog', () => {
     await check(user, /NL04/)
     await check(user, /NL05/)
     await user.click(screen.getByRole('button', { name: 'Gắn (2)' }))
+    await confirmStep(user, 'Xác nhận gắn')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(text)
     expect(toast.error).not.toHaveBeenCalled()
@@ -190,21 +196,24 @@ describe('AttachSupplierMaterialDialog', () => {
     await ready()
     await check(user, /NL04/)
     await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
+    await confirmStep(user, 'Xác nhận gắn')
     await screen.findByRole('alert')
 
     await check(user, /NL04/)
     expect(screen.queryByRole('alert')).not.toBeInTheDocument()
   })
 
-  it('lỗi khác → toast và đóng hộp', async () => {
+  it('lỗi khác → toast, ở lại màn xác nhận', async () => {
     server.use(mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => apiError(500)))
     const { user, onOpenChange } = renderDialog(supplier, mutationToastQueryClient())
     await ready()
     await check(user, /NL04/)
     await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
+    await confirmStep(user, 'Xác nhận gắn')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
-    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Xác nhận gắn' })).toBeEnabled()
   })
 
   it('đang gửi thì không đóng được bằng Esc, và không còn nút ×', async () => {
@@ -222,6 +231,7 @@ describe('AttachSupplierMaterialDialog', () => {
     await ready()
     await check(user, /NL04/)
     await user.click(screen.getByRole('button', { name: 'Gắn (1)' }))
+    await confirmStep(user, 'Xác nhận gắn')
     await screen.findByRole('button', { name: 'Đang lưu...' })
 
     await user.keyboard('{Escape}')
@@ -230,6 +240,50 @@ describe('AttachSupplierMaterialDialog', () => {
 
     release()
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('bấm Gắn (2) → màn xác nhận đúng câu + tên vật tư, CHƯA gửi; xác nhận mới gửi', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.put(`${BASE}/suppliers/s-1/materials`, () => {
+        calls += 1
+        return ok([m2, m3])
+      }),
+    )
+    const { user } = renderDialog()
+    await ready()
+    await check(user, /NL04/)
+    await check(user, /NL05/)
+    await user.click(screen.getByRole('button', { name: 'Gắn (2)' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Gắn 2 vật tư cho NCC-HN-01?' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('NL04 · Bột giặt, NL05 · Nhãn')).toBeInTheDocument()
+    expect(calls).toBe(0)
+
+    await confirmStep(user, 'Xác nhận gắn')
+    await waitFor(() => expect(calls).toBe(1))
+  })
+
+  it('"Quay lại" giữ lựa chọn; bấm Gắn lần nữa hỏi lại đúng vật tư', async () => {
+    const { user } = renderDialog()
+    await ready()
+    await check(user, /NL04/)
+    await check(user, /NL05/)
+    await user.click(screen.getByRole('button', { name: 'Gắn (2)' }))
+    await screen.findByRole('button', { name: 'Xác nhận gắn' })
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByRole('checkbox', { name: /NL04/ })).toBeChecked()
+    expect(screen.getByRole('checkbox', { name: /NL05/ })).toBeChecked()
+    expect(screen.getByText('Đã chọn 2')).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Gắn (2)' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Gắn 2 vật tư cho NCC-HN-01?' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('NL04 · Bột giặt, NL05 · Nhãn')).toBeInTheDocument()
   })
 
   it('đang tải danh sách → ô tìm khoá, có khung chờ', async () => {

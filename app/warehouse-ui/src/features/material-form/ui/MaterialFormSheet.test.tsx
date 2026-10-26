@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
 import { http as mswHttp } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
@@ -143,6 +143,7 @@ describe('MaterialFormSheet', () => {
     ).toBeInTheDocument()
     await pick(user, /^Đơn vị gốc/, 'G · Gram')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
 
     expect(
       await screen.findByText(
@@ -150,6 +151,51 @@ describe('MaterialFormSheet', () => {
       ),
     ).toBeInTheDocument()
     expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('sửa tên → hỏi "Lưu thay đổi vật tư VT-01?" kèm "Đã sửa: Tên", chưa PATCH; xác nhận → PATCH', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.patch(`${BASE}/materials/m-1`, async ({ request }) => {
+        body = await request.json()
+        return ok(material)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(material)
+
+    await user.type(screen.getByLabelText(/^Tên/), ' B')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Lưu thay đổi vật tư VT-01?')
+    expect(within(dialog).getByText('Đã sửa: Tên')).toBeInTheDocument()
+    expect(body).toBeUndefined()
+
+    await confirmDialog(user, 'Lưu thay đổi')
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(body).toMatchObject({ name: 'Xi măng B' })
+  })
+
+  it('huỷ hộp xác nhận → không PATCH, sheet vẫn mở với dữ liệu đã sửa', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/materials/m-1`, () => {
+        calls += 1
+        return ok(material)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(material)
+
+    await user.type(screen.getByLabelText(/^Tên/), ' B')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(calls).toBe(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(/^Tên/)).toHaveValue('Xi măng B')
   })
 
   it('sửa vật tư cũ chưa có đơn vị gốc: gợi ý chọn đơn vị gốc (không phải câu "không đổi được"); bấm Lưu báo bắt buộc', async () => {

@@ -1,4 +1,4 @@
-import { UserCogIcon } from 'lucide-react'
+import { UserCogIcon, UserMinusIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
@@ -14,6 +14,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { DialogConfirmStep } from '@/shared/ui/DialogConfirmStep'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Label } from '@/shared/ui/label'
 import { useManagerCandidates } from '@/entities/user'
@@ -36,12 +37,17 @@ export function AssignWarehouseManagerDialog({ warehouse, onOpenChange }: Props)
 
   const [selected, setSelected] = useState<string | undefined>(undefined)
   const [fieldError, setFieldError] = useState<string | null>(null)
+  // Nhóm C: bước xác nhận nằm ngay trong hộp. `unassigning` = đang hỏi "Bỏ gán" thay vì "Gán".
+  const [step, setStep] = useState<'edit' | 'confirm'>('edit')
+  const [unassigning, setUnassigning] = useState(false)
 
   // Mở cho một kho khác không được còn lựa chọn/lỗi của lần trước.
   useEffect(() => {
     if (warehouse) {
       setSelected(warehouse.manager?.slug)
       setFieldError(null)
+      setStep('edit')
+      setUnassigning(false)
     }
   }, [warehouse])
 
@@ -59,27 +65,45 @@ export function AssignWarehouseManagerDialog({ warehouse, onOpenChange }: Props)
     })
   }
 
-  const submit = (managerSlug: string | null) => {
+  const handleOpenChange = (open: boolean) => {
+    if (!open) {
+      setStep('edit')
+      setUnassigning(false)
+    }
+    onOpenChange(open)
+  }
+
+  const ask = (isUnassign: boolean) => {
+    setUnassigning(isUnassign)
+    setStep('confirm')
+  }
+
+  const submit = () => {
     if (!warehouse) return
+    const managerSlug = unassigning ? null : (selected ?? null)
     setFieldError(null)
     assign.mutate(
       { slug: warehouse.slug, input: { managerSlug } },
       {
-        onSuccess: () => onOpenChange(false),
+        onSuccess: () => handleOpenChange(false),
         onError: (error) => {
           if (isApiError(error) && error.code !== undefined && FIELD_CODES.has(error.code)) {
+            // Lỗi thuộc ô chọn → về màn nhập để sửa lựa chọn.
             setFieldError(resolveApiErrorMessage(error))
+            setStep('edit')
             return
           }
+          // Lỗi khác (404 kho…) → toast, ở lại màn xác nhận.
           toastApiError(error)
-          onOpenChange(false)
         },
       },
     )
   }
 
+  const selectedLabel = options.find((o) => o.value === selected)?.label ?? ''
+
   return (
-    <Dialog open={warehouse !== null} onOpenChange={onOpenChange}>
+    <Dialog open={warehouse !== null} onOpenChange={handleOpenChange}>
       <DialogContent
         // `Dialog.Close` của Radix gọi thẳng `onOpenChange`, KHÔNG đi qua `onEscapeKeyDown` /
         // `onPointerDownOutside` — nút × vì thế vượt được chốt isPending. Giấu nó lúc đang gửi để
@@ -92,68 +116,104 @@ export function AssignWarehouseManagerDialog({ warehouse, onOpenChange }: Props)
           if (assign.isPending) event.preventDefault()
         }}
       >
-        <DialogHeader className="items-center text-center">
-          <DialogIcon>
-            <UserCogIcon />
-          </DialogIcon>
-          <DialogTitle>{t('warehouses:assignManagerTitle')}</DialogTitle>
-          <DialogDescription>{warehouse?.name}</DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-2">
-          <Label htmlFor="warehouse-manager">{t('warehouses:fieldManager')}</Label>
-          <Combobox
-            id="warehouse-manager"
-            options={options}
-            value={selected}
-            onChange={setSelected}
-            disabled={isRoleMissing || assign.isPending}
-            placeholder={
-              isLoadingCandidates ? t('common:loading') : t('warehouses:managerPlaceholder')
+        {step === 'confirm' ? (
+          <DialogConfirmStep
+            icon={unassigning ? <UserMinusIcon /> : <UserCogIcon />}
+            tone={unassigning ? 'destructive' : 'default'}
+            title={
+              unassigning
+                ? t('warehouses:unassignManagerConfirmTitle', { warehouse: warehouse?.name })
+                : t('warehouses:assignManagerConfirmTitle', {
+                    name: selectedLabel,
+                    warehouse: warehouse?.name,
+                  })
             }
-            emptyText={t('warehouses:noManagerCandidate')}
-            aria-invalid={fieldError !== null}
+            description={
+              unassigning
+                ? t('warehouses:unassignManagerConfirmDescription')
+                : t('warehouses:assignManagerConfirmDescription')
+            }
+            confirmLabel={
+              assign.isPending
+                ? t('common:saving')
+                : unassigning
+                  ? t('warehouses:unassignManagerConfirmAction')
+                  : t('warehouses:assignManagerConfirmAction')
+            }
+            isPending={assign.isPending}
+            onBack={() => setStep('edit')}
+            onConfirm={submit}
           />
-          {isRoleMissing && (
-            <p className="text-muted-foreground text-sm">{t('warehouses:noManagerRole')}</p>
-          )}
-          {fieldError !== null && (
-            <p role="alert" className="text-destructive text-sm">
-              {fieldError}
-            </p>
-          )}
-        </div>
+        ) : (
+          <>
+            <DialogHeader className="items-center text-center">
+              <DialogIcon>
+                <UserCogIcon />
+              </DialogIcon>
+              <DialogTitle>{t('warehouses:assignManagerTitle')}</DialogTitle>
+              <DialogDescription>{warehouse?.name}</DialogDescription>
+            </DialogHeader>
 
-        <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="xl"
-            disabled={assign.isPending}
-            onClick={() => onOpenChange(false)}
-          >
-            {t('common:cancel')}
-          </Button>
-          {warehouse?.manager !== undefined && (
-            <Button
-              type="button"
-              variant="outline"
-              size="xl"
-              disabled={assign.isPending}
-              onClick={() => submit(null)}
-            >
-              {t('warehouses:unassignAction')}
-            </Button>
-          )}
-          <Button
-            type="button"
-            size="xl"
-            disabled={assign.isPending || selected === undefined}
-            onClick={() => submit(selected ?? null)}
-          >
-            {assign.isPending ? t('common:saving') : t('common:save')}
-          </Button>
-        </DialogFooter>
+            <div className="grid gap-2">
+              <Label htmlFor="warehouse-manager">{t('warehouses:fieldManager')}</Label>
+              <Combobox
+                id="warehouse-manager"
+                options={options}
+                value={selected}
+                onChange={setSelected}
+                disabled={isRoleMissing || assign.isPending}
+                placeholder={
+                  isLoadingCandidates ? t('common:loading') : t('warehouses:managerPlaceholder')
+                }
+                emptyText={t('warehouses:noManagerCandidate')}
+                aria-invalid={fieldError !== null}
+              />
+              {isRoleMissing && (
+                <p className="text-muted-foreground text-sm">{t('warehouses:noManagerRole')}</p>
+              )}
+              {fieldError !== null && (
+                <p role="alert" className="text-destructive text-sm">
+                  {fieldError}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="xl"
+                disabled={assign.isPending}
+                onClick={() => handleOpenChange(false)}
+              >
+                {t('common:cancel')}
+              </Button>
+              {warehouse?.manager !== undefined && (
+                <Button
+                  type="button"
+                  variant="outline"
+                  size="xl"
+                  disabled={assign.isPending}
+                  onClick={() => ask(true)}
+                >
+                  {t('warehouses:unassignAction')}
+                </Button>
+              )}
+              <Button
+                type="button"
+                size="xl"
+                disabled={
+                  assign.isPending ||
+                  selected === undefined ||
+                  selected === warehouse?.manager?.slug
+                }
+                onClick={() => ask(false)}
+              >
+                {t('common:save')}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

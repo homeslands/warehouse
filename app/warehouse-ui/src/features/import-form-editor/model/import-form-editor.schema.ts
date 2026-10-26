@@ -33,6 +33,8 @@ const itemSchema = z.object({
     .number({ error: 'importForms:unitPriceInvalid' })
     .refine((v) => v >= 0 && hasAtMostDecimals(v, 2), 'importForms:unitPriceInvalid')
     .refine((v) => v < DECIMAL_18_2_LIMIT, 'importForms:unitPriceTooLarge'),
+  /** `YYYY-MM-DD`; `''` = không có hạn. Luật "không trước ngày phiếu" nằm ở `superRefine` (cần `date`). */
+  expiryDate: z.string(),
   note: z.string(),
   /** Bên bán riêng của dòng; `''` = theo đầu phiếu. */
   supplierOverride: z.string(),
@@ -82,6 +84,19 @@ export function buildImportFormSchema(opts: { requireSupplier: boolean }) {
         }
         seen.add(key)
       })
+      // Backend 101333: hạn dùng không được trước ngày phiếu (bằng thì được). `YYYY-MM-DD` so chuỗi đúng thứ tự ngày.
+      const date = values.date
+      if (date !== undefined && DATE_REGEX.test(date)) {
+        values.items.forEach((item, index) => {
+          if (item.expiryDate !== '' && item.expiryDate < date) {
+            ctx.addIssue({
+              code: 'custom',
+              path: ['items', index, 'expiryDate'],
+              message: 'importForms:expiryBeforeDate',
+            })
+          }
+        })
+      }
     })
 }
 
@@ -95,6 +110,7 @@ export const EMPTY_ITEM: ImportFormItemValues = {
   unitSlug: '',
   quantity: undefined as unknown as number,
   unitPrice: undefined as unknown as number,
+  expiryDate: '',
   note: '',
   supplierOverride: '',
 }
@@ -147,6 +163,7 @@ export function toFormValues(
         unitSlug: item.unitSlug,
         quantity: item.quantity,
         unitPrice: item.unitPrice,
+        expiryDate: item.expiryDate ?? '',
         note: item.note ?? '',
         supplierOverride: opts.canPickSupplier ? (own === header ? '' : own) : own,
       }
@@ -163,6 +180,7 @@ function toItemInput(values: ImportFormValues, index: number): ImportFormItemInp
     unitSlug: item.unitSlug,
     quantity: item.quantity,
     unitPrice: item.unitPrice,
+    ...(item.expiryDate !== '' && { expiryDate: item.expiryDate }),
     ...(note !== '' && { note }),
     ...(supplierSlug !== '' && { supplierSlug }),
   }
