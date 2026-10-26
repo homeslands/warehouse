@@ -104,14 +104,26 @@ export class ExportFormService {
     private readonly s3Service: S3Service,
   ) {}
 
-  /** Upload file đính kèm lên S3, trả link — quyền OR (tạo HOẶC sửa nháp/_OWN), check ở đây. */
-  async uploadFile(file: Express.Multer.File, currentUser: CurrentUserDto): Promise<string> {
+  /**
+   * Upload file đính kèm lên S3, trả link — quyền OR (tạo HOẶC sửa nháp/_OWN), check ở đây.
+   * Kho phải tồn tại và đang hoạt động (cùng rào với `createExportForm`): `@WarehouseScope` không
+   * chặn được vì `ADMIN`/`SUPER_ADMIN` bypass và guard không xét `isActive` — check trước khi đẩy
+   * lên S3 để không sinh file mồ côi.
+   */
+  async uploadFile(
+    warehouseSlug: string,
+    file: Express.Multer.File,
+    currentUser: CurrentUserDto,
+  ): Promise<string> {
     const context = `${ExportFormService.name}.${this.uploadFile.name}`;
     this.assertHasAny(currentUser, [
       AuthorityCode.ExportFormCreate,
       AuthorityCode.ExportFormUpdateDraft,
       AuthorityCode.ExportFormUpdateDraftOwn,
     ]);
+    const warehouse = await this.findWarehouse(warehouseSlug);
+    if (!warehouse.isActive)
+      throw new ExportFormException(ExportFormValidation.EXPORT_FORM_WAREHOUSE_INACTIVE);
     if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
     if (!EXPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES.includes(file.mimetype))
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_FILE_TYPE_NOT_ALLOWED);

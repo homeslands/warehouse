@@ -101,15 +101,16 @@ export class ExportFormController {
     summary: 'Upload an attachment for an export form to S3',
     description:
       'Returns the S3 link; send it as `file` in POST/PATCH export form. Max 10MB, ' +
-      'pdf/jpg/png/webp/xls/xlsx/doc/docx. Requires EXPORT_FORM_CREATE, ' +
-      'EXPORT_FORM_UPDATE_DRAFT or EXPORT_FORM_UPDATE_DRAFT_OWN',
+      'pdf/jpg/png/webp/xls/xlsx/doc/docx. The warehouse must exist and be active. Requires ' +
+      'EXPORT_FORM_CREATE, EXPORT_FORM_UPDATE_DRAFT or EXPORT_FORM_UPDATE_DRAFT_OWN',
   })
   @ApiResponseWithType({ status: HttpStatus.CREATED, description: 'Uploaded', type: String })
   async uploadFile(
+    @Param('warehouseSlug') warehouseSlug: string,
     @UploadedFile() file: Express.Multer.File,
     @CurrentUser() currentUser: CurrentUserDto,
   ) {
-    const result = await this.exportFormService.uploadFile(file, currentUser);
+    const result = await this.exportFormService.uploadFile(warehouseSlug, file, currentUser);
     return {
       message: 'File has been uploaded successfully',
       statusCode: HttpStatus.CREATED,
