@@ -56,13 +56,14 @@ describe('addPickedLines', () => {
     expect(firstIndex).toBe(4)
   })
 
-  it('isBlankLine: không vật tư, SL, đơn giá, ghi chú, bên bán riêng', () => {
+  it('isBlankLine: không vật tư, SL, đơn giá, ghi chú, bên bán riêng, hạn dùng', () => {
     expect(isBlankLine({ ...EMPTY_ITEM })).toBe(true)
     expect(isBlankLine(line('m-a'))).toBe(false)
     expect(isBlankLine(line('', { quantity: 1 }))).toBe(false)
     expect(isBlankLine(line('', { unitPrice: 0 }))).toBe(false)
     expect(isBlankLine(line('', { note: 'x' }))).toBe(false)
     expect(isBlankLine(line('', { supplierOverride: 's-1' }))).toBe(false)
+    expect(isBlankLine(line('', { expiryDate: '2026-12-31' }))).toBe(false)
   })
 
   it('không có dòng trống → nối cuối, firstIndex = dòng mới đầu tiên', () => {

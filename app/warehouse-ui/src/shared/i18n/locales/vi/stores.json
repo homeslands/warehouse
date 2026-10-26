@@ -1,5 +1,6 @@
 {
   "title": "Cửa hàng",
+  "entityName": "cửa hàng",
   "columnCode": "Mã",
   "columnName": "Tên",
   "columnLegalName": "Tên pháp lý",
@@ -58,5 +59,11 @@
   "notFound": "Không tìm thấy cửa hàng này — có thể đã bị xoá.",
   "fieldManager": "Người quản lý",
   "noManager": "Chưa có quản lý",
-  "mineEmpty": "Chưa có cửa hàng nào gắn với kho của bạn."
+  "mineEmpty": "Chưa có cửa hàng nào gắn với kho của bạn.",
+  "assignWarehouseConfirmTitle": "Gán kho {{warehouse}} cho cửa hàng {{store}}?",
+  "assignWarehouseConfirmDescription": "Cửa hàng sẽ dùng kho này thay cho kho hiện tại (nếu có).",
+  "assignWarehouseConfirmAction": "Xác nhận gán",
+  "unassignWarehouseConfirmTitle": "Bỏ gán kho {{warehouse}} khỏi cửa hàng {{store}}?",
+  "unassignWarehouseConfirmDescription": "Cửa hàng sẽ chưa có kho nào cho đến khi gán lại.",
+  "unassignWarehouseConfirmAction": "Xác nhận bỏ gán"
 }

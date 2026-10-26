@@ -341,8 +341,16 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     form đã sửa mà chưa lưu (Huỷ, ×, Esc, bấm ra ngoài) thì hỏi "Bỏ thay đổi chưa lưu?" trước.
     **Thao tác TẠO phải xác nhận** (nghiệp vụ chốt): `handleSubmit` chỉ giữ giá trị đã hợp lệ vào state
     rồi mở `confirmation` ("Xác nhận tạo …", tóm tắt mã/tên); bấm xác nhận mới gọi API; gửi lỗi thì đóng
-    hộp để lỗi tại ô hiện ra. **Sửa thì lưu thẳng**, không hỏi. Mẫu: `features/warehouse-form`. Test
-    bấm qua hộp bằng `confirmDialog(user, nhãn)` (`shared/test/confirm.ts`). Nút Lưu nằm TRONG `<form>` (không dùng thuộc tính `form=` — jsdom không nối
+    hộp để lỗi tại ô hiện ra. **Mọi thao tác ghi (tạo / sửa / gán) đều hỏi lại trước khi gọi API**; không hỏi khi
+    không có gì đổi (nút Lưu khi sửa khoá theo `!isDirty`) và validate lỗi thì không mở hộp. **Sửa** dùng
+    `useSaveChangesConfirmation` (`shared/ui`): hộp "Lưu thay đổi {{entity}} {{name}}?" + dòng "Đã sửa: …" từ
+    `changedFieldLabels` (`shared/lib/changed-fields.ts`), nút lùi "Quay lại" (`cancelLabel` của `FormSheetConfirmation`).
+    **Hộp một thao tác** (gán, đổi vai trò, reset / đổi mật khẩu, đơn vị quy đổi, tạo vật tư trong kho…) không chồng hộp
+    thứ hai mà đổi nội dung bằng `DialogConfirmStep` (`shared/ui`); lỗi thuộc ô → về màn nhập, 404 / 409 ở đổi vai trò / quy đổi
+    → toast + đóng, lỗi khác → toast, ở lại màn xác nhận. **Wizard** phiếu nhập / xuất: `pendingAction` + `ConfirmDialog` trong sheet,
+    chữ do `importSaveConfirmCopy(t, action, ctx)` / `exportSaveConfirmCopy(...)` (`model/save-confirm.ts`); Esc / bấm ngoài khi hộp lưu
+    đang mở chỉ đóng hộp đó (phụ thuộc thứ tự listener của Radix — có test canh, chạy lại sau khi nâng Radix).
+    Test bấm qua hộp bằng `confirmDialog(user, nhãn)` (hộp trên cùng) và qua bước trong hộp bằng `confirmStep(user, nhãn)` (`shared/test/confirm.ts`). Nút Lưu nằm TRONG `<form>` (không dùng thuộc tính `form=` — jsdom không nối
     nó qua portal của Radix). Mẫu: `features/warehouse-form`, `features/store-form`.
     Bẫy CSS: class ghi đè chiều rộng phải dùng cùng tiền tố biến thể
     (`data-[side=right]:sm:max-w-[480px]`), vì `sheet.tsx` gốc có `data-[side=right]:w-3/4` — class
@@ -363,7 +371,7 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     (`features/import-form-editor`) luôn mount, trang cha điều khiển `open` (+ `formSlug` khi sửa); sheet tự tải
     chi tiết khi sửa (`useImportForm(..., { enabled: open })`), chỉ kiểm `status === 'DRAFT'` — quyền sửa do trang cha kiểm
     trước khi truyền `formSlug`. **Không có URL riêng cho form**: F5 / Back khi đang mở sẽ mất phần đang nhập, như mọi sheet
-    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo đi qua bước ③ Kiểm tra (thay hộp xác nhận chung, xem dưới), sửa lưu thẳng ở mọi bước; 409 / 101314 khi sửa →
+    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo đi qua bước ③ Kiểm tra (thay hộp xác nhận chung, xem dưới), sửa cũng hỏi xác nhận lưu ở mọi bước (hộp "Lưu thay đổi phiếu …?"); 409 / 101314 khi sửa →
     đóng sheet + toast + invalidate cả kho.
     **Luồng cho người mới (WMS-17-FE 5)**: NCC = **bên bán** (người xuất hoá đơn / mình trả tiền). Đầu phiếu có `supplierSlug`
     (bắt buộc khi có `SUPPLIER_READ`, ẩn khi thiếu quyền — prop `canPickSupplier`); mỗi dòng có thể đổi bên bán riêng
@@ -380,7 +388,7 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     từ `lg` (hộp `lg:max-w-5xl`), hẹp hơn thì ba ô sau xuống dòng dưới tên kèm nhãn; số tồn `whitespace-nowrap` (không gãy giữa chữ
     số). Vật tư đã có trong phiếu (bất kỳ đơn vị) hiện "đã có", vật tư chưa có đơn vị gốc hiện câu `inventory:noBaseUnit` — cả hai không
     tick được. "Thêm (n) dòng" → mỗi vật tư một dòng với đơn vị gốc, SL / đơn giá trống, bên bán theo đầu phiếu, thứ tự ổn định (danh
-    sách tải sẵn đã nhóm, rồi vật tư chỉ có trong kết quả tìm theo thứ tự tick). Luật thuần `addPickedLines` (`model/add-picked-lines.ts`):
+    sách tải sẵn đã nhóm, rồi vật tư chỉ có trong kết quả tìm theo thứ tự tick). Luật thuần `addPickedLines` (`model/add-picked-lines.ts`, uỷ quyền cho `fillBlankLines` của `shared/lib/fill-blank-lines.ts` — phiếu xuất dùng cùng):
     **chỉ lấp dòng trống HẲN** (`isBlankLine`: không vật tư, không SL, không đơn giá, không ghi chú, không đổi bên bán — dòng gõ dở
     không có vật tư được giữ nguyên) rồi mới nối cuối; focus vào ô Số lượng của dòng mới đầu tiên (huỷ → về nút "Chọn nhiều vật tư",
     nút đó ẩn thì `h2` của section). **Tối đa 200 dòng**: `capacity = IMPORT_FORM_ITEMS_MAX − số dòng không trống hẳn`; tick đủ thì
@@ -392,12 +400,12 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     tóm tắt, "Cần xem lại (n)" với "sửa" về đúng ô của dòng, bảng dòng chỉ xem; mọi cảnh báo đều MỀM, không chặn lưu). Ba bước
     **luôn mount, bước khác bị `hidden`** (giữ upload / `useFieldArray`, để `trigger` / `setFocus` với tới ô ẩn) — ô ẩn không nhận
     focus nên luôn đổi bước TRƯỚC (`flushSync`) rồi mới focus; đổi bước không có ô đích thì cuộn lên đầu và focus `h2[tabIndex=-1]`
-    của bước. Luật bước là hàm thuần ở `model/wizard.ts` (`stepFields`, `firstStepWithError`, `firstErrorField`). **Lùi tự do, tiến
+    của bước. Luật bước là hàm thuần ở `model/wizard.ts` (`stepFields`, `firstStepWithError`, `firstErrorField` — hai hàm sau bọc bản chung `shared/lib/wizard-errors.ts`, phiếu xuất dùng cùng). **Lùi tự do, tiến
     phải hợp lệ**: tiến (Tiếp tục, bấm bước sau trên dải) chạy `form.trigger` lần lượt cho mọi bước trước đích, dừng ở bước sai đầu
     tiên và focus ô lỗi (Combobox / DatePicker / `SelectTrigger` phải nhận `ref={field.ref}`, không thì `setFocus` im lặng; `show()` dự phòng bằng ô `aria-invalid` đầu tiên rồi `h2` của bước); đang upload chứng từ thì không tiến (dải bước khoá các bước sau, `lockForward`). Nút chân sheet có `key` riêng và bỏ qua cú bấm `detail > 1` — bấm đúp "Tiếp tục" ở ② không được rơi vào nút lưu của ③. Bẫy: `visibleError` giấu lỗi "bắt buộc" của ô trống chưa chạm tới lần
     gửi đầu, nên khi bước sai mà form chưa submit lần nào sheet chạy một `handleSubmit` "khan" (không lưu gì) để bật `isSubmitted`,
     rồi `clearErrors` các ô của những bước sau — đừng gỡ nó (có test "② không còn lỗi Chọn vật tư sót lại"). Mở: tạo → ①, sửa → ②
-    (đóng / mở lại → bắt đầu lại). Dải bước (`ImportFormStepper`) là điều hướng thật: vòng số nối bằng đường kẻ (< sm chỉ giữ nhãn bước
+    (đóng / mở lại → bắt đầu lại). Dải bước (`ImportFormStepper`, bọc mỏng quanh `shared/ui/WizardStepper`) là điều hướng thật: vòng số nối bằng đường kẻ (< sm chỉ giữ nhãn bước
     đang xem), `aria-current="step"` = bước đang hiện, ✓ khi đủ (`importFormStepStatus`: ① = số HĐ + bên bán nếu chọn được NCC;
     ② = ≥ 1 dòng đủ, kèm "· n dòng") — ✓ chỉ là gợi ý, quyền đi tiếp do `trigger` quyết. Chân sheet đi qua **`FormSheet.actions`**
     (Tổng ở `footerStart`, khi tạo chỉ từ ②): tạo ① Huỷ · Tiếp tục, ② Quay lại · Tiếp tục, ③ Quay lại · Lưu nháp · Lưu & xác nhận (khi gửi, chỉ nút vừa bấm đổi thành "Đang lưu...",
@@ -406,7 +414,7 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     gì (mọi nút ở ③ là `type="button"` — một phím Enter lỡ tay không được "Lưu & xác nhận", hành động cộng tồn ngay); sửa = Lưu.
     Mọi lần lưu (③ khi tạo, Lưu / Lưu & xác nhận / Enter khi sửa) chạy `handleSubmit` toàn phiếu với `onInvalid` → sang bước có lỗi
     đầu tiên và focus ô đó; lỗi backend gắn vào ô (`applyApiErrorToForm`) cũng chuyển bước, lỗi theo dòng 101319–101328 và lỗi cả danh sách dòng (101311 tổng, 101317 / 101318 số dòng) → toast +
-    về ②. Sửa: "Lưu" lưu thẳng, "Lưu & xác nhận" (không đổi gì → chỉ xác nhận với `original.version`, xác nhận lỗi thì KHÔNG báo "đã
+    về ②. Sửa: "Lưu" mở hộp hỏi rồi mới PATCH (Enter khi không đổi gì và không `needsPatch` thì không làm gì), "Lưu & xác nhận" (không đổi gì → chỉ xác nhận với `original.version`, xác nhận lỗi thì KHÔNG báo "đã
     lưu": 409 / 101314 → như PATCH bị 409, lỗi khác → toast, giữ sheet; có đổi → PATCH rồi xác nhận). Nháp cũ có dòng chưa lưu bên bán
     (hiện "theo đầu phiếu") cũng tính là cần PATCH (`needsPatch`, chỉ khi `canPickSupplier`) — nút Lưu mở dù form không dirty.
     Bước ③ tự `useWatch` toàn form trong một khung nhỏ (`ReviewStepWatcher`) — đừng đặt `form.watch()` ở gốc sheet (cả sheet vẽ lại
@@ -426,7 +434,11 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
     loại vật tư đã ở kho — BE chưa có bộ lọc "chưa thuộc kho X" (`notInWarehouseSlug`) nên danh mục > 50 thì có dòng "gõ để tìm thêm") và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC và **ngưỡng mặc định của vật tư** — 2 ô Tồn tối thiểu / tối đa gửi trong `material`, trống = không gửi = backend lưu 0, lỗi 100708–100710 tại ô;
     nút "Tạo và gắn vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp
     có thể nằm trong form phiếu). Câu mô tả của hộp là prop (phiếu nhập truyền câu riêng); chữ của hộp ở namespace `inventory`.
-    Lưới dòng vật tư dùng container query `@3xl` (bề rộng sheet), không phải `md:`; ô Đơn vị chỉ hiện MÃ đơn vị (tên đủ ở danh sách + `title`) vì cột hẹp. Quyền
+    Dòng có ô **Hạn dùng** (`DatePicker`, không bắt buộc, gửi `expiryDate: 'YYYY-MM-DD'`; trước ngày nhập → lỗi tại ô, BE 101333
+    không có chỉ số dòng → toast + về ②), hiện cả ở ③, trang chi tiết và bản in. Lưới 8 cột dùng container query `@4xl` (56rem,
+    bề rộng khung, không phải `md:`): tổng bề rộng tối thiểu cột + khe = 56rem — thêm / nới cột thì nâng breakpoint theo, nếu không
+    nút ghi chú / xoá bị đẩy ra khỏi khung (đã xảy ra ở `@3xl` khi thêm Hạn dùng); thành tiền rất lớn xuống dòng trong cột
+    (`[overflow-wrap:anywhere]`, cột có bề rộng tối thiểu cố định nên không bị bóp). Ô Đơn vị chỉ hiện MÃ đơn vị (tên đủ ở danh sách + `title`) vì cột hẹp. Quyền
     `MaterialAddAbilities` do trang tính (`materialAddAbilities`). Hộp chờ `available-materials` tải lại rồi mới `onAdded(AddedMaterial)`; items field
     chọn dòng NGAY bằng nhãn + đơn vị gốc hộp trả về (không chờ vật tư xuất hiện trong `materials`). Invalidate chéo (vật tư khả dụng, danh mục
     vật tư, NCC) nằm ở hộp — entity `inventory` không import entity khác.
@@ -467,7 +479,10 @@ Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). 
   - **Không đóng được khi đang gửi**: `FormSheet` và hai hộp gán (`AssignWarehouseManagerDialog`,
     `AssignStoreWarehouseDialog`) đều chặn `onEscapeKeyDown` / `onPointerDownOutside` và giấu nút ×
     (`showCloseButton={!isPending}`) lúc đang gửi — `Dialog.Close`/`SheetContent` của Radix gọi thẳng
-    `onOpenChange` khi bấm ×, không đi qua hai handler kia, nên phải xử lý riêng.
+    `onOpenChange` khi bấm ×, không đi qua hai handler kia, nên phải xử lý riêng. Cùng luật cho các hộp xác nhận:
+    `DialogConfirmStep` (bước xác nhận trong hộp nhóm C), hộp của `useSaveChangesConfirmation` (qua `isPending` của
+    `ConfirmDialog` trong `FormSheet`) và hộp lưu của wizard phiếu nhập / xuất (`ConfirmDialog`) — `isPending` khoá mọi
+    lối đóng (Esc, bấm ngoài, ×, Quay lại), chặn gửi lần hai, và nút xác nhận đổi sang "Đang lưu..." (`common:saving`).
 - **Linh kiện**: `Combobox` (nút xoá × nằm TRONG khung ô, trước mũi tên; lọc tại client, không phân biệt dấu — trừ khi `serverFiltered` (nhóm `groups`, `onSearchChange`, `isLoading`: tìm phía server);
   `widthAnchor` (ref phần tử neo: lúc mở, danh sách có mép trái + bề rộng trùng phần tử đó, đo mỗi lần mở, vẫn ≥ 18rem — ô hẹp trong
   bảng mà danh sách cần rộng bằng cả bảng), `renderOption` (thay nhãn trong mỗi mục; `value` / tìm theo nhãn / dấu tích giữ nguyên),
@@ -556,7 +571,7 @@ backend cho nó qua trước khi nhìn `scope`):
   endpoint nghiệp vụ bằng `@RequireAuthority` — **64 mã** (thêm `ROLE_*` từ `WMS-10-be(5)`: `GET /roles` cần `ROLE_READ`), seed mặc định chép đúng `@HasRole` cũ.
   **Nhiều mã trong một decorator là AND**: route nối hai tài nguyên không có mã riêng (gán kho cho
   cửa hàng = `STORE_UPDATE` + `WAREHOUSE_UPDATE`; vật tư trong kho = `MATERIAL_*` + `WAREHOUSE_*`) →
-  FE gác bằng `can(A) && can(B)`. Phiếu **nhập** đã có endpoint (WMS-16) — `IMPORT_FORM_*` gác thật, luật `_OWN` so `requesterSlug` với `userSlug` (`pages/import-forms/model/abilities.ts`); phiếu xuất / kiểm / chi chưa có endpoint. Lịch sử + chỗ backend làm khác đề xuất:
+  FE gác bằng `can(A) && can(B)`. Phiếu **nhập** (WMS-16) và phiếu **xuất** (WMS-20) đã có endpoint — `IMPORT_FORM_*` / `EXPORT_FORM_*` gác thật, luật `_OWN` so `requesterSlug` với `userSlug` (`pages/{import,export}-forms/model/abilities.ts`); phiếu kiểm / chi chưa có endpoint. Lịch sử + chỗ backend làm khác đề xuất:
   `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
   `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units`, `/roles` (tám
   màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
@@ -828,6 +843,7 @@ mất công tìm cách sửa nó.
     | Vật tư | `materialSort` (bật) | `code`, `name`, `createdAt` |
     | Loại vật tư | `materialTypeSort` (bật) | `code`, `name`, `createdAt` |
     | Phiếu nhập | `importFormSort` (bật) | `code` (không có cột ngày tạo → Ngày nhập không sắp được) |
+    | Phiếu xuất | (không cờ) | `code` (BE nhận cả `createdAt` nhưng cột Ngày tạo chưa khai `sortField`) |
     | Kho, Cửa hàng | `sort` (**tắt**) | BE chưa đổi |
 
   - Lọc ngày tạo: `startDate` / `endDate` (`YYYY-MM-DD`, gồm hai đầu) ở Người dùng, Vật tư, Loại vật tư, NCC, Phiếu nhập,
@@ -844,6 +860,8 @@ mất công tìm cách sửa nó.
 - **Refresh token nằm ở `localStorage`.** XSS đọc được và giữ phiên **vô thời hạn**: mỗi lần
   `/auth/refresh` ký refresh token mới với hạn 30 ngày mới, nên chỉ logout / logout-all / đổi mật khẩu
   mới chặn được. Chờ backend chuyển sang cookie httpOnly — xem `docs/proposals/2026-09-17-refresh-token-httponly-cookie.md`.
+- **`features/profile-form` chưa có bước xác nhận sửa.** Form hồ sơ đang ẩn sau `BACKEND_SUPPORTS.profileEdit`;
+  khi bật cờ này phải nối `useSaveChangesConfirmation` + `changedFieldLabels` như các form sửa khác (luật "mọi thao tác ghi đều hỏi").
 - **Nợ có điều kiện kích hoạt — `ConfirmDialog` chung.** Bốn hộp xác nhận
   (`DeleteWarehouseDialog`/`DeleteStoreDialog`, `DeactivateWarehouseDialog`/`DeactivateStoreDialog`) là bản sao
   cấu trúc của nhau, chỉ khác kiểu entity, tên prop và khoá i18n. Cố ý giữ vậy lúc này: bản generic cần
@@ -895,12 +913,34 @@ mất công tìm cách sửa nó.
   `IMPORT_FORM_UPDATE_DRAFT`, `EXPORT_FORM_UPDATE_DRAFT`, `WAREHOUSE_PAYMENT_UPDATE_DRAFT`. Không cần
   migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hai ô phiếu nhập
   (`IMPORT_FORM_CREATE`, `IMPORT_FORM_UPDATE_DRAFT`) đã có tác dụng** — phiếu nhập có endpoint từ WMS-16, FE dùng ở
-  `/import-forms`. Năm ô còn lại (`EXPORT_FORM_*`, `BALANCE_FORM_*`, `WAREHOUSE_PAYMENT_*`) vẫn chưa có tác dụng: các module
-  đó chưa có endpoint — bật trước chỉ là chuẩn bị dữ liệu cho lúc backend làm module đó và gác bằng `@RequireAuthority`.
+  `/import-forms`; hai ô phiếu xuất (`EXPORT_FORM_CREATE`, `EXPORT_FORM_UPDATE_DRAFT`) cũng vậy từ WMS-20 / WMS-21 (`/export-forms`).
+  Ba ô còn lại (`BALANCE_FORM_*`, `WAREHOUSE_PAYMENT_*`) vẫn chưa có tác dụng: các module đó chưa có endpoint — bật trước chỉ là
+  chuẩn bị dữ liệu cho lúc backend làm module đó và gác bằng `@RequireAuthority`.
 - **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
   key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
-  không có chỉ số dòng → chỉ toast; đã lọc theo ngày tạo (`toCreatedRange`) và sắp xếp theo Mã (`importFormSort`; cột Ngày nhập không sắp được vì danh sách không có cột ngày tạo); ô "Tìm theo" Mã phiếu / Số hoá đơn / Số PO cạnh ô tìm (`?search=&searchBy=`, mặc định `code`; gửi đúng MỘT khoá `code`|`invoiceCode`|`purchaseOrder`; `code` làm sạch + viết hoa, toàn ký hiệu → không gọi API và hiện trạng thái trống-do-lọc; số HĐ / PO trim + cắt 64 ký tự — `pages/import-forms/model/search-query.ts`); bộ lọc "Người lập" / "Người xác nhận" (`?requester=` / `?approver=` → `requesterSlug` / `approverSlug`; `PersonFilter` tìm phía server qua `GET /users`, chữ → `name`, toàn số → `phonenumber`; chỉ hiện khi `can(user,'USER_READ')`, thiếu quyền thì không gửi dù URL có; `activeFilterCount` không đếm ô tìm, khớp MaterialsPage, và "Xoá bộ lọc" KHÔNG xoá `search` / `searchBy` — như mọi trang danh sách; nút chỉ hiện khi có bộ lọc khác đang bật; nút của ô ghi "Người lập: <người>" / "Người xác nhận: <người>" để hai ô khác nhau, danh sách xổ chỉ ghi người; `?requester=` trỏ người không tải được → "<nhãn>: Người không xác định" kèm ✕; `GET /users` chỉ chạy khi mở ô hoặc đang gõ tìm, `GET /users/{slug}` lấy nhãn chạy ngay khi có giá trị; chip mobile đã chọn ẩn mũi tên, ✕ ở cuối); dòng phiếu không có mã đơn vị gốc → cột quy đổi
+  không có chỉ số dòng → chỉ toast; đã lọc theo ngày tạo (`toCreatedRange`) và sắp xếp theo Mã (`importFormSort`; cột Ngày nhập không sắp được vì danh sách không có cột ngày tạo); ô "Tìm theo" Mã phiếu / Số hoá đơn / Số PO cạnh ô tìm (`?search=&searchBy=`, mặc định `code`; gửi đúng MỘT khoá `code`|`invoiceCode`|`purchaseOrder`; `code` làm sạch + viết hoa, toàn ký hiệu → không gọi API và hiện trạng thái trống-do-lọc; số HĐ / PO trim + cắt 64 ký tự — `pages/import-forms/model/search-query.ts`); bộ lọc "Người lập" / "Người xác nhận" (`?requester=` / `?approver=` → `requesterSlug` / `approverSlug`; `PersonFilter` (`entities/user`, dùng chung với phiếu xuất) tìm phía server qua `GET /users`, chữ → `name`, toàn số → `phonenumber`; chỉ hiện khi `can(user,'USER_READ')`, thiếu quyền thì không gửi dù URL có; `activeFilterCount` không đếm ô tìm, khớp MaterialsPage, và "Xoá bộ lọc" KHÔNG xoá `search` / `searchBy` — như mọi trang danh sách; nút chỉ hiện khi có bộ lọc khác đang bật; nút của ô ghi "Người lập: <người>" / "Người xác nhận: <người>" để hai ô khác nhau, danh sách xổ chỉ ghi người; `?requester=` trỏ người không tải được → "<nhãn>: Người không xác định" kèm ✕; `GET /users` chỉ chạy khi mở ô hoặc đang gõ tìm, `GET /users/{slug}` lấy nhãn chạy ngay khi có giá trị; chip mobile đã chọn ẩn mũi tên, ✕ ở cuối); dòng phiếu không có mã đơn vị gốc → cột quy đổi
   thiếu mã khi phiếu không có dòng 1:1. Test tay:
-  `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
+  `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Ô đính kèm của cả hai loại phiếu là `shared/ui/FileUploadField` (chọn là tải ngay, form giữ `key`). Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
   `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
   chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang). Thêm vật tư từ phiếu: vật tư tạo nhanh chỉ có đơn vị gốc; seed quyền mặc định chỉ ADMIN gắn / tạo vật tư (MANAGER / SUPERVISOR thấy nút khoá kèm lý do — admin bật `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` (+ `MATERIAL_CREATE`) ở `/permissions`). Hộp thêm vật tư khoá mọi đường đóng khi đang gắn / tạo; dòng chọn vật tư ngay bằng nhãn / đơn vị gốc hộp trả về nên kho > 100 vật tư vẫn chọn được; danh sách NCC trong hộp tạo vật tư chỉ tải 100 NCC đầu; vật tư cũ chưa có đơn vị gốc không gắn được từ phiếu (nút khoá).
+- **Phiếu xuất (`/export-forms`, WMS-21): đã dùng API thật của WMS-20; còn chờ backend** (`docs/proposals/2026-10-26-export-form-api.md`).
+  Bố cục / wizard / toast chép theo phiếu nhập (mảnh chung:
+  `WizardStepper`, `FileUploadField`, `shared/lib/wizard-errors.ts`, `fillBlankLines`, `PersonFilter` của `entities/user`); hai
+  editor cố ý **không** gộp (luật dòng / giá / lô khác nhau). Chặn tạm / dựa vào điều BE chưa có:
+  - **Tìm vật tư ở máy, trần 500**: `GET /warehouses/{w}/materials` chưa tìm được theo mã / tên → form tải một trang `size: 500`
+    rồi lọc tại client (`model/material-search.ts`); `total` > 500 thì ô xổ và hộp chọn nhiều ghi "Chỉ tìm trong 500 vật tư đầu
+    của kho". Nháp có vật tư ngoài 500 đầu vẫn hiện đúng nhãn / đơn vị (lấy từ dòng phiếu, `model/fallback.ts`).
+  - **Số PO bắt buộc với mọi lý do xuất** (theo DTO BE) — đang hỏi PO; nới thì chỉ đổi schema + dòng tóm tắt.
+  - **Lỗi thiếu hàng không có dòng**: 100817 / 101502 (409) không nói dòng nào → sau "Lưu & gửi duyệt" lỗi, FE tải lại khả dụng
+    (vật tư + lô) rồi tự tính lại luật vượt khả dụng để đánh dấu dòng; không ra dòng thì báo chung. Hai mã này **không** được rơi
+    vào nhánh "409 thì đóng sheet" (`isVersionConflict` chỉ khớp mã version — giữ vậy).
+  - **Nhãn lô chỉ có hạn dùng**: dòng phiếu BE chỉ trả `batchSlug` + `batchExpiryDate` → trang chi tiết / bản in ghi "HSD …" /
+    "Lô không hạn" (cố ý không gọi thêm `material-batches`); hai lô cùng hạn trông giống nhau.
+  - **Kho nhận (Chuyển kho) theo phạm vi**: `GET /warehouses` lọc theo kho mình thuộc → thường 0–1 kho; còn lại "Kho khác — nhập
+    tên". `receiver` dạng `Kho: <mã> · <tên>` là quy ước của FE (`model/receiver.ts`), BE chỉ thấy một chuỗi.
+  - **`clearLinePrices` (`model/pricing.ts`) ghi vào `control._defaultValues`** — API nội bộ của RHF (7.81): đổi Bán → lý do khác
+    phải xoá cả giá MẶC ĐỊNH, nếu không Controller giá remount làm giá cũ "hồi sinh". Nâng RHF thì chạy lại test "quay lại Bán →
+    ô giá trống" ở `ExportFormSheet.test.tsx` / `pricing.test.ts`.
+  - BE tách một dòng không chọn lô thành nhiều dòng theo lô (FEFO) **lúc gửi duyệt** — trang chi tiết / bản in khoá theo `slug`
+    của dòng, không coi hai dòng cùng vật tư là trùng.
+  - Lưới dòng ② dùng `@4xl` như phiếu nhập (lưới Bán ≈ 55.75rem); bản in A4 phiếu Bán 9 cột làm cột Ghi chú dòng rất hẹp.

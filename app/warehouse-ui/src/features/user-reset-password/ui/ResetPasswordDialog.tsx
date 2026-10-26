@@ -19,6 +19,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { DialogConfirmStep } from '@/shared/ui/DialogConfirmStep'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import {
   Form,
@@ -75,20 +76,37 @@ export function ResetPasswordDialog({ user, onOpenChange }: Props) {
   })
   useRevalidateWhenTouched(form, 'newPassword', 'confirmNewPassword')
 
+  // Nhóm C: bước xác nhận nằm ngay trong hộp. Mật khẩu không hiện ở màn xác nhận; "Quay lại" giữ nguyên
+  // những gì đã gõ vì giá trị nằm trong state của form.
+  const [step, setStep] = useState<'edit' | 'confirm'>('edit')
+
   // Mở lại dialog không được còn mật khẩu lần trước. (Trạng thái hiện/ẩn nằm trong `PasswordInput`, tự về
   // dạng ẩn vì nội dung dialog unmount khi đóng.)
   useEffect(() => {
-    if (!open) form.reset(EMPTY)
+    if (!open) {
+      form.reset(EMPTY)
+      setStep('edit')
+    }
   }, [open, form])
 
-  const onSubmit = ({ newPassword }: ResetPasswordValues) => {
+  // Form đã qua validate + đã gõ đúng tên đăng nhập → hỏi xác nhận, chưa gửi.
+  const onSubmit = () => {
+    if (!user || !confirmed) return
+    setStep('confirm')
+  }
+
+  const submit = () => {
     if (!user || !confirmed) return
     reset.mutate(
-      { slug: user.slug, input: { newPassword } },
+      { slug: user.slug, input: { newPassword: form.getValues('newPassword') } },
       {
         onSuccess: () => onOpenChange(false),
         onError: (error) => {
-          if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) return
+          if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) {
+            // Lỗi thuộc ô mật khẩu mới → về màn nhập, lỗi hiện tại ô.
+            setStep('edit')
+            return
+          }
           toastApiError(error)
           // Người đích đã biến mất — không còn gì để sửa, giữ hộp mở chỉ mời bấm lại vào hư không.
           if (isApiError(error) && error.code === USER_NOT_FOUND_CODE) onOpenChange(false)
@@ -110,71 +128,92 @@ export function ResetPasswordDialog({ user, onOpenChange }: Props) {
           if (reset.isPending) event.preventDefault()
         }}
       >
-        <DialogHeader className="items-center text-center">
-          <DialogIcon tone="destructive">
-            <KeyRoundIcon />
-          </DialogIcon>
-          <DialogTitle>{t('users:resetPasswordTitle')}</DialogTitle>
-          <DialogDescription>
-            <Trans
-              ns={['users']}
-              i18nKey="users:resetPasswordWarning"
-              values={{ name: shown ? userDisplayName(shown) : '' }}
-              components={[<span key="0" />, <span key="1" className="font-medium" />]}
-            />
-          </DialogDescription>
-        </DialogHeader>
+        {step === 'confirm' ? (
+          <DialogConfirmStep
+            icon={<KeyRoundIcon />}
+            tone="destructive"
+            title={t('users:resetPasswordConfirmTitle', {
+              person: shown ? userDisplayName(shown) : '',
+            })}
+            description={t('users:resetPasswordConfirmDescription')}
+            confirmLabel={
+              reset.isPending
+                ? t('users:resetPasswordSubmitting')
+                : t('users:resetPasswordConfirmAction')
+            }
+            isPending={reset.isPending}
+            onBack={() => setStep('edit')}
+            onConfirm={submit}
+          />
+        ) : (
+          <>
+            <DialogHeader className="items-center text-center">
+              <DialogIcon tone="destructive">
+                <KeyRoundIcon />
+              </DialogIcon>
+              <DialogTitle>{t('users:resetPasswordTitle')}</DialogTitle>
+              <DialogDescription>
+                <Trans
+                  ns={['users']}
+                  i18nKey="users:resetPasswordWarning"
+                  values={{ name: shown ? userDisplayName(shown) : '' }}
+                  components={[<span key="0" />, <span key="1" className="font-medium" />]}
+                />
+              </DialogDescription>
+            </DialogHeader>
 
-        <Form {...form}>
-          <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
-            {FIELDS.map((name) => (
-              <FormField
-                key={name}
-                control={form.control}
-                name={name}
-                render={({ field }) => (
-                  <FormItem required>
-                    <FormLabel>{t(LABEL_KEY[name])}</FormLabel>
-                    <FormControl>
-                      <PasswordInput autoComplete="new-password" {...field} />
-                    </FormControl>
-                    {name === 'newPassword' && (
-                      <FormDescription>
-                        {t('common:passwordHint', { count: MIN_PASSWORD_LENGTH })}
-                      </FormDescription>
+            <Form {...form}>
+              <form onSubmit={form.handleSubmit(onSubmit)} className="space-y-4">
+                {FIELDS.map((name) => (
+                  <FormField
+                    key={name}
+                    control={form.control}
+                    name={name}
+                    render={({ field }) => (
+                      <FormItem required>
+                        <FormLabel>{t(LABEL_KEY[name])}</FormLabel>
+                        <FormControl>
+                          <PasswordInput autoComplete="new-password" {...field} />
+                        </FormControl>
+                        {name === 'newPassword' && (
+                          <FormDescription>
+                            {t('common:passwordHint', { count: MIN_PASSWORD_LENGTH })}
+                          </FormDescription>
+                        )}
+                        <FormMessage />
+                      </FormItem>
                     )}
-                    <FormMessage />
-                  </FormItem>
-                )}
-              />
-            ))}
+                  />
+                ))}
 
-            <ConfirmPhraseField
-              phrase={phrase}
-              value={typed}
-              onChange={setTyped}
-              disabled={reset.isPending}
-            />
+                <ConfirmPhraseField
+                  phrase={phrase}
+                  value={typed}
+                  onChange={setTyped}
+                  disabled={reset.isPending}
+                />
 
-            <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
-              <Button
-                type="button"
-                variant="outline"
-                size="xl"
-                disabled={reset.isPending}
-                onClick={() => onOpenChange(false)}
-              >
-                {t('common:cancel')}
-              </Button>
-              {/* Khoá tới khi gõ đúng (cố ý, khác quy ước form): câu hướng dẫn nằm ngay trên nút. */}
-              <Button type="submit" size="xl" disabled={reset.isPending || !confirmed}>
-                {reset.isPending
-                  ? t('users:resetPasswordSubmitting')
-                  : t('users:resetPasswordSubmit')}
-              </Button>
-            </DialogFooter>
-          </form>
-        </Form>
+                <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
+                  <Button
+                    type="button"
+                    variant="outline"
+                    size="xl"
+                    disabled={reset.isPending}
+                    onClick={() => onOpenChange(false)}
+                  >
+                    {t('common:cancel')}
+                  </Button>
+                  {/* Khoá tới khi gõ đúng (cố ý, khác quy ước form): câu hướng dẫn nằm ngay trên nút. */}
+                  <Button type="submit" size="xl" disabled={reset.isPending || !confirmed}>
+                    {reset.isPending
+                      ? t('users:resetPasswordSubmitting')
+                      : t('users:resetPasswordSubmit')}
+                  </Button>
+                </DialogFooter>
+              </form>
+            </Form>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

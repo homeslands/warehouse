@@ -6,6 +6,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { toast } from 'sonner'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { mutationToastQueryClient } from '@/shared/test/query-client'
 import { renderWithProviders } from '@/shared/test/render'
@@ -96,6 +97,7 @@ describe('AddWarehouseMemberDialog', () => {
 
     await pickLan(user)
     await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    await confirmStep(user, 'Xác nhận thêm')
 
     await waitFor(() => expect(body).toEqual({ userSlug: 'u-lan' }))
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
@@ -114,10 +116,13 @@ describe('AddWarehouseMemberDialog', () => {
 
     await pickLan(user)
     await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    await confirmStep(user, 'Xác nhận thêm')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
     expect(toast.error).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
+    // Lỗi thuộc ô → về màn nhập.
+    expect(screen.getByRole('combobox', { name: 'Người dùng' })).toBeInTheDocument()
   })
 
   it('lỗi thuộc ô chọn → tải lại danh sách ứng viên để người sai biến khỏi ô', async () => {
@@ -128,21 +133,24 @@ describe('AddWarehouseMemberDialog', () => {
 
     await pickLan(user)
     await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    await confirmStep(user, 'Xác nhận thêm')
 
     await screen.findByRole('alert')
     expect(invalidate).toHaveBeenCalledWith({ queryKey: warehouseKeys.availableMembers('kho-1') })
   })
 
-  it('lỗi khác → toast và đóng hộp', async () => {
+  it('lỗi khác → toast, ở lại màn xác nhận', async () => {
     server.use(mswHttp.put(`${BASE}/warehouses/kho-1/members`, () => apiError(500)))
     const { user, onOpenChange } = renderDialog()
     await screen.findByText('Kho Hà Nội')
 
     await pickLan(user)
     await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    await confirmStep(user, 'Xác nhận thêm')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
-    expect(onOpenChange).toHaveBeenCalledWith(false)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Xác nhận thêm' })).toBeEnabled()
   })
 
   it('đang gửi thì không đóng được bằng Esc, và không còn nút ×', async () => {
@@ -161,6 +169,7 @@ describe('AddWarehouseMemberDialog', () => {
 
     await pickLan(user)
     await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    await confirmStep(user, 'Xác nhận thêm')
     await screen.findByRole('button', { name: 'Đang lưu...' })
 
     await user.keyboard('{Escape}')
@@ -169,6 +178,46 @@ describe('AddWarehouseMemberDialog', () => {
 
     release()
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('bấm Thêm → màn xác nhận đúng câu + tên người, CHƯA gửi; xác nhận mới gửi', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/kho-1/members`, () => {
+        calls += 1
+        return ok({})
+      }),
+    )
+    const { user } = renderDialog()
+    await screen.findByText('Kho Hà Nội')
+    await pickLan(user)
+    await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Thêm 1 người vào kho Kho Hà Nội?' }),
+    ).toBeInTheDocument()
+    expect(screen.getByText('Trần Lan (0384940599) · Quản lý')).toBeInTheDocument()
+    expect(calls).toBe(0)
+
+    await confirmStep(user, 'Xác nhận thêm')
+    await waitFor(() => expect(calls).toBe(1))
+  })
+
+  it('"Quay lại" giữ lựa chọn; bấm Thêm lần nữa hỏi lại đúng người', async () => {
+    const { user } = renderDialog()
+    await screen.findByText('Kho Hà Nội')
+    await pickLan(user)
+    await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    await screen.findByRole('button', { name: 'Xác nhận thêm' })
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByRole('combobox', { name: 'Người dùng' })).toHaveTextContent(
+      'Trần Lan (0384940599) · Quản lý',
+    )
+    await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    expect(await screen.findByText('Trần Lan (0384940599) · Quản lý')).toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Xác nhận thêm' })).toBeInTheDocument()
   })
 
   it('mở lại cho kho khác thì bỏ lựa chọn và lỗi cũ', async () => {
@@ -184,6 +233,7 @@ describe('AddWarehouseMemberDialog', () => {
     await screen.findByText('Kho Hà Nội')
     await pickLan(user)
     await user.click(screen.getByRole('button', { name: 'Thêm thành viên' }))
+    await confirmStep(user, 'Xác nhận thêm')
     await screen.findByRole('alert')
 
     rerender(

@@ -16,7 +16,9 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { DialogConfirmStep } from '@/shared/ui/DialogConfirmStep'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
+import { NameList } from '@/shared/ui/NameList'
 import { Label } from '@/shared/ui/label'
 import { useRoleLabel } from '@/entities/session'
 import { userKeys } from '@/entities/user'
@@ -41,6 +43,8 @@ export function AddWarehouseMemberDialog({ warehouse, onOpenChange }: Props) {
 
   const [selected, setSelected] = useState<string | undefined>(undefined)
   const [fieldError, setFieldError] = useState<string | null>(null)
+  // Nhóm C: bước xác nhận nằm ngay trong hộp.
+  const [step, setStep] = useState<'edit' | 'confirm'>('edit')
 
   // Mở cho kho khác (hoặc mở lại) → bỏ lựa chọn và lỗi của lần trước.
   const slug = warehouse?.slug
@@ -48,6 +52,7 @@ export function AddWarehouseMemberDialog({ warehouse, onOpenChange }: Props) {
     if (slug !== undefined) {
       setSelected(undefined)
       setFieldError(null)
+      setStep('edit')
     }
   }, [slug])
 
@@ -55,6 +60,13 @@ export function AddWarehouseMemberDialog({ warehouse, onOpenChange }: Props) {
     value: candidate.slug,
     label: `${formatPersonLabel(candidate)} · ${roleLabel(candidate.roleName)}`,
   }))
+
+  const handleOpenChange = (open: boolean) => {
+    if (!open) setStep('edit')
+    onOpenChange(open)
+  }
+
+  const selectedLabel = options.find((o) => o.value === selected)?.label ?? ''
 
   const submit = () => {
     if (!warehouse || selected === undefined) return
@@ -66,24 +78,25 @@ export function AddWarehouseMemberDialog({ warehouse, onOpenChange }: Props) {
           // Danh sách thành viên là `GET /users?warehouseSlug=` (entity user) — hook của entity
           // warehouse chỉ tải lại ứng viên; phần liên entity nằm ở đây.
           void qc.invalidateQueries({ queryKey: userKeys.all })
-          onOpenChange(false)
+          handleOpenChange(false)
         },
         onError: (error) => {
           if (isApiError(error) && error.code !== undefined && FIELD_CODES.has(error.code)) {
             setFieldError(resolveApiErrorMessage(error))
             // Ứng viên vừa bị từ chối (đã bị khoá / đã là quản trị…) → tải lại để biến khỏi ô chọn.
             void qc.invalidateQueries({ queryKey: warehouseKeys.availableMembers(warehouse.slug) })
+            setStep('edit')
             return
           }
+          // Lỗi khác (404 kho…) → toast, ở lại màn xác nhận.
           toastApiError(error)
-          onOpenChange(false)
         },
       },
     )
   }
 
   return (
-    <Dialog open={warehouse !== null} onOpenChange={onOpenChange}>
+    <Dialog open={warehouse !== null} onOpenChange={handleOpenChange}>
       <DialogContent
         // `Dialog.Close` gọi thẳng `onOpenChange` nên nút × vượt được chốt isPending — giấu nó lúc
         // đang gửi để không còn lối đóng nào lọt qua.
@@ -95,54 +108,78 @@ export function AddWarehouseMemberDialog({ warehouse, onOpenChange }: Props) {
           if (assign.isPending) event.preventDefault()
         }}
       >
-        <DialogHeader className="items-center text-center">
-          <DialogIcon>
-            <UserPlusIcon />
-          </DialogIcon>
-          <DialogTitle>{t('warehouses:addMemberTitle')}</DialogTitle>
-          <DialogDescription>{warehouse?.name}</DialogDescription>
-        </DialogHeader>
-
-        <div className="grid gap-2">
-          <Label htmlFor="warehouse-member">{t('warehouses:fieldMember')}</Label>
-          <Combobox
-            id="warehouse-member"
-            options={options}
-            value={selected}
-            onChange={setSelected}
-            disabled={assign.isPending}
-            placeholder={
-              candidates.isPending ? t('common:loading') : t('warehouses:memberPlaceholder')
+        {step === 'confirm' ? (
+          <DialogConfirmStep
+            icon={<UserPlusIcon />}
+            title={t('warehouses:addMemberConfirmTitle', {
+              count: 1,
+              warehouse: warehouse?.name,
+            })}
+            description={t('warehouses:addMemberConfirmDescription')}
+            details={
+              <p className="text-center text-sm font-medium break-words">
+                <NameList names={[selectedLabel]} nameClassName="line-clamp-2" />
+              </p>
             }
-            emptyText={t('warehouses:noMemberAvailable')}
-            aria-invalid={fieldError !== null}
+            confirmLabel={
+              assign.isPending ? t('common:saving') : t('warehouses:addMemberConfirmAction')
+            }
+            isPending={assign.isPending}
+            onBack={() => setStep('edit')}
+            onConfirm={submit}
           />
-          {fieldError !== null && (
-            <p role="alert" className="text-destructive text-sm">
-              {fieldError}
-            </p>
-          )}
-        </div>
+        ) : (
+          <>
+            <DialogHeader className="items-center text-center">
+              <DialogIcon>
+                <UserPlusIcon />
+              </DialogIcon>
+              <DialogTitle>{t('warehouses:addMemberTitle')}</DialogTitle>
+              <DialogDescription>{warehouse?.name}</DialogDescription>
+            </DialogHeader>
 
-        <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="xl"
-            disabled={assign.isPending}
-            onClick={() => onOpenChange(false)}
-          >
-            {t('common:cancel')}
-          </Button>
-          <Button
-            type="button"
-            size="xl"
-            disabled={assign.isPending || selected === undefined}
-            onClick={submit}
-          >
-            {assign.isPending ? t('common:saving') : t('warehouses:addMember')}
-          </Button>
-        </DialogFooter>
+            <div className="grid gap-2">
+              <Label htmlFor="warehouse-member">{t('warehouses:fieldMember')}</Label>
+              <Combobox
+                id="warehouse-member"
+                options={options}
+                value={selected}
+                onChange={setSelected}
+                disabled={assign.isPending}
+                placeholder={
+                  candidates.isPending ? t('common:loading') : t('warehouses:memberPlaceholder')
+                }
+                emptyText={t('warehouses:noMemberAvailable')}
+                aria-invalid={fieldError !== null}
+              />
+              {fieldError !== null && (
+                <p role="alert" className="text-destructive text-sm">
+                  {fieldError}
+                </p>
+              )}
+            </div>
+
+            <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="xl"
+                disabled={assign.isPending}
+                onClick={() => handleOpenChange(false)}
+              >
+                {t('common:cancel')}
+              </Button>
+              <Button
+                type="button"
+                size="xl"
+                disabled={assign.isPending || selected === undefined}
+                onClick={() => setStep('confirm')}
+              >
+                {t('warehouses:addMember')}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

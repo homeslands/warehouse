@@ -268,12 +268,44 @@ describe('UserFormSheet — sửa', () => {
     await user.type(screen.getByLabelText(/^Tên/), 'Bình')
     await user.clear(screen.getByLabelText(/Email/))
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(
+      'Lưu thay đổi người dùng Nguyễn A (root)?',
+    )
+    // Ô xoá trống không được gửi nhưng vẫn là ô đã sửa.
+    expect(within(dialog).getByText('Đã sửa: Tên, Email')).toBeInTheDocument()
+    expect(body).toBeUndefined()
+    await confirmDialog(user, 'Lưu thay đổi')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ firstName: 'Bình' })
   })
 
-  it('chỉ xoá trống trường tuỳ chọn (không còn gì để gửi) → đóng sheet, KHÔNG gọi API', async () => {
+  it('Quay lại trong hộp xác nhận → không PATCH, sheet còn mở với dữ liệu đã sửa', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/users/u-root-like`, () => {
+        calls += 1
+        return ok(editing)
+      }),
+    )
+    const onOpenChange = vi.fn()
+    const { user } = renderWithProviders(
+      <UserFormSheet open onOpenChange={onOpenChange} roles={ASSIGNABLE} user={editing} />,
+    )
+
+    await user.type(screen.getByLabelText(/^Tên/), 'B')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(calls).toBe(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByLabelText(/^Tên/)).toHaveValue('AB')
+  })
+
+  it('chỉ xoá trống trường tuỳ chọn (không còn gì để gửi) → không hỏi, đóng sheet, KHÔNG gọi API', async () => {
     let called = false
     server.use(
       mswHttp.patch(`${BASE}/users/u-root-like`, () => {
@@ -290,6 +322,7 @@ describe('UserFormSheet — sửa', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(called).toBe(false)
   })
 })

@@ -1,7 +1,7 @@
 import { screen, waitFor } from '@testing-library/react'
 import type { UserEvent } from '@testing-library/user-event'
 import { http as mswHttp } from 'msw'
-import type { FormEvent } from 'react'
+import { createRef, type FormEvent } from 'react'
 import { createPortal } from 'react-dom'
 import { describe, expect, it, vi } from 'vitest'
 import { apiError, ok, paginated } from '@/shared/test/api'
@@ -10,7 +10,7 @@ import { renderWithProviders } from '@/shared/test/render'
 import type { MaterialType } from '@/entities/material-type'
 import { supplierKeys, type Supplier } from '@/entities/supplier'
 import type { Unit } from '@/entities/unit'
-import { CreateMaterialSection } from './CreateMaterialSection'
+import { CreateMaterialSection, type CreateMaterialHandle } from './CreateMaterialSection'
 
 const BASE = 'http://localhost:8085/api/v1'
 
@@ -52,10 +52,17 @@ function setup(
     canAttachSupplier?: boolean
     initialSearch?: string
     defaultSupplierSlug?: string
+    /** `false` = dừng ở bước hỏi (hộp cha chưa bấm xác nhận). Mặc định xác nhận ngay. */
+    autoConfirm?: boolean
   } = {},
 ) {
   mockCatalog()
   const onCreated = vi.fn()
+  const handle = createRef<CreateMaterialHandle>()
+  const onAsk = vi.fn(() => {
+    if (opts.autoConfirm !== false) handle.current?.submit()
+  })
+  const onFieldError = vi.fn()
   const parentSubmit = vi.fn((e: FormEvent) => e.preventDefault())
   // Như trong app: section nằm (theo cây React) trong <form> của phiếu nhập; nút submit nằm ngoài section (footer hộp).
   const r = renderWithProviders(
@@ -63,6 +70,9 @@ function setup(
       {createPortal(
         <>
           <CreateMaterialSection
+            ref={handle}
+            onAsk={onAsk}
+            onFieldError={onFieldError}
             formId="create-form"
             hintId="create-hint"
             warehouseSlug="w-a"
@@ -83,7 +93,7 @@ function setup(
     </form>,
     { auth: 'admin' },
   )
-  return { ...r, onCreated, parentSubmit }
+  return { ...r, onCreated, parentSubmit, onAsk, onFieldError, handle }
 }
 
 async function fill(user: UserEvent) {
@@ -202,11 +212,49 @@ describe('CreateMaterialSection', () => {
 
   it('100705 (mã trùng) → lỗi tại ô Mã', async () => {
     server.use(mswHttp.post(`${BASE}/warehouses/w-a/materials`, () => apiError(400, 100705, 'dup')))
-    const { user, onCreated } = setup()
+    const { user, onCreated, onFieldError } = setup()
     await fill(user)
     await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
     expect(await screen.findByText('Mã vật tư đã tồn tại')).toBeInTheDocument()
     expect(onCreated).not.toHaveBeenCalled()
+    // Lỗi thuộc ô → hộp cha quay về màn nhập.
+    expect(onFieldError).toHaveBeenCalledTimes(1)
+  })
+
+  it('form hợp lệ → chỉ hỏi (onAsk kèm tóm tắt), chưa POST, không nổi lên form cha', async () => {
+    let posts = 0
+    server.use(
+      mswHttp.post(`${BASE}/warehouses/w-a/materials`, () => {
+        posts++
+        return ok({ materialSlug: 'm-new', materialName: 'xi măng' })
+      }),
+    )
+    const { user, onAsk, parentSubmit } = setup({ autoConfirm: false })
+    await fill(user)
+    await pick(user, /^Nhà cung cấp/, 'NCC-1 · NCC Bột')
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+
+    await waitFor(() => expect(onAsk).toHaveBeenCalledTimes(1))
+    expect(onAsk).toHaveBeenCalledWith({
+      code: 'VT-09',
+      name: 'xi măng',
+      unit: 'KG · Kilogram',
+      supplier: 'NCC-1 · NCC Bột',
+    })
+    expect(posts).toBe(0)
+    expect(parentSubmit).not.toHaveBeenCalled()
+  })
+
+  it('form không hợp lệ → không hỏi', async () => {
+    const { user, onAsk } = setup({ autoConfirm: false })
+    await user.click(screen.getByRole('button', { name: 'Tạo và gắn vào kho' }))
+    await waitFor(() =>
+      expect(screen.getByRole('textbox', { name: /^Mã vật tư/ })).toHaveAttribute(
+        'aria-invalid',
+        'true',
+      ),
+    )
+    expect(onAsk).not.toHaveBeenCalled()
   })
 
   it('thiếu quyền tạo → hiện lý do (id = hintId); không quyền NCC → không có ô NCC', () => {
@@ -249,6 +297,8 @@ describe('CreateMaterialSection', () => {
     )
     renderWithProviders(
       <CreateMaterialSection
+        onAsk={vi.fn()}
+        onFieldError={vi.fn()}
         formId="create-form"
         hintId="create-hint"
         warehouseSlug="w-a"

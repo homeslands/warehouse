@@ -5,6 +5,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { ImportForm } from '@/entities/import-form'
 import type { Warehouse } from '@/entities/warehouse'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmDialog } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
@@ -66,6 +67,7 @@ const draftForm: ImportForm = {
       baseQuantity: 250,
       unitPrice: 375_000,
       amount: 3_750_000,
+      expiryDate: null,
       note: null,
     },
   ],
@@ -756,6 +758,8 @@ describe('ImportFormsPage - toast sau khi lưu có lối tắt', () => {
   async function save(user: ReturnType<typeof renderPage>['user'], label: string) {
     const sheet = screen.getByRole('dialog', { name: 'Tạo phiếu nhập · Kho A' })
     await user.click(within(sheet).getByRole('button', { name: label }))
+    // Mọi nút lưu hỏi lại trước khi gửi; nút xác nhận trong hộp mang cùng nhãn.
+    await confirmDialog(user, label)
   }
 
   function setup(auth: TestAuth) {
@@ -868,6 +872,7 @@ describe('ImportFormsPage - toast sau khi lưu có lối tắt', () => {
     const sheet = await openEdit(user)
     await user.clear(within(sheet).getByRole('textbox', { name: /^Ghi chú$/ }))
     await user.click(within(sheet).getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
     await waitFor(() => expect(spy).toHaveBeenCalled())
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(spy).toHaveBeenCalledTimes(1)
@@ -881,6 +886,7 @@ describe('ImportFormsPage - toast sau khi lưu có lối tắt', () => {
     server.use(mswHttp.get(`${BASE}/warehouses/w-a/import-forms/if-1`, () => ok(draftForm)))
     const sheet = await openEdit(user)
     await user.click(within(sheet).getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() => expect(spy).toHaveBeenCalled())
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(spy).toHaveBeenCalledTimes(1)

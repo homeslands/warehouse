@@ -4,10 +4,12 @@ import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { z } from 'zod'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import {
   Form,
   FormControl,
@@ -138,7 +140,7 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
     toastApiError(error)
   }
 
-  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận tạo …" rồi mới gửi. Sửa: lưu thẳng.
+  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận tạo …" rồi mới gửi. Sửa: cũng hỏi "Lưu thay đổi …?" (useSaveChangesConfirmation).
   const [toCreate, setToCreate] = useState<StoreInput | null>(null)
   if (!open && toCreate) setToCreate(null)
 
@@ -154,15 +156,45 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
     })
   }
 
+  // Sửa: form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH.
+  const saveConfirmation = useSaveChangesConfirmation<StoreInput>({
+    open,
+    entity: t('stores:entityName'),
+    name: store?.code ?? '',
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      code: t('stores:columnCode'),
+      name: t('stores:columnName'),
+      legalName: t('stores:columnLegalName'),
+      taxCode: t('stores:columnTaxCode'),
+      invoiceAddress: t('stores:fieldInvoiceAddress'),
+      address: t('stores:fieldAddress'),
+      phonenumber: t('stores:fieldPhonenumber'),
+      email: t('stores:fieldEmail'),
+      isActive: t('stores:fieldIsActive'),
+    }),
+    icon: <StoreIcon />,
+    onConfirm: (values) => {
+      if (!store) return
+      update.mutate(
+        { slug: store.slug, input: toApiInput(values) },
+        {
+          onSuccess: () => onOpenChange(false),
+          onError: (error) => {
+            // Đóng hộp xác nhận để lỗi tại ô (vd mã đã tồn tại) hiện ra.
+            saveConfirmation.close()
+            handleError(error)
+          },
+        },
+      )
+    },
+  })
+
   const onSubmit = (values: StoreInput) => {
     if (!store) {
       setToCreate(values)
       return
     }
-    update.mutate(
-      { slug: store.slug, input: toApiInput(values) },
-      { onSuccess: () => onOpenChange(false), onError: handleError },
-    )
+    saveConfirmation.request(values)
   }
 
   const textField = (
@@ -206,7 +238,7 @@ export function StoreFormSheet({ open, onOpenChange, store }: Props) {
       isDirty={form.formState.isDirty}
       confirmation={
         store
-          ? undefined
+          ? saveConfirmation.confirmation
           : {
               open: toCreate !== null,
               onOpenChange: (next) => {

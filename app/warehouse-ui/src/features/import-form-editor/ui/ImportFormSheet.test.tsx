@@ -73,6 +73,7 @@ const draftForm: ImportForm = {
       baseQuantity: 250,
       unitPrice: 375_000,
       amount: 3_750_000,
+      expiryDate: null,
       note: null,
     },
   ],
@@ -300,6 +301,7 @@ describe('ImportFormSheet', () => {
     const { user, onSaved, onOpenChange } = setup({ formSlug: 'if-1', detail: draftForm })
     await user.clear(await noteBox(user))
     await user.click(saveButton())
+    await confirmDialog(user, 'Lưu thay đổi')
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(body).toMatchObject({
@@ -395,6 +397,7 @@ describe('ImportFormSheet', () => {
     const { user, onOpenChange, onSaved } = setup({ formSlug: 'if-1', detail: draftForm })
     await user.clear(await noteBox(user))
     await user.click(saveButton())
+    await confirmDialog(user, 'Lưu thay đổi')
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(errorSpy).toHaveBeenCalledWith(
       'Phiếu vừa bị người khác thay đổi — đã tải lại bản mới nhất.',
@@ -411,6 +414,7 @@ describe('ImportFormSheet', () => {
     const { user, onOpenChange } = setup({ formSlug: 'if-1', detail: draftForm })
     await user.clear(await noteBox(user))
     await user.click(saveButton())
+    await confirmDialog(user, 'Lưu thay đổi')
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(errorSpy).toHaveBeenCalledTimes(1)
     errorSpy.mockRestore()
@@ -577,6 +581,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     await toReview(user)
     expect(screen.queryByRole('button', { name: 'Lưu & xác nhận' })).not.toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await confirmDialog(user, 'Lưu nháp')
     await waitFor(() => expect(onSaved).toHaveBeenCalledWith({ form: draftForm, confirmed: false }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(body).toMatchObject({
@@ -600,13 +605,22 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user, onSaved, onOpenChange } = setup({ canConfirm: true })
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await confirmDialog(user, 'Lưu nháp')
+    // Hộp hỏi vẫn mở (khoá) khi đang gửi; chân sheet nằm sau nó (`aria-hidden`) nên tìm với `hidden: true`.
+    const footer = within(document.querySelector<HTMLElement>('[data-slot="sheet-footer"]')!)
     // Chỉ nút vừa bấm đổi chữ thành "Đang lưu..."; nút kia giữ chữ, bị khoá.
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Đang lưu...' })).toBeDisabled())
-    expect(screen.queryByRole('button', { name: 'Lưu nháp' })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Lưu & xác nhận' })).toBeDisabled()
-    expect(screen.getByRole('button', { name: 'Quay lại' })).toBeDisabled()
+    await waitFor(() =>
+      expect(footer.getByRole('button', { name: 'Đang lưu...', hidden: true })).toBeDisabled(),
+    )
+    expect(footer.queryByRole('button', { name: 'Lưu nháp', hidden: true })).not.toBeInTheDocument()
+    expect(footer.getByRole('button', { name: 'Lưu & xác nhận', hidden: true })).toBeDisabled()
+    expect(footer.getByRole('button', { name: 'Quay lại', hidden: true })).toBeDisabled()
+    const dialog = screen.getByRole('alertdialog')
+    expect(within(dialog).getByRole('button', { name: 'Đang lưu...' })).toBeDisabled()
+    expect(within(dialog).getByRole('button', { name: 'Quay lại' })).toBeDisabled()
     await user.keyboard('{Escape}')
     expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
     release()
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
   })
@@ -623,8 +637,13 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user, onSaved } = setup()
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
-    await waitFor(() => expect(screen.getByRole('button', { name: 'Đang lưu...' })).toBeDisabled())
-    expect(screen.queryByRole('button', { name: 'Lưu nháp' })).not.toBeInTheDocument()
+    await confirmDialog(user, 'Lưu nháp')
+    // Chân sheet nằm sau hộp hỏi đang mở (`aria-hidden`).
+    const footer = within(document.querySelector<HTMLElement>('[data-slot="sheet-footer"]')!)
+    await waitFor(() =>
+      expect(footer.getByRole('button', { name: 'Đang lưu...', hidden: true })).toBeDisabled(),
+    )
+    expect(footer.queryByRole('button', { name: 'Lưu nháp', hidden: true })).not.toBeInTheDocument()
     release()
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
   })
@@ -643,6 +662,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user, onSaved, onOpenChange } = setup({ canConfirm: true })
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() =>
       expect(onSaved).toHaveBeenCalledWith({ form: confirmedForm, confirmed: true }),
     )
@@ -650,6 +670,23 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     expect(onOpenChange).toHaveBeenCalledWith(false)
     expect(successSpy).not.toHaveBeenCalled()
     successSpy.mockRestore()
+  })
+
+  it('MANAGER ③ "Lưu & xác nhận" thành công → làm mới tồn + lô của kho', async () => {
+    const confirmedForm: ImportForm = { ...draftForm, status: 'CONFIRMED', version: 4 }
+    server.use(
+      mswHttp.post(URL_W, () => ok(draftForm)),
+      mswHttp.post(`${URL_W}/if-1/confirm`, () => ok(confirmedForm)),
+    )
+    const { user, onSaved, queryClient } = setup({ canConfirm: true })
+    const invalidate = vi.spyOn(queryClient, 'invalidateQueries')
+    await toReview(user)
+    await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    const keys = invalidate.mock.calls.map((c) => c[0]?.queryKey)
+    expect(keys).toContainEqual(['inventory'])
+    expect(keys).toContainEqual(['material-batches', 'w-a'])
   })
 
   it('③ xác nhận trả 500 → phiếu nháp vẫn được lưu, onSaved kèm confirmError, sheet đóng', async () => {
@@ -661,6 +698,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user, onSaved, onOpenChange } = setup({ canConfirm: true })
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(onSaved.mock.calls[0][0]).toMatchObject({ form: draftForm, confirmed: false })
     expect(onSaved.mock.calls[0][0].confirmError).toBeDefined()
@@ -763,6 +801,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user, onOpenChange } = setup()
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await confirmDialog(user, 'Lưu nháp')
     expect(await screen.findByText('Mã phiếu đã tồn tại')).toBeVisible()
     await waitFor(() => expect(screen.getByRole('textbox', { name: /^Mã phiếu/ })).toHaveFocus())
     expect(reviewHeading()).not.toBeInTheDocument()
@@ -781,6 +820,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user, onSaved } = setup({ canConfirm: true })
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     expect(await screen.findByText('Mã phiếu đã tồn tại')).toBeInTheDocument()
     expect(confirms).toBe(0)
     expect(onSaved).not.toHaveBeenCalled()
@@ -792,10 +832,75 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user } = setup()
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await confirmDialog(user, 'Lưu nháp')
     await waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(materialBox()).toBeVisible())
     expect(reviewHeading()).not.toBeInTheDocument()
     errorSpy.mockRestore()
+  })
+
+  it('③ POST trả 101333 (hạn dùng của dòng) → toast và về ②', async () => {
+    const errorSpy = vi.spyOn(toast, 'error').mockImplementation(() => 'id')
+    server.use(mswHttp.post(URL_W, () => apiError(400, 101333, 'Item expiry date invalid')))
+    const { user } = setup()
+    await toReview(user)
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await confirmDialog(user, 'Lưu nháp')
+    await waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1))
+    await waitFor(() => expect(materialBox()).toBeVisible())
+    expect(reviewHeading()).not.toBeInTheDocument()
+    errorSpy.mockRestore()
+  })
+
+  it('hạn dùng: sửa phiếu có hạn → ô hiện ngày, PATCH gửi lại expiryDate', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.patch(`${URL_W}/if-1`, async ({ request }) => {
+        body = await request.json()
+        return ok({ ...draftForm, version: 4 })
+      }),
+    )
+    const withExpiry = {
+      ...draftForm,
+      items: [{ ...draftForm.items![0], expiryDate: '2027-01-31' }],
+    }
+    const { user, onSaved } = setup({ formSlug: 'if-1', detail: withExpiry })
+    await editLoaded()
+    expect(screen.getByRole('button', { name: 'Hạn dùng dòng 1' })).toHaveTextContent('31/01/2027')
+    await user.clear(await noteBox(user))
+    await user.click(saveButton())
+    await confirmDialog(user, 'Lưu thay đổi')
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(body).toMatchObject({ items: [{ expiryDate: '2027-01-31' }] })
+  })
+
+  it('hạn dùng: trước ngày nhập → lỗi tại ô dòng 1, ở lại ②', async () => {
+    const early = {
+      ...draftForm,
+      items: [{ ...draftForm.items![0], expiryDate: '2026-10-01' }],
+    }
+    const { user } = setup({ formSlug: 'if-1', detail: early })
+    await editLoaded()
+    await user.click(screen.getByRole('button', { name: '③ Kiểm tra & lưu' }))
+    expect(await screen.findByText('Hạn dùng không được trước ngày nhập')).toBeVisible()
+    expect(reviewHeading()).not.toBeInTheDocument()
+  })
+
+  it('hạn dùng: lỗi đang hiện thì đổi ngày nhập về ≤ hạn → lỗi tự biến mất', async () => {
+    const early = {
+      ...draftForm,
+      items: [{ ...draftForm.items![0], expiryDate: '2026-10-01' }],
+    }
+    const { user } = setup({ formSlug: 'if-1', detail: early })
+    await editLoaded()
+    await user.click(screen.getByRole('button', { name: '③ Kiểm tra & lưu' }))
+    await screen.findByText('Hạn dùng không được trước ngày nhập')
+    await user.click(await screen.findByRole('button', { name: /Thông tin phiếu$/ }))
+    await user.click(await screen.findByRole('button', { name: /^Ngày nhập/ }))
+    await user.click(within(await screen.findByRole('grid')).getAllByText('1')[0])
+    await user.click(await screen.findByRole('button', { name: /Chi tiết vật tư/ }))
+    await screen.findByRole('combobox', { name: 'Vật tư dòng 1' })
+    expect(screen.queryByText('Hạn dùng không được trước ngày nhập')).not.toBeInTheDocument()
   })
 
   it('③ POST trả 101330 (bên bán của dòng không hợp lệ) → toast và về ②', async () => {
@@ -804,6 +909,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     const { user } = setup()
     await toReview(user)
     await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await confirmDialog(user, 'Lưu nháp')
     await waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1))
     await waitFor(() => expect(materialBox()).toBeVisible())
     expect(reviewHeading()).not.toBeInTheDocument()
@@ -1007,6 +1113,7 @@ describe('ImportFormSheet - wizard sửa', () => {
     await user.clear(quantityBox())
     await user.type(quantityBox(), '12')
     await user.click(saveButton())
+    await confirmDialog(user, 'Lưu thay đổi')
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(body?.items[0].quantity).toBe(12)
   })
@@ -1023,6 +1130,7 @@ describe('ImportFormSheet - wizard sửa', () => {
     await editLoaded()
     await user.clear(quantityBox())
     await user.type(quantityBox(), '12{Enter}')
+    await confirmDialog(user, 'Lưu thay đổi')
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(patches).toBe(1)
   })
@@ -1042,6 +1150,8 @@ describe('ImportFormSheet - wizard sửa', () => {
     await user.click(saveButton())
     expect(await screen.findByText('Nhập số hoá đơn')).toBeVisible()
     await waitFor(() => expect(invoiceBox()).toHaveFocus())
+    // Không hợp lệ → không mở hộp hỏi lưu.
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     expect(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ })).toHaveAttribute(
       'aria-current',
       'step',
@@ -1068,6 +1178,7 @@ describe('ImportFormSheet - wizard sửa', () => {
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
     expect(await screen.findByText('Nhập số hoá đơn')).toBeVisible()
     await waitFor(() => expect(invoiceBox()).toHaveFocus())
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
     await new Promise((r) => setTimeout(r, 50))
     expect(calls).toBe(0)
     expect(onSaved).not.toHaveBeenCalled()
@@ -1120,6 +1231,7 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
     await editLoaded()
     expect(saveButton()).toBeDisabled()
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() =>
       expect(onSaved).toHaveBeenCalledWith({ form: confirmedForm, confirmed: true }),
     )
@@ -1138,6 +1250,7 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
     })
     await editLoaded()
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(errorSpy).toHaveBeenCalledWith(
       'Phiếu vừa bị người khác thay đổi — đã tải lại bản mới nhất.',
@@ -1156,6 +1269,7 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
     })
     await editLoaded()
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1))
     expect(onSaved).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
@@ -1182,6 +1296,7 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
     const { user, onSaved } = setup({ formSlug: 'if-1', detail: draftForm, canConfirm: true })
     await user.clear(await noteBox(user))
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(order).toEqual(['patch', 'confirm'])
     expect(confirmBody).toEqual({ version: 4 })
@@ -1201,6 +1316,7 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
     })
     await user.clear(await noteBox(user))
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() => expect(onSaved).toHaveBeenCalled())
     expect(onSaved.mock.calls[0][0]).toMatchObject({ form: saved, confirmed: false })
     expect(onSaved.mock.calls[0][0].confirmError).toBeDefined()
@@ -1260,6 +1376,7 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
       })
       await editLoaded()
       await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+      await confirmDialog(user, 'Lưu & xác nhận')
       await waitFor(() => expect(onSaved).toHaveBeenCalled())
       expect(order).toEqual(['patch', 'confirm'])
       const items = (patchBody as { items: { supplierSlug?: string }[] }).items
@@ -1298,6 +1415,7 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
     })
     await user.clear(await noteBox(user))
     await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    await confirmDialog(user, 'Lưu & xác nhận')
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(errorSpy).toHaveBeenCalledWith(
       'Phiếu vừa bị người khác thay đổi — đã tải lại bản mới nhất.',
@@ -1310,9 +1428,10 @@ describe('ImportFormSheet - sửa: lưu, lưu & xác nhận', () => {
 
 describe('ImportFormSheet - đợt sửa cuối', () => {
   const footer = () => document.querySelector<HTMLElement>('[data-slot="sheet-footer"]')!
+  // `hidden: true`: khi hộp hỏi lưu đang mở, phần còn lại của trang bị `aria-hidden` (hộp modal).
   const footerButtons = () =>
     within(footer())
-      .getAllByRole('button')
+      .getAllByRole('button', { hidden: true })
       .map((b) => b.textContent)
   const tick = () => new Promise((r) => setTimeout(r, 100))
 
@@ -1377,6 +1496,7 @@ describe('ImportFormSheet - đợt sửa cuối', () => {
       const { user, onSaved } = setup({ canConfirm: true })
       await toReview(user)
       fireEvent.click(screen.getByRole('button', { name: 'Lưu nháp' }), { detail: 0 })
+      await confirmDialog(user, 'Lưu nháp')
       await waitFor(() => expect(onSaved).toHaveBeenCalled())
       expect(calls).toEqual(['create'])
     })
@@ -1438,6 +1558,7 @@ describe('ImportFormSheet - đợt sửa cuối', () => {
       const { user } = setup()
       await toReview(user)
       await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+      await confirmDialog(user, 'Lưu nháp')
       const date = await screen.findByRole('button', { name: /^Ngày nhập/ })
       await waitFor(() => expect(date).toBeVisible())
       await waitFor(() => expect(date).toHaveFocus())
@@ -1477,8 +1598,9 @@ describe('ImportFormSheet - đợt sửa cuối', () => {
       const { user, onSaved } = setup({ formSlug: 'if-1', detail: draftForm, canConfirm: true })
       await user.clear(await noteBox(user))
       await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+      await confirmDialog(user, 'Lưu & xác nhận')
       await waitFor(() => expect(footerButtons()).toEqual(['Huỷ', 'Đang lưu...', 'Lưu']))
-      expect(saveButton()).toBeDisabled()
+      expect(screen.getByRole('button', { name: 'Lưu', hidden: true })).toBeDisabled()
       release()
       await waitFor(() => expect(onSaved).toHaveBeenCalled())
     })
@@ -1495,6 +1617,7 @@ describe('ImportFormSheet - đợt sửa cuối', () => {
       const { user, onSaved } = setup({ formSlug: 'if-1', detail: draftForm, canConfirm: true })
       await user.clear(await noteBox(user))
       await user.click(saveButton())
+      await confirmDialog(user, 'Lưu thay đổi')
       await waitFor(() => expect(footerButtons()).toEqual(['Huỷ', 'Lưu & xác nhận', 'Đang lưu...']))
       release()
       await waitFor(() => expect(onSaved).toHaveBeenCalled())
@@ -1523,6 +1646,7 @@ describe('ImportFormSheet - đợt sửa cuối', () => {
         const { user } = setup()
         await toReview(user)
         await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+        await confirmDialog(user, 'Lưu nháp')
         await waitFor(() => expect(errorSpy).toHaveBeenCalledTimes(1))
         await waitFor(() => expect(materialBox()).toBeVisible())
         expect(reviewHeading()).not.toBeInTheDocument()
@@ -1563,5 +1687,235 @@ describe('ImportFormSheet - đợt sửa cuối', () => {
       )
       expect(nav.getByRole('button', { name: /Kiểm tra & lưu$/ })).toBeEnabled()
     })
+  })
+})
+
+describe('ImportFormSheet - hỏi xác nhận trước khi lưu', () => {
+  const confirmBox = () => screen.findByRole('alertdialog')
+
+  /** Đếm mọi request ghi (tạo / sửa / xác nhận), kèm body. */
+  function recordWrites() {
+    const calls: { kind: string; body: unknown }[] = []
+    server.use(
+      mswHttp.post(URL_W, async ({ request }) => {
+        calls.push({ kind: 'create', body: await request.json() })
+        return ok(draftForm)
+      }),
+      mswHttp.patch(`${URL_W}/if-1`, async ({ request }) => {
+        calls.push({ kind: 'patch', body: await request.json() })
+        return ok({ ...draftForm, version: 4 })
+      }),
+      mswHttp.post(`${URL_W}/if-1/confirm`, async ({ request }) => {
+        calls.push({ kind: 'confirm', body: await request.json() })
+        return ok({ ...draftForm, status: 'CONFIRMED', version: 4 })
+      }),
+    )
+    return calls
+  }
+
+  it('tạo ③ "Lưu nháp" → hộp "Tạo phiếu nháp PN-…?", chưa POST; xác nhận → POST', async () => {
+    const calls = recordWrites()
+    const { user, onSaved } = setup()
+    await toReview(user)
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    const dialog = await confirmBox()
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(/^Tạo phiếu nháp PN-\S+\?$/)
+    expect(dialog).toHaveTextContent('Chưa cộng tồn, sửa được tiếp.')
+    // Focus vào trong hộp (mặc định của Radix: nút đầu tiên).
+    expect(dialog).toContainElement(document.activeElement as HTMLElement)
+    expect(calls).toEqual([])
+    await confirmDialog(user, 'Lưu nháp')
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(calls.map((c) => c.kind)).toEqual(['create'])
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+  })
+
+  it('tạo ③ "Lưu & xác nhận" → hộp tông success; xác nhận → POST rồi xác nhận', async () => {
+    const calls = recordWrites()
+    const { user, onSaved } = setup({ canConfirm: true })
+    await toReview(user)
+    await user.click(screen.getByRole('button', { name: 'Lưu & xác nhận' }))
+    const dialog = await confirmBox()
+    expect(within(dialog).getByRole('heading')).toHaveTextContent(/^Lưu và xác nhận PN-\S+\?$/)
+    expect(dialog).toHaveTextContent('Tồn kho được cộng ngay, phiếu không sửa được nữa.')
+    expect(dialog).not.toHaveTextContent('Đã sửa')
+    expect(within(dialog).getByRole('button', { name: 'Lưu & xác nhận' }).className).toContain(
+      'bg-success',
+    )
+    expect(calls).toEqual([])
+    await confirmDialog(user, 'Lưu & xác nhận')
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(calls.map((c) => c.kind)).toEqual(['create', 'confirm'])
+  })
+
+  it('"Quay lại" → hộp đóng, không request, sheet vẫn mở, focus về nút đã mở hộp', async () => {
+    const calls = recordWrites()
+    const { user, onOpenChange } = setup({ canConfirm: true })
+    await toReview(user)
+    const trigger = screen.getByRole('button', { name: 'Lưu & xác nhận' })
+    await user.click(trigger)
+    const dialog = await confirmBox()
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await new Promise((r) => setTimeout(r, 50))
+    expect(calls).toEqual([])
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(reviewHeading()).toBeVisible()
+    await waitFor(() => expect(trigger).toHaveFocus())
+  })
+
+  it('sửa nháp, Enter khi không đổi gì → không có hộp, không có PATCH', async () => {
+    const calls = recordWrites()
+    const { user } = setup({ formSlug: 'if-1', detail: draftForm })
+    await editLoaded()
+    await user.click(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ }))
+    const invoice = await screen.findByRole('textbox', { name: /^Số hoá đơn/ })
+    await user.click(invoice)
+    await user.keyboard('{Enter}')
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(calls).toEqual([])
+  })
+
+  it('sửa nháp: đổi số HĐ, Enter → hộp "Lưu thay đổi phiếu PN-0001?" mở, không PATCH; xác nhận → PATCH', async () => {
+    const calls = recordWrites()
+    const { user, onSaved } = setup({ formSlug: 'if-1', detail: draftForm })
+    await editLoaded()
+    await user.click(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ }))
+    const invoice = await screen.findByRole('textbox', { name: /^Số hoá đơn/ })
+    await user.clear(invoice)
+    await user.type(invoice, 'HD-999{Enter}')
+    const dialog = await confirmBox()
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Lưu thay đổi phiếu PN-0001?')
+    expect(dialog).toHaveTextContent('Đã sửa: Số hoá đơn')
+    await new Promise((r) => setTimeout(r, 50))
+    expect(calls).toEqual([])
+    await confirmDialog(user, 'Lưu thay đổi')
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(calls.map((c) => c.kind)).toEqual(['patch'])
+    expect(calls[0].body).toMatchObject({ invoiceCode: 'HD-999', version: 3 })
+  })
+
+  it('sửa nháp: đổi số lượng dòng → "Đã sửa: Dòng vật tư"', async () => {
+    recordWrites()
+    const { user } = setup({ formSlug: 'if-1', detail: draftForm })
+    await editLoaded()
+    const quantity = screen.getByRole('textbox', { name: 'Số lượng dòng 1' })
+    await user.clear(quantity)
+    await user.type(quantity, '12')
+    await user.click(saveButton())
+    expect(await confirmBox()).toHaveTextContent('Đã sửa: Dòng vật tư')
+  })
+
+  it('hộp đang mở, Esc → chỉ hộp đóng, không hỏi "Bỏ thay đổi chưa lưu?", sheet vẫn mở', async () => {
+    const calls = recordWrites()
+    const { user, onOpenChange } = setup({ formSlug: 'if-1', detail: draftForm })
+    await user.clear(await noteBox(user))
+    await user.click(saveButton())
+    await confirmBox()
+    await user.keyboard('{Escape}')
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByText('Bỏ thay đổi chưa lưu?')).not.toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })).toBeInTheDocument()
+    expect(calls).toEqual([])
+  })
+
+  it('hộp đang mở, bấm ra ngoài → chỉ hộp đóng, không hỏi "Bỏ thay đổi chưa lưu?", sheet vẫn mở', async () => {
+    const calls = recordWrites()
+    const { user, onOpenChange } = setup({ formSlug: 'if-1', detail: draftForm })
+    await user.clear(await noteBox(user))
+    await user.click(saveButton())
+    await confirmBox()
+    await user.click(document.querySelector<HTMLElement>('[data-slot="dialog-overlay"]')!)
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    await new Promise((r) => setTimeout(r, 50))
+    expect(screen.queryByText('Bỏ thay đổi chưa lưu?')).not.toBeInTheDocument()
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('dialog', { name: 'Sửa phiếu nhập PN-0001' })).toBeInTheDocument()
+    expect(calls).toEqual([])
+  })
+
+  it('sửa nháp chỉ có bên bán của dòng chưa lưu (form không dirty) → Lưu mở hộp có "Bên bán của dòng"', async () => {
+    const calls = recordWrites()
+    const legacy: ImportForm = {
+      ...draftForm,
+      items: [
+        draftForm.items![0],
+        {
+          ...draftForm.items![0],
+          slug: 'it-2',
+          lineNo: 2,
+          materialSlug: 'm-sugar',
+          materialCode: 'VT-02',
+          materialName: 'Đường',
+          unitSlug: 'u-kg',
+          unitCode: 'KG',
+          unitName: 'Kilogram',
+          supplierSlug: null,
+          supplierCode: null,
+          supplierName: null,
+          quantity: 1,
+          conversionRate: 1,
+          baseQuantity: 1,
+          unitPrice: 1000,
+          amount: 1000,
+        },
+      ],
+    }
+    const { user } = setup({ formSlug: 'if-1', detail: legacy, canPickSupplier: true })
+    await editLoaded()
+    await waitFor(() => expect(saveButton()).toBeEnabled())
+    await user.click(saveButton())
+    const dialog = await confirmBox()
+    expect(dialog).toHaveTextContent('Đã sửa: Bên bán của dòng')
+    expect(calls).toEqual([])
+    await confirmDialog(user, 'Lưu thay đổi')
+    await waitFor(() => expect(calls.map((c) => c.kind)).toEqual(['patch']))
+  })
+
+  it('sửa: bấm đúp nút xác nhận → chỉ một PATCH', async () => {
+    let patches = 0
+    server.use(
+      mswHttp.patch(`${URL_W}/if-1`, async () => {
+        patches += 1
+        await new Promise((r) => setTimeout(r, 150))
+        return ok({ ...draftForm, version: 4 })
+      }),
+    )
+    const { user, onSaved } = setup({ formSlug: 'if-1', detail: draftForm })
+    await user.clear(await noteBox(user))
+    await user.click(saveButton())
+    const dialog = await confirmBox()
+    await user.dblClick(within(dialog).getByRole('button', { name: 'Lưu thay đổi' }))
+    // Đang gửi: nút xác nhận đổi chữ và bị khoá.
+    expect(within(dialog).getByRole('button', { name: 'Đang lưu...' })).toBeDisabled()
+    await waitFor(() => expect(onSaved).toHaveBeenCalled())
+    expect(patches).toBe(1)
+  })
+
+  it('đang gửi sau khi xác nhận → Esc không đóng hộp; gửi lỗi tại ô → hộp đóng, lỗi tại ô', async () => {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((r) => (release = r))
+    server.use(
+      mswHttp.post(URL_W, async () => {
+        await gate
+        return apiError(400, 101304, 'code exists')
+      }),
+    )
+    const { user } = setup()
+    await toReview(user)
+    await user.click(screen.getByRole('button', { name: 'Lưu nháp' }))
+    await confirmDialog(user, 'Lưu nháp')
+    const dialog = await confirmBox()
+    await waitFor(() =>
+      expect(within(dialog).getByRole('button', { name: 'Đang lưu...' })).toBeDisabled(),
+    )
+    await user.keyboard('{Escape}')
+    expect(screen.getByRole('alertdialog')).toBeInTheDocument()
+    release()
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(await screen.findByRole('textbox', { name: /^Mã phiếu/ })).toHaveFocus()
   })
 })

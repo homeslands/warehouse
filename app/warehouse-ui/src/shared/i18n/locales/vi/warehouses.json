@@ -1,5 +1,6 @@
 {
   "title": "Kho",
+  "entityName": "kho",
   "columnCode": "Mã",
   "columnName": "Tên",
   "columnAddress": "Địa chỉ",
@@ -68,5 +69,14 @@
   "tabsLabel": "Nội dung kho",
   "tabMaterials": "Vật tư",
   "tabMembers": "Thành viên",
-  "sectionInventory": "Vật tư trong kho"
+  "sectionInventory": "Vật tư trong kho",
+  "assignManagerConfirmTitle": "Gán {{name}} làm quản lý kho {{warehouse}}?",
+  "assignManagerConfirmDescription": "Người này sẽ thay quản lý hiện tại của kho (nếu có).",
+  "assignManagerConfirmAction": "Xác nhận gán",
+  "unassignManagerConfirmTitle": "Bỏ quản lý của kho {{warehouse}}?",
+  "unassignManagerConfirmDescription": "Kho sẽ không còn người quản lý cho đến khi gán người khác.",
+  "unassignManagerConfirmAction": "Xác nhận bỏ gán",
+  "addMemberConfirmTitle": "Thêm {{count}} người vào kho {{warehouse}}?",
+  "addMemberConfirmDescription": "Họ sẽ nhìn thấy và thao tác được trên kho này.",
+  "addMemberConfirmAction": "Xác nhận thêm"
 }

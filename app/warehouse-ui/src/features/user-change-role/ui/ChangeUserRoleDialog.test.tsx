@@ -6,8 +6,9 @@ import { beforeEach, describe, expect, it, vi } from 'vitest'
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { toast } from 'sonner'
-import type { Role, User } from '@/entities/user'
+import { userKeys, type Role, type User } from '@/entities/user'
 import { apiError, ok } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
@@ -79,6 +80,7 @@ describe('ChangeUserRoleDialog', () => {
     await chooseOption(user, 'Vai trò mới', 'Quản lý')
     await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
     await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+    await confirmStep(user, 'Xác nhận đổi vai trò')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ roleSlug: 'r-man' })
@@ -97,8 +99,12 @@ describe('ChangeUserRoleDialog', () => {
     await chooseOption(user, 'Vai trò mới', 'Quản lý')
     await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
     await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+    await confirmStep(user, 'Xác nhận đổi vai trò')
 
+    // Lỗi thuộc ô → về màn nhập, lỗi tại ô, lựa chọn cũ còn.
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
+    expect(screen.getByRole('combobox', { name: 'Vai trò mới' })).toHaveTextContent('Quản lý')
+    expect(screen.getByLabelText(CONFIRM_LABEL)).toHaveValue(lan.phonenumber)
     expect(toast.error).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalledWith(false)
   })
@@ -127,4 +133,115 @@ describe('ChangeUserRoleDialog', () => {
     expect(screen.getByLabelText(CONFIRM_LABEL)).toHaveValue('')
     expect(screen.getByRole('button', { name: 'Đổi vai trò' })).toBeDisabled()
   })
+
+  it('hợp lệ → hỏi "Đổi vai trò của … từ … sang …?" (tên vai trò đã dịch), chưa gửi request', async () => {
+    const called = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/users/u-lan/change-role`, () => {
+        called()
+        return ok(lan)
+      }),
+    )
+    const { user } = renderWithProviders(
+      <ChangeUserRoleDialog user={lan} roles={ASSIGNABLE} onOpenChange={() => {}} />,
+    )
+
+    await chooseOption(user, 'Vai trò mới', 'Quản lý')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+
+    expect(
+      await screen.findByRole('dialog', {
+        name: 'Đổi vai trò của Trần Lan từ Giám sát sang Quản lý?',
+      }),
+    ).toBeInTheDocument()
+    expect(called).not.toHaveBeenCalled()
+  })
+
+  it('"Quay lại" giữ vai trò đã chọn và tên đăng nhập đã gõ; bấm lại thì hỏi lại', async () => {
+    const { user } = renderWithProviders(
+      <ChangeUserRoleDialog user={lan} roles={ASSIGNABLE} onOpenChange={() => {}} />,
+    )
+    await chooseOption(user, 'Vai trò mới', 'Quản lý')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+    await screen.findByRole('dialog', { name: /^Đổi vai trò của Trần Lan/ })
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByRole('combobox', { name: 'Vai trò mới' })).toHaveTextContent('Quản lý')
+    expect(screen.getByLabelText(CONFIRM_LABEL)).toHaveValue(lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+    expect(
+      await screen.findByRole('dialog', { name: /^Đổi vai trò của Trần Lan/ }),
+    ).toBeInTheDocument()
+  })
+
+  it('bấm đúp nút xác nhận chỉ gửi một request', async () => {
+    const called = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/users/u-lan/change-role`, async () => {
+        called()
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        return ok(lan)
+      }),
+    )
+    const onOpenChange = vi.fn()
+    const { user } = renderWithProviders(
+      <ChangeUserRoleDialog user={lan} roles={ASSIGNABLE} onOpenChange={onOpenChange} />,
+    )
+    await chooseOption(user, 'Vai trò mới', 'Quản lý')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+
+    await user.dblClick(await screen.findByRole('button', { name: 'Xác nhận đổi vai trò' }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(called).toHaveBeenCalledTimes(1)
+  })
+
+  it('lỗi 500 sau xác nhận → toast, ở lại màn xác nhận, xác nhận lần nữa gửi lại', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.post(`${BASE}/users/u-lan/change-role`, () => {
+        calls++
+        return apiError(500)
+      }),
+    )
+    const onOpenChange = vi.fn()
+    const { user } = renderWithProviders(
+      <ChangeUserRoleDialog user={lan} roles={ASSIGNABLE} onOpenChange={onOpenChange} />,
+    )
+    await chooseOption(user, 'Vai trò mới', 'Quản lý')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+    await confirmStep(user, 'Xác nhận đổi vai trò')
+
+    await waitFor(() => expect(toast.error).toHaveBeenCalledTimes(1))
+    expect(onOpenChange).not.toHaveBeenCalledWith(false)
+    expect(screen.getByRole('dialog', { name: /^Đổi vai trò của Trần Lan/ })).toBeInTheDocument()
+
+    await confirmStep(user, 'Xác nhận đổi vai trò')
+    await waitFor(() => expect(calls).toBe(2))
+  })
+
+  it.each([404, 409])(
+    'lỗi %i (người đích mất / dữ liệu cũ) → toast, đóng hộp, làm mới danh sách người dùng',
+    async (status) => {
+      server.use(mswHttp.post(`${BASE}/users/u-lan/change-role`, () => apiError(status, 100405)))
+      const onOpenChange = vi.fn()
+      const { user, queryClient } = renderWithProviders(
+        <ChangeUserRoleDialog user={lan} roles={ASSIGNABLE} onOpenChange={onOpenChange} />,
+      )
+      const spy = vi.spyOn(queryClient, 'invalidateQueries')
+      await chooseOption(user, 'Vai trò mới', 'Quản lý')
+      await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+      await user.click(screen.getByRole('button', { name: 'Đổi vai trò' }))
+      await confirmStep(user, 'Xác nhận đổi vai trò')
+
+      await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+      expect(toast.error).toHaveBeenCalled()
+      expect(spy).toHaveBeenCalledWith({ queryKey: userKeys.all })
+    },
+  )
 })

@@ -1,5 +1,6 @@
 {
   "title": "Units",
+  "entityName": "unit",
   "create": "Add unit",
   "edit": "Edit unit",
   "created": "Unit added",

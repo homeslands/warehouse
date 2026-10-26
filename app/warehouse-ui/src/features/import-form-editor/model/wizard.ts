@@ -1,4 +1,8 @@
 import type { FieldErrors, FieldPath } from 'react-hook-form'
+import {
+  firstErrorField as findFirstErrorField,
+  firstStepWithError as findFirstStepWithError,
+} from '@/shared/lib/wizard-errors'
 import type { ImportFormValues } from './import-form-editor.schema'
 
 /** Ba bước của sheet phiếu nhập, theo thứ tự hiển thị. */
@@ -17,7 +21,7 @@ const INFO_FIELDS: FieldPath<ImportFormValues>[] = [
 ]
 
 /** Các ô của một dòng vật tư, theo thứ tự hiển thị trong lưới. */
-const ITEM_ROW_FIELDS = ['materialSlug', 'unitSlug', 'quantity', 'unitPrice'] as const
+const ITEM_ROW_FIELDS = ['materialSlug', 'unitSlug', 'quantity', 'unitPrice', 'expiryDate'] as const
 
 export function stepIndex(step: WizardStep): number {
   return WIZARD_STEPS.indexOf(step)
@@ -40,50 +44,20 @@ export function stepOfField(path: string): WizardStep {
   return path === 'items' || path.startsWith('items.') ? 'items' : 'info'
 }
 
-type LooseErrors = Record<string, unknown>
-
-/** Một khoá lỗi có thật: không undefined, và với mảng dòng thì phải có ít nhất một phần tử lỗi. */
-function hasError(value: unknown): boolean {
-  if (!value) return false
-  if (Array.isArray(value)) {
-    // RHF gắn lỗi cấp mảng vào `root` / `message` trên chính mảng, kể cả khi không dòng nào lỗi.
-    const arrayLevel = value as unknown as LooseErrors
-    if (arrayLevel.root || arrayLevel.message) return true
-    return value.some((entry) => entry !== undefined && entry !== null)
-  }
-  return true
-}
-
-function stepHasError(errors: LooseErrors, step: WizardStep): boolean {
-  return stepFields(step).some((field) => hasError(errors[field]))
-}
-
 /** Bước sớm nhất (theo `WIZARD_STEPS`) có ít nhất một lỗi; `null` nếu không có lỗi nào. */
 export function firstStepWithError(errors: FieldErrors<ImportFormValues>): WizardStep | null {
-  const loose = errors as LooseErrors
-  return WIZARD_STEPS.find((step) => stepHasError(loose, step)) ?? null
+  return findFirstStepWithError(errors, WIZARD_STEPS, stepFields)
 }
 
-/**
- * Ô lỗi đầu tiên của bước. Với `items`: dòng lỗi nhỏ nhất, rồi ô đầu tiên của dòng đó trong
- * `ITEM_ROW_FIELDS`. Lỗi cấp mảng (`items.root`) chỉ là phương án cuối khi không dòng nào có ô lỗi.
- */
+/** Ô lỗi đầu tiên của bước (với `items`: dòng lỗi nhỏ nhất, rồi ô đầu tiên theo `ITEM_ROW_FIELDS`). */
 export function firstErrorField(
   errors: FieldErrors<ImportFormValues>,
   step: WizardStep,
 ): FieldPath<ImportFormValues> | null {
-  const loose = errors as LooseErrors
-  if (step === 'items') {
-    const rows = loose.items
-    if (Array.isArray(rows)) {
-      for (let index = 0; index < rows.length; index++) {
-        const row = rows[index] as LooseErrors | undefined
-        if (!row) continue
-        const field = ITEM_ROW_FIELDS.find((key) => hasError(row[key]))
-        if (field) return `items.${index}.${field}` as FieldPath<ImportFormValues>
-      }
-    }
-    return hasError(rows) ? 'items' : null
-  }
-  return stepFields(step).find((field) => hasError(loose[field])) ?? null
+  return findFirstErrorField(errors, step, {
+    stepFields,
+    rowsStep: 'items',
+    rowsKey: 'items',
+    rowFields: ITEM_ROW_FIELDS,
+  })
 }

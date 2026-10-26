@@ -1,12 +1,13 @@
 import { zodResolver } from '@hookform/resolvers/zod'
-import { UserPlusIcon } from 'lucide-react'
+import { UserPenIcon, UserPlusIcon } from 'lucide-react'
 import { useEffect, useMemo, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { useRevalidateWhenTouched } from '@/shared/lib/form-validation'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { MIN_PASSWORD_LENGTH } from '@/shared/lib/password-policy'
-import { formatFullName } from '@/shared/lib/person-name'
+import { formatFullName, formatPersonLabel } from '@/shared/lib/person-name'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { DatePicker } from '@/shared/ui/DatePicker'
 import { FormSheet } from '@/shared/ui/FormSheet'
@@ -22,6 +23,7 @@ import {
 import { Input } from '@/shared/ui/input'
 import { PasswordInput } from '@/shared/ui/PasswordInput'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/shared/ui/select'
 import { useRoleLabel } from '@/entities/session'
 import { useCreateUser, useUpdateUser, type Role, type User } from '@/entities/user'
@@ -101,7 +103,7 @@ export function UserFormSheet({ open, onOpenChange, user, roles }: Props) {
     toastApiError(error)
   }
 
-  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận thêm người dùng" rồi mới gửi. Sửa: lưu thẳng.
+  // Tạo: form hợp lệ → giữ giá trị, hỏi "Xác nhận thêm người dùng" rồi mới gửi. Sửa: cũng hỏi "Lưu thay đổi …?" (useSaveChangesConfirmation).
   const [toCreate, setToCreate] = useState<UserFormValues | null>(null)
   if (!open && toCreate) setToCreate(null)
 
@@ -119,19 +121,48 @@ export function UserFormSheet({ open, onOpenChange, user, roles }: Props) {
 
   const createRole = roles.find((role) => role.slug === toCreate?.roleSlug)
 
+  // Sửa: form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH. Ô tuỳ chọn xoá trống không được gửi nhưng
+  // vẫn là ô đã sửa (theo `dirtyFields`).
+  const saveConfirmation = useSaveChangesConfirmation<UserFormValues>({
+    open,
+    entity: t('users:entityName'),
+    name: user ? formatPersonLabel(user) : '',
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      phonenumber: t('users:fieldPhonenumber'),
+      lastName: t('users:fieldLastName'),
+      firstName: t('users:fieldFirstName'),
+      dob: t('users:fieldDob'),
+      email: t('users:fieldEmail'),
+      address: t('users:fieldAddress'),
+    }),
+    icon: <UserPenIcon />,
+    onConfirm: (values) => {
+      if (!user) return
+      update.mutate(
+        { slug: user.slug, input: toUpdateInput(values, user) },
+        {
+          onSuccess: () => onOpenChange(false),
+          onError: (error) => {
+            // Đóng hộp xác nhận để lỗi tại ô (vd SĐT đã tồn tại) hiện ra.
+            saveConfirmation.close()
+            handleError(error)
+          },
+        },
+      )
+    },
+  })
+
   const onSubmit = (values: UserFormValues) => {
-    const options = { onSuccess: () => onOpenChange(false), onError: handleError }
-    if (user) {
-      const input = toUpdateInput(values, user)
-      // Chỉ xoá trống trường tuỳ chọn (bị bỏ qua) → không còn gì để gửi: đóng luôn, không gọi API.
-      if (Object.keys(input).length === 0) {
-        onOpenChange(false)
-        return
-      }
-      update.mutate({ slug: user.slug, input }, options)
-    } else {
+    if (!user) {
       setToCreate(values)
+      return
     }
+    // Ô tuỳ chọn xoá trống không được gửi → có thể không còn gì để lưu: đóng, không hỏi.
+    if (Object.keys(toUpdateInput(values, user)).length === 0) {
+      onOpenChange(false)
+      return
+    }
+    saveConfirmation.request(values)
   }
 
   const textField = (
@@ -190,7 +221,7 @@ export function UserFormSheet({ open, onOpenChange, user, roles }: Props) {
       isDirty={form.formState.isDirty}
       confirmation={
         user
-          ? undefined
+          ? saveConfirmation.confirmation
           : {
               open: toCreate !== null,
               onOpenChange: (next) => {

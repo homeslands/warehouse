@@ -29,6 +29,8 @@ export type ImportFormItem = {
   baseQuantity: number
   unitPrice: number
   amount: number
+  /** `YYYY-MM-DD`; không có = hàng không theo dõi hạn. */
+  expiryDate: string | null
   note: string | null
 }
 
@@ -63,6 +65,8 @@ export type ImportFormItemInput = {
   quantity: number
   unitPrice: number
   note?: string
+  /** `YYYY-MM-DD`, không trước ngày phiếu; bỏ qua = không có hạn. */
+  expiryDate?: string
   /** Bên bán của dòng; bỏ qua = không ghi NCC. */
   supplierSlug?: string
 }

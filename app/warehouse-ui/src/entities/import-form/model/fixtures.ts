@@ -72,6 +72,7 @@ export const draftForm: ImportForm = {
       baseQuantity: 250,
       unitPrice: 375_000,
       amount: 3_750_000,
+      expiryDate: null,
       note: null,
     },
   ],

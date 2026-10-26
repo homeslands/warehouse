@@ -130,6 +130,14 @@ describe('ERROR_CODE_KEYS — khoảng ngày tạo sai thứ tự (BE sort/filte
   })
 })
 
+describe('ERROR_CODE_KEYS — hạn dùng dòng phiếu nhập (WMS-21)', () => {
+  it('101333 → importFormItemExpiryDateInvalid, có bản dịch vi và en', () => {
+    expect(ERROR_CODE_KEYS[101333]).toBe('importFormItemExpiryDateInvalid')
+    expect(viErrors.importFormItemExpiryDateInvalid).toBeTruthy()
+    expect(enErrors.importFormItemExpiryDateInvalid).toBeTruthy()
+  })
+})
+
 const SUPPLIER_CODES = Array.from({ length: 20 }, (_, i) => 101201 + i)
 
 describe('ERROR_CODE_KEYS — nhà cung cấp (WMS-11)', () => {
@@ -176,6 +184,17 @@ describe('ERROR_CODE_KEYS — vai trò (WMS-15 phần 2)', () => {
 describe('ERROR_CODE_KEYS — lọc vật tư theo nhà cung cấp (WMS-13-be(9))', () => {
   it('100725 có khoá + bản dịch vi/en', () => {
     const key = ERROR_CODE_KEYS[100725] as keyof typeof viErrors
+    expect(key).toBeDefined()
+    expect(viErrors[key]).toBeTruthy()
+    expect(enErrors[key as keyof typeof enErrors]).toBeTruthy()
+  })
+})
+
+describe('ERROR_CODE_KEYS — phiếu xuất (WMS-21)', () => {
+  const EXPORT_FORM_CODES = Array.from({ length: 38 }, (_, i) => 101401 + i)
+
+  it.each([...EXPORT_FORM_CODES, 100817, 101502])('mã %i có khoá + bản dịch vi/en', (code) => {
+    const key = ERROR_CODE_KEYS[code] as keyof typeof viErrors
     expect(key).toBeDefined()
     expect(viErrors[key]).toBeTruthy()
     expect(enErrors[key as keyof typeof enErrors]).toBeTruthy()

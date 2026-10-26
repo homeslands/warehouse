@@ -1,5 +1,6 @@
 {
   "title": "Materials",
+  "entityName": "material",
   "create": "Add material",
   "edit": "Edit material",
   "created": "Material added",
@@ -88,5 +89,10 @@
   "detachConfirm": "Remove unit <1>{{unit}}</1> from this material?",
   "detachAction": "Remove",
   "detaching": "Removing...",
-  "filterCreatedAt": "Created"
+  "filterCreatedAt": "Created",
+  "conversionAttachConfirmTitle": "Attach unit {{unit}} (1 {{unit}} = {{rate}} {{base}})?",
+  "conversionAttachConfirmAction": "Confirm attach unit",
+  "conversionEditConfirmTitle": "Change the {{unit}} rate to {{rate}} {{base}}?",
+  "conversionEditConfirmAction": "Confirm rate change",
+  "conversionConfirmDescription": "Quantities in this unit will be converted using the new rate."
 }

@@ -1,5 +1,6 @@
 {
   "title": "Loại vật tư",
+  "entityName": "loại vật tư",
   "create": "Thêm loại vật tư",
   "edit": "Sửa loại vật tư",
   "created": "Đã thêm loại vật tư",

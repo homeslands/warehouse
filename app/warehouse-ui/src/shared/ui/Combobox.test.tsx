@@ -32,6 +32,24 @@ function setup(initial?: string) {
 }
 
 describe('Combobox', () => {
+  it('mục disabled hiện ra nhưng không chọn được', async () => {
+    const onChange = vi.fn()
+    const user = userEvent.setup()
+    render(
+      <Combobox
+        aria-label="Tỉnh"
+        options={[...OPTIONS, { value: 'x', label: 'Hết hàng', disabled: true }]}
+        value={undefined}
+        onChange={onChange}
+      />,
+    )
+    await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
+    const item = screen.getByRole('option', { name: 'Hết hàng' })
+    expect(item).toHaveAttribute('aria-disabled', 'true')
+    await user.click(item)
+    expect(onChange).not.toHaveBeenCalled()
+  })
+
   it('mở ra thấy mọi lựa chọn, chọn một → onChange(value) và đóng', async () => {
     const { onChange, user } = setup()
     await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))

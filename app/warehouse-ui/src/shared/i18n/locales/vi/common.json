@@ -55,5 +55,16 @@
     "ADMIN": "Quản trị viên",
     "MANAGER": "Quản lý",
     "SUPERVISOR": "Giám sát"
-  }
+  },
+  "filterPersonSearch": "Tìm theo tên hoặc số điện thoại",
+  "filterPersonUnknown": "Người không xác định",
+  "fileChoose": "Chọn file",
+  "fileUploading": "Đang tải lên…",
+  "fileRemove": "Gỡ file",
+  "fileHint": "Tối đa 10 MB. Hệ thống chưa hỗ trợ tải file về — chỉ lưu kèm phiếu.",
+  "stepDone": "Đã xong",
+  "saveChangesTitle": "Lưu thay đổi {{entity}} {{name}}?",
+  "changedFields": "Đã sửa: {{fields}}",
+  "saveChanges": "Lưu thay đổi",
+  "back": "Quay lại"
 }

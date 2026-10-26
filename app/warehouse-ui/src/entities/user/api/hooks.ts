@@ -212,6 +212,10 @@ export function useChangeUserRole() {
       toast.success(t('users:roleChanged'))
       invalidate()
     },
+    // Người đích đã mất / dữ liệu cũ: hộp đóng, danh sách và chi tiết phải tải lại.
+    onError: (error) => {
+      if (isApiError(error) && (error.statusCode === 404 || error.statusCode === 409)) invalidate()
+    },
   })
 }
 
