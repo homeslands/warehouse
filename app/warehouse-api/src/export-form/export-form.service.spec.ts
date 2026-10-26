@@ -11,6 +11,7 @@ import { ExportFormProfile } from './export-form.mapper';
 import { ExportForm } from './export-form.entity';
 import { ExportFormItem } from './export-form-item.entity';
 import { ExportFormStatus, ExportFormType } from './export-form.constants';
+import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { ExportFormValidation } from './export-form.validation';
 import { CreateExportFormRequestDto } from './export-form.dto';
 import { AuthorityCode } from 'src/authority/authority.constants';
@@ -843,23 +844,51 @@ describe('ExportFormService', () => {
   describe('uploadFile', () => {
     const file = { mimetype: 'application/pdf' } as Express.Multer.File;
 
+    beforeEach(() => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+    });
+
     it('uploads into the export-forms folder', async () => {
       s3Service.uploadFile.mockResolvedValue('export-forms/a.pdf');
       s3Service.getFileUrl.mockReturnValue('https://bucket/export-forms/a.pdf');
 
       await expect(
-        service.uploadFile(file, actor([AuthorityCode.ExportFormUpdateDraftOwn])),
+        service.uploadFile('wh-slug', file, actor([AuthorityCode.ExportFormUpdateDraftOwn])),
       ).resolves.toBe('https://bucket/export-forms/a.pdf');
+      expect(warehouseRepository.findOneBy).toHaveBeenCalledWith({ slug: 'wh-slug' });
       expect(s3Service.uploadFile).toHaveBeenCalledWith(file, 'export-forms');
     });
 
     it('is forbidden without create/update authority', async () => {
-      await expect(service.uploadFile(file, actor([]))).rejects.toBeInstanceOf(ForbiddenException);
+      await expect(service.uploadFile('wh-slug', file, actor([]))).rejects.toBeInstanceOf(
+        ForbiddenException,
+      );
+    });
+
+    it('rejects an unknown warehouse without uploading', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(null);
+
+      await expectError(
+        service.uploadFile('missing', file, actor([AuthorityCode.ExportFormCreate])),
+        WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      );
+      expect(s3Service.uploadFile).not.toHaveBeenCalled();
+    });
+
+    it('rejects an inactive warehouse without uploading', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue({ ...warehouse, isActive: false });
+
+      await expectError(
+        service.uploadFile('wh-slug', file, actor([AuthorityCode.ExportFormCreate])),
+        ExportFormValidation.EXPORT_FORM_WAREHOUSE_INACTIVE.code,
+      );
+      expect(s3Service.uploadFile).not.toHaveBeenCalled();
     });
 
     it('rejects a file type that is not allowed', async () => {
       await expectError(
         service.uploadFile(
+          'wh-slug',
           { mimetype: 'text/html' } as Express.Multer.File,
           actor([AuthorityCode.ExportFormCreate]),
         ),
