@@ -232,3 +232,21 @@ describe('GetAllImportFormRequestDto.status', () => {
     );
   });
 });
+
+describe('CreateImportFormItemDto.expiryDate', () => {
+  const line = { materialSlug: 'mat-1', unitSlug: 'unit-1', quantity: 1, unitPrice: 1 };
+
+  it('is optional', () => {
+    expect(messagesOf(CreateImportFormItemDto, line)).toEqual([]);
+  });
+
+  it('accepts YYYY-MM-DD', () => {
+    expect(messagesOf(CreateImportFormItemDto, { ...line, expiryDate: '2027-02-28' })).toEqual([]);
+  });
+
+  it.each(['2027-02-30', '28/02/2027', '2027-02-28T00:00:00Z'])('rejects %s', (expiryDate) => {
+    expect(messagesOf(CreateImportFormItemDto, { ...line, expiryDate }, 'expiryDate')).toContain(
+      'IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID',
+    );
+  });
+});

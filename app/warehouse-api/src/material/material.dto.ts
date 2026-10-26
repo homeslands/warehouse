@@ -205,6 +205,9 @@ export class MaterialConversionUnitResponseDto {
   @ApiProperty({ example: 'Bag 50kg' })
   unitName: string;
 
+  @ApiProperty({ type: UnitResponseDto, description: 'The unit object' })
+  unit: UnitResponseDto;
+
   @AutoMap()
   @ApiProperty({ description: 'Number of base units in 1 of this unit', example: 50 })
   conversionRate: number;

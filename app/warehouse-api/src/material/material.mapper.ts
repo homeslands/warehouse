@@ -161,8 +161,8 @@ export class MaterialProfile extends AutomapperProfile {
         ),
       );
 
-      // Dòng bảng join -> DTO phẳng. `unit` phải được load (`relations: { unit: true }`), thiếu là
-      // 3 field `unit*` im lặng ra `undefined`.
+      // Dòng bảng join -> DTO (3 field `unit*` phẳng + object `unit`). `unit` phải được load
+      // (`relations: { unit: true }`), thiếu là các field này im lặng ra `undefined`.
       createMap(
         mapper,
         MaterialUnit,
@@ -178,6 +178,10 @@ export class MaterialProfile extends AutomapperProfile {
         forMember(
           (d) => d.unitName,
           mapFrom((s) => s.unit?.name),
+        ),
+        forMember(
+          (d) => d.unit,
+          mapFrom((s) => (s.unit ? mapper.map(s.unit, Unit, UnitResponseDto) : undefined)),
         ),
       );
 

@@ -80,6 +80,21 @@ export class CreateImportFormItemDto {
   @Transform(trim)
   @IsString({ message: 'IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL' })
   supplierSlug?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Expiry date of the goods on this line (YYYY-MM-DD), not before the form date. Copied to ' +
+      'the material batch created when the form is confirmed',
+    example: '2027-10-12',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsISO8601(
+    { strict: true, strictSeparator: true },
+    { message: 'IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID' },
+  )
+  @Matches(IMPORT_FORM_DATE_REGEX, { message: 'IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID' })
+  expiryDate?: string;
 }
 
 /**
@@ -196,6 +211,40 @@ export class GetAllImportFormRequestDto extends BaseQueryDto {
   @Transform(upper)
   @Matches(SEARCH_CODE_REGEX, { message: 'IMPORT_FORM_CODE_SEARCH_INVALID' })
   code?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by invoice code (prefix match, case-insensitive)',
+    example: 'HD-000',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString({ message: 'IMPORT_FORM_INVOICE_CODE_INVALID' })
+  @MaxLength(IMPORT_FORM_REFERENCE_MAX_LENGTH, { message: 'IMPORT_FORM_INVOICE_CODE_INVALID' })
+  invoiceCode?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by purchase order number (prefix match, case-insensitive)',
+    example: 'PO-2026',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString({ message: 'IMPORT_FORM_PURCHASE_ORDER_INVALID' })
+  @MaxLength(IMPORT_FORM_REFERENCE_MAX_LENGTH, { message: 'IMPORT_FORM_PURCHASE_ORDER_INVALID' })
+  purchaseOrder?: string;
+
+  @ApiPropertyOptional({ description: 'Filter by the slug of the requester (exact match)' })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  requesterSlug?: string;
+
+  @ApiPropertyOptional({
+    description: 'Filter by the slug of the approver — the user who confirmed/cancelled the form',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  approverSlug?: string;
 
   @ApiPropertyOptional({
     description: 'Sort field',
@@ -354,6 +403,10 @@ export class ImportFormItemResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiPropertyOptional()
   note?: string | null;
+
+  @AutoMap()
+  @ApiPropertyOptional({ example: '2027-10-12', description: 'null = no expiry date' })
+  expiryDate?: string | null;
 }
 
 export class ImportFormResponseDto extends VersionedResponseDto {
