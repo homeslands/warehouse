@@ -55,5 +55,16 @@
     "ADMIN": "Administrator",
     "MANAGER": "Manager",
     "SUPERVISOR": "Supervisor"
-  }
+  },
+  "filterPersonSearch": "Search by name or phone number",
+  "filterPersonUnknown": "Unknown person",
+  "fileChoose": "Choose file",
+  "fileUploading": "Uploading…",
+  "fileRemove": "Remove file",
+  "fileHint": "Up to 10 MB. Downloading is not supported yet — the file is only stored with the receipt.",
+  "stepDone": "Done",
+  "saveChangesTitle": "Save changes to {{entity}} {{name}}?",
+  "changedFields": "Changed: {{fields}}",
+  "saveChanges": "Save changes",
+  "back": "Back"
 }

@@ -92,5 +92,9 @@
     "REMOVE": "Removed"
   },
   "reservedChange": "Reserved {{delta}} ({{before}} → {{after}})",
-  "importFormNote": "Goods receipt {{code}}"
+  "importFormNote": "Goods receipt {{code}}",
+  "createAndAssignConfirmTitle": "Create material {{code}} and add it to warehouse {{warehouse}}?",
+  "createAndAssignConfirmAction": "Confirm create material",
+  "confirmSupplier": "Supplier",
+  "createAndAssignConfirmDescription": "The new material is added to the catalog and attached to the warehouse right away."
 }

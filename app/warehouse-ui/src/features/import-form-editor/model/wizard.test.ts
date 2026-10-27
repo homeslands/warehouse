@@ -74,6 +74,15 @@ describe('wizard', () => {
     expect(firstErrorField(errors as never, 'items')).toBe('items.1.quantity')
   })
 
+  it('firstErrorField: ô Hạn dùng đứng sau Đơn giá trong dòng', () => {
+    expect(firstErrorField({ items: [{ expiryDate: {}, unitPrice: {} }] } as never, 'items')).toBe(
+      'items.0.unitPrice',
+    )
+    expect(firstErrorField({ items: [{ expiryDate: {} }] } as never, 'items')).toBe(
+      'items.0.expiryDate',
+    )
+  })
+
   it('firstErrorField: ô lỗi đầu tiên theo thứ tự stepFields', () => {
     expect(firstErrorField({ invoiceCode: {}, code: {} } as never, 'info')).toBe('invoiceCode')
     // Đúng thứ tự trên màn hình: Chứng từ đính kèm đứng trước Mã phiếu.

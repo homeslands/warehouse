@@ -202,6 +202,7 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
           open={adding}
           onOpenChange={setAdding}
           warehouseSlug={warehouse.slug}
+          warehouseName={warehouse.name}
           initialSearch=""
           description={t('inventory:addFromWarehouseDescription', { warehouse: warehouse.name })}
           abilities={addAbilities}

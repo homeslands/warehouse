@@ -11,6 +11,8 @@ import {
   useConfirmImportForm,
   type ImportForm,
 } from '@/entities/import-form'
+import { inventoryKeys } from '@/entities/inventory'
+import { materialBatchKeys } from '@/entities/material-batch'
 
 type Props = {
   warehouseSlug: string
@@ -33,7 +35,12 @@ export function ConfirmImportFormDialog({ warehouseSlug, form, onOpenChange }: P
     action.mutate(
       { warehouseSlug, slug: form.slug, version: form.version },
       {
-        onSuccess: () => onOpenChange(false),
+        onSuccess: () => {
+          // Xác nhận cộng tồn / tạo lô — hai entity khác nên tầng feature tự làm mới (phiếu xuất không báo thiếu giả).
+          void qc.invalidateQueries({ queryKey: inventoryKeys.all })
+          void qc.invalidateQueries({ queryKey: materialBatchKeys.warehouse(warehouseSlug) })
+          onOpenChange(false)
+        },
         onError: (error) => {
           if (isStaleImportFormError(error)) {
             toast.error(t('importForms:conflict'))

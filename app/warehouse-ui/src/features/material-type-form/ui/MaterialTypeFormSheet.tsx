@@ -4,10 +4,12 @@ import { TagsIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import {
   Form,
   FormControl,
@@ -76,7 +78,7 @@ export function MaterialTypeFormSheet({ open, onOpenChange, materialType }: Prop
     toastApiError(error)
   }
 
-  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: lưu thẳng.
+  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: cũng hỏi "Lưu thay đổi …?" (useSaveChangesConfirmation).
   const [toCreate, setToCreate] = useState<MaterialTypeFormValues | null>(null)
   if (!open && toCreate) setToCreate(null)
 
@@ -92,26 +94,47 @@ export function MaterialTypeFormSheet({ open, onOpenChange, materialType }: Prop
     })
   }
 
+  // Sửa: form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH.
+  const saveConfirmation = useSaveChangesConfirmation<MaterialTypeFormValues>({
+    open,
+    entity: t('materialTypes:entityName'),
+    name: materialType?.code ?? '',
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      code: t('materialTypes:fieldCode'),
+      name: t('materialTypes:fieldName'),
+      description: t('materialTypes:fieldDescription'),
+    }),
+    icon: <TagsIcon />,
+    onConfirm: (values) => {
+      if (!materialType) return
+      update.mutate(
+        { slug: materialType.slug, input: toUpdateInput(values, materialType) },
+        {
+          onSuccess: () => {
+            void invalidateMaterials()
+            onOpenChange(false)
+          },
+          onError: (error) => {
+            // Đóng hộp xác nhận để lỗi tại ô hiện ra.
+            saveConfirmation.close()
+            handleError(error)
+          },
+        },
+      )
+    },
+  })
+
   const onSubmit = (values: MaterialTypeFormValues) => {
     if (!materialType) {
       setToCreate(values)
       return
     }
-    const input = toUpdateInput(values, materialType)
-    if (Object.keys(input).length === 0) {
+    // Không có gì khác bản gốc (vd chỉ đổi khoảng trắng) → không có gì để hỏi / lưu.
+    if (Object.keys(toUpdateInput(values, materialType)).length === 0) {
       onOpenChange(false)
       return
     }
-    update.mutate(
-      { slug: materialType.slug, input },
-      {
-        onSuccess: () => {
-          void invalidateMaterials()
-          onOpenChange(false)
-        },
-        onError: handleError,
-      },
-    )
+    saveConfirmation.request(values)
   }
 
   return (
@@ -125,7 +148,7 @@ export function MaterialTypeFormSheet({ open, onOpenChange, materialType }: Prop
       isDirty={form.formState.isDirty}
       confirmation={
         materialType
-          ? undefined
+          ? saveConfirmation.confirmation
           : {
               open: toCreate !== null,
               onOpenChange: (next) => {

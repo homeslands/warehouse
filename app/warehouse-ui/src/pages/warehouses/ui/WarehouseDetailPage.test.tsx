@@ -7,6 +7,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 import type { User } from '@/entities/user'
 import type { Warehouse } from '@/entities/warehouse'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmDialog } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import type { InitialEntry } from 'react-router-dom'
 import { renderWithRouter, type TestAuth } from '@/shared/test/render'
@@ -179,6 +180,7 @@ describe('WarehouseDetailPage — quay lại và thao tác', () => {
     await user.clear(nameInput)
     await user.type(nameInput, 'Kho Hà Nội 1B')
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
 
     expect(
       await screen.findByRole('heading', { level: 1, name: 'Kho Hà Nội 1B' }),

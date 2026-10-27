@@ -3,10 +3,12 @@ import { TruckIcon } from 'lucide-react'
 import { useEffect, useState } from 'react'
 import { useForm } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { FormSheet } from '@/shared/ui/FormSheet'
 import { SummaryList } from '@/shared/ui/SummaryList'
+import { useSaveChangesConfirmation } from '@/shared/ui/useSaveChangesConfirmation'
 import {
   Form,
   FormControl,
@@ -70,7 +72,7 @@ export function SupplierFormSheet({ open, onOpenChange, supplier }: Props) {
     toastApiError(error)
   }
 
-  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: lưu thẳng.
+  // Tạo: form hợp lệ → giữ giá trị, hỏi xác nhận rồi mới gửi. Sửa: cũng hỏi "Lưu thay đổi …?" (useSaveChangesConfirmation).
   const [toCreate, setToCreate] = useState<SupplierFormValues | null>(null)
   if (!open && toCreate) setToCreate(null)
 
@@ -86,21 +88,55 @@ export function SupplierFormSheet({ open, onOpenChange, supplier }: Props) {
     })
   }
 
+  // Sửa: form hợp lệ → hỏi "Lưu thay đổi …?" rồi mới PATCH.
+  const saveConfirmation = useSaveChangesConfirmation<SupplierFormValues>({
+    open,
+    entity: t('suppliers:entityName'),
+    name: supplier?.code ?? '',
+    changed: changedFieldLabels(form.formState.dirtyFields, {
+      code: t('suppliers:fieldCode'),
+      name: t('suppliers:fieldName'),
+      taxCode: t('suppliers:fieldTaxCode'),
+      phonenumber: t('suppliers:fieldPhonenumber'),
+      email: t('suppliers:fieldEmail'),
+      address: t('suppliers:fieldAddress'),
+      contactPerson: t('suppliers:fieldContactPerson'),
+      note: t('suppliers:fieldNote'),
+    }),
+    icon: <TruckIcon />,
+    onConfirm: (values) => {
+      if (!supplier) return
+      const input = toUpdateInput(values, supplier)
+      if (Object.keys(input).length === 0) {
+        saveConfirmation.close()
+        onOpenChange(false)
+        return
+      }
+      update.mutate(
+        { slug: supplier.slug, input },
+        {
+          onSuccess: () => onOpenChange(false),
+          onError: (error) => {
+            // Đóng hộp xác nhận để lỗi tại ô (vd mã đã tồn tại) hiện ra.
+            saveConfirmation.close()
+            handleError(error)
+          },
+        },
+      )
+    },
+  })
+
   const onSubmit = (values: SupplierFormValues) => {
     if (!supplier) {
       setToCreate(values)
       return
     }
-    const input = toUpdateInput(values, supplier)
-    // Ô tuỳ chọn xoá trống không được gửi → có thể không còn gì để lưu.
-    if (Object.keys(input).length === 0) {
+    // Ô tuỳ chọn xoá trống không được gửi → có thể không còn gì để lưu: đóng, không hỏi.
+    if (Object.keys(toUpdateInput(values, supplier)).length === 0) {
       onOpenChange(false)
       return
     }
-    update.mutate(
-      { slug: supplier.slug, input },
-      { onSuccess: () => onOpenChange(false), onError: handleError },
-    )
+    saveConfirmation.request(values)
   }
 
   const field = (
@@ -143,7 +179,7 @@ export function SupplierFormSheet({ open, onOpenChange, supplier }: Props) {
       isDirty={form.formState.isDirty}
       confirmation={
         supplier
-          ? undefined
+          ? saveConfirmation.confirmation
           : {
               open: toCreate !== null,
               onOpenChange: (next) => {

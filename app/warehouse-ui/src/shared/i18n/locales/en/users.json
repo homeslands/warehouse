@@ -1,5 +1,6 @@
 {
   "title": "Users",
+  "entityName": "user",
   "columnName": "Full name",
   "columnLogin": "Login",
   "columnEmail": "Email",
@@ -72,5 +73,11 @@
   "changeRoleAction": "Change role",
   "changeRoleTitle": "Change role",
   "changeRoleWarning": "<1>{{name}}</1> is currently {{role}}. After the change they will be signed out of every device and must sign in again.",
-  "fieldNewRole": "New role"
+  "fieldNewRole": "New role",
+  "resetPasswordConfirmTitle": "Reset the password for {{person}}?",
+  "resetPasswordConfirmDescription": "All of their sessions will be signed out; they must sign in again with the new password.",
+  "resetPasswordConfirmAction": "Confirm reset",
+  "changeRoleConfirmTitle": "Change {{person}}'s role from {{from}} to {{to}}?",
+  "changeRoleConfirmDescription": "They will be signed out of every device and must sign in again.",
+  "changeRoleConfirmAction": "Confirm role change"
 }

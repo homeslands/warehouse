@@ -5,6 +5,7 @@
   "suppliers": "Suppliers",
   "materials": "Materials",
   "importForms": "Goods receipts",
+  "exportForms": "Goods issues",
   "materialTypes": "Material types",
   "units": "Units",
   "users": "Users",

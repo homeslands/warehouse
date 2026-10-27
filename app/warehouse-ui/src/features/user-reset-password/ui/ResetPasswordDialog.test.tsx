@@ -8,6 +8,7 @@ vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 import { toast } from 'sonner'
 import type { User } from '@/entities/user'
 import { apiError, ok } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { ResetPasswordDialog } from './ResetPasswordDialog'
@@ -116,6 +117,7 @@ describe('ResetPasswordDialog', () => {
     await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'matkhau1')
     await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
     await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+    await confirmStep(user, 'Xác nhận đặt lại')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ newPassword: 'matkhau1' })
@@ -132,6 +134,7 @@ describe('ResetPasswordDialog', () => {
     await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'matkhau1')
     await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
     await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+    await confirmStep(user, 'Xác nhận đặt lại')
 
     // `toastApiError` gọi `toast.error(msg)` MỘT tham số cho lỗi có `code` (100407 không rỗng nên
     // không khớp `isPermissionDenied`, nhánh đó mới truyền thêm `{ id: 'permission-denied' }`) — đã
@@ -180,6 +183,7 @@ describe('ResetPasswordDialog', () => {
 
     await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
     await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+    await confirmStep(user, 'Xác nhận đặt lại')
     await screen.findByRole('button', { name: 'Đang lưu...' })
 
     await user.keyboard('{Escape}')
@@ -201,6 +205,7 @@ describe('ResetPasswordDialog', () => {
     await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'matkhau1')
     await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
     await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+    await confirmStep(user, 'Xác nhận đặt lại')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -235,5 +240,84 @@ describe('ResetPasswordDialog', () => {
     expect(screen.getByLabelText(/^Mật khẩu mới/)).toHaveAttribute('type', 'password')
     expect(screen.getByLabelText(/Nhập lại mật khẩu mới/)).toHaveAttribute('type', 'password')
     expect(screen.getByLabelText(`Nhập ${minh.phonenumber} để xác nhận`)).toHaveValue('')
+  })
+
+  it('hợp lệ → hỏi "Đặt lại mật khẩu cho …?", chưa gửi request, không hiện mật khẩu', async () => {
+    const called = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/users/u-lan/change-password`, () => {
+        called()
+        return ok({})
+      }),
+    )
+    const { user } = renderWithProviders(<ResetPasswordDialog user={lan} onOpenChange={() => {}} />)
+
+    await user.type(screen.getByLabelText(/^Mật khẩu mới/), 'matkhau-bimat')
+    await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'matkhau-bimat')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+
+    const dialog = await screen.findByRole('dialog', { name: 'Đặt lại mật khẩu cho Trần Lan?' })
+    expect(dialog).toHaveTextContent('Mọi phiên đăng nhập của họ sẽ bị đăng xuất')
+    expect(dialog).not.toHaveTextContent('matkhau-bimat')
+    expect(screen.queryByDisplayValue('matkhau-bimat')).not.toBeInTheDocument()
+    expect(called).not.toHaveBeenCalled()
+  })
+
+  it('"Quay lại" giữ nguyên mật khẩu và tên đăng nhập đã gõ; bấm lại thì hỏi lại', async () => {
+    const { user } = renderWithProviders(<ResetPasswordDialog user={lan} onOpenChange={() => {}} />)
+    await user.type(screen.getByLabelText(/^Mật khẩu mới/), 'matkhau1')
+    await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'matkhau1')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+    await screen.findByRole('dialog', { name: 'Đặt lại mật khẩu cho Trần Lan?' })
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByLabelText(/^Mật khẩu mới/)).toHaveValue('matkhau1')
+    expect(screen.getByLabelText(/Nhập lại mật khẩu mới/)).toHaveValue('matkhau1')
+    expect(screen.getByLabelText(CONFIRM_LABEL)).toHaveValue(lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+    expect(
+      await screen.findByRole('dialog', { name: 'Đặt lại mật khẩu cho Trần Lan?' }),
+    ).toBeInTheDocument()
+  })
+
+  it('lỗi thuộc ô mật khẩu mới (100406) sau xác nhận → về màn nhập, lỗi tại ô, giữ dữ liệu', async () => {
+    server.use(mswHttp.post(`${BASE}/users/u-lan/change-password`, () => apiError(422, 100406)))
+    const { user } = renderWithProviders(<ResetPasswordDialog user={lan} onOpenChange={() => {}} />)
+    await user.type(screen.getByLabelText(/^Mật khẩu mới/), 'matkhau1')
+    await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'matkhau1')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+    await confirmStep(user, 'Xác nhận đặt lại')
+
+    await waitFor(() => expect(screen.getByLabelText(/^Mật khẩu mới/)).toHaveValue('matkhau1'))
+    expect(screen.getByLabelText(/^Mật khẩu mới/)).toHaveAttribute('aria-invalid', 'true')
+    expect(toast.error).not.toHaveBeenCalled()
+  })
+
+  it('bấm đúp nút xác nhận chỉ gửi một request', async () => {
+    const called = vi.fn()
+    server.use(
+      mswHttp.post(`${BASE}/users/u-lan/change-password`, async () => {
+        called()
+        await new Promise((resolve) => setTimeout(resolve, 150))
+        return ok({ userSlug: 'u-lan' })
+      }),
+    )
+    const onOpenChange = vi.fn()
+    const { user } = renderWithProviders(
+      <ResetPasswordDialog user={lan} onOpenChange={onOpenChange} />,
+    )
+    await user.type(screen.getByLabelText(/^Mật khẩu mới/), 'matkhau1')
+    await user.type(screen.getByLabelText(/Nhập lại mật khẩu mới/), 'matkhau1')
+    await user.type(screen.getByLabelText(CONFIRM_LABEL), lan.phonenumber)
+    await user.click(screen.getByRole('button', { name: 'Đặt lại mật khẩu' }))
+
+    await user.dblClick(await screen.findByRole('button', { name: 'Xác nhận đặt lại' }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(called).toHaveBeenCalledTimes(1)
   })
 })

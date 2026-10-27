@@ -1,5 +1,6 @@
 {
   "title": "Suppliers",
+  "entityName": "supplier",
   "create": "Add supplier",
   "created": "Supplier added",
   "updated": "Supplier saved",
@@ -131,5 +132,8 @@
   "selectMaterialAria": "Select {{code}}",
   "selectAllOnPage": "Select all materials on this page",
   "materialListLabel": "Materials not yet attached to this supplier",
-  "filterCreatedAt": "Created"
+  "filterCreatedAt": "Created",
+  "attachConfirmTitle": "Attach {{count}} material(s) to {{code}}?",
+  "attachConfirmDescription": "These materials will belong to the supplier.",
+  "attachConfirmAction": "Confirm attach"
 }

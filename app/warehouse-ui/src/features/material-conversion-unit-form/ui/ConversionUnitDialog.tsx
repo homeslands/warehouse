@@ -17,6 +17,7 @@ import {
   DialogHeader,
   DialogTitle,
 } from '@/shared/ui/dialog'
+import { DialogConfirmStep } from '@/shared/ui/DialogConfirmStep'
 import { DialogIcon } from '@/shared/ui/DialogIcon'
 import { Label } from '@/shared/ui/label'
 import { NumberInput } from '@/shared/ui/NumberInput'
@@ -28,7 +29,7 @@ import {
 } from '@/entities/material'
 import { unitKeys } from '@/entities/unit'
 
-/** Lỗi thuộc ô đơn vị / ô tỉ lệ — hiện ngay trong hộp. Còn lại (100714, 100717, 100721…) đi toast rồi đóng. */
+/** Lỗi thuộc ô đơn vị / ô tỉ lệ — hiện ngay trong hộp. Còn lại: toast; chỉ đóng khi đích đã mất / dữ liệu cũ (404/409), lỗi khác ở lại màn xác nhận để thử lại. */
 const UNIT_FIELD_CODES = new Set([100715, 100716, 100901])
 const RATE_FIELD_CODES = new Set([100718])
 
@@ -55,6 +56,8 @@ export function ConversionUnitDialog({ material, open, editing, onOpenChange }: 
   const [rate, setRate] = useState<number | undefined>(undefined)
   const [unitError, setUnitError] = useState<string | null>(null)
   const [rateError, setRateError] = useState<string | null>(null)
+  // Nhóm C: bước xác nhận nằm ngay trong hộp.
+  const [step, setStep] = useState<'edit' | 'confirm'>('edit')
 
   // Mở lại / đổi dòng không được còn lựa chọn hay lỗi của lần trước.
   useEffect(() => {
@@ -63,6 +66,7 @@ export function ConversionUnitDialog({ material, open, editing, onOpenChange }: 
     setRate(editing?.conversionRate)
     setUnitError(null)
     setRateError(null)
+    setStep('edit')
   }, [open, editing])
 
   const options = (available.data?.items ?? []).map((u) => ({
@@ -82,16 +86,22 @@ export function ConversionUnitDialog({ material, open, editing, onOpenChange }: 
   const onError = (error: unknown) => {
     if (isApiError(error) && error.code !== undefined) {
       if (UNIT_FIELD_CODES.has(error.code)) {
+        // Lỗi thuộc ô → về màn nhập, lỗi hiện tại ô.
         setUnitError(resolveApiErrorMessage(error))
+        setStep('edit')
         return
       }
       if (RATE_FIELD_CODES.has(error.code)) {
         setRateError(resolveApiErrorMessage(error))
+        setStep('edit')
         return
       }
     }
     toastApiError(error)
-    onOpenChange(false)
+    // Chỉ đóng khi đích đã mất / dữ liệu cũ (404/409); lỗi khác ở lại màn xác nhận để thử lại.
+    if (isApiError(error) && (error.statusCode === 404 || error.statusCode === 409)) {
+      onOpenChange(false)
+    }
   }
   const onSuccess = () => {
     // Cột "Đang dùng" của màn Đơn vị đếm cả đơn vị quy đổi.
@@ -99,7 +109,8 @@ export function ConversionUnitDialog({ material, open, editing, onOpenChange }: 
     onOpenChange(false)
   }
 
-  const submit = () => {
+  // Validate như cũ (lỗi tại ô, không mở bước xác nhận); hợp lệ → hỏi xác nhận, chưa gửi.
+  const ask = () => {
     const nextUnitError = unitSlug === undefined ? t('materials:unitRequired') : null
     const nextRateError = !rateValid
       ? t('materials:rateInvalid')
@@ -109,6 +120,11 @@ export function ConversionUnitDialog({ material, open, editing, onOpenChange }: 
     setUnitError(nextUnitError)
     setRateError(nextRateError)
     if (nextUnitError || nextRateError || unitSlug === undefined || rate === undefined) return
+    setStep('confirm')
+  }
+
+  const submit = () => {
+    if (unitSlug === undefined || rate === undefined) return
     const vars = { slug: material.slug, unitSlug, conversionRate: rate }
     if (editing) update.mutate(vars, { onSuccess, onError })
     else attach.mutate(vars, { onSuccess, onError })
@@ -126,118 +142,150 @@ export function ConversionUnitDialog({ material, open, editing, onOpenChange }: 
           if (isPending) event.preventDefault()
         }}
       >
-        <DialogHeader className="items-center text-center">
-          <DialogIcon>
-            <ArrowLeftRightIcon />
-          </DialogIcon>
-          <DialogTitle>
-            {editing ? t('materials:conversionEditTitle') : t('materials:conversionAddTitle')}
-          </DialogTitle>
-          <DialogDescription>
-            {t('materials:conversionsDescription', { unit: material.baseUnitCode })}
-          </DialogDescription>
-        </DialogHeader>
+        {step === 'confirm' ? (
+          <DialogConfirmStep
+            icon={<ArrowLeftRightIcon />}
+            title={
+              editing
+                ? t('materials:conversionEditConfirmTitle', {
+                    unit: selectedCode ?? '',
+                    rate: formatQuantity(rate),
+                    base: material.baseUnitCode,
+                  })
+                : t('materials:conversionAttachConfirmTitle', {
+                    unit: selectedCode ?? '',
+                    rate: formatQuantity(rate),
+                    base: material.baseUnitCode,
+                  })
+            }
+            description={t('materials:conversionConfirmDescription')}
+            confirmLabel={
+              isPending
+                ? t('common:saving')
+                : editing
+                  ? t('materials:conversionEditConfirmAction')
+                  : t('materials:conversionAttachConfirmAction')
+            }
+            isPending={isPending}
+            onBack={() => setStep('edit')}
+            onConfirm={submit}
+          />
+        ) : (
+          <>
+            <DialogHeader className="items-center text-center">
+              <DialogIcon>
+                <ArrowLeftRightIcon />
+              </DialogIcon>
+              <DialogTitle>
+                {editing ? t('materials:conversionEditTitle') : t('materials:conversionAddTitle')}
+              </DialogTitle>
+              <DialogDescription>
+                {t('materials:conversionsDescription', { unit: material.baseUnitCode })}
+              </DialogDescription>
+            </DialogHeader>
 
-        <div className="grid gap-4">
-          <div className="grid gap-2">
-            <Label htmlFor={unitId}>{t('materials:fieldUnit')}</Label>
-            {editing ? (
-              <p id={unitId} className="text-sm font-medium">
-                {editing.unitCode} · {editing.unitName}
-              </p>
-            ) : (
-              <Combobox
-                id={unitId}
-                options={options}
-                value={unitSlug}
-                onChange={(next) => {
-                  setUnitSlug(next)
-                  setUnitError(null)
-                }}
-                disabled={isPending || noCandidates || candidatesFailed}
-                placeholder={
-                  available.isPending
-                    ? t('common:loading')
-                    : noCandidates
-                      ? t('materials:noAvailableUnits')
-                      : t('materials:unitPlaceholder')
-                }
-                emptyText={t('materials:noAvailableUnits')}
-                aria-invalid={unitError !== null}
-              />
-            )}
-            {candidatesFailed && (
-              <div
-                role="alert"
-                className="text-destructive flex flex-wrap items-center gap-2 text-sm"
-              >
-                {resolveApiErrorMessage(available.error)}
-                <Button
-                  type="button"
-                  variant="link"
-                  className="h-auto p-0"
-                  onClick={() => void available.refetch()}
-                >
-                  {t('common:retry')}
-                </Button>
+            <div className="grid gap-4">
+              <div className="grid gap-2">
+                <Label htmlFor={unitId}>{t('materials:fieldUnit')}</Label>
+                {editing ? (
+                  <p id={unitId} className="text-sm font-medium">
+                    {editing.unitCode} · {editing.unitName}
+                  </p>
+                ) : (
+                  <Combobox
+                    id={unitId}
+                    options={options}
+                    value={unitSlug}
+                    onChange={(next) => {
+                      setUnitSlug(next)
+                      setUnitError(null)
+                    }}
+                    disabled={isPending || noCandidates || candidatesFailed}
+                    placeholder={
+                      available.isPending
+                        ? t('common:loading')
+                        : noCandidates
+                          ? t('materials:noAvailableUnits')
+                          : t('materials:unitPlaceholder')
+                    }
+                    emptyText={t('materials:noAvailableUnits')}
+                    aria-invalid={unitError !== null}
+                  />
+                )}
+                {candidatesFailed && (
+                  <div
+                    role="alert"
+                    className="text-destructive flex flex-wrap items-center gap-2 text-sm"
+                  >
+                    {resolveApiErrorMessage(available.error)}
+                    <Button
+                      type="button"
+                      variant="link"
+                      className="h-auto p-0"
+                      onClick={() => void available.refetch()}
+                    >
+                      {t('common:retry')}
+                    </Button>
+                  </div>
+                )}
+                {unitError !== null && (
+                  <p role="alert" className="text-destructive text-sm">
+                    {unitError}
+                  </p>
+                )}
               </div>
-            )}
-            {unitError !== null && (
-              <p role="alert" className="text-destructive text-sm">
-                {unitError}
-              </p>
-            )}
-          </div>
 
-          <div className="grid gap-2">
-            <Label htmlFor={rateId}>{t('materials:fieldRate')}</Label>
-            <NumberInput
-              id={rateId}
-              value={rate}
-              onChange={(next) => {
-                setRate(next)
-                setRateError(null)
-              }}
-              disabled={isPending}
-              aria-invalid={rateError !== null}
-            />
-            {rateError !== null ? (
-              <p role="alert" className="text-destructive text-sm">
-                {rateError}
-              </p>
-            ) : (
-              <p className="text-muted-foreground text-sm">
-                {selectedCode && rateValid && rateFits
-                  ? t('materials:rateValue', {
-                      unit: selectedCode,
-                      rate: formatQuantity(rate),
-                      base: material.baseUnitCode,
-                    })
-                  : t('materials:rateHint', { base: material.baseUnitCode })}
-              </p>
-            )}
-          </div>
-        </div>
+              <div className="grid gap-2">
+                <Label htmlFor={rateId}>{t('materials:fieldRate')}</Label>
+                <NumberInput
+                  id={rateId}
+                  value={rate}
+                  onChange={(next) => {
+                    setRate(next)
+                    setRateError(null)
+                  }}
+                  disabled={isPending}
+                  aria-invalid={rateError !== null}
+                />
+                {rateError !== null ? (
+                  <p role="alert" className="text-destructive text-sm">
+                    {rateError}
+                  </p>
+                ) : (
+                  <p className="text-muted-foreground text-sm">
+                    {selectedCode && rateValid && rateFits
+                      ? t('materials:rateValue', {
+                          unit: selectedCode,
+                          rate: formatQuantity(rate),
+                          base: material.baseUnitCode,
+                        })
+                      : t('materials:rateHint', { base: material.baseUnitCode })}
+                  </p>
+                )}
+              </div>
+            </div>
 
-        <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
-          <Button
-            type="button"
-            variant="outline"
-            size="xl"
-            disabled={isPending}
-            onClick={() => onOpenChange(false)}
-          >
-            {t('common:cancel')}
-          </Button>
-          <Button
-            type="button"
-            size="xl"
-            disabled={isPending || unchanged || noCandidates || candidatesFailed}
-            onClick={submit}
-          >
-            {isPending ? t('common:saving') : t('common:save')}
-          </Button>
-        </DialogFooter>
+            <DialogFooter className="flex-row border-t-0 bg-transparent [&>button]:flex-1">
+              <Button
+                type="button"
+                variant="outline"
+                size="xl"
+                disabled={isPending}
+                onClick={() => onOpenChange(false)}
+              >
+                {t('common:cancel')}
+              </Button>
+              <Button
+                type="button"
+                size="xl"
+                disabled={isPending || unchanged || noCandidates || candidatesFailed}
+                onClick={ask}
+              >
+                {t('common:save')}
+              </Button>
+            </DialogFooter>
+          </>
+        )}
       </DialogContent>
     </Dialog>
   )

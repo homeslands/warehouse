@@ -92,5 +92,9 @@
     "REMOVE": "Gỡ khỏi kho"
   },
   "reservedChange": "Giữ chỗ {{delta}} ({{before}} → {{after}})",
-  "importFormNote": "Phiếu nhập {{code}}"
+  "importFormNote": "Phiếu nhập {{code}}",
+  "createAndAssignConfirmTitle": "Tạo vật tư {{code}} và gắn vào kho {{warehouse}}?",
+  "createAndAssignConfirmAction": "Xác nhận tạo vật tư",
+  "confirmSupplier": "Nhà cung cấp",
+  "createAndAssignConfirmDescription": "Vật tư mới được thêm vào danh mục và gắn vào kho ngay."
 }

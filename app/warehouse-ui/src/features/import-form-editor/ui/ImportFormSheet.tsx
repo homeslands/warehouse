@@ -1,4 +1,5 @@
 import { zodResolver } from '@hookform/resolvers/zod'
+import { CircleCheckIcon, FilePenLineIcon, FilePlus2Icon } from 'lucide-react'
 import { useQueryClient } from '@tanstack/react-query'
 import {
   useEffect,
@@ -16,10 +17,12 @@ import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { isApiError } from '@/shared/api/http'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
+import { changedFieldLabels } from '@/shared/lib/changed-fields'
 import { applyApiErrorToForm } from '@/shared/lib/form-errors'
 import { formatCurrency } from '@/shared/lib/format'
 import { toastApiError } from '@/shared/lib/toast-error'
 import { Button } from '@/shared/ui/button'
+import { ConfirmDialog } from '@/shared/ui/ConfirmDialog'
 import { FormSheet, type FormSheetActionsContext } from '@/shared/ui/FormSheet'
 import { Skeleton } from '@/shared/ui/skeleton'
 import { Form } from '@/shared/ui/form'
@@ -36,10 +39,12 @@ import {
 } from '@/entities/import-form'
 import {
   NO_MATERIAL_ADD,
+  inventoryKeys,
   type AddMaterialDialogProps,
   type AddedMaterial,
   type MaterialAddAbilities,
 } from '@/entities/inventory'
+import { materialBatchKeys } from '@/entities/material-batch'
 import { useSuppliers } from '@/entities/supplier'
 import { ImportFormInfoStep } from './ImportFormInfoStep'
 import { ImportFormInfoSummary } from './ImportFormInfoSummary'
@@ -56,6 +61,7 @@ import {
   toUpdateInput,
   type ImportFormValues,
 } from '../model/import-form-editor.schema'
+import { importSaveConfirmCopy, type ImportSaveAction } from '../model/save-confirm'
 import { importFormStepStatus } from '../model/steps'
 import {
   WIZARD_STEPS,
@@ -83,7 +89,7 @@ const FIELD_BY_CODE = {
 const ITEMS_LIST_ERROR_CODES: ReadonlySet<number> = new Set([101311, 101317, 101318])
 
 /**
- * Lỗi thuộc bước ② mà không gắn được vào ô: lỗi theo dòng (101319–101328 và 101330 bên bán của dòng — backend không
+ * Lỗi thuộc bước ② mà không gắn được vào ô: lỗi theo dòng (101319–101328, 101330 bên bán của dòng và 101333 hạn dùng của dòng — backend không
  * trả chỉ số dòng) và lỗi của cả danh sách dòng (`ITEMS_LIST_ERROR_CODES`).
  */
 const isItemsError = (error: unknown) =>
@@ -91,6 +97,7 @@ const isItemsError = (error: unknown) =>
   error.code !== undefined &&
   ((error.code >= 101319 && error.code <= 101328) ||
     error.code === 101330 ||
+    error.code === 101333 ||
     ITEMS_LIST_ERROR_CODES.has(error.code))
 
 /**
@@ -98,6 +105,16 @@ const isItemsError = (error: unknown) =>
  * rơi vào nút mới ở cùng chỗ (vd "Tiếp tục" ② → "Lưu & xác nhận" ③) — phải bỏ qua. Bàn phím có `detail === 0`.
  */
 const isRepeatClick = (event: MouseEvent<HTMLButtonElement>) => event.detail > 1
+
+/** Icon của hộp hỏi trước khi lưu, theo hành động. */
+const SAVE_CONFIRM_ICON: Record<ImportSaveAction, ReactNode> = {
+  createDraft: <FilePlus2Icon />,
+  saveConfirm: <CircleCheckIcon />,
+  saveEdit: <FilePenLineIcon />,
+}
+
+/** Lần lưu đang chờ hỏi: hành động, giá trị đã hợp lệ, nhãn các ô đã sửa (chốt lúc bấm). */
+type SaveRequest = { action: ImportSaveAction; values: ImportFormValues; changed: string[] }
 
 /**
  * Bước ③ tự theo dõi giá trị form (`useWatch` toàn form) — chỉ khung nhỏ này vẽ lại theo từng phím gõ, không phải cả
@@ -171,7 +188,17 @@ export function ImportFormSheet({
   const editable = original?.status === 'DRAFT'
   // Toast thành công của luồng tạo / xác nhận thuộc về trang (có nút "Xem"), nên hook không tự báo.
   const create = useCreateImportForm({ successToast: false })
-  const confirm = useConfirmImportForm({ successToast: false })
+  const confirmMutation = useConfirmImportForm({ successToast: false })
+  // Xác nhận cộng tồn / tạo lô → làm mới tồn + lô của kho (phiếu xuất không báo thiếu giả).
+  const confirm = {
+    isPending: confirmMutation.isPending,
+    mutateAsync: async (...args: Parameters<typeof confirmMutation.mutateAsync>) => {
+      const result = await confirmMutation.mutateAsync(...args)
+      void qc.invalidateQueries({ queryKey: inventoryKeys.all })
+      void qc.invalidateQueries({ queryKey: materialBatchKeys.warehouse(warehouseSlug) })
+      return result
+    },
+  }
   const update = useUpdateImportForm({ successToast: false })
   // `saving` phủ cả khoảng giữa hai request của "Lưu & xác nhận", nơi cả hai mutation đều không pending.
   const [saving, setSaving] = useState(false)
@@ -179,6 +206,13 @@ export function ImportFormSheet({
   // "Đang lưu...".
   const [pendingAction, setPendingAction] = useState<'draft' | 'confirm' | 'save' | null>(null)
   const isPending = saving || create.isPending || update.isPending || confirm.isPending
+  // Mọi nút lưu hỏi lại trước khi gửi (`ConfirmDialog`). `saveRequest` giữ nguyên khi hộp đóng để nội dung không
+  // biến mất lúc hộp đang mờ dần; `saveConfirmOpen` mới là trạng thái mở.
+  const [saveRequest, setSaveRequest] = useState<SaveRequest | null>(null)
+  const [saveConfirmOpen, setSaveConfirmOpen] = useState(false)
+  // Phần tử đã mở hộp (nút lưu / ô vừa nhấn Enter) — "Quay lại" / Esc trả focus về đó. Radix chỉ trả focus về
+  // `Dialog.Trigger`, hộp này không có trigger.
+  const saveTriggerRef = useRef<HTMLElement | null>(null)
   const [uploading, setUploading] = useState(false)
   const suppliers = useSuppliers({ page: 1, size: 100 }, { enabled: open && canPickSupplier })
   // Mở sheet → bắt đầu lại: tạo ở ①, sửa ở ② (phần hay sửa nhất).
@@ -207,6 +241,7 @@ export function ImportFormSheet({
   if (!open && pickedMaterials.size > 0) setPickedMaterials(new Map())
   if (!open && addedMaterials.size > 0) setAddedMaterials(new Map())
   if (!open && uploading) setUploading(false)
+  if (!open && saveConfirmOpen) setSaveConfirmOpen(false)
 
   const form = useForm<ImportFormValues>({
     resolver: zodResolver(buildImportFormSchema({ requireSupplier: canPickSupplier })),
@@ -219,6 +254,22 @@ export function ImportFormSheet({
     if (!editing) form.reset(emptyFormValues(new Date()))
     else if (original) form.reset(toFormValues(original, { canPickSupplier }))
   }, [open, editing, original, form, canPickSupplier])
+
+  // Hạn dùng của dòng phụ thuộc ngày phiếu (≥ ngày phiếu): đổi ngày thì kiểm lại các hạn đã chạm / đang lỗi / sau khi
+  // submit — RHF chỉ kiểm lại ĐÚNG ô đang đổi. Ô chưa chạm thì để yên, không la lỗi ở chỗ người dùng chưa tới.
+  useEffect(() => {
+    const subscription = form.watch((values, { name }) => {
+      if (name !== 'date') return
+      const paths = (values.items ?? []).flatMap((item, i) => {
+        if (!item?.expiryDate) return []
+        const path = `items.${i}.expiryDate` as const
+        const state = form.getFieldState(path)
+        return state.isTouched || state.invalid || form.formState.isSubmitted ? [path] : []
+      })
+      if (paths.length > 0) void form.trigger(paths)
+    })
+    return () => subscription.unsubscribe()
+  }, [form])
 
   const supplierOptions = (suppliers.data?.items ?? []).map((x) => ({
     value: x.slug,
@@ -244,6 +295,30 @@ export function ImportFormSheet({
     )
   const needsPatch =
     isDirty || sellerUnsaved({ ...form.getValues(), supplierSlug: headerSupplier ?? '', items })
+  // Đọc trong lúc render để RHF theo dõi `dirtyFields` (proxy của formState chỉ cập nhật trường đã được đọc).
+  const dirtyFields = form.formState.dirtyFields
+
+  /**
+   * Nhãn "Đã sửa" của hộp hỏi khi sửa: các ô bước ① theo nhãn trên màn hình, "Dòng vật tư" nếu dòng đổi. Bên bán
+   * dòng suy ra chưa lưu (`needsPatch` dù dòng không dirty) cũng là một lần ghi → "Bên bán của dòng".
+   */
+  const changedLabels = (values: ImportFormValues) => {
+    const itemsLabel = t('importForms:changedItems')
+    const labels = changedFieldLabels(dirtyFields, {
+      supplierSlug: t('importForms:supplier'),
+      invoiceCode: t('importForms:fieldInvoiceCode'),
+      date: t('importForms:fieldDate'),
+      file: t('importForms:fieldFile'),
+      purchaseOrder: t('importForms:fieldPurchaseOrder'),
+      note: t('importForms:fieldNote'),
+      code: t('importForms:fieldCode'),
+      items: itemsLabel,
+    })
+    if (sellerUnsaved(values) && !labels.includes(itemsLabel)) {
+      labels.push(t('importForms:changedLineSuppliers'))
+    }
+    return labels
+  }
 
   // Đóng tab khi đang sửa dở → hộp hỏi gốc của trình duyệt.
   useEffect(() => {
@@ -265,7 +340,16 @@ export function ImportFormSheet({
     (original?.items ?? []).map((i) => [i.unitSlug, `${i.unitCode} · ${i.unitName}`]),
   )
 
+  /**
+   * Hộp hỏi lưu đang mở thì giữ focus trong nó — phải đóng NGAY (`flushSync`) trước khi chuyển bước / focus ô lỗi.
+   */
+  const dismissSaveConfirm = () => {
+    saveTriggerRef.current = null
+    flushSync(() => setSaveConfirmOpen(false))
+  }
+
   const finish = (outcome: ImportFormSaveOutcome) => {
+    dismissSaveConfirm()
     onOpenChange(false)
     onSaved?.(outcome)
   }
@@ -362,6 +446,7 @@ export function ImportFormSheet({
   }
 
   const handleError = (error: unknown) => {
+    dismissSaveConfirm()
     // Ô lỗi có thể nằm ở bước đang ẩn (vd Mã phiếu khi đang ở ③) → sang bước đó rồi focus.
     if (applyApiErrorToForm(form, error, FIELD_BY_CODE)) return showFirstError(liveErrors())
     toastApiError(error)
@@ -369,6 +454,7 @@ export function ImportFormSheet({
   }
 
   const handleStale = () => {
+    dismissSaveConfirm()
     onOpenChange(false)
     toast.error(t('importForms:conflict'))
     void qc.invalidateQueries({ queryKey: importFormKeys.warehouse(warehouseSlug) })
@@ -403,6 +489,7 @@ export function ImportFormSheet({
     } finally {
       setSaving(false)
       setPendingAction(null)
+      setSaveConfirmOpen(false)
     }
   }
 
@@ -417,7 +504,10 @@ export function ImportFormSheet({
           if (isStaleImportFormError(error)) return handleStale()
           handleError(error)
         },
-        onSettled: () => setPendingAction(null),
+        onSettled: () => {
+          setPendingAction(null)
+          setSaveConfirmOpen(false)
+        },
       },
     )
   }
@@ -461,21 +551,57 @@ export function ImportFormSheet({
         }
         // Chưa lưu gì thì không được báo "Đã lưu…". Phiếu đã cũ → như PATCH bị 409; lỗi khác → báo, giữ sheet.
         if (isStaleImportFormError(confirmError)) return handleStale()
+        dismissSaveConfirm()
         toastApiError(confirmError)
       }
     } finally {
       setSaving(false)
       setPendingAction(null)
+      setSaveConfirmOpen(false)
     }
   }
 
   /**
-   * Enter / nút gửi. Sửa: Lưu ở mọi bước (kiểm toàn phiếu, lỗi ở bước khác → sang bước đó). Tạo: ① / ② = Tiếp tục;
-   * ③ không làm gì — một phím Enter lỡ tay không được "Lưu & xác nhận" (cộng tồn ngay), lưu chỉ qua nút ở chân sheet.
+   * Mọi nút lưu: kiểm toàn phiếu (`onInvalid` → sang bước có lỗi), hợp lệ thì mở hộp hỏi với giá trị đã hợp lệ —
+   * chưa gửi gì. `trigger` = phần tử nhận lại focus khi người dùng lùi khỏi hộp.
+   */
+  const requestSave = (action: ImportSaveAction, trigger: Element | null) =>
+    form.handleSubmit((values) => {
+      saveTriggerRef.current = trigger instanceof HTMLElement ? trigger : null
+      setSaveRequest({ action, values, changed: editing ? changedLabels(values) : [] })
+      setSaveConfirmOpen(true)
+    }, showFirstError)
+
+  /** Bấm xác nhận trong hộp: chạy đúng luồng lưu cũ của hành động. Hộp mở tới khi gửi xong (khoá khi đang gửi). */
+  const runSaveRequest = () => {
+    if (!saveRequest || isPending || pendingAction !== null) return
+    const { action, values } = saveRequest
+    if (!editing) void saveNew(values, action === 'saveConfirm')
+    else if (action === 'saveConfirm') void saveEditAndConfirm(values)
+    else saveEdit(values)
+  }
+
+  /** "Quay lại" / Esc / bấm ra ngoài: đóng hộp, không gửi gì, focus về chỗ đã mở hộp. */
+  const cancelSaveRequest = () => {
+    const trigger = saveTriggerRef.current
+    saveTriggerRef.current = null
+    flushSync(() => setSaveConfirmOpen(false))
+    trigger?.focus()
+  }
+
+  /**
+   * Enter / nút gửi. Sửa: Lưu ở mọi bước (kiểm toàn phiếu, lỗi ở bước khác → sang bước đó), qua hộp hỏi; chưa đổi gì và không `needsPatch` thì không làm gì. Tạo: ① / ② =
+   * Tiếp tục; ③ không làm gì — một phím Enter lỡ tay không được "Lưu & xác nhận" (cộng tồn ngay), lưu chỉ qua nút ở
+   * chân sheet.
    */
   const onSubmit = (event: FormEvent<HTMLFormElement>) => {
     if (editing) {
-      void form.handleSubmit(saveEdit, showFirstError)(event)
+      // Chưa đổi gì và không cần PATCH: không có gì để hỏi (như nút Lưu đang khoá) — không dựa ngầm vào luật HTML.
+      if (!needsPatch) {
+        event.preventDefault()
+        return
+      }
+      void requestSave('saveEdit', document.activeElement)(event)
       return
     }
     event.preventDefault()
@@ -525,7 +651,7 @@ export function ImportFormSheet({
     // Mọi nút ở ③ là `type="button"`: Enter trong form không được kích hoạt lưu.
     const save = (andConfirm: boolean) => (e: MouseEvent<HTMLButtonElement>) => {
       if (isRepeatClick(e)) return
-      void form.handleSubmit((values) => saveNew(values, andConfirm), showFirstError)()
+      void requestSave(andConfirm ? 'saveConfirm' : 'createDraft', e.currentTarget)()
     }
     return (
       <>
@@ -605,7 +731,7 @@ export function ImportFormSheet({
           disabled={isPending || uploading}
           onClick={(e) => {
             if (isRepeatClick(e)) return
-            void form.handleSubmit(saveEditAndConfirm, showFirstError)()
+            void requestSave('saveConfirm', e.currentTarget)()
           }}
         >
           {savingLabel(t('importForms:saveAndConfirm'), pendingAction === 'confirm')}
@@ -626,116 +752,148 @@ export function ImportFormSheet({
     { requireSupplier: canPickSupplier },
   )
 
+  // Mã trong câu hỏi: tạo → mã sẽ gửi (đã chuẩn hoá như payload); sửa → mã phiếu đang sửa.
+  const saveCopy =
+    saveRequest &&
+    importSaveConfirmCopy(t, saveRequest.action, {
+      code: editing ? (original?.code ?? formCode ?? '') : toCreateInput(saveRequest.values).code,
+      changed: saveRequest.changed,
+    })
+
   return (
-    <FormSheet
-      open={open}
-      onOpenChange={onOpenChange}
-      size="wide"
-      title={
-        editing
-          ? t('importForms:editTitle', { code: original?.code ?? formCode ?? '' })
-          : t('importForms:createTitle', { warehouse: warehouseName })
-      }
-      actions={editing ? editActions : createActions}
-      isPending={isPending}
-      isDirty={isDirty}
-      footerStart={
-        // Tạo: Tổng chỉ ở ② và ③ (bước ① chưa có dòng nào để cộng).
-        body === null && (editing || step !== 'info')
-          ? t('importForms:total', { value: formatCurrency(total, { maximumFractionDigits: 2 }) })
-          : undefined
-      }
-      onSubmit={onSubmit}
-    >
-      {body ?? (
-        <Form {...form}>
-          <div ref={contentRef} className="space-y-6">
-            <ImportFormStepper
-              current={step}
-              infoDone={steps.sellerDone}
-              itemsDone={steps.itemsDone}
-              lineCount={steps.lineCount}
-              onSelect={(target) => void goTo(target)}
-              disabled={isPending}
-              lockForward={uploading}
-            />
-            <section
-              ref={sectionRefs.info}
-              hidden={step !== 'info'}
-              className="bg-card space-y-5 rounded-xl border p-5 sm:p-6"
-            >
-              <ImportFormInfoStep
-                form={form}
-                canPickSupplier={canPickSupplier}
-                supplierOptions={supplierOptions}
-                onUploadingChange={setUploading}
-              />
-            </section>
-
-            <section
-              ref={sectionRefs.items}
-              hidden={step !== 'items'}
-              className="bg-card space-y-4 rounded-xl border p-5 sm:p-6"
-            >
-              <ImportFormInfoSummary
-                seller={
-                  canPickSupplier && headerSupplier ? supplierName(headerSupplier) : undefined
-                }
-                invoiceCode={invoiceCode ?? ''}
-                date={date ?? ''}
-                onEdit={() => void goTo('info')}
+    <>
+      <FormSheet
+        open={open}
+        onOpenChange={onOpenChange}
+        size="wide"
+        title={
+          editing
+            ? t('importForms:editTitle', { code: original?.code ?? formCode ?? '' })
+            : t('importForms:createTitle', { warehouse: warehouseName })
+        }
+        actions={editing ? editActions : createActions}
+        isPending={isPending}
+        isDirty={isDirty}
+        footerStart={
+          // Tạo: Tổng chỉ ở ② và ③ (bước ① chưa có dòng nào để cộng).
+          body === null && (editing || step !== 'info')
+            ? t('importForms:total', { value: formatCurrency(total, { maximumFractionDigits: 2 }) })
+            : undefined
+        }
+        onSubmit={onSubmit}
+      >
+        {body ?? (
+          <Form {...form}>
+            <div ref={contentRef} className="space-y-6">
+              <ImportFormStepper
+                current={step}
+                infoDone={steps.sellerDone}
+                itemsDone={steps.itemsDone}
+                lineCount={steps.lineCount}
+                onSelect={(target) => void goTo(target)}
                 disabled={isPending}
+                lockForward={uploading}
               />
-              {materials.isPending ? (
-                loadingBlock
-              ) : (
-                <ImportFormItemsField
-                  onMaterialPicked={(m) =>
-                    setPickedMaterials((prev) => new Map(prev).set(m.slug, m))
-                  }
-                  onMaterialAdded={(m) => setAddedMaterials((prev) => new Map(prev).set(m.slug, m))}
+              <section
+                ref={sectionRefs.info}
+                hidden={step !== 'info'}
+                className="bg-card space-y-5 rounded-xl border p-5 sm:p-6"
+              >
+                <ImportFormInfoStep
                   form={form}
-                  materials={materials.data?.items ?? []}
-                  fallbackLabels={fallbackLabels}
-                  fallbackUnits={fallbackUnits}
-                  warehouseSlug={warehouseSlug}
-                  warehouseName={warehouseName}
-                  materialAbilities={materialAbilities}
-                  AddMaterialDialog={AddMaterialDialog}
                   canPickSupplier={canPickSupplier}
-                  suppliers={suppliers.data?.items}
-                  loadError={
-                    materials.isError
-                      ? {
-                          message: resolveApiErrorMessage(materials.error),
-                          onRetry: () => void materials.refetch(),
-                        }
-                      : undefined
-                  }
+                  supplierOptions={supplierOptions}
+                  onUploadingChange={setUploading}
                 />
-              )}
-            </section>
+              </section>
 
-            <section
-              ref={sectionRefs.review}
-              hidden={step !== 'review'}
-              className="bg-card rounded-xl border p-5 sm:p-6"
-            >
-              <ReviewStepWatcher
-                control={form.control}
-                materials={knownMaterials}
-                supplierName={supplierName}
-                materialLabel={materialLabel}
-                unitLabel={unitLabel}
-                canConfirm={canConfirm}
-                editing={editing}
-                disabled={isPending}
-                onJumpToLine={jumpToLine}
-              />
-            </section>
-          </div>
-        </Form>
+              <section
+                ref={sectionRefs.items}
+                hidden={step !== 'items'}
+                className="bg-card space-y-4 rounded-xl border p-5 sm:p-6"
+              >
+                <ImportFormInfoSummary
+                  seller={
+                    canPickSupplier && headerSupplier ? supplierName(headerSupplier) : undefined
+                  }
+                  invoiceCode={invoiceCode ?? ''}
+                  date={date ?? ''}
+                  onEdit={() => void goTo('info')}
+                  disabled={isPending}
+                />
+                {materials.isPending ? (
+                  loadingBlock
+                ) : (
+                  <ImportFormItemsField
+                    onMaterialPicked={(m) =>
+                      setPickedMaterials((prev) => new Map(prev).set(m.slug, m))
+                    }
+                    onMaterialAdded={(m) =>
+                      setAddedMaterials((prev) => new Map(prev).set(m.slug, m))
+                    }
+                    form={form}
+                    materials={materials.data?.items ?? []}
+                    fallbackLabels={fallbackLabels}
+                    fallbackUnits={fallbackUnits}
+                    warehouseSlug={warehouseSlug}
+                    warehouseName={warehouseName}
+                    materialAbilities={materialAbilities}
+                    AddMaterialDialog={AddMaterialDialog}
+                    canPickSupplier={canPickSupplier}
+                    suppliers={suppliers.data?.items}
+                    loadError={
+                      materials.isError
+                        ? {
+                            message: resolveApiErrorMessage(materials.error),
+                            onRetry: () => void materials.refetch(),
+                          }
+                        : undefined
+                    }
+                  />
+                )}
+              </section>
+
+              <section
+                ref={sectionRefs.review}
+                hidden={step !== 'review'}
+                className="bg-card rounded-xl border p-5 sm:p-6"
+              >
+                <ReviewStepWatcher
+                  control={form.control}
+                  materials={knownMaterials}
+                  supplierName={supplierName}
+                  materialLabel={materialLabel}
+                  unitLabel={unitLabel}
+                  canConfirm={canConfirm}
+                  editing={editing}
+                  disabled={isPending}
+                  onJumpToLine={jumpToLine}
+                />
+              </section>
+            </div>
+          </Form>
+        )}
+      </FormSheet>
+      {saveRequest && saveCopy && (
+        // Ngoài `FormSheet` (cả cây React lẫn DOM): Enter trong hộp không chạm `onSubmit` của form phiếu. Radix chỉ cho
+        // lớp trên cùng nhận Esc / bấm ra ngoài → khi hộp mở, sheet không bật "Bỏ thay đổi chưa lưu?".
+        <ConfirmDialog
+          open={open && saveConfirmOpen}
+          onOpenChange={(next) => {
+            if (!next) cancelSaveRequest()
+          }}
+          icon={SAVE_CONFIRM_ICON[saveRequest.action]}
+          tone={saveCopy.tone}
+          title={saveCopy.title}
+          description={saveCopy.description}
+          confirmLabel={
+            isPending || pendingAction !== null ? t('common:saving') : saveCopy.confirmLabel
+          }
+          cancelLabel={t('common:back')}
+          isPending={isPending || pendingAction !== null}
+          onConfirm={runSaveRequest}
+        />
       )}
-    </FormSheet>
+    </>
   )
 }

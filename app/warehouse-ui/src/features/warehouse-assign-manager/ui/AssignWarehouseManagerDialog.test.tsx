@@ -1,11 +1,12 @@
 import { screen, waitFor, within } from '@testing-library/react'
-import { http as mswHttp } from 'msw'
+import { delay, http as mswHttp } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
 vi.mock('sonner', () => ({ toast: { error: vi.fn(), success: vi.fn() } }))
 
 import { toast } from 'sonner'
 import { apiError, ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import type { Role, User } from '@/entities/user'
@@ -120,6 +121,7 @@ describe('AssignWarehouseManagerDialog', () => {
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByText('0901111111'))
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
 
     await waitFor(() => expect(body).toEqual({ managerSlug: 'u-a' }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -131,6 +133,19 @@ describe('AssignWarehouseManagerDialog', () => {
 
     expect(screen.queryByRole('button', { name: 'Bỏ gán' })).not.toBeInTheDocument()
     expect(screen.getByRole('button', { name: 'Lưu' })).toBeDisabled()
+  })
+
+  it('mở với quản lý hiện tại được chọn sẵn → Lưu khoá, không có bước xác nhận', async () => {
+    const { user } = renderDialog({
+      ...warehouse,
+      manager: { slug: 'u-a', phonenumber: '0901111111', firstName: '', lastName: '' },
+    })
+    await screen.findByText('Kho Hà Nội 1')
+
+    const save = screen.getByRole('button', { name: 'Lưu' })
+    expect(save).toBeDisabled()
+    await user.click(save)
+    expect(screen.queryByText(/Xác nhận gán/)).not.toBeInTheDocument()
   })
 
   it('kho đang có quản lý: nút Bỏ gán gửi managerSlug: null', async () => {
@@ -148,6 +163,7 @@ describe('AssignWarehouseManagerDialog', () => {
     await screen.findByText('Kho Hà Nội 1')
 
     await user.click(screen.getByRole('button', { name: 'Bỏ gán' }))
+    await confirmStep(user, 'Xác nhận bỏ gán')
 
     await waitFor(() => expect(body).toEqual({ managerSlug: null }))
     expect(onOpenChange).toHaveBeenCalledWith(false)
@@ -165,13 +181,16 @@ describe('AssignWarehouseManagerDialog', () => {
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByText('0901111111'))
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
 
     expect(await screen.findByRole('alert')).toHaveTextContent(message)
     expect(toast.error).not.toHaveBeenCalled()
     expect(onOpenChange).not.toHaveBeenCalled()
+    // Lỗi thuộc ô → về màn nhập để chọn lại.
+    expect(screen.getByRole('combobox')).toBeInTheDocument()
   })
 
-  it('lỗi không thuộc ô chọn → toast và đóng hộp', async () => {
+  it('lỗi không thuộc ô chọn → toast, ở lại màn xác nhận', async () => {
     server.use(mswHttp.put(`${BASE}/warehouses/kho-ha-noi/manager`, () => apiError(500)))
     const { user, onOpenChange } = renderDialog()
     await screen.findByText('Kho Hà Nội 1')
@@ -179,9 +198,12 @@ describe('AssignWarehouseManagerDialog', () => {
     await user.click(screen.getByRole('combobox'))
     await user.click(await screen.findByText('0901111111'))
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
 
     await waitFor(() => expect(toast.error).toHaveBeenCalled())
-    expect(onOpenChange).toHaveBeenCalledWith(false)
+    // Lỗi ngoài ô: ở lại màn xác nhận, hộp không đóng.
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(screen.getByRole('button', { name: 'Xác nhận gán' })).toBeEnabled()
   })
 
   it('quản lý đang giữ chức bị khoá vẫn hiện trong ô chọn', async () => {
@@ -220,6 +242,7 @@ describe('AssignWarehouseManagerDialog', () => {
     expect(screen.getByRole('button', { name: 'Đóng' })).toBeInTheDocument()
 
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Xác nhận gán')
     await screen.findByRole('button', { name: 'Đang lưu...' })
 
     await user.keyboard('{Escape}')
@@ -228,6 +251,106 @@ describe('AssignWarehouseManagerDialog', () => {
 
     release()
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('bấm Lưu → màn xác nhận đúng câu, CHƯA gửi; xác nhận mới gửi', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/kho-ha-noi/manager`, () => {
+        calls += 1
+        return ok(warehouse)
+      }),
+    )
+    const { user, onOpenChange } = renderDialog()
+    await screen.findByText('Kho Hà Nội 1')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('0901111111'))
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Gán 0901111111 làm quản lý kho Kho Hà Nội 1?' }),
+    ).toBeInTheDocument()
+    expect(screen.queryByRole('combobox')).not.toBeInTheDocument()
+    expect(calls).toBe(0)
+
+    await confirmStep(user, 'Xác nhận gán')
+    await waitFor(() => expect(calls).toBe(1))
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+  })
+
+  it('"Quay lại" giữ lựa chọn; bấm Lưu lần nữa hỏi lại đúng tên', async () => {
+    const { user } = renderDialog()
+    await screen.findByText('Kho Hà Nội 1')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('0901111111'))
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await screen.findByRole('button', { name: 'Xác nhận gán' })
+
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+
+    expect(screen.getByRole('combobox')).toHaveTextContent('0901111111')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    expect(
+      await screen.findByRole('heading', { name: 'Gán 0901111111 làm quản lý kho Kho Hà Nội 1?' }),
+    ).toBeInTheDocument()
+  })
+
+  it('Bỏ gán → màn xác nhận riêng ("Bỏ quản lý của kho …?"); Quay lại về màn nhập', async () => {
+    const { user } = renderDialog({
+      ...warehouse,
+      manager: { slug: 'u-a', phonenumber: '0901111111', firstName: '', lastName: '' },
+    })
+    await screen.findByText('Kho Hà Nội 1')
+
+    await user.click(screen.getByRole('button', { name: 'Bỏ gán' }))
+
+    expect(
+      await screen.findByRole('heading', { name: 'Bỏ quản lý của kho Kho Hà Nội 1?' }),
+    ).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Quay lại' }))
+    expect(screen.getByRole('combobox')).toHaveTextContent('0901111111')
+  })
+
+  it('đóng rồi mở lại thì bắt đầu ở màn nhập', async () => {
+    const onOpenChange = vi.fn()
+    const { user, rerender } = renderWithProviders(
+      <AssignWarehouseManagerDialog warehouse={warehouse} onOpenChange={onOpenChange} />,
+      { auth: 'admin' },
+    )
+    await screen.findByText('Kho Hà Nội 1')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('0901111111'))
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await screen.findByRole('button', { name: 'Xác nhận gán' })
+
+    await user.keyboard('{Escape}')
+    expect(onOpenChange).toHaveBeenCalledWith(false)
+    rerender(<AssignWarehouseManagerDialog warehouse={null} onOpenChange={onOpenChange} />)
+    rerender(<AssignWarehouseManagerDialog warehouse={warehouse} onOpenChange={onOpenChange} />)
+
+    expect(await screen.findByRole('combobox')).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'Xác nhận gán' })).not.toBeInTheDocument()
+  })
+
+  it('bấm đúp nút xác nhận → chỉ MỘT request', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.put(`${BASE}/warehouses/kho-ha-noi/manager`, async () => {
+        calls += 1
+        await delay(150)
+        return ok(warehouse)
+      }),
+    )
+    const { user, onOpenChange } = renderDialog()
+    await screen.findByText('Kho Hà Nội 1')
+    await user.click(screen.getByRole('combobox'))
+    await user.click(await screen.findByText('0901111111'))
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+
+    await user.dblClick(await screen.findByRole('button', { name: 'Xác nhận gán' }))
+
+    await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
+    expect(calls).toBe(1)
   })
 
   it('lúc rảnh thì Esc vẫn đóng được hộp', async () => {

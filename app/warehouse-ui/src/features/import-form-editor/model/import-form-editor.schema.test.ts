@@ -77,6 +77,7 @@ const draftForm: ImportForm = {
       baseQuantity: 250,
       unitPrice: 375_000,
       amount: 3_750_000,
+      expiryDate: null,
       note: null,
     },
   ],
@@ -98,6 +99,7 @@ const valid = (): ImportFormValues => ({
       unitSlug: 'u-bag',
       quantity: 2,
       unitPrice: 375000,
+      expiryDate: '',
       note: '',
       supplierOverride: '',
     },
@@ -172,6 +174,45 @@ describe('importFormSchema', () => {
       'items.1.unitSlug:importForms:itemDuplicated',
     ])
     expect(issues({ ...valid(), items: [a, { ...a, unitSlug: 'u-kg' }] })).toEqual([])
+  })
+})
+
+describe('hạn dùng của dòng', () => {
+  const withExpiry = (expiryDate: string): ImportFormValues => ({
+    ...valid(),
+    items: [{ ...valid().items[0], expiryDate }],
+  })
+
+  it('trước ngày nhập → lỗi ở items.0.expiryDate; bằng ngày nhập hoặc sau thì hợp lệ; trống hợp lệ', () => {
+    expect(issues(withExpiry('2026-10-12'))).toEqual([
+      'items.0.expiryDate:importForms:expiryBeforeDate',
+    ])
+    expect(issues(withExpiry('2026-10-13'))).toEqual([])
+    expect(issues(withExpiry('2027-01-31'))).toEqual([])
+    expect(issues(withExpiry(''))).toEqual([])
+  })
+
+  it('chưa có ngày nhập thì không so sánh', () => {
+    expect(issues({ ...withExpiry('2020-01-01'), date: undefined })).toEqual([
+      'date:importForms:dateRequired',
+    ])
+  })
+
+  it('toInput bỏ expiryDate khi trống, gửi khi có (tạo và sửa)', () => {
+    expect(toCreateInput(valid()).items[0]).not.toHaveProperty('expiryDate')
+    expect(toUpdateInput(valid(), 1).items?.[0]).not.toHaveProperty('expiryDate')
+    expect(toCreateInput(withExpiry('2027-01-31')).items[0]).toMatchObject({
+      expiryDate: '2027-01-31',
+    })
+    expect(toUpdateInput(withExpiry('2027-01-31'), 1).items?.[0]).toMatchObject({
+      expiryDate: '2027-01-31',
+    })
+  })
+
+  it('toFormValues: null → "", có giá trị thì giữ', () => {
+    expect(toFormValues(draftForm).items[0].expiryDate).toBe('')
+    const withDate = { ...draftForm, items: [{ ...draftForm.items![0], expiryDate: '2027-01-31' }] }
+    expect(toFormValues(withDate).items[0].expiryDate).toBe('2027-01-31')
   })
 })
 

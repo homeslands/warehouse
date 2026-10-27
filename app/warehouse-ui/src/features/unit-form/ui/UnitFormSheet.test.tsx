@@ -1,4 +1,4 @@
-import { screen, waitFor } from '@testing-library/react'
+import { screen, waitFor, within } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 
@@ -89,9 +89,48 @@ describe('UnitFormSheet', () => {
 
     await user.clear(descriptionField())
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
 
     await waitFor(() => expect(onOpenChange).toHaveBeenCalledWith(false))
     expect(body).toEqual({ description: '' })
+  })
+
+  it('sửa: bấm Lưu → hỏi "Lưu thay đổi đơn vị KG?" kèm "Đã sửa: Tên", chưa PATCH; Quay lại → không PATCH, sheet còn mở', async () => {
+    let calls = 0
+    server.use(
+      mswHttp.patch(`${BASE}/units/u-kg`, () => {
+        calls += 1
+        return ok(unit)
+      }),
+    )
+    const { user, onOpenChange } = renderSheet(unit)
+
+    await user.type(nameField(), ' 2')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    const dialog = await screen.findByRole('alertdialog')
+    expect(within(dialog).getByRole('heading')).toHaveTextContent('Lưu thay đổi đơn vị KG?')
+    expect(within(dialog).getByText('Đã sửa: Tên')).toBeInTheDocument()
+    expect(calls).toBe(0)
+
+    await user.click(within(dialog).getByRole('button', { name: 'Quay lại' }))
+    await waitFor(() => expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument())
+    expect(calls).toBe(0)
+    expect(onOpenChange).not.toHaveBeenCalled()
+    expect(nameField()).toHaveValue('Kilogram 2')
+  })
+
+  it('sửa: PATCH trả mã trùng (100906) → hộp đóng, lỗi tại ô Mã, sheet vẫn mở', async () => {
+    server.use(mswHttp.patch(`${BASE}/units/u-kg`, () => apiError(409, 100906)))
+    const { user, onOpenChange } = renderSheet(unit)
+
+    await user.type(codeField(), 'X')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
+
+    expect(await screen.findByText('Mã đơn vị đã tồn tại')).toBeInTheDocument()
+    expect(screen.queryByRole('alertdialog')).not.toBeInTheDocument()
+    expect(toast.error).not.toHaveBeenCalled()
+    expect(onOpenChange).not.toHaveBeenCalled()
   })
 
   it('sửa: chưa đổi gì → nút Lưu bị khoá', () => {
