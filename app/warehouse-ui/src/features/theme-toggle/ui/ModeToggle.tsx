@@ -8,6 +8,7 @@ import {
   DropdownMenuItem,
   DropdownMenuTrigger,
 } from '@/shared/ui/dropdown-menu'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 export function ModeToggle() {
   const { setTheme } = useTheme()
@@ -15,12 +16,14 @@ export function ModeToggle() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" aria-label={t('theme')}>
-          <Sun className="h-4 w-4 dark:hidden" />
-          <Moon className="hidden h-4 w-4 dark:block" />
-        </Button>
-      </DropdownMenuTrigger>
+      <IconTooltip label={t('theme')}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" aria-label={t('theme')}>
+            <Sun className="h-4 w-4 dark:hidden" />
+            <Moon className="hidden h-4 w-4 dark:block" />
+          </Button>
+        </DropdownMenuTrigger>
+      </IconTooltip>
       {/* Cùng số đo với `LanguageToggle` — xem ghi chú ở đó. */}
       <DropdownMenuContent align="end" sideOffset={8} className="min-w-48 p-1.5">
         <DropdownMenuItem className="gap-3 px-3 py-2" onClick={() => setTheme('light')}>

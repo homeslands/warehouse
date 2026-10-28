@@ -11,6 +11,7 @@ import {
 } from '@/shared/ui/dropdown-menu'
 import { removeBlockReason, type InventoryItem } from '@/entities/inventory'
 import { formatStock } from '../model/format'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 export type InventoryRowHandlers = {
   canRemove: boolean
@@ -45,15 +46,17 @@ export function InventoryRowActions({
   const hintId = `remove-hint-${item.materialSlug}`
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t('inventory:rowActions', { code: item.materialCode })}
-        >
-          <MoreHorizontalIcon />
-        </Button>
-      </DropdownMenuTrigger>
+      <IconTooltip label={t('inventory:rowActions', { code: item.materialCode })}>
+        <DropdownMenuTrigger asChild>
+          <Button
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t('inventory:rowActions', { code: item.materialCode })}
+          >
+            <MoreHorizontalIcon />
+          </Button>
+        </DropdownMenuTrigger>
+      </IconTooltip>
       <DropdownMenuContent align="end">
         <DropdownMenuItem onSelect={() => onViewHistory(item)}>
           {t('inventory:viewHistory')}

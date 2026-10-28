@@ -1,4 +1,5 @@
 import { useState } from 'react'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { useTranslation } from 'react-i18next'
 import { Outlet } from 'react-router-dom'
 import { LanguageToggle } from '@/features/language-switch'
@@ -7,7 +8,6 @@ import type { NavGroup } from '@/shared/lib/nav'
 import { SidebarInset, SidebarProvider, SidebarTrigger } from '@/shared/ui/sidebar'
 import { readSidebarOpenCookie } from '../lib/sidebar-cookie'
 import { useDocumentTitle } from '../model/crumbs'
-import { TooltipProvider } from '@/shared/ui/tooltip'
 import { AccountMenu } from './AccountMenu'
 import { AppBreadcrumb } from './AppBreadcrumb'
 import { AppSidebar } from './AppSidebar'
@@ -25,33 +25,33 @@ export function AppShell({ nav }: Props) {
   useDocumentTitle()
 
   return (
-    <TooltipProvider>
-      <SidebarProvider defaultOpen={defaultOpen}>
-        <AppSidebar nav={nav} />
+    <SidebarProvider defaultOpen={defaultOpen}>
+      <AppSidebar nav={nav} />
 
-        {/* min-w-0: con của flex mặc định min-width:auto — bảng rộng sẽ đẩy cả trang tràn ngang
+      {/* min-w-0: con của flex mặc định min-width:auto — bảng rộng sẽ đẩy cả trang tràn ngang
             thay vì cuộn trong khung của nó. */}
-        <SidebarInset className="min-w-0">
-          <header className="bg-background print:hidden sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-4 sm:gap-3">
-            {/* Ctrl/⌘ + B cũng bật/tắt (SidebarProvider tự bắt phím). */}
+      <SidebarInset className="min-w-0">
+        <header className="bg-background print:hidden sticky top-0 z-10 flex h-14 items-center gap-2 border-b px-4 sm:gap-3">
+          {/* Ctrl/⌘ + B cũng bật/tắt (SidebarProvider tự bắt phím). */}
+          <IconTooltip label={t('nav:toggleSidebar')} side="bottom">
             <SidebarTrigger aria-label={t('nav:toggleSidebar')} />
-            <div className="min-w-0 flex-1">
-              <AppBreadcrumb />
-            </div>
-            <div className="flex shrink-0 items-center gap-2 sm:gap-3">
-              <LanguageToggle />
-              <ModeToggle />
-              <AccountMenu />
-            </div>
-          </header>
+          </IconTooltip>
+          <div className="min-w-0 flex-1">
+            <AppBreadcrumb />
+          </div>
+          <div className="flex shrink-0 items-center gap-2 sm:gap-3">
+            <LanguageToggle />
+            <ModeToggle />
+            <AccountMenu />
+          </div>
+        </header>
 
-          {/* SidebarInset là <div>: <main> chỉ bọc vùng nội dung, header (banner) nằm ngoài. */}
-          <main className="relative flex-1 p-4 sm:p-6 print:p-0">
-            <RouteProgress />
-            <Outlet />
-          </main>
-        </SidebarInset>
-      </SidebarProvider>
-    </TooltipProvider>
+        {/* SidebarInset là <div>: <main> chỉ bọc vùng nội dung, header (banner) nằm ngoài. */}
+        <main className="relative flex-1 p-4 sm:p-6 print:p-0">
+          <RouteProgress />
+          <Outlet />
+        </main>
+      </SidebarInset>
+    </SidebarProvider>
   )
 }

@@ -1,16 +1,17 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from 'next-themes'
 import { afterEach, describe, expect, it } from 'vitest'
 import i18n from '@/shared/i18n'
 import { ModeToggle } from './ModeToggle'
+import { renderWithTooltip } from '@/shared/test/render'
 
 // next-themes (storageKey mặc định 'theme', xem node_modules/next-themes/dist/index.mjs)
 // ghi lựa chọn theme vào đúng khoá này trong localStorage.
 const THEME_STORAGE_KEY = 'theme'
 
 function renderToggle() {
-  return render(
+  return renderWithTooltip(
     <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
       <ModeToggle />
     </ThemeProvider>,

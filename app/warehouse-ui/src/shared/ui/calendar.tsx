@@ -5,6 +5,7 @@ import { cn } from '@/shared/lib/cn'
 import { DayPicker, getDefaultClassNames, type DayButton, type Locale } from 'react-day-picker'
 
 import { Button, buttonVariants } from '@/shared/ui/button'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { ChevronLeftIcon, ChevronRightIcon, ChevronDownIcon } from 'lucide-react'
 
 function Calendar({
@@ -116,6 +117,8 @@ function Calendar({
         Root: ({ className, rootRef, ...props }) => {
           return <div data-slot="calendar" ref={rootRef} className={cn(className)} {...props} />
         },
+        PreviousMonthButton: MonthNavButton,
+        NextMonthButton: MonthNavButton,
         Chevron: ({ className, orientation, ...props }) => {
           if (orientation === 'left') {
             return <ChevronLeftIcon className={cn('size-4', className)} {...props} />
@@ -141,6 +144,18 @@ function Calendar({
       }}
       {...props}
     />
+  )
+}
+
+/** Mũi tên tháng: tooltip = đúng `aria-label` DayPicker đã dịch theo locale. */
+function MonthNavButton(props: React.ComponentProps<'button'>) {
+  const label = props['aria-label']
+  const button = <button type="button" {...props} />
+  if (!label) return button
+  return (
+    <IconTooltip label={label} disabled={props.disabled}>
+      {button}
+    </IconTooltip>
   )
 }
 

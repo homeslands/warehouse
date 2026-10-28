@@ -1,9 +1,10 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { DateRangeFilter, type DateRangeValue } from './DateRangeFilter'
 import { FilterDisplayProvider } from './filter-display'
+import { renderWithTooltip } from '@/shared/test/render'
 
 function setup(initial: DateRangeValue = {}) {
   const onChange = vi.fn()
@@ -20,7 +21,7 @@ function setup(initial: DateRangeValue = {}) {
       />
     )
   }
-  render(<Harness />)
+  renderWithTooltip(<Harness />)
   return { onChange, user: userEvent.setup() }
 }
 
@@ -105,7 +106,7 @@ describe('DateRangeFilter', () => {
 
 describe('DateRangeFilter — dạng chip (mobile)', () => {
   it('đánh dấu đang bật theo giá trị (data-active) để chip đổi màu', () => {
-    const { rerender } = render(
+    const { rerender } = renderWithTooltip(
       <FilterDisplayProvider value="chip">
         <DateRangeFilter label="Ngày tạo" value={{}} onChange={vi.fn()} />
       </FilterDisplayProvider>,
@@ -126,7 +127,7 @@ describe('DateRangeFilter — dạng chip (mobile)', () => {
 
 describe('DateRangeFilter — dạng popover', () => {
   it('hiện nhãn phía trên; inline không có nhãn nhìn thấy riêng', () => {
-    const { unmount } = render(
+    const { unmount } = renderWithTooltip(
       <FilterDisplayProvider value="popover">
         <DateRangeFilter label="Ngày lập" value={{}} onChange={vi.fn()} />
       </FilterDisplayProvider>,
@@ -136,7 +137,7 @@ describe('DateRangeFilter — dạng popover', () => {
     expect(screen.getByRole('button', { name: 'Ngày lập' })).toHaveTextContent('Mọi thời điểm')
     unmount()
 
-    render(<DateRangeFilter label="Ngày lập" value={{}} onChange={vi.fn()} />)
+    renderWithTooltip(<DateRangeFilter label="Ngày lập" value={{}} onChange={vi.fn()} />)
     expect(screen.getAllByText('Ngày lập')).toHaveLength(1)
   })
 })

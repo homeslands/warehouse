@@ -595,3 +595,17 @@ describe('WarehousesPage — lọc theo quản lý và gán quản lý', () => {
     expect(within(box).getByText('Kho Hà Nội 1')).toBeInTheDocument()
   })
 })
+
+describe('WarehousesPage — tooltip nút menu hàng', () => {
+  it('hover nút ⋯ của hàng hiện tooltip đúng nhãn khả truy cập, bấm vẫn mở menu', async () => {
+    const { user } = renderPage()
+
+    const trigger = await screen.findByRole('button', { name: 'Thao tác với Kho Hà Nội 1' })
+    const label = trigger.getAttribute('aria-label')!
+    await user.hover(trigger)
+    expect(await screen.findByRole('tooltip')).toHaveTextContent(label)
+
+    await user.click(trigger)
+    expect(await screen.findByRole('menuitem', { name: 'Sửa' })).toBeInTheDocument()
+  })
+})

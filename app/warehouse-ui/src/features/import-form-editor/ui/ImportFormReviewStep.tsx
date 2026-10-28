@@ -1,11 +1,12 @@
-import { InfoIcon, TriangleAlertIcon } from 'lucide-react'
+import { InfoIcon, PencilIcon, TriangleAlertIcon } from 'lucide-react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import type { AvailableMaterial } from '@/entities/import-form'
 import { formatCurrency, formatDate, formatQuantity } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
 import { EmptyValue } from '@/shared/ui/EmptyValue'
-import { SummaryList, type SummaryItem } from '@/shared/ui/SummaryList'
+import { MetaList, type MetaItem } from '@/shared/ui/MetaList'
+import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
 import { formTotal, lineAmount, type ImportFormValues } from '../model/import-form-editor.schema'
 import { reviewImportForm, type ReviewWarning } from '../model/review'
@@ -24,6 +25,8 @@ type ImportFormReviewStepProps = {
   editing?: boolean
   disabled?: boolean
   onJumpToLine: (index: number) => void
+  /** Nút "Sửa" của từng phần: về bước ① (thông tin) hoặc ② (dòng vật tư) — sửa được mọi bước, kể cả khi sửa nháp. */
+  onEditStep: (step: 'info' | 'items') => void
 }
 
 const money = (value: number | undefined) =>
@@ -43,12 +46,14 @@ export function ImportFormReviewStep({
   editing = false,
   disabled,
   onJumpToLine,
+  onEditStep,
 }: ImportFormReviewStepProps) {
   const { t } = useTranslation(['importForms'])
   const linesTitleId = useId()
+  const infoTitleId = useId()
   const { warnings, newLinks, supplierSlugs } = reviewImportForm(values, materials)
 
-  const summary: SummaryItem[] = [
+  const meta: MetaItem[] = [
     ...(supplierSlugs.length > 0
       ? [
           {
@@ -62,11 +67,9 @@ export function ImportFormReviewStep({
       : []),
     { label: t('importForms:fieldInvoiceCode'), value: values.invoiceCode.trim() },
     { label: t('importForms:fieldDate'), value: formatDate(values.date ?? '') },
-    { label: t('importForms:reviewLines'), value: String(values.items.length) },
-    {
-      label: t('importForms:fieldTotal'),
-      value: money(formTotal(values.items)),
-    },
+    ...(values.purchaseOrder.trim()
+      ? [{ label: t('importForms:fieldPurchaseOrderShort'), value: values.purchaseOrder.trim() }]
+      : []),
   ]
 
   const materialName = (slug: string) => {
@@ -115,6 +118,20 @@ export function ImportFormReviewStep({
     }
   })
 
+  const editButton = (step: 'info' | 'items', label: string) => (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={disabled}
+      aria-label={label}
+      onClick={() => onEditStep(step)}
+    >
+      <PencilIcon aria-hidden />
+      {t('importForms:editSection')}
+    </Button>
+  )
+
   return (
     <div className="space-y-4">
       <div className="space-y-1">
@@ -132,10 +149,17 @@ export function ImportFormReviewStep({
         </p>
       </div>
 
-      <SummaryList items={summary} />
+      <section aria-labelledby={infoTitleId} className="space-y-2">
+        <SectionHeading
+          id={infoTitleId}
+          title={t('importForms:stepSeller')}
+          action={editButton('info', t('importForms:editInfoSection'))}
+        />
+        <MetaList items={meta} />
+      </section>
 
       {warnings.length > 0 && (
-        <section className="space-y-2 text-sm">
+        <section className="border-warning/40 bg-warning/5 space-y-2 rounded-lg border p-3 text-sm">
           <h3 className="flex items-center gap-1.5 font-medium">
             <TriangleAlertIcon className="text-warning size-4" aria-hidden />
             {t('importForms:reviewNeedsAttention', { count: warnings.length })}
@@ -178,10 +202,12 @@ export function ImportFormReviewStep({
 
       {/* Container query theo bề rộng khung (như lưới dòng ở bước ②): khung hẹp hơn `@3xl` thì mỗi dòng là một mục xếp
           chồng — bảng 5 cột ở đó bóp cột Vật tư còn một từ mỗi dòng và đẩy cột tiền ra sau thanh cuộn ngang. */}
-      <section className="@container space-y-2">
-        <h3 id={linesTitleId} className="text-sm font-medium">
-          {t('importForms:reviewLinesTitle')}
-        </h3>
+      <section aria-labelledby={linesTitleId} className="@container space-y-2">
+        <SectionHeading
+          id={linesTitleId}
+          title={t('importForms:items')}
+          action={editButton('items', t('importForms:editItemsSection'))}
+        />
         <ol aria-labelledby={linesTitleId} className="divide-y text-sm @3xl:hidden">
           {lines.map(({ index, name, quantity, price, amount, expiry }) => (
             <li key={index} className="space-y-1 py-2.5 first:pt-0">
@@ -243,6 +269,22 @@ export function ImportFormReviewStep({
             </TableBody>
           </Table>
         </div>
+        {/* Tổng cộng kiểu chứng từ: căn phải dưới bảng, ngăn bằng gạch trên. */}
+        <dl
+          data-testid="review-totals"
+          className="flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1 border-t pt-3 text-sm"
+        >
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">{t('importForms:reviewLines')}</dt>
+            <dd className="font-medium tabular-nums">{values.items.length}</dd>
+          </div>
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">{t('importForms:fieldTotal')}</dt>
+            <dd className="text-base font-semibold tabular-nums">
+              {money(formTotal(values.items))}
+            </dd>
+          </div>
+        </dl>
       </section>
     </div>
   )

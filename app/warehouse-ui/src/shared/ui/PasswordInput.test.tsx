@@ -72,3 +72,11 @@ describe('PasswordInput', () => {
     expect(screen.getByLabelText('Ô B')).toHaveAttribute('type', 'password')
   })
 })
+
+describe('PasswordInput — tooltip', () => {
+  it('hover icon mắt hiện tooltip cùng nhãn với aria-label, đổi theo trạng thái', async () => {
+    const { user } = renderWithProviders(<Field />)
+    await user.hover(screen.getByRole('button', { name: 'Hiện mật khẩu' }))
+    expect(await screen.findByRole('tooltip')).toHaveTextContent('Hiện mật khẩu')
+  })
+})

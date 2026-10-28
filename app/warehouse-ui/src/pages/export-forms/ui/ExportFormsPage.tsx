@@ -44,6 +44,7 @@ import {
   type ExportFormSearchField,
 } from '../model/search-query'
 import { toastExportSaveOutcome } from '../model/saveToast'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 const FILTERS = z.object({
   warehouse: z.string().optional(),
@@ -159,15 +160,17 @@ export function ExportFormsPage() {
         const ability = exportFormAbilities(user, { form: f, warehouseActive: true })
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('exportForms:rowActions', { code: f.code })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('exportForms:rowActions', { code: f.code })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('exportForms:rowActions', { code: f.code })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onSelect={() => {

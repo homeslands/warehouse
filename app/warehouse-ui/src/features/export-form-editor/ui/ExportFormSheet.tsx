@@ -832,6 +832,7 @@ export function ExportFormSheet({
                   editing={editing}
                   disabled={isPending}
                   onJumpToLine={jumpToLine}
+                  onEditStep={(target) => void goTo(target)}
                 />
               </section>
             </div>

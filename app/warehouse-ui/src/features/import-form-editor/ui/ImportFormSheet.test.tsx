@@ -148,6 +148,9 @@ const stepsNav = () => screen.getByRole('navigation', { name: 'Các bước lậ
 const reviewHeading = () => screen.queryByRole('heading', { name: 'Kiểm tra phiếu nhập' })
 const materialBox = () => screen.queryByRole('combobox', { name: 'Vật tư dòng 1' })
 
+/** Mục của dòng meta ở đầu bước ② (`dt`; nhãn trùng với ô ở bước ① đang ẩn nên lọc theo thẻ). */
+const metaTerm = async (label: string) => (await screen.findAllByText(label, { selector: 'dt' }))[0]
+
 /** Sửa mở ở bước ②; ô Ghi chú nằm ở bước ① nên phải về ① trước (lùi luôn được). */
 async function noteBox(user: User) {
   await user.click(await screen.findByRole('button', { name: /Thông tin phiếu$/ }))
@@ -208,6 +211,20 @@ async function addCementLine(user: User, price: string) {
 }
 
 describe('ImportFormSheet', () => {
+  it('③ có nút "Sửa" ở từng phần: về ① sửa thông tin, về ② sửa dòng', async () => {
+    const { user } = setup()
+    await toReview(user)
+    await user.click(screen.getByRole('button', { name: 'Sửa thông tin phiếu' }))
+    await waitFor(() => expect(invoiceBox()).toBeVisible())
+    await next(user)
+    await next(user)
+    await waitFor(() => expect(reviewHeading()).toBeVisible())
+    await user.click(screen.getByRole('button', { name: 'Sửa chi tiết vật tư' }))
+    // Bước ③ bị ẩn → heading không còn trong cây khả truy cập.
+    await waitFor(() => expect(reviewHeading()).toBeNull())
+    expect(screen.getByRole('button', { name: 'Chọn nhiều vật tư' })).toBeVisible()
+  })
+
   it('tạo: mở sheet rộng, tiêu đề có tên kho', async () => {
     setup()
     const dialog = await screen.findByRole('dialog', { name: 'Tạo phiếu nhập · Kho A' })
@@ -514,11 +531,11 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     expect(materialBox()).not.toBeInTheDocument()
   })
 
-  it('① hợp lệ → Tiếp tục → ② có dòng tóm tắt; "sửa" → về ①, focus tiêu đề bước', async () => {
+  it('① hợp lệ → Tiếp tục → ② có dòng meta chỉ để xem; bấm bước ① trên dải bước → về ①, focus tiêu đề bước', async () => {
     const { user } = setup()
     await fillInfo(user)
     await next(user)
-    expect(await screen.findByText(/^HĐ HD-9 · /)).toBeVisible()
+    expect((await metaTerm('Số hoá đơn')).nextSibling).toHaveTextContent('HD-9')
     expect(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' })).toBeVisible()
     expect(screen.queryByRole('textbox', { name: /^Số hoá đơn/ })).not.toBeInTheDocument()
     expect(within(stepsNav()).getByRole('button', { name: /Chi tiết vật tư$/ })).toHaveAttribute(
@@ -528,7 +545,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     await waitFor(() =>
       expect(screen.getByRole('heading', { name: 'Chi tiết vật tư' })).toHaveFocus(),
     )
-    await user.click(screen.getByRole('button', { name: 'sửa' }))
+    await user.click(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ }))
     expect(invoiceBox()).toBeVisible()
     expect(screen.getByRole('heading', { name: 'Thông tin phiếu' })).toHaveFocus()
   })
@@ -921,7 +938,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     await fillInfo(user)
     await next(user)
     await fillLine(user)
-    await user.click(screen.getByRole('button', { name: 'sửa' }))
+    await user.click(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ }))
     await user.type(screen.getByRole('textbox', { name: /^Ghi chú$/ }), 'Giao chiều')
     await next(user)
     expect(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' })).toHaveTextContent(
@@ -981,13 +998,14 @@ describe('ImportFormSheet - đầu phiếu bên bán', () => {
     expect(materialBox()).not.toBeInTheDocument()
   })
 
-  it('có bên bán: tóm tắt ở ② ghi "Mua của <bên bán>"', async () => {
+  it('có bên bán: dòng meta ở ② có mục Bên bán', async () => {
     const { user } = setup({ canPickSupplier: true })
     await user.click(await screen.findByRole('combobox', { name: /Bên bán/ }))
     await user.click(await screen.findByText('NCC-01 · NCC Bột'))
     await fillInfo(user)
     await next(user)
-    expect(await screen.findByText(/^Mua của NCC Bột · HĐ HD-9 · /)).toBeVisible()
+    expect((await metaTerm('Bên bán')).nextSibling).toHaveTextContent('NCC Bột')
+    expect((await metaTerm('Số hoá đơn')).nextSibling).toHaveTextContent('HD-9')
   })
 
   it('không có quyền chọn NCC: không có ô Bên bán, đi tới ③ không bị chặn vì bên bán', async () => {
@@ -1009,7 +1027,7 @@ describe('ImportFormSheet - đầu phiếu bên bán', () => {
     await user.click(screen.getByRole('button', { name: 'Thêm dòng' }))
     await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 2' }))
     await user.click(await screen.findByRole('option', { name: /VT-02 · Đường/ }))
-    await user.click(screen.getByRole('button', { name: 'sửa' }))
+    await user.click(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ }))
     await user.click(screen.getByRole('combobox', { name: /Bên bán/ }))
     await user.click(await screen.findByText('NCC-02 · NCC Đường'))
     expect(await screen.findByText('Đã đổi bên bán cho 2 dòng')).toBeInTheDocument()
@@ -1081,7 +1099,8 @@ describe('ImportFormSheet - wizard sửa', () => {
       'aria-current',
       'step',
     )
-    expect(await screen.findByText(/^Mua của NCC Bột · HĐ HD-123 · /)).toBeVisible()
+    expect((await metaTerm('Bên bán')).nextSibling).toHaveTextContent('NCC Bột')
+    expect((await metaTerm('Số hoá đơn')).nextSibling).toHaveTextContent('HD-123')
     expect(screen.queryByRole('textbox', { name: /^Số hoá đơn/ })).not.toBeInTheDocument()
   })
 

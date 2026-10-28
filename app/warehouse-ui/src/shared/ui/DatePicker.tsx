@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { formatDate } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { Calendar } from '@/shared/ui/calendar'
+import { focusCalendarDay } from '@/shared/ui/calendar-focus'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 
 /** Định dạng giá trị trao đổi với form/backend — ngày không giờ, không múi giờ. */
@@ -75,7 +77,7 @@ export function DatePicker({
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="start">
+        <PopoverContent className="w-auto p-0" align="start" onOpenAutoFocus={focusCalendarDay}>
           <Calendar
             mode="single"
             selected={selected}
@@ -89,19 +91,21 @@ export function DatePicker({
         </PopoverContent>
       </Popover>
       {selected && !disabled && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          aria-label={t('common:clearSelection')}
-          onClick={() => {
-            onChange(undefined)
-            // Nút xoá sắp biến mất — không để focus rơi xuống <body>.
-            triggerRef.current?.focus()
-          }}
-        >
-          <XIcon />
-        </Button>
+        <IconTooltip label={t('common:clearSelection')}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            aria-label={t('common:clearSelection')}
+            onClick={() => {
+              onChange(undefined)
+              // Nút xoá sắp biến mất — không để focus rơi xuống <body>.
+              triggerRef.current?.focus()
+            }}
+          >
+            <XIcon />
+          </Button>
+        </IconTooltip>
       )}
     </div>
   )

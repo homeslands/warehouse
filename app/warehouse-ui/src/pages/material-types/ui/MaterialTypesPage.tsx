@@ -29,6 +29,7 @@ import { useAuthStore } from '@/entities/session'
 import { DeleteMaterialTypeDialog } from '@/features/material-type-delete'
 import { MaterialTypeFormSheet } from '@/features/material-type-form'
 import { materialTypeAbilities } from '../model/abilities'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 // Trên URL chỉ có chữ người dùng gõ (+ cách tìm tự chọn khi đoán sai); `code` / `name` suy ra lúc gọi.
 const FILTERS = z.object({
@@ -75,15 +76,17 @@ export function MaterialTypesPage() {
         const type = row.original
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('materialTypes:rowActions', { name: type.name })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('materialTypes:rowActions', { name: type.name })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('materialTypes:rowActions', { name: type.name })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               {ability.update && (
                 <DropdownMenuItem

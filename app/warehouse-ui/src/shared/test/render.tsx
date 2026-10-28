@@ -3,6 +3,7 @@ import { render, type RenderOptions } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from 'next-themes'
 import type { ReactElement, ReactNode } from 'react'
+import { TooltipProvider } from '@/shared/ui/tooltip'
 import {
   MemoryRouter,
   RouterProvider,
@@ -77,7 +78,9 @@ function providersFor(queryClient: QueryClient) {
   return function Providers({ children }: { children: ReactNode }) {
     return (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
-        <QueryClientProvider client={queryClient}>{children}</QueryClientProvider>
+        <QueryClientProvider client={queryClient}>
+          <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+        </QueryClientProvider>
       </ThemeProvider>
     )
   }
@@ -131,4 +134,17 @@ export function renderWithRouter(routes: RouteObject[], options: RenderWithProvi
     user,
     router,
   }
+}
+
+/**
+ * `render` của RTL + `TooltipProvider` — cho test linh kiện lẻ không cần theme / query / router
+ * nhưng chứa nút icon có `IconTooltip` (Radix Tooltip ném lỗi nếu thiếu provider).
+ */
+export function renderWithTooltip(ui: ReactElement, options: Omit<RenderOptions, 'queries'> = {}) {
+  return render(ui, {
+    wrapper: ({ children }: { children: ReactNode }) => (
+      <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
+    ),
+    ...options,
+  })
 }

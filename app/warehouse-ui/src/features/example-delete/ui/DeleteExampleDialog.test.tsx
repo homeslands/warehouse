@@ -1,7 +1,8 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Example } from '@/entities/example'
 import { DeleteExampleDialog } from './DeleteExampleDialog'
+import { renderWithTooltip } from '@/shared/test/render'
 
 const example: Example = {
   id: '1',
@@ -36,7 +37,7 @@ describe('DeleteExampleDialog', () => {
   it('đang đóng (example=null) vẫn hiện tên vừa xoá, không để trống', () => {
     simulateExitAnimation()
     const props = { onOpenChange: vi.fn(), onConfirm: vi.fn(), isPending: false }
-    const { rerender } = render(<DeleteExampleDialog example={example} {...props} />)
+    const { rerender } = renderWithTooltip(<DeleteExampleDialog example={example} {...props} />)
     expect(screen.getByRole('alertdialog')).toHaveTextContent('Xoá Example A?')
 
     rerender(<DeleteExampleDialog example={null} {...props} />)

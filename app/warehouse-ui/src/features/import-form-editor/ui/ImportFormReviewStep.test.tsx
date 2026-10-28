@@ -56,6 +56,7 @@ function setup(
     unitLabel: () => 'KG · Kilogram' as string | undefined,
     canConfirm: true,
     onJumpToLine: vi.fn(),
+    onEditStep: vi.fn(),
     ...overrides,
   }
   const r = renderWithProviders(<ImportFormReviewStep {...props} />)
@@ -63,15 +64,58 @@ function setup(
 }
 
 describe('ImportFormReviewStep', () => {
-  it('có tiêu đề h2 focus được và tóm tắt đủ: bên bán, hoá đơn, ngày, số dòng, tổng tiền', () => {
+  it('mỗi phần có nút "Sửa" về đúng bước: Thông tin phiếu → ①, Chi tiết vật tư → ②', async () => {
+    const { user, props } = setup()
+    expect(screen.getByRole('heading', { name: 'Thông tin phiếu' })).toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Sửa thông tin phiếu' }))
+    expect(props.onEditStep).toHaveBeenLastCalledWith('info')
+    await user.click(screen.getByRole('button', { name: 'Sửa chi tiết vật tư' }))
+    expect(props.onEditStep).toHaveBeenLastCalledWith('items')
+  })
+
+  it('đang gửi thì nút "Sửa" khoá', () => {
+    setup({ disabled: true })
+    expect(screen.getByRole('button', { name: 'Sửa thông tin phiếu' })).toBeDisabled()
+    expect(screen.getByRole('button', { name: 'Sửa chi tiết vật tư' })).toBeDisabled()
+  })
+
+  it('có tiêu đề h2 focus được; thông tin phiếu là dòng meta: bên bán, hoá đơn, ngày (số dòng / tổng tiền không nằm ở đây)', () => {
     setup()
     const h = screen.getByRole('heading', { level: 2, name: 'Kiểm tra phiếu nhập' })
     expect(h).toHaveAttribute('tabindex', '-1')
+    const meta = screen
+      .getAllByRole('term')
+      .filter((el) => !el.closest('[data-testid=review-totals]'))
+    expect(meta.map((el) => el.textContent)).toEqual(['Bên bán', 'Số hoá đơn', 'Ngày nhập'])
     expect(screen.getByText('Bên bán').nextSibling).toHaveTextContent('Tên s-1')
     expect(screen.getByText('Số hoá đơn').nextSibling).toHaveTextContent('HD-9')
     expect(screen.getByText('Ngày nhập').nextSibling).toHaveTextContent('19/10/2026')
-    expect(screen.getByText('Số dòng').nextSibling).toHaveTextContent('2')
-    expect(screen.getByText('Tổng tiền').nextSibling).toHaveTextContent(/^3\.000/)
+  })
+
+  it('có số PO → thêm mục Số PO vào dòng meta', () => {
+    setup({}, { ...values([line('m-1', 1000)]), purchaseOrder: 'PO-7' })
+    expect(screen.getByText('Số PO').nextSibling).toHaveTextContent('PO-7')
+  })
+
+  it('tổng cộng nằm dưới bảng, kiểu chứng từ: Số dòng + Tổng tiền', () => {
+    setup()
+    const section = screen.getByRole('region', { name: 'Chi tiết vật tư' })
+    const totals = within(section).getByTestId('review-totals')
+    expect(totals).toHaveTextContent('Số dòng2')
+    expect(totals).toHaveTextContent(/Tổng tiền3\.000\s*₫/)
+    expect(totals).toHaveClass('border-t')
+    expect(
+      section.querySelector('table')!.compareDocumentPosition(totals) &
+        Node.DOCUMENT_POSITION_FOLLOWING,
+    ).toBeTruthy()
+  })
+
+  it('"Cần xem lại" nằm trong khung cảnh báo', () => {
+    setup({}, values([line('m-4', 0)]))
+    expect(screen.getByText('Cần xem lại (1)').closest('section')).toHaveClass(
+      'border-warning/40',
+      'bg-warning/5',
+    )
   })
 
   it('hai bên bán → "Nhiều bên bán (2)" và mỗi bên một câu thông tin gắn NCC mới', () => {
@@ -146,7 +190,9 @@ describe('ImportFormReviewStep', () => {
 
   it('khung hẹp: mỗi dòng là một mục xếp chồng — tên trên, "SL · đơn giá → thành tiền" dưới', () => {
     setup({}, values([line('m-1', 12000, '', 5), line('m-3', 500)]))
-    const items = within(screen.getByRole('list', { name: 'Các dòng' })).getAllByRole('listitem')
+    const items = within(screen.getByRole('list', { name: 'Chi tiết vật tư' })).getAllByRole(
+      'listitem',
+    )
     expect(items).toHaveLength(2)
     expect(items[0]).toHaveTextContent('M-1 · Bột mì')
     expect(items[0]).toHaveTextContent(/5 KG\s*·\s*12\.000\s*₫\s*→\s*60\.000\s*₫/)
