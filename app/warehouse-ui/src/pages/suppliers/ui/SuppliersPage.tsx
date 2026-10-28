@@ -35,6 +35,7 @@ import {
   toSupplierSearchQuery,
   type SupplierSearchField,
 } from '../model/search-query'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 // Trên URL chỉ có chữ người dùng gõ (+ lựa chọn MST/SĐT cho 10 chữ số); tham số backend suy ra lúc gọi.
 // Chỉ gửi đi khi BACKEND_SUPPORTS.supplierSearch — xem shared/api/backend-capabilities.ts.
@@ -96,15 +97,17 @@ export function SuppliersPage() {
         const supplier = row.original
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('suppliers:rowActions', { name: supplier.name })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('suppliers:rowActions', { name: supplier.name })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('suppliers:rowActions', { name: supplier.name })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onSelect={() => {

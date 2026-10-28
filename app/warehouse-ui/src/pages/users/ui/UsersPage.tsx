@@ -38,6 +38,7 @@ import { ToggleUserActiveDialog } from '@/features/user-toggle-active'
 import { ResetPasswordDialog } from '@/features/user-reset-password'
 import { hasAnyRowAbility, isSelf, userAbilities } from '../model/abilities'
 import { toUserSearchQuery } from '../model/search-query'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 // `search` / `isActive` / `warehouseSlug` / `startDate` / `endDate` chỉ gửi khi cờ `userSearch` bật.
 const FILTERS = z.object({
@@ -145,15 +146,17 @@ export function UsersPage() {
 
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('users:rowActions', { name: userDisplayName(user) })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('users:rowActions', { name: userDisplayName(user) })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('users:rowActions', { name: userDisplayName(user) })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               {can_.edit && (
                 <DropdownMenuItem onSelect={() => openEdit(user)}>

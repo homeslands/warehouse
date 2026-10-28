@@ -1,10 +1,12 @@
-import { ListChecksIcon, NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
+import { ListChecksIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { useEffect, useId, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { translateFormMessage } from '@/shared/lib/form-message'
 import { formatCurrency, formatQuantity } from '@/shared/lib/format'
 import { roundMoney } from '@/shared/lib/number'
+import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
 import { FormControl, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
@@ -25,6 +27,7 @@ import { EXPORT_STOCK_SIZE, baseUnitSlugOf } from '../model/material-search'
 import { addPickedExportLines, isBlankExportLine } from '../model/pick-lines'
 import { BatchSelect } from './BatchSelect'
 import { ExportFormMaterialPicker } from './ExportFormMaterialPicker'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 type Props = {
   form: UseFormReturn<ExportFormValues>
@@ -164,6 +167,26 @@ export function ExportFormItemsField({
     return firstIndex
   }
 
+  // Ghi chú dòng: link "Ghi chú" dưới dòng mở ô (đưa con trỏ vào luôn); "Bỏ ghi chú" xoá nội dung rồi ẩn ô.
+  const openNote = (id: string, index: number) => {
+    flushSync(() => setOpenNotes((prev) => new Set(prev).add(id)))
+    form.setFocus(`items.${index}.note`)
+  }
+  const closeNote = (id: string, index: number) => {
+    form.setValue(`items.${index}.note`, '', { shouldDirty: true })
+    flushSync(() =>
+      setOpenNotes((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      }),
+    )
+    // Nút "Bỏ ghi chú" vừa biến mất cùng ô → đưa con trỏ về badge "Ghi chú" của chính dòng đó (không rơi về body).
+    sectionRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-note-badge="${CSS.escape(id)}"]`)
+      ?.focus()
+  }
+
   // Hộp "Chọn nhiều vật tư": số chỗ còn = 200 − số dòng KHÔNG trống hẳn. "Đã có" = vật tư đã có dòng lô tự chọn.
   const [pickerOpen, setPickerOpen] = useState(false)
   const autoSlugs = new Set(
@@ -227,7 +250,7 @@ export function ExportFormItemsField({
         <span>{t('exportForms:fieldUnit')}</span>
         {sale && <span>{t('exportForms:fieldUnitPrice')}</span>}
         {sale && <span className="text-right">{t('exportForms:fieldAmount')}</span>}
-        <span className="w-18" />
+        <span className="w-9" />
       </div>
 
       {fields.map((field, index) => {
@@ -299,13 +322,33 @@ export function ExportFormItemsField({
                       }
                     />
                   </FormControl>
-                  {material && (
-                    <p className="text-muted-foreground text-xs">
-                      {t('exportForms:available', {
-                        value:
-                          `${formatQuantity(material.availableQuantity)} ${material.baseUnit?.code ?? ''}`.trim(),
-                      })}
-                    </p>
+                  {(material || !noteOpen) && (
+                    <div className="text-muted-foreground flex flex-wrap items-center gap-x-3 gap-y-0.5 text-xs">
+                      {material && (
+                        <span>
+                          {t('exportForms:available', {
+                            value:
+                              `${formatQuantity(material.availableQuantity)} ${material.baseUnit?.code ?? ''}`.trim(),
+                          })}
+                        </span>
+                      )}
+                      {!noteOpen && (
+                        <Badge asChild variant="secondary">
+                          <button
+                            type="button"
+                            className="hover:bg-secondary/80 focus-visible:ring-ring/50 cursor-pointer gap-1 outline-none focus-visible:ring-3"
+                            // `aria-label` (bắt đầu bằng chữ nhìn thấy "Ghi chú") thay cho chữ sr-only lồng trong nút: dựng
+                            // tên từ cây con bắt jsdom tính style từng node — 200 dòng thành hàng phút trong test.
+                            aria-label={`${t('exportForms:fieldLineNote')} ${t('exportForms:lineLabel', { line: index + 1 })}`}
+                            data-note-badge={field.id}
+                            onClick={() => openNote(field.id, index)}
+                          >
+                            <PlusIcon aria-hidden className="size-3" />
+                            {t('exportForms:fieldLineNote')}
+                          </button>
+                        </Badge>
+                      )}
+                    </div>
                   )}
                   <FormMessage />
                 </FormItem>
@@ -462,33 +505,22 @@ export function ExportFormItemsField({
             )}
 
             <div className={bp.actions}>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-pressed={noteOpen}
-                aria-label={t('exportForms:toggleLineNote', { line: index + 1 })}
-                onClick={() =>
-                  setOpenNotes((prev) => {
-                    const next = new Set(prev)
-                    if (next.has(field.id)) next.delete(field.id)
-                    else next.add(field.id)
-                    return next
-                  })
-                }
-              >
-                <NotebookPenIcon aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
+              <IconTooltip
+                label={t('exportForms:removeLine', { line: index + 1 })}
                 disabled={fields.length <= 1}
-                aria-label={t('exportForms:removeLine', { line: index + 1 })}
-                onClick={() => remove(index)}
               >
-                <XIcon aria-hidden />
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={fields.length <= 1}
+                  aria-label={t('exportForms:removeLine', { line: index + 1 })}
+                  onClick={() => remove(index)}
+                >
+                  <Trash2Icon aria-hidden />
+                </Button>
+              </IconTooltip>
             </div>
 
             {shortage && (
@@ -506,7 +538,19 @@ export function ExportFormItemsField({
                 name={`items.${index}.note`}
                 render={({ field: f }) => (
                   <FormItem className={bp.span}>
-                    <FormLabel>{lineLabel(t('exportForms:fieldLineNote'), index)}</FormLabel>
+                    <div className="flex items-center justify-between gap-3">
+                      <FormLabel>{lineLabel(t('exportForms:fieldLineNote'), index)}</FormLabel>
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive h-auto p-0 text-xs"
+                        aria-label={`${t('exportForms:removeLineNote')} ${t('exportForms:lineLabel', { line: index + 1 })}`}
+                        onClick={() => closeNote(field.id, index)}
+                      >
+                        {t('exportForms:removeLineNote')}
+                      </Button>
+                    </div>
                     <FormControl>
                       <Input {...f} />
                     </FormControl>

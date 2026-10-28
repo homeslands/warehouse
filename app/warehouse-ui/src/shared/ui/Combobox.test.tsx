@@ -1,9 +1,10 @@
-import { cleanup, render, screen } from '@testing-library/react'
+import { cleanup, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { createRef, useState } from 'react'
 import { describe, expect, it, vi } from 'vitest'
 import { Combobox, type ComboboxOption } from './Combobox'
 import { Dialog, DialogContent, DialogDescription, DialogTitle } from './dialog'
+import { renderWithTooltip } from '@/shared/test/render'
 
 const OPTIONS: ComboboxOption[] = [
   { value: 'hn', label: 'Hà Nội' },
@@ -27,7 +28,7 @@ function setup(initial?: string) {
       />
     )
   }
-  render(<Harness />)
+  renderWithTooltip(<Harness />)
   return { onChange, user: userEvent.setup() }
 }
 
@@ -35,7 +36,7 @@ describe('Combobox', () => {
   it('mục disabled hiện ra nhưng không chọn được', async () => {
     const onChange = vi.fn()
     const user = userEvent.setup()
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={[...OPTIONS, { value: 'x', label: 'Hết hàng', disabled: true }]}
@@ -109,7 +110,7 @@ describe('Combobox', () => {
 
   it('onOpenChange báo mở, đóng bằng Esc và đóng sau khi chọn', async () => {
     const onOpenChange = vi.fn()
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={OPTIONS}
@@ -140,7 +141,7 @@ describe('Combobox', () => {
 
   it('ref ngoài vẫn trỏ vào nút mở (RHF focus ô lỗi)', () => {
     const ref = createRef<HTMLButtonElement>()
-    render(
+    renderWithTooltip(
       <Combobox
         ref={ref}
         aria-label="Tỉnh"
@@ -174,7 +175,7 @@ describe('Combobox', () => {
         </Dialog>
       )
     }
-    render(<Harness />)
+    renderWithTooltip(<Harness />)
     const user = userEvent.setup()
 
     await user.click(screen.getByRole('combobox', { name: 'Tỉnh' }))
@@ -188,7 +189,9 @@ describe('Combobox', () => {
 
   it('disabled → không mở được, không có nút xoá', async () => {
     const onChange = vi.fn()
-    render(<Combobox aria-label="Tỉnh" options={OPTIONS} value="hn" onChange={onChange} disabled />)
+    renderWithTooltip(
+      <Combobox aria-label="Tỉnh" options={OPTIONS} value="hn" onChange={onChange} disabled />,
+    )
     await userEvent.setup().click(screen.getByRole('combobox', { name: 'Tỉnh' }))
 
     expect(screen.queryByRole('listbox')).not.toBeInTheDocument()
@@ -197,7 +200,7 @@ describe('Combobox', () => {
 
   it('nhãn dài không khoảng trắng được ngắt dòng trong danh sách (không bị cắt giữa chữ)', async () => {
     const label = 'ONG114 · ỐngNhựaPVCBìnhMinhPhi114x4,9mmClass3TiêuChuẩnISO1452'
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Đơn vị"
         options={[{ value: 'x', label }]}
@@ -246,7 +249,7 @@ describe('Combobox', () => {
       await user.keyboard('{Escape}')
 
       cleanup()
-      render(
+      renderWithTooltip(
         <Combobox
           aria-label="Tỉnh"
           options={OPTIONS}
@@ -273,7 +276,7 @@ describe('Combobox', () => {
   describe('footer', () => {
     function setupFooter() {
       const onFooter = vi.fn()
-      render(
+      renderWithTooltip(
         <Combobox
           aria-label="Tỉnh"
           options={OPTIONS}
@@ -319,7 +322,7 @@ describe('Combobox', () => {
 
   it('groups → vẽ tiêu đề nhóm đúng thứ tự, chọn vẫn trả value', async () => {
     const onChange = vi.fn()
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={OPTIONS}
@@ -347,7 +350,7 @@ describe('Combobox', () => {
 
   it('serverFiltered + onSearchChange → báo chữ gõ, không lọc tại chỗ; đóng thì báo rỗng', async () => {
     const onSearchChange = vi.fn()
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={OPTIONS}
@@ -368,7 +371,7 @@ describe('Combobox', () => {
   })
 
   it('isLoading → hiện loadingText thay cho "Không có kết quả."', async () => {
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={[]}
@@ -387,7 +390,7 @@ describe('Combobox', () => {
 
   it('renderOption → mục vẽ nội dung của hàm; value / chọn / dấu tích vẫn như cũ', async () => {
     const onChange = vi.fn()
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={OPTIONS}
@@ -412,7 +415,7 @@ describe('Combobox', () => {
   })
 
   it('listClassName → ghép vào [cmdk-list], vẫn giữ lớp cũ', async () => {
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={OPTIONS}
@@ -431,7 +434,7 @@ describe('Combobox', () => {
     const anchor = document.createElement('div')
     anchor.getBoundingClientRect = () => ({ left: 40, width: 640 }) as DOMRect
     const anchorRef = { current: anchor }
-    render(
+    renderWithTooltip(
       <Combobox
         aria-label="Tỉnh"
         options={OPTIONS}
@@ -457,7 +460,7 @@ describe('Combobox', () => {
 
 describe('Combobox — mũi tên', () => {
   it('mặc định dùng icon ⇅; chevron="down" dùng icon ⌄', () => {
-    const { rerender } = render(
+    const { rerender } = renderWithTooltip(
       <Combobox aria-label="Tỉnh" options={OPTIONS} value={undefined} onChange={vi.fn()} />,
     )
     const trigger = () => screen.getByRole('combobox', { name: 'Tỉnh' })

@@ -34,6 +34,7 @@ import { ToggleStoreActiveDialog } from '@/features/store-toggle-active'
 import { DeleteStoreDialog } from '@/features/store-delete'
 import { StoreFormSheet } from '@/features/store-form'
 import { storeAbilities } from '../model/abilities'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 // Backend `GET /stores` mới chỉ nhận `isActive` — chưa lọc theo kho, chưa tìm theo tên/mã.
 const FILTERS = z.object({
@@ -116,15 +117,17 @@ export function StoresPage() {
 
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('stores:rowActions', { name: store.name })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('stores:rowActions', { name: store.name })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('stores:rowActions', { name: store.name })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               {ability.update && (
                 <DropdownMenuItem

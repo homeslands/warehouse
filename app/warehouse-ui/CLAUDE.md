@@ -549,7 +549,8 @@ Bẫy khi thêm linh kiện shadcn (style `radix-nova`):
 - `sidebar` đã tách `SidebarContext` / `useSidebar` / `SIDEBAR_COOKIE_NAME` sang `shared/ui/sidebar-context.ts`
   (import `useSidebar` từ đó, không từ `sidebar.tsx`); `shared/lib/use-mobile.ts` viết lại bằng
   `matchMedia(...).matches` — test màn nhỏ chỉ cần giả `matchMedia`. Chạy lại `shadcn add` cho các file này
-  thì phải tách/sửa lại. Tooltip cần `TooltipProvider` (đặt trong `AppShell`).
+  thì phải tách/sửa lại. Tooltip cần `TooltipProvider` (đặt ở gốc `app/App.tsx`, `delayDuration={300}`).
+- Nút chỉ có icon (không chữ nhìn thấy) phải bọc `IconTooltip` (`shared/ui/IconTooltip.tsx`) với cùng nhãn `aria-label`; `TooltipProvider` nằm ở gốc `app/App.tsx` (và trong `renderWithProviders` / `renderWithRouter` / `renderWithTooltip` cho test). Nút disabled truyền `disabled` để tooltip vẫn hiện; lý do khoá vẫn là dòng chữ nhỏ, không vào tooltip.
 - `breadcrumb`: đã bỏ `role="link"` / `aria-disabled` của `BreadcrumbPage` (chữ thường, chỉ giữ
   `aria-current="page"`).
 - `sidebar`: `SidebarInset` render `<div>` (bản gốc là `<main>`) — `AppShell` tự đặt `<main>` quanh vùng

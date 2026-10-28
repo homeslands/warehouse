@@ -286,33 +286,53 @@ describe('ImportFormItemsField', () => {
     expect(current?.items).toHaveLength(1)
   })
 
-  it('ghi chú dòng ẩn, bấm biểu tượng thì hiện ô', async () => {
+  it('ghi chú dòng ẩn, bấm badge "＋ Ghi chú" thì hiện ô và đưa con trỏ vào', async () => {
     const { user } = renderWithProviders(<Harness />)
-    expect(screen.queryByRole('textbox', { name: 'Ghi chú dòng dòng 1' })).not.toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Ghi chú dòng 1' }))
     const row = screen.getByTestId('line-0')
-    expect(within(row).getByRole('textbox', { name: /Ghi chú dòng/ })).toBeInTheDocument()
+    expect(within(row).queryByRole('textbox', { name: 'Ghi chú dòng 1' })).not.toBeInTheDocument()
+    expect(within(row).queryByRole('button', { name: 'Ghi chú dòng 1' })).toHaveTextContent(
+      'Ghi chú',
+    )
+    await user.click(within(row).getByRole('button', { name: 'Ghi chú dòng 1' }))
+    const note = within(row).getByRole('textbox', { name: 'Ghi chú dòng 1' })
+    expect(note).toHaveFocus()
+    expect(within(row).queryByRole('button', { name: 'Ghi chú dòng 1' })).not.toBeInTheDocument()
+  })
+
+  it('không còn nút icon ghi chú (aria-pressed) cạnh nút xoá', () => {
+    renderWithProviders(<Harness />)
+    expect(
+      screen
+        .getAllByRole('button')
+        .filter((b) => b.getAttribute('aria-pressed') !== null)
+        .map((b) => b.getAttribute('aria-label')),
+    ).toEqual([])
   })
 
   const withNote = [{ ...EMPTY_ITEM, materialSlug: 'm-flour', unitSlug: 'u-kg', note: 'abc' }]
 
   it('ghi chú có sẵn → hiện ô; xoá hết chữ thì ô vẫn còn và giữ focus', async () => {
     const { user } = renderWithProviders(<Harness items={withNote} />)
-    const input = screen.getByRole('textbox', { name: /Ghi chú dòng/ })
+    const input = screen.getByRole('textbox', { name: 'Ghi chú dòng 1' })
     expect(input).toHaveValue('abc')
     await user.clear(input)
-    const after = screen.getByRole('textbox', { name: /Ghi chú dòng/ })
+    const after = screen.getByRole('textbox', { name: 'Ghi chú dòng 1' })
     expect(after).toBe(input)
     expect(after).toHaveFocus()
   })
 
-  it('bấm biểu tượng ghi chú đang mở (có chữ) → ẩn ô, aria-pressed = false', async () => {
+  it('"Bỏ ghi chú" xoá nội dung và ẩn ô; badge "＋ Ghi chú" hiện lại', async () => {
     const { user } = renderWithProviders(<Harness items={withNote} />)
-    const toggle = screen.getByRole('button', { name: 'Ghi chú dòng 1' })
-    expect(toggle).toHaveAttribute('aria-pressed', 'true')
-    await user.click(toggle)
-    expect(toggle).toHaveAttribute('aria-pressed', 'false')
-    expect(screen.queryByRole('textbox', { name: /Ghi chú dòng/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Bỏ ghi chú dòng 1' }))
+    expect(screen.queryByRole('textbox', { name: 'Ghi chú dòng 1' })).not.toBeInTheDocument()
+    expect(current?.items[0].note).toBe('')
+    // Con trỏ về badge "Ghi chú" của dòng, không rơi về body.
+    expect(screen.getByRole('button', { name: 'Ghi chú dòng 1' })).toHaveFocus()
+  })
+
+  it('nút xoá dòng là thùng rác màu đỏ', () => {
+    renderWithProviders(<Harness />)
+    expect(screen.getByRole('button', { name: 'Xoá dòng 1' })).toHaveClass('text-destructive')
   })
 
   it('dòng "＋ Thêm vật tư vào kho…" mở hộp với chữ đã gõ; gắn xong chọn NGAY chỉ dòng đó + đơn vị gốc', async () => {
@@ -636,18 +656,15 @@ describe('ImportFormItemsField', () => {
   it('dòng trống hẳn đang mở ô ghi chú (chưa gõ) → được lấp thì ô ghi chú đóng lại', async () => {
     const { user } = renderWithProviders(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Ghi chú dòng 1' }))
-    expect(screen.getByRole('textbox', { name: /Ghi chú dòng/ })).toBeInTheDocument()
+    expect(screen.getByRole('textbox', { name: 'Ghi chú dòng 1' })).toBeInTheDocument()
     await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
     const dialog = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
     await user.click(within(dialog).getByRole('checkbox', { name: /VT-01 · Bột mì/ }))
     await user.click(within(dialog).getByRole('button', { name: 'Thêm 1 dòng' }))
     await waitFor(() => expect(screen.queryByRole('dialog')).not.toBeInTheDocument())
     expect(current?.items).toEqual([{ ...EMPTY_ITEM, materialSlug: 'm-flour', unitSlug: 'u-kg' }])
-    expect(screen.queryByRole('textbox', { name: /Ghi chú dòng/ })).not.toBeInTheDocument()
-    expect(screen.getByRole('button', { name: 'Ghi chú dòng 1' })).toHaveAttribute(
-      'aria-pressed',
-      'false',
-    )
+    expect(screen.queryByRole('textbox', { name: 'Ghi chú dòng 1' })).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Ghi chú dòng 1' })).toBeInTheDocument()
   })
 
   it('dòng chưa có vật tư nhưng đã gõ số lượng → giữ nguyên, vật tư chọn từ hộp thành dòng mới phía sau', async () => {

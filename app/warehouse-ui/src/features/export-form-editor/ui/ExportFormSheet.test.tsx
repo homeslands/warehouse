@@ -613,6 +613,24 @@ describe('ExportFormSheet — tạo', () => {
 describe('ExportFormSheet — sửa nháp', () => {
   const draft = exportForm({ version: 4, items: [item({ quantity: 10 })] })
 
+  it('② dòng thông tin có nút "Sửa" về ①', async () => {
+    const { user } = setup({ formSlug: 'xf-1', detail: draft })
+    await waitFor(() => expect(qtyBox()).toHaveValue('10'))
+    await user.click(screen.getByRole('button', { name: 'Sửa thông tin phiếu' }))
+    expect(await screen.findByRole('textbox', { name: /^Người nhận/ })).toBeVisible()
+  })
+
+  it('③ có nút "Sửa" ở từng phần: về ① sửa thông tin, về ② sửa dòng', async () => {
+    const { user } = setup({ formSlug: 'xf-1', detail: draft })
+    await waitFor(() => expect(qtyBox()).toHaveValue('10'))
+    await user.click(within(stepsNav()).getByRole('button', { name: /Kiểm tra/ }))
+    await user.click(await screen.findByRole('button', { name: 'Sửa thông tin phiếu' }))
+    expect(await screen.findByRole('textbox', { name: /^Người nhận/ })).toBeVisible()
+    await user.click(within(stepsNav()).getByRole('button', { name: /Kiểm tra/ }))
+    await user.click(await screen.findByRole('button', { name: 'Sửa chi tiết vật tư' }))
+    await waitFor(() => expect(qtyBox()).toBeVisible())
+  })
+
   it('mở thẳng ②; chưa đổi thì Lưu khoá; chân sheet Huỷ · Lưu & gửi duyệt · Lưu', async () => {
     setup({ formSlug: 'xf-1', detail: draft })
     expect(await screen.findByRole('dialog', { name: 'Sửa phiếu xuất PX-0001' })).toBeVisible()

@@ -1,9 +1,10 @@
-import { act, render, screen } from '@testing-library/react'
+import { act, screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { useState } from 'react'
 import { afterEach, describe, expect, it, vi } from 'vitest'
 import i18n from '@/shared/i18n'
 import { DatePicker } from './DatePicker'
+import { renderWithTooltip } from '@/shared/test/render'
 
 function setup(initial?: string) {
   const onChange = vi.fn()
@@ -20,7 +21,7 @@ function setup(initial?: string) {
       />
     )
   }
-  render(<Harness />)
+  renderWithTooltip(<Harness />)
   return { onChange, user: userEvent.setup() }
 }
 
@@ -56,7 +57,10 @@ describe('DatePicker', () => {
     await user.click(screen.getByRole('button', { name: 'Ngày nhập' }))
     const viCaption = screen.getByRole('grid').getAttribute('aria-label')
     expect(viCaption).toMatch(/^tháng .+ 2026$/i)
+    expect(screen.queryByRole('tooltip')).not.toBeInTheDocument()
     await user.keyboard('{Escape}')
+    // Một Esc là đủ đóng lịch (không có tooltip nào chen vào).
+    expect(screen.queryByRole('grid')).not.toBeInTheDocument()
 
     await act(async () => {
       await i18n.changeLanguage('en')

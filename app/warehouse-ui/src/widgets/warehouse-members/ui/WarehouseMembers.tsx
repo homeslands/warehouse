@@ -22,6 +22,7 @@ import {
 } from '@/entities/user'
 import { AddWarehouseMemberDialog } from '@/features/warehouse-member-add'
 import { RemoveWarehouseMemberDialog } from '@/features/warehouse-member-remove'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 const KEEP = new Set(['name', 'phonenumber', 'role', 'status'])
 
@@ -75,15 +76,17 @@ export function WarehouseMembers({ warehouse, canManage }: Props) {
       // Cùng dạng với mọi bảng khác: thao tác nằm trong menu ⋯, không phải nút chữ trên dòng.
       cell: ({ row }) => (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={tUsers('users:rowActions', { name: userDisplayName(row.original) })}
-            >
-              <MoreHorizontalIcon />
-            </Button>
-          </DropdownMenuTrigger>
+          <IconTooltip label={tUsers('users:rowActions', { name: userDisplayName(row.original) })}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={tUsers('users:rowActions', { name: userDisplayName(row.original) })}
+              >
+                <MoreHorizontalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+          </IconTooltip>
           <DropdownMenuContent align="end">
             <DropdownMenuItem variant="destructive" onSelect={() => setRemoving(row.original)}>
               {t('warehouses:removeMemberMenu')}

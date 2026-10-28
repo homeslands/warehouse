@@ -24,6 +24,7 @@ import { buildUnitColumns, useUnits, type Unit } from '@/entities/unit'
 import { DeleteUnitDialog } from '@/features/unit-delete'
 import { UnitFormSheet } from '@/features/unit-form'
 import { unitAbilities } from '../model/abilities'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 // Trên URL chỉ có chữ người dùng gõ (+ cách tìm tự chọn khi đoán sai); `code` / `name` suy ra lúc gọi.
 const FILTERS = z.object({
@@ -59,15 +60,17 @@ export function UnitsPage() {
         const hintId = `unit-delete-hint-${unit.slug}`
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('units:rowActions', { name: unit.name })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('units:rowActions', { name: unit.name })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('units:rowActions', { name: unit.name })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               {ability.update && (
                 <DropdownMenuItem
