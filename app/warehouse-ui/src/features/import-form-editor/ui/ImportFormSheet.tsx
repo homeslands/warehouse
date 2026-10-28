@@ -280,6 +280,7 @@ export function ImportFormSheet({
   const headerSupplier = useWatch({ control: form.control, name: 'supplierSlug' })
   const invoiceCode = useWatch({ control: form.control, name: 'invoiceCode' })
   const date = useWatch({ control: form.control, name: 'date' })
+  const purchaseOrder = useWatch({ control: form.control, name: 'purchaseOrder' })
   const total = formTotal(items)
   const isDirty = form.formState.isDirty
   /**
@@ -818,6 +819,7 @@ export function ImportFormSheet({
                   }
                   invoiceCode={invoiceCode ?? ''}
                   date={date ?? ''}
+                  purchaseOrder={purchaseOrder}
                   onEdit={() => void goTo('info')}
                   disabled={isPending}
                 />
@@ -868,6 +870,7 @@ export function ImportFormSheet({
                   editing={editing}
                   disabled={isPending}
                   onJumpToLine={jumpToLine}
+                  onEditStep={(target) => void goTo(target)}
                 />
               </section>
             </div>

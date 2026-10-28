@@ -6,7 +6,9 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { formatDate } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { Calendar } from '@/shared/ui/calendar'
+import { focusCalendarDay } from '@/shared/ui/calendar-focus'
 import { Popover, PopoverContent, PopoverTrigger } from '@/shared/ui/popover'
 import { CHIP_FRAME, CHIP_INNER, FILTER_LABEL_CLASS, useFilterDisplay } from './filter-display'
 
@@ -112,7 +114,7 @@ export function DateRangeFilter({ label, value, onChange, className }: DateRange
             )}
           </Button>
         </PopoverTrigger>
-        <PopoverContent className="w-auto p-0" align="end">
+        <PopoverContent className="w-auto p-0" align="end" onOpenAutoFocus={focusCalendarDay}>
           <Calendar
             mode="range"
             selected={pending ? { from: pending, to: undefined } : { from, to }}
@@ -124,20 +126,22 @@ export function DateRangeFilter({ label, value, onChange, className }: DateRange
         </PopoverContent>
       </Popover>
       {hasValue && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-sm"
-          className={cn(chip && 'mr-1.5 size-6 rounded-full')}
-          aria-label={t('common:clearSelection')}
-          onClick={() => {
-            onChange({})
-            // Nút xoá sắp biến mất — không để focus rơi xuống <body>.
-            triggerRef.current?.focus()
-          }}
-        >
-          <XIcon />
-        </Button>
+        <IconTooltip label={t('common:clearSelection')}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-sm"
+            className={cn(chip && 'mr-1.5 size-6 rounded-full')}
+            aria-label={t('common:clearSelection')}
+            onClick={() => {
+              onChange({})
+              // Nút xoá sắp biến mất — không để focus rơi xuống <body>.
+              triggerRef.current?.focus()
+            }}
+          >
+            <XIcon />
+          </Button>
+        </IconTooltip>
       )}
     </div>
   )

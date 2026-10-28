@@ -3,6 +3,7 @@ import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { Input } from '@/shared/ui/input'
 
 export const SEARCH_DEBOUNCE_MS = 300
@@ -66,20 +67,22 @@ export function SearchInput({ value, onChange, placeholder, className }: SearchI
         }}
       />
       {text !== '' && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="absolute top-1/2 right-1 -translate-y-1/2"
-          aria-label={t('common:clearSearch')}
-          onClick={() => {
-            clearTimeout(timer.current)
-            setText('')
-            emit('')
-          }}
-        >
-          <XIcon />
-        </Button>
+        <IconTooltip label={t('common:clearSearch')}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="absolute top-1/2 right-1 -translate-y-1/2"
+            aria-label={t('common:clearSearch')}
+            onClick={() => {
+              clearTimeout(timer.current)
+              setText('')
+              emit('')
+            }}
+          >
+            <XIcon />
+          </Button>
+        </IconTooltip>
       )}
     </div>
   )

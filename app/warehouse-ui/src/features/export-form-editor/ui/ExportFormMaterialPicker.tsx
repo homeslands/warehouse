@@ -72,8 +72,31 @@ export function ExportFormMaterialPicker({
   const tickable = (m: InventoryItem) =>
     !autoSlugs.has(m.materialSlug) && m.availableQuantity > 0 && baseUnitSlugOf(m) !== ''
   // Câu giới hạn hiện khi giới hạn có thể chặn thật: còn ít chỗ hơn số vật tư tick được (đang hiện + đã tick).
-  const selectable = new Set([...shown.filter(tickable).map((m) => m.materialSlug), ...checked])
+  const shownTickable = shown.filter(tickable)
+  const selectable = new Set([...shownTickable.map((m) => m.materialSlug), ...checked])
   const showLimit = capacity < selectable.size
+
+  // "Chọn tất cả" chỉ áp cho danh sách đang lọc. Coi là "đã chọn hết" khi mọi vật tư tick được đang hiện đều đã tick,
+  // hoặc đã hết chỗ mà có ít nhất một vật tư đang hiện được tick — khi đó bấm lại là bỏ chọn.
+  const checkedShown = shownTickable.filter((m) => checked.has(m.materialSlug)).length
+  const allChosen =
+    checkedShown > 0 && (checkedShown === shownTickable.length || checked.size >= capacity)
+  const selectAllState = allChosen ? true : checkedShown > 0 ? 'indeterminate' : false
+  const selectAllDisabled = shownTickable.length === 0 || (checkedShown === 0 && full)
+  const toggleAll = () =>
+    setChecked((prev) => {
+      const next = new Set(prev)
+      if (allChosen) {
+        for (const m of shownTickable) next.delete(m.materialSlug)
+        return next
+      }
+      // Theo thứ tự của kho, tới khi hết chỗ.
+      for (const m of shownTickable) {
+        if (next.size >= capacity) break
+        next.add(m.materialSlug)
+      }
+      return next
+    })
 
   const toggle = (slug: string, on: boolean) =>
     setChecked((prev) => {
@@ -174,6 +197,22 @@ export function ExportFormMaterialPicker({
               <span>{t('exportForms:fieldMaterial')}</span>
               <span className="text-right">{t('exportForms:pickerColAvailable')}</span>
               <span>{t('exportForms:pickerColUnit')}</span>
+            </div>
+            <div className={`${ROW_GRID} bg-muted/40 border-b px-3 py-2`}>
+              <Checkbox
+                id={`${id}-all`}
+                className="mt-0.5"
+                checked={selectAllState}
+                disabled={selectAllDisabled}
+                aria-describedby={selectAllDisabled ? undefined : showLimit ? limitId : undefined}
+                onCheckedChange={toggleAll}
+              />
+              <label
+                htmlFor={`${id}-all`}
+                className={`text-sm font-medium ${selectAllDisabled ? 'text-muted-foreground' : 'cursor-pointer'}`}
+              >
+                {t('exportForms:pickerSelectAll', { count: shownTickable.length })}
+              </label>
             </div>
             <div className="max-h-[min(26rem,50vh)] overflow-y-auto">
               {shown.length === 0 ? (

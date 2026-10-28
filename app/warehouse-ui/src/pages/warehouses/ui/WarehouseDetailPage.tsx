@@ -42,6 +42,7 @@ import { WarehouseInventory } from '@/widgets/warehouse-inventory'
 import { WarehouseMembers } from '@/widgets/warehouse-members'
 import { warehouseAbilities } from '../model/abilities'
 import { resolveDetailTab, type WarehouseDetailTab } from '../model/detail-tab'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 const LIST_PATH = '/warehouses'
 
@@ -179,11 +180,13 @@ export function WarehouseDetailPage() {
             )}
             {hasMenu && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
-                    <MoreHorizontalIcon />
-                  </Button>
-                </DropdownMenuTrigger>
+                <IconTooltip label={t('common:moreActions')}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
+                      <MoreHorizontalIcon />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </IconTooltip>
                 <DropdownMenuContent align="end">
                   {ability.assignManager && (
                     <DropdownMenuItem onSelect={() => setAssigning(warehouse)}>

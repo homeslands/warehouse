@@ -23,6 +23,7 @@ import {
 import { AttachSupplierMaterialDialog } from '@/features/supplier-material-attach'
 import { DetachSupplierMaterialDialog } from '@/features/supplier-material-detach'
 import { toMaterialSearchQuery } from '../model/search-query'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 /**
  * Trạng thái chọn cho cột ô tick. Ô tick là component CỐ ĐỊNH đọc qua context: `flexRender` coi mỗi hàm
@@ -147,15 +148,17 @@ export function SupplierMaterials({ supplier, canManage, canFilter }: Props) {
       // Cùng dạng với mọi bảng khác: thao tác trên dòng nằm trong menu ⋯.
       cell: ({ row }) => (
         <DropdownMenu>
-          <DropdownMenuTrigger asChild>
-            <Button
-              variant="ghost"
-              size="icon-sm"
-              aria-label={t('suppliers:rowActions', { name: row.original.code })}
-            >
-              <MoreHorizontalIcon />
-            </Button>
-          </DropdownMenuTrigger>
+          <IconTooltip label={t('suppliers:rowActions', { name: row.original.code })}>
+            <DropdownMenuTrigger asChild>
+              <Button
+                variant="ghost"
+                size="icon-sm"
+                aria-label={t('suppliers:rowActions', { name: row.original.code })}
+              >
+                <MoreHorizontalIcon />
+              </Button>
+            </DropdownMenuTrigger>
+          </IconTooltip>
           <DropdownMenuContent align="end">
             <DropdownMenuItem variant="destructive" onSelect={() => setDetaching([row.original])}>
               {t('suppliers:detachMenu')}

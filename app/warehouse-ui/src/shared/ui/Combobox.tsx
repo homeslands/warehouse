@@ -11,6 +11,7 @@ import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { matchesSearch } from '@/shared/lib/search-text'
 import { Button } from '@/shared/ui/button'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import {
   Command,
   CommandEmpty,
@@ -266,20 +267,22 @@ export function Combobox({
         </PopoverContent>
       </Popover>
       {clearable && (
-        <Button
-          type="button"
-          variant="ghost"
-          size="icon-xs"
-          className="absolute top-1/2 right-8 -translate-y-1/2"
-          aria-label={t('common:clearSelection')}
-          onClick={() => {
-            onChange(undefined)
-            // Nút xoá sắp biến mất — không để focus rơi xuống <body>.
-            triggerRef.current?.focus()
-          }}
-        >
-          <XIcon />
-        </Button>
+        <IconTooltip label={t('common:clearSelection')}>
+          <Button
+            type="button"
+            variant="ghost"
+            size="icon-xs"
+            className="absolute top-1/2 right-8 -translate-y-1/2"
+            aria-label={t('common:clearSelection')}
+            onClick={() => {
+              onChange(undefined)
+              // Nút xoá sắp biến mất — không để focus rơi xuống <body>.
+              triggerRef.current?.focus()
+            }}
+          >
+            <XIcon />
+          </Button>
+        </IconTooltip>
       )}
     </div>
   )

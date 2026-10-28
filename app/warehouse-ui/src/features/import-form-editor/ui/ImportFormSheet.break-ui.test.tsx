@@ -102,6 +102,9 @@ describe('ImportFormSheet — break-ui', () => {
     )
     expect(screen.getByTestId('line-amount-0').className).toContain('[overflow-wrap:anywhere]')
     expect(screen.getByTestId('line-amount-2')).toHaveTextContent(/1\.140\.000\.000/)
+    // Dòng meta bước ① (bên bán tên dài…) chỉ để xem — không có nút "sửa".
+    expect(screen.getAllByText('Bên bán', { selector: 'dt' })[0]).toBeInTheDocument()
+    expect(screen.queryByRole('button', { name: 'sửa' })).not.toBeInTheDocument()
     await dump('worst-step-items')
 
     await user.click(screen.getByRole('button', { name: /Thông tin phiếu$/ }))
@@ -132,6 +135,7 @@ describe('ImportFormSheet — break-ui', () => {
         unitLabel={(_, unitSlug) => units.get(unitSlug)}
         canConfirm
         onJumpToLine={vi.fn()}
+        onEditStep={vi.fn()}
       />,
     )
     await screen.findByRole('heading', { name: 'Kiểm tra phiếu nhập' })

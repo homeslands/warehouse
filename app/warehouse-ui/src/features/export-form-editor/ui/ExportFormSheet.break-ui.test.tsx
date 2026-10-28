@@ -230,19 +230,25 @@ const footer = () => document.querySelector<HTMLElement>('[data-slot="sheet-foot
 describe('ExportFormSheet — break-ui', () => {
   it('demo: sửa nháp Bán mở ở ②, tóm tắt + Tổng ở chân', async () => {
     renderSheet(DEMO_DRAFT, DEMO_STOCK, 'Kho A')
-    await screen.findByText(/Bán · Giao cho Cửa hàng B · PO PO-12/)
+    // Thông tin bước ① ở đầu bước ② (chỉ xem): ô <dd> của khung thông tin.
+    await waitFor(() =>
+      expect(screen.getAllByRole('definition').map((el) => el.textContent)).toEqual(
+        expect.arrayContaining(['Bán', 'Cửa hàng B', 'PO-12']),
+      ),
+    )
     expect(within(footer()).getByText(/Tổng: 250\.000/)).toBeInTheDocument()
     await dump('demo-items')
   })
 
   it('worst case: ② — người nhận dài, vật tư 120 ký tự, lô không hạn, vật tư ngoài danh sách', async () => {
     renderSheet(WORST_DRAFT, WORST_STOCK, 'Kho tổng miền Nam — Khu công nghiệp Tân Tạo')
-    const summary = await screen.findByText(new RegExp(`Giao cho ${LONG_RECEIVER.slice(0, 20)}`))
-    // Tóm tắt dài xuống dòng, nút "sửa" không bị đẩy ra ngoài.
+    // Người nhận dài xuống dòng trong khung thông tin (không có nút để bị đẩy ra ngoài).
+    const summary = await waitFor(() => {
+      const dd = screen.getAllByRole('definition').find((el) => el.textContent === LONG_RECEIVER)
+      expect(dd).toBeDefined()
+      return dd!
+    })
     expect(summary.className).toContain('break-words')
-    expect(within(summary.parentElement!).getByRole('button', { name: 'sửa' }).className).toContain(
-      'shrink-0',
-    )
     await waitFor(() =>
       expect(screen.getByRole('combobox', { name: 'Vật tư dòng 1' })).toHaveTextContent(LONG_NAME),
     )

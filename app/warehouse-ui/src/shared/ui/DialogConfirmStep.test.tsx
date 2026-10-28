@@ -1,15 +1,16 @@
-import { render, screen } from '@testing-library/react'
+import { screen } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { SaveIcon } from 'lucide-react'
 import { describe, expect, it, vi } from 'vitest'
 import { Dialog, DialogContent } from '@/shared/ui/dialog'
 import { DialogConfirmStep } from './DialogConfirmStep'
+import { renderWithTooltip } from '@/shared/test/render'
 
 function setup(overrides: Partial<React.ComponentProps<typeof DialogConfirmStep>> = {}) {
   const onConfirm = vi.fn()
   const onBack = vi.fn()
   const user = userEvent.setup()
-  render(
+  renderWithTooltip(
     <Dialog open>
       <DialogContent>
         <DialogConfirmStep

@@ -1,42 +1,56 @@
+import { PencilIcon } from 'lucide-react'
 import { useTranslation } from 'react-i18next'
-import { formatDate } from '@/shared/lib/format'
 import { Button } from '@/shared/ui/button'
+import { formatDate } from '@/shared/lib/format'
+import { MetaList } from '@/shared/ui/MetaList'
 
 type ImportFormInfoSummaryProps = {
   seller?: string
   invoiceCode: string
   date: string
-  onEdit: () => void
+  purchaseOrder?: string
+  /** Có → nút "Sửa" căn phải về bước ① (đầu bước ②). Bước ③ không truyền — tiêu đề phần đã có nút riêng. */
+  onEdit?: () => void
   disabled?: boolean
 }
 
-/** Một dòng tóm tắt bước ① (bên bán · hoá đơn · ngày) ở đầu bước ②, kèm nút quay lại sửa. */
+/**
+ * Thông tin bước ① ở đầu bước ② (bên bán · số hoá đơn · ngày nhập · số PO), chỉ để xem — muốn sửa thì bấm bước ①
+ * trên dải bước. Một dòng meta nhẹ giống phiếu xuất.
+ */
 export function ImportFormInfoSummary({
   seller,
   invoiceCode,
   date,
+  purchaseOrder,
   onEdit,
   disabled,
 }: ImportFormInfoSummaryProps) {
   const { t } = useTranslation(['importForms'])
-  const params = { invoice: invoiceCode.trim(), date: formatDate(date) }
+  const po = purchaseOrder?.trim()
   return (
-    <div className="bg-muted/60 flex items-start justify-between gap-3 rounded-xl px-4 py-2.5 text-sm">
-      <p className="min-w-0 font-medium break-words">
-        {seller
-          ? t('importForms:infoSummary', { ...params, seller })
-          : t('importForms:infoSummaryNoSeller', params)}
-      </p>
-      <Button
-        type="button"
-        variant="link"
-        size="sm"
-        className="h-auto shrink-0 p-0"
-        disabled={disabled}
-        onClick={onEdit}
-      >
-        {t('importForms:editInfo')}
-      </Button>
-    </div>
+    <MetaList
+      items={[
+        ...(seller ? [{ label: t('importForms:reviewSeller'), value: seller }] : []),
+        { label: t('importForms:fieldInvoiceCode'), value: invoiceCode.trim() },
+        { label: t('importForms:fieldDate'), value: formatDate(date) },
+        ...(po ? [{ label: t('importForms:fieldPurchaseOrderShort'), value: po }] : []),
+      ]}
+      action={
+        onEdit && (
+          <Button
+            type="button"
+            variant="outline"
+            size="sm"
+            disabled={disabled}
+            aria-label={t('importForms:editInfoSection')}
+            onClick={onEdit}
+          >
+            <PencilIcon aria-hidden />
+            {t('importForms:editSection')}
+          </Button>
+        )
+      }
+    />
   )
 }

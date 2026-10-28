@@ -328,6 +328,30 @@ describe('ExportFormItemsField', () => {
     expect(screen.queryByText(/Chỉ tìm trong/)).not.toBeInTheDocument()
   })
 
+  it('link "Ghi chú" dưới dòng mở ô ghi chú và đưa con trỏ vào đó; "Bỏ ghi chú" xoá nội dung và ẩn ô', async () => {
+    const { user } = renderWithProviders(<Harness />)
+    expect(screen.queryByRole('textbox', { name: /Ghi chú dòng 1/ })).not.toBeInTheDocument()
+    await user.click(screen.getByRole('button', { name: 'Ghi chú dòng 1' }))
+    const note = screen.getByRole('textbox', { name: /Ghi chú dòng 1/ })
+    expect(note).toHaveFocus()
+    // Ô đã mở thì link không còn.
+    expect(screen.queryByRole('button', { name: 'Ghi chú dòng 1' })).not.toBeInTheDocument()
+    await user.type(note, 'giao gấp')
+    await waitFor(() => expect(current?.items[0]?.note).toBe('giao gấp'))
+
+    await user.click(screen.getByRole('button', { name: 'Bỏ ghi chú dòng 1' }))
+    expect(screen.queryByRole('textbox', { name: /Ghi chú dòng 1/ })).not.toBeInTheDocument()
+    await waitFor(() => expect(current?.items[0]?.note).toBe(''))
+    // Con trỏ về badge "Ghi chú" của dòng, không rơi về body.
+    expect(screen.getByRole('button', { name: 'Ghi chú dòng 1' })).toHaveFocus()
+  })
+
+  it('dòng đã có ghi chú hiện sẵn ô ghi chú', () => {
+    renderWithProviders(<Harness items={[line({ note: 'hàng dễ vỡ' })]} />)
+    expect(screen.getByRole('textbox', { name: /Ghi chú dòng 1/ })).toHaveValue('hàng dễ vỡ')
+    expect(screen.queryByRole('button', { name: 'Ghi chú dòng 1' })).not.toBeInTheDocument()
+  })
+
   it('"Thêm dòng" và "Xoá dòng"', async () => {
     const { user } = renderWithProviders(<Harness />)
     await user.click(screen.getByRole('button', { name: 'Thêm dòng' }))
@@ -379,6 +403,64 @@ describe('ExportFormItemsField', () => {
       expect(within(dialog).getByRole('checkbox', { name: /Bột mì/ })).toBeDisabled()
       expect(within(dialog).getByText('đã có')).toBeInTheDocument()
       expect(within(dialog).getByRole('checkbox', { name: /Muối/ })).toBeEnabled()
+    })
+
+    it('"Chọn tất cả" tick mọi vật tư tick được (bỏ qua hết hàng), bấm lại thì bỏ hết', async () => {
+      const { user } = renderWithProviders(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+      const dialog = await screen.findByRole('dialog')
+      const all = within(dialog).getByRole('checkbox', { name: /Chọn tất cả/ })
+      expect(all).not.toBeChecked()
+
+      await user.click(all)
+      expect(all).toBeChecked()
+      for (const name of [/Bột mì/, /Muối/, /Gạo/]) {
+        expect(within(dialog).getByRole('checkbox', { name })).toBeChecked()
+      }
+      expect(within(dialog).getByRole('checkbox', { name: /Đường cát/ })).not.toBeChecked()
+      expect(within(dialog).getByRole('button', { name: 'Thêm 3 dòng' })).toBeEnabled()
+
+      await user.click(all)
+      expect(all).not.toBeChecked()
+      expect(within(dialog).getByRole('checkbox', { name: /Muối/ })).not.toBeChecked()
+    })
+
+    it('"Chọn tất cả" ở trạng thái một phần khi mới tick vài vật tư; bấm thì tick nốt', async () => {
+      const { user } = renderWithProviders(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('checkbox', { name: /Muối/ }))
+      const all = within(dialog).getByRole('checkbox', { name: /Chọn tất cả/ })
+      expect(all).toHaveAttribute('aria-checked', 'mixed')
+
+      await user.click(all)
+      expect(all).toBeChecked()
+      expect(within(dialog).getByRole('button', { name: 'Thêm 3 dòng' })).toBeInTheDocument()
+    })
+
+    it('"Chọn tất cả" chỉ áp cho danh sách đang lọc, giữ vật tư đã tick ngoài bộ lọc', async () => {
+      const { user } = renderWithProviders(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.click(within(dialog).getByRole('checkbox', { name: /Muối/ }))
+      await user.type(within(dialog).getByRole('textbox', { name: /Tìm theo mã hoặc tên/ }), 'gao')
+      await user.click(within(dialog).getByRole('checkbox', { name: /Chọn tất cả/ }))
+      expect(within(dialog).getByRole('button', { name: 'Thêm 2 dòng' })).toBeInTheDocument()
+
+      await user.click(within(dialog).getByRole('checkbox', { name: /Chọn tất cả/ }))
+      // bỏ chọn cũng chỉ trong danh sách đang lọc: Muối vẫn được giữ
+      expect(within(dialog).getByRole('button', { name: 'Thêm 1 dòng' })).toBeInTheDocument()
+    })
+
+    it('"Chọn tất cả" khoá khi danh sách đang lọc không có vật tư nào tick được', async () => {
+      const { user } = renderWithProviders(<Harness />)
+      await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+      const dialog = await screen.findByRole('dialog')
+      await user.type(
+        within(dialog).getByRole('textbox', { name: /Tìm theo mã hoặc tên/ }),
+        'duong',
+      )
+      expect(within(dialog).getByRole('checkbox', { name: /Chọn tất cả/ })).toBeDisabled()
     })
 
     it('stockTotal > 500: hộp ghi chú "Chỉ tìm trong 500 vật tư đầu của kho"', async () => {

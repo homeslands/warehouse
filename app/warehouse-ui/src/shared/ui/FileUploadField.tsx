@@ -4,6 +4,7 @@ import type { FieldPath, FieldPathValue, FieldValues, UseFormReturn } from 'reac
 import { useTranslation } from 'react-i18next'
 import { FILE_MAX_BYTES } from '@/shared/api/file.api'
 import { Button } from '@/shared/ui/button'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
 
 type Props<T extends FieldValues> = {
@@ -87,18 +88,20 @@ export function FileUploadField<T extends FieldValues>({
               <span className="min-w-0 flex-1 truncate" title={displayName(field.value as string)}>
                 {displayName(field.value as string)}
               </span>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('fileRemove')}
-                onClick={() => {
-                  form.setValue(name, empty, { shouldDirty: true })
-                  form.clearErrors(name)
-                }}
-              >
-                <XIcon aria-hidden />
-              </Button>
+              <IconTooltip label={t('fileRemove')}>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('fileRemove')}
+                  onClick={() => {
+                    form.setValue(name, empty, { shouldDirty: true })
+                    form.clearErrors(name)
+                  }}
+                >
+                  <XIcon aria-hidden />
+                </Button>
+              </IconTooltip>
             </div>
           ) : (
             <Button

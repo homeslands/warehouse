@@ -1,16 +1,17 @@
-import { TriangleAlertIcon } from 'lucide-react'
+import { PencilIcon, TriangleAlertIcon } from 'lucide-react'
 import { useId } from 'react'
 import { useTranslation } from 'react-i18next'
 import { formatCurrency, formatDate, formatQuantity } from '@/shared/lib/format'
 import { roundMoney } from '@/shared/lib/number'
 import { Button } from '@/shared/ui/button'
-import { SummaryList, type SummaryItem } from '@/shared/ui/SummaryList'
+import { SectionHeading } from '@/shared/ui/SectionHeading'
 import { Table, TableBody, TableCell, TableHead, TableHeader, TableRow } from '@/shared/ui/table'
 import type { InventoryItem } from '@/entities/inventory'
 import type { MaterialBatch } from '@/entities/material-batch'
 import type { ExportFormValues } from '../model/export-form-editor.schema'
 import type { FallbackMaterial } from '../model/fallback'
 import { reviewExportForm, type ReviewWarning } from '../model/review'
+import { ExportFormInfoSummary } from './ExportFormInfoSummary'
 
 /** Ô cần sửa khi bấm "sửa" ở một cảnh báo. */
 export type ReviewJumpField = 'quantity' | 'unitPrice' | 'batchSlug'
@@ -29,6 +30,8 @@ type ExportFormReviewStepProps = {
   editing?: boolean
   disabled?: boolean
   onJumpToLine: (index: number, field: ReviewJumpField) => void
+  /** Nút "Sửa" của từng phần: về bước ① (thông tin) hoặc ② (dòng vật tư) — sửa được mọi bước, kể cả khi sửa nháp. */
+  onEditStep: (step: 'info' | 'items') => void
   /** Mốc "hôm nay" để đánh dấu lô hết hạn (truyền vào cho test). */
   now?: Date
 }
@@ -60,10 +63,12 @@ export function ExportFormReviewStep({
   editing = false,
   disabled,
   onJumpToLine,
+  onEditStep,
   now = new Date(),
 }: ExportFormReviewStepProps) {
   const { t } = useTranslation(['exportForms'])
   const linesTitleId = useId()
+  const infoTitleId = useId()
   const sale = values.type === 'SALE'
   const { warnings } = reviewExportForm(values, { stock, batches, now })
 
@@ -79,17 +84,6 @@ export function ExportFormReviewStep({
     )?.unitCode ?? ''
 
   const total = values.items.reduce((sum, i) => sum + (amountOf(i.quantity, i.unitPrice) ?? 0), 0)
-  const summary: SummaryItem[] = [
-    {
-      label: t('exportForms:fieldType'),
-      value: values.type ? t(`exportForms:type.${values.type}`) : '',
-    },
-    { label: t('exportForms:fieldReceiver'), value: values.receiver.trim() },
-    { label: t('exportForms:fieldPurchaseOrder'), value: values.purchaseOrder.trim() },
-    { label: t('exportForms:reviewLines'), value: String(values.items.length) },
-    ...(sale ? [{ label: t('exportForms:reviewTotal'), value: money(roundMoney(total)) }] : []),
-  ]
-
   const warningText = (w: ReviewWarning) => {
     const name = materialName(values.items[w.index]?.materialSlug ?? '')?.short
     // Không có tên thì bỏ hẳn phần tên — tránh "Dòng 3 ·  — …".
@@ -131,6 +125,20 @@ export function ExportFormReviewStep({
     amount: money(amountOf(item.quantity, item.unitPrice)),
   }))
 
+  const editButton = (step: 'info' | 'items', label: string) => (
+    <Button
+      type="button"
+      variant="outline"
+      size="sm"
+      disabled={disabled}
+      aria-label={label}
+      onClick={() => onEditStep(step)}
+    >
+      <PencilIcon aria-hidden />
+      {t('exportForms:editSection')}
+    </Button>
+  )
+
   return (
     <div className="space-y-4">
       <div className="space-y-1">
@@ -148,10 +156,25 @@ export function ExportFormReviewStep({
         </p>
       </div>
 
-      <SummaryList items={summary} />
+      <section aria-labelledby={infoTitleId} className="space-y-2">
+        <SectionHeading
+          id={infoTitleId}
+          title={t('exportForms:stepInfo')}
+          action={editButton('info', t('exportForms:editInfoSection'))}
+        />
+        {values.type && (
+          <ExportFormInfoSummary
+            values={{
+              type: values.type,
+              receiver: values.receiver,
+              purchaseOrder: values.purchaseOrder,
+            }}
+          />
+        )}
+      </section>
 
       {warnings.length > 0 && (
-        <section className="space-y-2 text-sm">
+        <section className="border-warning/40 bg-warning/5 space-y-2 rounded-lg border p-3 text-sm">
           <h3 className="flex items-center gap-1.5 font-medium">
             <TriangleAlertIcon className="text-warning size-4" aria-hidden />
             {t('exportForms:reviewNeedsAttention', { count: warnings.length })}
@@ -185,10 +208,12 @@ export function ExportFormReviewStep({
       )}
 
       {/* Container query theo bề rộng khung (như lưới dòng ở bước ②): hẹp hơn `@3xl` thì mỗi dòng là một mục xếp chồng. */}
-      <section className="@container space-y-2">
-        <h3 id={linesTitleId} className="text-sm font-medium">
-          {t('exportForms:reviewLinesTitle')}
-        </h3>
+      <section aria-labelledby={linesTitleId} className="@container space-y-2">
+        <SectionHeading
+          id={linesTitleId}
+          title={t('exportForms:items')}
+          action={editButton('items', t('exportForms:editItemsSection'))}
+        />
         <ol aria-labelledby={linesTitleId} className="divide-y text-sm @3xl:hidden">
           {lines.map(({ index, name, batch, quantity, price, amount }) => (
             <li key={index} className="space-y-1 py-2.5 first:pt-0">
@@ -262,6 +287,22 @@ export function ExportFormReviewStep({
             </TableBody>
           </Table>
         </div>
+        {/* Tổng cộng kiểu chứng từ: căn phải dưới bảng, ngăn bằng gạch trên. */}
+        <dl
+          data-testid="review-totals"
+          className="flex flex-wrap items-baseline justify-end gap-x-6 gap-y-1 border-t pt-3 text-sm"
+        >
+          <div className="flex items-baseline gap-2">
+            <dt className="text-muted-foreground">{t('exportForms:reviewLines')}</dt>
+            <dd className="font-medium tabular-nums">{values.items.length}</dd>
+          </div>
+          {sale && (
+            <div className="flex items-baseline gap-2">
+              <dt className="text-muted-foreground">{t('exportForms:reviewTotal')}</dt>
+              <dd className="text-base font-semibold tabular-nums">{money(roundMoney(total))}</dd>
+            </div>
+          )}
+        </dl>
       </section>
     </div>
   )

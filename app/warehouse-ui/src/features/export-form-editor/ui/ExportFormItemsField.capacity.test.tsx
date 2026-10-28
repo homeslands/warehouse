@@ -62,6 +62,20 @@ function Harness({ items }: { items: ExportFormValues['items'] }) {
 const used = { ...EMPTY_EXPORT_ITEM, materialSlug: 'm-x', unitSlug: 'u-kg' }
 
 describe('ExportFormItemsField — tối đa số dòng', () => {
+  it('"Chọn tất cả" chỉ tick tới hết chỗ còn trống (theo thứ tự kho); bấm lại bỏ hết', async () => {
+    const { user } = renderWithProviders(<Harness items={[used, { ...EMPTY_EXPORT_ITEM }]} />)
+    await user.click(screen.getByRole('button', { name: 'Chọn nhiều vật tư' }))
+    const picker = await screen.findByRole('dialog', { name: 'Chọn vật tư' })
+    const all = within(picker).getByRole('checkbox', { name: /Chọn tất cả/ })
+    await user.click(all)
+    expect(within(picker).getByRole('checkbox', { name: /VT-01 · Bột mì/ })).toBeChecked()
+    expect(within(picker).getByRole('checkbox', { name: /VT-02 · Đường/ })).not.toBeChecked()
+    // Đã đủ chỗ: coi như "đã chọn hết được" — bấm lại là bỏ chọn.
+    expect(all).toBeChecked()
+    await user.click(all)
+    expect(within(picker).getByRole('checkbox', { name: /VT-01 · Bột mì/ })).not.toBeChecked()
+  })
+
   it('2 dòng (1 có vật tư, 1 trống hẳn): hộp báo còn chọn được 1; tick 1 thì ô kia khoá; chọn lấp đúng dòng trống', async () => {
     const { user } = renderWithProviders(<Harness items={[used, { ...EMPTY_EXPORT_ITEM }]} />)
     expect(screen.getByRole('button', { name: 'Thêm dòng' })).toBeDisabled()

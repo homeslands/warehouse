@@ -4,6 +4,7 @@ import { Dialog as DialogPrimitive } from 'radix-ui'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
 import { Button } from '@/shared/ui/button'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { XIcon } from 'lucide-react'
 
 function Dialog({ ...props }: React.ComponentProps<typeof DialogPrimitive.Root>) {
@@ -61,12 +62,14 @@ function DialogContent({
       >
         {children}
         {showCloseButton && (
-          <DialogPrimitive.Close data-slot="dialog-close" asChild>
-            <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
-              <XIcon />
-              <span className="sr-only">{t('close')}</span>
-            </Button>
-          </DialogPrimitive.Close>
+          <IconTooltip label={t('close')}>
+            <DialogPrimitive.Close data-slot="dialog-close" asChild>
+              <Button variant="ghost" className="absolute top-2 right-2" size="icon-sm">
+                <XIcon />
+                <span className="sr-only">{t('close')}</span>
+              </Button>
+            </DialogPrimitive.Close>
+          </IconTooltip>
         )}
       </DialogPrimitive.Content>
     </DialogPortal>

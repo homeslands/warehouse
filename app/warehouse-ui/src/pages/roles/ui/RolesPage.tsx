@@ -25,6 +25,7 @@ import {
 import { DeleteRoleDialog } from '@/features/role-delete'
 import { RoleFormSheet } from '@/features/role-form'
 import { canActOnRole, roleAbilities } from '../model/abilities'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 export function RolesPage() {
   const { t } = useTranslation(['roles', 'common'])
@@ -66,17 +67,23 @@ export function RolesPage() {
         const hintId = `role-delete-hint-${role.slug}`
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('roles:rowActions', {
-                  name: builtIn ? roleLabel(role.name) : role.name,
-                })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip
+              label={t('roles:rowActions', {
+                name: builtIn ? roleLabel(role.name) : role.name,
+              })}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('roles:rowActions', {
+                    name: builtIn ? roleLabel(role.name) : role.name,
+                  })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               {items.edit && (
                 <DropdownMenuItem

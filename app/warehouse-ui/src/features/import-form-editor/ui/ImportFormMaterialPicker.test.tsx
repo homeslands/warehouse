@@ -90,6 +90,50 @@ function renderPicker(props: Partial<Parameters<typeof ImportFormMaterialPicker>
 }
 
 describe('ImportFormMaterialPicker', () => {
+  describe('"Chọn tất cả"', () => {
+    it('tick mọi vật tư tick được (bỏ qua vật tư chưa có đơn vị gốc), bấm lại thì bỏ hết', async () => {
+      const { user } = renderPicker()
+      const all = screen.getByRole('checkbox', { name: /Chọn tất cả/ })
+      expect(all).not.toBeChecked()
+      await user.click(all)
+      expect(all).toBeChecked()
+      for (const name of [/Bột mì/, /Đường/, /Muối/]) {
+        expect(screen.getByRole('checkbox', { name })).toBeChecked()
+      }
+      expect(screen.getByRole('checkbox', { name: /Chưa có đơn vị/ })).not.toBeChecked()
+      expect(screen.getByRole('button', { name: 'Thêm 3 dòng' })).toBeEnabled()
+      await user.click(all)
+      expect(all).not.toBeChecked()
+      expect(screen.getByRole('button', { name: 'Thêm 0 dòng' })).toBeDisabled()
+    })
+
+    it('trạng thái một phần khi mới tick vài vật tư; vật tư "đã có" không tính', async () => {
+      const { user } = renderPicker({ existingSlugs: new Set(['m-flour']) })
+      await user.click(screen.getByRole('checkbox', { name: /Muối/ }))
+      const all = screen.getByRole('checkbox', { name: /Chọn tất cả/ })
+      expect(all).toHaveAttribute('aria-checked', 'mixed')
+      await user.click(all)
+      expect(all).toBeChecked()
+      expect(screen.getByRole('checkbox', { name: /Bột mì/ })).not.toBeChecked()
+      expect(screen.getByRole('button', { name: 'Thêm 2 dòng' })).toBeInTheDocument()
+    })
+
+    it('chỉ tick tới hết chỗ còn trống (theo thứ tự hiển thị); đủ chỗ thì coi như đã chọn hết', async () => {
+      const { user } = renderPicker({ capacity: 2 })
+      const all = screen.getByRole('checkbox', { name: /Chọn tất cả/ })
+      await user.click(all)
+      expect(screen.getByRole('button', { name: 'Thêm 2 dòng' })).toBeInTheDocument()
+      expect(all).toBeChecked()
+      await user.click(all)
+      expect(screen.getByRole('button', { name: 'Thêm 0 dòng' })).toBeInTheDocument()
+    })
+
+    it('khoá khi không có vật tư nào tick được', () => {
+      renderPicker({ materials: [noBase] })
+      expect(screen.getByRole('checkbox', { name: /Chọn tất cả/ })).toBeDisabled()
+    })
+  })
+
   it('hàng: mã, tên, tồn + đơn vị gốc, các đơn vị, NCC 1 tên + "+N"; nhóm theo bên bán đầu phiếu', () => {
     renderPicker({ headerSupplierSlug: 's-1' })
     const dialog = screen.getByRole('dialog', { name: 'Chọn vật tư' })

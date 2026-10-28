@@ -1,10 +1,12 @@
-import { ListChecksIcon, NotebookPenIcon, PlusIcon, XIcon } from 'lucide-react'
+import { ListChecksIcon, PlusIcon, Trash2Icon } from 'lucide-react'
 import { useEffect, useId, useRef, useState, type ComponentType } from 'react'
+import { flushSync } from 'react-dom'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { toCodeOrNameQuery } from '@/shared/lib/code'
 import { translateFormMessage } from '@/shared/lib/form-message'
 import { formatCurrency, formatQuantity } from '@/shared/lib/format'
+import { Badge } from '@/shared/ui/badge'
 import { Button } from '@/shared/ui/button'
 import { Combobox, type ComboboxOption } from '@/shared/ui/Combobox'
 import { DatePicker } from '@/shared/ui/DatePicker'
@@ -32,6 +34,7 @@ import { addPickedLines, isBlankLine } from '../model/add-picked-lines'
 import { splitBySupplier } from '../model/material-groups'
 import { ImportFormMaterialPicker } from './ImportFormMaterialPicker'
 import { useDebouncedValue } from './useDebouncedValue'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 type Props = {
   /** Báo lên sheet vật tư vừa chọn từ kết quả tìm — hộp Kiểm tra cần chúng dù nằm ngoài 100 bản ghi đầu. */
@@ -173,6 +176,26 @@ export function ImportFormItemsField({
     if (next.length > currentItems.length)
       append(next.slice(currentItems.length), { shouldFocus: false })
     return firstIndex
+  }
+
+  // Ghi chú dòng: badge "＋ Ghi chú" dưới ô vật tư mở ô (đưa con trỏ vào luôn); "Bỏ ghi chú" xoá nội dung rồi ẩn ô.
+  const openNote = (id: string, index: number) => {
+    flushSync(() => setOpenNotes((prev) => new Set(prev).add(id)))
+    form.setFocus(`items.${index}.note`)
+  }
+  const closeNote = (id: string, index: number) => {
+    form.setValue(`items.${index}.note`, '', { shouldDirty: true })
+    flushSync(() =>
+      setOpenNotes((prev) => {
+        const next = new Set(prev)
+        next.delete(id)
+        return next
+      }),
+    )
+    // Nút "Bỏ ghi chú" vừa biến mất cùng ô → đưa con trỏ về badge "Ghi chú" của chính dòng đó (không rơi về body).
+    sectionRef.current
+      ?.querySelector<HTMLButtonElement>(`[data-note-badge="${CSS.escape(id)}"]`)
+      ?.focus()
   }
 
   // Hộp "Chọn vật tư": số chỗ còn = 200 − số dòng KHÔNG trống hẳn (chỉ dòng trống hẳn được lấp). Đếm dòng, không đếm
@@ -329,7 +352,7 @@ export function ImportFormItemsField({
         <span>{t('importForms:fieldUnitPrice')}</span>
         <span>{t('importForms:fieldExpiryDate')}</span>
         <span className="text-right">{t('importForms:fieldAmount')}</span>
-        <span className="w-18" />
+        <span className="w-9" />
       </div>
 
       {fields.map((field, index) => {
@@ -429,69 +452,89 @@ export function ImportFormItemsField({
                       }
                     />
                   </FormControl>
-                  {material && (
-                    <p className="text-muted-foreground text-xs">
-                      {t('importForms:stock', {
-                        value:
-                          `${formatQuantity(material.quantity)} ${base?.unitCode ?? ''}`.trim(),
-                      })}
-                    </p>
-                  )}
-                  {canPickSupplier && (
-                    <div className="flex flex-wrap items-center gap-x-2 gap-y-1 text-xs">
-                      {overridden && (
+                  {(material || canPickSupplier || !noteOpen) && (
+                    <div className="flex flex-wrap items-center gap-x-3 gap-y-1 text-xs">
+                      {material && (
                         <span className="text-muted-foreground">
-                          {t('importForms:lineSupplier', {
-                            name: supplierName(row.supplierOverride),
+                          {t('importForms:stock', {
+                            value:
+                              `${formatQuantity(material.quantity)} ${base?.unitCode ?? ''}`.trim(),
                           })}
                         </span>
                       )}
-                      {picking && (
-                        <Combobox
-                          defaultOpen
-                          // Đóng mà không chọn (Esc, bấm ra ngoài) → bỏ ô chọn, dòng về như trước.
-                          onOpenChange={(isOpen) => !isOpen && setPicking(false)}
-                          className="min-w-48"
-                          aria-label={`${t('importForms:supplier')} ${t('importForms:lineLabel', { line: index + 1 })}`}
-                          options={supplierOptions}
-                          value={row.supplierOverride || undefined}
-                          placeholder={t('importForms:supplierPlaceholder')}
-                          onChange={(next) => {
-                            form.setValue(
-                              `items.${index}.supplierOverride`,
-                              !next || next === headerSupplier ? '' : next,
-                              { shouldDirty: true },
-                            )
-                            setPicking(false)
-                          }}
-                        />
+                      {canPickSupplier && (
+                        <>
+                          {overridden && (
+                            <span className="text-muted-foreground">
+                              {t('importForms:lineSupplier', {
+                                name: supplierName(row.supplierOverride),
+                              })}
+                            </span>
+                          )}
+                          {picking && (
+                            <Combobox
+                              defaultOpen
+                              // Đóng mà không chọn (Esc, bấm ra ngoài) → bỏ ô chọn, dòng về như trước.
+                              onOpenChange={(isOpen) => !isOpen && setPicking(false)}
+                              className="min-w-48"
+                              aria-label={`${t('importForms:supplier')} ${t('importForms:lineLabel', { line: index + 1 })}`}
+                              options={supplierOptions}
+                              value={row.supplierOverride || undefined}
+                              placeholder={t('importForms:supplierPlaceholder')}
+                              onChange={(next) => {
+                                form.setValue(
+                                  `items.${index}.supplierOverride`,
+                                  !next || next === headerSupplier ? '' : next,
+                                  { shouldDirty: true },
+                                )
+                                setPicking(false)
+                              }}
+                            />
+                          )}
+                          {!picking && (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="xs"
+                              className="h-auto p-0 text-xs"
+                              onClick={() => setPicking(true)}
+                            >
+                              {t('importForms:changeLineSupplier')}
+                            </Button>
+                          )}
+                          {(overridden || picking) && (
+                            <Button
+                              type="button"
+                              variant="link"
+                              size="xs"
+                              className="h-auto p-0 text-xs"
+                              onClick={() => {
+                                form.setValue(`items.${index}.supplierOverride`, '', {
+                                  shouldDirty: true,
+                                })
+                                setPicking(false)
+                              }}
+                            >
+                              {t('importForms:followHeaderSupplier')}
+                            </Button>
+                          )}
+                        </>
                       )}
-                      {!picking && (
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="xs"
-                          className="h-auto p-0 text-xs"
-                          onClick={() => setPicking(true)}
-                        >
-                          {t('importForms:changeLineSupplier')}
-                        </Button>
-                      )}
-                      {(overridden || picking) && (
-                        <Button
-                          type="button"
-                          variant="link"
-                          size="xs"
-                          className="h-auto p-0 text-xs"
-                          onClick={() => {
-                            form.setValue(`items.${index}.supplierOverride`, '', {
-                              shouldDirty: true,
-                            })
-                            setPicking(false)
-                          }}
-                        >
-                          {t('importForms:followHeaderSupplier')}
-                        </Button>
+                      {!noteOpen && (
+                        <Badge asChild variant="secondary">
+                          <button
+                            type="button"
+                            className="hover:bg-secondary/80 focus-visible:ring-ring/50 cursor-pointer gap-1 outline-none focus-visible:ring-3"
+                            // `aria-label` (bắt đầu bằng chữ nhìn thấy "Ghi chú") thay cho chữ sr-only lồng trong nút: dựng
+                            // tên từ cây con bắt jsdom tính style từng node — 200 dòng thành hàng phút trong test.
+                            aria-label={`${t('importForms:fieldLineNote')} ${t('importForms:lineLabel', { line: index + 1 })}`}
+                            data-note-badge={field.id}
+                            onClick={() => openNote(field.id, index)}
+                          >
+                            <PlusIcon aria-hidden className="size-3" />
+                            {t('importForms:fieldLineNote')}
+                          </button>
+                        </Badge>
                       )}
                     </div>
                   )}
@@ -629,34 +672,23 @@ export function ImportFormItemsField({
               </span>
             </div>
 
-            <div className="flex gap-1 @4xl:pt-0.5">
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
-                aria-pressed={noteOpen}
-                aria-label={t('importForms:toggleLineNote', { line: index + 1 })}
-                onClick={() =>
-                  setOpenNotes((prev) => {
-                    const next = new Set(prev)
-                    if (next.has(field.id)) next.delete(field.id)
-                    else next.add(field.id)
-                    return next
-                  })
-                }
-              >
-                <NotebookPenIcon aria-hidden />
-              </Button>
-              <Button
-                type="button"
-                variant="ghost"
-                size="icon-sm"
+            <div className="flex @4xl:pt-0.5">
+              <IconTooltip
+                label={t('importForms:removeLine', { line: index + 1 })}
                 disabled={fields.length <= 1}
-                aria-label={t('importForms:removeLine', { line: index + 1 })}
-                onClick={() => remove(index)}
               >
-                <XIcon aria-hidden />
-              </Button>
+                <Button
+                  type="button"
+                  variant="ghost"
+                  size="icon"
+                  className="text-destructive hover:bg-destructive/10 hover:text-destructive"
+                  disabled={fields.length <= 1}
+                  aria-label={t('importForms:removeLine', { line: index + 1 })}
+                  onClick={() => remove(index)}
+                >
+                  <Trash2Icon aria-hidden />
+                </Button>
+              </IconTooltip>
             </div>
 
             {noteOpen && (
@@ -665,7 +697,19 @@ export function ImportFormItemsField({
                 name={`items.${index}.note`}
                 render={({ field: f }) => (
                   <FormItem className="@4xl:col-start-2 @4xl:col-end-8">
-                    <FormLabel>{lineLabel(t('importForms:fieldLineNote'), index)}</FormLabel>
+                    <div className="flex items-center justify-between gap-3">
+                      <FormLabel>{lineLabel(t('importForms:fieldLineNote'), index)}</FormLabel>
+                      <Button
+                        type="button"
+                        variant="link"
+                        size="sm"
+                        className="text-muted-foreground hover:text-destructive h-auto p-0 text-xs"
+                        aria-label={`${t('importForms:removeLineNote')} ${t('importForms:lineLabel', { line: index + 1 })}`}
+                        onClick={() => closeNote(field.id, index)}
+                      >
+                        {t('importForms:removeLineNote')}
+                      </Button>
+                    </div>
                     <FormControl>
                       <Input {...f} />
                     </FormControl>
