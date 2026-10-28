@@ -19,6 +19,7 @@ import {
 } from '@/entities/material'
 import { ConversionUnitDialog } from '@/features/material-conversion-unit-form'
 import { DetachConversionUnitDialog } from '@/features/material-conversion-unit-detach'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 type Props = {
   material: Pick<Material, 'slug' | 'baseUnit'>
@@ -61,15 +62,19 @@ export function MaterialConversionUnits({ material, canManage }: Props) {
       cell: ({ row }) =>
         row.original.isBaseUnit ? null : (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('materials:conversionRowActions', { unit: row.original.unitCode })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip
+              label={t('materials:conversionRowActions', { unit: row.original.unitCode })}
+            >
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('materials:conversionRowActions', { unit: row.original.unitCode })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onSelect={() => {

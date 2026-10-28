@@ -33,6 +33,7 @@ import { useAuthStore } from '@/entities/session'
 import { DeleteMaterialDialog } from '@/features/material-delete'
 import { MaterialFormSheet } from '@/features/material-form'
 import { materialAbilities } from '../model/abilities'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 // `search` là chữ người dùng gõ (→ `code`/`name` lúc gọi, `searchBy` khi người dùng tự đổi); `typeSlug` đi thẳng.
 const FILTERS = z.object({
@@ -93,15 +94,17 @@ export function MaterialsPage() {
         const material = row.original
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('materials:rowActions', { name: material.name })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('materials:rowActions', { name: material.name })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('materials:rowActions', { name: material.name })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               <DropdownMenuItem
                 onSelect={() => {

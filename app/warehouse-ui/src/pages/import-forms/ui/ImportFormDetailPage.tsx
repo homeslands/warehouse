@@ -32,6 +32,7 @@ import { toastSaveOutcome } from '../model/saveToast'
 import { ImportFormItemsTable } from './ImportFormItemsTable'
 import { ImportFormPrintView } from './ImportFormPrintView'
 import { useWarehouseParam } from './useWarehouseParam'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 export function ImportFormDetailPage() {
   const warehouseSlug = useWarehouseParam()
@@ -159,11 +160,13 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
               )}
               {secondary.length >= 2 && (
                 <DropdownMenu>
-                  <DropdownMenuTrigger asChild>
-                    <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
-                      <MoreHorizontalIcon />
-                    </Button>
-                  </DropdownMenuTrigger>
+                  <IconTooltip label={t('common:moreActions')}>
+                    <DropdownMenuTrigger asChild>
+                      <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
+                        <MoreHorizontalIcon />
+                      </Button>
+                    </DropdownMenuTrigger>
+                  </IconTooltip>
                   <DropdownMenuContent align="end">
                     {secondary.map((a) => (
                       <DropdownMenuItem

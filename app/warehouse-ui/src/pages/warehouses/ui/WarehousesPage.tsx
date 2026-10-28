@@ -41,6 +41,7 @@ import { ToggleWarehouseActiveDialog } from '@/features/warehouse-toggle-active'
 import { DeleteWarehouseDialog } from '@/features/warehouse-delete'
 import { WarehouseFormSheet } from '@/features/warehouse-form'
 import { warehouseAbilities } from '../model/abilities'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 // Khai NGOÀI component (useListParams đọc `schema.shape` trong useMemo). `z.stringbool()` chứ không
 // `z.coerce.boolean()` — cái sau hiểu chuỗi "false" là true. `satisfies` bắt lệch KIỂU giá trị so
@@ -174,15 +175,17 @@ export function WarehousesPage() {
 
         return (
           <DropdownMenu>
-            <DropdownMenuTrigger asChild>
-              <Button
-                variant="ghost"
-                size="icon-sm"
-                aria-label={t('warehouses:rowActions', { name: warehouse.name })}
-              >
-                <MoreHorizontalIcon />
-              </Button>
-            </DropdownMenuTrigger>
+            <IconTooltip label={t('warehouses:rowActions', { name: warehouse.name })}>
+              <DropdownMenuTrigger asChild>
+                <Button
+                  variant="ghost"
+                  size="icon-sm"
+                  aria-label={t('warehouses:rowActions', { name: warehouse.name })}
+                >
+                  <MoreHorizontalIcon />
+                </Button>
+              </DropdownMenuTrigger>
+            </IconTooltip>
             <DropdownMenuContent align="end">
               {ability.update && (
                 <DropdownMenuItem

@@ -1,6 +1,7 @@
 import { EyeIcon, EyeOffIcon } from 'lucide-react'
 import { useState, type ComponentProps } from 'react'
 import { useTranslation } from 'react-i18next'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 import { cn } from '@/shared/lib/cn'
 import {
   InputGroup,
@@ -26,14 +27,16 @@ export function PasswordInput({ className, ...props }: PasswordInputProps) {
     <InputGroup className={cn('h-9', className)}>
       <InputGroupInput {...props} type={visible ? 'text' : 'password'} />
       <InputGroupAddon align="inline-end">
-        <InputGroupButton
-          size="icon-xs"
-          aria-label={visible ? t('auth:hidePassword') : t('auth:showPassword')}
-          aria-pressed={visible}
-          onClick={() => setVisible((shown) => !shown)}
-        >
-          {visible ? <EyeOffIcon /> : <EyeIcon />}
-        </InputGroupButton>
+        <IconTooltip label={visible ? t('auth:hidePassword') : t('auth:showPassword')}>
+          <InputGroupButton
+            size="icon-xs"
+            aria-label={visible ? t('auth:hidePassword') : t('auth:showPassword')}
+            aria-pressed={visible}
+            onClick={() => setVisible((shown) => !shown)}
+          >
+            {visible ? <EyeOffIcon /> : <EyeIcon />}
+          </InputGroupButton>
+        </IconTooltip>
       </InputGroupAddon>
     </InputGroup>
   )

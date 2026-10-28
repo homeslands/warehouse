@@ -30,6 +30,7 @@ import type { SessionEndReason } from '@/shared/api/types'
 import { loginSchema, useLogin, type LoginErrorKey, type LoginInput } from '@/features/auth-login'
 import bg1280 from '../assets/login-bg-1280.jpg'
 import bg1920 from '../assets/login-bg-1920.jpg'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 const SESSION_END_MESSAGE = {
   expired: 'auth:sessionEnd.expired',
@@ -228,15 +229,17 @@ export function LoginPage() {
                 {...form.register('password')}
               />
               <InputGroupAddon align="inline-end">
-                <InputGroupButton
-                  size="icon-sm"
-                  className="text-white/70 hover:bg-white/15 hover:text-white"
-                  aria-label={showPassword ? t('auth:hidePassword') : t('auth:showPassword')}
-                  aria-pressed={showPassword}
-                  onClick={() => setShowPassword((shown) => !shown)}
-                >
-                  {showPassword ? <EyeOffIcon /> : <EyeIcon />}
-                </InputGroupButton>
+                <IconTooltip label={showPassword ? t('auth:hidePassword') : t('auth:showPassword')}>
+                  <InputGroupButton
+                    size="icon-sm"
+                    className="text-white/70 hover:bg-white/15 hover:text-white"
+                    aria-label={showPassword ? t('auth:hidePassword') : t('auth:showPassword')}
+                    aria-pressed={showPassword}
+                    onClick={() => setShowPassword((shown) => !shown)}
+                  >
+                    {showPassword ? <EyeOffIcon /> : <EyeIcon />}
+                  </InputGroupButton>
+                </IconTooltip>
               </InputGroupAddon>
             </InputGroup>
             {capsLock && (

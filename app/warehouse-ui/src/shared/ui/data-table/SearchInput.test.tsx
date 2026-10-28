@@ -1,6 +1,7 @@
-import { act, fireEvent, render, screen } from '@testing-library/react'
+import { act, fireEvent, screen } from '@testing-library/react'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import { SEARCH_DEBOUNCE_MS, SearchInput } from './SearchInput'
+import { renderWithTooltip } from '@/shared/test/render'
 
 beforeEach(() => {
   vi.useFakeTimers()
@@ -13,7 +14,7 @@ afterEach(() => {
 describe('SearchInput', () => {
   it('gõ → chỉ gọi onChange sau 300 ms, với giá trị cuối cùng', () => {
     const onChange = vi.fn()
-    render(<SearchInput value="" onChange={onChange} />)
+    renderWithTooltip(<SearchInput value="" onChange={onChange} />)
     const input = screen.getByRole('searchbox', { name: 'Tìm kiếm' })
 
     fireEvent.change(input, { target: { value: 'o' } })
@@ -28,7 +29,7 @@ describe('SearchInput', () => {
 
   it('nút xoá → gọi onChange("") ngay, huỷ lần gọi đang chờ', () => {
     const onChange = vi.fn()
-    render(<SearchInput value="" onChange={onChange} />)
+    renderWithTooltip(<SearchInput value="" onChange={onChange} />)
     fireEvent.change(screen.getByRole('searchbox'), { target: { value: 'oc' } })
 
     fireEvent.click(screen.getByRole('button', { name: 'Xoá tìm kiếm' }))
@@ -40,7 +41,7 @@ describe('SearchInput', () => {
   })
 
   it('value đổi từ ngoài (Back) → ô hiện theo', () => {
-    const { rerender } = render(<SearchInput value="oc" onChange={vi.fn()} />)
+    const { rerender } = renderWithTooltip(<SearchInput value="oc" onChange={vi.fn()} />)
     expect(screen.getByRole('searchbox')).toHaveValue('oc')
 
     rerender(<SearchInput value="bu long" onChange={vi.fn()} />)

@@ -1,14 +1,15 @@
-import { render, screen, within } from '@testing-library/react'
+import { screen, within } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { TrashIcon } from 'lucide-react'
 import { describe, expect, it, vi } from 'vitest'
 import { ConfirmDialog } from './ConfirmDialog'
+import { renderWithTooltip } from '@/shared/test/render'
 
 function renderDialog(overrides: Partial<React.ComponentProps<typeof ConfirmDialog>> = {}) {
   const onConfirm = vi.fn()
   const onOpenChange = vi.fn()
   const user = userEvent.setup()
-  render(
+  renderWithTooltip(
     <ConfirmDialog
       open
       onOpenChange={onOpenChange}
@@ -133,7 +134,7 @@ describe('ConfirmDialog', () => {
         onConfirm: () => {},
         confirmPhrase: 'root',
       }
-      const { rerender } = render(<ConfirmDialog open {...props} />)
+      const { rerender } = renderWithTooltip(<ConfirmDialog open {...props} />)
       await user.type(screen.getByLabelText('Nhập root để xác nhận'), 'root')
 
       rerender(<ConfirmDialog open={false} {...props} />)

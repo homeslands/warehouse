@@ -9,6 +9,7 @@ import {
 } from '@/shared/ui/dropdown-menu'
 import { SUPPORTED_LANGUAGES } from '@/shared/i18n'
 import { FlagIcon } from './FlagIcon'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 const LABEL_KEY = { vi: 'languageVi', en: 'languageEn' } as const
 
@@ -17,11 +18,13 @@ export function LanguageToggle() {
 
   return (
     <DropdownMenu>
-      <DropdownMenuTrigger asChild>
-        <Button variant="outline" size="icon" aria-label={t('language')}>
-          <Languages className="h-4 w-4" />
-        </Button>
-      </DropdownMenuTrigger>
+      <IconTooltip label={t('language')}>
+        <DropdownMenuTrigger asChild>
+          <Button variant="outline" size="icon" aria-label={t('language')}>
+            <Languages className="h-4 w-4" />
+          </Button>
+        </DropdownMenuTrigger>
+      </IconTooltip>
       {/* Rộng và thoáng hơn mặc định của `dropdown-menu` (min 8rem, p-1) — chỉnh TẠI ĐÂY, không ở
           component chung, để menu thao tác trên từng dòng bảng giữ nguyên. Cùng số đo với
           `ModeToggle` để hai menu cạnh nhau trông như một bộ. */}

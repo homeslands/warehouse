@@ -37,6 +37,7 @@ import { DeleteStoreDialog } from '@/features/store-delete'
 import { StoreFormSheet } from '@/features/store-form'
 import { useCrumbTitle } from '@/widgets/app-shell'
 import { storeAbilities } from '../model/abilities'
+import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 const LIST_PATH = '/stores'
 
@@ -121,11 +122,13 @@ export function StoreDetailPage() {
             )}
             {hasMenu && (
               <DropdownMenu>
-                <DropdownMenuTrigger asChild>
-                  <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
-                    <MoreHorizontalIcon />
-                  </Button>
-                </DropdownMenuTrigger>
+                <IconTooltip label={t('common:moreActions')}>
+                  <DropdownMenuTrigger asChild>
+                    <Button variant="outline" size="icon" aria-label={t('common:moreActions')}>
+                      <MoreHorizontalIcon />
+                    </Button>
+                  </DropdownMenuTrigger>
+                </IconTooltip>
                 <DropdownMenuContent align="end">
                   {ability.assignWarehouse && (
                     <DropdownMenuItem onSelect={() => setAssigning(store)}>
