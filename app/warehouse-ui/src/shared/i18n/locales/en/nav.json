@@ -4,6 +4,7 @@
   "stores": "Stores",
   "suppliers": "Suppliers",
   "materials": "Materials",
+  "importForms": "Goods receipts",
   "materialTypes": "Material types",
   "units": "Units",
   "users": "Users",
@@ -21,6 +22,7 @@
   "breadcrumb": "Breadcrumb",
   "groups": {
     "catalog": "Catalog",
+    "forms": "Warehouse operations",
     "admin": "Administration",
     "dev": "Dev"
   }

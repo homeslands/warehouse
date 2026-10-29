@@ -19,9 +19,8 @@ type KnownKeys<T> = {
 export type ListFilters<S extends z.ZodObject> = KnownKeys<z.output<S>>
 
 /**
- * Một cột đang sắp xếp. Backend nhận `sort?: string[]` dạng `['createdAt:DESC']`
- * (`BaseQueryDto`), nên URL cũng dùng đúng dạng `?sort=createdAt:DESC` — một nơi một định dạng.
- * Chỉ hỗ trợ MỘT cột: mới `GET /users` xử lý `sort` (cờ `userSort`); giữ một cột cho khớp `BaseQueryDto`.
+ * Một cột đang sắp xếp. URL giữ dạng `?sort=createdAt:DESC`; lúc gọi API `sortToParam` tách thành
+ * `sortBy=createdAt&sort=DESC`. Chỉ hỗ trợ MỘT cột.
  */
 export type SortState = { field: string; dir: 'ASC' | 'DESC' }
 
@@ -56,11 +55,16 @@ function formatSort(sort: SortState | undefined): string {
 }
 
 /**
- * Đổi sang tham số `getPaginated` gửi lên backend. `BaseQueryDto` khai `sort?: string[]` kèm
- * `@IsArray()`, nên phải là MẢNG dù FE chỉ sắp một cột. Dùng hàm này thay vì tự nối chuỗi.
+ * Đổi sang tham số `getPaginated` gửi lên backend: `sortBy` là tên trường, `sort` là chiều.
+ * Trả `{}` khi chưa chọn cột hoặc trường không nằm trong `allowed` (URL cũ / bookmark có trường
+ * backend không còn nhận) — không gửi trường lạ để khỏi bị 400. Spread kết quả vào tham số.
  */
-export function sortToParam(sort: SortState | undefined): string[] | undefined {
-  return sort === undefined ? undefined : [formatSort(sort)]
+export function sortToParam(
+  sort: SortState | undefined,
+  allowed: readonly string[],
+): { sortBy?: string; sort?: 'ASC' | 'DESC' } {
+  if (sort === undefined || !allowed.includes(sort.field)) return {}
+  return { sortBy: sort.field, sort: sort.dir }
 }
 
 function parsePage(raw: string | null): number {

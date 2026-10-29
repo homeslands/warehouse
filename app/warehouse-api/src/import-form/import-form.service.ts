@@ -59,6 +59,7 @@ import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseException } from 'src/warehouse/warehouse.exception';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { S3Service } from 'src/file/s3/s3.service';
+import { MaterialBatchService } from 'src/material-batch/material-batch.service';
 import { FileException } from 'src/file/file.exception';
 import { FileValidation } from 'src/file/file.validation';
 
@@ -108,6 +109,7 @@ export class ImportFormService {
     private readonly transactionManagerService: TransactionManagerService,
     private readonly inventoryService: InventoryService,
     private readonly s3Service: S3Service,
+    private readonly materialBatchService: MaterialBatchService,
   ) {}
 
   /**
@@ -152,7 +154,11 @@ export class ImportFormService {
 
     const data = this.mapper.map(dto, CreateImportFormRequestDto, ImportForm);
     await this.assertCodeIsFree(data.code);
-    const { items, total, supplierLinks } = await this.buildItems(dto.items, warehouse.id);
+    const { items, total, supplierLinks } = await this.buildItems(
+      dto.items,
+      warehouse.id,
+      data.date,
+    );
     const requester = await this.findUser(currentUser.userId);
 
     const form = this.importFormRepository.create({
@@ -194,6 +200,10 @@ export class ImportFormService {
     if (query.status) where.status = query.status;
     // Tìm theo tiền tố (`LIKE 'x%'`) — dùng được index UNIQUE của `code_column`.
     if (query.code) where.code = Like(`${escapeLike(query.code)}%`);
+    if (query.invoiceCode) where.invoiceCode = Like(`${escapeLike(query.invoiceCode)}%`);
+    if (query.purchaseOrder) where.purchaseOrder = Like(`${escapeLike(query.purchaseOrder)}%`);
+    if (query.requesterSlug) where.requester = { slug: query.requesterSlug };
+    if (query.approverSlug) where.approver = { slug: query.approverSlug };
     const createdAt = toDateRangeOperator(start, end);
     if (createdAt) where.createdAt = createdAt;
 
@@ -294,10 +304,14 @@ export class ImportFormService {
     if (data.code !== undefined && data.code !== form.code) await this.assertCodeIsFree(data.code);
     // Gửi `items` = thay toàn bộ dòng. Dựng + kiểm tra dòng mới TRƯỚC khi mở transaction để lỗi
     // nghiệp vụ không chạm DB; không gửi thì giữ nguyên dòng cũ.
+    const formDate = data.date ?? form.date;
     const replacement =
       dto.items !== undefined && dto.items !== null
-        ? await this.buildItems(dto.items, form.warehouse.id)
+        ? await this.buildItems(dto.items, form.warehouse.id, formDate)
         : undefined;
+    // Đổi ngày phiếu mà giữ dòng cũ: hạn dùng của dòng cũ vẫn không được trước ngày nhập mới.
+    if (!replacement)
+      (form.items ?? []).forEach((item) => this.assertExpiry(item.expiryDate, formDate));
 
     Object.assign(form, data);
     if (replacement) form.total = replacement.total;
@@ -403,7 +417,7 @@ export class ImportFormService {
       form.approverName = fullName(approver);
       const saved = await manager.save(form);
 
-      if (status === ImportFormStatus.Confirmed)
+      if (status === ImportFormStatus.Confirmed) {
         await this.inventoryService.receive(
           manager,
           form.warehouse.id,
@@ -418,6 +432,9 @@ export class ImportFormService {
           currentUser,
           `Import form ${form.code}`,
         );
+        // 1 dòng ⇒ 1 lô (ngày nhập = ngày phiếu, hạn dùng = hạn của dòng), cùng transaction cộng tồn.
+        await this.materialBatchService.createFromImportItems(manager, form, items);
+      }
       return saved;
     });
     this.logger.log(`Import form ${form.id} -> ${status}`, context);
@@ -460,6 +477,7 @@ export class ImportFormService {
   private async buildItems(
     dtos: CreateImportFormItemDto[],
     warehouseId: string,
+    formDate: string,
   ): Promise<{ items: ImportFormItem[]; total: number; supplierLinks: MaterialSupplierLink[] }> {
     const seen = new Set<string>();
     for (const dto of dtos) {
@@ -508,6 +526,8 @@ export class ImportFormService {
           ImportFormValidation.IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID,
         );
 
+      this.assertExpiry(dto.expiryDate, formDate);
+
       const supplier = this.pickSupplier(material, dto.supplierSlug, unattachedSupplierBySlug);
       if (supplier && !material.suppliers?.some(({ id }) => id === supplier.id))
         supplierLinks.set(`${material.id}|${supplier.id}`, {
@@ -543,6 +563,7 @@ export class ImportFormService {
         unitPrice: dto.unitPrice,
         amount,
         note: dto.note ?? null,
+        expiryDate: dto.expiryDate ?? null,
       });
       return item;
     });
@@ -593,6 +614,12 @@ export class ImportFormService {
         suppliers.find(({ slug }) => slug === supplierSlug) ?? unattached.get(supplierSlug) ?? null
       );
     return suppliers.length === 1 ? suppliers[0] : null;
+  }
+
+  /** Hạn dùng (nếu có) không được trước ngày nhập — so chuỗi `YYYY-MM-DD` đúng thứ tự ngày. */
+  private assertExpiry(expiryDate: string | null | undefined, formDate: string): void {
+    if (expiryDate && expiryDate < formDate)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID);
   }
 
   private assertIsDraft(form: ImportForm): void {

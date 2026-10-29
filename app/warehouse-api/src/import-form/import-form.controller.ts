@@ -125,8 +125,9 @@ export class ImportFormController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Get the import forms of this warehouse (paginated, filter by status / code (prefix) / ' +
-      'startDate-endDate (creation date); sortBy = createdAt | code, sort = ASC | DESC)',
+      'Get the import forms of this warehouse (paginated, filter by status / code / invoiceCode / ' +
+      'purchaseOrder (prefix) / requesterSlug / approverSlug / startDate-endDate (creation date); ' +
+      'sortBy = createdAt | code, sort = ASC | DESC)',
   })
   @ApiPaginatedResponse(ImportFormResponseDto, 'Retrieved')
   async findAll(

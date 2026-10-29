@@ -160,10 +160,22 @@ describe('UsersPage — cờ bật (backend đã deploy contract đề xuất)',
     expect(new URLSearchParams(userQuery).get('warehouseSlug')).toBeNull()
   })
 
-  it('bấm tiêu đề Họ tên → gửi sort[]=firstName:ASC (cờ userSort riêng của màn này)', async () => {
+  it('bấm tiêu đề Họ tên → gửi sortBy=name&sort=ASC (cờ userSort riêng của màn này)', async () => {
     const { user } = renderWithProviders(<UsersPage />, { route: '/users', auth: ADMIN_FULL })
     await screen.findByText('Lê Minh')
     await user.click(screen.getByRole('button', { name: /Họ tên/ }))
-    await waitFor(() => expect(decodeURIComponent(userQuery)).toContain('sort[]=firstName:ASC'))
+    await waitFor(() => {
+      const q = new URLSearchParams(userQuery)
+      expect(q.get('sortBy')).toBe('name')
+      expect(q.get('sort')).toBe('ASC')
+    })
+  })
+
+  it('URL cũ ?sort=firstName:ASC (trường không còn hợp lệ) → không gửi sortBy', async () => {
+    renderWithProviders(<UsersPage />, { route: '/users?sort=firstName:ASC', auth: ADMIN_FULL })
+    await screen.findByText('Lê Minh')
+    const q = new URLSearchParams(userQuery)
+    expect(q.has('sortBy')).toBe(false)
+    expect(q.has('sort')).toBe(false)
   })
 })

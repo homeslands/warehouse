@@ -82,3 +82,4 @@ cần cột "Người tạo" và bộ lọc tương ứng hay không.
   request. Bảng vai trò ở tài liệu này là **mục tiêu nghiệp vụ**; nó chỉ thành hiện thực trên
   hệ thống khi (1) backend gác endpoint tương ứng bằng `@RequireAuthority` và (2) admin bật đúng ô ở
   `/permissions`.
+- **Phiếu nhập** (WMS-16/17): luật "của mình" đã có — backend tự kiểm ở service (`IMPORT_FORM_*_OWN`), FE ẩn nút bằng `requesterSlug === userSlug`.

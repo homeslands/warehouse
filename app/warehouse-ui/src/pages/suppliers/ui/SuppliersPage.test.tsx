@@ -1,10 +1,11 @@
 import { screen, waitFor } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
-import { describe, expect, it } from 'vitest'
+import { afterEach, describe, expect, it, vi } from 'vitest'
 import type { Supplier } from '@/entities/supplier'
 import { paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders, renderWithRouter } from '@/shared/test/render'
+import { mockMobileViewport } from '@/shared/test/viewport'
 import { SuppliersPage } from './SuppliersPage'
 
 const BASE = 'http://localhost:8085/api/v1'
@@ -60,16 +61,6 @@ describe('SuppliersPage', () => {
     expect(screen.getByRole('searchbox')).toBeInTheDocument()
   })
 
-  it('không có nút sắp xếp ở tiêu đề cột', async () => {
-    captureQuery()
-    renderWithProviders(<SuppliersPage />, { route: '/suppliers', auth: ADMIN })
-    await screen.findByText('Công ty ABC')
-
-    for (const name of ['Mã', 'Tên']) {
-      expect(screen.queryByRole('button', { name })).not.toBeInTheDocument()
-    }
-  })
-
   it('menu ⋯: ADMIN có Xem chi tiết/Sửa/Xoá; MANAGER chỉ Xem chi tiết và không có nút Thêm', async () => {
     captureQuery()
     const admin = renderWithProviders(<SuppliersPage />, { route: '/suppliers', auth: ADMIN })
@@ -119,5 +110,29 @@ describe('SuppliersPage', () => {
     renderWithProviders(<SuppliersPage />, { route: '/suppliers', auth: ADMIN })
 
     expect(await screen.findByText('Chưa có nhà cung cấp nào.')).toBeInTheDocument()
+  })
+})
+
+describe('SuppliersPage — lọc ngày tạo', () => {
+  afterEach(() => vi.restoreAllMocks())
+
+  it('URL startDate/endDate → gửi đúng; ngược chiều → đảo lại; Xoá bộ lọc → hết tham số', async () => {
+    // Màn hẹp: nút "Xoá bộ lọc" nằm ngoài popover.
+    mockMobileViewport()
+    const seen = captureQuery()
+    const { user } = renderWithProviders(<SuppliersPage />, {
+      route: '/suppliers?startDate=2026-10-15&endDate=2026-10-01',
+      auth: ADMIN,
+    })
+    await screen.findByText('Công ty ABC')
+    const last = () => new URLSearchParams(seen.at(-1))
+    expect(last().get('startDate')).toBe('2026-10-01')
+    expect(last().get('endDate')).toBe('2026-10-15')
+
+    await user.click(screen.getByRole('button', { name: 'Xoá bộ lọc' }))
+    await waitFor(() => {
+      expect(last().has('startDate')).toBe(false)
+      expect(last().has('endDate')).toBe(false)
+    })
   })
 })

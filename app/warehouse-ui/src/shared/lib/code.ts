@@ -20,6 +20,36 @@ export function isCodeLike(value: string): boolean {
 /** Cách tìm người dùng tự chọn khi phần đoán sai (`?searchBy=` trên URL). */
 export type CodeOrNameField = 'code' | 'name'
 
+/**
+ * `toCodeOrNameQuery` rồi làm sạch theo đúng charset BE của `GET /materials` (sai → 100731 / 100732):
+ * `name` chỉ nhận chữ (kể cả tiếng Việt), số, khoảng trắng; `code` viết hoa, chỉ `A-Z 0-9 _ -`.
+ * BE khớp `name LIKE '<giá trị>%'` trên tên thật (tên có thể chứa dấu câu) nên giá trị gửi phải là TIỀN TỐ của chữ
+ * đã gõ: bỏ ký tự lạ ở đầu rồi cắt tại ký tự lạ đầu tiên ("Xi măng (PCB40)" → "Xi măng").
+ * Khoá rỗng sau khi làm sạch thì bỏ hẳn (không gửi).
+ */
+export function toMaterialSearchQuery(
+  search: string | undefined,
+  prefer?: CodeOrNameField,
+): { code?: string; name?: string } {
+  const query = toCodeOrNameQuery(search, prefer)
+  const result: { code?: string; name?: string } = {}
+  if (query.code !== undefined) {
+    // `_` là phòng thủ: toCodeOrNameQuery không bao giờ chuyển chuỗi có `_` sang code.
+    const code = query.code.toUpperCase().replace(/[^A-Z0-9_-]/g, '')
+    if (code !== '') result.code = code
+  }
+  if (query.name !== undefined) {
+    // Bỏ ký tự lạ ở đầu, cắt tại ký tự lạ đầu tiên ("bột-giặt" → "bột"): giữ nguyên tính tiền tố.
+    const name = (
+      query.name.replace(/^[^\p{L}\p{M}\p{N}\s]+/u, '').split(/[^\p{L}\p{M}\p{N}\s]/u)[0] ?? ''
+    )
+      .replace(/\s+/g, ' ')
+      .trim()
+    if (name !== '') result.name = name
+  }
+  return result
+}
+
 /** Một từ chỉ gồm chữ Latin / số / gạch nối — có thể là mã (để trang cho đổi sang "Tìm theo mã"). */
 export function canSearchByCode(search: string | undefined): boolean {
   return /^[A-Za-z0-9-]+$/.test(search?.trim() ?? '')

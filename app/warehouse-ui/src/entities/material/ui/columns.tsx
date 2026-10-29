@@ -18,7 +18,7 @@ export function buildMaterialColumns(
     {
       accessorKey: 'code',
       header: t('materials:columnCode'),
-      meta: { hideBelow: '@sm' },
+      meta: { sortField: 'code', hideBelow: '@sm' },
       // Mã tới 32 ký tự: xuống dòng tại dấu gạch thay vì bắt cả bảng cuộn ngang.
       cell: ({ row }) => (
         <span className="block max-w-40 break-words whitespace-normal">{row.original.code}</span>
@@ -27,6 +27,7 @@ export function buildMaterialColumns(
     {
       accessorKey: 'name',
       header: t('materials:columnName'),
+      meta: { sortField: 'name' },
       cell: ({ row }) => {
         const { name, code } = row.original
         // Khung hẹp ẩn cột Mã → hiện mã ở dòng phụ dưới tên.
@@ -97,7 +98,7 @@ export function buildMaterialColumns(
     {
       accessorKey: 'createdAt',
       header: t('materials:columnCreatedAt'),
-      meta: { hideBelow: '@6xl' },
+      meta: { sortField: 'createdAt', hideBelow: '@6xl' },
       cell: ({ row }) => formatDateTime(row.original.createdAt),
     },
   ]
