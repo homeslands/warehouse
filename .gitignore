@@ -1,5 +1,49 @@
-# Kế hoạch triển khai do quy trình sinh ra: chúng là danh sách việc cho một công việc
-# đã làm xong, kèm mã nguồn chép tay sẽ lệch khỏi code thật. Kiến thức đáng giữ đã được
-# rút sang CLAUDE.md (bẫy, nợ kỹ thuật) và docs/superpowers/specs/ trong từng app (vì sao quyết định thế).
-docs/superpowers/plans/
-app/*/docs/superpowers/plans/
+# Only application code and GitHub automation belong in this repository.
+# Keep this policy tracked so it also applies to fresh clones.
+/*
+!/.gitignore
+!/.github/
+!/app/
+
+# Dependencies, generated output and caches (including nested apps).
+node_modules/
+dist/
+dist-ssr/
+build/
+coverage/
+.cache/
+.vite/
+.turbo/
+*.tsbuildinfo
+
+# Real environment files and private keys; retain safe example templates.
+.env
+.env.*
+!.env.example
+!.env.*.example
+*.local
+*.pem
+*.key
+*.p12
+*.pfx
+
+# Runtime data and logs, never source assets or database migrations.
+logs/
+*.log
+/app/*/public/uploads/
+/app/*/public/backup/
+
+# Local agent/editor setup and generated implementation plans.
+.agents/
+.claude/
+.codex/
+CLAUDE.md
+setup.md
+.idea/
+.vscode/
+.DS_Store
+Thumbs.db
+*.swp
+*.swo
+*~
+/app/*/docs/superpowers/plans/
