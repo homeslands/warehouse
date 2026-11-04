@@ -20,7 +20,7 @@ jobs:
         env:
           ENV_DEV: ${{ secrets.ENV_DEV }}
         run: |
-          echo "$ENV_DEV" > .deploy/dev/.env
+          echo "$ENV_DEV" > .github/deploy/dev/.env
 
       - name: Deploy with Docker Compose
         env:
@@ -35,7 +35,7 @@ jobs:
           ssh-keyscan -p $SSH_PORT $REMOTE_HOST >> ~/.ssh/known_hosts
           export DOCKER_HOST="ssh://$REMOTE_USER@$REMOTE_HOST:$SSH_PORT"
 
-          docker compose -f .deploy/dev/docker-compose.yml pull
-          docker compose -f .deploy/dev/docker-compose.yml down
-          docker compose -f .deploy/dev/docker-compose.yml up -d
+          docker compose -f .github/deploy/dev/docker-compose.yml pull
+          docker compose -f .github/deploy/dev/docker-compose.yml down
+          docker compose -f .github/deploy/dev/docker-compose.yml up -d
           docker image prune -f  # clean up none image after built
