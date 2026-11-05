@@ -2,6 +2,7 @@ import { Inject, Injectable, Logger } from '@nestjs/common';
 import { S3Client, PutObjectCommand, DeleteObjectCommand } from '@aws-sdk/client-s3';
 import { ConfigService } from '@nestjs/config';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
+import { buildObjectKey } from './s3-key.util';
 
 @Injectable()
 export class S3Service {
@@ -29,12 +30,13 @@ export class S3Service {
     });
   }
 
-  /** `folder` (không có `/` ở 2 đầu) được ghép làm tiền tố của key, vd `import-forms/abc-123.pdf`. */
+  /**
+   * Key tạo bởi `buildObjectKey`: `folder` (không có `/` ở 2 đầu) làm tiền tố, vd
+   * `import-forms/hoa-don-<uuid>.pdf`.
+   */
   async uploadFile(file: Express.Multer.File, folder?: string): Promise<string> {
     const context = `${S3Service.name}.${this.uploadFile.name}`;
-    const filename = file.originalname.split('.')[0].replace(' ', '-');
-    const name = `${filename}-${Date.now()}.${file.originalname.split('.')[1]}`;
-    const key = folder ? `${folder}/${name}` : name;
+    const key = buildObjectKey(file.originalname, folder);
 
     await this.s3.send(
       new PutObjectCommand({
@@ -52,8 +54,7 @@ export class S3Service {
 
   async uploadFiles(files: Express.Multer.File[]): Promise<string[]> {
     const uploads = files.map(async (file) => {
-      const filename = file.originalname.split('.')[0].replace(' ', '-');
-      const key = `${filename}-${Date.now()}.${file.originalname.split('.')[1]}`;
+      const key = buildObjectKey(file.originalname);
 
       await this.s3.send(
         new PutObjectCommand({
