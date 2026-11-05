@@ -15,6 +15,7 @@ import { pickDefined } from 'src/shared/utils/obj.util';
 import { ExampleException } from './example.exception';
 import { ExampleValidation } from './example.validation';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
 export class ExampleService {
@@ -44,17 +45,12 @@ export class ExampleService {
       take: query.size,
     };
     const [items, total] = await this.exampleRepository.findAndCount(options);
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, Example, ExampleResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, Example, ExampleResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<ExampleResponseDto>;
+      query,
+    );
   }
 
   async findOne(slug: string): Promise<ExampleResponseDto> {

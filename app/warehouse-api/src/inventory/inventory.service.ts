@@ -27,13 +27,14 @@ import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
 import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierException } from 'src/supplier/supplier.exception';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
-import { WarehouseException } from 'src/warehouse/warehouse.exception';
-import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
+import { findWarehouse } from 'src/warehouse/warehouse.util';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { User } from 'src/user/user.entity';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
+import { WRITE_LOCK } from 'src/shared/utils/lock.util';
 
 /**
  * Quan hệ đủ để dựng response: `warehouse`, `material` kèm `type`/`baseUnit` và mọi đơn vị của vật
@@ -43,14 +44,6 @@ const RELATIONS = {
   warehouse: true,
   material: { type: true, baseUnit: true, unitsCanHave: { unit: true } },
 } as const;
-
-/**
- * Khoá dòng tồn (`SELECT ... FOR UPDATE`) trước khi đọc-rồi-ghi `quantity`/`reservedQuantity`: 2
- * request đồng thời trên cùng 1 dòng chạy nối tiếp, nên không mất cập nhật và snapshot
- * before/after trong `InventoryHistory` khớp đúng thứ tự thực tế. Luôn khoá KHÔNG kèm relations —
- * MySQL khoá cả các dòng của bảng được JOIN (kho, vật tư).
- */
-const WRITE_LOCK = { mode: 'pessimistic_write' } as const;
 
 /** 1 thay đổi tồn cần ghi; delta theo đơn vị cơ sở, đã qua `roundToScale`. */
 interface InventoryChange {
@@ -82,7 +75,7 @@ export class InventoryService {
     actor: CurrentUserDto,
   ): Promise<InventoryResponseDto> {
     const context = `${InventoryService.name}.${this.assignMaterial.name}`;
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
     if (!warehouse.isActive)
       throw new InventoryException(InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE);
 
@@ -139,7 +132,7 @@ export class InventoryService {
     actor: CurrentUserDto,
   ): Promise<InventoryResponseDto> {
     const context = `${InventoryService.name}.${this.createMaterialInWarehouse.name}`;
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
     if (!warehouse.isActive)
       throw new InventoryException(InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE);
     // Tra TRƯỚC transaction để slug sai không chạm DB. Bỏ qua nhà cung cấp đã xoá mềm.
@@ -183,7 +176,7 @@ export class InventoryService {
     warehouseSlug: string,
     query: GetInventoryRequestDto,
   ): Promise<AppPaginatedResponseDto<InventoryResponseDto>> {
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
 
     // 2 filter `belowMinimum`/`aboveMaximum` so với ngưỡng EFFECTIVE (`COALESCE(override, mặc định
     // của material)`) — so cột với cột nên phải dùng `Raw`. `Raw` đặt trên cột của `material` để
@@ -210,16 +203,11 @@ export class InventoryService {
       take: query.size,
     });
 
-    const totalPages = Math.ceil(total / query.size);
-    return {
-      items: this.mapper.mapArray(items, Inventory, InventoryResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, Inventory, InventoryResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<InventoryResponseDto>;
+      query,
+    );
   }
 
   async updateThresholds(
@@ -440,17 +428,12 @@ export class InventoryService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, InventoryHistory, InventoryHistoryResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, InventoryHistory, InventoryHistoryResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<InventoryHistoryResponseDto>;
+      query,
+    );
   }
 
   /**
@@ -466,6 +449,10 @@ export class InventoryService {
     guard?: (current: Inventory) => void,
   ): Promise<Inventory> {
     const inventories = manager.getRepository(Inventory);
+    // Khoá dòng tồn (`SELECT ... FOR UPDATE`) trước khi đọc-rồi-ghi `quantity`/`reservedQuantity`:
+    // 2 request đồng thời trên cùng 1 dòng chạy nối tiếp, nên không mất cập nhật và snapshot
+    // before/after trong `InventoryHistory` khớp đúng thứ tự thực tế. Luôn khoá KHÔNG kèm
+    // relations — MySQL khoá cả các dòng của bảng được JOIN (kho, vật tư).
     const row = await inventories.findOne({ where: { id: inventoryId }, lock: WRITE_LOCK });
     // Bị gỡ khỏi kho giữa `findRow` của caller và lúc lấy được khoá.
     if (!row) throw new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND);
@@ -512,12 +499,6 @@ export class InventoryService {
     );
   }
 
-  private async findWarehouse(slug: string): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.findOneBy({ slug });
-    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
-    return warehouse;
-  }
-
   /** Ném `SUPPLIER_NOT_FOUND` (lỗi của module supplier, cố ý không bọc lại) nếu slug sai. */
   private async findSupplier(slug: string): Promise<Supplier> {
     const supplier = await this.supplierRepository.findOneBy({ slug });
@@ -532,7 +513,7 @@ export class InventoryService {
     });
     // Kho không tồn tại cũng rơi vào đây; tách ra để client phân biệt được 2 tình huống.
     if (!row) {
-      await this.findWarehouse(warehouseSlug);
+      await findWarehouse(this.warehouseRepository, warehouseSlug);
       throw new InventoryException(InventoryValidation.INVENTORY_NOT_FOUND);
     }
     return row;

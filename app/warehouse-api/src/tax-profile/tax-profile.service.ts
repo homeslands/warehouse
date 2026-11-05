@@ -25,6 +25,7 @@ import {
   VIETQR_TIMEOUT_MS,
 } from './tax-profile.constants';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
 export class TaxProfileService {
@@ -44,17 +45,12 @@ export class TaxProfileService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, TaxProfile, TaxProfileResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, TaxProfile, TaxProfileResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<TaxProfileResponseDto>;
+      query,
+    );
   }
 
   /**
