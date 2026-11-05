@@ -17,6 +17,7 @@ import { Material } from 'src/material/material.entity';
 import { pickDefined } from 'src/shared/utils/obj.util';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
+import { escapeLike } from 'src/shared/utils/query.util';
 
 @Injectable()
 export class UnitService {
@@ -54,7 +55,7 @@ export class UnitService {
   ): Promise<AppPaginatedResponseDto<UnitResponseDto>> {
     const where: FindOptionsWhere<Unit> = {};
     if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
+    if (query.name) where.name = Like(`%${escapeLike(query.name)}%`);
     if (excludedUnitIds.length > 0) where.id = Not(In(excludedUnitIds));
 
     const [items, total] = await this.unitRepository.findAndCount({

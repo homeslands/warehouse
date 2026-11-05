@@ -128,6 +128,26 @@ describe('SupplierService', () => {
       );
     });
 
+    it('escapes LIKE wildcards in phonenumber and search keyword', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        phonenumber: String.raw`02%_\4`,
+        search: String.raw`a%_\b`,
+      });
+
+      const { where } = supplierRepository.findAndCount.mock.calls[0][0];
+      expect(where).toHaveLength(3);
+      for (const branch of where) {
+        expect(branch.phonenumber.value).toBe(String.raw`%02\%\_\\4%`);
+        const keyword = branch.name ?? branch.contactPerson ?? branch.email;
+        expect(keyword.type).toBe('like');
+        expect(keyword.value).toBe(String.raw`%a\%\_\\b%`);
+      }
+    });
+
     it('filters createdAt by startDate / endDate in every search branch, date-only endDate covers the whole day', async () => {
       supplierRepository.findAndCount.mockResolvedValue([[], 0]);
 
@@ -297,6 +317,16 @@ describe('SupplierService', () => {
           },
         }),
       );
+    });
+
+    it('escapes LIKE wildcards in the material name filter', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findMaterials('s1', { page: 1, size: 10, name: String.raw`th%_\p` });
+
+      const { where } = materialRepository.findAndCount.mock.calls[0][0];
+      expect(where.name.type).toBe('like');
+      expect(where.name.value).toBe(String.raw`%th\%\_\\p%`);
     });
 
     it('filters createdAt by an inclusive from/to range', async () => {

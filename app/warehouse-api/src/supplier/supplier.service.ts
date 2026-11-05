@@ -30,7 +30,12 @@ import { Supplier } from './supplier.entity';
 import { SupplierTransaction } from './supplier-transaction.entity';
 import { MATERIAL_TRANSACTION_TYPES } from './supplier.constants';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { SupplierException } from './supplier.exception';
 import { SupplierValidation } from './supplier.validation';
@@ -89,11 +94,11 @@ export class SupplierService {
     if (createdAt) filters.createdAt = createdAt;
     if (query.code) filters.code = query.code;
     if (query.taxCode) filters.taxCode = query.taxCode;
-    if (query.phonenumber) filters.phonenumber = Like(`%${query.phonenumber}%`);
+    if (query.phonenumber) filters.phonenumber = Like(`%${escapeLike(query.phonenumber)}%`);
 
     // `where` dạng mảng ⇒ TypeORM nối các phần tử bằng OR, mỗi phần tử bọc trong ngoặc riêng. Lặp
     // lại `filters` trong từng nhánh để ra: filters AND (name LIKE OR contactPerson LIKE OR email LIKE).
-    const keyword = query.search ? Like(`%${query.search}%`) : undefined;
+    const keyword = query.search ? Like(`%${escapeLike(query.search)}%`) : undefined;
     const where: FindOptionsWhere<Supplier> | FindOptionsWhere<Supplier>[] = keyword
       ? [
           { ...filters, name: keyword },
@@ -163,7 +168,7 @@ export class SupplierService {
     const where: FindOptionsWhere<Material> = { suppliers: { id: supplier.id } };
     if (query.typeSlug) where.type = { slug: query.typeSlug };
     if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
+    if (query.name) where.name = Like(`%${escapeLike(query.name)}%`);
     const from = query.from ? new Date(query.from) : undefined;
     const to = query.to ? new Date(query.to) : undefined;
     if (from && to) where.createdAt = Between(from, to);
