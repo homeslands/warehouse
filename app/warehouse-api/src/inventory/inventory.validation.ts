@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const INVENTORY_NOT_FOUND = 'INVENTORY_NOT_FOUND';
 export const INVENTORY_DOES_EXIST = 'INVENTORY_DOES_EXIST';

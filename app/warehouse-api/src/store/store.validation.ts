@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const STORE_NOT_FOUND = 'STORE_NOT_FOUND';
 export const STORE_NAME_IS_REQUIRED = 'STORE_NAME_IS_REQUIRED';

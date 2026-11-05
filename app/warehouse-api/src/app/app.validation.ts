@@ -1,4 +1,3 @@
-import { HttpStatus } from '@nestjs/common';
 import { AuthValidation, TAuthErrorCode } from 'src/auth/auth.validation';
 import { RoleValidation, TRoleErrorCode } from 'src/role/role.validation';
 import { AuthorityValidation, TAuthorityErrorCode } from 'src/authority/authority.validation';
@@ -33,19 +32,10 @@ import {
 } from 'src/notification/notification.validation';
 import { AppCommonValidation, TAppCommonErrorCode } from './app-common.validation';
 
-export interface TErrorCodeValue {
-  code: number;
-  message: string;
-  statusCode: HttpStatus;
-}
-
-export function createErrorCode(
-  code: number,
-  message: string,
-  statusCode: HttpStatus = HttpStatus.UNPROCESSABLE_ENTITY,
-): TErrorCodeValue {
-  return { code, message, statusCode };
-}
+// Chỉ re-export KIỂU cho các import cũ (`*.exception.ts`, `user.service.ts`) — bị xoá khi biên dịch nên
+// không tạo vòng nạp. `createErrorCode` cố ý KHÔNG re-export: `*.validation.ts` phải import từ
+// `./error-code.util`, import từ đây sẽ thành vòng import với chính file này (issue #179).
+export type { TErrorCodeValue } from './error-code.util';
 
 export const AppValidation: TAuthErrorCode &
   TRoleErrorCode &

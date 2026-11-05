@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const AUTHORITY_NOT_FOUND = 'AUTHORITY_NOT_FOUND';
 export const AUTHORITY_NOT_OWNED = 'AUTHORITY_NOT_OWNED';

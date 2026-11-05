@@ -1,12 +1,18 @@
 import { ApiPropertyOptional } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { Transform, Type } from 'class-transformer';
-import { IsDateString, IsEnum, IsInt, IsOptional, Min } from 'class-validator';
+import { IsDateString, IsEnum, IsInt, IsOptional, Max, Min } from 'class-validator';
 
 export enum SortOrder {
   ASC = 'ASC',
   DESC = 'DESC',
 }
+
+/**
+ * Trần `size` của mọi list endpoint (issue #179) — bằng mức lớn nhất FE đang dùng
+ * (`EXPORT_STOCK_SIZE`), chặn `size` cực lớn gây quá tải DB.
+ */
+export const MAX_PAGE_SIZE = 500;
 
 /**
  * Query phân trang + sắp xếp + lọc theo ngày tạo (`createdAt`) dùng chung cho mọi endpoint danh sách.
@@ -19,11 +25,19 @@ export class BaseQueryDto {
   @Min(1, { message: 'PAGE_INVALID' })
   page = 1;
 
-  @ApiPropertyOptional({ type: Number, description: 'Page size', example: 10, default: 10 })
+  @ApiPropertyOptional({
+    type: Number,
+    description: 'Page size',
+    example: 10,
+    default: 10,
+    minimum: 1,
+    maximum: MAX_PAGE_SIZE,
+  })
   @IsOptional()
   @Type(() => Number)
   @IsInt({ message: 'SIZE_INVALID' })
   @Min(1, { message: 'SIZE_INVALID' })
+  @Max(MAX_PAGE_SIZE, { message: 'SIZE_INVALID' })
   size = 10;
 
   @ApiPropertyOptional({

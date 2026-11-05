@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 // Material batch Error Code 1015xx
 export const MATERIAL_BATCH_NOT_FOUND = 'MATERIAL_BATCH_NOT_FOUND';

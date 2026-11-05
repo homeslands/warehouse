@@ -1,4 +1,4 @@
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const AUTHORITY_GROUP_NOT_FOUND = 'AUTHORITY_GROUP_NOT_FOUND';
 

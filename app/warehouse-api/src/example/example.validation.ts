@@ -1,4 +1,4 @@
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const EXAMPLE_NOT_FOUND = 'EXAMPLE_NOT_FOUND';
 export const EXAMPLE_NAME_DOES_EXIST = 'EXAMPLE_NAME_DOES_EXIST';

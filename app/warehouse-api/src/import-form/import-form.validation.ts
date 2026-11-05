@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 // Import form Error Code 1013xx
 export const IMPORT_FORM_NOT_FOUND = 'IMPORT_FORM_NOT_FOUND';
