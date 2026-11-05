@@ -77,7 +77,13 @@
         "assigned_at": "2026-11-05T12:54:32.349484+07:00",
         "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
       },
-      "documentation_owner": "Mekong-HCM"
+      "documentation_owner": "Mekong-HCM",
+      "ownership_ack": {
+        "by": "lananh138",
+        "at": "2026-11-05T21:53:57+07:00",
+        "run_id": "W01-RUN-20261105-01",
+        "note": "M05 chờ tester tự xác nhận (SHA/diff, actual_start chưa có)"
+      }
     },
     "W01-BE-01": {
       "status": "READY_FOR_QA",
