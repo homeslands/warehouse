@@ -120,9 +120,10 @@ Mọi việc cấp/thu quyền phải tăng **role epoch** để cache Redis `rb
 2. `file_metadata`: id, s3Key, checksum, size, mime, purpose, ownerUserId, entityType/entityId, status (TEMP/ATTACHED), createdAt. Object TEMP có TTL cleanup (D06).
 3. `audit_event`: id, traceId, actorId, action, entityType/entityId, before/after (JSON), warehouseId, createdAt. Ghi trong cùng transaction nghiệp vụ.
 4. `outbox_event`: id, eventId (dedupe), type, payload, status, attempts, createdAt, publishedAt.
-5. `job`: id, type (BACKUP/RESTORE_REQUEST), status, requestedBy, result/error, timestamps. `backup_request`/`restore_request` (hoặc gộp vào job; chốt theo OpenAPI `BackupRequest`/`RestoreRequest`/`Job`).
-6. Seed 6 authority mới (mục 3) + role epoch (cột `epoch_column` trên `role_tbl` hoặc key Redis có nguồn từ DB).
-7. `version_column` cho `user_tbl` và `role_tbl` (UserPatch/RolePatch yêu cầu `version`). Backfill mặc định là 1. Down = drop cột.
+5. `idempotency_key`: key, scope (operation + user), requestHash, responseRef, createdAt, TTL. Dùng chung cho upload/backup/restore.
+6. `job`: id, type (BACKUP/RESTORE_REQUEST), status, requestedBy, result/error, timestamps. `backup_request`/`restore_request` (hoặc gộp vào job; chốt theo OpenAPI `BackupRequest`/`RestoreRequest`/`Job`).
+7. Seed 6 authority mới (mục 3) + role epoch (cột `epoch_column` trên `role_tbl` hoặc key Redis có nguồn từ DB).
+8. `version_column` cho `user_tbl` và `role_tbl` (UserPatch/RolePatch yêu cầu `version`). Backfill mặc định là 1. Down = drop cột.
 
 **Rollback plan chung:**
 - Mỗi migration có `down` đảo đúng thao tác.
@@ -131,6 +132,18 @@ Mọi việc cấp/thu quyền phải tăng **role epoch** để cache Redis `rb
 - Chạy up → down → up trên target test (D32) trước khi bàn giao QA.
 
 Mỗi migration có `down`. Không sửa migration đã chạy (gồm 047). Backfill session cho token cũ: không cần, vì token cũ hết hạn tự nhiên. Chiến lược cutover ghi rõ trong #197.
+
+## 5a. Transaction, state, version và idempotency
+
+| Luồng | Transaction | State / version | Idempotency |
+|---|---|---|---|
+| Refresh rotation | 1 transaction trên `session_registry`: đánh dấu refresh cũ là đã dùng, phát refresh mới | Session: ACTIVE → IDLE_LOCKED / REVOKED | Refresh cũ dùng lại ⇒ coi là reuse: revoke toàn bộ phiên đó và trả 401 (không phát token mới) |
+| Logout / revoke session | Cập nhật `revokedAt` + deny-list Redis sau commit | REVOKED là trạng thái cuối | Gọi lặp trả cùng kết quả, không lỗi |
+| PATCH user/role (FieldMask) | 1 transaction + audit cùng transaction | `version` optimistic. Lệch version ⇒ 409 (FAILED_PRECONDITION/ABORTED) | Retry với cùng version sau khi đã commit ⇒ 409, client phải đọc lại |
+| Grant/revoke quyền | 1 transaction + tăng role epoch + audit | — | PUT/DELETE quyền vốn idempotent (legacy đã vậy) |
+| Upload file | Stream vào S3 trạng thái TEMP, rồi transaction ghi metadata | TEMP → ATTACHED (khi gắn entity) / EXPIRED (TTL cleanup) | Header `Idempotency-Key` (bắt buộc theo OpenAPI): cùng key + cùng nội dung ⇒ trả lại cùng file. Khách huỷ hoặc lỗi giữa chừng ⇒ không tạo metadata ATTACHED; object TEMP bị dọn theo TTL |
+| Audit + outbox | Insert cùng transaction nghiệp vụ | Outbox: PENDING → PUBLISHED / FAILED | Consumer dedupe theo `eventId`. Dispatcher retry không ghi lại nghiệp vụ |
+| Backup/restore request | Transaction tạo `job` + audit | QUEUED → RUNNING → SUCCEEDED / FAILED | Header `Idempotency-Key` (OpenAPI khai báo cho `createBackupRequest`/`createRestoreRequest`): cùng key ⇒ trả lại job cũ. Cần bảng/cột lưu key + hash request. DEADLINE_EXCEEDED ⇒ tra theo key, không tạo job mới |
 
 ## 6. Thiết kế triển khai #197: microtask theo thứ tự dependency (1 BE)
 
