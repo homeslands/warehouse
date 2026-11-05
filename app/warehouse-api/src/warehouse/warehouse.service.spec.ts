@@ -288,7 +288,8 @@ describe('WarehouseService', () => {
       });
       // `toEqual` khoá đúng 4 field của `WarehouseManagerDto` — role/id/isActive của user không được lộ.
       expect(result.items[0].manager).toEqual(managerSummary);
-      // Contract hiện hành không trả quan hệ `store` (kể cả khi đã load) và không còn field phẳng cũ.
+      // Hành vi hiện tại: read path chưa trả store (docs/specs/warehouse.md, mục Quan hệ với Store) và
+      // không còn field phẳng cũ. Nếu contract đổi sang trả store thì cập nhật assertion này cùng DTO.
       for (const key of ['store', 'storeSlug', 'storeName', 'managerSlug']) {
         expect(result.items[0]).not.toHaveProperty(key);
       }
