@@ -40,6 +40,7 @@ export const IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL =
   'IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL';
 
 export const IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID = 'IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID';
+export const IMPORT_FORM_VERSION_INVALID = 'IMPORT_FORM_VERSION_INVALID';
 
 export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_NOT_FOUND
@@ -73,7 +74,8 @@ export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL
   | typeof IMPORT_FORM_DATE_RANGE_INVALID
   | typeof IMPORT_FORM_CODE_SEARCH_INVALID
-  | typeof IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID;
+  | typeof IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID
+  | typeof IMPORT_FORM_VERSION_INVALID;
 
 export type TImportFormErrorCode = Record<TImportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -190,5 +192,11 @@ export const ImportFormValidation: TImportFormErrorCode = {
   IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID: createErrorCode(
     101333,
     'Item expiry date must be a valid date in YYYY-MM-DD format, not before the form date',
+  ),
+  // `version` của `UpdateImportFormRequestDto` / `ChangeImportFormStatusRequestDto`: thiếu, không phải
+  // số nguyên hoặc < 1 (`0` bypass optimistic lock của TypeORM) — 1 key cho mọi trường hợp.
+  IMPORT_FORM_VERSION_INVALID: createErrorCode(
+    101334,
+    'version is required and must be an integer >= 1 (from the most recent GET)',
   ),
 };

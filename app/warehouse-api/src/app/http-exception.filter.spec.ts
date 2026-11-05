@@ -1,7 +1,12 @@
 import { ArgumentsHost, BadRequestException, HttpStatus, ValidationPipe } from '@nestjs/common';
 import { HttpExceptionFilter } from './http-exception.filter';
 import { AppValidation } from './app.validation';
-import { CreateImportFormRequestDto } from 'src/import-form/import-form.dto';
+import {
+  CreateImportFormRequestDto,
+  UpdateImportFormRequestDto,
+} from 'src/import-form/import-form.dto';
+import { ChangeExportFormStatusRequestDto } from 'src/export-form/export-form.dto';
+import { BaseQueryDto } from './base.dto';
 
 describe('HttpExceptionFilter', () => {
   const filter = new HttpExceptionFilter();
@@ -55,6 +60,54 @@ describe('HttpExceptionFilter', () => {
     expect(response).toMatchObject({
       code: AppValidation.IMPORT_FORM_ITEM_QUANTITY_INVALID.code,
       message: AppValidation.IMPORT_FORM_ITEM_QUANTITY_INVALID.message,
+    });
+  });
+
+  // Issue #170: `page`/`size` (`BaseQueryDto`) và `version` (DTO phiếu `VersionedBase`) trước đây
+  // không có message key ⇒ 400 không `code`. Nay đi qua `ValidationPipe` thật phải ra 422 + code.
+  describe('page/size/version keys (issue #170)', () => {
+    const pipe = new ValidationPipe({ transform: true, whitelist: true });
+    const validate = (value: object, type: 'body' | 'query', metatype: new () => object) =>
+      pipe.transform(value, { type, metatype }).catch((e: BadRequestException) => e);
+
+    it.each([
+      ['page=0', { page: '0' }, 'PAGE_INVALID'],
+      ['page=abc', { page: 'abc' }, 'PAGE_INVALID'],
+      ['size=-1', { size: '-1' }, 'SIZE_INVALID'],
+      ['size=1.5', { size: '1.5' }, 'SIZE_INVALID'],
+    ])('query %s → 422 + %s code', async (_label, query, key) => {
+      const error = await validate(query, 'query', BaseQueryDto);
+
+      const { status, body } = run(error as BadRequestException);
+      expect(status).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect(body).toMatchObject({
+        statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        code: AppValidation[key].code,
+        message: AppValidation[key].message,
+      });
+    });
+
+    it.each([
+      ['UpdateImportFormRequestDto version=0', UpdateImportFormRequestDto, { version: 0 }],
+      ['UpdateImportFormRequestDto version missing', UpdateImportFormRequestDto, {}],
+      ['UpdateImportFormRequestDto version=1.5', UpdateImportFormRequestDto, { version: 1.5 }],
+    ])('%s → 422 + IMPORT_FORM_VERSION_INVALID', async (_label, metatype, payload) => {
+      const error = await validate(payload, 'body', metatype);
+
+      const { status, body } = run(error as BadRequestException);
+      expect(status).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect(body).toMatchObject({
+        statusCode: HttpStatus.UNPROCESSABLE_ENTITY,
+        code: AppValidation.IMPORT_FORM_VERSION_INVALID.code,
+      });
+    });
+
+    it('ChangeExportFormStatusRequestDto version=0 → 422 + EXPORT_FORM_VERSION_INVALID', async () => {
+      const error = await validate({ version: 0 }, 'body', ChangeExportFormStatusRequestDto);
+
+      const { status, body } = run(error as BadRequestException);
+      expect(status).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
+      expect(body).toMatchObject({ code: AppValidation.EXPORT_FORM_VERSION_INVALID.code });
     });
   });
 

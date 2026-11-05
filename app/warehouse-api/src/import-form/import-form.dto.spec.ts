@@ -191,13 +191,19 @@ describe.each([
   ['UpdateImportFormRequestDto', UpdateImportFormRequestDto],
   ['ChangeImportFormStatusRequestDto', ChangeImportFormStatusRequestDto],
 ])('%s.version', (_name, cls) => {
+  // Mọi validator của `version` dùng chung 1 key ⇒ `message[0]` mà `HttpExceptionFilter` tra luôn là
+  // `IMPORT_FORM_VERSION_INVALID` (422 + code), bất kể ràng buộc nào fail trước.
   it.each([
     ['missing', undefined],
+    ['null', null],
     ['0', 0],
     ['negative', -1],
     ['not an integer', 1.5],
-  ])('rejects version %s', (_label, version) => {
-    expect(messagesOf(cls as new () => object, { version }, 'version')).not.toEqual([]);
+    ['a string', 'abc'],
+  ])('rejects version %s with IMPORT_FORM_VERSION_INVALID', (_label, version) => {
+    const messages = messagesOf(cls as new () => object, { version }, 'version');
+    expect(messages).not.toEqual([]);
+    expect(new Set(messages)).toEqual(new Set(['IMPORT_FORM_VERSION_INVALID']));
   });
 
   it('accepts version 1', () => {

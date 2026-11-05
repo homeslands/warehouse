@@ -22,20 +22,21 @@ describe('UpdateExampleRequestDto.version', () => {
   });
 
   it('rejects 0 — giá trị bypass được optimistic lock của TypeORM', () => {
-    // `example` là module mẫu, cố ý không gắn message key nên `HttpExceptionFilter` không tra được
-    // mã lỗi và trả nguyên message thô của class-validator — khác 4 module nghiệp vụ.
-    expect(messagesFor(UpdateExampleRequestDto, payload(0))).toContain(
-      'version must not be less than 1',
-    );
+    expect(messagesFor(UpdateExampleRequestDto, payload(0))).toEqual(['EXAMPLE_VERSION_INVALID']);
   });
 
+  // Mọi validator của `version` dùng chung 1 key ⇒ message đầu tiên (`HttpExceptionFilter` lấy
+  // `message[0]`) luôn là key này, bất kể ràng buộc nào fail trước.
   it.each([
     ['negative', -1],
     ['float', 1.5],
     ['string', 'abc'],
     ['missing', undefined],
-  ])('rejects %s', (_label, version) => {
-    expect(messagesFor(UpdateExampleRequestDto, payload(version))).not.toEqual([]);
+    ['null', null],
+  ])('rejects %s with EXAMPLE_VERSION_INVALID', (_label, version) => {
+    const messages = messagesFor(UpdateExampleRequestDto, payload(version));
+    expect(messages).not.toEqual([]);
+    expect(new Set(messages)).toEqual(new Set(['EXAMPLE_VERSION_INVALID']));
   });
 });
 

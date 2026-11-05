@@ -15,15 +15,15 @@ export class BaseQueryDto {
   @ApiPropertyOptional({ type: Number, description: 'Page number', example: 1, default: 1 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'PAGE_INVALID' })
+  @Min(1, { message: 'PAGE_INVALID' })
   page = 1;
 
   @ApiPropertyOptional({ type: Number, description: 'Page size', example: 10, default: 10 })
   @IsOptional()
   @Type(() => Number)
-  @IsInt()
-  @Min(1)
+  @IsInt({ message: 'SIZE_INVALID' })
+  @Min(1, { message: 'SIZE_INVALID' })
   size = 10;
 
   @ApiPropertyOptional({

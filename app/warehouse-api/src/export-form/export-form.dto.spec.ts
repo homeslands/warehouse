@@ -71,16 +71,30 @@ describe('UpdateExportFormRequestDto', () => {
   it('accepts a body with only version (every other field optional)', () => {
     expect(messagesOf(UpdateExportFormRequestDto, { version: 1 })).toEqual([]);
   });
-
-  // `version: 0` là falsy ⇒ TypeORM bỏ qua check optimistic lock (xem CLAUDE.md).
-  it.each([0, -1, undefined])('rejects version %s', (version) => {
-    expect(messagesOf(UpdateExportFormRequestDto, { version }, 'version')).not.toEqual([]);
-  });
 });
 
-describe('ChangeExportFormStatusRequestDto', () => {
-  it.each([0, undefined])('rejects version %s', (version) => {
-    expect(messagesOf(ChangeExportFormStatusRequestDto, { version }, 'version')).not.toEqual([]);
+// `version: 0` là falsy ⇒ TypeORM bỏ qua check optimistic lock (xem CLAUDE.md). Mọi validator của
+// `version` dùng chung 1 key ⇒ `message[0]` mà `HttpExceptionFilter` tra luôn là
+// `EXPORT_FORM_VERSION_INVALID` (422 + code), bất kể ràng buộc nào fail trước.
+describe.each([
+  ['UpdateExportFormRequestDto', UpdateExportFormRequestDto],
+  ['ChangeExportFormStatusRequestDto', ChangeExportFormStatusRequestDto],
+])('%s.version', (_name, cls) => {
+  it.each([
+    ['missing', undefined],
+    ['null', null],
+    ['0', 0],
+    ['negative', -1],
+    ['not an integer', 1.5],
+    ['a string', 'abc'],
+  ])('rejects version %s with EXPORT_FORM_VERSION_INVALID', (_label, version) => {
+    const messages = messagesOf(cls as new () => object, { version }, 'version');
+    expect(messages).not.toEqual([]);
+    expect(new Set(messages)).toEqual(new Set(['EXPORT_FORM_VERSION_INVALID']));
+  });
+
+  it('accepts version 1', () => {
+    expect(messagesOf(cls as new () => object, { version: 1 }, 'version')).toEqual([]);
   });
 });
 

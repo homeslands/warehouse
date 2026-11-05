@@ -43,6 +43,7 @@ export const EXPORT_FORM_DATE_RANGE_INVALID = 'EXPORT_FORM_DATE_RANGE_INVALID';
 export const EXPORT_FORM_CODE_SEARCH_INVALID = 'EXPORT_FORM_CODE_SEARCH_INVALID';
 export const EXPORT_FORM_NOT_PENDING = 'EXPORT_FORM_NOT_PENDING';
 export const EXPORT_FORM_CANNOT_BE_CANCELLED = 'EXPORT_FORM_CANNOT_BE_CANCELLED';
+export const EXPORT_FORM_VERSION_INVALID = 'EXPORT_FORM_VERSION_INVALID';
 
 export type TExportFormErrorCodeKey =
   | typeof EXPORT_FORM_NOT_FOUND
@@ -82,7 +83,8 @@ export type TExportFormErrorCodeKey =
   | typeof EXPORT_FORM_DATE_RANGE_INVALID
   | typeof EXPORT_FORM_CODE_SEARCH_INVALID
   | typeof EXPORT_FORM_NOT_PENDING
-  | typeof EXPORT_FORM_CANNOT_BE_CANCELLED;
+  | typeof EXPORT_FORM_CANNOT_BE_CANCELLED
+  | typeof EXPORT_FORM_VERSION_INVALID;
 
 export type TExportFormErrorCode = Record<TExportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -210,5 +212,11 @@ export const ExportFormValidation: TExportFormErrorCode = {
     101438,
     'Only a DRAFT or PENDING export form can be cancelled',
     HttpStatus.CONFLICT,
+  ),
+  // `version` của `UpdateExportFormRequestDto` / `ChangeExportFormStatusRequestDto`: thiếu, không phải
+  // số nguyên hoặc < 1 (`0` bypass optimistic lock của TypeORM) — 1 key cho mọi trường hợp.
+  EXPORT_FORM_VERSION_INVALID: createErrorCode(
+    101439,
+    'version is required and must be an integer >= 1 (from the most recent GET)',
   ),
 };

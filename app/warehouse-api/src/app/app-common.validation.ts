@@ -7,13 +7,17 @@ export const START_DATE_INVALID = 'START_DATE_INVALID';
 export const END_DATE_INVALID = 'END_DATE_INVALID';
 export const SORT_INVALID = 'SORT_INVALID';
 export const SORT_BY_INVALID = 'SORT_BY_INVALID';
+export const PAGE_INVALID = 'PAGE_INVALID';
+export const SIZE_INVALID = 'SIZE_INVALID';
 
 export type TAppCommonErrorCodeKey =
   | typeof DATA_VERSION_CONFLICT
   | typeof START_DATE_INVALID
   | typeof END_DATE_INVALID
   | typeof SORT_INVALID
-  | typeof SORT_BY_INVALID;
+  | typeof SORT_BY_INVALID
+  | typeof PAGE_INVALID
+  | typeof SIZE_INVALID;
 
 export type TAppCommonErrorCode = Record<TAppCommonErrorCodeKey, TErrorCodeValue>;
 
@@ -44,4 +48,8 @@ export const AppCommonValidation: TAppCommonErrorCode = {
     'sortBy is not supported by this endpoint',
     HttpStatus.BAD_REQUEST,
   ),
+  // `BaseQueryDto.page` / `.size` (mọi list endpoint): không phải số nguyên hoặc < 1. 422 (mặc định của
+  // `createErrorCode`) theo issue #170 — khác 4 key query phía trên vẫn trả 400.
+  PAGE_INVALID: createErrorCode(100854, 'page must be an integer >= 1'),
+  SIZE_INVALID: createErrorCode(100855, 'size must be an integer >= 1'),
 };
