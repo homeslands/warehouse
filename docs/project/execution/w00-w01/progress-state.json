@@ -1,8 +1,8 @@
 {
-  "as_of": "2026-11-05T23:15:00+07:00",
+  "as_of": "2026-11-05T23:16:41+07:00",
   "tasks": {
     "W00-BE": {
-      "status": "DOCUMENTATION_COMPLETE_RECEIPT_PENDING",
+      "status": "COMPLETE",
       "assignee": "Mekong-HCM",
       "actual_start": null,
       "actual_finish": null,
@@ -26,7 +26,7 @@
       "documentation_owner": "Mekong-HCM",
       "receipt": {
         "by": "Mekong-HCM",
-        "at": "2026-11-05T13:23:00+07:00",
+        "at": "2026-11-05T13:39:38+07:00",
         "base_sha": "2d080e7",
         "record": "https://github.com/homeslands/warehouse/issues/158#issuecomment-6651562097"
       }
@@ -56,7 +56,7 @@
       "documentation_owner": "Mekong-HCM"
     },
     "W00-QA": {
-      "status": "DOCUMENTATION_COMPLETE_RECEIPT_PENDING",
+      "status": "COMPLETE",
       "assignee": "lananh138",
       "actual_start": null,
       "actual_finish": null,
@@ -66,7 +66,7 @@
         "W00-QA-M02": "COMPLETE",
         "W00-QA-M03": "COMPLETE",
         "W00-QA-M04": "COMPLETE",
-        "W00-QA-M05": "NOT_STARTED"
+        "W00-QA-M05": "COMPLETE"
       },
       "publication_evidence": {
         "path": "/home/chuong/Desktop/warehouse/.agents/tasks/w00-w01-delivery-20261105/evidence/issue-readback.json",
@@ -80,9 +80,11 @@
       "documentation_owner": "Mekong-HCM",
       "ownership_ack": {
         "by": "lananh138",
-        "at": "2026-11-05T21:53:57+07:00",
+        "m05_ticked_at": "2026-11-05T21:47:59+07:00",
+        "comment_at": "2026-11-05T21:53:57+07:00",
+        "record": "https://github.com/homeslands/warehouse/issues/160#issuecomment-6661101847",
         "run_id": "W01-RUN-20261105-01",
-        "note": "M05 chờ tester tự xác nhận (SHA/diff, actual_start chưa có)"
+        "note": "M05 do tester tự tick trên issue; SHA/diff + actual_start ghi khi bắt đầu #165"
       }
     },
     "W01-BE-01": {
@@ -115,7 +117,8 @@
         "ci_unit_test_be": "NOT_RUN (#182)",
         "qa": "PENDING #166",
         "accepted": false
-      }
+      },
+      "issue_state": "CLOSED (COMPLETED, auto by PR merge) — không đồng nghĩa ACCEPTED"
     },
     "W01-BE-02": {
       "status": "READY_FOR_QA",
@@ -149,7 +152,8 @@
         "browser_TC09_12": "NOT_RUN (#164)",
         "qa": "PENDING #166",
         "accepted": false
-      }
+      },
+      "issue_state": "CLOSED (COMPLETED, auto by PR merge) — không đồng nghĩa ACCEPTED"
     },
     "W01-FE-01": {
       "status": "NOT_STARTED",
@@ -240,7 +244,7 @@
   "updates": [
     {
       "id": "PU-20261105-01",
-      "at": "2026-11-05T23:15:00+07:00",
+      "at": "2026-11-05T23:16:41+07:00",
       "by": "Mekong-HCM (PM/doc)",
       "doc": "progress-updates/PU-20261105-01.md",
       "note": "Cập nhật sau PUB-R1; hash file này khác PUBLICATION-MANIFEST (manifest mô tả snapshot PUB-R1)."

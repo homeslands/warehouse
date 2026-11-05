@@ -41,5 +41,5 @@ Grant test WH-TEST-ENV-20261105 mô tả target local đã cấp cho workspace b
 - **[PU-20261105-01](execution/w00-w01/progress-updates/PU-20261105-01.md)** (05/11/2026, Mekong-HCM)
   - W01-BE #161/#162 đã merge (PR #190/#191) và đã xác minh sau merge. Hiện READY_FOR_QA, **chưa ACCEPTED**.
   - FE/QA dùng harness `app/warehouse-api/test/README-e2e.md` (`npm run test:e2e:serve`).
-  - Receipt W00-FE/QA vẫn đang chờ.
+  - Receipt W00: BE và QA đã có (QA do tester tự tick M05 trên #160); FE vẫn chờ.
   - Bản cập nhật này làm `progress-state.json` và file này khác hash trong PUBLICATION-MANIFEST (manifest chỉ mô tả snapshot PUB-R1).
