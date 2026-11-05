@@ -1,0 +1,115 @@
+{
+  "id": "W11",
+  "name": "NFR, hồi quy, UAT và bàn giao local",
+  "decision_status": "APPROVED",
+  "implementation_status": "NOT_STARTED",
+  "depends_on": [
+    "W02",
+    "W03",
+    "W04",
+    "W05",
+    "W06",
+    "W07",
+    "W08",
+    "W09",
+    "W10"
+  ],
+  "owners": {
+    "BE": "BE01 — 1 backend; coordination assignment, actual human logs receipt/start",
+    "FE": "FE01 — 1 frontend; coordination assignment, actual human logs receipt/start",
+    "QA": "QA01 — 1 tester; coordination assignment, actual human logs receipt/start"
+  },
+  "paths": {
+    "BE": "Chỉ module trong app/warehouse-api/src có defect đã xác minh; app/warehouse-api/setup.md, app/warehouse-api/docs; module archive (mới, đề xuất).",
+    "FE": "Chỉ slice trong app/warehouse-ui/src có defect đã xác minh; app/warehouse-ui/setup.md, app/warehouse-ui/docs.",
+    "QA": "Test matrix, kết quả, NFR protocol, UAT pack, test summary trong .agents/tasks/<task-id>/ (mới, đề xuất); app/warehouse-api/test; app/warehouse-ui/e2e."
+  },
+  "scope": {
+    "BE": "Sửa NFR, archive/restore test, runbooks và release checklist.",
+    "FE": "Responsive, accessibility, dark/light, vi/en và UI performance.",
+    "QA": "Chạy NFR và hồi quy; uptime/TLS/vận hành thật giữ gate riêng, chưa công bố PASS từ local."
+  },
+  "decisions": [
+    "D02",
+    "D07",
+    "D14",
+    "D15",
+    "D16",
+    "D17",
+    "D18",
+    "D31",
+    "D32",
+    "D35"
+  ],
+  "operation_ids": [
+    "requestArchive"
+  ],
+  "direct_schema_refs": [
+    "Error",
+    "Job"
+  ],
+  "screen_ids": [
+    "UI-31"
+  ],
+  "test_case_ids": [
+    "TC-RET-01",
+    "TC-RET-02",
+    "TC-API-requestArchive",
+    "TC-DENY-requestArchive",
+    "TC-UI-31",
+    "TC-NFR-01",
+    "TC-NFR-02",
+    "TC-NFR-03",
+    "TC-NFR-04",
+    "TC-NFR-05",
+    "TC-NFR-06",
+    "TC-NFR-07",
+    "TC-NFR-08",
+    "TC-NFR-09",
+    "TC-NFR-10",
+    "TC-NFR-11",
+    "TC-NFR-12",
+    "TC-NFR-13",
+    "TC-NFR-14",
+    "TC-NFR-15",
+    "TC-NFR-16",
+    "TC-NFR-17",
+    "TC-NFR-18",
+    "TC-NFR-19",
+    "TC-NFR-20",
+    "TC-NFR-21",
+    "TC-NFR-22",
+    "TC-NFR-23"
+  ],
+  "requirement_ids": [
+    "NFR-01",
+    "NFR-02",
+    "NFR-03",
+    "NFR-04",
+    "NFR-05",
+    "NFR-06",
+    "NFR-10",
+    "NFR-12",
+    "NFR-13",
+    "NFR-14",
+    "NFR-15",
+    "NFR-16",
+    "NFR-21",
+    "NFR-22",
+    "NFR-23",
+    "DS-10",
+    "DS-11",
+    "DS-14",
+    "BRD-U04"
+  ],
+  "entry": "All linked R2 decisions + W00 design gate; task dependencies in planning/plan.json. W01 may start now; subsequent implementation waits upstream QA closure. No further business choice is required for current phase.",
+  "handoff": [
+    "Changed paths with exact SHA/diff and migration IDs, excluding others WIP",
+    "Actual command, runtime, environment ID, results and defect/case IDs",
+    "Contract/API/FE parity and negative cases; DB and browser evidence at required level",
+    "No OPEN design deviation: create CR before changing approved behavior"
+  ],
+  "exit": "Role tasks COMPLETE with evidence; QA real-level results, independent code review and owner acceptance before package ACCEPTED. Current no-review request applies to preparing this decision pack, not fabrication of future review results.",
+  "design_contracts": "../contracts/openapi-v1.json, warehouse-storage.proto, schemas.json, business-rules.md, data-and-migration.md, screen-contracts.json",
+  "qa_status": "DESIGNED_NOT_RUN"
+}

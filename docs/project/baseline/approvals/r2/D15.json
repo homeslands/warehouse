@@ -1,0 +1,45 @@
+{
+  "id": "D15",
+  "namespace": "DECISION",
+  "title": "Phạm vi và protocol NFR/email/import/báo cáo",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Ký dataset, network/device, percentile/cách đo chưa được SRS quy định, giao dịch/số user, uptime window/SLI, Excel atomic/partial và giới hạn; lịch email/chống lặp. Giữ ngưỡng SRS; không biến protocol đề xuất thành yêu cầu gốc.",
+  "source_reference": "D17 T350:T358; D23 ADR-008; D21 audit/outbox; LOCAL-001",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Chủ dự án + QA + Tech Lead",
+  "affected_packages": [
+    "W08",
+    "W09",
+    "W10",
+    "W11"
+  ],
+  "answer": "Chốt protocol NFR, Excel import nguyên tử và email báo cáo; chưa tuyên bố đã đạt.",
+  "rules": [
+    "Giữ page<2s, txn nhập/xuất/kiểm<1s, report<5s. Đo p95 thời gian end-to-end,3lần×10phút sau5phút warmup,20user đồng thời trên dataset≥100000phiếu với trung bình5dòng; zero lỗi toàn vẹn và lỗi kỹ thuật<0.1%. Ghi cấu hình máy/network/cache/command/SHA.",
+    "Page tính từ điều hướng đến nội dung tác vụ có thể dùng; txn từ action client đến server commit và UI nhận kết quả; report từ request đến dữ liệu hoàn chỉnh, download file lớn đo riêng. Protocol p95 là lựa chọn bổ sung, không phải chữ nguyên bản SRS.",
+    "Uptime99.5% theo cửa sổ30ngày liên tiếp, probe1phút vào login/read/write health đường có DB; planned downtime vẫn tính vào mẫu số. Không đủ môi trường/cửa sổ thì NOT_RUN, không ngoại suy từ unit/build.",
+    "Excel vật tư/phiếu nhập: .xlsx template v1, size≤5MiB,≤1000dòng/job, preview+validate toàn bộ trước confirm; một job atomic, bất kỳ dòng lỗi không ghi dữ liệu, trả row/field/error file. Import lại cùng idempotency key không tạo trùng.",
+    "CSV UTF-8 BOM, xlsx numeric/date typed, PDF có chữ Việt, timezone/tiền theo D09; bảo vệ spreadsheet formula injection khi export trường text. Export quyền/filter giống UI.",
+    "Email report hằng ngày08:00 hoặc thứHai08:00 theo lịch cấu hình của Manager, có người nhận hợp lệ; report chung dùng link private, retry/dedupe theo reportId+recipient+period. Chưa bật scheduler/mail thật trong DEV LOCAL."
+  ],
+  "rationale": "Biến yêu cầu định tính thành protocol đo được mà giữ nguyên các ngưỡng thiết kế.",
+  "change_control_id": "CR-D15-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Excel1001dòng bị từ chối; dòng999lỗi không ghi998dòng trước.",
+    "Text bắt đầu= trong CSV không được thực thi thành công thức khi mở.",
+    "Thiếu30ngày probe không đổi uptime từ NOT_RUN thành PASS."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "54891a40f6ed2a902aa3857d376274d12402494f2aac348e709b5c654a15ce14"
+}

@@ -1,0 +1,47 @@
+﻿package,role,component,low_days,high_days,basis,reserve_included
+W01,BE,Sửa gate và harness DB/race,4,7,"Coordinator expert estimate, remaining work; not measured velocity",False
+W01,FE,Ổn định full check và browser smoke,4,7,"Coordinator expert estimate, remaining work; not measured velocity",False
+W01,QA,"Fixture, tái lập lỗi và chạy gate",5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,Gateway và REST compatibility,5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,"gRPC, service boundary và composition root",7,12,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,"Auth, refresh, idle, session",6,10,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,"RBAC, warehouse scope và seed quyền",5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,"Private file, purpose và tương thích upload",5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,"Audit, outbox và log",5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,Backup/restore jobs trên target test,4,7,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,BE,Wire integration và regression,3,5,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,FE,Ant Design/Redux shell và controls chung,11,18,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,FE,Auth/session/idle,4,6,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,FE,User/role/permission matrix,6,10,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,FE,"File, audit, log và backup UI",5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,QA,Case/data và contract,4,6,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,QA,Auth/RBAC API thật,6,10,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,QA,File/audit/backup,5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W02,QA,Browser và hồi quy nền,4,6,"Coordinator expert estimate, remaining work; not measured velocity",False
+W03,BE,"Catalog, vị trí, supplier và version/FK",6,10,"Coordinator expert estimate, remaining work; not measured velocity",False
+W03,FE,"Catalog fields, search và forms",6,10,"Coordinator expert estimate, remaining work; not measured velocity",False
+W03,QA,"CRUD, tham chiếu, quy đổi và scope",5,8,"Coordinator expert estimate, remaining work; not measured velocity",False
+W04,BE,"State, FEFO, bình quân, transfer và ledger",18,28,"Coordinator expert estimate, remaining work; not measured velocity",False
+W04,FE,"Nhập/xuất, wizard và tồn/lô",10,16,"Coordinator expert estimate, remaining work; not measured velocity",False
+W04,QA,"Race, rollback, rounding và UI giao dịch",12,18,"Coordinator expert estimate, remaining work; not measured velocity",False
+W05,BE,"Lock, assignment, acknowledgment và delta",12,18,"Coordinator expert estimate, remaining work; not measured velocity",False
+W05,FE,Workspace kiểm đếm và giải trình,10,15,"Coordinator expert estimate, remaining work; not measured velocity",False
+W05,QA,"Hai người, khóa kho, race và delta",8,13,"Coordinator expert estimate, remaining work; not measured velocity",False
+W06,BE,Recipe/version/giá và ba API nội bộ POS,10,16,"Coordinator expert estimate, remaining work; not measured velocity",False
+W06,FE,Product empty-state và recipe/pricing,8,13,"Coordinator expert estimate, remaining work; not measured velocity",False
+W06,QA,Recipe/core API; adapter giả có nhãn,7,11,"Coordinator expert estimate, remaining work; not measured velocity",False
+W07,BE,"Chi/thu, AP, settlement và refund groups",16,26,"Coordinator expert estimate, remaining work; not measured velocity",False
+W07,FE,"Chi/thu, chứng từ, công nợ và trả tiền",13,20,"Coordinator expert estimate, remaining work; not measured velocity",False
+W07,QA,"Đối soát AP/cash, role và chống trùng",10,16,"Coordinator expert estimate, remaining work; not measured velocity",False
+W08,BE,"Alert, recipient, outbox email và retry",11,18,"Coordinator expert estimate, remaining work; not measured velocity",False
+W08,FE,"Cảnh báo, cấu hình và delivery state",8,13,"Coordinator expert estimate, remaining work; not measured velocity",False
+W08,QA,"Ngưỡng, scope, dedupe và mail capture",7,11,"Coordinator expert estimate, remaining work; not measured velocity",False
+W09,BE,"Summary, watermark, 11 report và exports",16,26,"Coordinator expert estimate, remaining work; not measured velocity",False
+W09,FE,"Dashboard, chart, drilldown và reports",13,21,"Coordinator expert estimate, remaining work; not measured velocity",False
+W09,QA,Đối soát số liệu và tệp xuất thật,10,16,"Coordinator expert estimate, remaining work; not measured velocity",False
+W10,BE,"Excel template, validation và atomic import",7,11,"Coordinator expert estimate, remaining work; not measured velocity",False
+W10,FE,Preview lỗi theo dòng và confirm job,6,10,"Coordinator expert estimate, remaining work; not measured velocity",False
+W10,QA,"Giới hạn, atomicity, replay và quyền",7,11,"Coordinator expert estimate, remaining work; not measured velocity",False
+W11,BE,"NFR fixes, restore/archive và hướng dẫn",9,15,"Coordinator expert estimate, remaining work; not measured velocity",False
+W11,FE,"Responsive, accessibility và NFR fixes",7,11,"Coordinator expert estimate, remaining work; not measured velocity",False
+W11,QA,"NFR, hồi quy toàn bộ và hồ sơ nghiệm thu",15,24,"Coordinator expert estimate, remaining work; not measured velocity",False

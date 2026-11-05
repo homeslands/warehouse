@@ -1,0 +1,13 @@
+{
+  "actor": "Mekong-HCM",
+  "repository": "homeslands/warehouse",
+  "permissions": {
+    "admin": false,
+    "maintain": false,
+    "push": true,
+    "triage": true,
+    "pull": true
+  },
+  "at": "2026-11-05T10:35:24+07:00",
+  "connector_fallback": "GitHub connector create failed403 Resource not accessible by integration; used existing authenticated gh CLI with repository issue permission."
+}

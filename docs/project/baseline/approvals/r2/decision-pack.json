@@ -1,0 +1,1657 @@
+{
+  "id": "WH-DEC-20261105-R2",
+  "authority": {
+    "id": "WH-DEC-20261105-R2",
+    "date": "2026-11-05",
+    "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+    "approval_method": "Explicit delegated coordinator approval. Preserve R1 files; no user signature or independent reviewer verdict is fabricated.",
+    "user_instruction": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+    "scope": "Giải quyết D01–D29 và baseline bổ sung trước WXX; không xác nhận môi trường, công việc hoặc test chưa thực hiện.",
+    "limits": [
+      "DEV LOCAL, không CI/CD/deploy/job thật/commit/push/DB hiện hữu.",
+      "Không ghi giả vendor, credential, người nhận việc, test PASS hoặc chữ ký owner.",
+      "Tài liệu gốc bất biến; baseline bổ sung chỉ thay các mâu thuẫn nêu rõ."
+    ],
+    "source_head": "384c53d9f9c81d320793069b3dffd690ae88c0af",
+    "original_design_inventory": "/home/chuong/Desktop/warehouse/.agents/tasks/roadmap-20261104/evidence/source-inventory.json",
+    "original_design_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+    "user_clarification": "he khac se lam sau, chua co nha cung cap sms ( ma chac cung khong can)"
+  },
+  "decisions": [
+    {
+      "id": "D01",
+      "namespace": "DECISION",
+      "title": "Tự sinh phiếu chi/thu và liên kết chứng từ",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chọn manual/automatic theo loại, thời điểm và hủy; cập nhật BRD/SRS, ví dụ chống trùng và tổng tiền. Yêu cầu liên kết theo loại chi tách ở D19, chứng từ ở D20.",
+      "source_reference": "D13 P358 \"không auto tạo phiếu chi từ phiếu nhập kho\" ↔ D13 P366–P367, D17 P85, BR-PAY-002 (T138R3), BR-WAR-002 (T344R3), D24 P474/P593; D00 P2 (đã hỏi, chưa ghi đáp án)",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA",
+      "affected_packages": [
+        "W04",
+        "W07"
+      ],
+      "answer": "Xác nhận nhập tự sinh đúng một phiếu chi NHÁP mua NVL; thu được lập thủ công theo loại.",
+      "rules": [
+        "Import CONFIRMED phát sinh ExpenseForm DRAFT PURCHASE có liên kết đúng một ImportForm, snapshot NCC/tiền/VAT. Không tạo chi khi lưu nháp hoặc gửi duyệt.",
+        "Phiếu chi tự sinh chưa ghi nhận đã trả tiền; chỉ ExpenseForm CONFIRMED mới ghi sổ tài chính. Creator là người tạo nhập, approver là Manager khác creator.",
+        "Unique source_import_id + PURCHASE và khóa transaction/outbox bảo đảm retry không tạo trùng. Tạo sổ tồn và outbox trong cùng transaction; lỗi tạo chi được retry quan sát được, không xác nhận chi ngầm.",
+        "Không tự sinh phiếu thu từ mọi loại xuất. Phiếu thu theo các loại D17 T160; thu thanh lý phải liên kết xuất LIQUIDATION đã xác nhận. Confirmed không sửa/xóa/cancel trực tiếp.",
+        "Tựtạochi chỉápdụngoriginTypePURCHASE; TRANSFER_INlàphiếuđốinội theoD34, khôngphảimua vàkhôngsinhExpense.",
+        "D36làm rõsổtài chính: importghiobligation,ExpenseCODconfirmedghi settlement/cash;DEBTconfirmedchưaphảiđãtrả. KhôngcộngAPhai lần."
+      ],
+      "rationale": "Giữ BR-PAY-002/BR-WAR-002 và phần mô tả tự động, thay thế duy nhất câu không auto trong BRD P358; tách tạo chứng từ khỏi thanh toán thực.",
+      "change_control_id": "CR-D01-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Confirm nhập hai lần/retry chỉ có một expense draft và một bút toán tồn.",
+        "Chưa duyệt chi thì paid=0; người tạo không tự duyệt chi.",
+        "Xuất OTHER không tự phát sinh doanh thu."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "8a77b2d13c50f4493632ca016a58a9b4fa4e5ee902ae5887002140acfa56d790"
+    },
+    {
+      "id": "D02",
+      "namespace": "DECISION",
+      "title": "Ma trận vai trò/quyền, phạm vi kho–cửa hàng và phân công kiểm kho",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Ký ma trận create/edit/submit/confirm/cancel/view từng loại phiếu cho Admin/Manager/Supervisor; có hay không Staff và Thủ quỹ/Kế toán; SUPER_ADMIN chỉ là vai trò kỹ thuật trong code, không phải vai trò thiết kế. Có phân quyền và dữ liệu theo kho–cửa hàng hay không. Kiểm kho ≥1 hay ≥2 người; ≥2 người cùng ghi một số hay mỗi người đếm riêng rồi đối chiếu (thiết kế không nêu \"đếm độc lập\"); complete vs approve, tự duyệt hay không. Giữ, đổi tên hay xóa quyền đã seed.",
+      "source_reference": "D13 T588R12/R17 ↔ T598R2/R3, T600R2/R3; T588R22 \"≥1 người\" ↔ P299, BR-BAL-001 \"≥2\"; T594R9/R15 \"của chính mình + do Manager tạo\" ↔ T598R8/T600R8 \"Xem all\"; T604R7 ↔ T594R28; T588R3 \"Chỉ xem, không sửa\" ↔ T588R4–R6; T602R2 Manager không tạo phiếu kiểm ↔ D17 T30R2, D13 P527 \"Warehouse Manager\"; T602R4 Admin hoàn thành kiểm ↔ D24 T440R6 chỉ SUPERVISOR (assigned); T582R27 Admin phê duyệt phiếu chi ↔ BR-PAY-006; P417 \"Người chi (Thủ quỹ/Kế toán)\"; P27 Staff, D17 T24R7 \"Warehouse Manager/Staff\" ↔ D17 T352R3, D13 P575 3 vai trò; D24 T431R6 xóa NVL chỉ ADMIN ↔ D18!C20; D24 T434R4 MANAGER tạo phiếu nhập ↔ D13 T598R2; D24 T437R4 tạo phiếu xuất không có MANAGER; D24 T446R3 giá trị tồn chỉ MANAGER/ADMIN ↔ D18!C19, D17 T38R5, D13 T594R24; D20 T79R4 ↔ D18!C18; kho/cửa hàng: D13 P16, nhãn ERD Warehouse/Store/warehouse(FK), D20 T142R5/T169R7 ↔ D24 không có bảng kho/cửa hàng, D17 T352R3 chỉ phân quyền theo vai trò; code đã seed BALANCE_FORM_*/WAREHOUSE_PAYMENT_*, không có STAFF",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + chủ kho + BA",
+      "affected_packages": [
+        "W00",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10",
+        "W11"
+      ],
+      "answer": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+      "rules": [
+        "Staff là cách gọi Supervisor, không tạo role thứ tư. Thủ quỹ/kế toán là người được gán nhiệm vụ trong phạm vi role, không phát sinh quyền ngoài matrix. Huy là người được chỉ định Manager, không hardcode tên/ID cá nhân.",
+        "Admin quản trị user/role/danh mục, POS/config, audit/backup và xem tổng hợp toàn hệ thống; không có mặc định tạo/duyệt phiếu vận hành. Muốn làm nghiệp vụ phải được gán vai trò và phạm vi phù hợp; vẫn không được tự duyệt.",
+        "Supervisor tạo/sửa/gửi/hủy nháp nhập, xuất, thu, chi do mình tạo trong kho được gán; xem phiếu mình tạo hoặc được giao; không confirm cuối. Manager xem tất cả trong kho quản lý và duyệt/từ chối; không tạo nhập/xuất/thu/chi thay Supervisor.",
+        "Manager hoặc Admin lập kế hoạch kiểm kho trong phạm vi được quản lý, phân công ≥2 Supervisor khác nhau. Có một bộ số đếm tổng hợp và xác nhận tham gia của ≥2 người; không bắt buộc hai lượt đếm độc lập. Supervisor được giao gửi kết quả, Manager khác creator duyệt hoàn tất.",
+        "Danh mục NVL/đơn vị/NCC và công thức: Admin/Manager được tạo/sửa/xóa theo ràng buộc; Supervisor đọc. Xem số lượng tồn theo kho; giá trị tồn/chi phí/công nợ chỉ Manager/Admin. Chi tiết quyền nằm trong permission-matrix.csv.",
+        "SUPER_ADMIN là bootstrap kỹ thuật, không phải role nghiệp vụ hoặc tài khoản dùng để chứng minh RBAC; không dùng bypass này cho API nghiệp vụ trong môi trường nghiệm thu. Quyền BALANCE_FORM/WAREHOUSE_PAYMENT đã seed phải được migration đối chiếu theo matrix, không tự coi seed là chuẩn."
+      ],
+      "rationale": "Ưu tiên kiểm soát chi tiết, ≥2 người theo BR-BAL-001 và chống tự duyệt; giải quyết bảng tổng quát mâu thuẫn bằng một ma trận duy nhất.",
+      "change_control_id": "CR-D02-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Supervisor không xem phiếu của người khác nếu không được giao, không truy cập kho ngoài scope.",
+        "Manager có quyền nhưng là creator vẫn không tự confirm.",
+        "Kiểm kho chỉ có một người xác nhận tham gia không gửi duyệt được."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "5416ee8d44d8eb59d24929360f11a6782897a25583a7b123a1d5fdb5661a4abd"
+    },
+    {
+      "id": "D03",
+      "namespace": "DECISION",
+      "title": "Kiến trúc đích và ERD/API chủ",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Xác nhận thiết kế gRPC/microservices và stack FE áp dụng; mọi thay đổi phải có CR/ADR được duyệt. Chốt ERD chủ, ID/slug, PUT/PATCH, version, transaction và ranh giới dịch vụ. Effort R0.2 chỉ đúng khi giữ monolith/stack hiện tại; chọn phương án khác phải re-estimate W02–W11 trước T0. Không mặc định giữ monolith.",
+      "source_reference": "D23 ADR-001 P8–P17, P235:P236; T231R7; D24 API T425:T446; D25:D27; code AppModule/routes",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dự án + Tech Lead",
+      "affected_packages": [
+        "W00",
+        "W02",
+        "W06",
+        "W10"
+      ],
+      "answer": "Giữ kiến trúc đích trong ADR-001: React → REST Gateway → NestJS Storage Service qua gRPC → MySQL.",
+      "rules": [
+        "Gateway và Storage Service là hai process/service riêng; Gateway xác thực/ủy quyền biên và truyền identity/traceId đã xác minh, Storage Service kiểm lại quyền thao tác và scope. Không tin identity do client gRPC tự khai.",
+        "Các module danh mục, phiếu, lô, tồn và tài chính thuộc Storage Service. Ghi tồn/lô/phiếu/ledger dùng một transaction MySQL; không tách một nghiệp vụ tồn thành distributed transaction. File dùng provider riêng theo D06, sự kiện ra ngoài dùng outbox.",
+        "Nest app hiện tại là nguồn module tái sử dụng khi tách, không phải bằng chứng đã đạt microservices. Không phê duyệt monolith thay cho ADR. W02 phải có proto, service boundary, auth giữa services và migration path trước khi code.",
+        "D24 SDD + baseline bổ sung này là mô hình dữ liệu chuẩn; D26/D27 là diagram tham khảo, phải tái sinh từ schema đã đối chiếu, không chọn bản tên ngày làm chuẩn tự động.",
+        "UUID bất biến là ID nội bộ và ID API v1 theo SDD. Code chứng từ do server cấp và unique; slug phục vụ tra cứu/compatibility, không thay khóa. GET đọc, POST tạo/action, PUT thay thế đủ payload, PATCH sửa một phần có version; schema phân biệt omitted và null, không trộn semantics.",
+        "Estimate/lịch R0.2 giả định giữ monolith không còn đủ cơ sở để cam kết. Bắt buộc estimate lại phần tách Gateway/gRPC, chuyển UI D08 và các gói bị ảnh hưởng trước T0; không tự gán số ngày mới khi chưa breakdown."
+      ],
+      "rationale": "Tuân thủ kiến trúc thiết kế gốc và giữ nguyên tính nguyên tử của nghiệp vụ tồn; không chọn thuận theo code hiện có.",
+      "change_control_id": "CR-D03-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Gateway không truy cập DB nghiệp vụ trực tiếp; gRPC từ caller không được cấp bị từ chối.",
+        "Lỗi một dòng nhập làm rollback cả phiếu/lô/tồn/audit/outbox.",
+        "PUT thiếu trường bắt buộc bị từ chối; PATCH omitted không xóa dữ liệu."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "3a2ed32668ad48da98a08db9e7bdc55acaa74a6c0ccadaa509205f2184f954d7"
+    },
+    {
+      "id": "D04",
+      "namespace": "DECISION",
+      "title": "Trạng thái phiếu, thời điểm ghi tồn và giữ chỗ",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Ký state/event/action matrix từng loại phiếu; tồn đổi khi lưu hay khi confirm, có sửa UC5-01/UC6-01 hay không; có khái niệm giữ chỗ/tồn khả dụng hay không, nếu có thì công thức và reserve/release; giữ hay bỏ PENDING/reserve đã có trong code; side effect của cancel/rollback. Không tự đặt thời hạn giữ chỗ.",
+      "source_reference": "D00 P3 (câu hỏi chưa có đáp án); D13 P312 \"Quản lý phê duyệt mới cập nhật tồn kho\", P313–P316 (không có khái niệm giữ chỗ); D23 ADR-004 P80–P86 (Confirmed = đã cập nhật tồn kho); D20 T142R6–R7, T155R6–R7 \"Lưu phiếu\" thì cập nhật/trừ tồn ↔ D13 P135–P136, P195, D24 P458–P468 (Draft rồi người duyệt xác nhận); ERD \"draft, submited, confirmed\" ↔ D24 Draft/Confirmed/Cancelled; D17 P134/P182 \"Chờ duyệt\" ↔ T136R23/T184R20; D24 P541 BalanceForm (Draft) ↔ T252R7; code phiếu xuất PENDING/reserved_quantity (migration 1783728000046)",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA + Tech Lead",
+      "affected_packages": [
+        "W04",
+        "W05",
+        "W06",
+        "W07"
+      ],
+      "answer": "Tồn và sổ tiền chỉ thay đổi tại duyệt cuối; nháp/gửi duyệt không giữ chỗ tồn.",
+      "rules": [
+        "Nhập/xuất/thu/chi: DRAFT → SUBMITTED → CONFIRMED; DRAFT/SUBMITTED có thể CANCELLED. Creator sửa DRAFT; Manager trả SUBMITTED về DRAFT có lý do. CONFIRMED/CANCELLED bất biến, không xóa cứng.",
+        "SUBMITTED diễn đạt Chờ duyệt thống nhất. Import/Export CONFIRMED mới cộng/trừ tồn; Expense/Revenue CONFIRMED mới ghi sổ tiền. Lưu/gửi duyệt không cập nhật lượng hoặc số tiền đã trả/thu.",
+        "Không dùng reservation ở baseline này: on_hand=available, không reserve/release khi gửi duyệt. Nhiều nháp có thể cùng tham chiếu lượng tồn, confirm phải khóa và kiểm lại đủ tồn.",
+        "Code PENDING/reserved hiện có phải được migration đối soát trước khi bỏ: PENDING → SUBMITTED, giải phóng reservation trong transaction, không đổi on_hand, lưu audit và đối soát lot/tổng. Không xóa số giữ chỗ bằng bulk SQL không đối soát.",
+        "Kiểm kho: DRAFT → IN_PROGRESS → SUBMITTED → COMPLETED; Manager approve thực hiện COMPLETED và delta tồn một lần, rồi mở khóa. Cancel trước COMPLETED mở khóa không điều chỉnh. Khóa/version và idempotency áp dụng mọi action.",
+        "Chi DEBTconfirmedchỉduyệtnghĩavụ; cashchỉtheoExpenseSettlementD36. Khôngcoimọiphiếuconfirmedlàđãtrả."
+      ],
+      "rationale": "Giữ xác nhận của Manager là thời điểm ghi sổ trong BRD/ADR; chuẩn hóa Chờ duyệt và thay thế mô tả lưu phiếu đã đổi tồn ở UC cũ.",
+      "change_control_id": "CR-D04-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Lưu/gửi nhập hoặc xuất: tồn và paid/received không đổi.",
+        "Hai Manager confirm đồng thời không ghi sổ hai lần.",
+        "Migration pending giữ nguyên tổng on_hand và history, reservation về 0 có đối soát."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "e6d71353562a7c9384c150f6879cd1b0332dfcc11135da119f79e22dbfba883d"
+    },
+    {
+      "id": "D05",
+      "namespace": "DECISION",
+      "title": "Giá nhập, NSX/HSD, biên cảnh báo và min/max",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Bảng HSD theo loại vật tư/hàng tặng (bắt buộc hay tùy chọn) và biên ngày; < hay ≤ ngưỡng; ngưỡng gần hạn cố định hay theo sản phẩm; max > min; nguồn giá tham chiếu cho chênh 20%.",
+      "source_reference": "D13 P21 \"HSD: bắt buộc\", P54 \"(required)\" ↔ P133 \"nếu có\" ↔ D17 T53R3 \"(optional)\", D24 T109R11 is_expiry DEFAULT FALSE; BR-IMP-003/004; \"HSD < 30 ngày\" T362R6, T24R6, T53R4 ↔ D13 P338 \"≤ 30 ngày\"; D13 P234 ngưỡng gần hạn theo từng sản phẩm ↔ 30 ngày cố định; ExportItem HSD bắt buộc D13 P223, D24 T239R7; BR-STK-002 \">\" ↔ code max>=min; code @Min(0), flag < />",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ kho + BA",
+      "affected_packages": [
+        "W00",
+        "W03",
+        "W04",
+        "W08"
+      ],
+      "answer": "Giá nhập >0, HSD theo chính sách vật tư, max>min; biên cảnh báo được định nghĩa thống nhất.",
+      "rules": [
+        "quantity>0 và unitPrice>0 khi lưu phiếu hợp lệ. Không dùng giá 0 cho hàng tặng trong baseline; nghiệp vụ hàng tặng cần CR riêng trước khi cho phép.",
+        "Material.is_expiry quyết định theo dõi HSD: true thì HSD bắt buộc trước submit/confirm và phải > ngày nhập; false cho phép không có HSD, nếu nhập HSD vẫn phải > ngày nhập. NSX nếu có phải ≤ ngày nhập và < HSD. Không suy ra HSD giả cho vật tư không theo dõi.",
+        "HSD và NSX là ngày nghiệp vụ Asia/Ho_Chi_Minh; ngày nhập không phải createdAt. HSD bằng ngày nhập bị từ chối. Đổi is_expiry của vật tư có lô cũ cần backfill/đối soát, không tự điền ngày.",
+        "min≥0, max>min; cảnh báo thấp khi tồn≤min, cao khi tồn≥max. Cảnh báo sau confirm xuất dựa tồn sau thao tác; cảnh báo nhập dựa tồn dự kiến/sau thao tác theo trạng thái.",
+        "Gần hạn: 0≤ số ngày tới HSD <30; đúng 30 chưa cảnh báo, quá hạn tách mức đỏ. Ngưỡng 30 cố định của baseline, không cấu hình theo từng sản phẩm ở phase này.",
+        "Chênh giá: giá nhập quy về đơn vị gốc so với giá lần nhập CONFIRMED gần nhất của cùng vật tư/kho trước giao dịch; abs(new-old)/old>20% thì cảnh báo, bằng20% không. Chưa có giá cũ thì hiển thị chưa có giá so sánh.",
+        "Material có ngưỡng mặc định; override theo warehouse/material nếu được cấu hình phải kiểm min≥0,max>min trên cặp effective. Clear override về null thì kế thừa mặc định; cảnh báo dùng effective threshold có ghi nguồn, không lấy nhầm một trường thiếu từAPI."
+      ],
+      "rationale": "Giữ các BR định lượng rõ; is_expiry trong SDD giải quyết HSD optional/required. Việc thay câu ≤30 bằng <30 được ghi trong baseline thay thế.",
+      "change_control_id": "CR-D05-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Giá0 hoặc HSD=ngày nhập bị chặn; vật tư không HSD được null.",
+        "Tồn đúng min/max phát cảnh báo; max=min bị chặn.",
+        "HSD29ngày có, 30ngày không; giá tăng đúng20% không, trên20% có."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "5851831067f87b7997e89231ce387c055a64a4f30b81228c12d58f1f9f43df05"
+    },
+    {
+      "id": "D06",
+      "namespace": "DECISION",
+      "title": "Lưu file, kích thước và quyền truy cập",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chốt MySQL/storage service/S3 theo loại file, 5MB hay 10MB, private URL/retention/backup cả DB + tệp và phục hồi nhất quán.",
+      "source_reference": "D23 ADR-006 P124/P131 longtext ↔ T231R7 \"Separate Storage Service\" ↔ P249 \"MySql/ S3-compatible\"; D24 T361R6 LONGBLOB; D17 T136R20, T184R17 max 5MB; code S3 và form 10MB",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Tech Lead + chủ dữ liệu",
+      "affected_packages": [
+        "W00",
+        "W02"
+      ],
+      "answer": "Tệp nằm trong private S3-compatible storage; MySQL lưu metadata; chứng từ tối đa 5MiB/tệp.",
+      "rules": [
+        "Chọn Separate Storage Service/provider private S3-compatible theo ADR summary; không lưu binary/base64 trong MySQL LONGTEXT/LONGBLOB. Ghi nhận thay thế ADR-006 P124/P131 và D24 T361R6 bằng metadata/object key/checksum.",
+        "Chứng từ PDF/JPG/PNG: kiểm MIME thực, phần mở rộng, size≤5×1024×1024 byte; attachment gắn entity và quyền kho. File Excel import theo D15 riêng, không gộp với chứng từ.",
+        "Download qua xác thực và kiểm quyền hoặc URL ký hạn tối đa5phút sau authorization; không bucket public, không đặt backup trong public web root. Client không tự chọn object key truy cập kho khác.",
+        "Backup/restore gồm MySQL + object manifest/checksum/version; xóa nghiệp vụ mềm không xóa chứng từ còn trong thời hạn lưu. Upload chưa gắn entity chỉ cleanup sau24h nếu không còn tham chiếu.",
+        "Làm rõ theo chỉ dẫn file upload mới: giới hạn5MiB/PDF-JPG-PNG ở đây áp cho chứng từ tài chính. Generic upload theoD30 có9loại/10MiB; khi gắn vào phiếu tài chính vẫn phải kiểm lại đúngpurpose/size/type, không dùng generic upload để bypass."
+      ],
+      "rationale": "Giải quyết ba lựa chọn lưu trữ mâu thuẫn bằng Separate Storage; giữ 5MB nghiêm hơn code10MB và bảo toàn chứng cứ.",
+      "change_control_id": "CR-D06-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "5MiB nhận, 5MiB+1byte từ chối; đổi đuôi không qua MIME check.",
+        "User khoA không download attachment khoB bằng sửa ID.",
+        "Restore DB+tệp khớp checksum và đủ liên kết."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "c48ad2d70d1db8fc0422d95e31473011e998f6ef67370320f4c365d5020b0405"
+    },
+    {
+      "id": "D07",
+      "namespace": "DECISION",
+      "title": "Visual, màn hình và hợp đồng API còn thiếu",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Duyệt screen/flow và responsive, API/schema/errors/permissions mẫu; không coi screenshot UI hiện tại hoặc video chưa xem là thiết kế được ký.",
+      "source_reference": "D28 UI_UX body trống; D29 A1=SP1; D34 setup trống; D35 Example; D24 API",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dự án + BA/Designer + Tech Lead",
+      "affected_packages": [
+        "W00",
+        "W02",
+        "W03",
+        "W09",
+        "W10",
+        "W11"
+      ],
+      "answer": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+      "rules": [
+        "Baseline UI dùng Ant Design theo D08, tiếng Việt mặc định, desktop1440/tablet768/mobile390 và hỗ trợ320px. Form một cột trên mobile; dữ liệu quantity/action chính nhìn thấy hoặc có chế độ card/sticky có nhãn rõ.",
+        "Mỗi màn phải có screen/route/action map, field/validation/quyền/trạng thái, loading/empty/error/403/409/offline và success. W02–W03 phải nộp screen contracts trước implement FE; màn W04+ nộp theo gate miền.",
+        "API v1 phải có OpenAPI request/response/error/auth/scope/pagination/version và ví dụ; D29 A1=SP1 không là contract. Giữ HTTP status đúng, business error có code ổn định, traceId và field errors, không có stack/secret.",
+        "Ảnh fixture và UI code hiện tại chỉ là hiện trạng để nhận diện gap. Quyết định này duyệt chuẩn và bộ hồ sơ cần có, không tuyên bố mọi pixel/màn chưa thiết kế đã được ký. Setup/error-code docs là deliverable có owner trong W00/W11."
+      ],
+      "rationale": "Cho BE/FE/QA một điều kiện Ready cụ thể thay vì phải đoán từ tài liệu trống.",
+      "change_control_id": "CR-D07-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Mỗi FE task có screen contract tương ứng và state/error cases.",
+        "API mới có schema, example403/409/validation và version.",
+        "Mobile320 không che thao tác xác nhận hoặc giá trị số lượng."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "90daa1f5b342fdd8d72cd3e3c6bdfa2be11805e066b06c41fff35e0dc04fbb32"
+    },
+    {
+      "id": "D08",
+      "namespace": "DECISION",
+      "title": "Stack FE và chuẩn coding áp dụng từng app",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chốt lựa chọn trong ADR, cách đáp ứng design bằng stack nào; D33 conventions theo phạm vi app; không đổi tài liệu để hợp thức hóa source khi chưa duyệt.",
+      "source_reference": "D23 P235:P236 Redux/Context, AntDesign/MaterialUI; D33 conventions; source Zustand/Query/shadcn",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Tech Lead + chủ thiết kế",
+      "affected_packages": [
+        "W00",
+        "W02",
+        "W03",
+        "W06"
+      ],
+      "answer": "Chọn React/TypeScript + Ant Design + Redux Toolkit cho client state; React Query cho server cache.",
+      "rules": [
+        "Giữ React/FSD; lựa chọn Ant Design trong hai lựa chọn ADR thay vì MaterialUI. Redux Toolkit cho client/domain workflow state; React Query chỉ quản lý server state, không sao chép cùng dữ liệu vào hai store.",
+        "Zustand/shadcn/Radix hiện tại là lệch đích phải có kế hoạch chuyển dần tại W02 và từng màn; không tạo màn mới pha hai bộ design system. Chỉ loại thành phần cũ khi regression tương ứng đạt.",
+        "Tuân thủ D33 với ánh xạ app: BE giữ formatter/ESLint đang chạy, dấu chấm phẩy theo config; FE dùng formatter app đã được bàn giao, naming/domain structure theo FSD. Không tự mass-format code ngoài task. Interface I-prefix chỉ cho hợp đồng interface mới nếu D33 yêu cầu, không đổi hàng loạt DTO/class hoặc type aliases.",
+        "Mốc version dependency được khóa bằng lockfile khi thực hiện; không dùng quyết định này để tự nâng package major/Node. D03/D08 làm estimate cũ cần thẩm định lại, không được giữ lịch như cam kết."
+      ],
+      "rationale": "Chọn một nhánh công nghệ đã nêu trong ADR, giữ quản lý server cache tách biệt và chuyển UI có kiểm soát.",
+      "change_control_id": "CR-D08-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Màn mới dùng component/tokens Ant Design, có behavior snapshot được duyệt.",
+        "Client workflow không ghi trùng dữ liệu React Query vào Redux.",
+        "Chuyển một màn không làm fail full check/regression các màn cũ."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "98db61beb036d5da1d9d5a41ba4b7896a0816f83d25522daf444d76516f2cb95"
+    },
+    {
+      "id": "D09",
+      "namespace": "DECISION",
+      "title": "Schema phiếu và đơn vị tiền/giá trị tồn",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "NCC ở đầu phiếu hay từng dòng, invoice/PO bắt buộc hay không, cấp mã duy nhất; weighted-average, rounding, precision, VAT/currency, tác động của kiểm kho/luân chuyển; bộ số liệu đáp án được ký.",
+      "source_reference": "D24 T200 import_forms không có cột supplier nhưng P204 có INDEX supplier_id; D24 T200R6 PO NOT NULL ↔ D17 T53R2 \"Nhập số PO (nếu có)\"; D13 P158–P159, P320:P321; code supplier theo dòng",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "BA + kế toán/chủ kho + Tech Lead",
+      "affected_packages": [
+        "W00",
+        "W03",
+        "W04",
+        "W07"
+      ],
+      "answer": "Một NCC cho mỗi phiếu nhập; PO tùy chọn; tiền VND và giá trị tồn tính nhất quán theo đơn vị gốc.",
+      "rules": [
+        "ImportForm.supplier_id bắt buộc, mọi dòng cùng NCC; có thể tách nhiều phiếu cho nhiều NCC. PO/invoice number tùy chọn, lưu ở đầu phiếu. Mã IMP/EXP/BAL/PAY/REC do server cấp unique, không client nhập mã chính thức.",
+        "Lưu tiền/quantity bằng DECIMAL, không float: quantity DECIMAL(18,6), đơn giá/cost DECIMAL(20,6), số tiền nội bộ DECIMAL(20,4), currency=VND. Hiển thị/tổng thanh toán làm tròn đồng theo HALF_UP; không làm tròn trung gian khi quy đổi.",
+        "net=Σquantity×unitPrice; VAT từ0đến20%, mặc định0; VAT tổng=round(net×rate/100) và gross=round(net)+VAT. Phân bổ sai số tiền trên dòng theo largest remainder, tie theo ID bất biến.",
+        "Tồn định giá bằng giá nhập trước VAT theo đơn vị gốc, bình quân gia quyền di động theo vật tư/kho; các chi phí kho khác ghi sổ riêng, không tự cộng vào giá nhập. Chuyển kho mang giá trị ở giá vốn nguồn; destination tính lại bình quân.",
+        "Dữ liệu cũ một phiếu nhiều NCC hoặc thiếu precision phải lập reconciliation list; không tự gán NCC đầu tiên hoặc thay monetary total. Migration có up/down/backfill và checksum đối soát trước khi chạy.",
+        "Phép toán/bảo toàn giá trị dùngD37: stockValueledger làchuẩn; unitCost6đểhiểnthị khôngphảingiátrịcanonical để táitạo sổ."
+      ],
+      "rationale": "Chọn schema đầu phiếu nhất quán với biểu mẫu thiết kế, chuẩn hóa precision/rounding để lượng–tiền đối soát được.",
+      "change_control_id": "CR-D09-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "10đv×100 và thêm10đv×200 →20đv, bình quân150; xuất5 → tồn15, giá trị2250.",
+        "10kg với1000g/kg quy về10000g, không nhân đôi giá trị.",
+        "Phiếu nhiều NCC cũ xuất hiện trong reconciliation, không tự hợp thức hóa."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "0be005cba42c6147e862600adcf095e1d40fe3bc5b62c225a999e58f303bd7c4"
+    },
+    {
+      "id": "D10",
+      "namespace": "DECISION",
+      "title": "Khóa kho, điều chỉnh, hủy, luân chuyển và ngưỡng kiểm kho",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Ký phạm vi và thời điểm khóa (bắt buộc hay optional); workflow luân chuyển (vị trí hay kho, có bước giao/nhận/thiếu hay không); hủy và vai trò a Huy; ảnh/lý do; > 30%; ngưỡng > 5%/> 10% cố định hay cấu hình; danh sách nguyên nhân; rollback kiểm kho và quyền điều chỉnh trực tiếp. Không suy ra từ enum code.",
+      "source_reference": "D13 P180 \"Luân chuyển giữa các kho\" ↔ D20 T155R7 \"Vị trí/kho nhận mới\" (không có bước nhận); D13 P202–P205, P230 \"Xuất > 30% tồn kho phải có phê duyệt manager\" (không có trong SRS); BR-BAL-004, D13 P302 ↔ D24 P551 \"(Optional)\"; thời điểm khóa D18!D29 \"Khi phiếu được tạo\" ↔ D17 T61R3, D20 T169R7 \"Bắt đầu kiểm\"; D13 P300 \"> 5% (tự thiết lập ngưỡng)\" ↔ BR-BAL-002 cố định 5%; > 10% D17 T30R6/T61R5; nguyên nhân D17 T61R6 (6 mục) ↔ D13 P291–P297 (7 mục, thêm \"Đơn vị tính không đồng nhất\"); code PATCH quantity",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ kho + BA",
+      "affected_packages": [
+        "W04",
+        "W05"
+      ],
+      "answer": "Khóa kiểm kho bắt buộc khi bắt đầu; luân chuyển hai kho một bước nguyên tử; xuất hủy có lý do/ảnh.",
+      "rules": [
+        "DRAFT kiểm kho không khóa. IN_PROGRESS khóa nhập/xuất/điều chỉnh trên phạm vi FULL kho hoặc PARTIAL vật tư đã chốt; khóa luôn được kiểm ở server trong cùng cơ chế transaction với confirm. Không cho đổi scope sau bắt đầu.",
+        "Giữ khóa qua SUBMITTED; chỉ mở sau approve COMPLETED hoặc CANCELLED. Complete/approve lỗi phải rollback cả delta và trạng thái khóa; không auto mở khóa bằng timeout không có phê duyệt.",
+        "Transfer giữa hai kho: một confirm trừ nguồn và cộng đích nguyên tử, giữ provenance lô và giá trị nguồn; người duyệt có quyền cả hai kho. Không có in-transit/nhận thiếu trong baseline; tác vụ trong cùng kho là đổi Position và không ghi xuất kho.",
+        "DISPOSAL bắt buộc lý do và ≥1 ảnh, Manager có authority duyệt hủy riêng. Mọi xuất có tỷ lệ lượng theo đơn vị gốc >30% tồn vật tư/kho tại thời điểm confirm phải được Manager xác nhận rõ; bằng30% không vào ngưỡng.",
+        "Kiểm chênh lệch: abs(thực tế-sổ)/sổ>5% cần giải trình, >10% mức đỏ cần Manager xác nhận đã điều tra; sổ=0 và thực tế≠0 coi chênh lệch đặc biệt mức đỏ. Hai ngưỡng cố định của baseline.",
+        "Nguyên nhân gồm7mục hợp nhất: thất thoát sử dụng, sai nhập/xuất, hỏng chưa ghi, hao hụt tự nhiên, sai đếm, đơn vị không đồng nhất, khác kèm chi tiết. PATCH quantity trực tiếp không được dùng ở nghiệp vụ; mọi delta phải qua kiểm kho được duyệt."
+      ],
+      "rationale": "Chọn workflow ít trạng thái nhưng đủ kiểm soát trong thiết kế; thay các ghi chú Optional khóa và thời điểm tạo phiếu gây mâu thuẫn.",
+      "change_control_id": "CR-D10-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Confirm nhập cạnh thời điểm bắt đầu kiểm không vượt qua khóa.",
+        "Transfer lỗi sau trừ nguồn rollback cả hai kho và ledger.",
+        "Chênh5% không bắt buộc theo ngưỡng, >5% có; sổ0/thực tế>0 không chia cho0."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "ce9d9b76c9a5a48bf8903368fd132f1610faec5224d736719a8bf143d95cca0b"
+    },
+    {
+      "id": "D11",
+      "namespace": "DECISION",
+      "title": "POS vendor và contract bên ngoài",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chỉ định vendor/version/sandbox/quyền; mapping product/variant; contract cả 3 endpoint Tồn kho, Công thức, Xuất kho; auth/rate/retry/idempotency/source-of-truth. Không tích hợp dựa trên tên video.",
+      "source_reference": "D05 tham khảo KiotViet; D07:D11 video Sapo chưa xem; D17 T356R2 \"Endpoint: Tồn kho, Công thức, Xuất kho\"; D18!D2 \"bên thứ 3 (POS)\"; người dùng05/11/2026: hệ khác sẽ làm sau.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dự án + POS vendor + Tech Lead",
+      "affected_packages": [
+        "W06",
+        "W10"
+      ],
+      "answer": "Chốt POS khác sẽ tích hợp sau; phase hiện tại hoàn thiện ba API nội bộ và adapter port, không triển khai kết nối POS thật.",
+      "rules": [
+        "Giữ đủ REST v1 Tồn kho, Công thức, Xuất kho và ProductSyncPort. Không chọn Sapo/KiotViet, không mua hoặc tạo tenant; vendor là hệ khác chưa cần quyết định trong phase này theo chỉ dẫn người dùng.",
+        "Phase hiện tại triển khai contract/model/core và test adapter giả có nhãn SIMULATED. Không tự thêm màn nhập sản phẩm thủ công thay cho đồng bộ POS. Khi chưa có nguồn thật, UI sản phẩm thể hiện chưa cấu hình nguồn đồng bộ.",
+        "Adapter live, xác thực vendor, mapping payload vendor và sandbox acceptance là gói FUT-POS được hoãn theo người dùng. Không còn là điều kiện bắt đầu W06/W10 core; vẫn là gate bắt buộc để công bố tích hợp POS thật và nghiệm thu đầy đủ yêu cầu POS gốc.",
+        "Warehouse là nguồn NVL/tồn/recipe; POS tương lai là nguồn product/variant/giá bán gốc. Export API dùng cùng quyền/state/stock checks và idempotency như UI; không bypass.",
+        "Khi mở FUT-POS: owner cấp vendor/version/tenant/contract/sandbox, lập revision mapping và test lại. Không biến fake transport hoặc contract approval thành POS runtime PASS."
+      ],
+      "rationale": "Người dùng đã xác nhận POS là hệ khác và làm sau; đóng lựa chọn phạm vi hiện tại bằng CR, giữ đầy đủ nghĩa vụ tích hợp tương lai.",
+      "change_control_id": "CR-D11-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Ba API nội bộ có contract/case và dùng cùng luật tồn, quyền, idempotency.",
+        "UI chưa có nguồn POS hiển thị trạng thái chưa cấu hình, không dữ liệu bán hàng giả.",
+        "Gate FUT-POS còn NOT_RUN/DEFERRED, không gán PASS khi test fake qua."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "483a91b49f5bc42bce36cff18604772018697a98064cf5872ee006a9204b58b5",
+      "deferred_scope": [
+        "FUT-POS: live vendor adapter, sandbox and runtime acceptance."
+      ]
+    },
+    {
+      "id": "D12",
+      "namespace": "DECISION",
+      "title": "Cost, giá trị tồn và KPI/báo cáo",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Phân biệt giá định mức, giá vốn bình quân, chi phí/công nợ; cost tự tính hay tự nhập; ký công thức/cutoff/kỳ/timezone, ngưỡng/recipient, report custom/supplier/expiry và chiến lược tổng hợp trên MySQL. Nguồn giá bán tách ở D26.",
+      "source_reference": "D17 P10 \"Tự động tính toán chi phí nguyên vật liệu\", D13 P103, D23 ADR-009 P189/P196 ↔ D17 T50R2 \"giá cost (tự nhập, không tự động tính được...)\" + mode on/off đồng bộ giá gốc 3rd; D13 P321 giá trung bình gia quyền; D23 ADR-008 P171–P174; D24 T446R9; D17 §4.8.4",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "BA + kế toán + chủ kho",
+      "affected_packages": [
+        "W04",
+        "W06",
+        "W07",
+        "W08",
+        "W09"
+      ],
+      "answer": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+      "rules": [
+        "Giá vốn tồn áp dụng D09: Cnew=(Qold×Cold+Qin×Cin)/(Qold+Qin); xuất giữ đơn giá vốn, Q=0 thì giá trị tồn=0, giữ snapshot cost cho lịch sử. Chênh kiểm tăng dùng cost hiện hành; nếu kho chưa có cost cần giá đã phê duyệt, không tự0.",
+        "Recipe lưu cost_manual riêng, cost_estimated=Σđịnh mức đơn vị gốc×giá vốn vật tư của kho, effective_cost theo mode đã chốt. Không ghi đè cost_manual khi hiển thị cost_estimated; nguồn giá bán theo D26.",
+        "Ledger tồn/lô/phiếu CONFIRMED/kiểm COMPLETED là nguồn báo cáo; phiếu nháp/hủy không cộng tổng. Kỳ theo ngày nghiệp vụ Asia/Ho_Chi_Minh, cutoff [from00:00,to+1ngày00:00). Mọi chart/drill-down/export dùng cùng filter và công thức.",
+        "Giữ đầy đủ report custom, supplier performance, expiry và nhập/xuất/tồn/giá vốn/hao hụt/thu chi/nợ. Trên MySQL triển khai materialized summary tables có watermark và outbox refresh; không gọi CREATE MATERIALIZED VIEW giả nếu DB không hỗ trợ.",
+        "Summary và query builder phải cho biết asOf/watermark; dữ liệu có thể drill-down/reconcile với sổ. Refresh sau confirmed qua queue, mục tiêu<60s; khi cần đối soát dùng chế độ truy vấn sổ trực tiếp. Đây là protocol bổ sung, không số đo đã đạt."
+      ],
+      "rationale": "Giữ các mục tiêu cost/report gốc nhưng phân biệt các đại lượng bị dùng lẫn và cách hiện thực trên MySQL.",
+      "change_control_id": "CR-D12-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Nháp/hủy không làm tăng báo cáo kỳ; confirmed xuất trừ đúng cost snapshot.",
+        "Summary/export/drill-down khớp sổ ở cùng watermark.",
+        "Sửa cost_manual không tự đổi giá trị tồn của kho."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "1e24fc0d8e5bd431d850d8a376fd9b7ade121289711fd64123e4feb9911fb8b7"
+    },
+    {
+      "id": "D13",
+      "namespace": "DECISION",
+      "title": "Loại xuất kho, thanh lý và phiếu thu",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chốt danh sách loại xuất và mapping thu thanh lý/SALE; duyệt migration và nhãn UI. Không tự đồng nhất Thanh lý với SALE.",
+      "source_reference": "D17 T56R2 \"xuất bán, luân chuyển, hủy nguyên liệu, loại khác\" ↔ D13 P177–P181 (sản xuất, hủy, luân chuyển, khác) ↔ D18!D33 ↔ D24 T226R6 ENUM PRODUCTION/DISPOSAL/TRANSFER/OTHER; D17 P231 \"Tạo Phiếu Xuất - Loại: Thanh lý\", T160R4; code PRODUCTION/DISPOSAL/TRANSFER/SALE/OTHER",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA",
+      "affected_packages": [
+        "W04",
+        "W07"
+      ],
+      "answer": "Sáu loại xuất riêng: PRODUCTION, SALE, DISPOSAL, TRANSFER, LIQUIDATION, OTHER.",
+      "rules": [
+        "PRODUCTION sản xuất, SALE bán NVL thông thường, DISPOSAL hủy, TRANSFER chuyển kho, LIQUIDATION thanh lý, OTHER khác có lý do. Không đồng nhất SALE với LIQUIDATION.",
+        "Thu loại thanh lý bắt buộc liên kết ExportForm LIQUIDATION CONFIRMED; khoản thu phế liệu/bao bì dùng loại thu riêng theo D17 T160, không tự đổi nhãn thành SALE.",
+        "Lô quá hạn không xuất PRODUCTION/SALE; DISPOSAL hoặc LIQUIDATION theo SRS cần Manager duyệt, lý do và ảnh. Quyết định phần mềm này không cấp phép thương mại hay kết luận pháp lý cho hàng quá hạn.",
+        "Migration enum/add constraint giữ nguyên type lịch sử, không convert SALE cũ sang LIQUIDATION hàng loạt. Phiếu loại cũ không phân biệt phải nằm trong reconciliation nếu cần liên kết thu."
+      ],
+      "rationale": "Hợp nhất các loại có trong BRD/SRS và bổ sung enum thiếu bằng thay đổi thiết kế được ghi nhận, không map sai ý nghĩa thanh lý.",
+      "change_control_id": "CR-D13-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Thu thanh lý không liên kết SALE/nháp.",
+        "Xuất production lô quá hạn bị chặn.",
+        "Migration giữ type SALE lịch sử và số liệu tổng."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "42a92cf3a5e1703023aafea6274ba22dfbcccc2355ef78257f1dea9d269bc296"
+    },
+    {
+      "id": "D14",
+      "namespace": "DECISION",
+      "title": "Nghiệm thu bảo mật, audit, log và phục hồi",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Danh mục audit, masking/retention log, idle definition, token/session controls, TLS target; backup 30 ngày và archive ≥ 2 năm là hai chính sách khác nhau; ký RPO/RTO/protocol restore nếu chưa có.",
+      "source_reference": "D17 T352R2:R7, T358R4; D21 P5–P32 audit/outbox, P155–P156 phân vùng và clear log định kỳ, P178–P179 version; D23 ADR-003",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dữ liệu + Tech Lead + QA",
+      "affected_packages": [
+        "W00",
+        "W02",
+        "W11"
+      ],
+      "answer": "Chốt session30phút, audit cùng transaction, backup30ngày và lưu nghiệp vụ≥2năm.",
+      "rules": [
+        "Access JWT15phút chỉ trong memory; refresh tối đa7ngày trong cookie HttpOnly/Secure/SameSite=Lax ở môi trường HTTPS, rotation và reuse-revoke theo session family. Refresh cookie endpoints kiểm Origin/CSRF. Không lưu refresh token localStorage.",
+        "Idle30phút do server dựa hoạt động người dùng; polling/refresh không kéo dài idle. UI đồng bộ khóa/logout nhiều tab; mất quyền/logout-all vô hiệu session trên request tiếp theo.",
+        "Audit bắt buộc actor, action, entity/version, old/new đã che dữ liệu nhạy cảm, IP/UA/traceId và timestamp; audit/sổ nội bộ cùng transaction, outbox cho external service. Không ghi password/token/body tệp.",
+        "Backup01:00 Asia/Ho_Chi_Minh hằng ngày, giữ30bản ngày gần nhất, private DB+tệp; mục tiêu RPO≤24h, RTO≤4h và có restore drill. Chỉ viết/test cơ chế ở phase local, chưa bật lịch thật.",
+        "Nghiệp vụ và audit nghiệp vụ giữ≥2năm; archive chỉ chuyển lớp lưu, restore tra cứu được. Log kỹ thuật30ngày, security events90ngày; phân vùng/cleanup chỉ áp theo loại, không xóa nghiệp vụ bằng cron log.",
+        "HTTPS bắt buộc ở môi trường nghiệm thu vận hành; localhost test HTTP phải ghi rõ ngoại lệ môi trường, không gọi TLS PASS. Hai API public nhạy cảm phát hiện ở audit phải về default-deny theo matrix."
+      ],
+      "rationale": "Giữ ngưỡng SRS; thêm protocol rõ cho các phần logging/session/restore chưa được định nghĩa đủ để test.",
+      "change_control_id": "CR-D14-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Polling đều nhưng không thao tác30phút vẫn bị khóa ở server.",
+        "Rollback nghiệp vụ không để lại audit thành công hoặc outbox phát sai.",
+        "Restore đủ DB+tệp trong mục tiêu đã chốt; chưa chạy thì NOT_RUN."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "4c12f4f25921217f41e8e7b983314d4bcc760cac64380074cfaf77f33f6f7133"
+    },
+    {
+      "id": "D15",
+      "namespace": "DECISION",
+      "title": "Phạm vi và protocol NFR/email/import/báo cáo",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Ký dataset, network/device, percentile/cách đo chưa được SRS quy định, giao dịch/số user, uptime window/SLI, Excel atomic/partial và giới hạn; lịch email/chống lặp. Giữ ngưỡng SRS; không biến protocol đề xuất thành yêu cầu gốc.",
+      "source_reference": "D17 T350:T358; D23 ADR-008; D21 audit/outbox; LOCAL-001",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dự án + QA + Tech Lead",
+      "affected_packages": [
+        "W08",
+        "W09",
+        "W10",
+        "W11"
+      ],
+      "answer": "Chốt protocol NFR, Excel import nguyên tử và email báo cáo; chưa tuyên bố đã đạt.",
+      "rules": [
+        "Giữ page<2s, txn nhập/xuất/kiểm<1s, report<5s. Đo p95 thời gian end-to-end,3lần×10phút sau5phút warmup,20user đồng thời trên dataset≥100000phiếu với trung bình5dòng; zero lỗi toàn vẹn và lỗi kỹ thuật<0.1%. Ghi cấu hình máy/network/cache/command/SHA.",
+        "Page tính từ điều hướng đến nội dung tác vụ có thể dùng; txn từ action client đến server commit và UI nhận kết quả; report từ request đến dữ liệu hoàn chỉnh, download file lớn đo riêng. Protocol p95 là lựa chọn bổ sung, không phải chữ nguyên bản SRS.",
+        "Uptime99.5% theo cửa sổ30ngày liên tiếp, probe1phút vào login/read/write health đường có DB; planned downtime vẫn tính vào mẫu số. Không đủ môi trường/cửa sổ thì NOT_RUN, không ngoại suy từ unit/build.",
+        "Excel vật tư/phiếu nhập: .xlsx template v1, size≤5MiB,≤1000dòng/job, preview+validate toàn bộ trước confirm; một job atomic, bất kỳ dòng lỗi không ghi dữ liệu, trả row/field/error file. Import lại cùng idempotency key không tạo trùng.",
+        "CSV UTF-8 BOM, xlsx numeric/date typed, PDF có chữ Việt, timezone/tiền theo D09; bảo vệ spreadsheet formula injection khi export trường text. Export quyền/filter giống UI.",
+        "Email report hằng ngày08:00 hoặc thứHai08:00 theo lịch cấu hình của Manager, có người nhận hợp lệ; report chung dùng link private, retry/dedupe theo reportId+recipient+period. Chưa bật scheduler/mail thật trong DEV LOCAL."
+      ],
+      "rationale": "Biến yêu cầu định tính thành protocol đo được mà giữ nguyên các ngưỡng thiết kế.",
+      "change_control_id": "CR-D15-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Excel1001dòng bị từ chối; dòng999lỗi không ghi998dòng trước.",
+        "Text bắt đầu= trong CSV không được thực thi thành công thức khi mở.",
+        "Thiếu30ngày probe không đổi uptime từ NOT_RUN thành PASS."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "54891a40f6ed2a902aa3857d376274d12402494f2aac348e709b5c654a15ce14"
+    },
+    {
+      "id": "D16",
+      "namespace": "DECISION",
+      "title": "[Quản trị, không phải mâu thuẫn tài liệu] Tách nghiệm thu local và vận hành/CI/CD",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "DEV LOCAL vẫn áp dụng: chưa triển khai CI/CD/deploy/job thật. Ghi deferred có owner cho gate môi trường, TLS/uptime; muốn mở phase vận hành phải có chỉ dẫn mới; không loại NFR khỏi thiết kế.",
+      "source_reference": "D23 ADR CI/CD/infrastructure P247–P255; AGENTS LOCAL-001",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dự án",
+      "affected_packages": [
+        "W11"
+      ],
+      "answer": "Phê duyệt DEV LOCAL; gate vận hành/CI/CD được hoãn có kiểm soát, không bỏ khỏi phạm vi.",
+      "rules": [
+        "Trong giai đoạn này chỉ thiết kế/code/test local theo task được giao; không tạo/sửa/bật CI/CD, deploy, auto-merge hoặc lịch chạy môi trường thật.",
+        "W11 có thể bàn giao local với biên bản gate vận hành còn mở. Không được gọi toàn bộ SRS ACCEPTED khi HTTPS/uptime/POS/restore bắt buộc chưa có bằng chứng.",
+        "Mở phase vận hành cần chỉ dẫn riêng của người dùng, target/environment và quyền thực thi. Decision approval này không cấp quyền Git, DB hiện hữu, hạ tầng hoặc dịch vụ trả phí."
+      ],
+      "rationale": "Giữ LOCAL-001 và phân biệt kết quả local với khả năng vận hành.",
+      "change_control_id": "CR-D16-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "NFR vận hành thiếu evidence vẫn NOT_RUN dù code/build xanh.",
+        "Checklist bàn giao local hiển thị owner/điều kiện mở từng gate hoãn."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "320a685c16f8f6dc513da1a6428c6e4a099841852e9c2134b15ec2bc993566a4"
+    },
+    {
+      "id": "D17",
+      "namespace": "DECISION",
+      "title": "Phạm vi toàn bộ, yêu cầu chưa có mã và tài liệu chưa có nội dung",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Xác nhận toàn bộ SRS; ký giữ hay CR từng dòng TRACE_EXTRA; bổ sung deliverable user/admin/dev/maintenance; mọi giảm scope/comment tương lai phải có CR ký. 181 dòng truy vết R0.1 không đại diện toàn bộ yêu cầu nguyên tử trong mọi tài liệu.",
+      "source_reference": "D18 44 chức năng; D17 §2–§4.8 và D13 §1–§5 phần không có mã (TRACE_EXTRA SRS-U*/BRD-U*); D31/D34/D35; Example/user/admin/maintenance",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dự án + BA",
+      "affected_packages": [
+        "W00",
+        "W11"
+      ],
+      "answer": "Giữ toàn bộ phạm vi BRD/SRS/UC/ADR; không thu gọn thành MVP hoặc chỉ44dòng function list.",
+      "rules": [
+        "Chấp nhận 230dòng truy vết R0.2 làm danh mục quản lý ban đầu:44FL,61lần BR,23NFR,29UC,10ADR,14checklist,49yêu cầu văn xuôi. Không tuyên bố đã atomize toàn bộ field/flow.",
+        "Mỗi WXX phải phân rã thêm schema field/basic/alternative/exception, quyền và NFR liên quan trước code; missing field đi vào contract checklist, không mặc định ngoài scope.",
+        "Giữ đầy đủ thu/chi/công nợ, kiểm kho, POS, cảnh báo, custom report, Excel/email và hướng dẫn user/admin/dev/maintenance. Comment tương lai/bỏ cần CR cụ thể nếu muốn giảm phạm vi.",
+        "Baseline bổ sung WH-DEC-20261105 chỉ thay các điểm nêu rõ trong từng Dxx; văn bản/diagram gốc lưu nguyên hash. Mọi thay đổi sau phê duyệt tạo revision/CR mới, không sửa âm thầm bản đã ký.",
+        "Theo chỉ dẫn người dùng05/11, livePOS vàSMS được chuyển phase sau bằngD11/D22-R2; giữ mã yêu cầu và future acceptance, không loại khỏi lịch sử/full-project scope."
+      ],
+      "rationale": "Bảo toàn mục đích và độ phủ thiết kế; phê duyệt cách xử lý thiếu/mâu thuẫn có giới hạn.",
+      "change_control_id": "CR-D17-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Mỗi yêu cầu finance/NFR có WBS/case dù không xuất hiện trong44FL.",
+        "Yêu cầu mới không bị bỏ chỉ vì chưa có TC hoặc chưa có source."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "19b9a07e99acd5b8302f709e87180ce6520e52fb807527ca55bb4705913a30cb"
+    },
+    {
+      "id": "D18",
+      "namespace": "DECISION",
+      "title": "[Quản trị/nguồn lực, không phải mâu thuẫn tài liệu] Nhân lực, DB test, T0 và deadline",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Xác nhận full-time 5 ngày/tuần hay capacity khác, ngày T0, ngày đích; DB test riêng được quyền mutate, tài khoản/quyền theo vai trò, sandbox và reviewer/owner bên ngoài đội 3 người. Không tự dùng .env/DB hiện có.",
+      "source_reference": "Người dùng xác nhận 1:1:1; D39 không gắn SHA; chưa có ngày đích/DB test được cấp",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Chủ dự án + QA + BE/FE",
+      "affected_packages": [
+        "W00",
+        "W01",
+        "W02",
+        "W11"
+      ],
+      "answer": "Dùng capacity lập kế hoạch1BE+1FE+1Tester toàn thời gian,5ngày/tuần; T0 theo gate, chưa áp deadline giả.",
+      "rules": [
+        "Phê duyệt 1:1:1 ×5ngày/tuần làm planning capacity cho baseline mới. Đây là phân bổ lập kế hoạch được điều phối quyết định, không phải evidence nghỉ/phép hoặc cam kết cá nhân đã nhận việc.",
+        "T0 là ngày W00 hồ sơ tối thiểu đạt và môi trường cho gói được cấp, sau khi estimate D03/D08 đã thẩm định. Không lấy ngày05/11làm T0 nếu gate chưa đạt; không tự tạo deadline do người dùng chưa giao.",
+        "DB test phải riêng, tên warehouse_test_<task>, không lấy host/user/password từ .env hiện có; chỉ được ghi sau khi target/owner/quyền test được ghi trong env-readiness. Quyết định kiến trúc không thay cho evidence đã có DB.",
+        "Ghi nhận người nhận task bằng actor thực và branch/commit/handoff khi họ bàn giao; hiện chưa biết tên từng người thì để UNASSIGNED, không tự giả lập team đã nhận việc. BA/TL/owner/reviewer là trách nhiệm ngoài capacity code3người."
+      ],
+      "rationale": "Chốt các mặc định kế hoạch trong quyền điều phối, giữ các dữ kiện thực tế chưa có dưới dạng gate giao nhận/môi trường.",
+      "change_control_id": "CR-D18-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "T0 vẫn null khi W00/DB chưa đạt dù D18 APPROVED.",
+        "Không có target DB được cấp thì API/DB tests giữ NOT_RUN.",
+        "Task chưa có bàn giao không tự chuyển COMPLETE khi quyết định được duyệt."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "b6338efe48550894644fa63bb91719bd4d119f5238bd215153f8bcadce72c5f0"
+    },
+    {
+      "id": "D19",
+      "namespace": "DECISION",
+      "title": "Liên kết phiếu nhập cho chi phí không phải mua NVL",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Ký bảng bắt buộc liên kết theo từng loại chi (Vận chuyển, Bốc xếp, Lưu kho, Chi phí khác); không tự chọn bảng T82 hay BR-PAY-003.",
+      "source_reference": "D17 T82R3–R5 \"Phiếu Nhập Kho (optional)\", T82R6 \"Không yêu cầu liên kết\" ↔ D17 P106, P128 \"bắt buộc ≥1\", BR-PAY-003 (T138R4), BR-WAR-003 (T344R4)",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA",
+      "affected_packages": [
+        "W07"
+      ],
+      "answer": "Mọi chi phí kho không phải mua NVL cũng phải liên kết≥1phiếu nhập.",
+      "rules": [
+        "PURCHASE tự động liên kết một phiếu theo D01. TRANSPORT, HANDLING, STORAGE, OTHER_EXPENSE chọn thủ công≥1ImportForm CONFIRMED cùng kho; không tạo liên kết giả để vượt validation.",
+        "Có thể phân bổ nhiều phiếu; tổng phân bổ net/VAT/gross khớp ExpenseForm và không làm thay đổi giá trị tồn trừ khi CR sau này chốt vốn hóa.",
+        "Chi thực sự không gắn phiếu nhập không được ghi thành chi kho trong module này; cần yêu cầu bổ sung riêng, không tự bỏ BR-PAY-003 vì bảngT82ghi optional."
+      ],
+      "rationale": "Ưu tiên BR-PAY-003/BR-WAR-003 rõ ràng; thay các ô optional/không yêu cầu trong T82.",
+      "change_control_id": "CR-D19-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Chi phí khác không source bị chặn submit.",
+        "Liên kết nhập kho khác scope hoặc chưa confirmed bị từ chối."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "f97487eade55c8cb24d25d28145399ed6a8953d8d495d6834edaf613c596bbbe"
+    },
+    {
+      "id": "D20",
+      "namespace": "DECISION",
+      "title": "Chứng từ của phiếu chi tạo từ phiếu nhập",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chặn khi lưu, chặn khi duyệt hay chỉ cảnh báo; áp cho loại chi nào.",
+      "source_reference": "BR-WAR-008 (T344R9), D13 P425 \"bắt buộc\" ↔ D17 T136R20 File \"✗\", P130 \"(optional)\", T140R4 cảnh báo \"Chứng từ thiếu\" (ngầm cho phép thiếu)",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA",
+      "affected_packages": [
+        "W07",
+        "W08"
+      ],
+      "answer": "Chứng từ tài chính bắt buộc trước submit/confirm; draft có thể còn thiếu.",
+      "rules": [
+        "Mọi ExpenseForm và RevenueForm phải có≥1file hợp lệ theo D06 khi SUBMITTED/CONFIRMED; DRAFT thiếu file được lưu và hiển thị cảnh báo chặn gửi duyệt.",
+        "Expense tự sinh từ nhập có thể liên kết file chứng từ của nhập bằng reference có kiểm quyền và giữ bản chứng cứ; nếu nhập chưa có file thì expense ở DRAFT, không tự xác nhận.",
+        "Confirmed attachment bất biến; bổ sung/đính chính chứng cứ chỉ qua event audit append-only có quyền và không ghi đè tệp gốc."
+      ],
+      "rationale": "Giữ BR-WAR-008/009 và cho phép thao tác nháp trước khi đủ bộ chứng từ.",
+      "change_control_id": "CR-D20-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Draft thiếu file lưu được, submit bị chặn.",
+        "Attachment nhập được tham chiếu đúng quyền không bị upload nhân đôi để đủ điều kiện."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "2eb8b0743cd8c36b1b4781fb28073ec364af648445024d919af9a9630ebc14f5"
+    },
+    {
+      "id": "D21",
+      "namespace": "DECISION",
+      "title": "Xuất khi không đủ tồn: chặn hay cảnh báo",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chặn tại lưu Draft hay tại Confirm; áp cho endpoint POS Xuất kho thế nào; \"Đề xuất thay thế\" là NVL khác hay lô khác, có làm hay không.",
+      "source_reference": "BR-EXP-001 (T364R2), D13 P227, D20 T155R9 E2 \"không cho phép lưu\", D24 P488 \"Cảnh báo + Block\" ↔ D18!D33, D17 T26R4, T56R3 \"Cảnh báo nếu không đủ\", D13 P194, P513 \"Cảnh báo + Đề xuất thay thế\"",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + chủ kho + BA",
+      "affected_packages": [
+        "W04",
+        "W06"
+      ],
+      "answer": "Không cho lưu một phiếu xuất hợp lệ vượt tồn hiện tại; confirm luôn kiểm lại trong transaction.",
+      "rules": [
+        "Create/update DRAFT, submit và confirm đều kiểm tổng quantity theo vật tư/kho không vượt on_hand thực tế theo đơn vị gốc và lượng lô được phép dùng. Không cho tồn âm; trả lỗi409INSUFFICIENT_STOCK có required/available.",
+        "Không giữ chỗ theo D04 nên hai nháp riêng có thể cùng lưu khi mỗi nháp đủ lượng ở thời điểm lưu; nháp còn lại phải bị chặn confirm sau khi phiếu khác tiêu thụ tồn.",
+        "Đề xuất thay thế chỉ là lô đủ điều kiện khác theo FEFO của cùng vật tư. Không tự thay NVL/công thức/đơn vị; thay vật tư cần người dùng sửa phiếu hợp lệ.",
+        "POS xuất kho chịu cùng quy tắc, authority và idempotency; không có endpoint bypass vì là tích hợp."
+      ],
+      "rationale": "Giữ BR-EXP-001 và UC lỗi thiếu tồn; câu cảnh báo trong bảng chức năng là thông báo kèm block, không cho phép ghi âm.",
+      "change_control_id": "CR-D21-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Nhápqty11khi tồn10bị chặn; thiếu1lô có thể gợi ý lô khác cùngNVL.",
+        "Hai phiếu qty7khi tồn10chỉ một confirm thành công.",
+        "POS và UI trả cùng business error khi thiếu tồn."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "b622b692371cfa2ee33adb653677854754d2dfc0a277902a655331bb481812b4"
+    },
+    {
+      "id": "D22",
+      "namespace": "DECISION",
+      "title": "Kênh, mức độ và thời điểm cảnh báo",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Kênh nào cho loại cảnh báo nào (có SMS không); gửi ngay hay theo lịch; dùng bộ mức độ nào cho Alarm và cho thông báo UI; người nhận theo vai trò (D02).",
+      "source_reference": "D17 T73R2 \"Email/SMS cho Manager\", \"Thông báo ngay lập tức\"; D13 P328, P332, P336, P340 ↔ D23 ADR-007 P153–P155 (In-app + Email scheduled daily/weekly, không có SMS); mức độ: D24 T350R4 Alarm level INFOR/WARNING ↔ D17 T354R4 Success/Warning/Error/Info ↔ D23 P148–P152 Yellow/Red/Green ↔ D13 P324 đỏ/vàng/xanh; D17 T140R2–R3 Vàng/Đỏ; người dùng05/11/2026: chưa có nhà cung cấp SMS, chắc cũng không cần.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA + Tech Lead",
+      "affected_packages": [
+        "W08"
+      ],
+      "answer": "Phase hiện tại dùng in-app và email; SMS không triển khai trong phase hiện tại, giữ yêu cầu gốc ở FUT-SMS.",
+      "rules": [
+        "Chốt theo quyền điều phối từ ý kiến người dùng: không chọn/mua SMS provider hoặc triển khai SMS trong phase hiện tại. Yêu cầu SMS gốc không bị xóa; chuyển FUT-SMS và chỉ mở khi có chỉ dẫn mới.",
+        "In-app sau commit cho cảnh báo nghiệp vụ; email cảnh báo CRITICAL sau commit và email báo cáo daily/weekly theoD15. Manager kho nhận đúng scope. Local/test dùng mail capture hoặc fake transport có nhãn, không gửi ra địa chỉ thật.",
+        "Alarm level INFO/WARNING/CRITICAL; UI toast SUCCESS/INFO/WARNING/ERROR là loại phản hồi riêng. Hết hàng, HSD quá hạn, công nợ quá hạn là CRITICAL.",
+        "Outbox/dedupe theo eventId+recipient+channel; retry1/5/15phút tối đa5lần, sau đó dead-letter hiển thị trạng thái để xử lý. Rollback không gửi thông báo.",
+        "W08 core/in-app/email không chờ SMS provider. Nếu tương lai mở FUT-SMS, cần CR về provider/recipient/chi phí/quyền gửi và runtime test riêng; không công bố SMS đã hoạt động từ kết quả phase hiện tại."
+      ],
+      "rationale": "Phê duyệt hoãn SMS theo ý kiến người dùng; không tự đánh dấu khả năng chưa xây dựng là đã nghiệm thu.",
+      "change_control_id": "CR-D22-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Một event rollback không phát in-app/email.",
+        "Một event retry không gửi hai email thành công cùngrecipient.",
+        "Không có SMS service/credential trong cấu hình phase hiện tại; FUT-SMS vẫn được truy vết."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "2d0f164a9968158445d15eb3d8196cf2e35def5e7a6467946950e76336e4a71d",
+      "deferred_scope": [
+        "FUT-SMS: provider selection, implementation and runtime acceptance."
+      ]
+    },
+    {
+      "id": "D23",
+      "namespace": "DECISION",
+      "title": "Điều khoản và phương thức thanh toán",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Danh mục điều khoản/phương thức cố định hay Admin cấu hình; danh sách giá trị; có \"Ví điện tử\" không và áp cho phiếu nào.",
+      "source_reference": "D17 P120, T136R11 công nợ 7/15/30 cố định ↔ D13 P389 \"Công nợ (chọn số ngày: nhập)\" ↔ D13 P94 \"COD, 7 ngày, 15 ngày...\" ↔ D23 ADR-010 P212 COD/Net7/Net15/Net30 ↔ D24 T151R11 suppliers.payment_terms FK, T323R12 ENUM CASH/DEBT ↔ D13 T582R9–R10 Admin cấu hình; phiếu thu \"Ví điện tử\" D17 P172, T184R10 ↔ D24 T323R14 payment_method không có ví",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + kế toán + BA",
+      "affected_packages": [
+        "W00",
+        "W03",
+        "W07"
+      ],
+      "answer": "Admin cấu hình điều khoản thanh toán; seed COD/NET7/NET15/NET30; phương thức thu và chi tách danh mục.",
+      "rules": [
+        "Điều khoản là danh mục có code, label, dueDays và active; seed COD0,NET7,NET15,NET30. Admin được bổ sung dueDays nguyên1..365, không sửa lịch sử: phiếu snapshot code/days khi tạo.",
+        "Due date của chi công nợ=ngày chi+dueDays theo ngày lịch, CODdueDays0. Đổi danh mục không đổi due date phiếu confirmed. Không tự tạo lãi/phí phạt.",
+        "Chi hỗ trợ CASH/BANK_TRANSFER/CREDIT_CARD; thu hỗ trợ CASH/BANK_TRANSFER/E_WALLET theo SRS. Mã chuyển khoản bắt buộc cho BANK_TRANSFER trước submit; phương thức không phù hợp bị từ chối.",
+        "Chỉ ghi nhận chứng từ thanh toán, không tự tích hợp ngân hàng/ví hoặc chuyển tiền thật. NCC có default terms, phiếu snapshot và có thể chọn điều khoản khác khi tạo nếu được phép theo role."
+      ],
+      "rationale": "Hợp nhất lựa chọn cố định ADR và quyền Admin cấu hình trong BRD, giữ khác biệt phương thức thu/chi.",
+      "change_control_id": "CR-D23-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Chi ngày05/11vớiNET7đến hạn12/11; sửaNET7không đổi phiếu cũ.",
+        "Ví điện tử nhận cho thu, bị từ chối ở chi.",
+        "Phiếu chuyển khoản thiếu mã bị chặn gửi duyệt."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "09545cd5cb7cf84dea4e07bbf6da8ee4951f6b5c3de9125d5e496b2ee9aecf7d"
+    },
+    {
+      "id": "D24",
+      "namespace": "DECISION",
+      "title": "Ngữ nghĩa xóa định mức/công thức",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Xóa dòng NVL hay xóa cả công thức; có cho xóa dòng cuối không; \"đang được sử dụng\" nghĩa là gì.",
+      "source_reference": "D18!D9 \"xóa thành phần không cần thiết\", D17 T50R4 \"Thêm/xóa nguyên vật liệu\" ↔ D20 T134R3–R9 xóa cả công thức, trạng thái \"Đã xóa\", chặn khi đang dùng ↔ BR-REC-001 (T368R2) ≥ 1 NVL",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA",
+      "affected_packages": [
+        "W06"
+      ],
+      "answer": "Cho xóa dòng NVL và lưu phiên bản; xóa cả công thức là archive có kiểm tham chiếu.",
+      "rules": [
+        "Công thức hợp lệ của variant phải≥1NVL, mỗi định mức>0; xóa dòng cuối bị chặn. Copy được toàn bộ hoặc các dòng được chọn theoSRS, không copy identity/audit của nguồn.",
+        "Sửa/thêm/xóa dòng tạo version mới và lưu lý do, actor, before/after; phiếu đã dùng recipe giữ version snapshot không đổi theo công thức mới.",
+        "Xóa cả công thức là soft archive; nếu đang được dùng bởi workflow chưa hoàn tất thì chặn. Archive variant recipe làm variant không sẵn sàng xuất theo recipe cho đến có công thức hợp lệ mới; không xóa lịch sử sản xuất/phiếu.",
+        "Không xóa cứng product/variant có tham chiếu lịch sử; POS inactive chỉ vô hiệu cho thao tác mới."
+      ],
+      "rationale": "Đáp ứng cả xóa thành phần và UC xóa công thức mà vẫn giữ BR≥1NVL và lịch sử.",
+      "change_control_id": "CR-D24-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Xóa dòng cuối của recipe active trả lỗi, archive toàn công thức là action riêng.",
+        "Phiếu cũ giữ recipeVersion sau khi sửa công thức.",
+        "Copy một phần không tạo công thức rỗng."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "8dbe6f2d2b40be7d284ffc875f3d39ca9872b71eaff52eb97f132be6a08918b4"
+    },
+    {
+      "id": "D25",
+      "namespace": "DECISION",
+      "title": "Thiết kế phiếu thu thiếu trong SDD",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Chốt entity/API cho phiếu thu; thống nhất tên WarehousePayment hay ExpenseForm; cập nhật SDD trước khi viết migration.",
+      "source_reference": "D17 §4.8.2 (T160–T186) ↔ D24 chỉ có tên RevenueForm/RevenueItem (P22–P23) và P235 ExportForm → revenueForm, không có bảng/API (T443 chỉ có /payments); D24 P25 WarehousePayment ↔ P22/P321 ExpenseForm",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "BA + Tech Lead",
+      "affected_packages": [
+        "W07",
+        "W09"
+      ],
+      "answer": "ExpenseForm/ExpenseItem cho chi, RevenueForm/RevenueItem cho thu; không tái dùng Transaction chung làm chứng từ tài chính.",
+      "rules": [
+        "D24 tên RevenueForm/RevenueItem trở thành entity chuẩn của thu; UI gọi Phiếu thu. WarehousePayment là tên grouping/module trong tài liệu, không tạo bảng thứ ba ghi tiền lần nữa.",
+        "Header gồm uuid/code/warehouse/type/status, ngày nghiệp vụ, currency/net/vatRate/vatAmount/total, partner, creator/approver/approvedAt, reason/note, version/timestamps/soft delete. Item là phân bổ tiền/chi tiết, không tự ghi tồn.",
+        "Source links dùng bảng ExpenseSource/RevenueSource có FKtyped import_form_id hoặc export_form_id và constraint đúng loại; attachments theoD06. Chứng từ thu Hoàn/Bồi liên kết nhập, Thanh lý liên kết xuất, Phế liệu/Khác có thể không source.",
+        "Hoàn tiền nhiều đợt dùng RevenueRefundGroup(totalExpected,partner,source) và mỗi đợt là một RevenueForm riêng có groupId/installmentNo/plannedCount/amount/cumulative/remaining, unique(groupId,installmentNo). Số tiền trên phiếu là tiền thực thu của riêng đợt, không phải tổng mục tiêu của group; remaining=totalExpected−ΣRevenueForm CONFIRMED. Không suy ra chi mua hàng có thanh toán nhiều đợt vì SRS không yêu cầu.",
+        "API v1 /expenses,/revenues,/revenue-refund-groups và /revenue-refund-groups/{id}/installments; lifecycle submit/confirm/cancel theoD04. Ledger cash chỉ post từ từng RevenueForm confirmed, group không ghi tiền lần nữa; phải hoàn thiệnDDL/OpenAPI/constraints trước migration W07."
+      ],
+      "rationale": "Lấp thiếu schema/API phiếu thu từ SRS và giữ miền chi/thu tách biệt, tránh đếm Transaction nền như tài chính đã có.",
+      "change_control_id": "CR-D25-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Khoản thu2đợt40+60cho tổng100đối soát remaining60rồi0, retrykhông thành140.",
+        "Không thể liên kết thu thanh lý vàoImportForm.",
+        "Transaction hiện có không tự xuất hiện trong tổng thu/chi nếu không có chứng từ hợp lệ."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "e0ec4d91c43c97d1499238f35a14c3f8486f5825601aefba16b23398aaeb60f5"
+    },
+    {
+      "id": "D26",
+      "namespace": "DECISION",
+      "title": "Nguồn giá bán và chế độ cost",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Giá bán lấy từ POS hay nhập tay; mode on/off áp cho cost hay giá bán; cách tính chi phí NVL cho cảnh báo 40%.",
+      "source_reference": "BR-REC-004@T368R5 \"Cảnh báo nếu chi phí NVL > 40% giá bán\" ↔ D24 T87 products không có cột giá (dù P86 mô tả có \"giá cả\"); D17 T50R2 cost tự nhập + \"mode (on/off) cho đồng bộ giá gốc của bên thứ 3\"",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA + POS vendor",
+      "affected_packages": [
+        "W06",
+        "W08"
+      ],
+      "answer": "Giá bán gốc lấy từ POS khi có; mode đồng bộ giá gốc không được ghi đè cost thủ công.",
+      "rules": [
+        "Variant có sourceSellingPrice/currency/vendorUpdatedAt và localSellingPrice; mode SYNC dùng giá bán POS, mode MANUAL dùng giá bán local do Manager/Admin nhập với lý do. Không có giá bán hợp lệ thì không tính tỷ lệ40%, hiển thị thiếu nguồn giá.",
+        "Recipe cost_manual và cost_estimated riêng theoD12; mode giá không tự chuyển cost_manual sang estimated. Effective_cost=cost_manual nếu nhập hợp lệ, nếu chưa có thì estimated; hiển thị rõ nguồn và kho định giá.",
+        "Cảnh báo khi effective_cost/selling_price>0.40; bằng40%không. Giá bán≤0 là thiếu/invalid cho phép tính, không chia cho0. Lịch sử thay mode/cost/giá có audit và version.",
+        "Mode SYNC khi chưa có vendor/live data chỉ chạy trên fixture test có nhãn, không coi giá thử là giá bán thật."
+      ],
+      "rationale": "Giải quyết mode on/off mơ hồ bằng trường giá riêng, giữ cost tự nhập của SRS và ước tính tự động của BRD.",
+      "change_control_id": "CR-D26-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Giá100/cost40khôngwarn, cost40.01cówarn.",
+        "Đồng bộ giá POSkhông sửa cost_manual.",
+        "Không có selling_price thì hiển thị thiếu dữ liệu, khôngtính0% hoặc100%."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "3cc73a1a4ac7991f223130a841c3f35de3e7ba52b1677b0d8f322a5ba139a315"
+    },
+    {
+      "id": "D27",
+      "namespace": "DECISION",
+      "title": "Nguyên liệu tách ra nhiều thành phần đầu ra",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Có cần mô hình 1 NVL → nhiều thành phần không; nếu có thì ảnh hưởng danh mục, công thức và xuất kho thế nào.",
+      "source_reference": "D00 P1 \"cam thì lấy nước làm gì, vỏ làm gì: Đã hỏi\" (chưa ghi đáp án)",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Business Owner + BA",
+      "affected_packages": [
+        "W00",
+        "W03",
+        "W06"
+      ],
+      "answer": "Biểu diễn nước cam/vỏ cam bằng NVL riêng và công thức tham chiếu; không tự sinh sản lượng hoặc tồn kho từ việc đổi đơn vị.",
+      "rules": [
+        "Cho danh mục các thành phần đầu ra là Material riêng có đơn vị/định mức và recipe sử dụng độc lập. MộtNVL có thể được dùng trong nhiều công thức.",
+        "Quy đổi kg↔g là quy đổi cùng vật tư, không phải cam→nước/vỏ. Không tự giả định tỷ lệ thu hồi, tạo tồn đầu ra hoặc nhân đôi giá trị khi sửa recipe.",
+        "Workflow chế biến một đầu vào ra nhiều đầu ra không có đặc tả/UC hoàn chỉnh trong bộ thiết kế; baseline hiện không thêm module sản xuất/yield. Muốn tự động chuyển đổi tồn phải lập CR với bảngyield/hao hụt/giá trị và case bảo toàn trước khi triển khai.",
+        "Đây là câu trả lời Không cho yêu cầu tự động hóa ở QuestionP1, không loại module recipe/POS hoặc xuất PRODUCTION đã có trong SRS."
+      ],
+      "rationale": "Không tự phát minh phân hệ sản xuất từ một câu hỏi chưa trả lời; giữ danh mục/công thức đã được đặc tả.",
+      "change_control_id": "CR-D27-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Đổi công thức không tự cộng tồn nước cam/vỏ cam.",
+        "1kg→1000gkhông tạo thêmMaterial hoặc tổng giá trị mới."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "d66a731648bf0db2a6bb8e3ece7d88142c7283f9151bd61aad5e4c4aca479d51"
+    },
+    {
+      "id": "D28",
+      "namespace": "DECISION",
+      "title": "Truy xuất nguồn gốc khi nhập nhiều lần",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Truy theo lô/FEFO hay theo phiếu nhập gần nhất; số lô do ai cấp, bắt buộc ở bước nào.",
+      "source_reference": "D17 T67R4 \"Cách truy xuất nguyên liệu đang dùng khi chúng được nhập nhiều lần ?\" (câu hỏi mở trong SRS); D13 P281, P492 Số lô; D23 ADR-005 P106 Batch Tracking",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "BA + chủ kho",
+      "affected_packages": [
+        "W04"
+      ],
+      "answer": "Truy xuất theo batch bất biến từ dòng nhập, không dùng phiếu nhập gần nhất để đoán nguồn.",
+      "rules": [
+        "Server cấp batchIdunique khi confirm nhập từ importFormId+itemId; lưu supplier, ngày nhập/NSX/HSD, baseUnit và source lineage. Số lô NCC nếu có là thông tin bổ sung, không dùng làm khóa duy nhất.",
+        "Xuất FEFOtrên batch hợp lệ và ghi ExportBatchAllocation theo qty/cost nguồn; nullHSD xếp sau lô cóHSD, tie theo ngày nhập rồibatchId. Không trừ tồn chỉ ở Inventory tổng mà thiếu allocation theo lô.",
+        "Transfer tạo liên kết parentBatch/source/destination và bảo toàn lượng/giá trị; kiểm kho delta phải có batchallocation hoặc batch điều chỉnh được phê duyệt, không ghi tăng tổng rồi bỏ lô.",
+        "Trace API/UI đi từ phiếu xuất→allocation→batch→dòng nhập→NCC; recipeVersion và giá trị ledger được snapshot nếu liên quan. Lô cũ thiếu nguồn phải backfill hoặc ghi unverified, không giả tạo provenance."
+      ],
+      "rationale": "Hiện thực Batch Tracking của ADR và câu hỏi truy xuất nhiều lần nhập bằng chứng cứ thực.",
+      "change_control_id": "CR-D28-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Hai lần nhập cùngNVL/HSDvẫn làhai batch và truy đúng phiếu.",
+        "FEFOtie deterministic và tổngallocation=qtyxuất.",
+        "Batchlegacythiếu nguồn không được hiển thị nguồn giả."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "749dc2557dd8adad05b5ddef9e4fdf83a19f826c5d3a2292272e0d1c6c813fbe"
+    },
+    {
+      "id": "D29",
+      "namespace": "DECISION",
+      "title": "Vệ sinh tài liệu thiết kế",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "UC8 là gì (nếu thêm phạm vi thì đưa vào D17); đổi mã BR trùng; BR-EXP-006/007 bị xóa hay bị thiếu.",
+      "source_reference": "D20 P47 \"UC5,6,7,8\" (không có UC8); D17 trùng mã BR-REC ở T186 (phiếu thu) và T368 (công thức); BR-EXP nhảy từ 005 (T364R6) sang 008 (T364R7)",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "BA + chủ tài liệu",
+      "affected_packages": [
+        "W04",
+        "W06",
+        "W07"
+      ],
+      "answer": "Chuẩn hóa mã bằng alias có truy vết; không suy diễn chức năng còn thiếu từ số UC/BR nhảy.",
+      "rules": [
+        "Giữ IDgốc+locator trong evidence; alias mới PAY-REC-001..008 cho BR-REC@T186 và RCP-001..004 cho BR-REC@T368. Không sửa hash nguồn hoặc làm mất liên kếttest cũ.",
+        "BR-EXP-008 vẫn là rule ghi history có thật; số006/007được đánh dấu RESERVED_NOT_SPECIFIED, không tạo rule mới vì thiếu số.",
+        "D20tham chiếuUC8không có nội dung: alias UC8=WAREHOUSE_FINANCE, dùng SRS§4.8 làm basis. BA phải viết UC thu/chi/công nợ theoD01/D19/D20/D23/D25trướcW07; không gọiUC8đã có đặc tả.",
+        "Change log chỉ rõ các nguồn bị thay thế bởi baseline này và versioncase. MãdocDxx và mãdecisionDxx phải có cột namespace/locator, không dùng tênD24trơ để đoán làschema haydecision."
+      ],
+      "rationale": "Lấp chỗ tham chiếu lỗi bằng mapping rõ mà không sáng tác quy tắc hoặc ghi đè nguồn.",
+      "change_control_id": "CR-D29-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Hai BR-REC-001khác miền không ánh xạ chung mộtcase.",
+        "Không có feature tự phát cho BR-EXP-006/007.",
+        "UC8financeđược thiết kế trướcW07và trace vềSRS§4.8."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": "87798f7504e0f081365de17693c72ad900b5bbb82735a364790b7d98f8a2cf05"
+    },
+    {
+      "id": "D30",
+      "namespace": "DECISION",
+      "title": "Upload tổng quát, chứng từ tài chính và biên kích thước",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Upload tổng quát, chứng từ tài chính và biên kích thước",
+      "source_reference": ".agents/tasks/be-file-upload-auth-20261105/plan.md: quyết định người dùng05/11 về9loại và≤10MiB; D06R1; D17 T136R20/T184R17.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "BE file owner + FE forms + Tester",
+      "affected_packages": [
+        "W02",
+        "W04",
+        "W07",
+        "W10"
+      ],
+      "answer": "Generic upload≤10MiB với9loại; chứng từ tài chính≤5MiB/PDF-JPG-PNG; giới hạn là inclusive và kiểm theo purpose khi liên kết.",
+      "rules": [
+        "GENERIC: pdf,jpg,jpeg,png,webp,xls,xlsx,doc,docx, mỗi file≤10×1024×1024byte. FINANCIAL_ATTACHMENT: pdf,jpg,jpeg,png,≤5×1024×1024byte. EXCEL_IMPORT: chỉxlsx≤5MiB và≤1000dòng theoD15. Không thay thế một purpose bằng purpose khác ở client.",
+        "Backend kiểm extension, MIME và nội dung thực. PDF/JPEG/PNG/WEBP kiểm decoder/signature phù hợp; xlsx/docx kiểm cấu trúc ZIP/OOXML, xls/doc kiểm định dạng OLE và stream tương ứng. MIME client không đủ. Tệp mã hóa/hỏng/không xác định bị từ chối.",
+        "File tối đa đúngNbyte phải qua; N+1bị chặn cả API/UI. Khi thư viện multipart chạmlimit đã reject, đặt transportguard phù hợp rồi kiểm chính xác actualsize tại service; không đổi yêu cầu thành<N chỉ để test xanh.",
+        "FILE_CREATE là điều kiện upload; gắn/download còn kiểm owner/purpose/quyền kho/phiếu. Tệpgeneric10MiB không được gắn tài chính nếu>5MiB hoặc sai loại. S3key dùng phần mở rộng cuối đã xác minh, không split dấu chấm thứ nhất.",
+        "Legacy /file/upload giữ responsemessage hiện có và mã422FileException theo yêu cầu task đang làm. APIv1 mới dùng resultmetadata chuẩn; không làm breakingchange ởlegacy mà không có adapter/transition. Các routeupload cũ khác phải có task riêng để alignpurpose/biên, không tự sửa WIP của worker khác.",
+        "Purposecủaobjectupload vàpurposecủaliênkếtphânbiệt: genericPDF≤5MiBđãkiểm nộidungcóthểgắntài chínhsaurevalidationvàquyền,khôngcầnuploadlại. RelationghiFINANCIAL_ATTACHMENT;generic>5MiBhoặcloạikháckhôngđượcbypass. Attachmentsnhập/xuấtthôngthườngdùngGENERIC9loại/10MiB; trườngảnhhủy/kiểmkho chỉảnhJPG/PNG/WEBPđãxácminh."
+      ],
+      "rationale": "Hợp nhất hai phạm vi file khác nhau và chỉ dẫn người dùng mới; đóng câu hỏi của worker mà vẫn giữ giới hạn chứng từ tài chính trong thiết kế.",
+      "change_control_id": "CR-D30-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Generic đúng10485760byte qua,10485761bị422; financialđúng5242880qua,5242881bịchặn.",
+        "XLSXhợp lệ generic upload được, gắnfinance bị từ chối.",
+        "report.v2.pdf dùng đuôi.pdf; MIME giả hoặc ZIPgiả không qua kiểm nội dung."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    },
+    {
+      "id": "D31",
+      "namespace": "DECISION",
+      "title": "Gate trước implement và gate kiểm chứng sau implement",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Gate trước implement và gate kiểm chứng sau implement",
+      "source_reference": "Mục tiêu người dùng: quyết định hết cácgate trước implement; D16/D17/D18; E01–E06 hiện có.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Điều phối + BE + FE + Tester",
+      "affected_packages": [
+        "W00",
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10",
+        "W11"
+      ],
+      "answer": "Chốt riêng decision/design-entry, môi trường thực thi, QA và release; phê duyệt phase hiện tại không biến gate runtime tương lai thành PASS.",
+      "rules": [
+        "PRE_IMPLEMENTATION gồm policy/contract/data/UI/test basis, estimate/dependency/ownership, migration/rollback plan và môi trường kiểm thử có target/quyền. Những việc này được chốt bằng dossier cóhash và approval điều phối, cùng probe môi trường khi cần.",
+        "POST_IMPLEMENTATION_QA gồm fullunit/component, API/DB/RBAC/race và browser luồng thật. Chưa cócode hoặc chưa chạy thì NOT_RUN; không yêu cầu giả PASS trước implement và không dùng designapproval để đóng chúng.",
+        "POST_IMPLEMENTATION_OPERATIONAL gồm TLS/uptime/restore theo môi trường nghiệmthu. DEVLOCAL giữgate này mở hoặc hoãn đúngD16; bàn giao local khác nghiệmthu toànSRS.",
+        "FUT-POS/FUT-SMS hoãn theo người dùng, không chặn coreimplementation phasehiệntại. Phần fullproject acceptance của yêu cầu đó vẫn chưa đạt. Không tự thay deferred thành verified.",
+        "Mỗi gate códecisionStatus vàevidenceStatus riêng, phase, owner, blocks vàunlock. Chỉ hồ sơ đã có/evidence đủ mới VERIFIED; coordinator phê duyệt policy không tự hoàn thành task hoặc ký thay reviewer."
+      ],
+      "rationale": "Loại bỏ việc dùng một trạng tháiAPPROVED cho cả chính sách, môi trường và sản phẩm; giữ mục tiêu chuẩn bị đầy đủ trước code cùng sự thật về runtime.",
+      "change_control_id": "CR-D31-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Hồ sơAPIđược duyệt nhưngRBACchưa chạy: designAPPROVED, testNOT_RUN.",
+        "HoãnPOS không làm testPOSthật PASS hoặc xóa requirement gốc.",
+        "E05/E06chỉđóng khi cófile+hash vàscopevalidation, không chỉ đổi label."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    },
+    {
+      "id": "D32",
+      "namespace": "DECISION",
+      "title": "Cấp môi trường test local mới và ranh giới dữ liệu",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Cấp môi trường test local mới và ranh giới dữ liệu",
+      "source_reference": "Ủy quyền điều phối hiện tại; D18; target WH-TEST-ENV-20261105 và probe môi trường trong task.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Điều phối cấp target + BE/Tester sử dụng",
+      "affected_packages": [
+        "W00",
+        "W01",
+        "W02",
+        "W11"
+      ],
+      "answer": "Cấp MySQL/Redis test riêng cho task; chỉ probe và dữ liệu test đã định nghĩa, không truy cập môi trường/credential hiện hữu.",
+      "rules": [
+        "Target database warehouse_test_gates_20261105 trên container task-owned wh-preimpl-20261105-mysql, Rediswh-preimpl-20261105-redis. Chỉ loopback, password sinh riêng trongprivatefile0600; không copy .env hoặc dùngvolume/container hiện hữu.",
+        "Cấp quyền create/read/update/delete chỉ dữ liệu test trên database này cho BE/Tester trong task/harness đã gắn target. Không có quyền ghiDBkhác, không resetDBngười dùng. Rediskeys dùngnamespacewh:preimpl:20261105:.",
+        "Gate E02a hạ tầng đóng bằng probe thực kết nối, transaction/DECIMAL/FK, quyền hạnDBvàRedis. E02b tài khoản/RBAC ứng dụng chỉ đóng sau bootstrap/migration/harness của taskimplement tương ứng, không giả appuser từ JSONfixture.",
+        "Môi trường không tựrestart, không volume dữ liệu thật; không lịchchạy hoặc deploy. Owner kiểm containerhandle vàtarget trước mỗi integration run. Có thể stop đúng hai container khi không dùng, không dừng container khác.",
+        "Migrations/appstartup không được thực hiện trong taskhồsơ này. Khi taskQAthực hiện trên targetđãcấp, phảighiSHA/diff/migrationlist, seed/reset và kết quả. Không công bố fullgatePASS từ probe môi trường."
+      ],
+      "rationale": "Đóng lựa chọn và cấp target an toàn trong quyền điều phối, đồng thời phân biệt infra readiness với dữ liệu/auth ứng dụng chưa tạo.",
+      "change_control_id": "CR-D32-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Probe ghi chỉreadiness_probe_* vàRedisnamespaceđược cấp; không gọiapp/migration.",
+        "UserDBtest không có quyềnCREATEDATABASEkhác.",
+        "Chưa bootstrapapp thì applicationRbacVerified=false, không cótoken hoặc apppassword bịa."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    },
+    {
+      "id": "D33",
+      "namespace": "DECISION",
+      "title": "Đủ trường danh mục, đơn vị và vị trí trước implement",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Đủ trường danh mục, đơn vị và vị trí trước implement",
+      "source_reference": "D17 T38R2:R5,T41R2:R3,T44R2,T47R2:R3; D18 B15:B24; D24 materials/units/suppliers/positions; D05/D09.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Điều phối + BE + FE + Tester",
+      "affected_packages": [
+        "W00",
+        "W03",
+        "W04"
+      ],
+      "answer": "Unit có ký hiệu và3nhóm; Material có NCC chính thuộc danh sách NCC; vị trí/HSD trình bày theo kho/lô, không ghép một ngày HSD giả vào catalog.",
+      "rules": [
+        "Unit gồmname,symbol,dimension=MASS/VOLUME/COUNT,isActive. MỗiMaterial có đúng1baseUnit, conversionfactor>0 theo từngMaterial; không có một bảng quy đổi toàncục tự động áp cho mọi nguyênliệu.",
+        "MaterialprimarySupplierId bắtbuộc khi tạo mới và thuộc supplierIds≥1, type/baseUnit/name/min/max/isExpiry theoD05. LegacythiếuNCCchính phải gán bằng reconciliation cóaudit, không tự chọn phần tử đầu tiên. Đối tượng thành phần nội bộ trongD27 không sinh một moduleyield ngầm.",
+        "Suppliercóname,contactPerson,phone,email,address,taxCode,paymentTermId,note,isActive; name là bắtbuộc, trườngliênhệ khác optionaltrừkhirule cụthể yêu cầu. Không bỏcontactPerson vìDTOhiện tại chưa có.",
+        "ManufacturedOn/expiresOn thuộc dòngnhập/batch; trangMaterial hiểnthịbảnglô và vịtrítheokho, không gán một ngàyNSX/HSD chung cho tấtcả lầnnhập. isExpiry trênMaterial là chínhsáchbắtbuộcHSD.",
+        "Position thuộc mộtWarehouse; gắnposition/materialkiểm scopekho, cóCRUDvàràngbuộc đangdùng. Material/name/unit/NCC làcatalogdùngchung; sốlượng/giátrị/transaction/position theo scopekho. Managerđược sửa catalog theo quyền nhưng không thay scope hoặc managerassignments bằngfieldcatalog."
+      ],
+      "rationale": "Cụ thể hóa các trườngSRS trước code, giải quyết các fieldcòn thiếu trongcontract và không coi shapeDTO cũ là đặc tảđích.",
+      "change_control_id": "CR-D33-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "MaterialprimarySupplierkhôngnằmtrongsupplierIdsbị422.",
+        "Unitthiếusymbol hoặcngoài3dimensionbị422.",
+        "Hai batchcùngMaterialcóHSDkhácnhau đượchiểnthịriêng,khôngbịghiđèbằngHSDcatalog."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    },
+    {
+      "id": "D34",
+      "namespace": "DECISION",
+      "title": "Luân chuyển không sinh chi mua NVL hoặc làm tăng giá trị toàn hệ thống",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Luân chuyển không sinh chi mua NVL hoặc làm tăng giá trị toàn hệ thống",
+      "source_reference": "D13 P180; D10/D09/D01; D17 BR-WAR-002 áp cho chi từ nhập mua; giao dịch transfer đã chốt một bước.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "BE tồn/finance + FE chứng từ + Tester",
+      "affected_packages": [
+        "W04",
+        "W07",
+        "W09"
+      ],
+      "answer": "ImportphânbiệtPURCHASEvàTRANSFER_IN; chỉPURCHASEconfirmed tựtạo chi, transfer cóphiếunhậpđốiứng vàgiátrị nguồn, khôngphátsinhcash.",
+      "rules": [
+        "ManualImportDraft luônoriginType=PURCHASE vàbắtbuộcNCC. TransferconfirmtựtạoImportFormoriginType=TRANSFER_INđãCONFIRMEDtạikhođích, linkedTransferExportIdunique; khôngnhậnoriginType hoặc trạngthái từclient.",
+        "TRANSFER_INsupplierId=null; giá trị theo averagecostnguồn, VAT0; copylineagebatch vàquantityđơnvịgốc. Khôngápgiá>0 củađơnmua lên mộtphiếunhậpđốinội một cáchmùquáng, nhưng sourcecost phảiđượcđốisoáttrước khi chuyển.",
+        "Trừnguồn,cộngđích,phiếunguồn/đốinội,ledger/audit/outboxcùngmộttransaction. MộtExportTRANSFERchỉcómộtcounterpartimport vàkhôngtạoExpensePURCHASE hoặcRevenue.",
+        "D01autoexpensechỉxửlýImportoriginTypePURCHASECONFIRMED. Reportkhôngđếmtransferthànhmua/bán hoặc lợinhuận; cho xem dòngdịchchuyểnkhotáchriêng, tổnggiátrị toàn hệthốnggiữnguyên.",
+        "Counterpartcreator lấyngườitạoxuất, approver làManagerđãduyệtcảhaikho, sựkiệnSYSTEMghi rõsourceaction; không tựduyệtbằngmộtcredentialhệthốnggiả. Rollback/retrykhôngnhânphiếuhoặcphí."
+      ],
+      "rationale": "Cụ thể hóa xung đột side-effect giữa tựtạo chi và transfer để không code ra tiền/giá trị giả.",
+      "change_control_id": "CR-D34-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Chuyển5đơngiá150:nguồn−750,đích+750,toànhệthống0deltaValue,cash0.",
+        "Retrytransferchỉ1counterpartimportvà0purchaseexpense.",
+        "ImportmuaNVLvẫntạomộtExpenseDRAFTtheoD01."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    },
+    {
+      "id": "D35",
+      "namespace": "DECISION",
+      "title": "Ngữ nghĩa trường SDD, actor và field chuyển đổi",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Ngữ nghĩa trường SDD, actor và field chuyển đổi",
+      "source_reference": "D24 T31/T174/T188/T200/T226/T265/T280/T311/T323/T350/T371/T381; 339field trongsdd-field-inventory; D02/D04/D09/D14/D25/D28.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Điều phối + BE + FE + Tester",
+      "affected_packages": [
+        "W00",
+        "W01",
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10",
+        "W11"
+      ],
+      "answer": "Giữ đủ trường SDD bằng mapping có nguồn; không dùng default lỗi hoặc tên tương tự để gộp mất nghĩa.",
+      "rules": [
+        "Useremailbắtbuộc/unique theoSDD khi tạo v1; dob/addressoptional, phone login vàdisplayNamemapfullName. Khôngclear emailcủauseractive bằngnull; legacythiếuemail/dobmơhồđưa reconciliation, không tựtạoemailngườidùng hoặc đoán ngày. Bcryptinput tạo/đổi≤72UTF8byte,min12ký tự.",
+        "Cataloggiữproductdescription,variantsourceId,suppliercontactPerson/website,positionlocation vàmaterial-positionlocationNote. QuyđổihiểnthịisBase/unit.symbol làderived, không tinclientđặtisOriginal. Recipeitem cónote vàsnapshotquyđổi ởversionresponse.",
+        "requesterId là người đềnghị, creatorId là ngườilập/loggedactor; requester nếu khôngchọn lấycreator, chọnkhác chỉngườiactiveeligiblecùngscope. applier_id trongSDDExpensegiữ aliascreator/applicant, không tạo quyền phêduyệtmới. payerId/receiverId là businesspersonoptional cóscope, không thay actor xác nhận.",
+        "ExportpoNumberoptional; date/daytrùngnghĩabusinessDate dùngmộtngày chuẩn trongAPI, legacycolumn giữmapping. ImportexpenseFormmapexpenseIdreadonly;invoiceStatus là cờ bằngchứnghóađơn, không tựkhẳngđịnhtínhpháplý hoặc tựtạo VAT. Paymentdate kháccreatedAt.",
+        "Batchstatus derived: quantity0→DEPLETED, cònquantityvàexpiry<ngàyVNhiệntại→EXPIRED, ngượclạiACTIVE; expiresOn=todaylàcận hạn chưaquáhạn. entrylabelNgàysảnxuấtmapmanufacturedOn, importbusinessDatevàcreatedAt là trườngkhác.",
+        "AuditactorTypeUSERcầnactorId, SYSTEMcầnserviceidentityvàactorIdnull;event khônggiả user. changedFieldsderived từbefore/after sau masking, actorName làsnapshot. Log kỹthuậtlevelINFO/WARN/ERROR;INFOR/inforaliaschuẩnhóa.",
+        "deleted_at/deletedAt mặcđịnhNULL trênrowchưaxóa; cácDEFAULTCURRENT_TIMESTAMP tạicộtxóatrongSDDlàlỗimô tả được sửa. Sluggiữstorage/legacycompat; APIv1khôngcầnphảitrảslug. QuantityINT/DECIMAL10,2cũchuyểnDECIMAL18,6 theoD09vàmigrationđốisoát, khôngtruncate."
+      ],
+      "rationale": "Đóng phần ngữ nghĩa field phát hiện khi so 339fieldSDD với DTO đích, thay vì chỉ đếm endpoint/schema.",
+      "change_control_id": "CR-D35-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Userv1thiếuemailbị422,legacythiếuthìreconciliationkhôngđiềnfakeemail.",
+        "RowmớideletedAt=null, không tựbiếnthànhđãxóa.",
+        "BatchHSDhômnaychưalàEXPIRED;SystemauditkhôngdựnguserIdgiả."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    },
+    {
+      "id": "D36",
+      "namespace": "DECISION",
+      "title": "Công nợ, đã trả tiền và đối soát chi từ nhập",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Công nợ, đã trả tiền và đối soát chi từ nhập",
+      "source_reference": "D17 BR-PAY-009/010, BR-WAR-002/011/012/013; T136R10:R14; D01/D09/D23/D25 và yêu cầu côngnợ.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Điều phối + BE finance + FE thu/chi + Tester",
+      "affected_packages": [
+        "W04",
+        "W07",
+        "W08",
+        "W09"
+      ],
+      "answer": "Tách nghĩa vụ phải trả khỏi dòng tiền; chi côngnợconfirmed chưa phảiđãtrả, chỉsettlementghi nhận tiền thực chi.",
+      "rules": [
+        "ImportPURCHASEconfirmed ghi nhậnpayableobligation theo supplier/sourceImport/grosstotal vàtạoExpenseDRAFTtheoD01. ExpensePURCHASEdùngcùngobligation, khôngtạoAPmộtlần nữa. Lưu/gửinhápkhôngpostcash.",
+        "AutoExpensePURCHASEnet/VAT/gross/sourceallocationreadonly từimportconfirmed; Draftchỉsửa paymentterms/method/date/payer/evidence/note. Nếu cầnđổi tiền nguồngốc phải cócorrectionCR/đốisoát, khôngsửatiềnchiđểlệchphiếunhập.",
+        "ExpenseCONFIRMEDvớiCOD ghi mộtExpenseSettlementđủgross trongcùngtransaction, từ chứngtừ/ngàychi/actorđược duyệt. VớiDEBT: confirmchỉduyệtđiềukhoản/ngàyđến hạn, khôngpostcash; laterPOSTsettlementghi nhậnthanh toánđủmộtlần. Khôngcópartial/multi-installmentchi trongphase này.",
+        "ExpenseSettlementlàbản ghiappend-onlyriêng, uniqueexpenseId; headerconfirmedkhôngbịsửaamount/status. Cashpostunique settlementId;remaining=obligation−Σconfirmedsettlement. Retrykhôngtạotiền hoặcgiảm nợlần2; settlementkhôngtựgọi ngân hàng/ví.",
+        "Chi phíkhácDEBTghiAPriêng khiconfirm, partnerIdbắtbuộc khi ghi nợ; khoảnCODcóthểkhôngNCCnhưngvẫncầnsourceimporttheoD19. Chi phíkhác khôngcộnggiátrịtồntheoD09.",
+        "RefundGroup/RevenueForm là phải thu/thu thực độc lập; không tựbùtrừAPvớiAR hoặcđổitồn vìlậpPhiếuThu. Hàng trảvềNCC cần phiếuxuấtvật lý hợp lệ riêng; khôngcoi thuhoàn làđãxuấtkho.",
+        "VNDcashgross sauROUND_HALF_UPphải≥1đồngtrướcconfirmchứngtừtiền; quantity/unitprice vẫnvalidate>0vàđộchínhxácD09. UIphải hiểnthịriêng tổngphảitrả,đãtrả,cònnợ, ngàyđến hạn; không cộngExpensegrossvàImportgrosshai lần vào cùng chỉsố."
+      ],
+      "rationale": "Chốt expected result côngnợ trước khi implement để không nhầm confirmed chứng từ với thực thanh toán hoặc nhân đôi nghĩa vụ từ nhập và chi.",
+      "change_control_id": "CR-D36-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Nhập100/NET7:AP100,cash0;expenseconfirmvẫnAP100,cash0;settle100→AP0,cash100.",
+        "CODconfirmtạomộtsettlement, retrykhôngcash200.",
+        "Phiếuthuhoàn40 khôngtựgiảmtồnvàkhôngtựxóanợNCC."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    },
+    {
+      "id": "D37",
+      "namespace": "DECISION",
+      "title": "Giá gốc của lô, bình quân và làm tròn sổ giá trị",
+      "revision": "WH-DEC-20261105-R2",
+      "date": "2026-11-05",
+      "status": "APPROVED",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "approval_basis": "authority.json",
+      "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+      "original_question": "Giá gốc của lô, bình quân và làm tròn sổ giá trị",
+      "source_reference": "D13 P321; D09/D12/D28/D34; tồn theo lô/FEFO và báo cáo giá vốn trong D17.",
+      "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+      "implementation_owner_role": "Điều phối + BE tồn/finance + Tester",
+      "affected_packages": [
+        "W04",
+        "W05",
+        "W07",
+        "W09"
+      ],
+      "answer": "Số lượng theo lô và định giá bình quân là hai chiều khác nhau; canonicalstockValue từledger, không tính lại từgiágốclô hoặc đơn giáđãlàm tròn.",
+      "rules": [
+        "BatchreceiptUnitCost là snapshotgiánhập/chuyểnđến đểtruy xuất, không bị sửa khi kho có nhập mới. BatchvaluationUnitCost=InventoryaverageCost hiệnhành, chỉ làderived/display; khôngđịnhgiáFEFOtheogiágốc mỗi lô như phươngphápFIFOcost.",
+        "CanonicalVnew=Vold+netreceiptValue;Qnew=Qold+baseQty; averageCost=Vnew/Qnew hiểnthị6sốlẻ. Không lấyQold×cachedaverageCostđãroundđểtáitạoVold. Quantity0thìstockValue0.",
+        "Exportqty<Q:deltaValue=ROUND_HALF_UP(Vbefore×qty/Qbefore,4);full-depletionxuấttoànqtyphảilấytoànVbefore. TínhbằngDecimalđộchínhxác≥38, khôngJSfloat; giátrịpost4sốlẻ, avg6chỉcachehiểnthị.",
+        "Phân bổvalue4giữaallocationscáclô bằnglargest-remainder/tiebatchId đểΣallocationValue=deltaValue chínhxác; vật lývẫntheoFEFO. Sổafter=before−deltaValue, khôngđểquantity0nhưngcònvalue.",
+        "TransfercarryđúngdeltaValuenguồn sangđích; avgđíchderived từVđích+value/Qđích+qty. Receiptvalueđượcgiữriêng, khôngtínhtiềnlạitừqty×unitCost6đãround. FullsystemdeltaValue=0,cash=0.",
+        "Legacythiếugiátrịhoặcprovenance phảiPENDING_RECONCILIATION, không tự0. Chưareconciliationthìchặnconfirm làmthayđổigiátrịtrênmaterial/khođó; vẫn choxemquantity. ReportschỉđượcFULLkhiđủgiátrị; otherwisePARTIAL+missingDataRefs,khôngzero-fill."
+      ],
+      "rationale": "Giữ đúng phươngpháp bìnhquân giaquyền trongthiếtkế, giải quyết xungđột thườnggặp giữa FEFOvật lý và giágốc lô, tránhlệch rounding tồn cuối.",
+      "change_control_id": "CR-D37-20261105-R2",
+      "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+      "acceptance_examples": [
+        "Nhập10×100+10×200,xuấtFEFO5:physicallotcòn5+10,stockValue2250,không2500theogiágốclô.",
+        "Q3,V1,xuất2→delta0.6667,cònQ1,V0.3333;xuấthết→delta0.3333,cònV0.",
+        "Transfer5×giábìnhquân150đưa750vàođích, khôngdùng500nếu lônguồngiágốc100."
+      ],
+      "external_conditions": [],
+      "required_handoff": {
+        "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+        "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+        "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+      },
+      "previous_record_sha256": null
+    }
+  ],
+  "external_gates_file": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/gates.json",
+  "summary": {
+    "APPROVED": 37,
+    "APPROVED_CONDITIONAL": 0
+  },
+  "supersedes_pack": {
+    "id": "WH-DEC-20261105-R1",
+    "path": "/home/chuong/Desktop/warehouse/.agents/tasks/roadmap-20261104/report/decisions/decision-pack.json",
+    "sha256": "78aebe644a7752ce61f8fb3dbe06a1994e443326033fc448682f6bac43c7acfc"
+  },
+  "deferred_scope": [
+    {
+      "id": "FUT-POS",
+      "authority": "User confirmed other POS will be integrated later.",
+      "runtime_status": "DEFERRED_USER"
+    },
+    {
+      "id": "FUT-SMS",
+      "authority": "Coordinator approves deferral from user preference: no provider and likely unnecessary.",
+      "runtime_status": "DEFERRED_USER"
+    }
+  ]
+}

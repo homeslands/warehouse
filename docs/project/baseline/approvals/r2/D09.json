@@ -1,0 +1,45 @@
+{
+  "id": "D09",
+  "namespace": "DECISION",
+  "title": "Schema phiếu và đơn vị tiền/giá trị tồn",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "NCC ở đầu phiếu hay từng dòng, invoice/PO bắt buộc hay không, cấp mã duy nhất; weighted-average, rounding, precision, VAT/currency, tác động của kiểm kho/luân chuyển; bộ số liệu đáp án được ký.",
+  "source_reference": "D24 T200 import_forms không có cột supplier nhưng P204 có INDEX supplier_id; D24 T200R6 PO NOT NULL ↔ D17 T53R2 \"Nhập số PO (nếu có)\"; D13 P158–P159, P320:P321; code supplier theo dòng",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "BA + kế toán/chủ kho + Tech Lead",
+  "affected_packages": [
+    "W00",
+    "W03",
+    "W04",
+    "W07"
+  ],
+  "answer": "Một NCC cho mỗi phiếu nhập; PO tùy chọn; tiền VND và giá trị tồn tính nhất quán theo đơn vị gốc.",
+  "rules": [
+    "ImportForm.supplier_id bắt buộc, mọi dòng cùng NCC; có thể tách nhiều phiếu cho nhiều NCC. PO/invoice number tùy chọn, lưu ở đầu phiếu. Mã IMP/EXP/BAL/PAY/REC do server cấp unique, không client nhập mã chính thức.",
+    "Lưu tiền/quantity bằng DECIMAL, không float: quantity DECIMAL(18,6), đơn giá/cost DECIMAL(20,6), số tiền nội bộ DECIMAL(20,4), currency=VND. Hiển thị/tổng thanh toán làm tròn đồng theo HALF_UP; không làm tròn trung gian khi quy đổi.",
+    "net=Σquantity×unitPrice; VAT từ0đến20%, mặc định0; VAT tổng=round(net×rate/100) và gross=round(net)+VAT. Phân bổ sai số tiền trên dòng theo largest remainder, tie theo ID bất biến.",
+    "Tồn định giá bằng giá nhập trước VAT theo đơn vị gốc, bình quân gia quyền di động theo vật tư/kho; các chi phí kho khác ghi sổ riêng, không tự cộng vào giá nhập. Chuyển kho mang giá trị ở giá vốn nguồn; destination tính lại bình quân.",
+    "Dữ liệu cũ một phiếu nhiều NCC hoặc thiếu precision phải lập reconciliation list; không tự gán NCC đầu tiên hoặc thay monetary total. Migration có up/down/backfill và checksum đối soát trước khi chạy.",
+    "Phép toán/bảo toàn giá trị dùngD37: stockValueledger làchuẩn; unitCost6đểhiểnthị khôngphảingiátrịcanonical để táitạo sổ."
+  ],
+  "rationale": "Chọn schema đầu phiếu nhất quán với biểu mẫu thiết kế, chuẩn hóa precision/rounding để lượng–tiền đối soát được.",
+  "change_control_id": "CR-D09-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "10đv×100 và thêm10đv×200 →20đv, bình quân150; xuất5 → tồn15, giá trị2250.",
+    "10kg với1000g/kg quy về10000g, không nhân đôi giá trị.",
+    "Phiếu nhiều NCC cũ xuất hiện trong reconciliation, không tự hợp thức hóa."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "0be005cba42c6147e862600adcf095e1d40fe3bc5b62c225a999e58f303bd7c4"
+}

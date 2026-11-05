@@ -1,0 +1,124 @@
+{
+  "id": "W05",
+  "name": "Chu trình kiểm kho và điều chỉnh được duyệt",
+  "decision_status": "APPROVED",
+  "implementation_status": "NOT_STARTED",
+  "depends_on": [
+    "W04"
+  ],
+  "owners": {
+    "BE": "BE01 — 1 backend; coordination assignment, actual human logs receipt/start",
+    "FE": "FE01 — 1 frontend; coordination assignment, actual human logs receipt/start",
+    "QA": "QA01 — 1 tester; coordination assignment, actual human logs receipt/start"
+  },
+  "paths": {
+    "BE": "app/warehouse-api/src/balance-form (mới, đề xuất); app/warehouse-api/src/{inventory,material-batch,authority,warehouse}; app/warehouse-api/src/migrations.",
+    "FE": "app/warehouse-ui/src/entities/balance-form, features/balance-form-*, pages/balance-forms (mới, đề xuất); src/features/{import-form-editor,export-form-editor} cho trạng thái khóa.",
+    "QA": "app/warehouse-api/test/balance*.e2e-spec.ts (mới, đề xuất); case UC7 trong evidence của task."
+  },
+  "scope": {
+    "BE": "Stocktake lock, hai acknowledgements thật, count, delta và mở khóa atomic.",
+    "FE": "Workspace phân công/ack/count/ảnh/giải trình và approve tách người tạo.",
+    "QA": "Hai user riêng; khóa nhập/xuất; threshold >5/>10 và complete/cancel race."
+  },
+  "decisions": [
+    "D02",
+    "D04",
+    "D10",
+    "D31",
+    "D35",
+    "D37"
+  ],
+  "operation_ids": [
+    "listStocktakes",
+    "createStocktake",
+    "getStocktake",
+    "startStocktake",
+    "acknowledgementsStocktake",
+    "countsStocktake",
+    "submitStocktake",
+    "confirmStocktake",
+    "cancelStocktake"
+  ],
+  "direct_schema_refs": [
+    "Error",
+    "Stocktake",
+    "StocktakeCount",
+    "StocktakeDraft",
+    "VersionCommand"
+  ],
+  "screen_ids": [
+    "UI-22",
+    "UI-23"
+  ],
+  "test_case_ids": [
+    "TC-BAL-01",
+    "TC-BAL-02",
+    "TC-BAL-03",
+    "TC-BAL-04",
+    "TC-BAL-05",
+    "TC-BAL-06",
+    "TC-API-listStocktakes",
+    "TC-DENY-listStocktakes",
+    "TC-API-createStocktake",
+    "TC-DENY-createStocktake",
+    "TC-API-getStocktake",
+    "TC-DENY-getStocktake",
+    "TC-API-startStocktake",
+    "TC-DENY-startStocktake",
+    "TC-API-acknowledgementsStocktake",
+    "TC-DENY-acknowledgementsStocktake",
+    "TC-API-countsStocktake",
+    "TC-DENY-countsStocktake",
+    "TC-API-submitStocktake",
+    "TC-DENY-submitStocktake",
+    "TC-API-confirmStocktake",
+    "TC-DENY-confirmStocktake",
+    "TC-API-cancelStocktake",
+    "TC-DENY-cancelStocktake",
+    "TC-UI-22",
+    "TC-UI-23"
+  ],
+  "requirement_ids": [
+    "FL-028",
+    "FL-029",
+    "FL-030",
+    "FL-031",
+    "FL-041",
+    "BR-BAL-001@T366R2",
+    "BR-BAL-002@T366R3",
+    "BR-BAL-003@T366R4",
+    "BR-BAL-004@T366R5",
+    "BR-BAL-005@T366R6",
+    "BR-BAL-006@T366R7",
+    "BR-BAL-007@T366R8",
+    "NFR-02",
+    "NFR-09",
+    "UC7-01",
+    "UC7-02",
+    "UC7-03",
+    "ADR-004",
+    "DS-01",
+    "DS-04",
+    "DS-07",
+    "DS-09",
+    "SRS-U06",
+    "SRS-U07",
+    "SRS-U24",
+    "SRS-U25",
+    "BRD-U12",
+    "BRD-U13",
+    "BRD-U14",
+    "BRD-U15"
+  ],
+  "entry": "All linked R2 decisions + W00 design gate; task dependencies in planning/plan.json. W01 may start now; subsequent implementation waits upstream QA closure. No further business choice is required for current phase.",
+  "handoff": [
+    "Changed paths with exact SHA/diff and migration IDs, excluding others WIP",
+    "Actual command, runtime, environment ID, results and defect/case IDs",
+    "Contract/API/FE parity and negative cases; DB and browser evidence at required level",
+    "No OPEN design deviation: create CR before changing approved behavior"
+  ],
+  "exit": "Role tasks COMPLETE with evidence; QA real-level results, independent code review and owner acceptance before package ACCEPTED. Current no-review request applies to preparing this decision pack, not fabrication of future review results.",
+  "design_contracts": "../contracts/openapi-v1.json, warehouse-storage.proto, schemas.json, business-rules.md, data-and-migration.md, screen-contracts.json",
+  "qa_status": "DESIGNED_NOT_RUN"
+}

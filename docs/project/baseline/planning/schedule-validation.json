@@ -1,0 +1,16 @@
+{
+  "task_count": 84,
+  "capacity": {
+    "BE": 1,
+    "FE": 1,
+    "QA": 1
+  },
+  "no_role_overlap": true,
+  "all_dependencies_satisfied": true,
+  "effort_matches_components": true,
+  "low_high": "Different feasible scenarios, not statistical confidence intervals",
+  "duration_days": {
+    "low": 239,
+    "high": 419
+  }
+}

@@ -1,0 +1,20 @@
+digraph G {graph [rankdir=LR, bgcolor="white",pad="0.2",nodesep="0.3",ranksep="0.45",fontname="DejaVu Sans",dpi=160]; node [shape=box,style="rounded,filled",fillcolor="#e8f2f1",color="#b5cecc",fontname="DejaVu Sans",fontsize=11,margin="0.13,0.13"]; edge [color="#6d8992",arrowsize=0.7,fontname="DejaVu Sans",fontsize=9]; 
+ spec[label="Nguồn thiết kế + quyết định ký
+BA/Owner (ngoài đội 3 người)",fillcolor="#ffedc7"];
+ contract[label="BE.C
+API / state / quyền / migration"];
+ be[label="1 BE
+Implement + unit"];
+ fe[label="1 FE
+Implement + component"];
+ qd[label="1 Tester
+Case / data / expected"];
+ qt[label="Cùng 1 Tester
+API DB + UI + retest"];
+ review[label="Reviewer độc lập
+đúng SHA/evidence"];
+ owner[label="Owner ký acceptance
+không đồng nghĩa deploy",fillcolor="#dbeafe"];
+ fix[label="Defect → sửa + test lại",fillcolor="#fee2e2"];
+ spec->contract;contract->be;contract->fe;contract->qd;be->qt;fe->qt;qd->qt;qt->review[label="PASS"];qt->fix[label="FAIL"];fix->be;fix->fe;review->owner;
+ }

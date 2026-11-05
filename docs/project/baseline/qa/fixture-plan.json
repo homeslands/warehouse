@@ -1,0 +1,206 @@
+{
+  "id": "WH-QA-FIXTURES-R2",
+  "kind": "SEED_DESIGN_NOT_BOOTSTRAPPED_APP_USERS",
+  "clockDate": "2026-11-05",
+  "timezone": "Asia/Ho_Chi_Minh",
+  "credential_policy": "Generate unique passwords per harness run in task-private0600file, bcrypt12. Obtain tokens via real login; do not hardcode token or use SUPER_ADMIN as RBAC proof.",
+  "actors": [
+    {
+      "alias": "ADMIN",
+      "id": "147c7338-1984-58da-8fca-c18a17d6c465",
+      "family": "ADMIN",
+      "warehouseAliases": [],
+      "email": "admin@example.invalid",
+      "phoneNumber": "+999000000001",
+      "isActive": true,
+      "removedAuthorities": []
+    },
+    {
+      "alias": "MANAGER_AB",
+      "id": "76791bfc-fd81-51a1-ba10-d875d9d1c998",
+      "family": "MANAGER",
+      "warehouseAliases": [
+        "A",
+        "B"
+      ],
+      "email": "manager_ab@example.invalid",
+      "phoneNumber": "+999000000002",
+      "isActive": true,
+      "removedAuthorities": []
+    },
+    {
+      "alias": "MANAGER_A",
+      "id": "f3c78733-0d19-5b92-8a52-03f467cffac2",
+      "family": "MANAGER",
+      "warehouseAliases": [
+        "A"
+      ],
+      "email": "manager_a@example.invalid",
+      "phoneNumber": "+999000000003",
+      "isActive": true,
+      "removedAuthorities": []
+    },
+    {
+      "alias": "MANAGER_C",
+      "id": "56d5f75c-6d2e-524b-a71c-48a9450f421c",
+      "family": "MANAGER",
+      "warehouseAliases": [
+        "C"
+      ],
+      "email": "manager_c@example.invalid",
+      "phoneNumber": "+999000000004",
+      "isActive": true,
+      "removedAuthorities": []
+    },
+    {
+      "alias": "SUP_A1",
+      "id": "6264cc1b-8fac-5a95-a50a-dad457762150",
+      "family": "SUPERVISOR",
+      "warehouseAliases": [
+        "A"
+      ],
+      "email": "sup_a1@example.invalid",
+      "phoneNumber": "+999000000005",
+      "isActive": true,
+      "removedAuthorities": []
+    },
+    {
+      "alias": "SUP_A2",
+      "id": "56cd37d9-7b94-5dba-9f2c-2c25c9175b33",
+      "family": "SUPERVISOR",
+      "warehouseAliases": [
+        "A"
+      ],
+      "email": "sup_a2@example.invalid",
+      "phoneNumber": "+999000000006",
+      "isActive": true,
+      "removedAuthorities": []
+    },
+    {
+      "alias": "SUP_B",
+      "id": "4ffe340a-d6e6-5dc6-9491-c8f1000f9ad6",
+      "family": "SUPERVISOR",
+      "warehouseAliases": [
+        "B"
+      ],
+      "email": "sup_b@example.invalid",
+      "phoneNumber": "+999000000007",
+      "isActive": true,
+      "removedAuthorities": []
+    },
+    {
+      "alias": "SUP_A_NO_EXPORT",
+      "id": "620f42b5-7dd9-5f19-927d-5409866f6a5b",
+      "family": "SUPERVISOR",
+      "warehouseAliases": [
+        "A"
+      ],
+      "email": "sup_a_no_export@example.invalid",
+      "phoneNumber": "+999000000008",
+      "isActive": true,
+      "removedAuthorities": [
+        "EXPORT_FORM_CREATE"
+      ]
+    }
+  ],
+  "warehouses": [
+    {
+      "alias": "A",
+      "id": "84d7646c-8060-5cb2-b1a6-33092fe4725c",
+      "storeAlias": "STORE_1"
+    },
+    {
+      "alias": "B",
+      "id": "28809b69-be3b-5629-9e56-9eb318315d82",
+      "storeAlias": "STORE_1"
+    },
+    {
+      "alias": "C",
+      "id": "5c9e51e3-4f93-59ab-822c-f01f0ef3dd6a",
+      "storeAlias": "STORE_2"
+    }
+  ],
+  "suppliers": [
+    {
+      "alias": "S1",
+      "id": "fa670daa-9ddc-5cb0-9748-66628142430e",
+      "paymentTerms": [
+        "COD",
+        "NET7"
+      ]
+    }
+  ],
+  "units": [
+    {
+      "alias": "G",
+      "id": "8ebccc70-4d02-5420-a234-156b6feb0c1d",
+      "dimension": "MASS",
+      "symbol": "g"
+    },
+    {
+      "alias": "KG",
+      "id": "8384203d-e3e4-5518-8ce2-5112e07a5374",
+      "dimension": "MASS",
+      "symbol": "kg"
+    },
+    {
+      "alias": "PIECE",
+      "id": "ac888408-a82d-58a7-a3c9-e13ab7038cc1",
+      "dimension": "COUNT",
+      "symbol": "cái"
+    }
+  ],
+  "materials": [
+    {
+      "alias": "M1",
+      "id": "48cf295f-1a90-546a-95f0-da89c6d819af",
+      "name": "Cà phê hạt thử nghiệm",
+      "isExpiry": true,
+      "baseUnit": "G",
+      "primarySupplier": "S1",
+      "minimumQuantity": "10",
+      "maximumQuantity": "1000"
+    },
+    {
+      "alias": "M2",
+      "id": "c5dad264-b228-575c-80fb-ba42767cab9e",
+      "name": "Bao bì thử nghiệm",
+      "isExpiry": false,
+      "baseUnit": "PIECE",
+      "primarySupplier": "S1",
+      "minimumQuantity": "0",
+      "maximumQuantity": "100"
+    }
+  ],
+  "stock_scenarios": {
+    "AVG150": {
+      "warehouse": "A",
+      "material": "M1",
+      "receipts": [
+        {
+          "quantity": "10",
+          "unitPrice": "100",
+          "expiresOn": "2026-11-20"
+        },
+        {
+          "quantity": "10",
+          "unitPrice": "200",
+          "expiresOn": "2026-12-20"
+        }
+      ],
+      "quantity": "20",
+      "canonicalValue": "3000",
+      "averageCost": "150"
+    },
+    "ROUNDING": {
+      "quantity": "3",
+      "canonicalValue": "1"
+    },
+    "DEST250": {
+      "warehouse": "B",
+      "quantity": "10",
+      "canonicalValue": "2500"
+    }
+  },
+  "pos": "TEST_ONLY product/variant rows for recipe contract tests; no live vendor or manual-product feature is implied."
+}

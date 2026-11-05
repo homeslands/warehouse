@@ -1,0 +1,9 @@
+{
+  "cases_designed": 464,
+  "operation_contract_cases": 161,
+  "ui_cases": 32,
+  "requirement_links": 230,
+  "all_case_refs_exist": true,
+  "application_tests_run": false,
+  "coverage_limit": "Mapping shows a test basis exists; it does not prove every source sentence, branch or runtime behavior passed."
+}

@@ -1,0 +1,45 @@
+﻿id,source,requirement,status,current,gap,code
+FL-001,D18 Sheet1!B2:D2,Đồng bộ danh sách sản phẩm,CHƯA THẤY,Chưa thấy connector POS hoặc module Product trong AppModule.,G02,app/warehouse-api/src/app/app.module.ts:122
+FL-002,D18 Sheet1!B3:D3,Xem chi tiết sản phẩm,CHƯA THẤY,"Không có route sản phẩm, biến thể và công thức.",G02,app/warehouse-ui/src/app/routes/index.tsx:67
+FL-003,D18 Sheet1!B4:D4,Tìm kiếm / Lọc sản phẩm,CHƯA THẤY,Chưa có màn tìm kiếm sản phẩm bán ra.,G02,app/warehouse-ui/src/app/routes/index.tsx:67
+FL-004,D18 Sheet1!B5:D5,Xây dựng định mức nguyên liệu cho từng sản phẩm.,CHƯA THẤY,Chưa có VariantMaterial hoặc trình biên tập định mức.,G02,app/warehouse-api/src/app/app.module.ts:122
+FL-005,D18 Sheet1!B6:D6,Sao chép nhanh công thức sản phẩm có sẵn.,CHƯA THẤY,Chưa có nghiệp vụ sao chép công thức.,G02,app/warehouse-api/src/app/app.module.ts:122
+FL-006,D18 Sheet1!B7:D7,Chỉnh sửa định mức nguyên liệu cho sản phẩm,CHƯA THẤY,Chưa có nghiệp vụ sửa công thức.,G02,app/warehouse-api/src/app/app.module.ts:122
+FL-007,D18 Sheet1!B8:D8,Xem lịch sử thay đổi công thức,CHƯA THẤY,Chưa có phiên bản và audit lịch sử công thức.,G02,app/warehouse-api/src/app/app.module.ts:122
+FL-008,D18 Sheet1!B9:D9,Xóa định mức nguyên liệu,CHƯA THẤY,Chưa có nghiệp vụ xóa định mức.,G02,app/warehouse-api/src/app/app.module.ts:122
+FL-009,D18 Sheet1!B10:D10,Thêm nhà cung cấp,CÓ SOURCE,Có tạo NCC ở controller/service và form UI; API thật chưa chạy.,,app/warehouse-api/src/supplier/supplier.controller.ts:218
+FL-010,D18 Sheet1!B11:D11,Chỉnh sửa nhà cung cấp,CÓ SOURCE,Có cập nhật NCC; cần đối chiếu field điều khoản thanh toán.,,app/warehouse-api/src/supplier/supplier.controller.ts:218
+FL-011,D18 Sheet1!B12:D12,Tìm kiếm nhà cung cấp,CÓ SOURCE,Có tham số tìm kiếm và bộ lọc; test đơn vị đã chạy.,,app/warehouse-api/src/supplier/supplier.controller.ts:218
+FL-012,D18 Sheet1!B13:D13,Xóa nhà cung cấp,CÓ SOURCE,Có kiểm tra liên kết trước khi xóa; chưa thử trên DB.,,app/warehouse-api/src/supplier/supplier.controller.ts:218
+FL-013,D18 Sheet1!B14:D14,Xem lịch sử giao dịch NCC,MỘT PHẦN,"API giao dịch NCC đang được comment tạm ẩn, cờ UI tắt; phân tích xu hướng chưa thấy.",G03,app/warehouse-api/src/supplier/supplier.controller.ts:218
+FL-014,D18 Sheet1!B15:D15,Thêm nguyên liệu,MỘT PHẦN,"Có vật tư, loại, NCC, đơn vị và ngưỡng; chưa thấy mô hình vị trí và NSX trong danh mục.",G06,app/warehouse-api/src/material/material.entity.ts:15
+FL-015,D18 Sheet1!B16:D16,Chỉnh sửa nguyên liệu,MỘT PHẦN,"Có sửa danh mục/ngưỡng; vị trí, NSX/HSD chưa khớp mô hình thiết kế.",G06,app/warehouse-api/src/material/material.entity.ts:15
+FL-016,D18 Sheet1!B17:D17,Quản lý đơn vị tính phụ,CÓ SOURCE,Có API gắn/sửa/gỡ đơn vị quy đổi và UI tương ứng.,,app/warehouse-api/src/material/material.controller.ts:155
+FL-017,D18 Sheet1!B18:D18,Tìm kiếm nguyên liệu,CÓ SOURCE,Có danh sách vật tư và các query; chưa xác minh API thật.,,app/warehouse-api/src/material/material.controller.ts:155
+FL-018,D18 Sheet1!B19:D19,Xem tồn kho hiện tại,MỘT PHẦN,"Có lượng tồn, giữ chỗ, khả dụng và lịch sử; chưa có vị trí và giá trị tồn kho.",G09,app/warehouse-api/src/inventory/inventory.service.ts:546
+FL-019,D18 Sheet1!B20:D20,Xóa nguyên liệu,CÓ SOURCE,Có xóa vật tư và kiểm tra phụ thuộc; không đại diện cho kiểm thử mọi ràng buộc DB.,,app/warehouse-api/src/material/material.controller.ts:155
+FL-020,D18 Sheet1!B21:D21,Thiết lập đơn vị mới,CÓ SOURCE,Có CRUD đơn vị; quan hệ quy đổi được quản lý theo vật tư.,,app/warehouse-api/src/unit/unit.controller.ts:28
+FL-021,D18 Sheet1!B22:D22,Chỉnh sửa đơn vị,CÓ SOURCE,Có sửa đơn vị; cần chốt khác biệt phân loại đơn vị với SRS.,,app/warehouse-api/src/unit/unit.controller.ts:28
+FL-022,D18 Sheet1!B23:D23,Tìm kiếm đơn vị,CÓ SOURCE,Có query danh sách đơn vị; cần bổ sung kiểm chứng API.,,app/warehouse-api/src/unit/unit.controller.ts:28
+FL-023,D18 Sheet1!B24:D24,Xóa đơn vị,CÓ SOURCE,Có xóa đơn vị và kiểm tra liên kết.,,app/warehouse-api/src/unit/unit.controller.ts:28
+FL-024,D18 Sheet1!B25:D25,Tạo phiếu nhập kho,MỘT PHẦN,Có wizard và phiếu DRAFT/CONFIRMED/CANCELLED; thiếu nhóm cảnh báo thiết kế và còn khác quy tắc giá/HSD.,G05,app/warehouse-api/src/import-form/import-form.service.ts:99
+FL-025,D18 Sheet1!B26:D26,Tìm kiếm phiếu nhập kho,MỘT PHẦN,"Có mã/PO/hóa đơn/ngày tạo/người lập/người duyệt; chưa thấy đầy đủ lọc NCC, vật tư và ngày nhập như yêu cầu.",G17,app/warehouse-api/src/import-form/import-form.service.ts:99
+FL-026,D18 Sheet1!B27:D27,Xem lịch sử nhập kho,MỘT PHẦN,Có list/detail và lịch sử tồn; chưa có báo cáo lịch sử tổng hợp đầy đủ theo NCC/giá/NSX.,G04,app/warehouse-api/src/import-form/import-form.service.ts:99
+FL-027,D18 Sheet1!B28:D28,In phiếu nhập,MỘT PHẦN,Có print view và window.print; chưa xác minh bản in và chưa thấy xuất Excel phiếu.,G04,app/warehouse-ui/src/pages/import-forms/ui/ImportFormDetailPage.tsx:125
+FL-028,D18 Sheet1!B29:D29,Tạo phiếu kiểm kho,CHƯA THẤY,"Chưa có BalanceForm, phân công kiểm và khóa nhập/xuất.",G01,app/warehouse-api/src/app/app.module.ts:122
+FL-029,D18 Sheet1!B30:D30,Tìm kiếm phiếu kiểm kho,CHƯA THẤY,Chưa có route/API tìm phiếu kiểm.,G01,app/warehouse-ui/src/app/routes/index.tsx:67
+FL-030,D18 Sheet1!B31:D31,Xem lịch sử kiểm kho,CHƯA THẤY,Lịch sử tồn không thay thế lịch sử kiểm đếm và xử lý chênh lệch.,G01,app/warehouse-api/src/app/app.module.ts:122
+FL-031,D18 Sheet1!B32:D32,In phiếu kiểm,CHƯA THẤY,Chưa có biên bản và export phiếu kiểm.,G01,app/warehouse-ui/src/app/routes/index.tsx:67
+FL-032,D18 Sheet1!B33:D33,Tạo phiếu xuất kho,MỘT PHẦN,Có 5 loại xuất và giữ chỗ PENDING/FEFO; luân chuyển hai kho và hồ sơ xuất hủy còn thiếu.,G07,app/warehouse-api/src/export-form/export-form.service.ts:91
+FL-033,D18 Sheet1!B34:D34,Tìm kiếm phiếu xuất kho,MỘT PHẦN,"Có bộ lọc mã, loại, trạng thái, người lập/ngày; chưa thấy đầy đủ lọc vật tư/ngày xuất nghiệp vụ.",G17,app/warehouse-api/src/export-form/export-form.service.ts:91
+FL-034,D18 Sheet1!B35:D35,Xem lịch sử xuất kho,MỘT PHẦN,Có list/detail phiếu xuất và history tồn; chưa có báo cáo lịch sử tổng hợp.,G04,app/warehouse-api/src/export-form/export-form.service.ts:91
+FL-035,D18 Sheet1!B36:D36,In phiếu xuất,MỘT PHẦN,Có print view; chưa xác minh in thực tế hoặc xuất Excel.,G04,app/warehouse-ui/src/pages/export-forms/ui/ExportFormDetailPage.tsx:129
+FL-036,D18 Sheet1!B37:D37,Dashboard thống kê kho theo thời gian thực,CHƯA THẤY,HomePage là menu điều hướng; không có dashboard chỉ số.,G04,app/warehouse-ui/src/pages/home/ui/HomePage.tsx:11
+FL-037,D18 Sheet1!B38:D38,Thống kê nhập - xuất - tồn,CHƯA THẤY,Chưa thấy API/màn báo cáo nhập xuất tồn theo kỳ.,G04,app/warehouse-api/src/app/app.module.ts:122
+FL-038,D18 Sheet1!B39:D39,Thống kê giá trị tồn kho,CHƯA THẤY,Chưa thấy sổ giá vốn và thống kê giá trị tồn.,G09,app/warehouse-api/src/inventory/inventory.service.ts:546
+FL-039,D18 Sheet1!B40:D40,Báo cáo lịch sử nhập kho,MỘT PHẦN,Tra cứu phiếu nhập đã có; báo cáo tổng hợp theo thiết kế chưa có.,G04,app/warehouse-api/src/import-form/import-form.service.ts:99
+FL-040,D18 Sheet1!B41:D41,Báo cáo lịch sử xuất kho,MỘT PHẦN,Tra cứu phiếu xuất đã có; báo cáo tổng hợp theo thiết kế chưa có.,G04,app/warehouse-api/src/export-form/export-form.service.ts:91
+FL-041,D18 Sheet1!B42:D42,Báo cáo kiểm kho,CHƯA THẤY,Chưa có nghiệp vụ kiểm kho làm nguồn báo cáo.,G01,app/warehouse-api/src/app/app.module.ts:122
+FL-042,D18 Sheet1!B43:D43,Cảnh báo tồn kho tối thiểu,MỘT PHẦN,Có cờ dưới min và filter; chưa thấy engine phát thông báo nghiệp vụ.,G05,app/warehouse-api/src/inventory/inventory.service.ts:546
+FL-043,D18 Sheet1!B44:D44,Cảnh báo nguyên vật liệu sắp hết hạn,MỘT PHẦN,Có ngày HSD ở lô và expiryBefore; chưa có cảnh báo chủ động/dashboard/email.,G05,app/warehouse-api/src/material-batch/material-batch.service.ts:58
+FL-044,D18 Sheet1!B45:D45,Xuất báo cáo Excel/PDF,CHƯA THẤY,Chưa có bộ export báo cáo Excel/PDF; print từng phiếu là phạm vi khác.,G04,app/warehouse-ui/src/app/routes/index.tsx:67

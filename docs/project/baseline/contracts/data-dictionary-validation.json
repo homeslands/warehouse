@@ -1,0 +1,6 @@
+{
+  "source_tables": 29,
+  "field_occurrences": 339,
+  "unresolved": [],
+  "note": "Source occurrences include a duplicated files.slug row; they are not distinct columns or proof of a running schema."
+}

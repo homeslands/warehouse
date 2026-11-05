@@ -1,0 +1,346 @@
+[
+  {
+    "name": "wbs:W00",
+    "group": "wbs",
+    "definition": "Gói roadmap đã đối chiếu plan: W00",
+    "cardinality": "one",
+    "color": "3156A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "wbs:W01",
+    "group": "wbs",
+    "definition": "Gói roadmap đã đối chiếu plan: W01",
+    "cardinality": "one",
+    "color": "3156A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "role:BE",
+    "group": "role",
+    "definition": "Vai trò chịu trách nhiệm chính: BE; assignee là người nhận việc thật.",
+    "cardinality": "one",
+    "color": "087E8B",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "role:FE",
+    "group": "role",
+    "definition": "Vai trò chịu trách nhiệm chính: FE; assignee là người nhận việc thật.",
+    "cardinality": "one",
+    "color": "087E8B",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "role:QA",
+    "group": "role",
+    "definition": "Vai trò chịu trách nhiệm chính: QA; assignee là người nhận việc thật.",
+    "cardinality": "one",
+    "color": "087E8B",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "role:COORD",
+    "group": "role",
+    "definition": "Vai trò chịu trách nhiệm chính: COORD; assignee là người nhận việc thật.",
+    "cardinality": "one",
+    "color": "087E8B",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "type:epic",
+    "group": "type",
+    "definition": "Gói tổng hợp, không phải một task code.",
+    "cardinality": "one",
+    "color": "7151A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "type:feature",
+    "group": "type",
+    "definition": "Thêm năng lực mới đã có yêu cầu.",
+    "cardinality": "one",
+    "color": "7151A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "type:bug",
+    "group": "type",
+    "definition": "Sửa hành vi lệch contract/expected đã xác định.",
+    "cardinality": "one",
+    "color": "7151A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "type:refactor",
+    "group": "type",
+    "definition": "Đổi cấu trúc giữ hành vi mong muốn.",
+    "cardinality": "one",
+    "color": "7151A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "type:test",
+    "group": "type",
+    "definition": "Thiết kế/sửa/chạy kiểm thử hoặc dựng harness.",
+    "cardinality": "one",
+    "color": "7151A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "type:docs",
+    "group": "type",
+    "definition": "Soạn hoặc bàn giao tài liệu.",
+    "cardinality": "one",
+    "color": "7151A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "type:chore",
+    "group": "type",
+    "definition": "Tooling và bảo trì không đổi tính năng.",
+    "cardinality": "one",
+    "color": "7151A0",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "priority:P0",
+    "group": "priority",
+    "definition": "Sự cố đang diễn ra: mất dữ liệu, lộ quyền hoặc ngừng vận hành nghiêm trọng; cần evidence và owner.",
+    "cardinality": "one",
+    "color": "B36B18",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "priority:P1",
+    "group": "priority",
+    "definition": "Ưu tiên cao: nằm trên đường găng/gate của milestone hiện tại.",
+    "cardinality": "one",
+    "color": "B36B18",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "priority:P2",
+    "group": "priority",
+    "definition": "Công việc được lập kế hoạch, không thuộc P0/P1 đã xác minh.",
+    "cardinality": "one",
+    "color": "B36B18",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "priority:P3",
+    "group": "priority",
+    "definition": "Cải tiến có thể hoãn; không che nghĩa vụ thiết kế bắt buộc.",
+    "cardinality": "one",
+    "color": "B36B18",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "sev:S1",
+    "group": "severity",
+    "definition": "Nghiêm trọng: mất/toàn vẹn dữ liệu hoặc security impact lớn được xác minh. Chỉ cho type:bug; severity không quyết định priority.",
+    "cardinality": "one",
+    "color": "B54854",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "sev:S2",
+    "group": "severity",
+    "definition": "Chức năng chính sai hoặc không sử dụng được, thiếu workaround khả thi. Chỉ cho type:bug; severity không quyết định priority.",
+    "cardinality": "one",
+    "color": "B54854",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "sev:S3",
+    "group": "severity",
+    "definition": "Ảnh hưởng giới hạn hoặc có workaround. Chỉ cho type:bug; severity không quyết định priority.",
+    "cardinality": "one",
+    "color": "B54854",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "sev:S4",
+    "group": "severity",
+    "definition": "Lỗi hiển thị/diễn đạt nhỏ; không có impact nghiệp vụ đã biết. Chỉ cho type:bug; severity không quyết định priority.",
+    "cardinality": "one",
+    "color": "B54854",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "area:api",
+    "group": "area",
+    "definition": "Phạm vi tác động api; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "area:ui",
+    "group": "area",
+    "definition": "Phạm vi tác động ui; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "area:auth",
+    "group": "area",
+    "definition": "Phạm vi tác động auth; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "area:database",
+    "group": "area",
+    "definition": "Phạm vi tác động database; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "area:storage",
+    "group": "area",
+    "definition": "Phạm vi tác động storage; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "area:quality",
+    "group": "area",
+    "definition": "Phạm vi tác động quality; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "area:delivery",
+    "group": "area",
+    "definition": "Phạm vi tác động delivery; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "area:docs",
+    "group": "area",
+    "definition": "Phạm vi tác động docs; thường chọn1-2area, không dùng thay role.",
+    "cardinality": "multi",
+    "color": "3972A3",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "risk:security",
+    "group": "risk",
+    "definition": "Có nội dung cần kiểm soát security; không có nghĩa đã xảy ra sự cố hoặc đã kiểm chứng an toàn.",
+    "cardinality": "multi",
+    "color": "A65B19",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "risk:data",
+    "group": "risk",
+    "definition": "Có nội dung cần kiểm soát data; không có nghĩa đã xảy ra sự cố hoặc đã kiểm chứng an toàn.",
+    "cardinality": "multi",
+    "color": "A65B19",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "risk:breaking-change",
+    "group": "risk",
+    "definition": "Có nội dung cần kiểm soát breaking-change; không có nghĩa đã xảy ra sự cố hoặc đã kiểm chứng an toàn.",
+    "cardinality": "multi",
+    "color": "A65B19",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "target:local",
+    "group": "target",
+    "definition": "Môi trường cần thực hiện/nghiệm thu: local; không phải bằng chứng đã test/deploy.",
+    "cardinality": "multi",
+    "color": "17886E",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "target:sandbox",
+    "group": "target",
+    "definition": "Môi trường cần thực hiện/nghiệm thu: sandbox; không phải bằng chứng đã test/deploy.",
+    "cardinality": "multi",
+    "color": "17886E",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "target:mekong",
+    "group": "target",
+    "definition": "Môi trường cần thực hiện/nghiệm thu: mekong; không phải bằng chứng đã test/deploy.",
+    "cardinality": "multi",
+    "color": "17886E",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "gate:needs-spec",
+    "group": "gate",
+    "definition": "Thiếu quyết định/contract cần thiết để tiếp tục. Phải có owner, evidence, impact và unlock condition.",
+    "cardinality": "multi",
+    "color": "A07A13",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "gate:needs-review",
+    "group": "gate",
+    "definition": "Có artifact/diff đang chờ người review độc lập. Phải có owner, evidence, impact và unlock condition.",
+    "cardinality": "multi",
+    "color": "A07A13",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "gate:needs-test-env",
+    "group": "gate",
+    "definition": "Thiếu target/fixture/quyền chạy test đã xác định. Phải có owner, evidence, impact và unlock condition.",
+    "cardinality": "multi",
+    "color": "A07A13",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "gate:needs-qa",
+    "group": "gate",
+    "definition": "Implementation đã bàn giao, đang chờ QA theo scope. Phải có owner, evidence, impact và unlock condition.",
+    "cardinality": "multi",
+    "color": "A07A13",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "gate:needs-deploy",
+    "group": "gate",
+    "definition": "Acceptance của issue yêu cầu server và chưa có deploy tương ứng. Phải có owner, evidence, impact và unlock condition.",
+    "cardinality": "multi",
+    "color": "A07A13",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "gate:needs-handoff",
+    "group": "gate",
+    "definition": "Chưa có biên bản tiếp nhận/bàn giao được yêu cầu. Phải có owner, evidence, impact và unlock condition.",
+    "cardinality": "multi",
+    "color": "A07A13",
+    "activation": "INITIAL_SCOPE"
+  },
+  {
+    "name": "blocked",
+    "group": "control",
+    "definition": "Không còn việc có ích có thể tiếp tục trong scope do dependency/quyền/decision; cần linked blocker và unlock.",
+    "cardinality": "one",
+    "color": "B33D43",
+    "activation": "ON_DEMAND"
+  },
+  {
+    "name": "meta:needs-triage",
+    "group": "control",
+    "definition": "Chưa đủ căn cứ để chốt WBS/priority/severity/target; chỉ thiếu metadata, không suy code chưa xong hoặc reopen issue.",
+    "cardinality": "one",
+    "color": "667581",
+    "activation": "INITIAL_SCOPE"
+  }
+]

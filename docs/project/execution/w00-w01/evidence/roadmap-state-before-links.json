@@ -1,0 +1,1595 @@
+{
+  "schema_version": 1,
+  "as_of": "2026-11-05T04:02:11+07:00",
+  "baseline_head": "384c53d9f9c81d320793069b3dffd690ae88c0af",
+  "calendar_start": null,
+  "deadline": null,
+  "tasks": {
+    "W01-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W01-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W01-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W01-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-BE.C": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-BE.I": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-FE": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-QA.D": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-QA.T": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W02-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W03-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W04-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W05-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W06-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W07-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W08-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W09-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W10-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-BE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-FE.F": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    },
+    "W11-QA.R": {
+      "status": "NOT_STARTED",
+      "evidence": [],
+      "actual_start": null,
+      "actual_finish": null,
+      "remaining_effort": null
+    }
+  },
+  "decisions": {
+    "D01": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D01.md",
+        "sha256": "31fa8111b670d5f7c8b4361094555607799319980e22075d396ff810ed16970f"
+      },
+      "answer": "Xác nhận nhập tự sinh đúng một phiếu chi NHÁP mua NVL; thu được lập thủ công theo loại.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D02": {
+      "status": "APPROVED",
+      "owner": "Business Owner + chủ kho + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D02.md",
+        "sha256": "ccf8d9750634b0a7ef7a26c0aa40937f50373becc50ff1443fe9d728231f22d8"
+      },
+      "answer": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D03": {
+      "status": "APPROVED",
+      "owner": "Chủ dự án + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D03.md",
+        "sha256": "9db4fd15ba35588f80d3128c7967cf252d6b8f2ac40ac60cc00fbb2d765baa84"
+      },
+      "answer": "Giữ kiến trúc đích trong ADR-001: React → REST Gateway → NestJS Storage Service qua gRPC → MySQL.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D04": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D04.md",
+        "sha256": "9a8748febe388958323b4aa4be59e5063956791607d7ceae680cd35a860121b1"
+      },
+      "answer": "Tồn và sổ tiền chỉ thay đổi tại duyệt cuối; nháp/gửi duyệt không giữ chỗ tồn.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D05": {
+      "status": "APPROVED",
+      "owner": "Chủ kho + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D05.md",
+        "sha256": "b0a487086648289ccb813b7ba11277f842e2b262756c667a006eaee587f5323f"
+      },
+      "answer": "Giá nhập >0, HSD theo chính sách vật tư, max>min; biên cảnh báo được định nghĩa thống nhất.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D06": {
+      "status": "APPROVED",
+      "owner": "Tech Lead + chủ dữ liệu",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D06.md",
+        "sha256": "9a0b6dd7fff32a74119f0e8a6b352a3ca6eae659aa51f8e41eb492af86f07d4b"
+      },
+      "answer": "Tệp nằm trong private S3-compatible storage; MySQL lưu metadata; chứng từ tối đa 5MiB/tệp.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D07": {
+      "status": "APPROVED",
+      "owner": "Chủ dự án + BA/Designer + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D07.md",
+        "sha256": "16de7513e2b1ffe3a1c9e0c62c9bdcf0efcc0f71491600d18aa71ffc292f51d3"
+      },
+      "answer": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D08": {
+      "status": "APPROVED",
+      "owner": "Tech Lead + chủ thiết kế",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D08.md",
+        "sha256": "c6e863bbac7a1c94efdf9b3859fac3d863b5e95cfdc88655cedacddb83520599"
+      },
+      "answer": "Chọn React/TypeScript + Ant Design + Redux Toolkit cho client state; React Query cho server cache.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D09": {
+      "status": "APPROVED",
+      "owner": "BA + kế toán/chủ kho + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D09.md",
+        "sha256": "c8e800118c706560d5a368820f4cdeceba3babf5bb1d7d3c52c069a19a5e87ba"
+      },
+      "answer": "Một NCC cho mỗi phiếu nhập; PO tùy chọn; tiền VND và giá trị tồn tính nhất quán theo đơn vị gốc.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D10": {
+      "status": "APPROVED",
+      "owner": "Chủ kho + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D10.md",
+        "sha256": "dff5dce1168a3ba06d015e17e4de1e4c6fbe7c620e36c36ca3423622ba92bddc"
+      },
+      "answer": "Khóa kiểm kho bắt buộc khi bắt đầu; luân chuyển hai kho một bước nguyên tử; xuất hủy có lý do/ảnh.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D11": {
+      "status": "APPROVED",
+      "owner": "Chủ dự án + POS vendor + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D11.md",
+        "sha256": "3f453fa477ff20a0f7e9af65a9fbdd3718d80e32177006ee34c748249f7c420b"
+      },
+      "answer": "Chốt POS khác sẽ tích hợp sau; phase hiện tại hoàn thiện ba API nội bộ và adapter port, không triển khai kết nối POS thật.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D12": {
+      "status": "APPROVED",
+      "owner": "BA + kế toán + chủ kho",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D12.md",
+        "sha256": "8f269195c3d63374454c41fdb5e3a0fd5f0c2e1f6d5a81e86d945bf3a3311ed4"
+      },
+      "answer": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D13": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D13.md",
+        "sha256": "4cd35bf5fbd0d7c3614837f11fa53b0a6601139355bc8300988f7286ecc05566"
+      },
+      "answer": "Sáu loại xuất riêng: PRODUCTION, SALE, DISPOSAL, TRANSFER, LIQUIDATION, OTHER.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D14": {
+      "status": "APPROVED",
+      "owner": "Chủ dữ liệu + Tech Lead + QA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D14.md",
+        "sha256": "60a7996f88a1efcf6286e320f76b2ca5870ed98695e315aa79916594512779c3"
+      },
+      "answer": "Chốt session30phút, audit cùng transaction, backup30ngày và lưu nghiệp vụ≥2năm.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D15": {
+      "status": "APPROVED",
+      "owner": "Chủ dự án + QA + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D15.md",
+        "sha256": "305f07ed1c05e15be942454652156415570fd6c28bd66832f2a971d95e3f9e23"
+      },
+      "answer": "Chốt protocol NFR, Excel import nguyên tử và email báo cáo; chưa tuyên bố đã đạt.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D16": {
+      "status": "APPROVED",
+      "owner": "Chủ dự án",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D16.md",
+        "sha256": "9dfd776fc6b947614b201b0e142cef06017e92d0daacf948af3c6ac6a4b22f8d"
+      },
+      "answer": "Phê duyệt DEV LOCAL; gate vận hành/CI/CD được hoãn có kiểm soát, không bỏ khỏi phạm vi.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D17": {
+      "status": "APPROVED",
+      "owner": "Chủ dự án + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D17.md",
+        "sha256": "c3b9d8dbdbf4b09be4e307affe047d3580b055f811062073bce129c44fc6a97a"
+      },
+      "answer": "Giữ toàn bộ phạm vi BRD/SRS/UC/ADR; không thu gọn thành MVP hoặc chỉ44dòng function list.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D18": {
+      "status": "APPROVED",
+      "owner": "Chủ dự án + QA + BE/FE",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D18.md",
+        "sha256": "e3140e189621ea5140f95678981de96b2f61c5e5e962cdf752e357fa2ee2d25e"
+      },
+      "answer": "Dùng capacity lập kế hoạch1BE+1FE+1Tester toàn thời gian,5ngày/tuần; T0 theo gate, chưa áp deadline giả.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D19": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D19.md",
+        "sha256": "64a224554cca6b2e0ee646b6a1382d330ecdb818294a02c35625bbb544017cda"
+      },
+      "answer": "Mọi chi phí kho không phải mua NVL cũng phải liên kết≥1phiếu nhập.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D20": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D20.md",
+        "sha256": "b60fc3a0d407423e62eaf0fa20265d0f689944c5c952f7d01497a679c03dfdbd"
+      },
+      "answer": "Chứng từ tài chính bắt buộc trước submit/confirm; draft có thể còn thiếu.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D21": {
+      "status": "APPROVED",
+      "owner": "Business Owner + chủ kho + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D21.md",
+        "sha256": "931da75f2281d9e8a925ac769cefcca66495dabb8c9505c24c5ca852811a1548"
+      },
+      "answer": "Không cho lưu một phiếu xuất hợp lệ vượt tồn hiện tại; confirm luôn kiểm lại trong transaction.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D22": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D22.md",
+        "sha256": "13ec4f04000506ad6a58e17f760fffee1a910d685f0dc809820be734bb0c52f9"
+      },
+      "answer": "Phase hiện tại dùng in-app và email; SMS không triển khai trong phase hiện tại, giữ yêu cầu gốc ở FUT-SMS.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D23": {
+      "status": "APPROVED",
+      "owner": "Business Owner + kế toán + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D23.md",
+        "sha256": "615f67af109e7ed55785a7323fa719e6fdae80732ab35d0e1d962b578a96252e"
+      },
+      "answer": "Admin cấu hình điều khoản thanh toán; seed COD/NET7/NET15/NET30; phương thức thu và chi tách danh mục.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D24": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D24.md",
+        "sha256": "ce28df953374968141de8e0dd9f1c0577b28a84f36d8a4000729f85828475400"
+      },
+      "answer": "Cho xóa dòng NVL và lưu phiên bản; xóa cả công thức là archive có kiểm tham chiếu.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D25": {
+      "status": "APPROVED",
+      "owner": "BA + Tech Lead",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D25.md",
+        "sha256": "0e3e6123f4415e9920d8672a3d9c15a724e7c71d16fbe5d0ecc6fa5956375ae8"
+      },
+      "answer": "ExpenseForm/ExpenseItem cho chi, RevenueForm/RevenueItem cho thu; không tái dùng Transaction chung làm chứng từ tài chính.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D26": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA + POS vendor",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D26.md",
+        "sha256": "7b17a6fa7ce9660a52ae0e648bbd470e1e74be981f4a44f2b2eb5ad85824c9b6"
+      },
+      "answer": "Giá bán gốc lấy từ POS khi có; mode đồng bộ giá gốc không được ghi đè cost thủ công.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D27": {
+      "status": "APPROVED",
+      "owner": "Business Owner + BA",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D27.md",
+        "sha256": "246a7374a5a8e69f795a384c0210d5da9b4b55dcec731e4aa9d35d3204449898"
+      },
+      "answer": "Biểu diễn nước cam/vỏ cam bằng NVL riêng và công thức tham chiếu; không tự sinh sản lượng hoặc tồn kho từ việc đổi đơn vị.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D28": {
+      "status": "APPROVED",
+      "owner": "BA + chủ kho",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D28.md",
+        "sha256": "00d6aaaac321b0dac6ada04cb3b85d556a9d521a2d6d777606583d7496af5ae6"
+      },
+      "answer": "Truy xuất theo batch bất biến từ dòng nhập, không dùng phiếu nhập gần nhất để đoán nguồn.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D29": {
+      "status": "APPROVED",
+      "owner": "BA + chủ tài liệu",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D29.md",
+        "sha256": "537ef55b168c15d34c61149810fdd3274085c2973efe60ff42f015864e4438a9"
+      },
+      "answer": "Chuẩn hóa mã bằng alias có truy vết; không suy diễn chức năng còn thiếu từ số UC/BR nhảy.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D30": {
+      "status": "APPROVED",
+      "owner": "BE file owner + FE forms + Tester",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D30.md",
+        "sha256": "915d3594ced977cb1e42f3563d0d0c6b6fcd508c536f66f206b3085880c3f85e"
+      },
+      "answer": "Generic upload≤10MiB với9loại; chứng từ tài chính≤5MiB/PDF-JPG-PNG; giới hạn là inclusive và kiểm theo purpose khi liên kết.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D31": {
+      "status": "APPROVED",
+      "owner": "Điều phối + BE + FE + Tester",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D31.md",
+        "sha256": "0982b4b7835a68ed6b9edb46a9aeaa6ba646f0339a9e563584bd2484029bdad6"
+      },
+      "answer": "Chốt riêng decision/design-entry, môi trường thực thi, QA và release; phê duyệt phase hiện tại không biến gate runtime tương lai thành PASS.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D32": {
+      "status": "APPROVED",
+      "owner": "Điều phối cấp target + BE/Tester sử dụng",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D32.md",
+        "sha256": "a10c8b20cb4c73c3f949e1111b06033032faf5d87303dbafecc479a4e271f249"
+      },
+      "answer": "Cấp MySQL/Redis test riêng cho task; chỉ probe và dữ liệu test đã định nghĩa, không truy cập môi trường/credential hiện hữu.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D33": {
+      "status": "APPROVED",
+      "owner": "Điều phối + BE + FE + Tester",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D33.md",
+        "sha256": "74ff404956c4da97b46b9d6b7b055df280b3eae6aae40ca322c807efac53fa51"
+      },
+      "answer": "Unit có ký hiệu và3nhóm; Material có NCC chính thuộc danh sách NCC; vị trí/HSD trình bày theo kho/lô, không ghép một ngày HSD giả vào catalog.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D34": {
+      "status": "APPROVED",
+      "owner": "BE tồn/finance + FE chứng từ + Tester",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D34.md",
+        "sha256": "8b8fb89abd8b9288219650309c095864918074c348f825fef81ac4d52e362e4f"
+      },
+      "answer": "ImportphânbiệtPURCHASEvàTRANSFER_IN; chỉPURCHASEconfirmed tựtạo chi, transfer cóphiếunhậpđốiứng vàgiátrị nguồn, khôngphátsinhcash.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D35": {
+      "status": "APPROVED",
+      "owner": "Điều phối + BE + FE + Tester",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D35.md",
+        "sha256": "2aaaa750caea9d6e4b6c8de2452c2e6c289b8030e31c9c83c697d847008e22a0"
+      },
+      "answer": "Giữ đủ trường SDD bằng mapping có nguồn; không dùng default lỗi hoặc tên tương tự để gộp mất nghĩa.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D36": {
+      "status": "APPROVED",
+      "owner": "Điều phối + BE finance + FE thu/chi + Tester",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D36.md",
+        "sha256": "184ce6ccf688784e70d06b55eb1209c2f226fc0e1eace4b400e2fc4b020d791d"
+      },
+      "answer": "Tách nghĩa vụ phải trả khỏi dòng tiền; chi côngnợconfirmed chưa phảiđãtrả, chỉsettlementghi nhận tiền thực chi.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    },
+    "D37": {
+      "status": "APPROVED",
+      "owner": "Điều phối + BE tồn/finance + Tester",
+      "evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D37.md",
+        "sha256": "a8e05e5469708835c5083aa43b8ea62d61aa0daa3d299b607ad07d4a14ef2343"
+      },
+      "answer": "Số lượng theo lô và định giá bình quân là hai chiều khác nhau; canonicalstockValue từledger, không tính lại từgiágốclô hoặc đơn giáđãlàm tròn.",
+      "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "recorded_at": "2026-11-05T04:02:11+07:00",
+      "approval_type": "USER_DELEGATED_COORDINATOR",
+      "approval_basis": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+      "policy_revision": "WH-DEC-20261105-R2",
+      "external_conditions": []
+    }
+  },
+  "acceptance": {
+    "W00": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W01": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W02": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W03": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W04": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W05": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W06": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W07": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W08": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W09": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W10": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    },
+    "W11": {
+      "status": "NOT_ASSESSED",
+      "qa_evidence": null,
+      "review_evidence": null,
+      "owner_evidence": null
+    }
+  },
+  "history": [
+    {
+      "at": "2026-11-04T16:51:19+07:00",
+      "actor": "build_roadmap.py",
+      "command": "schema-migrate R0.2",
+      "target": null,
+      "added": [
+        "W02-BE.F",
+        "W02-FE.F",
+        "W02-QA.R",
+        "W03-BE.F",
+        "W03-FE.F",
+        "W03-QA.R",
+        "W04-BE.F",
+        "W04-FE.F",
+        "W04-QA.R",
+        "W05-BE.F",
+        "W05-FE.F",
+        "W05-QA.R",
+        "W06-BE.F",
+        "W06-FE.F",
+        "W06-QA.R",
+        "W07-BE.F",
+        "W07-FE.F",
+        "W07-QA.R",
+        "W08-BE.F",
+        "W08-FE.F",
+        "W08-QA.R",
+        "W09-BE.F",
+        "W09-FE.F",
+        "W09-QA.R",
+        "W10-BE.F",
+        "W10-FE.F",
+        "W10-QA.R",
+        "W11-BE.F",
+        "W11-FE.F",
+        "W11-QA.R",
+        "D19",
+        "D20",
+        "D21",
+        "D22",
+        "D23",
+        "D24",
+        "D25",
+        "D26",
+        "D27",
+        "D28",
+        "D29"
+      ],
+      "removed_unstarted": [
+        "W01-BE.C"
+      ]
+    },
+    {
+      "at": "2026-11-05T02:14:52+07:00",
+      "actor": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "command": "record-delegated-decision-baseline",
+      "target": "WH-DEC-20261105-R1",
+      "authority": "triển khai giải quyết và đưa ra các quyết định và approve các quyết định với vai trò điều phối đi",
+      "pack_sha256": "78aebe644a7752ce61f8fb3dbe06a1994e443326033fc448682f6bac43c7acfc",
+      "before_decisions": {
+        "D01": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA",
+          "evidence": null
+        },
+        "D02": {
+          "status": "OPEN",
+          "owner": "Business Owner + chủ kho + BA",
+          "evidence": null
+        },
+        "D03": {
+          "status": "OPEN",
+          "owner": "Chủ dự án + Tech Lead",
+          "evidence": null
+        },
+        "D04": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA + Tech Lead",
+          "evidence": null
+        },
+        "D05": {
+          "status": "OPEN",
+          "owner": "Chủ kho + BA",
+          "evidence": null
+        },
+        "D06": {
+          "status": "OPEN",
+          "owner": "Tech Lead + chủ dữ liệu",
+          "evidence": null
+        },
+        "D07": {
+          "status": "OPEN",
+          "owner": "Chủ dự án + BA/Designer + Tech Lead",
+          "evidence": null
+        },
+        "D08": {
+          "status": "OPEN",
+          "owner": "Tech Lead + chủ thiết kế",
+          "evidence": null
+        },
+        "D09": {
+          "status": "OPEN",
+          "owner": "BA + kế toán/chủ kho + Tech Lead",
+          "evidence": null
+        },
+        "D10": {
+          "status": "OPEN",
+          "owner": "Chủ kho + BA",
+          "evidence": null
+        },
+        "D11": {
+          "status": "OPEN",
+          "owner": "Chủ dự án + POS vendor + Tech Lead",
+          "evidence": null
+        },
+        "D12": {
+          "status": "OPEN",
+          "owner": "BA + kế toán + chủ kho",
+          "evidence": null
+        },
+        "D13": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA",
+          "evidence": null
+        },
+        "D14": {
+          "status": "OPEN",
+          "owner": "Chủ dữ liệu + Tech Lead + QA",
+          "evidence": null
+        },
+        "D15": {
+          "status": "OPEN",
+          "owner": "Chủ dự án + QA + Tech Lead",
+          "evidence": null
+        },
+        "D16": {
+          "status": "OPEN",
+          "owner": "Chủ dự án",
+          "evidence": null
+        },
+        "D17": {
+          "status": "OPEN",
+          "owner": "Chủ dự án + BA",
+          "evidence": null
+        },
+        "D18": {
+          "status": "OPEN",
+          "owner": "Chủ dự án + QA + BE/FE",
+          "evidence": null
+        },
+        "D19": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA",
+          "evidence": null
+        },
+        "D20": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA",
+          "evidence": null
+        },
+        "D21": {
+          "status": "OPEN",
+          "owner": "Business Owner + chủ kho + BA",
+          "evidence": null
+        },
+        "D22": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA + Tech Lead",
+          "evidence": null
+        },
+        "D23": {
+          "status": "OPEN",
+          "owner": "Business Owner + kế toán + BA",
+          "evidence": null
+        },
+        "D24": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA",
+          "evidence": null
+        },
+        "D25": {
+          "status": "OPEN",
+          "owner": "BA + Tech Lead",
+          "evidence": null
+        },
+        "D26": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA + POS vendor",
+          "evidence": null
+        },
+        "D27": {
+          "status": "OPEN",
+          "owner": "Business Owner + BA",
+          "evidence": null
+        },
+        "D28": {
+          "status": "OPEN",
+          "owner": "BA + chủ kho",
+          "evidence": null
+        },
+        "D29": {
+          "status": "OPEN",
+          "owner": "BA + chủ tài liệu",
+          "evidence": null
+        }
+      },
+      "after_summary": {
+        "APPROVED": 28,
+        "APPROVED_CONDITIONAL": 1
+      },
+      "product_tasks_changed": false,
+      "acceptance_changed": false,
+      "calendar_changed": false
+    },
+    {
+      "at": "2026-11-05T04:02:11+07:00",
+      "actor": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+      "command": "apply-design-and-planning-r2",
+      "target": "WH-DEC-20261105-R2",
+      "before_state": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/history-r1/state-before-r2.json",
+        "sha256": "cfeaa481bfdb4c1674988c32a11b61e33c6af7f16840e0a3b09d4332f4019cd7"
+      },
+      "note": "37 approvals; W00 documentation complete; 84 implementation tasks preserved, no product acceptance granted."
+    }
+  ],
+  "preparation_tasks": {
+    "W00-BE": {
+      "status": "COMPLETE",
+      "evidence": [
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/openapi-v1.json",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/warehouse-storage.proto",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/data-and-migration.md",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json"
+      ],
+      "actual_start": "2026-11-05T02:51:30+07:00",
+      "actual_finish": "2026-11-05T04:02:11+07:00",
+      "remaining_effort": 0,
+      "evidence_hashes": {
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/openapi-v1.json": "3da92ccef4be335d3bff5e55dd722e3502886d57be0e175cf0e2b2097b4c514f",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/warehouse-storage.proto": "0575a7ffc0b396bfd335c16591101a45bc0bd7ac85da378aa17ea7bd3954b3b0",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/data-and-migration.md": "c9918163d08785633e09b13d708b0a659cbd1d7e3885abf2053eb529f5185538",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json": "d5519e37b464a90ff14e0c9222c49d5f0d0fc070bdd67560da3d3490e5387cbf"
+      },
+      "performed_by": "Codex coordinator prepared role deliverable; no human execution claimed",
+      "updated_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026"
+    },
+    "W00-FE": {
+      "status": "COMPLETE",
+      "evidence": [
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/screen-contracts.json",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/design-tokens.json",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json"
+      ],
+      "actual_start": "2026-11-05T02:51:30+07:00",
+      "actual_finish": "2026-11-05T04:02:11+07:00",
+      "remaining_effort": 0,
+      "evidence_hashes": {
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/screen-contracts.json": "5ed2da2a17799c35189efba282da914a48ecb4e74d9ac45d6c7d02f68dedbef5",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/design-tokens.json": "90c8dc9690ce310af57885d856d5bb94dc244072deabf782feb8e1a0eea772dd",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json": "d5519e37b464a90ff14e0c9222c49d5f0d0fc070bdd67560da3d3490e5387cbf"
+      },
+      "performed_by": "Codex coordinator prepared role deliverable; no human execution claimed",
+      "updated_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026"
+    },
+    "W00-QA": {
+      "status": "COMPLETE",
+      "evidence": [
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/test-cases.json",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/fixture-plan.json",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/environment/probe-baseline.json",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json"
+      ],
+      "actual_start": "2026-11-05T02:51:30+07:00",
+      "actual_finish": "2026-11-05T04:02:11+07:00",
+      "remaining_effort": 0,
+      "evidence_hashes": {
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/test-cases.json": "0950ce652631354538e21ebf1021c3765fdb6808707806f95d23f6d0f2439f02",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/fixture-plan.json": "d78e5a2c5c021431b1128478a77470c24884d54117d95368ffb911d2a4825470",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/environment/probe-baseline.json": "6de7c4945be9f4e03a09d64ed85ce47a40d1eb851960f3bc64f40033f9844101",
+        "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json": "d5519e37b464a90ff14e0c9222c49d5f0d0fc070bdd67560da3d3490e5387cbf"
+      },
+      "performed_by": "Codex coordinator prepared role deliverable; no human execution claimed",
+      "updated_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026"
+    }
+  },
+  "decision_baseline": {
+    "id": "WH-DEC-20261105-R2",
+    "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/decision-pack.json",
+    "sha256": "a2f836650b3ced1b4b29a3bb8c03b55d29ca6b7ec74e2e616a59b8c758f9e070",
+    "approved_at": "2026-11-05T04:02:11+07:00",
+    "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+    "status": "APPROVED_CURRENT_PHASE; FUT-POS/FUT-SMS DEFERRED_USER"
+  },
+  "planning_estimate_status": "APPROVED_REESTIMATE_R2",
+  "external_gates_file": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/gates.json",
+  "planning_capacity": {
+    "BE": 1,
+    "FE": 1,
+    "QA": 1,
+    "working_days_per_week": 5,
+    "allocation": "full-time planning assumption approved by coordinator; staffing assignment not yet evidenced"
+  },
+  "planning_baseline": {
+    "id": "WH-PLAN-20261105-R2",
+    "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/planning/plan.json",
+    "sha256": "4e2297e24a97da80ef0df80739e9f1eef2d63113332940467d512717a95bddb5"
+  },
+  "preimplementation_baseline": {
+    "id": "WH-READY-20261105-R2",
+    "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/readiness-evidence.json",
+    "sha256": "3735a15be4cbe257db0325038ecb6fa27c39ad3f2b4cdacaf733e9ded7413bd2"
+  },
+  "gate_registry": {
+    "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/gates.json",
+    "sha256": "a3cdc81a6e40177766dcec4941bf38d85fb8849f7e6e94f1231ae3d15f9e719c"
+  },
+  "acceptance_scope": "CURRENT_PHASE_LOCAL; excludes FUT-POS/FUT-SMS and production release",
+  "calendar_policy": "Relative T0: first staffed workday after design entry; actual actor logs start. No committed deadline.",
+  "carryover_tasks": [
+    {
+      "id": "be-file-upload-auth-20261105",
+      "package": "W02",
+      "status": "WIP_NOT_PACKAGE_ACCEPTED",
+      "owner": "Existing backend worker",
+      "handoff": "/home/chuong/Desktop/warehouse/.agents/tasks/be-file-upload-auth-20261105/handoff.md",
+      "alignment": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/carryover-alignment.md"
+    }
+  ]
+}

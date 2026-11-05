@@ -1,0 +1,45 @@
+{
+  "id": "D04",
+  "namespace": "DECISION",
+  "title": "Trạng thái phiếu, thời điểm ghi tồn và giữ chỗ",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Ký state/event/action matrix từng loại phiếu; tồn đổi khi lưu hay khi confirm, có sửa UC5-01/UC6-01 hay không; có khái niệm giữ chỗ/tồn khả dụng hay không, nếu có thì công thức và reserve/release; giữ hay bỏ PENDING/reserve đã có trong code; side effect của cancel/rollback. Không tự đặt thời hạn giữ chỗ.",
+  "source_reference": "D00 P3 (câu hỏi chưa có đáp án); D13 P312 \"Quản lý phê duyệt mới cập nhật tồn kho\", P313–P316 (không có khái niệm giữ chỗ); D23 ADR-004 P80–P86 (Confirmed = đã cập nhật tồn kho); D20 T142R6–R7, T155R6–R7 \"Lưu phiếu\" thì cập nhật/trừ tồn ↔ D13 P135–P136, P195, D24 P458–P468 (Draft rồi người duyệt xác nhận); ERD \"draft, submited, confirmed\" ↔ D24 Draft/Confirmed/Cancelled; D17 P134/P182 \"Chờ duyệt\" ↔ T136R23/T184R20; D24 P541 BalanceForm (Draft) ↔ T252R7; code phiếu xuất PENDING/reserved_quantity (migration 1783728000046)",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Business Owner + BA + Tech Lead",
+  "affected_packages": [
+    "W04",
+    "W05",
+    "W06",
+    "W07"
+  ],
+  "answer": "Tồn và sổ tiền chỉ thay đổi tại duyệt cuối; nháp/gửi duyệt không giữ chỗ tồn.",
+  "rules": [
+    "Nhập/xuất/thu/chi: DRAFT → SUBMITTED → CONFIRMED; DRAFT/SUBMITTED có thể CANCELLED. Creator sửa DRAFT; Manager trả SUBMITTED về DRAFT có lý do. CONFIRMED/CANCELLED bất biến, không xóa cứng.",
+    "SUBMITTED diễn đạt Chờ duyệt thống nhất. Import/Export CONFIRMED mới cộng/trừ tồn; Expense/Revenue CONFIRMED mới ghi sổ tiền. Lưu/gửi duyệt không cập nhật lượng hoặc số tiền đã trả/thu.",
+    "Không dùng reservation ở baseline này: on_hand=available, không reserve/release khi gửi duyệt. Nhiều nháp có thể cùng tham chiếu lượng tồn, confirm phải khóa và kiểm lại đủ tồn.",
+    "Code PENDING/reserved hiện có phải được migration đối soát trước khi bỏ: PENDING → SUBMITTED, giải phóng reservation trong transaction, không đổi on_hand, lưu audit và đối soát lot/tổng. Không xóa số giữ chỗ bằng bulk SQL không đối soát.",
+    "Kiểm kho: DRAFT → IN_PROGRESS → SUBMITTED → COMPLETED; Manager approve thực hiện COMPLETED và delta tồn một lần, rồi mở khóa. Cancel trước COMPLETED mở khóa không điều chỉnh. Khóa/version và idempotency áp dụng mọi action.",
+    "Chi DEBTconfirmedchỉduyệtnghĩavụ; cashchỉtheoExpenseSettlementD36. Khôngcoimọiphiếuconfirmedlàđãtrả."
+  ],
+  "rationale": "Giữ xác nhận của Manager là thời điểm ghi sổ trong BRD/ADR; chuẩn hóa Chờ duyệt và thay thế mô tả lưu phiếu đã đổi tồn ở UC cũ.",
+  "change_control_id": "CR-D04-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Lưu/gửi nhập hoặc xuất: tồn và paid/received không đổi.",
+    "Hai Manager confirm đồng thời không ghi sổ hai lần.",
+    "Migration pending giữ nguyên tổng on_hand và history, reservation về 0 có đối soát."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "e6d71353562a7c9384c150f6879cd1b0332dfcc11135da119f79e22dbfba883d"
+}

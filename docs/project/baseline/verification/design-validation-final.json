@@ -1,0 +1,89 @@
+{
+  "id": "WH-DESIGN-VALIDATION-R2",
+  "at": "2026-11-05T04:09:13+07:00",
+  "level": "DESIGN_AND_LOCAL_PLANNING_ONLY",
+  "checks": [
+    {
+      "name": "local-references",
+      "status": "PASS",
+      "detail": "All OpenAPI refs resolve inside this document."
+    },
+    {
+      "name": "openapi-3.1-validator",
+      "status": "PASS",
+      "detail": "161 operations / 84 schemas"
+    },
+    {
+      "name": "protobuf-compile",
+      "status": "PASS",
+      "detail": "Typed proto compiles with grpc_tools.protoc; no server runtime claimed."
+    },
+    {
+      "name": "operation-ids-unique",
+      "status": "PASS",
+      "detail": "No duplicate operationId."
+    },
+    {
+      "name": "authorization-declarations",
+      "status": "PASS",
+      "detail": "Every operation declares authority and family; runtime rechecks required."
+    },
+    {
+      "name": "sdd-field-disposition",
+      "status": "PASS",
+      "detail": "29 tables, 339 source field occurrences, including duplicate source row; design dispositions only."
+    },
+    {
+      "name": "operation-screen-disposition",
+      "status": "PASS",
+      "detail": "158 bound UI operations, 3 integration-only operations."
+    },
+    {
+      "name": "test-case-ids",
+      "status": "PASS",
+      "detail": "All cases unique and DESIGNED_NOT_RUN."
+    },
+    {
+      "name": "contract-test-basis",
+      "status": "PASS",
+      "detail": "Every operation has a contract test design; not execution/branch coverage."
+    },
+    {
+      "name": "managed-requirement-links",
+      "status": "PASS",
+      "detail": "230 managed trace rows reference existing case designs; not exhaustive prose branch proof."
+    },
+    {
+      "name": "application-test-status-honesty",
+      "status": "PASS",
+      "detail": "No application test result is invented."
+    },
+    {
+      "name": "capacity-and-dependencies",
+      "status": "PASS",
+      "detail": "84 implementation task IDs retained; one BE/FE/QA each."
+    },
+    {
+      "name": "dossier-completeness",
+      "status": "PASS",
+      "detail": "12 owned WBS dossiers; schema/screens/test basis links resolve."
+    },
+    {
+      "name": "all-decisions-closed",
+      "status": "PASS",
+      "detail": "37 delegated coordinator design approvals; FUT-POS/FUT-SMS deferred by user."
+    },
+    {
+      "name": "preserve-entry-wip",
+      "status": "PASS",
+      "detail": "13 worker-owned WIP files retain entry hashes."
+    }
+  ],
+  "application_tests_run": false,
+  "independent_review_run": false,
+  "limitations": [
+    "Static validation does not prove all business rules are correctly implemented.",
+    "NFR, actual auth/RBAC, migrations and browser acceptance remain after code.",
+    "Any later change to approved evidence requires revision/hash reconciliation."
+  ]
+}

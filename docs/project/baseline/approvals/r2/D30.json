@@ -1,0 +1,45 @@
+{
+  "id": "D30",
+  "namespace": "DECISION",
+  "title": "Upload tổng quát, chứng từ tài chính và biên kích thước",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Upload tổng quát, chứng từ tài chính và biên kích thước",
+  "source_reference": ".agents/tasks/be-file-upload-auth-20261105/plan.md: quyết định người dùng05/11 về9loại và≤10MiB; D06R1; D17 T136R20/T184R17.",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "BE file owner + FE forms + Tester",
+  "affected_packages": [
+    "W02",
+    "W04",
+    "W07",
+    "W10"
+  ],
+  "answer": "Generic upload≤10MiB với9loại; chứng từ tài chính≤5MiB/PDF-JPG-PNG; giới hạn là inclusive và kiểm theo purpose khi liên kết.",
+  "rules": [
+    "GENERIC: pdf,jpg,jpeg,png,webp,xls,xlsx,doc,docx, mỗi file≤10×1024×1024byte. FINANCIAL_ATTACHMENT: pdf,jpg,jpeg,png,≤5×1024×1024byte. EXCEL_IMPORT: chỉxlsx≤5MiB và≤1000dòng theoD15. Không thay thế một purpose bằng purpose khác ở client.",
+    "Backend kiểm extension, MIME và nội dung thực. PDF/JPEG/PNG/WEBP kiểm decoder/signature phù hợp; xlsx/docx kiểm cấu trúc ZIP/OOXML, xls/doc kiểm định dạng OLE và stream tương ứng. MIME client không đủ. Tệp mã hóa/hỏng/không xác định bị từ chối.",
+    "File tối đa đúngNbyte phải qua; N+1bị chặn cả API/UI. Khi thư viện multipart chạmlimit đã reject, đặt transportguard phù hợp rồi kiểm chính xác actualsize tại service; không đổi yêu cầu thành<N chỉ để test xanh.",
+    "FILE_CREATE là điều kiện upload; gắn/download còn kiểm owner/purpose/quyền kho/phiếu. Tệpgeneric10MiB không được gắn tài chính nếu>5MiB hoặc sai loại. S3key dùng phần mở rộng cuối đã xác minh, không split dấu chấm thứ nhất.",
+    "Legacy /file/upload giữ responsemessage hiện có và mã422FileException theo yêu cầu task đang làm. APIv1 mới dùng resultmetadata chuẩn; không làm breakingchange ởlegacy mà không có adapter/transition. Các routeupload cũ khác phải có task riêng để alignpurpose/biên, không tự sửa WIP của worker khác.",
+    "Purposecủaobjectupload vàpurposecủaliênkếtphânbiệt: genericPDF≤5MiBđãkiểm nộidungcóthểgắntài chínhsaurevalidationvàquyền,khôngcầnuploadlại. RelationghiFINANCIAL_ATTACHMENT;generic>5MiBhoặcloạikháckhôngđượcbypass. Attachmentsnhập/xuấtthôngthườngdùngGENERIC9loại/10MiB; trườngảnhhủy/kiểmkho chỉảnhJPG/PNG/WEBPđãxácminh."
+  ],
+  "rationale": "Hợp nhất hai phạm vi file khác nhau và chỉ dẫn người dùng mới; đóng câu hỏi của worker mà vẫn giữ giới hạn chứng từ tài chính trong thiết kế.",
+  "change_control_id": "CR-D30-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Generic đúng10485760byte qua,10485761bị422; financialđúng5242880qua,5242881bịchặn.",
+    "XLSXhợp lệ generic upload được, gắnfinance bị từ chối.",
+    "report.v2.pdf dùng đuôi.pdf; MIME giả hoặc ZIPgiả không qua kiểm nội dung."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": null
+}

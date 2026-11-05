@@ -1,0 +1,45 @@
+{
+  "id": "D03",
+  "namespace": "DECISION",
+  "title": "Kiến trúc đích và ERD/API chủ",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Xác nhận thiết kế gRPC/microservices và stack FE áp dụng; mọi thay đổi phải có CR/ADR được duyệt. Chốt ERD chủ, ID/slug, PUT/PATCH, version, transaction và ranh giới dịch vụ. Effort R0.2 chỉ đúng khi giữ monolith/stack hiện tại; chọn phương án khác phải re-estimate W02–W11 trước T0. Không mặc định giữ monolith.",
+  "source_reference": "D23 ADR-001 P8–P17, P235:P236; T231R7; D24 API T425:T446; D25:D27; code AppModule/routes",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Chủ dự án + Tech Lead",
+  "affected_packages": [
+    "W00",
+    "W02",
+    "W06",
+    "W10"
+  ],
+  "answer": "Giữ kiến trúc đích trong ADR-001: React → REST Gateway → NestJS Storage Service qua gRPC → MySQL.",
+  "rules": [
+    "Gateway và Storage Service là hai process/service riêng; Gateway xác thực/ủy quyền biên và truyền identity/traceId đã xác minh, Storage Service kiểm lại quyền thao tác và scope. Không tin identity do client gRPC tự khai.",
+    "Các module danh mục, phiếu, lô, tồn và tài chính thuộc Storage Service. Ghi tồn/lô/phiếu/ledger dùng một transaction MySQL; không tách một nghiệp vụ tồn thành distributed transaction. File dùng provider riêng theo D06, sự kiện ra ngoài dùng outbox.",
+    "Nest app hiện tại là nguồn module tái sử dụng khi tách, không phải bằng chứng đã đạt microservices. Không phê duyệt monolith thay cho ADR. W02 phải có proto, service boundary, auth giữa services và migration path trước khi code.",
+    "D24 SDD + baseline bổ sung này là mô hình dữ liệu chuẩn; D26/D27 là diagram tham khảo, phải tái sinh từ schema đã đối chiếu, không chọn bản tên ngày làm chuẩn tự động.",
+    "UUID bất biến là ID nội bộ và ID API v1 theo SDD. Code chứng từ do server cấp và unique; slug phục vụ tra cứu/compatibility, không thay khóa. GET đọc, POST tạo/action, PUT thay thế đủ payload, PATCH sửa một phần có version; schema phân biệt omitted và null, không trộn semantics.",
+    "Estimate/lịch R0.2 giả định giữ monolith không còn đủ cơ sở để cam kết. Bắt buộc estimate lại phần tách Gateway/gRPC, chuyển UI D08 và các gói bị ảnh hưởng trước T0; không tự gán số ngày mới khi chưa breakdown."
+  ],
+  "rationale": "Tuân thủ kiến trúc thiết kế gốc và giữ nguyên tính nguyên tử của nghiệp vụ tồn; không chọn thuận theo code hiện có.",
+  "change_control_id": "CR-D03-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Gateway không truy cập DB nghiệp vụ trực tiếp; gRPC từ caller không được cấp bị từ chối.",
+    "Lỗi một dòng nhập làm rollback cả phiếu/lô/tồn/audit/outbox.",
+    "PUT thiếu trường bắt buộc bị từ chối; PATCH omitted không xóa dữ liệu."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "3a2ed32668ad48da98a08db9e7bdc55acaa74a6c0ccadaa509205f2184f954d7"
+}

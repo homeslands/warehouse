@@ -1,0 +1,45 @@
+{
+  "id": "D07",
+  "namespace": "DECISION",
+  "title": "Visual, màn hình và hợp đồng API còn thiếu",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Duyệt screen/flow và responsive, API/schema/errors/permissions mẫu; không coi screenshot UI hiện tại hoặc video chưa xem là thiết kế được ký.",
+  "source_reference": "D28 UI_UX body trống; D29 A1=SP1; D34 setup trống; D35 Example; D24 API",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Chủ dự án + BA/Designer + Tech Lead",
+  "affected_packages": [
+    "W00",
+    "W02",
+    "W03",
+    "W09",
+    "W10",
+    "W11"
+  ],
+  "answer": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+  "rules": [
+    "Baseline UI dùng Ant Design theo D08, tiếng Việt mặc định, desktop1440/tablet768/mobile390 và hỗ trợ320px. Form một cột trên mobile; dữ liệu quantity/action chính nhìn thấy hoặc có chế độ card/sticky có nhãn rõ.",
+    "Mỗi màn phải có screen/route/action map, field/validation/quyền/trạng thái, loading/empty/error/403/409/offline và success. W02–W03 phải nộp screen contracts trước implement FE; màn W04+ nộp theo gate miền.",
+    "API v1 phải có OpenAPI request/response/error/auth/scope/pagination/version và ví dụ; D29 A1=SP1 không là contract. Giữ HTTP status đúng, business error có code ổn định, traceId và field errors, không có stack/secret.",
+    "Ảnh fixture và UI code hiện tại chỉ là hiện trạng để nhận diện gap. Quyết định này duyệt chuẩn và bộ hồ sơ cần có, không tuyên bố mọi pixel/màn chưa thiết kế đã được ký. Setup/error-code docs là deliverable có owner trong W00/W11."
+  ],
+  "rationale": "Cho BE/FE/QA một điều kiện Ready cụ thể thay vì phải đoán từ tài liệu trống.",
+  "change_control_id": "CR-D07-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Mỗi FE task có screen contract tương ứng và state/error cases.",
+    "API mới có schema, example403/409/validation và version.",
+    "Mobile320 không che thao tác xác nhận hoặc giá trị số lượng."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "90daa1f5b342fdd8d72cd3e3c6bdfa2be11805e066b06c41fff35e0dc04fbb32"
+}

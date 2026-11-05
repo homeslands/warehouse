@@ -1,0 +1,4762 @@
+{
+  "FieldError": {
+    "type": "object",
+    "properties": {
+      "field": {
+        "type": "string"
+      },
+      "errorKey": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "field",
+      "errorKey",
+      "message"
+    ],
+    "additionalProperties": false
+  },
+  "Error": {
+    "type": "object",
+    "properties": {
+      "statusCode": {
+        "type": "integer",
+        "minimum": 400,
+        "maximum": 599
+      },
+      "code": {
+        "type": "integer"
+      },
+      "errorKey": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      },
+      "traceId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/FieldError"
+        }
+      }
+    },
+    "required": [
+      "statusCode",
+      "code",
+      "errorKey",
+      "message",
+      "traceId",
+      "timestamp"
+    ],
+    "additionalProperties": false
+  },
+  "VersionCommand": {
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "reason": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "version"
+    ],
+    "additionalProperties": false
+  },
+  "ActionResult": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "status": {
+        "type": "string"
+      },
+      "traceId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "id",
+      "version",
+      "status",
+      "traceId"
+    ],
+    "additionalProperties": false
+  },
+  "Page": {
+    "type": "object",
+    "properties": {
+      "page": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "pageSize": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 100
+      },
+      "total": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "totalPages": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "hasNext": {
+        "type": "boolean"
+      },
+      "hasPrevious": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "page",
+      "pageSize",
+      "total",
+      "totalPages",
+      "hasNext",
+      "hasPrevious"
+    ],
+    "additionalProperties": false
+  },
+  "Role": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 100
+      },
+      "family": {
+        "type": "string",
+        "enum": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      "level": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "builtIn": {
+        "type": "boolean"
+      },
+      "authorityCodes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "name",
+      "family",
+      "level",
+      "builtIn",
+      "authorityCodes",
+      "version"
+    ],
+    "additionalProperties": false
+  },
+  "RoleWrite": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 100
+      },
+      "family": {
+        "type": "string",
+        "enum": [
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      "level": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "authorityCodes": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        },
+        "uniqueItems": true
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "name",
+      "family",
+      "level",
+      "authorityCodes"
+    ],
+    "additionalProperties": false
+  },
+  "User": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "phoneNumber": {
+        "type": "string",
+        "pattern": "^\\+?[0-9]{9,15}$",
+        "maxLength": 20
+      },
+      "displayName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "maxLength": 100
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "role": {
+        "$ref": "#/components/schemas/Role"
+      },
+      "warehouseIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "dob": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date",
+        "maxLength": 255
+      },
+      "address": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "avatarFileId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "phoneNumber",
+      "displayName",
+      "isActive",
+      "role",
+      "warehouseIds",
+      "version",
+      "email"
+    ],
+    "additionalProperties": false
+  },
+  "UserCreate": {
+    "type": "object",
+    "properties": {
+      "phoneNumber": {
+        "type": "string",
+        "pattern": "^\\+?[0-9]{9,15}$",
+        "maxLength": 20
+      },
+      "displayName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "maxLength": 100
+      },
+      "password": {
+        "type": "string",
+        "minLength": 12,
+        "maxLength": 72,
+        "writeOnly": true,
+        "x-max-utf8-bytes": 72
+      },
+      "roleId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "warehouseIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "dob": {
+        "type": "string",
+        "format": "date",
+        "maxLength": 255
+      },
+      "address": {
+        "type": "string",
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "phoneNumber",
+      "displayName",
+      "password",
+      "roleId",
+      "warehouseIds",
+      "email"
+    ],
+    "additionalProperties": false
+  },
+  "UserPatch": {
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "displayName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "maxLength": 100
+      },
+      "isActive": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "version"
+    ],
+    "additionalProperties": false,
+    "minProperties": 2
+  },
+  "ProfilePatch": {
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "displayName": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "maxLength": 100
+      },
+      "dob": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date",
+        "maxLength": 255
+      },
+      "avatarFileId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "address": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "version"
+    ],
+    "additionalProperties": false,
+    "minProperties": 2
+  },
+  "Login": {
+    "type": "object",
+    "properties": {
+      "phoneNumber": {
+        "type": "string",
+        "minLength": 1
+      },
+      "password": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 128,
+        "writeOnly": true
+      }
+    },
+    "required": [
+      "phoneNumber",
+      "password"
+    ],
+    "additionalProperties": false
+  },
+  "LoginResult": {
+    "type": "object",
+    "properties": {
+      "accessToken": {
+        "type": "string"
+      },
+      "expiresIn": {
+        "const": 900
+      },
+      "user": {
+        "$ref": "#/components/schemas/User"
+      },
+      "sessionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "csrfToken": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "accessToken",
+      "expiresIn",
+      "user",
+      "sessionId",
+      "csrfToken"
+    ],
+    "additionalProperties": false
+  },
+  "PasswordChange": {
+    "type": "object",
+    "properties": {
+      "currentPassword": {
+        "type": "string",
+        "writeOnly": true
+      },
+      "newPassword": {
+        "type": "string",
+        "minLength": 12,
+        "maxLength": 72,
+        "writeOnly": true,
+        "x-max-utf8-bytes": 72
+      }
+    },
+    "required": [
+      "currentPassword",
+      "newPassword"
+    ],
+    "additionalProperties": false
+  },
+  "Session": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "isCurrent": {
+        "type": "boolean"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "lastInteractiveAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "idleExpiresAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "expiresAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "ipMasked": {
+        "type": "string"
+      },
+      "userAgent": {
+        "type": "string",
+        "maxLength": 500
+      }
+    },
+    "required": [
+      "id",
+      "isCurrent",
+      "createdAt",
+      "lastInteractiveAt",
+      "idleExpiresAt",
+      "expiresAt"
+    ],
+    "additionalProperties": false
+  },
+  "Authority": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "pattern": "^[A-Z][A-Z0-9_]{1,79}$"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "groupId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "fixedInvariant": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "code",
+      "name",
+      "groupId",
+      "fixedInvariant"
+    ],
+    "additionalProperties": false
+  },
+  "Warehouse": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "storeId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "managerIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "memberIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "name",
+      "version",
+      "managerIds",
+      "memberIds",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "WarehouseWrite": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 200
+      },
+      "storeId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "managerIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "memberIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "isActive": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name",
+      "managerIds",
+      "memberIds",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "NamedMaster": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "name",
+      "version",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "NamedMasterWrite": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "isActive": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "PaymentTerm": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string"
+      },
+      "label": {
+        "type": "string"
+      },
+      "dueDays": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 365
+      },
+      "active": {
+        "type": "boolean"
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "label",
+      "dueDays",
+      "active",
+      "version"
+    ],
+    "additionalProperties": false
+  },
+  "Supplier": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "phoneNumber": {
+        "type": "string",
+        "maxLength": 20
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "maxLength": 255
+      },
+      "address": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "taxCode": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "paymentTermId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "contactPerson": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "website": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uri"
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "name",
+      "version",
+      "isActive",
+      "materialIds"
+    ],
+    "additionalProperties": false
+  },
+  "SupplierWrite": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "phoneNumber": {
+        "type": "string",
+        "maxLength": 20
+      },
+      "email": {
+        "type": "string",
+        "format": "email",
+        "maxLength": 255
+      },
+      "address": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "taxCode": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "paymentTermId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "contactPerson": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "website": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uri"
+      }
+    },
+    "required": [
+      "name",
+      "materialIds",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "Material": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "typeId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "baseUnitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "isExpiry": {
+        "type": "boolean"
+      },
+      "minimumQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "maximumQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "supplierIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true,
+        "minItems": 1
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "primarySupplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "positions": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/MaterialPositionAssignment"
+        }
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "name",
+      "typeId",
+      "baseUnitId",
+      "isExpiry",
+      "minimumQuantity",
+      "maximumQuantity",
+      "supplierIds",
+      "version",
+      "isActive",
+      "primarySupplierId",
+      "positions"
+    ],
+    "additionalProperties": false
+  },
+  "MaterialWrite": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 255
+      },
+      "typeId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "baseUnitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "isExpiry": {
+        "type": "boolean"
+      },
+      "minimumQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "maximumQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "supplierIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true,
+        "minItems": 1
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "primarySupplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "positions": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/MaterialPositionAssignment"
+        }
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      }
+    },
+    "required": [
+      "name",
+      "typeId",
+      "baseUnitId",
+      "isExpiry",
+      "minimumQuantity",
+      "maximumQuantity",
+      "supplierIds",
+      "isActive",
+      "primarySupplierId",
+      "positions"
+    ],
+    "additionalProperties": false
+  },
+  "Conversion": {
+    "type": "object",
+    "properties": {
+      "unitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "baseUnitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "factor": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float.",
+        "maxLength": 255
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "isBase": {
+        "type": "boolean"
+      },
+      "symbol": {
+        "type": "string",
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "unitId",
+      "baseUnitId",
+      "factor",
+      "version"
+    ],
+    "additionalProperties": false
+  },
+  "Position": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "location": {
+        "type": "string",
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "warehouseId",
+      "name",
+      "version",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "FileMetadata": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "purpose": {
+        "type": "string",
+        "enum": [
+          "GENERIC",
+          "FINANCIAL_ATTACHMENT",
+          "EXCEL_IMPORT"
+        ]
+      },
+      "originalName": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "detectedMimeType": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "extension": {
+        "type": "string"
+      },
+      "sizeBytes": {
+        "type": "integer",
+        "minimum": 1,
+        "maximum": 10485760
+      },
+      "sha256": {
+        "type": "string",
+        "pattern": "^[0-9a-f]{64}$"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "ownerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "UNATTACHED",
+          "ATTACHED",
+          "REJECTED"
+        ]
+      }
+    },
+    "required": [
+      "id",
+      "purpose",
+      "originalName",
+      "detectedMimeType",
+      "extension",
+      "sizeBytes",
+      "sha256",
+      "ownerId",
+      "createdAt",
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "FileAccess": {
+    "type": "object",
+    "properties": {
+      "url": {
+        "type": "string",
+        "format": "uri"
+      },
+      "expiresAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "downloadName": {
+        "type": "string"
+      },
+      "contentDisposition": {
+        "const": "attachment"
+      }
+    },
+    "required": [
+      "url",
+      "expiresAt",
+      "downloadName",
+      "contentDisposition"
+    ],
+    "additionalProperties": false
+  },
+  "AuditEvent": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "actorId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "action": {
+        "type": "string"
+      },
+      "entityType": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "entityId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "entityVersion": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "before": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "after": {
+        "type": [
+          "object",
+          "null"
+        ]
+      },
+      "traceId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "ipMasked": {
+        "type": "string",
+        "maxLength": 45
+      },
+      "userAgent": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "actorType": {
+        "type": "string",
+        "enum": [
+          "USER",
+          "SYSTEM"
+        ]
+      },
+      "actorName": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "serviceIdentity": {
+        "type": "string"
+      },
+      "changedFields": {
+        "type": "array",
+        "items": {
+          "type": "string"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "actorId",
+      "action",
+      "entityType",
+      "entityId",
+      "traceId",
+      "createdAt",
+      "actorType"
+    ],
+    "additionalProperties": false
+  },
+  "BackupRequest": {
+    "type": "object",
+    "properties": {
+      "targetRef": {
+        "const": "WH-TEST-ENV-20261105"
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "targetRef",
+      "reason"
+    ],
+    "additionalProperties": false
+  },
+  "RestoreRequest": {
+    "type": "object",
+    "properties": {
+      "backupId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "targetRef": {
+        "const": "WH-TEST-ENV-20261105"
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      },
+      "confirmationCode": {
+        "type": "string",
+        "minLength": 1
+      }
+    },
+    "required": [
+      "backupId",
+      "targetRef",
+      "reason",
+      "confirmationCode"
+    ],
+    "additionalProperties": false
+  },
+  "Job": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "kind": {
+        "type": "string"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "QUEUED",
+          "RUNNING",
+          "SUCCEEDED",
+          "FAILED",
+          "CANCELLED"
+        ]
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "finishedAt": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date-time"
+      },
+      "errorKey": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "resultFileId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "progress": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 100
+      }
+    },
+    "required": [
+      "id",
+      "kind",
+      "status",
+      "createdAt",
+      "progress"
+    ],
+    "additionalProperties": false
+  },
+  "Inventory": {
+    "type": "object",
+    "properties": {
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "baseUnitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "availableQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "averageCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "stockValue": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "isBelowOrAtMin": {
+        "type": "boolean"
+      },
+      "isAboveOrAtMax": {
+        "type": "boolean"
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "effectiveMinimumQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "effectiveMaximumQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "thresholdSource": {
+        "type": "string",
+        "enum": [
+          "MATERIAL",
+          "WAREHOUSE_OVERRIDE"
+        ]
+      },
+      "valuationStatus": {
+        "type": "string",
+        "enum": [
+          "READY",
+          "PENDING_RECONCILIATION"
+        ]
+      }
+    },
+    "required": [
+      "warehouseId",
+      "materialId",
+      "baseUnitId",
+      "quantity",
+      "availableQuantity",
+      "isBelowOrAtMin",
+      "isAboveOrAtMax",
+      "version",
+      "effectiveMinimumQuantity",
+      "effectiveMaximumQuantity",
+      "thresholdSource",
+      "valuationStatus"
+    ],
+    "additionalProperties": false
+  },
+  "Batch": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "importFormId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "importItemId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierLotCode": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "manufacturedOn": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "expiresOn": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "unitCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Deprecated display alias of valuationUnitCost; never use it to recompute canonical stockValue. receiptUnitCost is immutable provenance."
+      },
+      "parentBatchId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "provenanceStatus": {
+        "type": "string",
+        "enum": [
+          "VERIFIED",
+          "LEGACY_UNVERIFIED"
+        ]
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "ACTIVE",
+          "EXPIRED",
+          "DEPLETED"
+        ]
+      },
+      "positionId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "receiptUnitCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "valuationUnitCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "warehouseId",
+      "materialId",
+      "quantity",
+      "version",
+      "provenanceStatus",
+      "status"
+    ],
+    "additionalProperties": false
+  },
+  "ImportItemWrite": {
+    "type": "object",
+    "properties": {
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "unitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "unitPrice": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "manufacturedOn": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "expiresOn": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "supplierLotCode": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "positionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "materialId",
+      "unitId",
+      "quantity",
+      "unitPrice"
+    ],
+    "additionalProperties": false
+  },
+  "ExportItemWrite": {
+    "type": "object",
+    "properties": {
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "unitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "materialId",
+      "unitId",
+      "quantity"
+    ],
+    "additionalProperties": false
+  },
+  "ImportDraft": {
+    "type": "object",
+    "properties": {
+      "supplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "poNumber": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "invoiceNumber": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ImportItemWrite"
+        },
+        "minItems": 1,
+        "maxItems": 1000
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "vatRate": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 20,
+        "default": 0
+      }
+    },
+    "required": [
+      "supplierId",
+      "businessDate",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "ExportDraft": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "PRODUCTION",
+          "SALE",
+          "DISPOSAL",
+          "TRANSFER",
+          "LIQUIDATION",
+          "OTHER"
+        ]
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "destinationWarehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "reason": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ExportItemWrite"
+        },
+        "minItems": 1,
+        "maxItems": 1000
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "poNumber": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "receiverId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "type",
+      "businessDate",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "Form": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "creatorId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "approverId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "SUBMITTED",
+          "CONFIRMED",
+          "CANCELLED"
+        ]
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "type": {
+        "type": "string"
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "type": "object"
+        }
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "note": {
+        "type": "string"
+      },
+      "postedAt": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date-time"
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "warehouseId",
+      "creatorId",
+      "status",
+      "businessDate",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "StocktakeDraft": {
+    "type": "object",
+    "properties": {
+      "type": {
+        "type": "string",
+        "enum": [
+          "PERIODIC",
+          "AD_HOC"
+        ]
+      },
+      "scope": {
+        "type": "string",
+        "enum": [
+          "FULL",
+          "PARTIAL"
+        ]
+      },
+      "materialIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "assignedUserIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "minItems": 2,
+        "uniqueItems": true
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "type",
+      "scope",
+      "assignedUserIds",
+      "businessDate"
+    ],
+    "additionalProperties": false
+  },
+  "StocktakeCount": {
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "batchId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "actualQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "reasonCode": {
+        "type": "string",
+        "enum": [
+          "USAGE_LOSS",
+          "ENTRY_ERROR",
+          "UNRECORDED_DAMAGE",
+          "NATURAL_LOSS",
+          "COUNT_ERROR",
+          "UNIT_MISMATCH",
+          "OTHER"
+        ]
+      },
+      "explanation": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "photoIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      }
+    },
+    "required": [
+      "version",
+      "materialId",
+      "batchId",
+      "actualQuantity"
+    ],
+    "additionalProperties": false
+  },
+  "Stocktake": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "IN_PROGRESS",
+          "SUBMITTED",
+          "COMPLETED",
+          "CANCELLED"
+        ]
+      },
+      "scope": {
+        "type": "string",
+        "enum": [
+          "FULL",
+          "PARTIAL"
+        ]
+      },
+      "assignedUserIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "acknowledgedUserIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "lockedMaterialIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "counts": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/StocktakeLine"
+        }
+      },
+      "totalDifferenceValue": {
+        "type": "string",
+        "pattern": "^-?\\d{1,14}(\\.\\d{1,4})?$"
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "warehouseId",
+      "status",
+      "scope",
+      "assignedUserIds",
+      "acknowledgedUserIds",
+      "counts"
+    ],
+    "additionalProperties": false
+  },
+  "Product": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "sourceId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "sourceVendor": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "syncStatus": {
+        "type": "string",
+        "enum": [
+          "NOT_CONFIGURED",
+          "SYNCED",
+          "FAILED"
+        ]
+      },
+      "variantIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "name",
+      "isActive",
+      "syncStatus",
+      "variantIds"
+    ],
+    "additionalProperties": false
+  },
+  "Variant": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "productId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "name": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "priceMode": {
+        "type": "string",
+        "enum": [
+          "SYNC",
+          "MANUAL"
+        ]
+      },
+      "sourceSellingPrice": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "localSellingPrice": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "currency": {
+        "const": "VND"
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "sourceId": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "productId",
+      "name",
+      "priceMode",
+      "currency",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "RecipeItem": {
+    "type": "object",
+    "properties": {
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "unitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "materialId",
+      "unitId",
+      "quantity"
+    ],
+    "additionalProperties": false
+  },
+  "RecipeWrite": {
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/RecipeItem"
+        },
+        "minItems": 1,
+        "maxItems": 1000
+      },
+      "manualCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "version",
+      "items",
+      "reason"
+    ],
+    "additionalProperties": false
+  },
+  "Recipe": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "variantId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/RecipeLine"
+        },
+        "minItems": 1
+      },
+      "manualCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "estimatedCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "effectiveCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "effectiveCostSource": {
+        "type": "string",
+        "enum": [
+          "MANUAL",
+          "ESTIMATED",
+          "MISSING_DATA"
+        ]
+      },
+      "sellingPrice": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "costRatio": {
+        "type": "string"
+      },
+      "isCostRatioOver40Percent": {
+        "type": "boolean"
+      },
+      "archived": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "variantId",
+      "warehouseId",
+      "items",
+      "effectiveCostSource",
+      "archived"
+    ],
+    "additionalProperties": false
+  },
+  "SourceAllocation": {
+    "type": "object",
+    "properties": {
+      "importFormId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "exportFormId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      }
+    },
+    "required": [
+      "netAmount"
+    ],
+    "additionalProperties": false,
+    "oneOf": [
+      {
+        "required": [
+          "importFormId"
+        ],
+        "not": {
+          "required": [
+            "exportFormId"
+          ]
+        }
+      },
+      {
+        "required": [
+          "exportFormId"
+        ],
+        "not": {
+          "required": [
+            "importFormId"
+          ]
+        }
+      }
+    ]
+  },
+  "ExpenseDraft": {
+    "type": "object",
+    "properties": {
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "partnerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "vatRate": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 20
+      },
+      "paymentMethod": {
+        "type": "string",
+        "enum": [
+          "CASH",
+          "BANK_TRANSFER",
+          "CREDIT_CARD"
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SourceAllocation"
+        },
+        "minItems": 1
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "PURCHASE",
+          "TRANSPORT",
+          "HANDLING",
+          "STORAGE",
+          "OTHER_EXPENSE"
+        ]
+      },
+      "paymentTermId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "bankReference": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "payerId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "invoiceStatus": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "businessDate",
+      "type",
+      "netAmount",
+      "paymentMethod",
+      "paymentTermId",
+      "sources"
+    ],
+    "additionalProperties": false,
+    "allOf": [
+      {
+        "if": {
+          "properties": {
+            "type": {
+              "const": "PURCHASE"
+            }
+          }
+        },
+        "then": {
+          "properties": {
+            "sources": {
+              "minItems": 1,
+              "maxItems": 1
+            }
+          }
+        }
+      }
+    ]
+  },
+  "RevenueDraft": {
+    "type": "object",
+    "properties": {
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "partnerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "vatRate": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 20
+      },
+      "paymentMethod": {
+        "type": "string",
+        "enum": [
+          "CASH",
+          "BANK_TRANSFER",
+          "E_WALLET"
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SourceAllocation"
+        }
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "SUPPLIER_REFUND",
+          "SUPPLIER_COMPENSATION",
+          "LIQUIDATION",
+          "SCRAP_PACKAGING",
+          "OTHER_REVENUE"
+        ]
+      },
+      "bankReference": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "refundGroupId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "installmentNo": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "plannedInstallments": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "businessDate",
+      "type",
+      "netAmount",
+      "paymentMethod",
+      "reason"
+    ],
+    "additionalProperties": false
+  },
+  "FinanceForm": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "SUBMITTED",
+          "CONFIRMED",
+          "CANCELLED"
+        ]
+      },
+      "creatorId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "approverId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "type": {
+        "type": "string"
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "vatAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "totalAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "currency": {
+        "const": "VND"
+      },
+      "dueDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SourceAllocation"
+        }
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "payerId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "invoiceStatus": {
+        "type": "boolean"
+      },
+      "paymentMethod": {
+        "type": "string"
+      },
+      "paymentTermId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "bankReference": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "reason": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/FinanceLine"
+        },
+        "minItems": 1
+      },
+      "obligationAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "paidAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "remainingDebt": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "settlementId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "warehouseId",
+      "status",
+      "creatorId",
+      "businessDate",
+      "type",
+      "netAmount",
+      "vatAmount",
+      "totalAmount",
+      "currency",
+      "sources",
+      "attachmentIds",
+      "items"
+    ],
+    "additionalProperties": false
+  },
+  "RefundGroup": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "partnerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "sourceImportId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "totalExpected": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "confirmedReceived": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "remaining": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "plannedInstallments": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "required": [
+      "id",
+      "warehouseId",
+      "partnerId",
+      "sourceImportId",
+      "totalExpected",
+      "confirmedReceived",
+      "remaining",
+      "plannedInstallments",
+      "version"
+    ],
+    "additionalProperties": false
+  },
+  "Alert": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "kind": {
+        "type": "string"
+      },
+      "level": {
+        "type": "string",
+        "enum": [
+          "INFO",
+          "WARNING",
+          "CRITICAL"
+        ]
+      },
+      "entityId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "entityType": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      },
+      "read": {
+        "type": "boolean"
+      },
+      "deliveryStatus": {
+        "type": "string",
+        "enum": [
+          "QUEUED",
+          "DELIVERED",
+          "FAILED",
+          "DEAD_LETTER"
+        ]
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "warehouseId",
+      "kind",
+      "level",
+      "message",
+      "read",
+      "deliveryStatus"
+    ],
+    "additionalProperties": false
+  },
+  "ReportColumn": {
+    "type": "object",
+    "properties": {
+      "key": {
+        "type": "string"
+      },
+      "label": {
+        "type": "string"
+      },
+      "valueType": {
+        "type": "string",
+        "enum": [
+          "TEXT",
+          "DECIMAL",
+          "MONEY",
+          "DATE",
+          "DATETIME",
+          "INTEGER"
+        ]
+      }
+    },
+    "required": [
+      "key",
+      "label",
+      "valueType"
+    ],
+    "additionalProperties": false
+  },
+  "Report": {
+    "type": "object",
+    "properties": {
+      "asOf": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "watermark": {
+        "type": "string"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "periodFrom": {
+        "type": "string",
+        "format": "date"
+      },
+      "periodTo": {
+        "type": "string",
+        "format": "date"
+      },
+      "columns": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ReportColumn"
+        }
+      },
+      "rows": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "additionalProperties": {
+            "type": [
+              "string",
+              "integer",
+              "boolean",
+              "null"
+            ]
+          }
+        }
+      },
+      "totals": {
+        "type": "object",
+        "additionalProperties": {
+          "type": [
+            "string",
+            "integer",
+            "null"
+          ]
+        }
+      },
+      "dataCompleteness": {
+        "type": "string",
+        "enum": [
+          "FULL",
+          "PARTIAL"
+        ]
+      },
+      "missingDataRefs": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    },
+    "required": [
+      "asOf",
+      "watermark",
+      "warehouseId",
+      "periodFrom",
+      "periodTo",
+      "columns",
+      "rows",
+      "totals",
+      "dataCompleteness",
+      "missingDataRefs"
+    ],
+    "additionalProperties": false
+  },
+  "CustomReport": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 120
+      },
+      "dimensions": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "DATE",
+            "WAREHOUSE",
+            "MATERIAL",
+            "SUPPLIER",
+            "FORM_TYPE"
+          ]
+        },
+        "maxItems": 5,
+        "uniqueItems": true
+      },
+      "measures": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "enum": [
+            "IN_QTY",
+            "OUT_QTY",
+            "CLOSING_QTY",
+            "STOCK_VALUE",
+            "EXPENSE_TOTAL",
+            "REVENUE_TOTAL",
+            "DEBT_TOTAL"
+          ]
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "fromDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "toDate": {
+        "type": "string",
+        "format": "date"
+      }
+    },
+    "required": [
+      "name",
+      "dimensions",
+      "measures",
+      "fromDate",
+      "toDate"
+    ],
+    "additionalProperties": false
+  },
+  "ReportSchedule": {
+    "type": "object",
+    "properties": {
+      "enabled": {
+        "type": "boolean"
+      },
+      "frequency": {
+        "type": "string",
+        "enum": [
+          "DAILY",
+          "WEEKLY"
+        ]
+      },
+      "localTime": {
+        "const": "08:00"
+      },
+      "timezone": {
+        "const": "Asia/Ho_Chi_Minh"
+      },
+      "recipientUserIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "reportId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "enabled",
+      "frequency",
+      "localTime",
+      "timezone",
+      "recipientUserIds",
+      "reportId"
+    ],
+    "additionalProperties": false
+  },
+  "ExcelJobCreate": {
+    "type": "object",
+    "properties": {
+      "fileId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "templateVersion": {
+        "const": "1"
+      },
+      "target": {
+        "type": "string",
+        "enum": [
+          "MATERIALS",
+          "IMPORT_FORMS"
+        ]
+      },
+      "mode": {
+        "const": "ATOMIC_CREATE_ONLY"
+      }
+    },
+    "required": [
+      "fileId",
+      "templateVersion",
+      "target",
+      "mode"
+    ],
+    "additionalProperties": false
+  },
+  "ExcelRowError": {
+    "type": "object",
+    "properties": {
+      "row": {
+        "type": "integer",
+        "minimum": 2
+      },
+      "column": {
+        "type": "string"
+      },
+      "errorKey": {
+        "type": "string"
+      },
+      "message": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "row",
+      "column",
+      "errorKey",
+      "message"
+    ],
+    "additionalProperties": false
+  },
+  "ExcelPreview": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "VALIDATING",
+          "INVALID",
+          "READY",
+          "APPLIED",
+          "FAILED"
+        ]
+      },
+      "rowCount": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 1000
+      },
+      "errors": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ExcelRowError"
+        }
+      },
+      "errorFileId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "id",
+      "version",
+      "status",
+      "rowCount",
+      "errors"
+    ],
+    "additionalProperties": false
+  },
+  "ImportLine": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "unitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "unitPrice": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "manufacturedOn": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "expiresOn": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date"
+      },
+      "supplierLotCode": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "positionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "baseQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "batchId": {
+        "type": "string",
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "id",
+      "materialId",
+      "unitId",
+      "quantity",
+      "unitPrice",
+      "baseQuantity",
+      "netAmount"
+    ],
+    "additionalProperties": false
+  },
+  "ExportAllocation": {
+    "type": "object",
+    "properties": {
+      "batchId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "unitCost": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "value": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      }
+    },
+    "required": [
+      "batchId",
+      "materialId",
+      "quantity"
+    ],
+    "additionalProperties": false
+  },
+  "ExportLine": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "unitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "baseQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "allocations": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ExportAllocation"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "materialId",
+      "unitId",
+      "quantity",
+      "baseQuantity",
+      "allocations"
+    ],
+    "additionalProperties": false
+  },
+  "ImportForm": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "creatorId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "approverId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "SUBMITTED",
+          "CONFIRMED",
+          "CANCELLED"
+        ]
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "type": {
+        "type": "string"
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ImportLine"
+        },
+        "minItems": 1
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "note": {
+        "type": "string"
+      },
+      "postedAt": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date-time"
+      },
+      "supplierId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "poNumber": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "invoiceNumber": {
+        "type": "string"
+      },
+      "vatRate": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 20
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "vatAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "totalAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "originType": {
+        "type": "string",
+        "enum": [
+          "PURCHASE",
+          "TRANSFER_IN"
+        ]
+      },
+      "linkedTransferExportId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "expenseId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "warehouseId",
+      "creatorId",
+      "status",
+      "businessDate",
+      "items",
+      "supplierId",
+      "vatRate",
+      "netAmount",
+      "vatAmount",
+      "totalAmount",
+      "originType"
+    ],
+    "additionalProperties": false
+  },
+  "ExportForm": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "creatorId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "approverId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "status": {
+        "type": "string",
+        "enum": [
+          "DRAFT",
+          "SUBMITTED",
+          "CONFIRMED",
+          "CANCELLED"
+        ]
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "PRODUCTION",
+          "SALE",
+          "DISPOSAL",
+          "TRANSFER",
+          "LIQUIDATION",
+          "OTHER"
+        ]
+      },
+      "items": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ExportLine"
+        },
+        "minItems": 1
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "note": {
+        "type": "string"
+      },
+      "postedAt": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "date-time"
+      },
+      "destinationWarehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "reason": {
+        "type": "string"
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "poNumber": {
+        "type": "string",
+        "maxLength": 50
+      },
+      "receiverId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "warehouseId",
+      "creatorId",
+      "status",
+      "businessDate",
+      "items",
+      "type"
+    ],
+    "additionalProperties": false
+  },
+  "PaymentTermWrite": {
+    "type": "object",
+    "properties": {
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 30
+      },
+      "label": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "dueDays": {
+        "type": "integer",
+        "minimum": 0,
+        "maximum": 365
+      },
+      "active": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "code",
+      "label",
+      "dueDays",
+      "active"
+    ],
+    "additionalProperties": false
+  },
+  "RefundGroupWrite": {
+    "type": "object",
+    "properties": {
+      "partnerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "sourceImportId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "totalExpected": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "plannedInstallments": {
+        "type": "integer",
+        "minimum": 1
+      }
+    },
+    "required": [
+      "partnerId",
+      "sourceImportId",
+      "totalExpected",
+      "plannedInstallments"
+    ],
+    "additionalProperties": false
+  },
+  "Unit": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "code": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 80
+      },
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "createdAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50
+      },
+      "symbol": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20
+      },
+      "dimension": {
+        "type": "string",
+        "enum": [
+          "MASS",
+          "VOLUME",
+          "COUNT"
+        ]
+      },
+      "isActive": {
+        "type": "boolean"
+      },
+      "highlights": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SearchHighlight"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "code",
+      "version",
+      "name",
+      "symbol",
+      "dimension",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "UnitWrite": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 50
+      },
+      "symbol": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 20
+      },
+      "dimension": {
+        "type": "string",
+        "enum": [
+          "MASS",
+          "VOLUME",
+          "COUNT"
+        ]
+      },
+      "isActive": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name",
+      "symbol",
+      "dimension",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "RolePatch": {
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "name": {
+        "type": "string",
+        "minLength": 2,
+        "maxLength": 100
+      },
+      "description": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "version"
+    ],
+    "additionalProperties": false,
+    "minProperties": 2
+  },
+  "InventoryHistory": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "sourceFormId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "sourceFormCode": {
+        "type": "string"
+      },
+      "sourceType": {
+        "type": "string",
+        "enum": [
+          "IMPORT",
+          "EXPORT",
+          "TRANSFER",
+          "STOCKTAKE"
+        ]
+      },
+      "quantityBefore": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "deltaQuantity": {
+        "type": "string",
+        "pattern": "^-?\\d{1,12}(\\.\\d{1,6})?$"
+      },
+      "quantityAfter": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "valueBefore": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "deltaValue": {
+        "type": "string",
+        "pattern": "^-?\\d{1,14}(\\.\\d{1,4})?$"
+      },
+      "valueAfter": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "actorId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "occurredAt": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "allocations": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/ExportAllocation"
+        }
+      }
+    },
+    "required": [
+      "id",
+      "warehouseId",
+      "materialId",
+      "sourceFormId",
+      "sourceFormCode",
+      "sourceType",
+      "quantityBefore",
+      "deltaQuantity",
+      "quantityAfter",
+      "actorId",
+      "occurredAt"
+    ],
+    "additionalProperties": false
+  },
+  "BatchTrace": {
+    "type": "object",
+    "properties": {
+      "batch": {
+        "$ref": "#/components/schemas/Batch"
+      },
+      "sourceImportId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "sourceImportItemId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "supplierId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "exportLinks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "exportFormId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "quantity": {
+              "type": "string",
+              "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+              "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+            }
+          },
+          "required": [
+            "exportFormId",
+            "quantity"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "transferLinks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "sourceBatchId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "destinationBatchId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "quantity": {
+              "type": "string",
+              "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+              "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+            }
+          },
+          "required": [
+            "sourceBatchId",
+            "destinationBatchId",
+            "quantity"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "adjustmentLinks": {
+        "type": "array",
+        "items": {
+          "type": "object",
+          "properties": {
+            "stocktakeId": {
+              "type": "string",
+              "format": "uuid"
+            },
+            "delta": {
+              "type": "string"
+            }
+          },
+          "required": [
+            "stocktakeId",
+            "delta"
+          ],
+          "additionalProperties": false
+        }
+      },
+      "provenanceStatus": {
+        "type": "string",
+        "enum": [
+          "VERIFIED",
+          "LEGACY_UNVERIFIED"
+        ]
+      }
+    },
+    "required": [
+      "batch",
+      "exportLinks",
+      "transferLinks",
+      "adjustmentLinks",
+      "provenanceStatus"
+    ],
+    "additionalProperties": false
+  },
+  "RecipeLine": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "unitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "baseQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "conversionFactorSnapshot": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      }
+    },
+    "required": [
+      "id",
+      "materialId",
+      "unitId",
+      "quantity",
+      "baseQuantity",
+      "conversionFactorSnapshot"
+    ],
+    "additionalProperties": false
+  },
+  "MaterialPositionAssignment": {
+    "type": "object",
+    "properties": {
+      "positionId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "locationNote": {
+        "type": "string",
+        "maxLength": 255
+      }
+    },
+    "required": [
+      "positionId"
+    ],
+    "additionalProperties": false
+  },
+  "FinanceLine": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "sourceImportItemId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "quantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "unitPrice": {
+        "type": "string",
+        "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+        "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "id",
+      "quantity",
+      "unitPrice",
+      "netAmount"
+    ],
+    "additionalProperties": false
+  },
+  "StocktakeLine": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "materialId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "batchId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "baseUnitId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "systemQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "actualQuantity": {
+        "type": "string",
+        "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+        "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+      },
+      "deltaQuantity": {
+        "type": "string",
+        "pattern": "^-?\\d{1,12}(\\.\\d{1,6})?$"
+      },
+      "differencePercent": {
+        "type": [
+          "string",
+          "null"
+        ]
+      },
+      "reasonCode": {
+        "type": "string",
+        "enum": [
+          "USAGE_LOSS",
+          "ENTRY_ERROR",
+          "UNRECORDED_DAMAGE",
+          "NATURAL_LOSS",
+          "COUNT_ERROR",
+          "UNIT_MISMATCH",
+          "OTHER"
+        ]
+      },
+      "explanation": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "photoIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      "lastCountedBy": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "updatedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    },
+    "required": [
+      "id",
+      "materialId",
+      "batchId",
+      "baseUnitId",
+      "systemQuantity",
+      "actualQuantity",
+      "deltaQuantity",
+      "differencePercent",
+      "photoIds",
+      "updatedAt"
+    ],
+    "additionalProperties": false
+  },
+  "PositionWrite": {
+    "type": "object",
+    "properties": {
+      "name": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 100
+      },
+      "location": {
+        "type": "string",
+        "maxLength": 255
+      },
+      "isActive": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "name",
+      "isActive"
+    ],
+    "additionalProperties": false
+  },
+  "TechnicalLog": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "level": {
+        "type": "string",
+        "enum": [
+          "INFO",
+          "WARN",
+          "ERROR"
+        ]
+      },
+      "message": {
+        "type": "string"
+      },
+      "timestamp": {
+        "type": "string",
+        "format": "date-time"
+      },
+      "traceId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "context": {
+        "type": "object"
+      }
+    },
+    "required": [
+      "id",
+      "level",
+      "message",
+      "timestamp"
+    ],
+    "additionalProperties": false
+  },
+  "ExpenseSettlement": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "expenseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "paidOn": {
+        "type": "string",
+        "format": "date"
+      },
+      "amount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "payerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "paymentMethod": {
+        "type": "string",
+        "enum": [
+          "CASH",
+          "BANK_TRANSFER",
+          "CREDIT_CARD"
+        ]
+      },
+      "bankReference": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "minItems": 1
+      },
+      "confirmedBy": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "confirmedAt": {
+        "type": "string",
+        "format": "date-time"
+      }
+    },
+    "required": [
+      "id",
+      "expenseId",
+      "paidOn",
+      "amount",
+      "payerId",
+      "paymentMethod",
+      "attachmentIds",
+      "confirmedBy",
+      "confirmedAt"
+    ],
+    "additionalProperties": false
+  },
+  "ExpenseSettlementWrite": {
+    "type": "object",
+    "properties": {
+      "version": {
+        "type": "integer",
+        "minimum": 1
+      },
+      "paidOn": {
+        "type": "string",
+        "format": "date"
+      },
+      "payerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "paymentMethod": {
+        "type": "string",
+        "enum": [
+          "CASH",
+          "BANK_TRANSFER",
+          "CREDIT_CARD"
+        ]
+      },
+      "bankReference": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "minItems": 1,
+        "uniqueItems": true
+      },
+      "reason": {
+        "type": "string",
+        "minLength": 1,
+        "maxLength": 1000
+      }
+    },
+    "required": [
+      "version",
+      "paidOn",
+      "payerId",
+      "paymentMethod",
+      "attachmentIds",
+      "reason"
+    ],
+    "additionalProperties": false
+  },
+  "ExpenseManualDraft": {
+    "type": "object",
+    "properties": {
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "partnerId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "netAmount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "vatRate": {
+        "type": "number",
+        "minimum": 0,
+        "maximum": 20
+      },
+      "paymentMethod": {
+        "type": "string",
+        "enum": [
+          "CASH",
+          "BANK_TRANSFER",
+          "CREDIT_CARD"
+        ]
+      },
+      "reason": {
+        "type": "string",
+        "maxLength": 2000
+      },
+      "attachmentIds": {
+        "type": "array",
+        "items": {
+          "type": "string",
+          "format": "uuid"
+        },
+        "uniqueItems": true
+      },
+      "sources": {
+        "type": "array",
+        "items": {
+          "$ref": "#/components/schemas/SourceAllocation"
+        }
+      },
+      "note": {
+        "type": "string",
+        "maxLength": 1000
+      },
+      "type": {
+        "type": "string",
+        "enum": [
+          "TRANSPORT",
+          "HANDLING",
+          "STORAGE",
+          "OTHER_EXPENSE"
+        ]
+      },
+      "paymentTermId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "bankReference": {
+        "type": "string",
+        "maxLength": 100
+      },
+      "requesterId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "payerId": {
+        "type": [
+          "string",
+          "null"
+        ],
+        "format": "uuid"
+      },
+      "invoiceStatus": {
+        "type": "boolean"
+      }
+    },
+    "required": [
+      "businessDate",
+      "type",
+      "netAmount",
+      "paymentMethod",
+      "paymentTermId",
+      "sources"
+    ],
+    "additionalProperties": false
+  },
+  "SearchHighlight": {
+    "type": "object",
+    "properties": {
+      "field": {
+        "type": "string"
+      },
+      "start": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "end": {
+        "type": "integer",
+        "minimum": 0
+      },
+      "normalizedText": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "field",
+      "start",
+      "end",
+      "normalizedText"
+    ],
+    "additionalProperties": false
+  },
+  "SupplierTransaction": {
+    "type": "object",
+    "properties": {
+      "id": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "warehouseId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "documentId": {
+        "type": "string",
+        "format": "uuid"
+      },
+      "documentCode": {
+        "type": "string"
+      },
+      "documentType": {
+        "type": "string",
+        "enum": [
+          "IMPORT",
+          "EXPENSE",
+          "REVENUE"
+        ]
+      },
+      "businessDate": {
+        "type": "string",
+        "format": "date"
+      },
+      "amount": {
+        "type": "string",
+        "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+        "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+      },
+      "cashDelta": {
+        "type": "string",
+        "pattern": "^-?\\d{1,16}(\\.\\d{1,4})?$"
+      },
+      "debtDelta": {
+        "type": "string",
+        "pattern": "^-?\\d{1,16}(\\.\\d{1,4})?$"
+      },
+      "postingKey": {
+        "type": "string"
+      }
+    },
+    "required": [
+      "id",
+      "warehouseId",
+      "documentId",
+      "documentCode",
+      "documentType",
+      "businessDate",
+      "amount",
+      "cashDelta",
+      "debtDelta",
+      "postingKey"
+    ],
+    "additionalProperties": false
+  }
+}
