@@ -4,8 +4,55 @@ on:
   pull_request:
     branches: [main]
 
+permissions:
+  contents: read
+
 jobs:
+  changes:
+    runs-on: ubuntu-latest
+    permissions:
+      contents: read
+    outputs:
+      frontend: ${{ steps.filter.outputs.frontend }}
+      backend: ${{ steps.filter.outputs.backend }}
+    steps:
+      - name: Checkout code
+        uses: actions/checkout@v4
+        with:
+          fetch-depth: 0
+
+      - name: Detect changed apps
+        id: filter
+        env:
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          frontend=false
+          backend=false
+          if files="$(git diff --name-only "$BASE_SHA" "$HEAD_SHA")"; then
+            printf 'Changed files:\n%s\n' "$files"
+            if grep -Eq '^(app/warehouse-ui/|\.github/docker/warehouse-ui/)' <<<"$files"; then
+              frontend=true
+            fi
+            if grep -Eq '^(app/warehouse-api/|\.github/docker/warehouse-api/)' <<<"$files"; then
+              backend=true
+            fi
+            if grep -Fxq '.github/workflows/build-and-test.yaml' <<<"$files"; then
+              frontend=true
+              backend=true
+            fi
+          else
+            echo "::warning::git diff failed; running all build-and-test jobs"
+            frontend=true
+            backend=true
+          fi
+          echo "frontend=$frontend" >> "$GITHUB_OUTPUT"
+          echo "backend=$backend" >> "$GITHUB_OUTPUT"
+          echo "frontend=$frontend backend=$backend"
+
   build-frontend:
+    needs: changes
+    if: needs.changes.outputs.frontend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
@@ -29,6 +76,8 @@ jobs:
         run: npm run test
 
   build-backend:
+    needs: changes
+    if: needs.changes.outputs.backend == 'true'
     runs-on: ubuntu-latest
     steps:
       - name: Checkout code
