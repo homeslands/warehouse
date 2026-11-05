@@ -2,204 +2,245 @@
 
 # #196 W02-BE-01: Đối soát contract R2 ↔ code legacy và thiết kế triển khai W02
 
-- **Mã:** W02-BE-01 / task W02-BE.C · **Owner:** Mekong-HCM (BE) · **Ngày:** 2026-11-06 · **Trạng thái:** CONTRACT_READY (sau review độc lập, xem PR)
-- **Nguồn thiết kế (R2):** dossier `docs/project/baseline/dossiers/W02.md`, `contracts/architecture-and-boundaries.md`,
-  `openapi-v1.json`, `warehouse-storage.proto`, `permission-policy.csv`, `data-and-migration.md`, decisions D02/D03/D06/D07/D08/D14/D18/D30/D31/D32/D35.
-  Phiên bản đọc: docs @ `4335203` (bản phát hành của thư bàn giao).
+- **Mã:** W02-BE-01 / task W02-BE.C · **Owner:** Mekong-HCM (BE) · **Ngày:** 2026-11-06 · **Revision:** r2 (sửa theo review độc lập r1)
+- **Trạng thái:** chờ re-review. CONTRACT_READY chỉ công bố trên issue #196 sau khi re-review PASS.
+- **Nguồn thiết kế (R2), đọc tại docs `4335203`:**
+  - dossier `docs/project/baseline/dossiers/W02.md`;
+  - `contracts/`: `architecture-and-boundaries.md`, `openapi-v1.json`, `warehouse-storage.proto`, `permission-policy.csv`, `data-and-migration.md`, `business-rules.md`;
+  - `roadmap/requirements-traceability.csv`;
+  - decisions D02/D03/D06/D07/D08/D14/D18/D30/D31/D32/D35.
 - **Code legacy:** `origin/main` `1d7f200`. Từ `4335203` đến `1d7f200` chỉ đổi file CI, không đụng `src/`.
 - **Phạm vi bằng chứng:**
-  - Đây là đối soát tài liệu và source (đọc code, OpenAPI, proto, FE callers). Không chạy app/migration (đúng scope BE-01).
-  - Operation/quyền đã kiểm trực tiếp trên `openapi-v1.json` (mục 2a).
+  - Đây là đối soát tài liệu và source: code, OpenAPI, proto, FE callers. Không chạy app/migration, đúng scope BE-01.
+  - Operation, quyền, schema và enum được kiểm trực tiếp bằng script trên `openapi-v1.json` (mục 2a).
+  - Mọi quy tắc ở mục 5–6 dẫn nguồn R2. Chỗ nào chưa có nguồn thì ghi là deviation mở (mục 6b), không tự chốt.
 
 ## 1. Kiến trúc: đích ↔ hiện tại
 
-| Hạng mục | R2 đích | Legacy hiện tại | Gap / quyết định thiết kế |
+| Hạng mục | R2 đích | Legacy hiện tại | Gap / thiết kế |
 |---|---|---|---|
-| Topology | React → REST Gateway (NestJS) → gRPC + mTLS → Storage (NestJS) → MySQL/Redis/S3/outbox (D03) | 1 NestJS monolith, controller gọi trực tiếp service/TypeORM | Tách 2 composition root. Storage giữ entity/transaction; Gateway không import repository nghiệp vụ |
-| Prefix / envelope | `/api/v1`. Envelope **giống legacy** (`message`, `statusCode` 2xx, `timestamp`, `result`), `result` typed, `hasPrevious` | `api/${VERSION}` + `AppResponseDto{message,statusCode,timestamp,result}`, `hasPrevios` | Route v1 chạy song song. Chỉ khác ở `result` typed và `hasPrevious`. Legacy giữ nguyên cho tới khi FE chuyển (architecture §44 bước 1 và 3) |
-| Định danh | `{id}` UUID trên path | `:slug` (user/role/authority) | v1 dùng UUID. Legacy giữ slug. Không đổi URL legacy |
-| Lỗi | gRPC status → HTTP (401/403/404/422/409/429/503/504/500) + code/field/traceId | `HttpExceptionFilter` + `AppException.code` | Thêm error translator ở Gateway, không phân loại lỗi bằng regex message |
-| TraceId | Gateway sinh UUID, đi qua RPC/audit/outbox | Không có | Mới |
-| Refresh token | Cookie HttpOnly + kiểm Origin/CSRF + rotation | Gửi trong body `refreshToken`, **không rotation** (`auth.controller.ts:62-90`) | Thay đổi cơ chế. Cần session registry + migration |
-| Idle 30 phút / lock (D14) | `POST /auth/activity`, `POST /auth/lock` | Chưa có | Mới |
-| Phiên | `GET /sessions`, `DELETE /sessions/{id}` | `sid` trong JWT + deny-list Redis (logout, logout-all) | Cần registry phiên bền vững (MySQL), Redis chỉ làm cache |
-| File | Private S3, metadata trong DB, `GET /files/{id}`, `POST /files/{id}/access` (URL có hạn) (D06/D30) | `POST /file/upload` trả key trong `message`, không có metadata/đọc/xoá | Bảng `file_metadata` + purpose + presign. Giữ hợp đồng legacy cho UI cũ |
-| Audit / outbox | Audit cùng transaction nghiệp vụ, outbox publish sau commit (D14) | Không có audit nghiệp vụ. `logger_tbl` chỉ là log kỹ thuật (winston) | Module `audit-log` + `outbox` mới |
-| Backup | `backup-requests`, `restore-requests`, `jobs/{id}` (job bất đồng bộ) | `POST /db` (mysqldump đồng bộ) + cron 1AM | Chuyển sang job queue + metadata. Restore chỉ tạo yêu cầu (D14/D31) |
+| Topology | React → REST Gateway → gRPC + mTLS → Storage → MySQL/Redis/S3/outbox (D03, architecture §7-26) | 1 NestJS monolith | Tách 2 composition root. Storage giữ entity/transaction; Gateway không import repository nghiệp vụ |
+| Envelope thành công | Required `message`, `statusCode` (2xx), `timestamp`, **`traceId`**, `result` (typed) | `message/statusCode/timestamp/result`, **không có `traceId`** | Thêm `traceId`. `result` theo schema v1 |
+| Envelope lỗi | Required `statusCode`, `code`, **`errorKey`**, `message`, `traceId`, `timestamp` | `statusCode/code/timestamp/path/method/message` | Error translator ở Gateway: gRPC status → HTTP (architecture §53-67), không phân loại bằng regex message |
+| Phân trang | v1 list trả object phân trang: `items` + page/pageSize/total/totalPages/hasNext/**hasPrevious**; pageSize 1..100; sortBy whitelist; q ≤200 (business-rules §14) | Legacy `hasPrevios`. `GET /roles` và `GET /authorities` legacy trả **mảng không phân trang** | v1 phân trang toàn bộ list. Legacy giữ nguyên |
+| Định danh | `{id}` UUID; slug legacy chỉ qua adapter (business-rules §9) | `:slug` | v1 dùng UUID |
+| Refresh | Cookie `Secure; HttpOnly; SameSite=Lax; Path=/api/v1/auth`, Origin allowlist + CSRF; access 15 phút, refresh ≤7 ngày, rotation/reuse-revoke (business-rules §20-21) | Refresh trong body, ký lại `exp` mới và giữ `sid`, **không rotation** (`auth.service.ts:103-108, 228-240`); FE lưu refresh trong localStorage | Thay cơ chế. Cutover theo mục 5c |
+| Idle | Server idle 30 phút; polling/refresh **không** gia hạn idle; `POST /auth/activity` có rate limit (business-rules §20, D14) | Không có | Mới |
+| Login throttle | 20/phút theo **IP + identifier**; refresh 30/phút/session (business-rules §21) | `@Throttle` 20/phút chỉ theo IP; refresh 30/phút theo IP | Đổi key throttle |
+| File | Private S3; D06: kiểm MIME thực + đuôi + size theo purpose; URL ký **≤5 phút**; upload chưa gắn được dọn sau **24h** | `POST /file/upload` trả key trong `message` | Mục 5 nhóm File |
+| Audit/outbox | Audit cùng transaction nghiệp vụ; outbox dispatcher sau commit; consumer dedupe | `logger_tbl` chỉ là log kỹ thuật | Mục 5 nhóm Audit |
+| Backup | Job + manifest MySQL + object/checksum/version (D06 mục 4, D14 giữ 30 ngày) | `POST /db` mysqldump đồng bộ + cron 1AM | Mục 5 nhóm Job |
 
 ## 2. Đối soát 37 operation W02
 
-Ký hiệu: **REUSE** = có service legacy dùng lại được, chỉ cần adapter. **CHANGE** = có nhưng khác contract. **NEW** = chưa có.
+Ký hiệu: **REUSE** = dùng lại service legacy qua adapter. **CHANGE** = có nhưng khác contract. **NEW** = chưa có.
 
-| # | operationId | v1 HTTP | Quyền R2 | Legacy tương ứng | Quyền legacy | Loại | Ghi chú gap |
-|---|---|---|---|---|---|---|---|
-| 1 | login | POST /auth/login | PUBLIC_AUTH | POST /auth/login | @Public | CHANGE | Refresh phải trả qua cookie, không trả trong body. Throttle 20/phút giữ nguyên |
-| 2 | refresh | POST /auth/refresh | PUBLIC_AUTH | POST /auth/refresh (body) | @Public | CHANGE | Đọc refresh từ cookie, kiểm CSRF/Origin, rotation + phát hiện reuse |
-| 3 | logout | POST /auth/logout | AUTHENTICATED | POST /auth/logout | JWT | REUSE | Thêm xoá cookie và ghi audit |
-| 4 | logoutall | POST /auth/logout-all | AUTHENTICATED | POST /auth/logout-all | JWT | REUSE | Tương tự #3 |
-| 5 | lock | POST /auth/lock | AUTHENTICATED | — | — | NEW | Khoá phiên do idle (D14) |
-| 6 | changeOwnPassword | POST /auth/change-password | AUTHENTICATED | POST /auth/change-password | JWT | REUSE | Hiện trả cặp token mới, cần đổi sang cookie |
-| 7 | getProfile | GET /auth/me | AUTHENTICATED | GET /auth/me | JWT | CHANGE | Shape typed v1 (User), bỏ `scope` nếu contract không có |
-| 8 | updateProfile | PATCH /auth/me | AUTHENTICATED | — (chỉ `PATCH /users/{slug}` cho người khác) | — | NEW | FieldMask `data.<field>`, `clear_fields` |
-| 9 | recordInteractiveActivity | POST /auth/activity | AUTHENTICATED | — | — | NEW | Gia hạn idle timer |
-| 10 | listOwnSessions | GET /sessions | AUTHENTICATED | — | — | NEW | Cần session registry |
-| 11 | revokeOwnSession | DELETE /sessions/{id} | AUTHENTICATED | — | — | NEW | Dùng lại deny-list theo `sid` |
-| 12 | listUsers | GET /users | USER_READ | GET /users | USER_READ | REUSE | v1 phân trang `hasPrevious`, scope theo kho giữ nguyên |
-| 13 | createUser | POST /users | USER_CREATE | POST /users | USER_CREATE | REUSE | Field `phoneNumber` (R2) ↔ `phonenumber` (legacy): mapping D35 |
-| 14 | getUser | GET /users/{id} | USER_READ | GET /users/:userSlug | USER_READ | CHANGE | Path theo UUID |
-| 15 | updateUser | PATCH /users/{id} | USER_UPDATE | PATCH /users/:userSlug | USER_UPDATE | CHANGE | FieldMask. Lock/unlock legacy (`PUT .../lock`) map vào patch `isActive`, cần xác nhận lại trên OpenAPI |
-| 16 | deleteUser | DELETE /users/{id} | USER_DELETE | DELETE /users/:userSlug | USER_DELETE | CHANGE | Path theo UUID |
-| 17 | changeUserRole | PUT /users/{id}/role | **USER_CHANGE_ROLE** | POST /users/:slug/change-role | **USER_UPDATE** | CHANGE | **Thiếu authority `USER_CHANGE_ROLE`**: phải seed + gán theo permission-policy |
-| 18 | resetUserPassword | POST /users/{id}/password | USER_CHANGE_PASSWORD | POST /users/:slug/change-password | USER_CHANGE_PASSWORD | CHANGE | Path/tên mới |
-| 19 | listRoles | GET /roles | ROLE_READ | GET /roles | ROLE_READ | REUSE | — |
-| 20 | createRole | POST /roles | ROLE_CREATE | POST /roles | ROLE_CREATE | REUSE | — |
-| 21 | getRole | GET /roles/{id} | ROLE_READ | GET /roles/:slug | ROLE_READ | CHANGE | UUID path |
-| 22 | updateRole | PATCH /roles/{id} | ROLE_UPDATE | PATCH /roles/:slug | ROLE_UPDATE | CHANGE | UUID + FieldMask |
-| 23 | deleteRole | DELETE /roles/{id} | ROLE_DELETE | DELETE /roles/:slug | ROLE_DELETE | CHANGE | UUID |
-| 24 | listAuthorities | GET /authorities | MANAGE_PERMISSIONS | GET /authorities | **chỉ cần JWT** | CHANGE | **Finding F-196-01** (mục 4) |
-| 25 | listAuthorityGroups | GET /authority-groups | MANAGE_PERMISSIONS | GET /authority-groups | **chỉ cần JWT** | CHANGE | **F-196-01** |
-| 26 | updateAuthorityMetadata | PATCH /authorities/{id} | MANAGE_PERMISSIONS | PATCH /authorities/:slug | MANAGE_PERMISSIONS | CHANGE | UUID |
-| 27 | putRoleAuthority | PUT /roles/{id}/authorities/{code} | MANAGE_PERMISSIONS | PUT /roles/:roleSlug/authorities/:code | MANAGE_PERMISSIONS | CHANGE | UUID. Phải tăng role epoch để vô hiệu cache quyền |
-| 28 | deleteRoleAuthority | DELETE /roles/{id}/authorities/{code} | MANAGE_PERMISSIONS | DELETE … | MANAGE_PERMISSIONS | CHANGE | Như #27 |
-| 29 | uploadFile | POST /files | FILE_CREATE | POST /file/upload | FILE_CREATE | CHANGE | Metadata + purpose. Giới hạn theo purpose: ≤10MiB generic / ≤5MiB chứng từ (D30). Stream gRPC chunk ≤64KiB |
-| 30 | getFileMetadata | GET /files/{id} | **FILE_READ** | — | — | NEW | **Thiếu authority `FILE_READ`** |
-| 31 | getFileAccess | POST /files/{id}/access | FILE_READ | — | — | NEW | URL tải có hạn. Kiểm ownership/scope theo entity |
-| 32 | listAuditEvents | GET /audit-events | **AUDIT_READ** | — | — | NEW | Module audit mới. **Thiếu `AUDIT_READ`** |
-| 33 | listTechnicalLogs | GET /technical-logs | **LOG_READ** | GET /logger | **LOGGER_READ** | CHANGE | Đổi tên mã quyền: cần mapping, không xoá mã cũ khi legacy còn dùng |
-| 34 | listBackupRequests | GET /backup-requests | **BACKUP_MANAGE** | — | — | NEW | — |
-| 35 | createBackupRequest | POST /backup-requests | BACKUP_MANAGE | POST /db | **DB_BACKUP** | CHANGE | Chuyển từ mysqldump đồng bộ sang job |
-| 36 | createRestoreRequest | POST /restore-requests | BACKUP_MANAGE | — | — | NEW | Chỉ tạo yêu cầu. Thực thi restore theo gate vận hành |
-| 37 | getJob | GET /jobs/{id} | **JOB_READ** | — | — | NEW | Bảng job metadata |
+Case ID theo quy ước dossier W02: mỗi operation có `TC-API-<op>`, và có thêm `TC-DENY-<op>` trừ `login`/`refresh`.
 
-**Tổng hợp:** REUSE 7 · CHANGE 19 · NEW 11. Đã kiểm lại từ bảng: 7 + 19 + 11 = 37.
+| # | operationId | v1 HTTP | x-authority | Legacy | Quyền legacy | Loại | Microtask | Ghi chú |
+|---|---|---|---|---|---|---|---|---|
+| 1 | login | POST /auth/login | PUBLIC_AUTH | POST /auth/login | @Public | CHANGE | I-02 | `LoginResult` có `csrfToken`, `sessionId`; refresh đặt vào cookie |
+| 2 | refresh | POST /auth/refresh | PUBLIC_AUTH | POST /auth/refresh (body) | @Public | CHANGE | I-02 | Cookie + CSRF, rotation/reuse-revoke, kiểm idle khi refresh (TC-AUTH-03) |
+| 3 | logout | POST /auth/logout | AUTHENTICATED | POST /auth/logout | JWT | REUSE | I-02 | Thêm xoá cookie, audit |
+| 4 | logoutall | POST /auth/logout-all | AUTHENTICATED | POST /auth/logout-all | JWT | REUSE | I-02 | Như #3 |
+| 5 | lock | POST /auth/lock | AUTHENTICATED | — | — | NEW | I-02 | |
+| 6 | changeOwnPassword | POST /auth/change-password | AUTHENTICATED | POST /auth/change-password | JWT | REUSE | I-02 | Password 12..72 byte UTF-8 (business-rules §16) |
+| 7 | getProfile | GET /auth/me | AUTHENTICATED | GET /auth/me | JWT | CHANGE | I-02 | Shape v1 |
+| 8 | updateProfile | PATCH /auth/me | AUTHENTICATED | — | — | NEW | I-02 | Body có `version` |
+| 9 | recordInteractiveActivity | POST /auth/activity | AUTHENTICATED | — | — | NEW | I-02 | Rate limit, chỉ session của caller |
+| 10 | listOwnSessions | GET /sessions | AUTHENTICATED | — | — | NEW | I-02 | Schema `Session` |
+| 11 | revokeOwnSession | DELETE /sessions/{id} | AUTHENTICATED | — | — | NEW | I-02 | |
+| 12 | listUsers | GET /users | USER_READ | GET /users | USER_READ | REUSE | I-03 | Phân trang v1 |
+| 13 | createUser | POST /users | USER_CREATE | POST /users | USER_CREATE | REUSE | I-03 | **`Idempotency-Key` bắt buộc**; mapping field mục 6b |
+| 14 | getUser | GET /users/{id} | USER_READ | GET /users/:slug | USER_READ | CHANGE | I-03 | UUID |
+| 15 | updateUser | PATCH /users/{id} | USER_UPDATE | PATCH /users/:slug; PUT …/lock, …/unlock | USER_UPDATE | CHANGE | I-03 | `UserPatch` {version*, displayName, email, isActive}. Lock/unlock legacy tương ứng `isActive` |
+| 16 | deleteUser | DELETE /users/{id} | USER_DELETE | DELETE /users/:slug | USER_DELETE | CHANGE | I-03 | **`version` qua query** |
+| 17 | changeUserRole | PUT /users/{id}/role | USER_CHANGE_ROLE | POST /users/:slug/change-role | USER_UPDATE | CHANGE | I-03 | Body {version*, roleId*}; seed mã mới |
+| 18 | resetUserPassword | POST /users/{id}/password | USER_CHANGE_PASSWORD | POST /users/:slug/change-password | USER_CHANGE_PASSWORD | CHANGE | I-03 | Body {newPassword*, version*} |
+| 19 | listRoles | GET /roles | ROLE_READ | GET /roles (mảng) | ROLE_READ | CHANGE | I-03 | v1 phân trang |
+| 20 | createRole | POST /roles | ROLE_CREATE | POST /roles | ROLE_CREATE | CHANGE | I-03 | **`Idempotency-Key`**. `RoleWrite.family` ∈ {MANAGER, SUPERVISOR} |
+| 21 | getRole | GET /roles/{id} | ROLE_READ | GET /roles/:slug | ROLE_READ | CHANGE | I-03 | `Role` required family/builtIn/version |
+| 22 | updateRole | PATCH /roles/{id} | ROLE_UPDATE | PATCH /roles/:slug | ROLE_UPDATE | CHANGE | I-03 | Body `version`. family/builtIn/code bất biến |
+| 23 | deleteRole | DELETE /roles/{id} | ROLE_DELETE | DELETE /roles/:slug | ROLE_DELETE | CHANGE | I-03 | `version` query |
+| 24 | listAuthorities | GET /authorities | MANAGE_PERMISSIONS | GET /authorities (mảng) | **chỉ JWT** | CHANGE | I-03 | F-196-01; phân trang v1 |
+| 25 | listAuthorityGroups | GET /authority-groups | MANAGE_PERMISSIONS | GET /authority-groups | **chỉ JWT** | CHANGE | I-03 | F-196-01 |
+| 26 | updateAuthorityMetadata | PATCH /authorities/{id} | MANAGE_PERMISSIONS | PATCH /authorities/:slug | MANAGE_PERMISSIONS | CHANGE | I-03 | UUID |
+| 27 | putRoleAuthority | PUT /roles/{id}/authorities/{code} | MANAGE_PERMISSIONS | PUT /roles/:slug/authorities/:code | MANAGE_PERMISSIONS | CHANGE | I-03 | Đổi cache epoch |
+| 28 | deleteRoleAuthority | DELETE /roles/{id}/authorities/{code} | MANAGE_PERMISSIONS | DELETE … | MANAGE_PERMISSIONS | CHANGE | I-03 | **`version` query** |
+| 29 | uploadFile | POST /files | FILE_CREATE | POST /file/upload | FILE_CREATE | CHANGE | I-04 | **`Idempotency-Key`**; purpose GENERIC/FINANCIAL_ATTACHMENT/EXCEL_IMPORT; stream ≤64KiB/chunk |
+| 30 | getFileMetadata | GET /files/{id} | FILE_READ | — | — | NEW | I-04 | Seed mã mới |
+| 31 | getFileAccess | POST /files/{id}/access | FILE_READ | — | — | NEW | I-04 | URL ký ≤5 phút (D06) |
+| 32 | listAuditEvents | GET /audit-events | AUDIT_READ | — | — | NEW | I-05 | |
+| 33 | listTechnicalLogs | GET /technical-logs | LOG_READ | GET /logger | LOGGER_READ | CHANGE | I-06 | Retention 30 ngày |
+| 34 | listBackupRequests | GET /backup-requests | BACKUP_MANAGE | — | — | NEW | I-06 | |
+| 35 | createBackupRequest | POST /backup-requests | BACKUP_MANAGE | POST /db | DB_BACKUP | CHANGE | I-06 | **`Idempotency-Key`**; job + manifest |
+| 36 | createRestoreRequest | POST /restore-requests | BACKUP_MANAGE | — | — | NEW | I-06 | **`Idempotency-Key`**; 202. Thực thi restore theo gate vận hành |
+| 37 | getJob | GET /jobs/{id} | JOB_READ | — | — | NEW | I-06 | `Job.status` ∈ QUEUED/RUNNING/SUCCEEDED/FAILED/CANCELLED |
 
-### 2a. Kiểm trực tiếp OpenAPI/proto R2 (2026-11-06, docs @ `4335203`)
+**Tổng:** REUSE 6 · CHANGE 20 · NEW 11 = 37. So với r1, #19 `listRoles` chuyển từ REUSE sang CHANGE vì v1 phân trang còn legacy trả mảng.
 
-- **OpenAPI:** đủ 37/37 operationId của gói. `x-authority` từng operation khớp cột "Quyền R2" ở bảng trên.
-- **Response:** mọi operation dùng chung bộ mã lỗi 400/401/403/404/409/422/429/500/503/504 với schema `Error`.
-- **Proto:** `warehouse-storage.proto` có 161 RPC. Các RPC W02 đã đối chiếu trong `service` (dòng ~4264–4300), ví dụ `Login`, `Refresh`, `Lock`, `GetProfile`, `UpdateProfile`, `ListOwnSessions`, `GetFileAccess`, `ListAuditEvents`, `CreateBackupRequest`, `GetJob`.
-- **UploadFile** là client-stream: `rpc UploadFile(stream FileUploadChunk)`.
+### 2a. Kiểm trực tiếp OpenAPI/proto R2 (script, docs `4335203`)
 
-Schema then chốt, gap so với legacy:
+- **OpenAPI:** đủ 37/37 operationId. `x-authority` khớp cột trên.
+- **Response:** chung bộ lỗi 400/401/403/404/409/422/429/500/503/504 với schema `Error`.
+- **Proto:** 161 RPC; `UploadFile` là client-stream.
+- **`Idempotency-Key` bắt buộc ở:** createUser, createRole, uploadFile, createBackupRequest, createRestoreRequest.
+- **`version` bắt buộc ở:**
+  - body: updateProfile, updateUser, updateRole, changeUserRole, resetUserPassword;
+  - query: deleteUser, deleteRole, deleteRoleAuthority.
+- **Enum:**
+  - `Role.family` ∈ ADMIN/MANAGER/SUPERVISOR; `RoleWrite.family` ∈ MANAGER/SUPERVISOR;
+  - `FileMetadata.purpose` ∈ GENERIC/FINANCIAL_ATTACHMENT/EXCEL_IMPORT;
+  - `FileMetadata.status` ∈ **UNATTACHED/ATTACHED/REJECTED**;
+  - `Job.status` ∈ QUEUED/RUNNING/SUCCEEDED/FAILED/CANCELLED.
 
 | Schema R2 | Field (required*) | Gap legacy |
 |---|---|---|
-| `LoginResult` | accessToken*, expiresIn*, user*, sessionId*, csrfToken* | Legacy trả `accessToken/refreshToken/expireTime*`. v1 không trả refresh trong body (cookie), thêm `csrfToken` |
-| `UserPatch` | **version***, displayName, email, isActive | (1) `user_tbl` **chưa có `version_column`**: User/Role kế thừa `Base`, không phải `VersionedBase`, nên cần migration thêm cột. (2) `displayName` ↔ `firstName`/`lastName`: cần mapping D35 có nguồn, xem `sdd-field-traceability.csv`. (3) Lock/unlock legacy = patch `isActive` |
-| `Session` | id*, isCurrent*, createdAt*, lastInteractiveAt*, idleExpiresAt*, expiresAt*, ipMasked, userAgent | Chưa có registry phiên |
-| `FileMetadata` | id*, purpose*, originalName*, **detectedMimeType***, extension*, sizeBytes*, **sha256***, warehouseId, ownerId*, createdAt*, status* | Legacy chỉ có key S3. Phải nhận diện MIME theo **nội dung** (magic bytes), không theo mimetype client khai, và tính sha256 khi stream |
-| `FileAccess` | url*, expiresAt*, downloadName*, contentDisposition* | Mới (presigned GET) |
+| `LoginResult` | accessToken*, expiresIn*, user*, sessionId*, csrfToken* | Legacy trả accessToken/refreshToken/expireTime* trong body |
+| `UserPatch` | version*, displayName, email, isActive | `user_tbl` chưa có `version_column` (User/Role kế thừa `Base`). Mapping displayName/email ở mục 6b |
+| `Role` | id*, name*, family*, level*, builtIn*, authorityCodes*, version* | Legacy chưa có cột family/builtIn/version |
+| `Session` | id*, isCurrent*, createdAt*, lastInteractiveAt*, idleExpiresAt*, expiresAt*, ipMasked, userAgent | Mới |
+| `FileMetadata` | id*, purpose*, originalName*, detectedMimeType*, extension*, sizeBytes*, sha256*, warehouseId, ownerId*, createdAt*, status* | Mới. MIME phải nhận diện từ nội dung (D06 mục 2) |
+| `FileAccess` | url*, expiresAt*, downloadName*, contentDisposition* | Mới |
 | `AuditEvent` | id*, actorId*, actorType*, action*, entityType*, entityId*, traceId*, createdAt*, warehouseId, entityVersion, before, after, changedFields, ipMasked, userAgent, actorName, serviceIdentity | Mới |
 | `Job` | id*, kind*, status*, createdAt*, progress*, finishedAt, errorKey, resultFileId | Mới |
 
-## 3. Quyền: authority R2 chưa có trong legacy
+## 3. Quyền
 
-| Mã R2 | Legacy | Hướng xử lý (migration seed mới, không sửa migration cũ) |
+| Mã R2 | Legacy | Hướng xử lý (migration seed mới) |
 |---|---|---|
-| USER_CHANGE_ROLE | dùng chung USER_UPDATE | Seed mới, cấp ADMIN theo permission-policy. Route legacy giữ USER_UPDATE |
-| FILE_READ | — | Seed mới, cấp ADMIN/MANAGER/SUPERVISOR |
-| AUDIT_READ | — | Seed mới, cấp ADMIN/MANAGER |
-| LOG_READ | LOGGER_READ | Seed `LOG_READ`, cấp cùng role đang có `LOGGER_READ`. Giữ `LOGGER_READ` cho route legacy (D35: mapping có nguồn) |
-| BACKUP_MANAGE | DB_BACKUP | Seed mới, cấp ADMIN. Giữ `DB_BACKUP` cho `POST /db` legacy tới khi bỏ route |
-| JOB_READ | — | Seed mới, cấp ADMIN/MANAGER/SUPERVISOR |
+| USER_CHANGE_ROLE | dùng chung USER_UPDATE | Seed + cấp **ADMIN** (`permission-policy` default_grant_families). Route legacy giữ USER_UPDATE |
+| FILE_READ | — | Seed + cấp **ADMIN, MANAGER, SUPERVISOR** |
+| AUDIT_READ | — | Seed + cấp **ADMIN, MANAGER** |
+| LOG_READ | LOGGER_READ | Seed + cấp **đúng theo policy (ADMIN)**, không sao chép từ các role đang có LOGGER_READ lúc runtime. LOGGER_READ giữ cho route legacy |
+| BACKUP_MANAGE | DB_BACKUP | Seed + cấp **ADMIN**. DB_BACKUP giữ cho `POST /db` legacy |
+| JOB_READ | — | Seed + cấp **ADMIN, MANAGER, SUPERVISOR** |
 
-Mọi việc cấp/thu quyền phải tăng **role epoch** để cache Redis `rbac:role:*` / `rbac:user:*` bị vô hiệu. Nếu không kiểm được thì fail-closed (architecture §23).
+Quy tắc R2 phải thực thi ở Storage (business-rules §22-24):
+- Custom role vẫn thuộc 3 family. Không tạo `SUPER_ADMIN` lúc runtime.
+- family/builtIn/code bất biến sau khi tạo.
+- `x-authority` có `|` là OR giữa các mã, sau đó AND với family ceiling + warehouse scope + row policy.
+- Route v1 thiếu annotation ⇒ deny.
+- Cache quyền có epoch; cache không phải nguồn cấp quyền (data-and-migration §22). Thiếu xác minh ⇒ fail-closed.
 
-## 4. Findings an ninh/contract trên code hiện hành
+## 4. Findings trên code hiện hành
 
-- **F-196-01 (Medium):** `GET /authorities` (`authority.controller.ts:30-50`) và `GET /authority-groups` (`authority-group.controller.ts:14-31`) không có `@RequireAuthority`, nên user nào đã đăng nhập cũng đọc được toàn bộ danh mục quyền. R2 yêu cầu `MANAGE_PERMISSIONS`.
-  - Lộ cấu trúc quyền, mức thấp vì không phải dữ liệu nghiệp vụ.
-  - Đã kiểm FE @ `4335203`: `GET /authorities` chỉ được dùng qua `useAuthorities` ở `pages/permissions/ui/PermissionsPage.tsx` (màn quản trị phân quyền). Không thấy FE gọi `GET /authority-groups`.
-  - Đề xuất: siết `MANAGE_PERMISSIONS` cho cả 2 route legacy trong #197 (BE.I). Tác động FE: chỉ màn `/permissions`, mà màn này vốn yêu cầu quyền quản trị.
-- **F-196-02 (Info):** refresh token không rotation và nằm trong body. Đây là hành vi đã biết (Swagger ghi rõ). R2 yêu cầu đổi; thuộc #197.
-- **F-196-03 (Info):** `POST /db` chạy mysqldump đồng bộ trong request, đồng thời có cron backup 1AM. Không có metadata hay retention 30 ngày (D14). Thuộc #197.
+- **F-196-01 (Medium):** `GET /authorities` và `GET /authority-groups` chỉ cần JWT (`authority.controller.ts:30-50`, `authority-group.controller.ts:14-31`). R2 yêu cầu `MANAGE_PERMISSIONS`.
+  - FE @ `4335203` chỉ gọi `/authorities` từ `pages/permissions/ui/PermissionsPage.tsx` (màn quản trị); không gọi `/authority-groups`.
+  - Siết trong #197.
+- **F-196-02 (High, thiết kế):** refresh legacy không rotation; ký lại `exp` mới, giữ `sid` (`auth.service.ts:103-108, 228-240`). FE lưu refresh trong localStorage. Vì vậy token cũ **không tự hết hạn** nếu user hoạt động liên tục. Cutover theo mục 5c.
+- **F-196-03 (Info):** `POST /db` mysqldump đồng bộ + cron 1AM, không manifest/retention. Thay bằng job (I-06).
+- **F-196-04 (Medium):** `role.guard.ts` cho `SUPER_ADMIN` vượt mọi `AuthorityGuard`/`HasRoleGuard` (`role.guard.ts:32, 63`). D02 + permission-policy: "Admin is not a universal bypass"; không có `SUPER_ADMIN` runtime. v1 phải áp family ceiling + scope cho mọi principal. Xử lý legacy `SUPER_ADMIN` (root seeder) là deviation mở DEV-196-03 (mục 6b).
 
-## 5. Dữ liệu và migration dự kiến (viết trong #197, chạy trên target test theo D32)
+## 5. Dữ liệu (theo `data-and-migration.md` §16-37; viết trong #197, chạy trên target test theo D32)
 
-1. `session_registry`: id, userId, sid, createdAt, lastActivityAt, revokedAt, userAgent/ip (đã băm). Dùng cho refresh rotation, idle 30 phút, `GET/DELETE /sessions`.
-2. `file_metadata`: id, s3Key, checksum, size, mime, purpose, ownerUserId, entityType/entityId, status (TEMP/ATTACHED), createdAt. Object TEMP có TTL cleanup (D06).
-3. `audit_event`: id, traceId, actorId, action, entityType/entityId, before/after (JSON), warehouseId, createdAt. Ghi trong cùng transaction nghiệp vụ.
-4. `outbox_event`: id, eventId (dedupe), type, payload, status, attempts, createdAt, publishedAt.
-5. `idempotency_key`: key, scope (operation + user), requestHash, responseRef, createdAt, TTL. Dùng chung cho upload/backup/restore.
-6. `job`: id, type (BACKUP/RESTORE_REQUEST), status, requestedBy, result/error, timestamps. `backup_request`/`restore_request` (hoặc gộp vào job; chốt theo OpenAPI `BackupRequest`/`RestoreRequest`/`Job`).
-7. Seed 6 authority mới (mục 3) + role epoch (cột `epoch_column` trên `role_tbl` hoặc key Redis có nguồn từ DB).
-8. `version_column` cho `user_tbl` và `role_tbl` (UserPatch/RolePatch yêu cầu `version`). Backfill mặc định là 1. Down = drop cột.
+Tên dưới đây là **tên logic** của R2. Entity/migration map sang bảng/cột legacy rõ ràng, không rename bảng production chỉ để khớp tên. Mọi bảng nghiệp vụ có `id`, `version`, `created_at`, `updated_at` (+ `deleted_at` nếu soft delete). Timestamp audit/hệ thống là UTC.
 
-**Rollback plan chung:**
-- Mỗi migration có `down` đảo đúng thao tác.
-- Migration chỉ thêm (bảng/cột/seed). Không đổi tên hay xoá cột legacy khi route legacy còn dùng.
-- Bật tính năng mới theo route v1, nên legacy không phụ thuộc vào bảng mới. Rollback = revert migration + tắt route v1, không mất dữ liệu legacy.
-- Chạy up → down → up trên target test (D32) trước khi bàn giao QA.
+| Nhóm | Bảng logic | Ràng buộc R2 bắt buộc |
+|---|---|---|
+| Identity | users, roles, authorities, authority_groups, role_authorities | Thêm `version_column` cho user/role. Thêm `family` (3 giá trị) và `builtIn` cho role. `roles.name` unique kể cả đã xoá. `authorities.code` unique bất biến. `users.phone`/`email` unique (xem DEV-196-02) |
+| Session | **sessions, refresh_token_families, refresh_token_hashes** | Chỉ lưu **hash** refresh, không plaintext. Unique token hash. `session.user_id` FK. family ↔ session liên kết. **revoked / idle / token expiry tách riêng** (sessions giữ lastInteractiveAt, idleExpiresAt, expiresAt, revokedAt). **Mỗi family chỉ 1 token hiện hành.** Lưu userAgent dạng có thể trả về `Session.userAgent`, IP đầy đủ chỉ ở storage hạn chế, API trả `ipMasked` |
+| File | **file_objects, typed_file_attachment_links** | Object: key/checksum (sha256)/size/MIME thực/owner/purpose/status (UNATTACHED/ATTACHED/REJECTED). Link có **typed FK** tới đúng 1 entity (CHECK), unique(file_id, entity link). Không lưu binary/base64 trong MySQL |
+| Audit/outbox | **audit_logs, outbox_events, outbox_deliveries, request_idempotency** | Audit cùng transaction nghiệp vụ, đủ field `AuditEvent` + `command_id`, unique(command_id, entity_type, entity_id, action). Outbox `event_id` PK. Delivery unique(event_id, recipient, channel). Idempotency unique(principal, operation, key) + payload hash bất biến |
+| Job | **backup_jobs** (+ archive_jobs ở W11) | Job source idempotency unique. Manifest MySQL + object/checksum/version (D06 mục 4). Giữ 30 ngày (D14) |
+| Technical log | technical_logs hoặc log sink được duyệt | INFO/WARN/ERROR, traceId, index timestamp, redact secret, retention 30 ngày; không áp cleanup này cho business audit |
 
-Mỗi migration có `down`. Không sửa migration đã chạy (gồm 047). Backfill session cho token cũ: không cần, vì token cũ hết hạn tự nhiên. Chiến lược cutover ghi rõ trong #197.
+### 5a. Transaction, state, version, idempotency
 
-## 5a. Transaction, state, version và idempotency
+Nguồn: business-rules §10-12, §20-21; data-and-migration §48-55.
 
-| Luồng | Transaction | State / version | Idempotency |
-|---|---|---|---|
-| Refresh rotation | 1 transaction trên `session_registry`: đánh dấu refresh cũ là đã dùng, phát refresh mới | Session: ACTIVE → IDLE_LOCKED / REVOKED | Refresh cũ dùng lại ⇒ coi là reuse: revoke toàn bộ phiên đó và trả 401 (không phát token mới) |
-| Logout / revoke session | Cập nhật `revokedAt` + deny-list Redis sau commit | REVOKED là trạng thái cuối | Gọi lặp trả cùng kết quả, không lỗi |
-| PATCH user/role (FieldMask) | 1 transaction + audit cùng transaction | `version` optimistic. Lệch version ⇒ 409 (FAILED_PRECONDITION/ABORTED) | Retry với cùng version sau khi đã commit ⇒ 409, client phải đọc lại |
-| Grant/revoke quyền | 1 transaction + tăng role epoch + audit | — | PUT/DELETE quyền vốn idempotent (legacy đã vậy) |
-| Upload file | Stream vào S3 trạng thái TEMP, rồi transaction ghi metadata | TEMP → ATTACHED (khi gắn entity) / EXPIRED (TTL cleanup) | Header `Idempotency-Key` (bắt buộc theo OpenAPI): cùng key + cùng nội dung ⇒ trả lại cùng file. Khách huỷ hoặc lỗi giữa chừng ⇒ không tạo metadata ATTACHED; object TEMP bị dọn theo TTL |
-| Audit + outbox | Insert cùng transaction nghiệp vụ | Outbox: PENDING → PUBLISHED / FAILED | Consumer dedupe theo `eventId`. Dispatcher retry không ghi lại nghiệp vụ |
-| Backup/restore request | Transaction tạo `job` + audit | QUEUED → RUNNING → SUCCEEDED / FAILED | Header `Idempotency-Key` (OpenAPI khai báo cho `createBackupRequest`/`createRestoreRequest`): cùng key ⇒ trả lại job cũ. Cần bảng/cột lưu key + hash request. DEADLINE_EXCEEDED ⇒ tra theo key, không tạo job mới |
-
-## 6. Thiết kế triển khai #197: microtask theo thứ tự dependency (1 BE)
-
-| MT | Nội dung | Phụ thuộc | Kiểm chứng |
-|---|---|---|---|
-| I-01 | Proto compile + Storage gRPC server skeleton + Gateway client, mTLS bằng cert test, error/trace translator | — | Contract test proto↔OpenAPI; unit cho translator |
-| I-02 | Session registry + refresh cookie/CSRF/rotation/reuse-detect + idle/activity/lock | I-01 | e2e trên harness W01 (TC-AUTH-01..08), Redis/MySQL thật |
-| I-03 | Users/roles/authorities/permissions v1 qua Storage, FieldMask, UUID; F-196-01; seed 6 authority + role epoch | I-01 | TC-RBAC-01..08, TC-API/DENY-* 12..28 |
-| I-04 | File metadata + purpose + presign + stream upload, cleanup TEMP | I-01 | TC-FILE-01..08 (S3 fake = SIMULATED; S3 thật NOT_RUN nếu không có target) |
-| I-05 | Audit cùng transaction + outbox dispatcher | I-03 | TC-AUD-01..03, rollback test |
-| I-06 | Technical logs v1 + backup/restore request + job | I-05 | TC-BKP-01..02, TC-API/DENY 33..37 |
-| I-07 | Bàn giao QA: CONTRACT/BE.I READY_FOR_QA, runbook, evidence | I-01..06 | QA #199 |
-
-Ước lượng R2 W02-BE: không thay đổi, theo `planning/resource-schedule.csv`.
-
-**Gate:** #197 chỉ bắt đầu implement khi W01-QA.T COMPLETE + E02b VERIFIED. Snapshot 05/11: #166 vẫn OPEN, nên chưa được bắt đầu.
-
-## 6a. Truy vết requirement → microtask
-
-Nghĩa của từng ID tra trong `docs/project/roadmap/requirements-traceability.csv` @ `4335203`.
-
-| Requirement (nghĩa theo nguồn) | Microtask |
+| Luồng | Quy tắc |
 |---|---|
-| ADR-001 kiến trúc microservices (Gateway/Storage) | I-01 |
-| DS-06 Logger có level/context/timestamp/PID/**Trace ID** | I-01 (traceId xuyên RPC) + I-06 (technical logs) |
-| NFR-07 xác thực username/password, bcrypt · NFR-11 tự khoá sau 30 phút không hoạt động · ADR-003 JWT access + refresh + session · DS-02 API auth/user/role/session | I-02 (+ I-03 cho phần user/role của DS-02) |
-| NFR-08 RBAC 3 vai trò · DS-09 ma trận actor/action/scope · BRD-U02 admin quản lý user · SRS-U02 admin quản lý user/phân quyền/cấu hình/backup | I-03 (+ I-06 cho phần backup của SRS-U02) |
-| BRD-U01 cửa hàng gắn với kho | I-03: chỉ nền scope kho. Nghiệp vụ store làm ở W03 (traceability: packages W02;W03) |
-| ADR-006 dữ liệu file (bảng File: name/mimetype/size/extension…) · SRS-U29 upload chứng từ phiếu nhập | I-04: nền file/purpose. Gắn chứng từ vào phiếu nhập của SRS-U29 làm ở W04 (packages W02;W04). Lưu ý **D06 thay thế phần lưu bytes trong MySQL** của ADR-006: bytes nằm ở private S3, MySQL giữ metadata |
-| NFR-09 audit trail giao dịch quan trọng · BRD-U05 xem audit trail đầy đủ | I-05 |
-| NFR-10 backup tự động hằng ngày, giữ 30 ngày · BRD-U04 backup tự động + thủ công, restore | I-06 |
-| NFR-23 lưu trữ ≥2 năm, archive | I-06: chỉ chính sách retention cho backup/log. Archive dữ liệu thuộc W11 (`requestArchive`) |
-| ADR-002 MySQL 3NF, soft delete, created/updated · DS-01 ERD/migration | Mọi migration I-02..I-06 |
-| DS-10 tài liệu UI/API/technical/error + conventions · DS-12 diagram master | I-07 (tài liệu bàn giao) |
+| Idempotency chung | `Idempotency-Key` 16–128 ký tự, unique (principalId, operationId, key). Cùng key + cùng payload chuẩn hoá ⇒ trả kết quả cũ. Cùng key + payload khác ⇒ **409**. Giữ bản ghi **≥7 ngày**. Áp dụng: createUser, createRole, uploadFile, createBackupRequest, createRestoreRequest |
+| Version | Mọi update/action có `version` (8 operation ở mục 2a), check **lại trong transaction đã khoá**. Lệch ⇒ 409. Payload chỉ có version không phải update hợp lệ. Không giữ transaction DB qua call ra ngoài |
+| Refresh rotation | Transaction: kiểm session chưa revoked/idle/expired ⇒ đánh dấu hash hiện hành đã dùng ⇒ phát hash mới cùng family. Hash cũ dùng lại ⇒ **revoke cả family/session**, trả 401. Polling/refresh **không** gia hạn idle |
+| Logout / revoke | Ghi revokedAt + audit trong transaction. Deny-list Redis cập nhật sau commit. Gọi lặp cho cùng kết quả |
+| Grant/revoke quyền | Transaction + audit + đổi cache epoch. `deleteRoleAuthority` bắt buộc `version` |
+| Upload | Stream lên object store, rồi transaction ghi metadata UNATTACHED. Gắn entity qua typed link ⇒ ATTACHED. Sai MIME/size ⇒ REJECTED. Huỷ hoặc lỗi giữa chừng ⇒ không ATTACHED. UNATTACHED được dọn sau **24h** nếu không còn tham chiếu (D06) |
+| Audit + outbox | Cùng transaction nghiệp vụ. Dispatcher publish sau commit. Consumer dedupe theo event_id. Retry không ghi lại nghiệp vụ |
+| Backup/restore job | Transaction tạo job + audit. QUEUED → RUNNING → SUCCEEDED/FAILED/CANCELLED. Trùng key ⇒ trả job cũ. DEADLINE_EXCEEDED ⇒ tra theo key, không tạo job mới |
 
-Case ID chi tiết nằm trong dossier W02 (116 case) và được giao cho QA #198 thiết kế.
+### 5b. Migration và rollback (data-and-migration §65-74)
 
-**Đối soát phần legacy đã merge** (theo yêu cầu issue):
-- #168 (`FILE_CREATE` + giới hạn 10MB/9 loại): khớp D30 cho generic upload. Còn thiếu purpose FINANCIAL ≤5MiB (PDF/JPG/PNG), làm ở I-04.
-- #180 (key S3 an toàn) và #184 (log key sạch + cặp đuôi↔mime cho phiếu): giữ nguyên, I-04 dựng trên nền này.
-- QA #173/#174: chưa có kết quả, nên không coi là evidence của W02.
+1. **Kiểm kê target test:** SHA/diff, migration history, PK/FK/collation/index, số dòng. Chỉ dùng WH-TEST-ENV-20261105.
+2. **Reserve ID:** đọc lại max migration lúc bắt đầu #197. Không dùng lại 047, không rename/backdate.
+3. **Expand:** thêm bảng/cột nullable/index mới. Schema vẫn đọc được dữ liệu cũ. API v1 chưa kích hoạt. Unique/FK chỉ thêm sau khi có report duplicate/missing parent.
+4. **Backfill:**
+   - role.family theo tên role legacy (ADMIN/MANAGER/SUPERVISOR); role custom map theo level, có danh sách đối soát.
+   - builtIn cho 4 role seed.
+   - version = 1.
+   - email/displayName theo DEV-196-02.
+5. **Validate rồi constrain:** so số dòng và FK trước/sau. Chỉ sau đó mới NOT NULL, unique, seed mã quyền mới + đổi cache epoch.
+6. **Rollback:**
+   - Trước khi bật capability v1, rollback = `down` của các bước expand/backfill. Mỗi migration ghi up/down + tác động.
+   - **Sau khi đã có dữ liệu v1** (session/audit/file/job): **không drop** cột/bảng. Dừng ghi capability, giữ snapshot, rồi forward-fix/reconciliation. Lý do: audit phải giữ ≥2 năm (NFR-23).
+   - Revert DB có sẵn cần quyền riêng.
+   - Chạy up → down → up trên target test trước khi bàn giao QA, chỉ ở phase expand.
 
-## 7. CONTRACT_READY cho FE/QA (đầu ra của #196)
+### 5c. Cutover auth (data-and-migration §73, F-196-02)
 
-- FE (THẮNG) và QA (LAN ANH, #198) dùng **OpenAPI R2 + bảng mục 2** làm nguồn. 37 operation không đổi contract.
-- Khác biệt legacy cần biết trong giai đoạn chuyển tiếp:
-  - slug vs UUID;
-  - envelope legacy;
-  - refresh trong body (legacy) vs cookie (v1);
-  - mã quyền mới (mục 3).
-- Không có CR nào thay đổi contract R2 trong bản đối soát này. Các finding mục 4 được sửa trong phạm vi #197.
+- Legacy auth **không được coi là đạt security gate** khi vẫn lưu refresh trong localStorage.
+- FE chuyển sang cookie v1 và BE **revoke toàn bộ phiên legacy cùng một mốc**, ví dụ `logoutAll` diện rộng / tăng epoch session.
+- Hệ quả: user đăng nhập lại một lần.
+- Mốc này phải thống nhất với FE (THẮNG) và QA (LAN ANH) trước khi bật. Ghi trong I-07.
+
+## 6. Thiết kế triển khai #197: microtask (1 BE, theo dependency)
+
+| MT | Nội dung | Phụ thuộc | Case |
+|---|---|---|---|
+| I-01 | Proto compile, Storage gRPC server, Gateway client, mTLS cert test, traceId, error translator, envelope v1 | — | TC-ARC-01..04 |
+| I-02 | sessions/refresh families/hashes, cookie+CSRF+Origin, rotation/reuse-revoke, idle 30 phút + activity + lock, throttle IP+identifier, op #1-11 | I-01 | TC-AUTH-01..08; TC-API/DENY op #1-11 |
+| I-03 | users/roles/authorities/permissions v1 (UUID, FieldMask, version, idempotency), family/builtIn/ceiling, F-196-01, F-196-04 (v1), seed 6 mã + epoch, op #12-28 | I-01 | TC-RBAC-01..08; TC-API/DENY op #12-28 |
+| I-04 | file_objects + typed links, purpose/size/MIME thực, stream + sha256, presign ≤5 phút, cleanup 24h, op #29-31 | I-01 | TC-FILE-01..08; TC-API/DENY op #29-31 |
+| I-05 | audit_logs + outbox_events/deliveries + request_idempotency dùng chung, op #32 | I-03 | TC-AUD-01..03; TC-API/DENY op #32 |
+| I-06 | technical logs v1, backup_jobs + manifest + restore request, op #33-37 | I-05 | TC-BKP-01..02; TC-API/DENY op #33-37 |
+| I-07 | Bàn giao: BE.I READY_FOR_QA, runbook, mốc cutover auth (5c) | I-01..06 | TC-UI-01..11 do FE + QA browser chạy trên API này |
+
+**Gate:** #197 chỉ implement khi W01-QA.T COMPLETE + E02b VERIFIED. Tại 06/11, #166 vẫn OPEN.
+
+### 6a. Truy vết requirement → microtask
+
+Nghĩa của ID lấy từ `roadmap/requirements-traceability.csv` @ `4335203`.
+
+| Requirement | Microtask |
+|---|---|
+| ADR-001 kiến trúc microservices | I-01 |
+| DS-06 logger có Trace ID | I-01 (trace) + I-05 (audit) + I-06 (technical logs) |
+| NFR-07 username/password + bcrypt · NFR-11 khoá sau 30 phút · ADR-003 JWT access + refresh + session · DS-02 API auth/user/role/session | I-02 (+ I-03 cho user/role) |
+| NFR-08 RBAC 3 vai trò · DS-09 ma trận actor/action/scope · BRD-U02 admin quản lý user · SRS-U02 admin user/phân quyền/backup | I-03 (+ I-06 cho backup) |
+| BRD-U01 cửa hàng gắn kho | I-03: chỉ nền scope kho; store làm ở W03 (packages W02;W03) |
+| ADR-006 dữ liệu file · SRS-U29 upload chứng từ phiếu nhập | I-04: nền file; gắn chứng từ phiếu ở W04 (packages W02;W04). D06 thay phần lưu bytes trong MySQL |
+| NFR-09 audit trail · BRD-U05 xem audit đầy đủ | I-05 (+ I-06 cho phần log lỗi/xuất log của BRD-U05) |
+| NFR-10 backup hằng ngày, giữ 30 ngày · BRD-U04 backup + restore | I-06 |
+| NFR-23 lưu trữ ≥2 năm, archive | I-06: retention; archive làm ở W11 (packages W02;W11) |
+| ADR-002 MySQL 3NF, soft delete · DS-01 ERD/migration | Mọi migration I-02..I-06 |
+| DS-10 tài liệu/conventions · DS-12 diagram master | I-07 |
+
+### 6b. Deviation mở (cần chốt trước/khi làm #197)
+
+| ID | Nội dung | Nguồn | Owner / gate |
+|---|---|---|---|
+| DEV-196-01 | Không có. Trạng thái session IDLE_LOCKED ở r1 đã bỏ, dùng các trường thời điểm của R2 | — | — |
+| DEV-196-02 | Mapping user: `displayName` ↔ `firstName`/`lastName`; `email` legacy nullable, R2 unique (required hay không theo `UserCreate`); `avatarFileId` chưa có cột | `sdd-field-traceability.csv`, D35 | Mekong-HCM. Chốt bằng mapping có nguồn trong I-03, không tự gộp |
+| DEV-196-03 | User `SUPER_ADMIN` legacy (root seeder) và bypass trong guard, so với D02 "không SUPER_ADMIN runtime, không bypass" | D02, permission-policy | Mekong-HCM. Đề xuất: v1 không nhận SUPER_ADMIN như bypass; legacy giữ cho đến cutover. Cần CR nếu muốn gỡ ở legacy |
+| DEV-196-04 | Cách lưu cache epoch: cột DB hay key Redis có nguồn từ DB | data-and-migration §22 | Mekong-HCM, chốt ở I-03 |
+
+## 7. CONTRACT_READY: checklist bàn giao FE/QA
+
+- Nguồn contract: **OpenAPI R2** + bảng mục 2/2a. 37 operation **không đổi** contract R2.
+- Khác biệt v1 ↔ legacy FE/QA cần biết:
+  1. UUID path ↔ slug.
+  2. Envelope thành công có thêm `traceId`. Lỗi có `errorKey`/`code`/`traceId`.
+  3. List v1 luôn phân trang, có `hasPrevious`. `GET /roles` và `/authorities` legacy trả mảng.
+  4. Refresh qua cookie + `csrfToken` (v1), không còn trong body. Cutover theo 5c.
+  5. `Idempotency-Key` và `version` bắt buộc ở các operation trong mục 2a.
+  6. Mã quyền mới ở mục 3. File status UNATTACHED/ATTACHED/REJECTED.
+- QA #198 thiết kế test theo bảng case mục 2 + mục 6; test thật ở #199 sau BE.I.
 
 ## 8. Trạng thái checklist #196
 
-1. Bảng đối soát 37/37 operation + schema/error/quyền/RPC + requirement/case: **xong** (mục 2, 2a, 3, 6a).
-2. Thiết kế file/module, transaction/state/version/idempotency, migration up/down + rollback: **xong**, ở mức thiết kế (mục 5, 6). Không chạy migration trong task này.
-3. Checklist bàn giao FE/QA + mapping legacy↔v1: **xong** (mục 7).
-4. Evidence: SHA nguồn `1d7f200`, docs `4335203`, người thực hiện Mekong-HCM, ngày 2026-11-06. Không chạy app, nên không có command/target.
-5. Deviation/CR: không có thay đổi R2. Finding F-196-01..03 giao cho #197.
+1. Bảng đối soát 37/37 + schema/error/quyền/RPC/enum + requirement/case: có ở r2 (mục 2, 2a, 3, 6, 6a).
+2. Thiết kế module, transaction/state/version/idempotency, migration expand/backfill/validate/constrain + rollback: có ở r2 (mục 5, 5a, 5b, 5c, 6). Không chạy migration.
+3. Checklist FE/QA + mapping legacy↔v1: có ở r2 (mục 7).
+4. Evidence: nguồn `1d7f200`, docs `4335203`, Mekong-HCM, 2026-11-06. SHA256 của file này ghi trong comment công bố CONTRACT_READY trên #196.
+5. Deviation/CR: không đổi R2. Deviation mở DEV-196-02..04 có owner (mục 6b). Finding F-196-01..04 giao #197.
