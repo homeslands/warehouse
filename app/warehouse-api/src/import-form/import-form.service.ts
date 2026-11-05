@@ -25,11 +25,7 @@ import {
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
-import {
-  IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES,
-  IMPORT_FORM_UPLOAD_FOLDER,
-  ImportFormStatus,
-} from './import-form.constants';
+import { IMPORT_FORM_UPLOAD_FOLDER, ImportFormStatus } from './import-form.constants';
 import { ImportFormException } from './import-form.exception';
 import { ImportFormValidation } from './import-form.validation';
 import { pickDefined } from 'src/shared/utils/obj.util';
@@ -59,6 +55,7 @@ import { findWarehouse } from 'src/warehouse/warehouse.util';
 import { S3Service } from 'src/file/s3/s3.service';
 import { MaterialBatchService } from 'src/material-batch/material-batch.service';
 import { FileException } from 'src/file/file.exception';
+import { isAllowedUploadType } from 'src/file/file.util';
 import { FileValidation } from 'src/file/file.validation';
 import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 import { MONEY_MAX, QUANTITY_MAX, roundMoney } from 'src/shared/utils/decimal.util';
@@ -124,7 +121,7 @@ export class ImportFormService {
       AuthorityCode.ImportFormUpdateDraftOwn,
     ]);
     if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
-    if (!IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES.includes(file.mimetype))
+    if (!isAllowedUploadType(file.originalname, file.mimetype))
       throw new ImportFormException(ImportFormValidation.IMPORT_FORM_FILE_TYPE_NOT_ALLOWED);
 
     const key = await this.s3Service.uploadFile(file, IMPORT_FORM_UPLOAD_FOLDER);
