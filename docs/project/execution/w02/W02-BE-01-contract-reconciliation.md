@@ -51,7 +51,7 @@ Case ID theo quy ước dossier W02: mỗi operation có `TC-API-<op>`, và có 
 | 10 | listOwnSessions | GET /sessions | AUTHENTICATED | — | — | NEW | I-02 | Schema `Session` |
 | 11 | revokeOwnSession | DELETE /sessions/{id} | AUTHENTICATED | — | — | NEW | I-02 | |
 | 12 | listUsers | GET /users | USER_READ | GET /users | USER_READ | REUSE | I-03 | Phân trang v1 |
-| 13 | createUser | POST /users | USER_CREATE | POST /users | USER_CREATE | REUSE | I-03 | **`Idempotency-Key` bắt buộc**; mapping field mục 6b |
+| 13 | createUser | POST /users | USER_CREATE | POST /users | USER_CREATE | CHANGE | I-03 | **`Idempotency-Key` bắt buộc**; mapping field mục 6b |
 | 14 | getUser | GET /users/{id} | USER_READ | GET /users/:slug | USER_READ | CHANGE | I-03 | UUID |
 | 15 | updateUser | PATCH /users/{id} | USER_UPDATE | PATCH /users/:slug; PUT …/lock, …/unlock | USER_UPDATE | CHANGE | I-03 | `UserPatch` {version*, displayName, email, isActive}. Lock/unlock legacy tương ứng `isActive` |
 | 16 | deleteUser | DELETE /users/{id} | USER_DELETE | DELETE /users/:slug | USER_DELETE | CHANGE | I-03 | **`version` qua query** |
@@ -64,7 +64,7 @@ Case ID theo quy ước dossier W02: mỗi operation có `TC-API-<op>`, và có 
 | 23 | deleteRole | DELETE /roles/{id} | ROLE_DELETE | DELETE /roles/:slug | ROLE_DELETE | CHANGE | I-03 | `version` query |
 | 24 | listAuthorities | GET /authorities | MANAGE_PERMISSIONS | GET /authorities (mảng) | **chỉ JWT** | CHANGE | I-03 | F-196-01; phân trang v1 |
 | 25 | listAuthorityGroups | GET /authority-groups | MANAGE_PERMISSIONS | GET /authority-groups | **chỉ JWT** | CHANGE | I-03 | F-196-01 |
-| 26 | updateAuthorityMetadata | PATCH /authorities/{id} | MANAGE_PERMISSIONS | PATCH /authorities/:slug | MANAGE_PERMISSIONS | CHANGE | I-03 | UUID |
+| 26 | updateAuthorityMetadata | PATCH /authorities/{id} | MANAGE_PERMISSIONS | PATCH /authorities/:slug | MANAGE_PERMISSIONS | CHANGE | I-03 | UUID; **body `version`** (`authority_tbl` chưa có cột version) |
 | 27 | putRoleAuthority | PUT /roles/{id}/authorities/{code} | MANAGE_PERMISSIONS | PUT /roles/:slug/authorities/:code | MANAGE_PERMISSIONS | CHANGE | I-03 | Đổi cache epoch |
 | 28 | deleteRoleAuthority | DELETE /roles/{id}/authorities/{code} | MANAGE_PERMISSIONS | DELETE … | MANAGE_PERMISSIONS | CHANGE | I-03 | **`version` query** |
 | 29 | uploadFile | POST /files | FILE_CREATE | POST /file/upload | FILE_CREATE | CHANGE | I-04 | **`Idempotency-Key`**; purpose GENERIC/FINANCIAL_ATTACHMENT/EXCEL_IMPORT; stream ≤64KiB/chunk |
@@ -77,7 +77,7 @@ Case ID theo quy ước dossier W02: mỗi operation có `TC-API-<op>`, và có 
 | 36 | createRestoreRequest | POST /restore-requests | BACKUP_MANAGE | — | — | NEW | I-06 | **`Idempotency-Key`**; 202. Thực thi restore theo gate vận hành |
 | 37 | getJob | GET /jobs/{id} | JOB_READ | — | — | NEW | I-06 | `Job.status` ∈ QUEUED/RUNNING/SUCCEEDED/FAILED/CANCELLED |
 
-**Tổng:** REUSE 6 · CHANGE 20 · NEW 11 = 37. So với r1, #19 `listRoles` chuyển từ REUSE sang CHANGE vì v1 phân trang còn legacy trả mảng.
+**Tổng:** REUSE 4 · CHANGE 22 · NEW 11 = 37. So với r1: #13 `createUser`, #19 `listRoles`, #20 `createRole` chuyển sang CHANGE (Idempotency-Key bắt buộc / v1 phân trang khác legacy).
 
 ### 2a. Kiểm trực tiếp OpenAPI/proto R2 (script, docs `4335203`)
 
@@ -86,7 +86,7 @@ Case ID theo quy ước dossier W02: mỗi operation có `TC-API-<op>`, và có 
 - **Proto:** 161 RPC; `UploadFile` là client-stream.
 - **`Idempotency-Key` bắt buộc ở:** createUser, createRole, uploadFile, createBackupRequest, createRestoreRequest.
 - **`version` bắt buộc ở:**
-  - body: updateProfile, updateUser, updateRole, changeUserRole, resetUserPassword;
+  - body: updateProfile, updateUser, updateRole, updateAuthorityMetadata, changeUserRole, resetUserPassword;
   - query: deleteUser, deleteRole, deleteRoleAuthority.
 - **Enum:**
   - `Role.family` ∈ ADMIN/MANAGER/SUPERVISOR; `RoleWrite.family` ∈ MANAGER/SUPERVISOR;
@@ -138,7 +138,7 @@ Tên dưới đây là **tên logic** của R2. Entity/migration map sang bảng
 
 | Nhóm | Bảng logic | Ràng buộc R2 bắt buộc |
 |---|---|---|
-| Identity | users, roles, authorities, authority_groups, role_authorities | Thêm `version_column` cho user/role. Thêm `family` (3 giá trị) và `builtIn` cho role. `roles.name` unique kể cả đã xoá. `authorities.code` unique bất biến. `users.phone`/`email` unique (xem DEV-196-02) |
+| Identity | users, roles, authorities, authority_groups, role_authorities | Thêm `version_column` cho user/role/authority. Thêm `family` (3 giá trị) và `builtIn` cho role. `roles.name` unique kể cả đã xoá. `authorities.code` unique bất biến. `users.phone`/`email` unique (xem DEV-196-02) |
 | Session | **sessions, refresh_token_families, refresh_token_hashes** | Chỉ lưu **hash** refresh, không plaintext. Unique token hash. `session.user_id` FK. family ↔ session liên kết. **revoked / idle / token expiry tách riêng** (sessions giữ lastInteractiveAt, idleExpiresAt, expiresAt, revokedAt). **Mỗi family chỉ 1 token hiện hành.** Lưu userAgent dạng có thể trả về `Session.userAgent`, IP đầy đủ chỉ ở storage hạn chế, API trả `ipMasked` |
 | File | **file_objects, typed_file_attachment_links** | Object: key/checksum (sha256)/size/MIME thực/owner/purpose/status (UNATTACHED/ATTACHED/REJECTED). Link có **typed FK** tới đúng 1 entity (CHECK), unique(file_id, entity link). Không lưu binary/base64 trong MySQL |
 | Audit/outbox | **audit_logs, outbox_events, outbox_deliveries, request_idempotency** | Audit cùng transaction nghiệp vụ, đủ field `AuditEvent` + `command_id`, unique(command_id, entity_type, entity_id, action). Outbox `event_id` PK. Delivery unique(event_id, recipient, channel). Idempotency unique(principal, operation, key) + payload hash bất biến |
@@ -152,11 +152,11 @@ Nguồn: business-rules §10-12, §20-21; data-and-migration §48-55.
 | Luồng | Quy tắc |
 |---|---|
 | Idempotency chung | `Idempotency-Key` 16–128 ký tự, unique (principalId, operationId, key). Cùng key + cùng payload chuẩn hoá ⇒ trả kết quả cũ. Cùng key + payload khác ⇒ **409**. Giữ bản ghi **≥7 ngày**. Áp dụng: createUser, createRole, uploadFile, createBackupRequest, createRestoreRequest |
-| Version | Mọi update/action có `version` (8 operation ở mục 2a), check **lại trong transaction đã khoá**. Lệch ⇒ 409. Payload chỉ có version không phải update hợp lệ. Không giữ transaction DB qua call ra ngoài |
+| Version | Mọi update/action có `version` (9 operation ở mục 2a), check **lại trong transaction đã khoá**. Lệch ⇒ 409. Payload chỉ có version không phải update hợp lệ. Không giữ transaction DB qua call ra ngoài |
 | Refresh rotation | Transaction: kiểm session chưa revoked/idle/expired ⇒ đánh dấu hash hiện hành đã dùng ⇒ phát hash mới cùng family. Hash cũ dùng lại ⇒ **revoke cả family/session**, trả 401. Polling/refresh **không** gia hạn idle |
 | Logout / revoke | Ghi revokedAt + audit trong transaction. Deny-list Redis cập nhật sau commit. Gọi lặp cho cùng kết quả |
 | Grant/revoke quyền | Transaction + audit + đổi cache epoch. `deleteRoleAuthority` bắt buộc `version` |
-| Upload | Stream lên object store, rồi transaction ghi metadata UNATTACHED. Gắn entity qua typed link ⇒ ATTACHED. Sai MIME/size ⇒ REJECTED. Huỷ hoặc lỗi giữa chừng ⇒ không ATTACHED. UNATTACHED được dọn sau **24h** nếu không còn tham chiếu (D06) |
+| Upload | Stream lên object store, rồi transaction ghi metadata UNATTACHED. Gắn entity qua typed link ⇒ ATTACHED. Sai MIME/size ⇒ **422** (TC-FILE-03), không tạo object ATTACHED. Khi nào dùng trạng thái REJECTED: xem DEV-196-01. Huỷ hoặc lỗi giữa chừng ⇒ không ATTACHED. UNATTACHED được dọn sau **24h** nếu không còn tham chiếu (D06) |
 | Audit + outbox | Cùng transaction nghiệp vụ. Dispatcher publish sau commit. Consumer dedupe theo event_id. Retry không ghi lại nghiệp vụ |
 | Backup/restore job | Transaction tạo job + audit. QUEUED → RUNNING → SUCCEEDED/FAILED/CANCELLED. Trùng key ⇒ trả job cũ. DEADLINE_EXCEEDED ⇒ tra theo key, không tạo job mới |
 
@@ -166,7 +166,7 @@ Nguồn: business-rules §10-12, §20-21; data-and-migration §48-55.
 2. **Reserve ID:** đọc lại max migration lúc bắt đầu #197. Không dùng lại 047, không rename/backdate.
 3. **Expand:** thêm bảng/cột nullable/index mới. Schema vẫn đọc được dữ liệu cũ. API v1 chưa kích hoạt. Unique/FK chỉ thêm sau khi có report duplicate/missing parent.
 4. **Backfill:**
-   - role.family theo tên role legacy (ADMIN/MANAGER/SUPERVISOR); role custom map theo level, có danh sách đối soát.
+   - role.family: 3 role seed ADMIN/MANAGER/SUPERVISOR gán family cùng tên. Role `SUPER_ADMIN` (seed 004) **không** thuộc 3 family: xử lý theo DEV-196-03 trước khi đặt NOT NULL. Role custom **không tự gán** family: đưa vào danh sách đối soát để owner xác nhận (data-and-migration §70).
    - builtIn cho 4 role seed.
    - version = 1.
    - email/displayName theo DEV-196-02.
@@ -220,7 +220,7 @@ Nghĩa của ID lấy từ `roadmap/requirements-traceability.csv` @ `4335203`.
 
 | ID | Nội dung | Nguồn | Owner / gate |
 |---|---|---|---|
-| DEV-196-01 | Không có. Trạng thái session IDLE_LOCKED ở r1 đã bỏ, dùng các trường thời điểm của R2 | — | — |
+| DEV-196-01 | Ngữ nghĩa trạng thái file `REJECTED` (có trong enum `FileMetadata.status`), so với việc upload sai MIME/size trả 422 ở TC-FILE-03. Chưa có nguồn nói khi nào một object chuyển REJECTED (ví dụ quét sau upload) | OpenAPI enum, TC-FILE-03 | Mekong-HCM. Chốt ở I-04 theo test-cases/D06, không tự đặt |
 | DEV-196-02 | Mapping user: `displayName` ↔ `firstName`/`lastName`; `email` legacy nullable, R2 unique (required hay không theo `UserCreate`); `avatarFileId` chưa có cột | `sdd-field-traceability.csv`, D35 | Mekong-HCM. Chốt bằng mapping có nguồn trong I-03, không tự gộp |
 | DEV-196-03 | User `SUPER_ADMIN` legacy (root seeder) và bypass trong guard, so với D02 "không SUPER_ADMIN runtime, không bypass" | D02, permission-policy | Mekong-HCM. Đề xuất: v1 không nhận SUPER_ADMIN như bypass; legacy giữ cho đến cutover. Cần CR nếu muốn gỡ ở legacy |
 | DEV-196-04 | Cách lưu cache epoch: cột DB hay key Redis có nguồn từ DB | data-and-migration §22 | Mekong-HCM, chốt ở I-03 |
@@ -243,4 +243,4 @@ Nghĩa của ID lấy từ `roadmap/requirements-traceability.csv` @ `4335203`.
 2. Thiết kế module, transaction/state/version/idempotency, migration expand/backfill/validate/constrain + rollback: có ở r2 (mục 5, 5a, 5b, 5c, 6). Không chạy migration.
 3. Checklist FE/QA + mapping legacy↔v1: có ở r2 (mục 7).
 4. Evidence: nguồn `1d7f200`, docs `4335203`, Mekong-HCM, 2026-11-06. SHA256 của file này ghi trong comment công bố CONTRACT_READY trên #196.
-5. Deviation/CR: không đổi R2. Deviation mở DEV-196-02..04 có owner (mục 6b). Finding F-196-01..04 giao #197.
+5. Deviation/CR: không đổi R2. Deviation mở DEV-196-01..04 có owner (mục 6b). Finding F-196-01..04 giao #197.
