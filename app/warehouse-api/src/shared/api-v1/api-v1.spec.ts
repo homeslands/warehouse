@@ -10,14 +10,20 @@ describe('normalizeTraceId', () => {
     expect(normalizeTraceId(` ${TRACE.toUpperCase()} `)).toBe(TRACE);
   });
 
-  it.each([undefined, null, 42, '', 'not-a-uuid', `${TRACE}\r\nforged`, 'x'.repeat(500)])(
-    'replaces %p with a fresh UUID',
-    (incoming) => {
-      const result = normalizeTraceId(incoming);
-      expect(uuidValidate(result)).toBe(true);
-      expect(result).not.toBe(incoming);
-    },
-  );
+  it.each([
+    undefined,
+    null,
+    42,
+    '',
+    'not-a-uuid',
+    `${TRACE}\r\nforged`,
+    'x'.repeat(500),
+    '00000000-0000-0000-0000-000000000000',
+  ])('replaces %p with a fresh UUID', (incoming) => {
+    const result = normalizeTraceId(incoming);
+    expect(uuidValidate(result)).toBe(true);
+    expect(result).not.toBe(incoming);
+  });
 });
 
 describe('v1 envelope', () => {
@@ -80,4 +86,38 @@ describe('v1 envelope', () => {
       v1Error({ statusCode: 200, code: 1, errorKey: 'X', message: 'x', traceId: TRACE }),
     ).toThrow(RangeError);
   });
+
+  it('copies only the three contract fields of each field error', () => {
+    const noisy = {
+      field: 'data.email',
+      errorKey: 'EMAIL_INVALID',
+      message: 'Invalid',
+      _field: 'field',
+      extra: 1,
+    };
+    const envelope = v1Error(
+      {
+        statusCode: 422,
+        code: 1,
+        errorKey: 'VALIDATION',
+        message: 'Invalid',
+        traceId: TRACE,
+        errors: [noisy],
+      },
+      NOW,
+    );
+    expect(envelope.errors).toEqual([
+      { field: 'data.email', errorKey: 'EMAIL_INVALID', message: 'Invalid' },
+    ]);
+  });
+
+  it.each(['not-a-uuid', '00000000-0000-0000-0000-000000000000'])(
+    'refuses to build an envelope with traceId %p',
+    (traceId) => {
+      expect(() => v1Success(null, traceId, 'x')).toThrow(RangeError);
+      expect(() =>
+        v1Error({ statusCode: 500, code: 1, errorKey: 'X', message: 'x', traceId }),
+      ).toThrow(RangeError);
+    },
+  );
 });

@@ -23,8 +23,14 @@ export const STORAGE_SERVICE = `${STORAGE_PACKAGE}.WarehouseStorage`;
 /**
  * Tuỳ chọn proto-loader dùng chung cho server Storage và client Gateway, để 2 phía decode giống nhau.
  * - `longs: String`: int64 (vd `expected_version`) không mất chính xác qua JS number.
- * - `enums: String`: enum đi dây dạng tên, khớp OpenAPI.
- * - `defaults: false` + `oneofs: true`: giữ phân biệt "không gửi" với "gửi giá trị rỗng" (FieldMask/clear_fields).
+ * - `enums: String`: enum đi dây dạng **tên trong proto** (`FAMILY_ADMIN`, `STATUS_QUEUED`…), KHÁC giá
+ *   trị OpenAPI (`ADMIN`, `QUEUED`). Lớp mapping Gateway phải bỏ/thêm prefix theo enum (DEV-197-02).
+ * - `defaults: false`: field `optional` không gửi thì vắng hẳn ⇒ giữ được presence (vd `builtIn: false`,
+ *   `expectedVersion: "0"` vẫn còn), cần cho PATCH/FieldMask.
+ * - `oneofs: false`: nếu bật, proto-loader gắn key ảo `_<field>` cho MỌI field proto3 `optional`, làm lộ
+ *   key thừa ra response v1 (OpenAPI `additionalProperties: false`). Oneof thật duy nhất là
+ *   `FileUploadChunk.part`: phân biệt bằng `'header' in chunk` / `'chunk' in chunk`.
+ * - `arrays: true`: field `repeated` rỗng vẫn có mặt là `[]` (vd `Role.authorityCodes` là required).
  * - `keepCase: false`: field camelCase theo `json_name` của proto.
  */
 export const STORAGE_PROTO_LOADER_OPTIONS: Readonly<Options> = {
@@ -32,7 +38,8 @@ export const STORAGE_PROTO_LOADER_OPTIONS: Readonly<Options> = {
   longs: String,
   enums: String,
   defaults: false,
-  oneofs: true,
+  arrays: true,
+  oneofs: false,
   includeDirs: [dirname(STORAGE_PROTO_PATH)],
 };
 
