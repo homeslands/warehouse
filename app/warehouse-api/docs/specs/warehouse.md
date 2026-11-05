@@ -40,7 +40,7 @@ Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `178372800002
 |---|---|---|
 | Create | `WAREHOUSE_CREATE` | ADMIN |
 | Read (list/detail) | `WAREHOUSE_READ` | ADMIN, MANAGER, SUPERVISOR |
-| Read "kho của tôi" | *(không có, chỉ cần JWT)* | mọi user đã đăng nhập |
+| Read "kho của tôi" *(route đang tạm ẩn, xem `GET /warehouses/mine`)* | *(không có, chỉ cần JWT)* | mọi user đã đăng nhập |
 | Update | `WAREHOUSE_UPDATE` | ADMIN |
 | Delete | `WAREHOUSE_DELETE` | ADMIN |
 | Assign manager | `WAREHOUSE_ASSIGN_MANAGER` | ADMIN |
@@ -51,8 +51,8 @@ Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `178372800002
 
 - `POST /warehouses` — tạo kho.
 - `GET /warehouses` — danh sách phân trang, filter `isActive`, `managerSlug`, `hasManager`. Mọi role ngoài `ADMIN`/`SUPER_ADMIN` (gồm `MANAGER`, `SUPERVISOR` và role tự tạo) chỉ nhận kho mình là quản lý **hoặc** thành viên (`managerSlug`/`hasManager` bị bỏ qua) — `WAREHOUSE_UNSCOPED_ROLES` trong `warehouse.constants.ts`.
-- Mỗi kho trong response (list, `mine`, chi tiết, kết quả `PATCH`/`PUT`) kèm thông tin quản lý dạng object lồng `manager: { slug, phonenumber, firstName, lastName }` (`WarehouseManagerDto`) — bỏ trống nếu chưa phân công. Response **chưa** trả thông tin cửa hàng sở hữu (xem mục Quan hệ với `Store`); muốn trả cần quyết định contract riêng. (Cập nhật 2026-11-05 theo code hiện hành; trước WMS-10 là các field phẳng `managerSlug`/`managerPhonenumber`.)
-- `GET /warehouses/mine` — kho mà người đang đăng nhập phụ trách (phân trang, filter `isActive`). **Phải khai trước `GET /:slug`** trong controller.
+- Mỗi kho trong response (list, chi tiết, kết quả `PATCH`/`PUT`) kèm thông tin quản lý dạng object lồng `manager: { slug, phonenumber, firstName, lastName }` (`WarehouseManagerDto`). Kho chưa phân công thì key `manager` **vắng hẳn** khỏi JSON (không phải `null`). Response **chưa** trả thông tin cửa hàng sở hữu (xem mục Quan hệ với `Store`); muốn trả cần quyết định contract riêng. (Cập nhật 2026-11-05 theo code hiện hành; trước WMS-10 là các field phẳng `managerSlug`/`managerPhonenumber`.)
+- `GET /warehouses/mine` — kho mà người đang đăng nhập phụ trách (phân trang, filter `isActive`). **Tạm ẩn từ WMS-10-be(8)** (route/service đang comment trong code); request tới đường dẫn này hiện rơi vào `GET /:slug`. Bật lại hay bỏ hẳn là quyết định riêng; nếu bật lại thì **phải khai trước `GET /:slug`** trong controller.
 - `GET /warehouses/:slug` — chi tiết. Role ngoài `ADMIN`/`SUPER_ADMIN` không phải quản lý/thành viên của kho ⇒ 403 `100523` (`WAREHOUSE_ACCESS_DENIED`).
 - `PATCH /warehouses/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ.
 - `PUT /warehouses/:slug/manager` — phân công / gỡ phân công quản lý (body `{ managerSlug: string | null }`). Idempotent, trả về `WarehouseResponseDto`.
