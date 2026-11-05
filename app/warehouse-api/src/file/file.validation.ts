@@ -12,6 +12,7 @@ export const MULTER_ERROR = 'MULTER_ERROR';
 export const ERROR_WHEN_UPLOAD_FILE = 'ERROR_WHEN_UPLOAD_FILE';
 export const MUST_EXCEL_FILE = 'MUST_EXCEL_FILE';
 export const EXCEL_FILE_WRONG_HEADER = 'EXCEL_FILE_WRONG_HEADER';
+export const FILE_TYPE_NOT_ALLOWED = 'FILE_TYPE_NOT_ALLOWED';
 
 export type TFileErrorCodeKey =
   | typeof FILE_NOT_FOUND
@@ -25,6 +26,7 @@ export type TFileErrorCodeKey =
   | typeof ERROR_WHEN_UPLOAD_FILE
   | typeof MUST_EXCEL_FILE
   | typeof EXCEL_FILE_WRONG_HEADER
+  | typeof FILE_TYPE_NOT_ALLOWED
   | typeof MULTER_ERROR;
 
 export type TFileErrorCode = Record<TFileErrorCodeKey, TErrorCodeValue>;
@@ -46,4 +48,8 @@ export const FileValidation: TFileErrorCode = {
   ERROR_WHEN_UPLOAD_FILE: createErrorCode(121009, 'Error when upload file'),
   MUST_EXCEL_FILE: createErrorCode(121010, 'Must excel file'),
   EXCEL_FILE_WRONG_HEADER: createErrorCode(121011, 'Excel file wrong header'),
+  FILE_TYPE_NOT_ALLOWED: createErrorCode(
+    121012,
+    'File type is not allowed (pdf, jpg, jpeg, png, webp, xls, xlsx, doc, docx only)',
+  ),
 };
