@@ -50,10 +50,10 @@ Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `178372800002
 ## API cần có
 
 - `POST /warehouses` — tạo kho.
-- `GET /warehouses` — danh sách phân trang, filter `isActive`, `managerSlug`, `hasManager`. Người gọi là `MANAGER` chỉ nhận kho mình phụ trách (`managerSlug`/`hasManager` bị bỏ qua).
-- Mỗi kho trong response (list, `mine`, chi tiết, kết quả `PATCH`/`PUT`) kèm thông tin quản lý (`managerSlug`, `managerPhonenumber`, `managerFirstName`, `managerLastName`) và cửa hàng sở hữu (`storeSlug`, `storeName`) — bỏ trống nếu chưa gắn.
+- `GET /warehouses` — danh sách phân trang, filter `isActive`, `managerSlug`, `hasManager`. Mọi role ngoài `ADMIN`/`SUPER_ADMIN` (gồm `MANAGER`, `SUPERVISOR` và role tự tạo) chỉ nhận kho mình là quản lý **hoặc** thành viên (`managerSlug`/`hasManager` bị bỏ qua) — `WAREHOUSE_UNSCOPED_ROLES` trong `warehouse.constants.ts`.
+- Mỗi kho trong response (list, `mine`, chi tiết, kết quả `PATCH`/`PUT`) kèm thông tin quản lý dạng object lồng `manager: { slug, phonenumber, firstName, lastName }` (`WarehouseManagerDto`) — bỏ trống nếu chưa phân công. Response **chưa** trả thông tin cửa hàng sở hữu (xem mục Quan hệ với `Store`); muốn trả cần quyết định contract riêng. (Cập nhật 2026-11-05 theo code hiện hành; trước WMS-10 là các field phẳng `managerSlug`/`managerPhonenumber`.)
 - `GET /warehouses/mine` — kho mà người đang đăng nhập phụ trách (phân trang, filter `isActive`). **Phải khai trước `GET /:slug`** trong controller.
-- `GET /warehouses/:slug` — chi tiết.
+- `GET /warehouses/:slug` — chi tiết. Role ngoài `ADMIN`/`SUPER_ADMIN` không phải quản lý/thành viên của kho ⇒ 403 `100523` (`WAREHOUSE_ACCESS_DENIED`).
 - `PATCH /warehouses/:slug` — cập nhật **partial**: chỉ gửi field cần đổi, field không gửi giữ nguyên giá trị cũ.
 - `PUT /warehouses/:slug/manager` — phân công / gỡ phân công quản lý (body `{ managerSlug: string | null }`). Idempotent, trả về `WarehouseResponseDto`.
 - `DELETE /warehouses/:slug` — xoá mềm.
@@ -68,7 +68,7 @@ Hệ quả cần nhớ: kho `isActive = false` **không gắn được** cho c�
 ## Ngoài phạm vi (Out of scope)
 
 - Chưa hỗ trợ `sort` (`BaseQueryDto.sort` bị bỏ qua, luôn `createdAt DESC` — giống mọi module hiện có).
-- Chưa có row-level scoping của phiếu theo kho — sẽ làm cùng module phiếu. `GET /warehouses` đã lọc theo `MANAGER`, nhưng `GET /warehouses/:slug` thì chưa (MANAGER vẫn đọc được chi tiết kho khác nếu biết `slug`).
+- Chưa có row-level scoping của phiếu theo kho — sẽ làm cùng module phiếu. (`GET /warehouses` và `GET /warehouses/:slug` đã giới hạn theo quản lý/thành viên — xem mục API.)
 - Chưa giới hạn 1 manager chỉ được 1 kho.
 - Chưa có API restore kho đã xoá mềm, chưa có lịch sử đổi manager / audit log.
 - Chưa có khái niệm tồn kho, khu vực (zone/bin) trong kho, hay kho con.
