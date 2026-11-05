@@ -1111,6 +1111,21 @@ describe('ImportFormService', () => {
       );
       expect(s3Service.uploadFile).not.toHaveBeenCalled();
     });
+
+    // #184: đuôi phải khớp mimetype — `x.html` khai `application/pdf` bị chặn với mã cũ, không lên S3.
+    it.each([
+      ['x.html', 'application/pdf'],
+      ['x.png', 'application/pdf'],
+    ])('rejects %s declared as %s without touching S3', async (originalname, mimetype) => {
+      await expectError(
+        service.uploadFile(
+          { originalname, mimetype } as Express.Multer.File,
+          actor([AuthorityCode.ImportFormCreate]),
+        ),
+        ImportFormValidation.IMPORT_FORM_FILE_TYPE_NOT_ALLOWED.code,
+      );
+      expect(s3Service.uploadFile).not.toHaveBeenCalled();
+    });
   });
 
   describe('deleteImportForm', () => {

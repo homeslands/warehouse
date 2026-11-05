@@ -101,7 +101,8 @@ export class ExportFormController {
     summary: 'Upload an attachment for an export form to S3',
     description:
       'Returns the S3 link; send it as `file` in POST/PATCH export form. Max 10MB, ' +
-      'pdf/jpg/png/webp/xls/xlsx/doc/docx. The warehouse must exist and be active. Requires ' +
+      'pdf/jpg/jpeg/png/webp/xls/xlsx/doc/docx; the file extension must match its mimetype. ' +
+      'The warehouse must exist and be active. Requires ' +
       'EXPORT_FORM_CREATE, EXPORT_FORM_UPDATE_DRAFT or EXPORT_FORM_UPDATE_DRAFT_OWN',
   })
   @ApiResponseWithType({ status: HttpStatus.CREATED, description: 'Uploaded', type: String })

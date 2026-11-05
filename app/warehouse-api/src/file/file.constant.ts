@@ -27,9 +27,9 @@ const JPEG_MIME_TYPES = ['image/jpeg'] as const;
  * Allowlist của `POST /file/upload`: đuôi (chữ thường, không dấu chấm) → mimetype được phép đi kèm
  * đuôi đó. File phải khớp CẢ HAI — đổi đuôi hoặc khai mimetype khác đều bị chặn.
  *
- * Tập mimetype phải bằng `IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES` (route upload của phiếu nhập/xuất,
- * chỉ kiểm mimetype) — `file.util.spec.ts` khoá điều này. Không import chéo: module `file` là hạ tầng
- * `@Global`, không phụ thuộc module nghiệp vụ.
+ * Route upload của phiếu nhập/xuất dùng CHUNG allowlist này qua `isAllowedUploadType`; danh sách
+ * mimetype của phiếu (`IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES`) suy ra từ đây. Module nghiệp vụ import
+ * hạ tầng `file`, không ngược lại (module `file` là `@Global`, không phụ thuộc module nghiệp vụ).
  *
  * Dùng `Map` thay vì object literal: tra bằng đuôi do client gửi (`x.constructor`, `x.__proto__`)
  * trên object sẽ trúng thuộc tính của prototype.

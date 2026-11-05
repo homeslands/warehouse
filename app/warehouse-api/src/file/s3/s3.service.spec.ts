@@ -51,6 +51,20 @@ describe('S3Service upload keys', () => {
       expect(key).toMatch(/^readme-[0-9a-f-]{36}$/);
       expect(sentCommands()[0].input).toMatchObject({ Key: key, ContentType: 'text/plain' });
     });
+
+    // #184: tên do client gửi có CR/LF không được lọt vào log (chèn dòng log giả) — log key đã sạch.
+    it('logs the sanitized key, never the raw client file name', async () => {
+      logger.log.mockClear();
+      const raw = 'bao-cao.pdf\r\n2026-11-05 ERROR forged line';
+
+      const key = await service.uploadFile(multerFile(raw), 'import-forms');
+
+      expect(logger.log).toHaveBeenCalledTimes(1);
+      const [message] = logger.log.mock.calls[0];
+      expect(message).toContain(key);
+      expect(message).not.toContain(raw);
+      expect(message).not.toMatch(/[\r\n]/);
+    });
   });
 
   describe('uploadFiles', () => {

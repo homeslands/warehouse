@@ -24,7 +24,6 @@ import {
 import { ExportForm } from './export-form.entity';
 import { ExportFormItem } from './export-form-item.entity';
 import {
-  EXPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES,
   EXPORT_FORM_UPLOAD_FOLDER,
   ExportFormStatus,
   ExportFormType,
@@ -60,6 +59,7 @@ import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { findWarehouse } from 'src/warehouse/warehouse.util';
 import { S3Service } from 'src/file/s3/s3.service';
 import { FileException } from 'src/file/file.exception';
+import { isAllowedUploadType } from 'src/file/file.util';
 import { FileValidation } from 'src/file/file.validation';
 import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 import { MONEY_MAX, QUANTITY_MAX, roundMoney } from 'src/shared/utils/decimal.util';
@@ -122,7 +122,7 @@ export class ExportFormService {
     if (!warehouse.isActive)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_WAREHOUSE_INACTIVE);
     if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
-    if (!EXPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES.includes(file.mimetype))
+    if (!isAllowedUploadType(file.originalname, file.mimetype))
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_FILE_TYPE_NOT_ALLOWED);
 
     const key = await this.s3Service.uploadFile(file, EXPORT_FORM_UPLOAD_FOLDER);

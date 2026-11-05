@@ -3,7 +3,7 @@ import { IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES } from 'src/import-form/import-fo
 import { FILE_UPLOAD_ALLOWED_TYPES } from './file.constant';
 import { FileException } from './file.exception';
 import { FileValidation } from './file.validation';
-import { uploadFileFilter } from './file.util';
+import { isAllowedUploadType, uploadFileFilter } from './file.util';
 
 const PDF = 'application/pdf';
 const XLSX = 'application/vnd.openxmlformats-officedocument.spreadsheetml.sheet';
@@ -48,8 +48,8 @@ describe('uploadFileFilter', () => {
     );
   });
 
-  // 2 allowlist (route này: đuôi+mimetype; route phiếu nhập/xuất: chỉ mimetype) phải cùng 1 tập
-  // mimetype — lệch là cùng 1 file đính kèm phiếu qua route này nhưng bị route kia chặn.
+  // Danh sách mimetype của route phiếu nhập/xuất suy ra từ allowlist này — khoá để không ai tách lại
+  // thành 2 nguồn lệch nhau (cùng 1 file qua route này nhưng bị route kia chặn).
   it('allows the same mimetypes as the import/export form upload routes', () => {
     const mimeTypes = new Set([...FILE_UPLOAD_ALLOWED_TYPES.values()].flat());
     expect([...mimeTypes].sort()).toEqual([...IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES].sort());
@@ -113,4 +113,27 @@ describe('uploadFileFilter', () => {
       expectRejected(runFilter(originalname, PDF));
     },
   );
+});
+
+describe('isAllowedUploadType', () => {
+  it.each(ALLOWED)('accepts a matching .%s / %s pair', (extension, mimetype) => {
+    expect(isAllowedUploadType(`hoa-don.${extension}`, mimetype)).toBe(true);
+  });
+
+  it.each([
+    ['x.html', 'application/pdf', 'disallowed extension declared as an allowed mimetype'],
+    ['x.pdf', 'text/html', 'allowed extension with a disallowed mimetype'],
+    ['x.png', 'application/pdf', 'two allowed values that do not pair up'],
+    ['noextension', 'application/pdf', 'no extension'],
+    ['x.pdf.html', 'application/pdf', 'only the last extension counts'],
+    ['x.constructor', 'application/pdf', 'prototype key as extension'],
+    [undefined, 'application/pdf', 'missing name'],
+    ['x.pdf', undefined, 'missing mimetype'],
+  ])('rejects %s (%s): %s', (name, mimetype) => {
+    expect(isAllowedUploadType(name, mimetype)).toBe(false);
+  });
+
+  it('ignores case of extension and mimetype', () => {
+    expect(isAllowedUploadType('SCAN.PDF', 'Application/PDF')).toBe(true);
+  });
 });

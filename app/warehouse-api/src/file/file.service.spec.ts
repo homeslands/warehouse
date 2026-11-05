@@ -26,4 +26,18 @@ describe('FileService.uploadFile', () => {
     await expect(service.uploadFile(file)).resolves.toBe('contract-1700000000000.pdf');
     expect(s3Service.uploadFile).toHaveBeenCalledWith(file);
   });
+
+  // #184: chỉ log key đã làm sạch, không log `originalname` thô (có thể chứa CR/LF).
+  it('logs only the S3 key, not the raw client file name', async () => {
+    logger.log.mockClear();
+    s3Service.uploadFile.mockResolvedValue('bao-cao-1.pdf');
+    const raw = 'bao-cao.pdf\nforged log line';
+
+    await service.uploadFile({ originalname: raw } as Express.Multer.File);
+
+    const [message] = logger.log.mock.calls[0];
+    expect(message).toContain('bao-cao-1.pdf');
+    expect(message).not.toContain(raw);
+    expect(message).not.toMatch(/[\r\n]/);
+  });
 });

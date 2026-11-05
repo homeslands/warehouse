@@ -22,7 +22,8 @@ export class FileService {
     // Request không có part `file` thì multer để `undefined` chứ không báo lỗi.
     if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
     const key = await this.s3Service.uploadFile(file);
-    this.logger.log(`File ${file.originalname} uploaded to S3 with key ${key}`, context);
+    // Chỉ log key đã làm sạch — `originalname` thô của client có thể chứa CR/LF (log injection).
+    this.logger.log(`File uploaded to S3 with key ${key}`, context);
     return key;
   }
 

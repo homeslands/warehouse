@@ -47,7 +47,8 @@ export class S3Service {
       }),
     );
 
-    this.logger.log(`File ${file.originalname} uploaded to S3`, context);
+    // Log key đã làm sạch, không log `originalname` thô của client (CR/LF ⇒ chèn dòng log giả).
+    this.logger.log(`File ${key} uploaded to S3`, context);
 
     return key;
   }
