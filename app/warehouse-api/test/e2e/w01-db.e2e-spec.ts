@@ -2,7 +2,7 @@ import { readdirSync } from 'fs';
 import { join } from 'path';
 import { DataSource, In, Not } from 'typeorm';
 import { User } from 'src/user/user.entity';
-import { createDbHarness } from '../harness/app';
+import { closeDbHarness, createDbHarness } from '../harness/app';
 import { MigrationRecord } from '../harness/datasource';
 import { writeEvidence } from '../harness/evidence';
 import {
@@ -38,7 +38,7 @@ describe('W01 DB harness on the granted test target', () => {
   });
 
   afterAll(async () => {
-    await dataSource?.destroy();
+    await closeDbHarness(dataSource);
   });
 
   it('W01-TC02 applies every source migration with history and no pending migration', async () => {
@@ -72,7 +72,7 @@ describe('W01 DB harness on the granted test target', () => {
         .getRepository(User)
         .count({ where: { id: Not(In(ACTORS.map((a) => a.id))) }, withDeleted: true });
     const otherBefore = await otherUsers();
-    const saltRounds = 10;
+    const saltRounds = Number(process.env.SALT_ROUNDS);
 
     await seedFixture(dataSource, saltRounds);
     const afterFirstSeed = await countFixtureRows(dataSource);

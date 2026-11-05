@@ -231,7 +231,7 @@ async function createHarnessRoles(manager: EntityManager): Promise<Record<string
   return created;
 }
 
-/** Reset rồi seed lại toàn bộ fixture trong một transaction — chạy lặp không tạo trùng. */
+/** Reset (transaction 1) rồi seed lại toàn bộ fixture (transaction 2) — chạy lặp không tạo trùng. */
 export async function seedFixture(
   dataSource: DataSource,
   saltRounds: number,

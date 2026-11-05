@@ -107,12 +107,31 @@ describe('W01 legacy API smoke on real composition', () => {
 
       const res = await http().get(url('/warehouses')).set('Authorization', `Bearer ${token}`);
       expect(res.status).toBe(403);
+      // Bị chặn ở AuthorityGuard (ForbiddenException mặc định, không app code) — khác nhánh scope kho
+      // `WAREHOUSE_ACCESS_DENIED` (100523) của TC07.
+      expect(res.body).toMatchObject({ statusCode: 403, message: 'Forbidden resource' });
+      expect(res.body.code).toBeUndefined();
       expect(res.body.result).toBeUndefined();
       expect(JSON.stringify(res.body)).not.toContain('E2E-WH-');
-      results['W01-TC06'] = { status: res.status, roleName: me.body.result.roleName };
+      results['W01-TC06'] = {
+        status: res.status,
+        message: res.body.message,
+        roleName: me.body.result.roleName,
+      };
     } finally {
       await harness.reseed();
     }
+
+    // Đối chứng: cùng actor, role base của fixture (có WAREHOUSE_READ) ⇒ 200 và chỉ thấy kho A.
+    const controlToken = await login('SUP_A_NO_EXPORT');
+    const control = await http()
+      .get(url('/warehouses'))
+      .set('Authorization', `Bearer ${controlToken}`);
+    expect(control.status).toBe(200);
+    expect(control.body.result.items.map((item: { slug: string }) => item.slug)).toEqual([
+      harness.fixture.warehouseSlugs.A,
+    ]);
+    results['W01-TC06-control'] = { status: control.status };
 
     const supervisorPermissionsAfter = await dataSource.query(
       'SELECT COUNT(*) AS n FROM permission_tbl WHERE role_id_column = ? AND deleted_at_column IS NULL',

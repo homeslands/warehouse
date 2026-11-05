@@ -41,7 +41,26 @@ Thứ tự trong một lần chạy:
 4. Dựng app với prefix `api/${VERSION}`, CORS và session giống `main.ts`.
 5. Gọi HTTP bằng supertest (không mở port).
 
-Chạy lặp lại không tạo dữ liệu trùng.
+Chạy lặp lại không tạo dữ liệu trùng. Khi kết thúc, harness trả cwd về chỗ cũ và xoá thư mục tạm.
+
+## Serve cho FE/QA (browser smoke, chạy tay)
+
+```bash
+export WH_E2E_TARGET_FILE=… WH_E2E_CREDENTIAL_FILE=… WH_E2E_CONTAINER_LABEL=…
+WH_E2E_FIXTURE_SECRET_FILE=/abs/path/outside/repo/fixture-actors.json WH_E2E_PORT=18085 \
+  npm run test:e2e:serve
+```
+
+Lệnh này đi qua cùng guard → migrate → seed và cùng composition với e2e, rồi listen **chỉ trên
+127.0.0.1**. Nó in ra baseURL dạng `http://127.0.0.1:<port>/api/v1`.
+
+File `WH_E2E_FIXTURE_SECRET_FILE` có các đặc điểm sau:
+- Phải là đường dẫn tuyệt đối, nằm ngoài repo, quyền `0600`.
+- Chứa `baseUrl`, `warehouses`, và `actors{alias:{id,phonenumber,password}}` của lần seed đó.
+- Bị xoá khi dừng serve (Ctrl+C).
+- Mỗi lần serve hoặc mỗi lần chạy e2e đều reseed, nên mật khẩu cũ mất hiệu lực.
+
+Không chạy serve song song với `test:e2e` trên cùng target.
 
 ## Fixture `WH-QA-FIXTURES-R2@legacy-adapter-1`
 
@@ -50,7 +69,8 @@ giữ UUID R2; số điện thoại đi từ `0900000001` tới `0900000008`. M�
 chỉ nằm trong bộ nhớ của process test. Token lấy bằng `POST /auth/login` thật. Không actor nào dùng SUPER_ADMIN.
 User `e2e-root` do `RootUserSeeder` tạo, với mật khẩu ngẫu nhiên và không được dùng.
 
-Model legacy không biểu diễn được R2 ở 4 chỗ dưới đây. Chi tiết nằm trong `LEGACY_GAPS` của `harness/fixture.ts`.
+Model legacy không biểu diễn được R2 ở 4 chỗ dưới đây. Ngoài ra, fixture R2 không cấp UUID cho store nên harness
+tự đặt. `LEGACY_GAPS` trong `harness/fixture.ts` liệt kê đủ 5 mục.
 
 | R2 | Legacy | Cách làm trong harness |
 |---|---|---|
@@ -85,6 +105,26 @@ chứng minh race nghiệp vụ confirm tồn kho của W04.
 `FirebaseService` và `S3Service` được thay bằng bản giả: mỗi lần gọi được ghi lại và trả về `SIMULATED`.
 Các biến mail/Google/AWS/Firebase nhận giá trị `SIMULATED`. Mọi cron job bị `stop()` sau khi app init.
 Vì vậy kết quả ở đây **không** chứng minh S3, email hay push thật hoạt động.
+
+- VietQR **không** được thay bằng bản giả: URL trỏ tới `http://simulated.invalid`. W01 không gọi tới nó.
+- Bull consumer (notification) chạy thật trên Redis test.
+
+## Ghi vào target ngoài các row harness
+
+App và composition tự ghi một số thứ vào target, không chỉ các row harness sở hữu:
+- **MySQL:** `logger_tbl` (winston DatabaseTransport), `session_tbl` (express-mysql-session), user `e2e-root`
+  (RootUserSeeder), bảng `e2e_harness_probe_tbl` (TC08).
+- **Redis DB 1:** key `rbac:user:*`, `rbac:role:*` cùng key revoke/refresh của auth (nếu phát sinh).
+- **Redis DB 0:** key Bull prefix `warehouse-bull`.
+
+Tên key Redis là hằng trong app nên **không** theo namespace mà grant đề xuất. Điều này chấp nhận được vì
+container Redis dành riêng cho target. Reset chỉ xoá cache RBAC của actor/role harness.
+
+## Ownership container
+
+Label được kiểm do người chạy khai qua `WH_E2E_CONTAINER_LABEL`, vì `target.json` hiện chưa chứa label.
+Để giảm rủi ro khai sai, harness kiểm kèm 3 điều: container đó thật sự publish đúng port trong grant, host là
+loopback, và DB là `warehouse_test_*`.
 
 ## Giới hạn
 

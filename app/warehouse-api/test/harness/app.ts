@@ -4,7 +4,12 @@ import { Test } from '@nestjs/testing';
 import session from 'express-session';
 import Redis from 'ioredis';
 import { DataSource } from 'typeorm';
-import { applyHarnessEnv, isolateWorkingDirectory, SIMULATED } from './env';
+import {
+  applyHarnessEnv,
+  isolateWorkingDirectory,
+  restoreWorkingDirectory,
+  SIMULATED,
+} from './env';
 import { createHarnessDataSource, migrateTarget, MigrationRecord } from './datasource';
 import { ACTORS, HARNESS_ROLES, SeededFixture, seedFixture } from './fixture';
 import { HarnessTarget, loadHarnessTarget } from './target';
@@ -80,8 +85,20 @@ export async function createDbHarness(): Promise<{
 }> {
   const target = prepareHarnessProcess();
   const dataSource = await createHarnessDataSource(target).initialize();
-  const migrations = await migrateTarget(dataSource);
-  return { target, dataSource, migrations };
+  try {
+    const migrations = await migrateTarget(dataSource);
+    return { target, dataSource, migrations };
+  } catch (error) {
+    await dataSource.destroy();
+    restoreWorkingDirectory();
+    throw error;
+  }
+}
+
+/** Đóng DataSource của `createDbHarness` và dọn cwd tạm. */
+export async function closeDbHarness(dataSource: DataSource | undefined): Promise<void> {
+  if (dataSource?.isInitialized) await dataSource.destroy();
+  restoreWorkingDirectory();
 }
 
 /**
@@ -90,6 +107,19 @@ export async function createDbHarness(): Promise<{
  */
 export async function createHarness(): Promise<Harness> {
   const { target, dataSource, migrations } = await createDbHarness();
+  try {
+    return await composeHarness(target, dataSource, migrations);
+  } catch (error) {
+    await closeDbHarness(dataSource);
+    throw error;
+  }
+}
+
+async function composeHarness(
+  target: HarnessTarget,
+  dataSource: DataSource,
+  migrations: { applied: string[]; history: MigrationRecord[] },
+): Promise<Harness> {
   const saltRounds = Number(process.env.SALT_ROUNDS);
   let fixture = await seedFixture(dataSource, saltRounds);
 
@@ -161,7 +191,7 @@ export async function createHarness(): Promise<Harness> {
       const store = sessionOptions.store as unknown as { close?: () => Promise<void> } | undefined;
       await store?.close?.();
       await redis.quit();
-      await dataSource.destroy();
+      await closeDbHarness(dataSource);
     },
   };
 }

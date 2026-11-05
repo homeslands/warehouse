@@ -1,5 +1,5 @@
 import { randomBytes } from 'crypto';
-import { existsSync, mkdtempSync } from 'fs';
+import { existsSync, mkdtempSync, rmSync } from 'fs';
 import { tmpdir } from 'os';
 import { join } from 'path';
 import { HarnessTarget, HarnessTargetError } from './target';
@@ -16,12 +16,23 @@ const secret = () => randomBytes(32).toString('hex');
  * `ConfigModule.forRoot()` của AppModule tự nạp `.env` từ `process.cwd()`. Chuyển cwd sang thư mục
  * tạm rỗng để chắc chắn không file `.env` nào (của dev/prod) được nạp, rồi assert lại.
  */
+let isolated: { original: string; dir: string } | undefined;
+
 export function isolateWorkingDirectory(): string {
   const dir = mkdtempSync(join(tmpdir(), 'wh-e2e-cwd-'));
+  isolated = { original: process.cwd(), dir };
   process.chdir(dir);
   if (existsSync(join(process.cwd(), '.env')))
     throw new HarnessTargetError('.env visible from harness working directory');
   return dir;
+}
+
+/** Trả cwd về chỗ cũ và xoá thư mục tạm (chỉ thư mục do harness tạo). Gọi lúc teardown. */
+export function restoreWorkingDirectory(): void {
+  if (!isolated) return;
+  process.chdir(isolated.original);
+  rmSync(isolated.dir, { recursive: true, force: true });
+  isolated = undefined;
 }
 
 /**
