@@ -1,5 +1,6 @@
-import { chmodSync, rmSync, writeFileSync } from 'fs';
-import { isAbsolute, relative, resolve } from 'path';
+import { execFileSync } from 'child_process';
+import { existsSync, rmSync, writeFileSync } from 'fs';
+import { dirname, isAbsolute, relative, resolve } from 'path';
 import { createHarness } from './app';
 import { ActorAlias } from './fixture';
 import { HarnessTargetError } from './target';
@@ -12,14 +13,33 @@ import { HarnessTargetError } from './target';
  *
  *   WH_E2E_FIXTURE_SECRET_FILE=/abs/outside/repo.json WH_E2E_PORT=18085 npm run test:e2e:serve
  */
-const REPO_ROOT = resolve(__dirname, '..', '..', '..', '..');
+const WORKTREE_ROOT = resolve(__dirname, '..', '..', '..', '..');
+
+/** Gốc worktree hiện tại + gốc checkout chính (worktree có thể nằm bên trong checkout chính). */
+function repositoryRoots(): string[] {
+  const roots = [WORKTREE_ROOT];
+  try {
+    const commonDir = execFileSync(
+      'git',
+      ['rev-parse', '--path-format=absolute', '--git-common-dir'],
+      { cwd: __dirname, encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] },
+    ).trim();
+    if (commonDir) roots.push(dirname(commonDir));
+  } catch {
+    // Không có git: chỉ kiểm theo gốc worktree.
+  }
+  return roots;
+}
 
 function secretFilePath(): string {
   const path = process.env.WH_E2E_FIXTURE_SECRET_FILE ?? '';
   if (!isAbsolute(path))
     throw new HarnessTargetError('WH_E2E_FIXTURE_SECRET_FILE must be an absolute path');
-  if (!relative(REPO_ROOT, path).startsWith('..'))
+  if (repositoryRoots().some((root) => !relative(root, path).startsWith('..')))
     throw new HarnessTargetError('WH_E2E_FIXTURE_SECRET_FILE must be outside the repository');
+  // Không ghi đè/xoá file có sẵn của người khác; file mới luôn tạo với 0600 ngay từ đầu.
+  if (existsSync(path))
+    throw new HarnessTargetError('WH_E2E_FIXTURE_SECRET_FILE already exists; choose a new path');
   return path;
 }
 
@@ -36,6 +56,20 @@ async function main(): Promise<void> {
   const listenPort = port();
 
   const harness = await createHarness();
+  try {
+    await serve(harness, secretFile, listenPort);
+  } catch (error) {
+    rmSync(secretFile, { force: true });
+    await harness.close();
+    throw error;
+  }
+}
+
+async function serve(
+  harness: Awaited<ReturnType<typeof createHarness>>,
+  secretFile: string,
+  listenPort: number,
+): Promise<void> {
   await harness.app.listen(listenPort, '127.0.0.1');
   const address = harness.app.getHttpServer().address() as { port: number };
   const baseUrl = `http://127.0.0.1:${address.port}${harness.prefix}`;
@@ -54,9 +88,8 @@ async function main(): Promise<void> {
   writeFileSync(
     secretFile,
     `${JSON.stringify({ baseUrl, targetId: harness.target.id, fixtureVersion: fixture.version, warehouses: fixture.warehouseSlugs, actors }, null, 2)}\n`,
-    { mode: 0o600 },
+    { mode: 0o600, flag: 'wx' },
   );
-  chmodSync(secretFile, 0o600);
 
   process.stdout.write(
     `[e2e-harness] serving ${baseUrl} (target ${harness.target.id}, fixture ${fixture.version})\n` +

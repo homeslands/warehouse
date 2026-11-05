@@ -84,7 +84,13 @@ export async function createDbHarness(): Promise<{
   migrations: { applied: string[]; history: MigrationRecord[] };
 }> {
   const target = prepareHarnessProcess();
-  const dataSource = await createHarnessDataSource(target).initialize();
+  let dataSource: DataSource;
+  try {
+    dataSource = await createHarnessDataSource(target).initialize();
+  } catch (error) {
+    restoreWorkingDirectory();
+    throw error;
+  }
   try {
     const migrations = await migrateTarget(dataSource);
     return { target, dataSource, migrations };

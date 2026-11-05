@@ -62,6 +62,12 @@ File `WH_E2E_FIXTURE_SECRET_FILE` có các đặc điểm sau:
 
 Không chạy serve song song với `test:e2e` trên cùng target.
 
+Thêm vài lưu ý khi dùng serve:
+- File secret phải là đường dẫn **mới**. Harness từ chối nếu file đã tồn tại, hoặc nếu nó nằm trong worktree hay checkout chính.
+- Nếu tiến trình bị `kill -9`, file sẽ không được xoá. Khi đó phải xoá tay.
+- FE dev server: đặt `VITE_API_PROXY_TARGET=http://127.0.0.1:<port>` để Vite proxy gọi API. CORS của harness chỉ cho
+  phép `http://localhost`, nên gọi thẳng từ origin của Vite (ví dụ `:5175`) sẽ bị chặn preflight.
+
 ## Fixture `WH-QA-FIXTURES-R2@legacy-adapter-1`
 
 Fixture có 8 actor (ADMIN, MANAGER_AB/A/C, SUP_A1/A2/B, SUP_A_NO_EXPORT) và 3 kho (`e2e-wh-a/b/c`). Mỗi actor
