@@ -660,6 +660,21 @@ describe('ImportFormService', () => {
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
       );
     });
+
+    it('escapes LIKE wildcards in the substring name filter', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      inventoryRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAvailableMaterials('wh-slug', {
+        page: 1,
+        size: 10,
+        name: String.raw`a%_\b`,
+      } as never);
+
+      const [options] = inventoryRepository.findAndCount.mock.calls[0];
+      expect(options.where.material.name.type).toBe('like');
+      expect(options.where.material.name.value).toBe(String.raw`%a\%\_\\b%`);
+    });
   });
 
   describe('findAll / findOne', () => {

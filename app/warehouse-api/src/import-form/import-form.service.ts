@@ -224,7 +224,7 @@ export class ImportFormService {
 
     const materialWhere: FindOptionsWhere<Material> = {};
     if (query.code) materialWhere.code = Like(`${escapeLike(query.code)}%`);
-    if (query.name) materialWhere.name = Like(`%${query.name}%`);
+    if (query.name) materialWhere.name = Like(`%${escapeLike(query.name)}%`);
 
     const [rows, total] = await this.inventoryRepository.findAndCount({
       where: { warehouse: { id: warehouse.id }, material: materialWhere },

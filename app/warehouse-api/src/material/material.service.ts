@@ -419,7 +419,7 @@ export class MaterialService {
     const where: FindOptionsWhere<MaterialUnit> = { materialId: material.id };
     const unitWhere: FindOptionsWhere<Unit> = {};
     if (query.code) unitWhere.code = query.code;
-    if (query.name) unitWhere.name = Like(`%${query.name}%`);
+    if (query.name) unitWhere.name = Like(`%${escapeLike(query.name)}%`);
     if (Object.keys(unitWhere).length > 0) where.unit = unitWhere;
 
     const [items, total] = await this.materialUnitRepository.findAndCount({

@@ -392,6 +392,25 @@ describe('UserService', () => {
       expect(where[2].lastName.objectLiteralParameters).toEqual({ name: '%Nguyễn Văn%' });
     });
 
+    // BE-DATA-02: `%`, `_`, `\` của client là ký tự thường, không phải ký tự đại diện của LIKE.
+    it('escapes LIKE wildcards in phonenumber and in every name branch (Like + Raw)', async () => {
+      await service.findAll(query({ name: String.raw`a%_\b`, phonenumber: String.raw`09%_\1` }));
+
+      const where = options().where;
+      const pattern = String.raw`%a\%\_\\b%`;
+      for (const branch of where) {
+        expect(branch.phonenumber.type).toBe('like');
+        expect(branch.phonenumber.value).toBe(String.raw`%09\%\_\\1%`);
+      }
+      expect(where[0].firstName.value).toBe(pattern);
+      expect(where[1].lastName.value).toBe(pattern);
+      // `Raw` không thêm `ESCAPE`: `escapeLike` dùng `\` = ký tự escape mặc định của LIKE trong MySQL.
+      expect(where[2].lastName.getSql('User.lastName')).toBe(
+        "CONCAT(User.lastName, ' ', User.firstName) LIKE :name",
+      );
+      expect(where[2].lastName.objectLiteralParameters).toEqual({ name: pattern });
+    });
+
     // `YYYY-MM-DD` = trọn ngày: endDate so `<` 00:00 ngày kế tiếp.
     it('turns a date-only range into [start 00:00, day after end 00:00)', async () => {
       await service.findAll(query({ startDate: '2026-09-01', endDate: '2026-09-30' }));

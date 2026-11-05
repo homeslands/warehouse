@@ -17,7 +17,12 @@ import { MaterialTypeValidation } from './material-type.validation';
 import { Material } from 'src/material/material.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
 import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
@@ -55,7 +60,7 @@ export class MaterialTypeService {
 
     const where: FindOptionsWhere<MaterialType> = {};
     if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
+    if (query.name) where.name = Like(`%${escapeLike(query.name)}%`);
     const createdAt = toDateRangeOperator(start, end);
     if (createdAt) where.createdAt = createdAt;
 
