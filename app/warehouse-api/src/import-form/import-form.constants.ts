@@ -1,4 +1,5 @@
 import { FILE_UPLOAD_ALLOWED_TYPES } from 'src/file/file.constant';
+
 /**
  * Vòng đời phiếu nhập kho: `DRAFT` → `CONFIRMED` | `CANCELLED`, 1 chiều, không quay lại.
  * - Chỉ `DRAFT` sửa/xoá được. `CONFIRMED`/`CANCELLED` là bất biến — chặn ở service, KHÔNG có

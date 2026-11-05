@@ -1,7 +1,4 @@
-import {
-  IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES,
-  IMPORT_FORM_UPLOAD_MAX_SIZE,
-} from 'src/import-form/import-form.constants';
+import { IMPORT_FORM_UPLOAD_MAX_SIZE } from 'src/import-form/import-form.constants';
 
 /**
  * Vòng đời phiếu xuất kho: `DRAFT` → `CONFIRMED` | `CANCELLED`, 1 chiều, giống phiếu nhập.
@@ -44,4 +41,3 @@ export const EXPORT_FORM_FILE_MAX_LENGTH = 1024;
 /** Upload file đính kèm phiếu (`POST .../export-forms/upload-file`) — cùng giới hạn với phiếu nhập. */
 export const EXPORT_FORM_UPLOAD_FOLDER = 'export-forms';
 export const EXPORT_FORM_UPLOAD_MAX_SIZE = IMPORT_FORM_UPLOAD_MAX_SIZE;
-export const EXPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES = IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES;
