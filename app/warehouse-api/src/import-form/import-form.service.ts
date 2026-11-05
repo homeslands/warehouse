@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   EntityManager,
   FindOptionsRelations,
@@ -51,17 +51,22 @@ import {
 } from 'src/shared/utils/query.util';
 import { AuthorityCode, TAuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
-import { RoleEnum } from 'src/role/role.enum';
 import { User } from 'src/user/user.entity';
 import { UserException } from 'src/user/user.exception';
 import { UserValidation } from 'src/user/user.validation';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
-import { WarehouseException } from 'src/warehouse/warehouse.exception';
-import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
+import { findWarehouse } from 'src/warehouse/warehouse.util';
 import { S3Service } from 'src/file/s3/s3.service';
 import { MaterialBatchService } from 'src/material-batch/material-batch.service';
 import { FileException } from 'src/file/file.exception';
 import { FileValidation } from 'src/file/file.validation';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
+import { MONEY_MAX, QUANTITY_MAX, roundMoney } from 'src/shared/utils/decimal.util';
+import { fullName } from 'src/shared/utils/name.util';
+import {
+  assertFullOrOwnAuthority,
+  assertHasAnyAuthority,
+} from 'src/authority/authority-check.util';
 
 /** Response cần slug của người lập/người duyệt/kho — các cột snapshot còn lại nằm sẵn trên phiếu. */
 const IMPORT_FORM_RELATIONS: FindOptionsRelations<ImportForm> = {
@@ -78,14 +83,6 @@ const IMPORT_FORM_DETAIL_RELATIONS: FindOptionsRelations<ImportForm> = {
   ...IMPORT_FORM_RELATIONS,
   items: { material: true, unit: true },
 };
-
-/** Trần của DECIMAL(18,2) (16 chữ số phần nguyên) và DECIMAL(18,6) (12 chữ số phần nguyên). */
-const MONEY_MAX = 1e16;
-const QUANTITY_MAX = 1e12;
-
-const roundMoney = (value: number) => Number(value.toFixed(2));
-
-const fullName = (user: User) => `${user.lastName} ${user.firstName}`.trim();
 
 /** Cặp (vật tư, nhà cung cấp) chưa gắn, cần ghi vào `material_supplier_tbl` cùng transaction phiếu. */
 type MaterialSupplierLink = { materialId: string; supplierId: string };
@@ -121,7 +118,11 @@ export class ImportFormService {
    */
   async uploadFile(file: Express.Multer.File, currentUser: CurrentUserDto): Promise<string> {
     const context = `${ImportFormService.name}.${this.uploadFile.name}`;
-    this.assertCanUpload(currentUser);
+    assertHasAnyAuthority(currentUser, [
+      AuthorityCode.ImportFormCreate,
+      AuthorityCode.ImportFormUpdateDraft,
+      AuthorityCode.ImportFormUpdateDraftOwn,
+    ]);
     if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
     if (!IMPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES.includes(file.mimetype))
       throw new ImportFormException(ImportFormValidation.IMPORT_FORM_FILE_TYPE_NOT_ALLOWED);
@@ -131,24 +132,13 @@ export class ImportFormService {
     return this.s3Service.getFileUrl(key);
   }
 
-  private assertCanUpload(currentUser: CurrentUserDto): void {
-    if (currentUser.roleName === RoleEnum.SuperAdmin) return;
-    const scope = currentUser.scope ?? [];
-    const allowed = [
-      AuthorityCode.ImportFormCreate,
-      AuthorityCode.ImportFormUpdateDraft,
-      AuthorityCode.ImportFormUpdateDraftOwn,
-    ].some((code) => scope.includes(code));
-    if (!allowed) throw new ForbiddenException();
-  }
-
   async createImportForm(
     warehouseSlug: string,
     dto: CreateImportFormRequestDto,
     currentUser: CurrentUserDto,
   ): Promise<ImportFormResponseDto> {
     const context = `${ImportFormService.name}.${this.createImportForm.name}`;
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
     if (!warehouse.isActive)
       throw new ImportFormException(ImportFormValidation.IMPORT_FORM_WAREHOUSE_INACTIVE);
 
@@ -190,7 +180,7 @@ export class ImportFormService {
   ): Promise<AppPaginatedResponseDto<ImportFormResponseDto>> {
     // `SUPER_ADMIN`/`ADMIN` bypass `WarehouseScopeGuard` (không tra DB) ⇒ kho không tồn tại phải
     // báo 404 ở đây, không trả về danh sách rỗng.
-    await this.findWarehouse(warehouseSlug);
+    await findWarehouse(this.warehouseRepository, warehouseSlug);
 
     const { start, end } = resolveDateRange(query.startDate, query.endDate);
     if (start && end && start >= end)
@@ -214,17 +204,12 @@ export class ImportFormService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, ImportForm, ImportFormResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, ImportForm, ImportFormResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<ImportFormResponseDto>;
+      query,
+    );
   }
 
   /**
@@ -235,7 +220,7 @@ export class ImportFormService {
     warehouseSlug: string,
     query: GetImportFormAvailableMaterialRequestDto,
   ): Promise<AppPaginatedResponseDto<ImportFormAvailableMaterialResponseDto>> {
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
 
     const materialWhere: FindOptionsWhere<Material> = {};
     if (query.code) materialWhere.code = Like(`${escapeLike(query.code)}%`);
@@ -248,10 +233,9 @@ export class ImportFormService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: rows.map(({ material, quantity }) => ({
+    return toPaginatedResponse(
+      rows.map(({ material, quantity }) => ({
         slug: material.slug,
         code: material.code,
         name: material.name,
@@ -271,12 +255,8 @@ export class ImportFormService {
           .sort((a, b) => a.conversionRate - b.conversionRate),
       })),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<ImportFormAvailableMaterialResponseDto>;
+      query,
+    );
   }
 
   async findOne(warehouseSlug: string, slug: string): Promise<ImportFormResponseDto> {
@@ -633,7 +613,7 @@ export class ImportFormService {
    * - có `fullCode` ⇒ sửa/xoá mọi phiếu nháp của kho;
    * - chỉ có `ownCode` ⇒ chỉ phiếu mình là người lập;
    * - không có cả hai ⇒ 403 như `AuthorityGuard`.
-   * `SUPER_ADMIN` bypass, khớp `AuthorityGuard`.
+   * `SUPER_ADMIN` bypass, khớp `AuthorityGuard`. Logic chung ở `assertFullOrOwnAuthority`.
    */
   private assertCanModify(
     form: ImportForm,
@@ -641,12 +621,13 @@ export class ImportFormService {
     fullCode: TAuthorityCode,
     ownCode: TAuthorityCode,
   ): void {
-    if (currentUser.roleName === RoleEnum.SuperAdmin) return;
-    const scope = currentUser.scope ?? [];
-    if (scope.includes(fullCode)) return;
-    if (!scope.includes(ownCode)) throw new ForbiddenException();
-    if (form.requester?.id !== currentUser.userId)
-      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_NOT_OWNER);
+    assertFullOrOwnAuthority(
+      currentUser,
+      fullCode,
+      ownCode,
+      form.requester?.id,
+      () => new ImportFormException(ImportFormValidation.IMPORT_FORM_NOT_OWNER),
+    );
   }
 
   /**
@@ -664,12 +645,6 @@ export class ImportFormService {
         ? ImportFormValidation.IMPORT_FORM_CODE_RESERVED_BY_DELETED_IMPORT_FORM
         : ImportFormValidation.IMPORT_FORM_CODE_DOES_EXIST,
     );
-  }
-
-  private async findWarehouse(slug: string): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.findOneBy({ slug });
-    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
-    return warehouse;
   }
 
   private async findUser(id: string): Promise<User> {

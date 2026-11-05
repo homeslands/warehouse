@@ -27,6 +27,7 @@ import { CurrentUserDto, CurrentUserWarehouseDto } from 'src/user/user.decorator
 import { pickDefined } from 'src/shared/utils/obj.util';
 import { UserResponseDto } from 'src/user/user.dto';
 import { BaseQueryDto } from 'src/app/base.dto';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 /**
  * `manager`/`store` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path
@@ -170,17 +171,12 @@ export class WarehouseService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, WarehouseMember, WarehouseMemberResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, WarehouseMember, WarehouseMemberResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<WarehouseMemberResponseDto>;
+      query,
+    );
   }
 
   async updateWarehouse(
@@ -343,17 +339,12 @@ export class WarehouseService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, Warehouse, WarehouseResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, Warehouse, WarehouseResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<WarehouseResponseDto>;
+      query,
+    );
   }
 
   /**

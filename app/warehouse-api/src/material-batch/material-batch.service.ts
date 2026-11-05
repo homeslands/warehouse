@@ -16,12 +16,12 @@ import { MaterialBatchValidation } from './material-batch.validation';
 import { ImportForm } from 'src/import-form/import-form.entity';
 import { ImportFormItem } from 'src/import-form/import-form-item.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
-import { WarehouseException } from 'src/warehouse/warehouse.exception';
-import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
+import { findWarehouse } from 'src/warehouse/warehouse.util';
 import { Material } from 'src/material/material.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { buildSortOrder } from 'src/shared/utils/query.util';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 /** Quan hệ đủ để dựng response (không `eager`). */
 const RELATIONS = {
@@ -90,7 +90,7 @@ export class MaterialBatchService {
     query: GetAllMaterialBatchRequestDto,
   ): Promise<AppPaginatedResponseDto<MaterialBatchResponseDto>> {
     // `SUPER_ADMIN`/`ADMIN` bypass `WarehouseScopeGuard` ⇒ kho sai phải báo 404, không trả rỗng.
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
 
     const where: FindOptionsWhere<MaterialBatch> = { warehouse: { id: warehouse.id } };
     if (query.materialSlug) where.material = { slug: query.materialSlug };
@@ -108,17 +108,12 @@ export class MaterialBatchService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, MaterialBatch, MaterialBatchResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, MaterialBatch, MaterialBatchResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<MaterialBatchResponseDto>;
+      query,
+    );
   }
 
   async findOne(warehouseSlug: string, slug: string): Promise<MaterialBatchResponseDto> {
@@ -127,7 +122,7 @@ export class MaterialBatchService {
       relations: RELATIONS,
     });
     if (!batch) {
-      await this.findWarehouse(warehouseSlug);
+      await findWarehouse(this.warehouseRepository, warehouseSlug);
       throw new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_NOT_FOUND);
     }
     return this.mapper.map(batch, MaterialBatch, MaterialBatchResponseDto);
@@ -330,11 +325,5 @@ export class MaterialBatchService {
         batch.status = status;
       }
     }
-  }
-
-  private async findWarehouse(slug: string): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.findOneBy({ slug });
-    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
-    return warehouse;
   }
 }

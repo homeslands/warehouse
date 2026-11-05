@@ -28,6 +28,8 @@ import { CurrentUserDto } from 'src/user/user.decorator';
 import { hasRole } from 'src/role/role.decorator';
 import { WAREHOUSE_SCOPED_ROLES } from 'src/warehouse/warehouse.constants';
 import { User } from 'src/user/user.entity';
+import { WRITE_LOCK } from 'src/shared/utils/lock.util';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 /**
  * `warehouse` cố ý KHÔNG `eager` trên entity (xem `store.entity.ts`), nên mọi read path phải truyền
@@ -49,13 +51,6 @@ const HISTORY_RELATIONS: FindOptionsRelations<StoreWarehouseHistory> = {
   restoredFrom: true,
   changedBy: true,
 };
-
-/**
- * Khoá dòng cửa hàng trong transaction gắn kho: 2 request cùng lúc tranh 1 kho (hoặc cùng sửa 1 cửa
- * hàng) phải chạy nối tiếp, nếu không cả 2 cùng thấy kho "rảnh" và bên sau ăn `ER_DUP_ENTRY` của
- * `UQ_store_warehouse` thành 500, hoặc lịch sử ghi sai `previousWarehouse`.
- */
-const WRITE_LOCK = { mode: 'pessimistic_write' } as const;
 
 @Injectable()
 export class StoreService {
@@ -114,17 +109,8 @@ export class StoreService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, Store, StoreResponseDto),
-      total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<StoreResponseDto>;
+    return toPaginatedResponse(this.mapper.mapArray(items, Store, StoreResponseDto), total, query);
   }
 
   async findOne(slug: string): Promise<StoreResponseDto> {
@@ -202,17 +188,12 @@ export class StoreService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, StoreWarehouseHistory, StoreWarehouseHistoryResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, StoreWarehouseHistory, StoreWarehouseHistoryResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<StoreWarehouseHistoryResponseDto>;
+      query,
+    );
   }
 
   /**
@@ -277,6 +258,9 @@ export class StoreService {
     const histories = manager.getRepository(StoreWarehouseHistory);
     const changedBy = { id: actor.userId } as User;
 
+    // Khoá dòng cửa hàng: 2 request cùng lúc tranh 1 kho (hoặc cùng sửa 1 cửa hàng) phải chạy nối
+    // tiếp, nếu không cả 2 cùng thấy kho "rảnh" và bên sau ăn `ER_DUP_ENTRY` của
+    // `UQ_store_warehouse` thành 500, hoặc lịch sử ghi sai `previousWarehouse`.
     const store = await stores.findOne({
       where: { slug },
       relations: STORE_LOCK_RELATIONS,

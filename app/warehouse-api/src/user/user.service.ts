@@ -44,6 +44,7 @@ import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 import { pickDefined } from 'src/shared/utils/obj.util';
 import { buildSortOrder, resolveDateRange } from 'src/shared/utils/query.util';
 import { WAREHOUSE_UNSCOPED_ROLES } from 'src/warehouse/warehouse.constants';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
 export class UserService {
@@ -122,16 +123,7 @@ export class UserService {
     if (allowedIds && filter.excludedIds?.length)
       allowedIds = allowedIds.filter((id) => !filter.excludedIds.includes(id));
     // `IN ()` rỗng.
-    if (allowedIds && !allowedIds.length)
-      return {
-        items: [],
-        total: 0,
-        page: query.page,
-        pageSize: query.size,
-        totalPages: 0,
-        hasNext: false,
-        hasPrevios: query.page > 1,
-      } as AppPaginatedResponseDto<UserResponseDto>;
+    if (allowedIds && !allowedIds.length) return toPaginatedResponse<UserResponseDto>([], 0, query);
 
     const where: FindOptionsWhere<User> = {};
     if (allowedIds) where.id = In(allowedIds);
@@ -166,17 +158,8 @@ export class UserService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, User, UserResponseDto),
-      total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<UserResponseDto>;
+    return toPaginatedResponse(this.mapper.mapArray(items, User, UserResponseDto), total, query);
   }
 
   /**

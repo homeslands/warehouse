@@ -49,6 +49,7 @@ import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierException } from 'src/supplier/supplier.exception';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 /**
  * `type`/`baseUnit` cố tình KHÔNG `eager` trên entity, nên mọi read path phải truyền hằng này —
@@ -196,17 +197,8 @@ export class MaterialService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: await this.toResponses(items),
-      total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<MaterialResponseDto>;
+    return toPaginatedResponse(await this.toResponses(items), total, query);
   }
 
   async findOne(slug: string): Promise<MaterialResponseDto> {
@@ -438,24 +430,19 @@ export class MaterialService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
+    return toPaginatedResponse(
       // `isBaseUnit` không map bằng automapper được: nó là so sánh với `material.baseUnit`, thứ
       // nằm ngoài dòng join.
-      items: this.mapper
+      this.mapper
         .mapArray(items, MaterialUnit, MaterialConversionUnitResponseDto)
         .map((item, index) => ({
           ...item,
           isBaseUnit: items[index].unitId === material.baseUnit?.id,
         })),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<MaterialConversionUnitResponseDto>;
+      query,
+    );
   }
 
   /**
