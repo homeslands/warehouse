@@ -1,0 +1,44 @@
+{
+  "id": "D22",
+  "namespace": "DECISION",
+  "title": "Kênh, mức độ và thời điểm cảnh báo",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Kênh nào cho loại cảnh báo nào (có SMS không); gửi ngay hay theo lịch; dùng bộ mức độ nào cho Alarm và cho thông báo UI; người nhận theo vai trò (D02).",
+  "source_reference": "D17 T73R2 \"Email/SMS cho Manager\", \"Thông báo ngay lập tức\"; D13 P328, P332, P336, P340 ↔ D23 ADR-007 P153–P155 (In-app + Email scheduled daily/weekly, không có SMS); mức độ: D24 T350R4 Alarm level INFOR/WARNING ↔ D17 T354R4 Success/Warning/Error/Info ↔ D23 P148–P152 Yellow/Red/Green ↔ D13 P324 đỏ/vàng/xanh; D17 T140R2–R3 Vàng/Đỏ; người dùng05/11/2026: chưa có nhà cung cấp SMS, chắc cũng không cần.",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Business Owner + BA + Tech Lead",
+  "affected_packages": [
+    "W08"
+  ],
+  "answer": "Phase hiện tại dùng in-app và email; SMS không triển khai trong phase hiện tại, giữ yêu cầu gốc ở FUT-SMS.",
+  "rules": [
+    "Chốt theo quyền điều phối từ ý kiến người dùng: không chọn/mua SMS provider hoặc triển khai SMS trong phase hiện tại. Yêu cầu SMS gốc không bị xóa; chuyển FUT-SMS và chỉ mở khi có chỉ dẫn mới.",
+    "In-app sau commit cho cảnh báo nghiệp vụ; email cảnh báo CRITICAL sau commit và email báo cáo daily/weekly theoD15. Manager kho nhận đúng scope. Local/test dùng mail capture hoặc fake transport có nhãn, không gửi ra địa chỉ thật.",
+    "Alarm level INFO/WARNING/CRITICAL; UI toast SUCCESS/INFO/WARNING/ERROR là loại phản hồi riêng. Hết hàng, HSD quá hạn, công nợ quá hạn là CRITICAL.",
+    "Outbox/dedupe theo eventId+recipient+channel; retry1/5/15phút tối đa5lần, sau đó dead-letter hiển thị trạng thái để xử lý. Rollback không gửi thông báo.",
+    "W08 core/in-app/email không chờ SMS provider. Nếu tương lai mở FUT-SMS, cần CR về provider/recipient/chi phí/quyền gửi và runtime test riêng; không công bố SMS đã hoạt động từ kết quả phase hiện tại."
+  ],
+  "rationale": "Phê duyệt hoãn SMS theo ý kiến người dùng; không tự đánh dấu khả năng chưa xây dựng là đã nghiệm thu.",
+  "change_control_id": "CR-D22-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Một event rollback không phát in-app/email.",
+    "Một event retry không gửi hai email thành công cùngrecipient.",
+    "Không có SMS service/credential trong cấu hình phase hiện tại; FUT-SMS vẫn được truy vết."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "2d0f164a9968158445d15eb3d8196cf2e35def5e7a6467946950e76336e4a71d",
+  "deferred_scope": [
+    "FUT-SMS: provider selection, implementation and runtime acceptance."
+  ]
+}

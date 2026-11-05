@@ -1,0 +1,2578 @@
+[
+  {
+    "table": "users",
+    "source": "D24 P29",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID user",
+        "source": "D24 T31R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T31R3"
+      },
+      {
+        "name": "fullName",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên đầy đủ",
+        "source": "D24 T31R4"
+      },
+      {
+        "name": "password",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Mật khẩu ",
+        "source": "D24 T31R5"
+      },
+      {
+        "name": "dob",
+        "type": "VARCHAR(255)",
+        "constraints": "NULL",
+        "description": "Ngày sinh ",
+        "source": "D24 T31R6"
+      },
+      {
+        "name": "email",
+        "type": "VARCHAR(100)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Email",
+        "source": "D24 T31R7"
+      },
+      {
+        "name": "phoneNumber",
+        "type": "VARCHAR(20)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Số điện thoại",
+        "source": "D24 T31R8"
+      },
+      {
+        "name": "address",
+        "type": "VARCHAR(255)",
+        "constraints": "NULL",
+        "description": "Địa chỉ",
+        "source": "D24 T31R9"
+      },
+      {
+        "name": "role",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "ID vai trò",
+        "source": "D24 T31R10"
+      },
+      {
+        "name": "isActive",
+        "type": "BOOLEAN",
+        "constraints": "DEFAULT TRUE",
+        "description": "Trạng thái hoạt động",
+        "source": "D24 T31R11"
+      },
+      {
+        "name": "createdAt",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T31R12"
+      },
+      {
+        "name": "updatedAt",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T31R13"
+      },
+      {
+        "name": "deletedAt",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T31R14"
+      }
+    ],
+    "table_id": "T31"
+  },
+  {
+    "table": "roles",
+    "source": "D24 P39",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36))",
+        "constraints": "PRIMARY KEY",
+        "description": "ID vai trò",
+        "source": "D24 T42R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn ",
+        "source": "D24 T42R3"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(100)",
+        "constraints": "NOT NULL, UNIQUE",
+        "description": "Tên vai trò",
+        "source": "D24 T42R4"
+      },
+      {
+        "name": "description",
+        "type": "TINYTEXT",
+        "constraints": "NOT NULL",
+        "description": "Mô tả vai trò",
+        "source": "D24 T42R5"
+      },
+      {
+        "name": "createdAt",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T42R6"
+      },
+      {
+        "name": "createdBy",
+        "type": "VARCHAR(225)",
+        "constraints": "NULL",
+        "description": "Người tạo",
+        "source": "D24 T42R7"
+      },
+      {
+        "name": "updatedAt",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T42R8"
+      },
+      {
+        "name": "deletedAt",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T42R9"
+      }
+    ],
+    "table_id": "T42"
+  },
+  {
+    "table": "permissions",
+    "source": "D24 P50",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36))",
+        "constraints": "PRIMARY KEY",
+        "description": "ID quyền",
+        "source": "D24 T53R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(100)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T53R3"
+      },
+      {
+        "name": "role",
+        "type": "VARCHAR(36)",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Vai trò ",
+        "source": "D24 T53R4"
+      },
+      {
+        "name": "authority",
+        "type": "VARCHAR(50)",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Quyền",
+        "source": "D24 T53R5"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T53R6"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T53R7"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T53R8"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T53R9"
+      }
+    ],
+    "table_id": "T53"
+  },
+  {
+    "table": "authority_groups",
+    "source": "D24 P61",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID nhóm",
+        "source": "D24 T64R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn ",
+        "source": "D24 T64R3"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên nhóm",
+        "source": "D24 T64R4"
+      },
+      {
+        "name": "description",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "Mô tả",
+        "source": "D24 T64R5"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T64R6"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T64R7"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T64R8"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T64R9"
+      }
+    ],
+    "table_id": "T64"
+  },
+  {
+    "table": "authority",
+    "source": "D24 P72",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T75R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn ",
+        "source": "D24 T75R3"
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Code quyền ",
+        "source": "D24 T75R4"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên quyền",
+        "source": "D24 T75R5"
+      },
+      {
+        "name": "authority_group",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID nhóm hoạt động",
+        "source": "D24 T75R6"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T75R7"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T75R8"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T75R9"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T75R10"
+      }
+    ],
+    "table_id": "T75"
+  },
+  {
+    "table": "products",
+    "source": "D24 P84",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID sản phẩm",
+        "source": "D24 T87R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T87R3"
+      },
+      {
+        "name": "id_3rd",
+        "type": "VARCHAR(36)",
+        "constraints": "UNIQUE",
+        "description": "ID sản phẩm của hệ thống thứ 2",
+        "source": "D24 T87R4"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên sản phẩm",
+        "source": "D24 T87R5"
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Mô tả",
+        "source": "D24 T87R6"
+      },
+      {
+        "name": "is_active",
+        "type": "TINYINT",
+        "constraints": "DEFAULT 1",
+        "description": "Trạng thái khóa món ",
+        "source": "D24 T87R7"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T87R8"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T87R9"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T87R10"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T87R11"
+      }
+    ],
+    "table_id": "T87"
+  },
+  {
+    "table": "variants",
+    "source": "D24 P94",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID biến thể",
+        "source": "D24 T97R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE",
+        "description": "Mã truy vấn",
+        "source": "D24 T97R3"
+      },
+      {
+        "name": "product_id",
+        "type": "VARCHAR(36))",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID sản phẩm",
+        "source": "D24 T97R4"
+      },
+      {
+        "name": "id_3rd",
+        "type": "VARCHAR(36))",
+        "constraints": "NOT NULL",
+        "description": "ID sản phẩm bên thứ 3",
+        "source": "D24 T97R5"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên biến thể (Latte M, Trà sữa L)",
+        "source": "D24 T97R6"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T97R7"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T97R8"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T97R9"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T97R10"
+      }
+    ],
+    "table_id": "T97"
+  },
+  {
+    "table": "materials",
+    "source": "D24 P106",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID nguyên vật liệu",
+        "source": "D24 T109R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T109R3"
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "code NVL (auto-generate) theo quy ước từng loại",
+        "source": "D24 T109R4"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên NVL",
+        "source": "D24 T109R5"
+      },
+      {
+        "name": "type",
+        "type": "ENUM",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Loại (RAW, SUPPORT, PACKAGING, CONSUMABLE, SPARE_PART)",
+        "source": "D24 T109R6"
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Mô tả",
+        "source": "D24 T109R7"
+      },
+      {
+        "name": "minimum_inventory",
+        "type": "DECIMAL(10,2)",
+        "constraints": "DEFAULT 0",
+        "description": "Tồn kho tối thiểu",
+        "source": "D24 T109R8"
+      },
+      {
+        "name": "maximum_inventory",
+        "type": "DECIMAL(10,2)",
+        "constraints": "",
+        "description": "Tồn kho tối đa",
+        "source": "D24 T109R9"
+      },
+      {
+        "name": "inventory",
+        "type": "DECIMAL(10,2)",
+        "constraints": "DEFAULT 0",
+        "description": "Tồn kho hiện tại",
+        "source": "D24 T109R10"
+      },
+      {
+        "name": "is_expiry",
+        "type": "BOOLEAN",
+        "constraints": "DEFAULT FALSE",
+        "description": "Có hạn sử dụng không",
+        "source": "D24 T109R11"
+      },
+      {
+        "name": "files",
+        "type": "VARCHAR(225)",
+        "constraints": "",
+        "description": "File đính kèm lưu dưới dạng string mảngVí dụ: ‘[‘name1’, ‘name2’]’",
+        "source": "D24 T109R12"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T109R13"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T109R14"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T109R15"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T109R16"
+      }
+    ],
+    "table_id": "T109"
+  },
+  {
+    "table": "units",
+    "source": "D24 P125",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID đơn vị",
+        "source": "D24 T128R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T128R3"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Tên đơn vị (kg, lít, hộp...)",
+        "source": "D24 T128R4"
+      },
+      {
+        "name": "symbol",
+        "type": "VARCHAR(20)",
+        "constraints": "NOT NULL",
+        "description": "Ký hiệu (kg, L, box...)",
+        "source": "D24 T128R5"
+      },
+      {
+        "name": "type",
+        "type": "ENUM",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Loại (WEIGHT, VOLUME, QUANTITY)",
+        "source": "D24 T128R6"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T128R7"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T128R8"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T128R9"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T128R10"
+      }
+    ],
+    "table_id": "T128"
+  },
+  {
+    "table": "MaterialUnitCanHave",
+    "source": "D24 P137",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID tỷ lệ chuyển đổi đơn vị ",
+        "source": "D24 T140R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T140R3"
+      },
+      {
+        "name": "isOriginal",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Đơn vị gốc ",
+        "source": "D24 T140R4"
+      },
+      {
+        "name": "symbol",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Ký hiệu đơn vị",
+        "source": "D24 T140R5"
+      },
+      {
+        "name": "unit",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "Đơn vị muốn chuyển đổi ",
+        "source": "D24 T140R6"
+      },
+      {
+        "name": "material",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "Nguyên  liệu",
+        "source": "D24 T140R7"
+      },
+      {
+        "name": "conversionRate",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tỉ lệ chuyển đổi (ví dụ: 1:3)",
+        "source": "D24 T140R8"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T140R9"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T140R10"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T140R11"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T140R12"
+      }
+    ],
+    "table_id": "T140"
+  },
+  {
+    "table": "suppliers",
+    "source": "D24 P148",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID NCC",
+        "source": "D24 T151R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T151R3"
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Code NCC",
+        "source": "D24 T151R4"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên công ty",
+        "source": "D24 T151R5"
+      },
+      {
+        "name": "contact_person",
+        "type": "VARCHAR(100)",
+        "constraints": "",
+        "description": "Người liên hệ",
+        "source": "D24 T151R6"
+      },
+      {
+        "name": "phone",
+        "type": "VARCHAR(20)",
+        "constraints": "",
+        "description": "Số điện thoại",
+        "source": "D24 T151R7"
+      },
+      {
+        "name": "email",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "Email",
+        "source": "D24 T151R8"
+      },
+      {
+        "name": "location",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "Địa chỉ",
+        "source": "D24 T151R9"
+      },
+      {
+        "name": "tax_code",
+        "type": "VARCHAR(50)",
+        "constraints": "",
+        "description": "Mã số thuế",
+        "source": "D24 T151R10"
+      },
+      {
+        "name": "payment_terms",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "Điều khoản thanh toán (COD, Net7, Net15...)",
+        "source": "D24 T151R11"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T151R12"
+      },
+      {
+        "name": "link",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Link nhà cung cấp ",
+        "source": "D24 T151R13"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T151R14"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T151R15"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T151R16"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T151R17"
+      }
+    ],
+    "table_id": "T151"
+  },
+  {
+    "table": "positions",
+    "source": "D24 P160",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID vị trí",
+        "source": "D24 T163R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T163R3"
+      },
+      {
+        "name": "name",
+        "type": "VARCHAR(100)",
+        "constraints": "NOT NULL",
+        "description": "Tên vị trí ",
+        "source": "D24 T163R4"
+      },
+      {
+        "name": "location",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "Chi tiết vị trí",
+        "source": "D24 T163R5"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T163R6"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T163R7"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T163R8"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T163R9"
+      }
+    ],
+    "table_id": "T163"
+  },
+  {
+    "table": "VariantMaterial",
+    "source": "D24 P171",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID công thức",
+        "source": "D24 T174R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn ",
+        "source": "D24 T174R3"
+      },
+      {
+        "name": "variant_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID biến thể sản phẩm",
+        "source": "D24 T174R4"
+      },
+      {
+        "name": "material_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID nguyên vật liệu",
+        "source": "D24 T174R5"
+      },
+      {
+        "name": "quantity",
+        "type": "DECIMAL",
+        "constraints": "NOT NULL",
+        "description": "Định mức sử dụng",
+        "source": "D24 T174R6"
+      },
+      {
+        "name": "MaterialUnitCanHave",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "Đơn vị quy đổi ",
+        "source": "D24 T174R7"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T174R8"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T174R9"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(225)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T174R10"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T174R11"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP(6)",
+        "constraints": "NULL",
+        "description": "Ngày xóa",
+        "source": "D24 T174R12"
+      }
+    ],
+    "table_id": "T174"
+  },
+  {
+    "table": "MaterialPostion",
+    "source": "D24 P185",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T188R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T188R3"
+      },
+      {
+        "name": "material_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID nguyên vật liệu",
+        "source": "D24 T188R4"
+      },
+      {
+        "name": "position_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID vị trí",
+        "source": "D24 T188R5"
+      },
+      {
+        "name": "locationMaterial",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "Chi tiết vị trí cụ thể",
+        "source": "D24 T188R6"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T188R7"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T188R8"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T188R9"
+      }
+    ],
+    "table_id": "T188"
+  },
+  {
+    "table": "import_forms",
+    "source": "D24 P197",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID phiếu",
+        "source": "D24 T200R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T200R3"
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã phiếu (auto: IMP-YYYYMMDD-XXXX)",
+        "source": "D24 T200R4"
+      },
+      {
+        "name": "date",
+        "type": "DATE",
+        "constraints": "NOT NULL",
+        "description": "Ngày nhập kho",
+        "source": "D24 T200R5"
+      },
+      {
+        "name": "PO",
+        "type": "VARCHAR(50)",
+        "constraints": "NOT NULL",
+        "description": "Mã đơn đặt hàng (số PO)",
+        "source": "D24 T200R6"
+      },
+      {
+        "name": "status",
+        "type": "ENUM('DRAFT','CONFIRMED','CANCELLED')",
+        "constraints": "DEFAULT 'DRAFT' , FOREIGN KEY",
+        "description": "Trạng thái",
+        "source": "D24 T200R7"
+      },
+      {
+        "name": "requester_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người yêu cầu",
+        "source": "D24 T200R8"
+      },
+      {
+        "name": "approver_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người phê duyệt",
+        "source": "D24 T200R9"
+      },
+      {
+        "name": "type",
+        "type": "ENUM",
+        "constraints": "FOREIGN KEY",
+        "description": "Loại nhập (PURCHASE, RETURN...)",
+        "source": "D24 T200R10"
+      },
+      {
+        "name": "total_amount",
+        "type": "DECIMAL(15,2)",
+        "constraints": "DEFAULT 0",
+        "description": "Tổng giá trị",
+        "source": "D24 T200R11"
+      },
+      {
+        "name": "expenseForm",
+        "type": "VARCHAR(255)",
+        "constraints": "FOREIGN KEY",
+        "description": "Phiếu chi",
+        "source": "D24 T200R12"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T200R13"
+      },
+      {
+        "name": "files",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "File đính kèm lưu dưới dạng string mảngVí dụ: ‘[‘name1’, ‘name2’]’",
+        "source": "D24 T200R14"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(36)",
+        "constraints": "NOT NULL",
+        "description": "Người tạo",
+        "source": "D24 T200R15"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T200R16"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T200R17"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "NULL",
+        "description": "Ngày xóa (soft delete)",
+        "source": "D24 T200R18"
+      }
+    ],
+    "table_id": "T200"
+  },
+  {
+    "table": "import_items",
+    "source": "D24 P211",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T213R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T213R3"
+      },
+      {
+        "name": "import_form_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID phiếu nhập",
+        "source": "D24 T213R4"
+      },
+      {
+        "name": "material_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID nguyên vật liệu",
+        "source": "D24 T213R5"
+      },
+      {
+        "name": "quantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Số lượng nhập",
+        "source": "D24 T213R6"
+      },
+      {
+        "name": "entry_date",
+        "type": "DATE",
+        "constraints": "",
+        "description": "Ngày sản xuất",
+        "source": "D24 T213R7"
+      },
+      {
+        "name": "expiry_date",
+        "type": "DATE",
+        "constraints": "",
+        "description": "Hạn sử dụng",
+        "source": "D24 T213R8"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T213R9"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T213R10"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T213R11"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T213R12"
+      }
+    ],
+    "table_id": "T213"
+  },
+  {
+    "table": "export_forms",
+    "source": "D24 P224",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID phiếu",
+        "source": "D24 T226R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T226R3"
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã phiếu (auto: EXP-YYYYMMDD-XXXX)",
+        "source": "D24 T226R4"
+      },
+      {
+        "name": "date",
+        "type": "DATE",
+        "constraints": "NOT NULL",
+        "description": "Ngày xuất kho",
+        "source": "D24 T226R5"
+      },
+      {
+        "name": "type",
+        "type": "ENUM('PRODUCTION','DISPOSAL','TRANSFER','OTHER')",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Loại xuất",
+        "source": "D24 T226R6"
+      },
+      {
+        "name": "PO",
+        "type": "VARCHAR(50)",
+        "constraints": "NOT NULL",
+        "description": "Mã đơn đặt hàng (số PO)",
+        "source": "D24 T226R7"
+      },
+      {
+        "name": "status",
+        "type": "ENUM('DRAFT','CONFIRMED','CANCELLED')",
+        "constraints": "DEFAULT 'DRAFT'",
+        "description": "Trạng thái",
+        "source": "D24 T226R8"
+      },
+      {
+        "name": "day",
+        "type": "DATE",
+        "constraints": "",
+        "description": "Ngày",
+        "source": "D24 T226R9"
+      },
+      {
+        "name": "requester_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người yêu cầu",
+        "source": "D24 T226R10"
+      },
+      {
+        "name": "approver_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người phê duyệt",
+        "source": "D24 T226R11"
+      },
+      {
+        "name": "receiver_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY(nullable)",
+        "description": "Người nhận (nếu có)",
+        "source": "D24 T226R12"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T226R13"
+      },
+      {
+        "name": "files",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "File đính kèm lưu dưới dạng string mảngVí dụ: ‘[‘name1’, ‘name2’]’",
+        "source": "D24 T226R14"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người tạo",
+        "source": "D24 T226R15"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T226R16"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T226R17"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "NULL",
+        "description": "Ngày xóa (soft delete)",
+        "source": "D24 T226R18"
+      }
+    ],
+    "table_id": "T226"
+  },
+  {
+    "table": "export_items",
+    "source": "D24 P237",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T239R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T239R3"
+      },
+      {
+        "name": "export_form_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID phiếu xuất",
+        "source": "D24 T239R4"
+      },
+      {
+        "name": "material_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID nguyên vật liệu",
+        "source": "D24 T239R5"
+      },
+      {
+        "name": "quantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Số lượng xuất",
+        "source": "D24 T239R6"
+      },
+      {
+        "name": "expiry_date",
+        "type": "DATE",
+        "constraints": "",
+        "description": "Hạn sử dụng (bắt buộc)",
+        "source": "D24 T239R7"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T239R8"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T239R9"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T239R10"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T239R11"
+      }
+    ],
+    "table_id": "T239"
+  },
+  {
+    "table": "balance_forms",
+    "source": "D24 P250",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID phiếu",
+        "source": "D24 T252R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T252R3"
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã phiếu (auto: BAL-YYYYMMDD-XXXX)",
+        "source": "D24 T252R4"
+      },
+      {
+        "name": "type",
+        "type": "ENUM('PERIODIC','AD_HOC')",
+        "constraints": "NOT NULL,FOREIGN KEY",
+        "description": "Loại kiểm (Định kỳ/Đột xuất)",
+        "source": "D24 T252R5"
+      },
+      {
+        "name": "scope",
+        "type": "ENUM('FULL','PARTIAL')",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Phạm vi (Toàn bộ/Một phần)",
+        "source": "D24 T252R6"
+      },
+      {
+        "name": "status",
+        "type": "ENUM('IN_PROGRESS','COMPLETED','CANCELLED')",
+        "constraints": "DEFAULT 'IN_PROGRESS'",
+        "description": "Trạng thái",
+        "source": "D24 T252R7"
+      },
+      {
+        "name": "day",
+        "type": "DATE",
+        "constraints": "",
+        "description": "Ngày",
+        "source": "D24 T252R8"
+      },
+      {
+        "name": "files",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "File đính kèm lưu dưới dạng string mảngVí dụ: ‘[‘name1’, ‘name2’]’",
+        "source": "D24 T252R9"
+      },
+      {
+        "name": "requester_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người yêu cầu",
+        "source": "D24 T252R10"
+      },
+      {
+        "name": "approver_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người phê duyệt",
+        "source": "D24 T252R11"
+      },
+      {
+        "name": "total_difference_value",
+        "type": "DECIMAL(15,2)",
+        "constraints": "DEFAULT 0",
+        "description": "Tổng giá trị chênh lệch",
+        "source": "D24 T252R12"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T252R13"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người tạo",
+        "source": "D24 T252R14"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T252R15"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T252R16"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T252R17"
+      }
+    ],
+    "table_id": "T252"
+  },
+  {
+    "table": "BalanceItem",
+    "source": "D24 P263",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID ",
+        "source": "D24 T265R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T265R3"
+      },
+      {
+        "name": "quantity",
+        "type": "INT",
+        "constraints": "NOT NULL",
+        "description": "Số lượng ",
+        "source": "D24 T265R4"
+      },
+      {
+        "name": "balanceForm_id",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL,FOREIGN KEY",
+        "description": "Phiếu kiểm kho ",
+        "source": "D24 T265R5"
+      },
+      {
+        "name": "actualQuantity",
+        "type": "INT",
+        "constraints": "NOT NULL",
+        "description": "Số lượng thực tế ",
+        "source": "D24 T265R6"
+      },
+      {
+        "name": "differenceQuantity",
+        "type": "INT",
+        "constraints": "NOT NULL",
+        "description": "Chênh lệch",
+        "source": "D24 T265R7"
+      },
+      {
+        "name": "resionDifference",
+        "type": "ENUM()",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Lý do chênh lệch",
+        "source": "D24 T265R8"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T265R9"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người tạo",
+        "source": "D24 T265R10"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T265R11"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T265R12"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T265R13"
+      }
+    ],
+    "table_id": "T265"
+  },
+  {
+    "table": "MaterialStock",
+    "source": "D24 P277",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T280R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T280R3"
+      },
+      {
+        "name": "material_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, UNIQUE, NOT NULL",
+        "description": "ID nguyên vật liệu",
+        "source": "D24 T280R4"
+      },
+      {
+        "name": "unit_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, UNIQUE, NOT NULL",
+        "description": "ID đơn vị ",
+        "source": "D24 T280R5"
+      },
+      {
+        "name": "quantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Số lượng tồn (với đơn vị gốc)",
+        "source": "D24 T280R6"
+      },
+      {
+        "name": "description",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Mô tả",
+        "source": "D24 T280R7"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T280R8"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T280R9"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T280R10"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T280R11"
+      }
+    ],
+    "table_id": "T280"
+  },
+  {
+    "table": "MaterialStockHistory",
+    "source": "D24 P290",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T298R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T298R3"
+      },
+      {
+        "name": "material_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID nguyên vật liệu",
+        "source": "D24 T298R4"
+      },
+      {
+        "name": "transaction_type",
+        "type": "ENUM('IMPORT','EXPORT','BALANCE','USED')",
+        "constraints": "NOT NULL",
+        "description": "Loại giao dịch",
+        "source": "D24 T298R5"
+      },
+      {
+        "name": "previousQuantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Tồn trước",
+        "source": "D24 T298R6"
+      },
+      {
+        "name": "changedQuantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Số lượng thay đổi (+/-)",
+        "source": "D24 T298R7"
+      },
+      {
+        "name": "remainingQuantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Tồn sau",
+        "source": "D24 T298R8"
+      },
+      {
+        "name": "unit_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Đơn vị",
+        "source": "D24 T298R9"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người thực hiện",
+        "source": "D24 T298R10"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày giao dịch",
+        "source": "D24 T298R11"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T298R12"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T298R13"
+      }
+    ],
+    "table_id": "T298"
+  },
+  {
+    "table": "MaterialBatch",
+    "source": "D24 P309",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID lô",
+        "source": "D24 T311R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T311R3"
+      },
+      {
+        "name": "materialStock",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID nguyên vật liệu gốc",
+        "source": "D24 T311R4"
+      },
+      {
+        "name": "entry",
+        "type": "DATE",
+        "constraints": "NOT NULL",
+        "description": "Ngày sản xuất ",
+        "source": "D24 T311R5"
+      },
+      {
+        "name": "expiry",
+        "type": "DATE",
+        "constraints": "",
+        "description": "Hạn sử dụng ",
+        "source": "D24 T311R6"
+      },
+      {
+        "name": "remaining_quantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "",
+        "description": "Số lượng còn lại",
+        "source": "D24 T311R7"
+      },
+      {
+        "name": "status",
+        "type": "ENUM('ACTIVE','EXPIRED','DEPLETED')",
+        "constraints": "DEFAULT 'ACTIVE'",
+        "description": "Trạng thái lô",
+        "source": "D24 T311R8"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T311R9"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T311R10"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T311R11"
+      }
+    ],
+    "table_id": "T311"
+  },
+  {
+    "table": "ExpenseForm",
+    "source": "D24 P321",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID phiếu chi",
+        "source": "D24 T323R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T323R3"
+      },
+      {
+        "name": "code",
+        "type": "VARCHAR(50)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã phiếu chi (auto: PAY-YYYYMMDD-XXXX)",
+        "source": "D24 T323R4"
+      },
+      {
+        "name": "payment_date",
+        "type": "DATE",
+        "constraints": "NOT NULL",
+        "description": "Ngày chi",
+        "source": "D24 T323R5"
+      },
+      {
+        "name": "date",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo phiếu",
+        "source": "D24 T323R6"
+      },
+      {
+        "name": "type",
+        "type": "ENUM('MATERIAL_PURCHASE','TRANSPORT','LOADING','STORAGE','OTHER')",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Loại chi",
+        "source": "D24 T323R7"
+      },
+      {
+        "name": "previousVATAmount",
+        "type": "DECIMAL(15,2)",
+        "constraints": "NOT NULL",
+        "description": "Số tiền trước VAT",
+        "source": "D24 T323R8"
+      },
+      {
+        "name": "VAT",
+        "type": "DECIMAL(5,2)",
+        "constraints": "DEFAULT 0",
+        "description": "VAT (%)",
+        "source": "D24 T323R9"
+      },
+      {
+        "name": "VATAmount",
+        "type": "DECIMAL(15,2)",
+        "constraints": "GENERATED",
+        "description": "Số tiền VAT",
+        "source": "D24 T323R10"
+      },
+      {
+        "name": "totalAmount",
+        "type": "DECIMAL(15,2)",
+        "constraints": "GENERATED",
+        "description": "Tổng tiền",
+        "source": "D24 T323R11"
+      },
+      {
+        "name": "payment_terms",
+        "type": "ENUM('CASH','DEBT')",
+        "constraints": "DEFAULT 'CASH', FOREIGN KEY",
+        "description": "Điều khoản (Trực tiếp/Công nợ)",
+        "source": "D24 T323R12"
+      },
+      {
+        "name": "debtDueDate",
+        "type": "DATE",
+        "constraints": "",
+        "description": "Ngày hết hạn công nợ (nếu DEBT)",
+        "source": "D24 T323R13"
+      },
+      {
+        "name": "payment_method",
+        "type": "ENUM('CASH','BANK_TRANSFER','CREDIT_CARD')",
+        "constraints": "NOT NULL, FOREIGN KEY",
+        "description": "Hình thức thanh toán",
+        "source": "D24 T323R14"
+      },
+      {
+        "name": "requester_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người yêu cầu",
+        "source": "D24 T323R15"
+      },
+      {
+        "name": "applier_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người áp dụng",
+        "source": "D24 T323R16"
+      },
+      {
+        "name": "invoiceStatus",
+        "type": "BOOLEAN",
+        "constraints": "DEFAULT FALSE",
+        "description": "Tình trạng hóa đơn",
+        "source": "D24 T323R17"
+      },
+      {
+        "name": "status",
+        "type": "ENUM('DRAFT','CONFIRMED','CANCELLED')",
+        "constraints": "DEFAULT 'DRAFT'",
+        "description": "Trạng thái",
+        "source": "D24 T323R18"
+      },
+      {
+        "name": "approver_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người phê duyệt (Anh Huy)",
+        "source": "D24 T323R19"
+      },
+      {
+        "name": "payer_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY (nullnable)",
+        "description": "Người chi (Thủ quỹ/Kế toán)",
+        "source": "D24 T323R20"
+      },
+      {
+        "name": "files",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "File đính kèm lưu dưới dạng string mảngVí dụ: ‘[‘name1’, ‘name2’]’",
+        "source": "D24 T323R21"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T323R22"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T323R23"
+      },
+      {
+        "name": "created_by",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người tạo",
+        "source": "D24 T323R24"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP ON UPDATE CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T323R25"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "NULL",
+        "description": "Ngày xóa (soft delete)",
+        "source": "D24 T323R26"
+      }
+    ],
+    "table_id": "T323"
+  },
+  {
+    "table": "ExpenseItem",
+    "source": "D24 P336",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T338R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T338R3"
+      },
+      {
+        "name": "expense_form_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "ID phiếu chi",
+        "source": "D24 T338R4"
+      },
+      {
+        "name": "quantity",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Số lượng",
+        "source": "D24 T338R5"
+      },
+      {
+        "name": "unitPrice",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Đơn giá ",
+        "source": "D24 T338R6"
+      },
+      {
+        "name": "totalAmount",
+        "type": "DECIMAL(10,2)",
+        "constraints": "NOT NULL",
+        "description": "Thành tiền",
+        "source": "D24 T338R7"
+      },
+      {
+        "name": "note",
+        "type": "TEXT",
+        "constraints": "",
+        "description": "Ghi chú",
+        "source": "D24 T338R8"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T338R9"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T338R10"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T338R11"
+      }
+    ],
+    "table_id": "T338"
+  },
+  {
+    "table": "Alarm",
+    "source": "D24 P348",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID",
+        "source": "D24 T350R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T350R3"
+      },
+      {
+        "name": "level",
+        "type": "STRING (INFOR, WARNING)",
+        "constraints": "NOT NULL",
+        "description": "Loại cảnh báo",
+        "source": "D24 T350R4"
+      },
+      {
+        "name": "receiver",
+        "type": "VARCHAR(255)",
+        "constraints": "FOREIGN KEY, NOT NULL",
+        "description": "Người nhận",
+        "source": "D24 T350R5"
+      },
+      {
+        "name": "message",
+        "type": "TEXT",
+        "constraints": "NOT NULL",
+        "description": "Nội dung cảnh báo",
+        "source": "D24 T350R6"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T350R7"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T350R8"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T350R9"
+      }
+    ],
+    "table_id": "T350"
+  },
+  {
+    "table": "files",
+    "source": "D24 P359",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID file",
+        "source": "D24 T361R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T361R3"
+      },
+      {
+        "name": "type",
+        "type": "ENUM('INVOICE','RECEIPT','PHOTO','DOCUMENT','OTHER')",
+        "constraints": "NOT NULL",
+        "description": "Loại file",
+        "source": "D24 T361R4"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE",
+        "description": "Slug",
+        "source": "D24 T361R5"
+      },
+      {
+        "name": "data",
+        "type": "LONGBLOB",
+        "constraints": "",
+        "description": "Nội dung file (binary) hoặc URL",
+        "source": "D24 T361R6"
+      },
+      {
+        "name": "filename",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE",
+        "description": "Tên file gốc",
+        "source": "D24 T361R7"
+      },
+      {
+        "name": "mime_type",
+        "type": "VARCHAR(100)",
+        "constraints": "",
+        "description": "MIME type (image/jpeg, application/pdf)",
+        "source": "D24 T361R8"
+      },
+      {
+        "name": "size",
+        "type": "INT",
+        "constraints": "",
+        "description": "Kích thước (bytes)",
+        "source": "D24 T361R9"
+      },
+      {
+        "name": "related_entity",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "Entity liên quan (import_form:123)",
+        "source": "D24 T361R10"
+      },
+      {
+        "name": "uploaded_by",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "Người upload",
+        "source": "D24 T361R11"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày tạo",
+        "source": "D24 T361R12"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T361R13"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T361R14"
+      }
+    ],
+    "table_id": "T361"
+  },
+  {
+    "table": "audit_logs",
+    "source": "D24 P369",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID log",
+        "source": "D24 T371R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T371R3"
+      },
+      {
+        "name": "user_id",
+        "type": "VARCHAR(36)",
+        "constraints": "FOREIGN KEY",
+        "description": "User thực hiện",
+        "source": "D24 T371R4"
+      },
+      {
+        "name": "actorId",
+        "type": "VARCHAR(36)",
+        "constraints": "NOT NULL, UNIQUE",
+        "description": "Id hành động ",
+        "source": "D24 T371R5"
+      },
+      {
+        "name": "action",
+        "type": "ENUM('CREATE','UPDATE','DELETE','APPROVE','CANCEL')",
+        "constraints": "NOT NULL",
+        "description": "Hành động",
+        "source": "D24 T371R6"
+      },
+      {
+        "name": "actorType",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Loại hành động ",
+        "source": "D24 T371R7"
+      },
+      {
+        "name": "actorName",
+        "type": "VARCHAR(255)",
+        "constraints": "NOT NULL",
+        "description": "Tên hàng động ",
+        "source": "D24 T371R8"
+      },
+      {
+        "name": "entity_type",
+        "type": "VARCHAR(100)",
+        "constraints": "NOT NULL",
+        "description": "Loại entity (ImportForm, Material...)",
+        "source": "D24 T371R9"
+      },
+      {
+        "name": "entity_id",
+        "type": "INT",
+        "constraints": "NOT NULL",
+        "description": "ID entity",
+        "source": "D24 T371R10"
+      },
+      {
+        "name": "oldData",
+        "type": "JSON",
+        "constraints": "",
+        "description": "Giá trị cũ",
+        "source": "D24 T371R11"
+      },
+      {
+        "name": "newData",
+        "type": "JSON",
+        "constraints": "",
+        "description": "Giá trị mới",
+        "source": "D24 T371R12"
+      },
+      {
+        "name": "ip_address",
+        "type": "VARCHAR(45)",
+        "constraints": "",
+        "description": "IP address",
+        "source": "D24 T371R13"
+      },
+      {
+        "name": "user_agent",
+        "type": "VARCHAR(255)",
+        "constraints": "",
+        "description": "User agent",
+        "source": "D24 T371R14"
+      },
+      {
+        "name": "changedFilelds",
+        "type": "VARCHAR(255) ARRAY",
+        "constraints": "",
+        "description": "Trường thay đổi ",
+        "source": "D24 T371R15"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Thời gian",
+        "source": "D24 T371R16"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T371R17"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T371R18"
+      }
+    ],
+    "table_id": "T371"
+  },
+  {
+    "table": "Logger",
+    "source": "D24 P379",
+    "fields": [
+      {
+        "name": "id",
+        "type": "VARCHAR(36)",
+        "constraints": "PRIMARY KEY",
+        "description": "ID log",
+        "source": "D24 T381R2"
+      },
+      {
+        "name": "slug",
+        "type": "VARCHAR(255)",
+        "constraints": "UNIQUE, NOT NULL",
+        "description": "Mã truy vấn",
+        "source": "D24 T381R3"
+      },
+      {
+        "name": "Level",
+        "type": "VARCHAR(36) (infor, warn, error)",
+        "constraints": "NOT NULL",
+        "description": "Cấp độ thông báo",
+        "source": "D24 T381R4"
+      },
+      {
+        "name": "message",
+        "type": "TEXT",
+        "constraints": "NOT NULL",
+        "description": "Nội dung cảnh báo",
+        "source": "D24 T381R5"
+      },
+      {
+        "name": "timestamp",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Thời gian",
+        "source": "D24 T381R6"
+      },
+      {
+        "name": "created_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Thời gian",
+        "source": "D24 T381R7"
+      },
+      {
+        "name": "updated_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày cập nhật",
+        "source": "D24 T381R8"
+      },
+      {
+        "name": "deleted_at",
+        "type": "TIMESTAMP",
+        "constraints": "DEFAULT CURRENT_TIMESTAMP",
+        "description": "Ngày xóa",
+        "source": "D24 T381R9"
+      }
+    ],
+    "table_id": "T381"
+  }
+]

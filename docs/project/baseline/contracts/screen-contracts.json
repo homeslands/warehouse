@@ -1,0 +1,4220 @@
+[
+  {
+    "id": "UI-01",
+    "wbs": "W02",
+    "route": "/login",
+    "title": "Đăng nhập",
+    "archetype": "auth",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "login",
+      "refresh"
+    ],
+    "read_schema": null,
+    "write_schema": "Login",
+    "fields": [
+      {
+        "field": "phoneNumber",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      {
+        "field": "password",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "writeOnly": true
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Password toggle, generic error; refresh cookie không hiển thị hoặc lưu localStorage. Không có lựa chọn role/SUPER_ADMIN ở login.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "login",
+        "path": "/auth/login",
+        "method": "POST",
+        "x-authority": "PUBLIC_AUTH",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "refresh",
+        "path": "/auth/refresh",
+        "method": "POST",
+        "x-authority": "PUBLIC_AUTH",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-02",
+    "wbs": "W02",
+    "route": "/locked",
+    "title": "Khóa do không hoạt động",
+    "archetype": "auth",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "login",
+      "lock",
+      "recordInteractiveActivity"
+    ],
+    "read_schema": null,
+    "write_schema": "Login",
+    "fields": [
+      {
+        "field": "phoneNumber",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1
+        }
+      },
+      {
+        "field": "password",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 128,
+          "writeOnly": true
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "30phút phía server; polling không giữ phiên. Overlay che dữ liệu, reauth cùnguser mới được phục hồi draft trong memory; đổiuser/logout phải purge toàn bộ cache/draft.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "login",
+        "path": "/auth/login",
+        "method": "POST",
+        "x-authority": "PUBLIC_AUTH",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "lock",
+        "path": "/auth/lock",
+        "method": "POST",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "recordInteractiveActivity",
+        "path": "/auth/activity",
+        "method": "POST",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-03",
+    "wbs": "W02",
+    "route": "/account",
+    "title": "Hồ sơ và mật khẩu",
+    "archetype": "form",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "getProfile",
+      "updateProfile",
+      "changeOwnPassword"
+    ],
+    "read_schema": "User",
+    "write_schema": "ProfilePatch",
+    "fields": [
+      {
+        "field": "version",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      {
+        "field": "displayName",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "email",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "dob",
+        "required": false,
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "date",
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "avatarFileId",
+        "required": false,
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "address",
+        "required": false,
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "maxLength": 255
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Không sửa role/warehouse từ profile. Passwordchange là dialog riêng theo PasswordChange, xóa trường sau request.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "getProfile",
+        "path": "/auth/me",
+        "method": "GET",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "updateProfile",
+        "path": "/auth/me",
+        "method": "PATCH",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "changeOwnPassword",
+        "path": "/auth/change-password",
+        "method": "POST",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-04",
+    "wbs": "W02",
+    "route": "/account/sessions",
+    "title": "Các phiên đăng nhập",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listOwnSessions",
+      "revokeOwnSession",
+      "logoutall",
+      "logout"
+    ],
+    "read_schema": "Session",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Chỉ phiên chính mình, IPmasked, không token. Logoutall/revoke cần xác nhận; phiên hiện tại bịrevoke thì clearcache/login.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listOwnSessions",
+        "path": "/sessions",
+        "method": "GET",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "revokeOwnSession",
+        "path": "/sessions/{id}",
+        "method": "DELETE",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "logoutall",
+        "path": "/auth/logout-all",
+        "method": "POST",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "logout",
+        "path": "/auth/logout",
+        "method": "POST",
+        "x-authority": "AUTHENTICATED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-05",
+    "wbs": "W02",
+    "route": "/users",
+    "title": "Quản lý người dùng",
+    "archetype": "list",
+    "roles": [
+      "ADMIN"
+    ],
+    "operations": [
+      "listUsers",
+      "createUser",
+      "getUser",
+      "updateUser",
+      "deleteUser",
+      "changeUserRole",
+      "resetUserPassword"
+    ],
+    "read_schema": "User",
+    "write_schema": "UserCreate",
+    "fields": [
+      {
+        "field": "phoneNumber",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\+?[0-9]{9,15}$",
+          "maxLength": 20
+        }
+      },
+      {
+        "field": "displayName",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "email",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "password",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 12,
+          "maxLength": 72,
+          "writeOnly": true,
+          "x-max-utf8-bytes": 72
+        }
+      },
+      {
+        "field": "roleId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "warehouseIds",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "dob",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "date",
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "address",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 255
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Role/membership là tác vụ riêng; modal tạo có email bắtbuộc và password≤72UTF8bytes. Không gán role ngang/cao hơn mình.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listUsers",
+        "path": "/users",
+        "method": "GET",
+        "x-authority": "USER_READ",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "createUser",
+        "path": "/users",
+        "method": "POST",
+        "x-authority": "USER_CREATE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "getUser",
+        "path": "/users/{id}",
+        "method": "GET",
+        "x-authority": "USER_READ",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "updateUser",
+        "path": "/users/{id}",
+        "method": "PATCH",
+        "x-authority": "USER_UPDATE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "deleteUser",
+        "path": "/users/{id}",
+        "method": "DELETE",
+        "x-authority": "USER_DELETE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "changeUserRole",
+        "path": "/users/{id}/role",
+        "method": "PUT",
+        "x-authority": "USER_CHANGE_ROLE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "resetUserPassword",
+        "path": "/users/{id}/password",
+        "method": "POST",
+        "x-authority": "USER_CHANGE_PASSWORD",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-06",
+    "wbs": "W02",
+    "route": "/roles",
+    "title": "Vai trò",
+    "archetype": "list",
+    "roles": [
+      "ADMIN"
+    ],
+    "operations": [
+      "listRoles",
+      "getRole",
+      "createRole",
+      "updateRole",
+      "deleteRole"
+    ],
+    "read_schema": "Role",
+    "write_schema": "RoleWrite",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 2,
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "family",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "MANAGER",
+            "SUPERVISOR"
+          ]
+        }
+      },
+      {
+        "field": "level",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 0
+        }
+      },
+      {
+        "field": "authorityCodes",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "description",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Builtin family/code bấtbiến, không córuntimecreateSUPER_ADMIN; metadata update không bulkgrant quyền.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listRoles",
+        "path": "/roles",
+        "method": "GET",
+        "x-authority": "ROLE_READ",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "getRole",
+        "path": "/roles/{id}",
+        "method": "GET",
+        "x-authority": "ROLE_READ",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "createRole",
+        "path": "/roles",
+        "method": "POST",
+        "x-authority": "ROLE_CREATE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "updateRole",
+        "path": "/roles/{id}",
+        "method": "PATCH",
+        "x-authority": "ROLE_UPDATE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "deleteRole",
+        "path": "/roles/{id}",
+        "method": "DELETE",
+        "x-authority": "ROLE_DELETE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-07",
+    "wbs": "W02",
+    "route": "/permissions",
+    "title": "Ma trận quyền",
+    "archetype": "matrix",
+    "roles": [
+      "ADMIN"
+    ],
+    "operations": [
+      "listAuthorities",
+      "listAuthorityGroups",
+      "putRoleAuthority",
+      "deleteRoleAuthority",
+      "updateAuthorityMetadata"
+    ],
+    "read_schema": "Authority",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Family ceiling và stateinvariants không thể bật. Ô đang request disabled, permissionepoch phải refresh sau save; không lạc quan báoPASS khiAPIlỗi.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listAuthorities",
+        "path": "/authorities",
+        "method": "GET",
+        "x-authority": "MANAGE_PERMISSIONS",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "listAuthorityGroups",
+        "path": "/authority-groups",
+        "method": "GET",
+        "x-authority": "MANAGE_PERMISSIONS",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "putRoleAuthority",
+        "path": "/roles/{id}/authorities/{authorityCode}",
+        "method": "PUT",
+        "x-authority": "MANAGE_PERMISSIONS",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "deleteRoleAuthority",
+        "path": "/roles/{id}/authorities/{authorityCode}",
+        "method": "DELETE",
+        "x-authority": "MANAGE_PERMISSIONS",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "updateAuthorityMetadata",
+        "path": "/authorities/{id}",
+        "method": "PATCH",
+        "x-authority": "MANAGE_PERMISSIONS",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-08",
+    "wbs": "W02",
+    "route": "dialog:file-attachment",
+    "title": "Tệp đính kèm",
+    "archetype": "form",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "uploadFile",
+      "getFileMetadata",
+      "getFileAccess"
+    ],
+    "read_schema": "FileMetadata",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Purpose hiển thị giới hạn/type trước chọnfile; exactsizeinclusive; generic10MiBkhôngđược gắn tài chính>5MiB. Showmãlỗiriêng, retry không uploadnhânđôi.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "uploadFile",
+        "path": "/files",
+        "method": "POST",
+        "x-authority": "FILE_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getFileMetadata",
+        "path": "/files/{id}",
+        "method": "GET",
+        "x-authority": "FILE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getFileAccess",
+        "path": "/files/{id}/access",
+        "method": "POST",
+        "x-authority": "FILE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-09",
+    "wbs": "W02",
+    "route": "/audit",
+    "title": "Audit nghiệp vụ",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "operations": [
+      "listAuditEvents"
+    ],
+    "read_schema": "AuditEvent",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Filter actor/entity/action/kho/time; before/after đãmask, tiền/quyền theo kho; khôngnútxóa history.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listAuditEvents",
+        "path": "/audit-events",
+        "method": "GET",
+        "x-authority": "AUDIT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-10",
+    "wbs": "W02",
+    "route": "/technical-logs",
+    "title": "Log kỹ thuật",
+    "archetype": "list",
+    "roles": [
+      "ADMIN"
+    ],
+    "operations": [
+      "listTechnicalLogs"
+    ],
+    "read_schema": "TechnicalLog",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "MứcINFO/WARN/ERROR,traceId; dữliệuđãredact, khôngtoken/secret/bodyfile. Khôngpublicclearlogger.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listTechnicalLogs",
+        "path": "/technical-logs",
+        "method": "GET",
+        "x-authority": "LOG_READ",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-11",
+    "wbs": "W02",
+    "route": "/backups",
+    "title": "Backup và yêu cầu restore",
+    "archetype": "list",
+    "roles": [
+      "ADMIN"
+    ],
+    "operations": [
+      "listBackupRequests",
+      "createBackupRequest",
+      "createRestoreRequest",
+      "getJob"
+    ],
+    "read_schema": "Job",
+    "write_schema": "BackupRequest",
+    "fields": [
+      {
+        "field": "targetRef",
+        "required": true,
+        "schema": {
+          "const": "WH-TEST-ENV-20261105"
+        }
+      },
+      {
+        "field": "reason",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Chỉtargetallowlist; restore dialognêu target/backup vàconfirmationcode. Nút tạojob không cónghĩa restore đãxong; showQUEUED/RUNNING/FAILED/SUCCEEDED.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listBackupRequests",
+        "path": "/backup-requests",
+        "method": "GET",
+        "x-authority": "BACKUP_MANAGE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "createBackupRequest",
+        "path": "/backup-requests",
+        "method": "POST",
+        "x-authority": "BACKUP_MANAGE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "createRestoreRequest",
+        "path": "/restore-requests",
+        "method": "POST",
+        "x-authority": "BACKUP_MANAGE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "getJob",
+        "path": "/jobs/{id}",
+        "method": "GET",
+        "x-authority": "JOB_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-12",
+    "wbs": "W03",
+    "route": "/warehouses",
+    "title": "Kho và cửa hàng",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listWarehouses_warehouses",
+      "getWarehouse_warehouses",
+      "createWarehouse_warehouses",
+      "updateWarehouse_warehouses",
+      "deleteWarehouse_warehouses",
+      "listNamedMasters_stores",
+      "getNamedMaster_stores",
+      "createNamedMaster_stores",
+      "updateNamedMaster_stores",
+      "deleteNamedMaster_stores"
+    ],
+    "read_schema": "Warehouse",
+    "write_schema": "WarehouseWrite",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 200
+        }
+      },
+      {
+        "field": "storeId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "managerIds",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "memberIds",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "isActive",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Manager không sửa managerIds/roleassign bằngformname. Search/sort có thật trongcontract; scopekho độc lập Storefilter.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listWarehouses_warehouses",
+        "path": "/warehouses",
+        "method": "GET",
+        "x-authority": "WAREHOUSE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getWarehouse_warehouses",
+        "path": "/warehouses/{id}",
+        "method": "GET",
+        "x-authority": "WAREHOUSE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createWarehouse_warehouses",
+        "path": "/warehouses",
+        "method": "POST",
+        "x-authority": "WAREHOUSE_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "updateWarehouse_warehouses",
+        "path": "/warehouses/{id}",
+        "method": "PATCH",
+        "x-authority": "WAREHOUSE_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "deleteWarehouse_warehouses",
+        "path": "/warehouses/{id}",
+        "method": "DELETE",
+        "x-authority": "WAREHOUSE_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "listNamedMasters_stores",
+        "path": "/stores",
+        "method": "GET",
+        "x-authority": "STORE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getNamedMaster_stores",
+        "path": "/stores/{id}",
+        "method": "GET",
+        "x-authority": "STORE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createNamedMaster_stores",
+        "path": "/stores",
+        "method": "POST",
+        "x-authority": "STORE_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "updateNamedMaster_stores",
+        "path": "/stores/{id}",
+        "method": "PATCH",
+        "x-authority": "STORE_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "deleteNamedMaster_stores",
+        "path": "/stores/{id}",
+        "method": "DELETE",
+        "x-authority": "STORE_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-13",
+    "wbs": "W03",
+    "route": "/materials",
+    "title": "Nguyên vật liệu",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listMaterials_materials",
+      "createMaterial_materials",
+      "updateMaterial_materials",
+      "deleteMaterial_materials",
+      "setConversion",
+      "setInventoryThresholds",
+      "getMaterial_materials"
+    ],
+    "read_schema": "Material",
+    "write_schema": "MaterialWrite",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "typeId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "baseUnitId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "isExpiry",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      {
+        "field": "minimumQuantity",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+          "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+        }
+      },
+      {
+        "field": "maximumQuantity",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+          "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+        }
+      },
+      {
+        "field": "supplierIds",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true,
+          "minItems": 1
+        }
+      },
+      {
+        "field": "description",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      {
+        "field": "isActive",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      {
+        "field": "primarySupplierId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "positions",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/MaterialPositionAssignment"
+          }
+        }
+      },
+      {
+        "field": "attachmentIds",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "PrimaryNCC thuộcsupplierIds, unitgốc, isExpiry, ngưỡng vàpositions; NSX/HSD xemtheolô. Hiểnthịngưỡngdefault/override/source; không gán một HSD cho cảcatalog.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listMaterials_materials",
+        "path": "/materials",
+        "method": "GET",
+        "x-authority": "MATERIAL_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createMaterial_materials",
+        "path": "/materials",
+        "method": "POST",
+        "x-authority": "MATERIAL_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "updateMaterial_materials",
+        "path": "/materials/{id}",
+        "method": "PATCH",
+        "x-authority": "MATERIAL_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "deleteMaterial_materials",
+        "path": "/materials/{id}",
+        "method": "DELETE",
+        "x-authority": "MATERIAL_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "setConversion",
+        "path": "/materials/{id}/conversion-units",
+        "method": "PUT",
+        "x-authority": "MATERIAL_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "setInventoryThresholds",
+        "path": "/warehouses/{warehouseId}/inventory/{id}/thresholds",
+        "method": "PATCH",
+        "x-authority": "MATERIAL_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "getMaterial_materials",
+        "path": "/materials/{id}",
+        "method": "GET",
+        "x-authority": "MATERIAL_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-14",
+    "wbs": "W03",
+    "route": "/units",
+    "title": "Đơn vị và quy đổi",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "operations": [
+      "listUnits_units",
+      "createUnit_units",
+      "updateUnit_units",
+      "deleteUnit_units",
+      "setConversion",
+      "getUnit_units"
+    ],
+    "read_schema": "Unit",
+    "write_schema": "UnitWrite",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 50
+        }
+      },
+      {
+        "field": "symbol",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 20
+        }
+      },
+      {
+        "field": "dimension",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "MASS",
+            "VOLUME",
+            "COUNT"
+          ]
+        }
+      },
+      {
+        "field": "isActive",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Symbol/3dimension; factor theoMaterial. Cùng vật tư1baseUnit, khôngtựquyđổi cam→nước/vỏ.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listUnits_units",
+        "path": "/units",
+        "method": "GET",
+        "x-authority": "UNIT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createUnit_units",
+        "path": "/units",
+        "method": "POST",
+        "x-authority": "UNIT_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "updateUnit_units",
+        "path": "/units/{id}",
+        "method": "PATCH",
+        "x-authority": "UNIT_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "deleteUnit_units",
+        "path": "/units/{id}",
+        "method": "DELETE",
+        "x-authority": "UNIT_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "setConversion",
+        "path": "/materials/{id}/conversion-units",
+        "method": "PUT",
+        "x-authority": "MATERIAL_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "getUnit_units",
+        "path": "/units/{id}",
+        "method": "GET",
+        "x-authority": "UNIT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-15",
+    "wbs": "W03",
+    "route": "/suppliers",
+    "title": "Nhà cung cấp",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listSuppliers_suppliers",
+      "createSupplier_suppliers",
+      "updateSupplier_suppliers",
+      "deleteSupplier_suppliers",
+      "listSupplierTransactions",
+      "listPaymentTerms",
+      "createPaymentTerm",
+      "getSupplier_suppliers"
+    ],
+    "read_schema": "Supplier",
+    "write_schema": "SupplierWrite",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "phoneNumber",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 20
+        }
+      },
+      {
+        "field": "email",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "email",
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "address",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "taxCode",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 50
+        }
+      },
+      {
+        "field": "paymentTermId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "materialIds",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "note",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      {
+        "field": "isActive",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      },
+      {
+        "field": "contactPerson",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "website",
+        "required": false,
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uri"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Liênhệ/terms/website đầyđủ; tabtransaction vàcostchỉManager/Admin. Mụcđangdùngkhôngxóa; thôngbáo lỗi409 rõnguyênnhân.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listSuppliers_suppliers",
+        "path": "/suppliers",
+        "method": "GET",
+        "x-authority": "SUPPLIER_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createSupplier_suppliers",
+        "path": "/suppliers",
+        "method": "POST",
+        "x-authority": "SUPPLIER_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "updateSupplier_suppliers",
+        "path": "/suppliers/{id}",
+        "method": "PATCH",
+        "x-authority": "SUPPLIER_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "deleteSupplier_suppliers",
+        "path": "/suppliers/{id}",
+        "method": "DELETE",
+        "x-authority": "SUPPLIER_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "listSupplierTransactions",
+        "path": "/suppliers/{id}/transactions",
+        "method": "GET",
+        "x-authority": "FINANCE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "listPaymentTerms",
+        "path": "/payment-terms",
+        "method": "GET",
+        "x-authority": "SUPPLIER_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createPaymentTerm",
+        "path": "/payment-terms",
+        "method": "POST",
+        "x-authority": "PAYMENT_TERM_MANAGE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "getSupplier_suppliers",
+        "path": "/suppliers/{id}",
+        "method": "GET",
+        "x-authority": "SUPPLIER_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-16",
+    "wbs": "W03",
+    "route": "/warehouses/:warehouseId/positions",
+    "title": "Vị trí lưu kho",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listPositions",
+      "createPosition",
+      "updatePosition",
+      "deletePosition"
+    ],
+    "read_schema": "Position",
+    "write_schema": "PositionWrite",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "location",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "isActive",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Location/notes vàmaterialassignment theoWarehouse; không gán vịtrí kho khác bằngsửa ID.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listPositions",
+        "path": "/warehouses/{warehouseId}/positions",
+        "method": "GET",
+        "x-authority": "MATERIAL_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createPosition",
+        "path": "/warehouses/{warehouseId}/positions",
+        "method": "POST",
+        "x-authority": "MATERIAL_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "updatePosition",
+        "path": "/warehouses/{warehouseId}/positions/{id}",
+        "method": "PATCH",
+        "x-authority": "MATERIAL_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "deletePosition",
+        "path": "/warehouses/{warehouseId}/positions/{id}",
+        "method": "DELETE",
+        "x-authority": "MATERIAL_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-17",
+    "wbs": "W04",
+    "route": "/warehouses/:warehouseId/inventory",
+    "title": "Tồn kho, lô và truy xuất",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listInventory",
+      "listBatches",
+      "listInventoryHistory",
+      "getBatchTrace"
+    ],
+    "read_schema": "Inventory",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Quantity/baseUnit/vịtrí/HSD theo lô; Supervisor không thấycost/value. PENDING_RECONCILIATION phải cólabel, khônghiểnthị0đ thaymissingcost; khôngnútPATCHquantity.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listInventory",
+        "path": "/warehouses/{warehouseId}/inventory",
+        "method": "GET",
+        "x-authority": "INVENTORY_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "listBatches",
+        "path": "/warehouses/{warehouseId}/batches",
+        "method": "GET",
+        "x-authority": "INVENTORY_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "listInventoryHistory",
+        "path": "/warehouses/{warehouseId}/inventory-history",
+        "method": "GET",
+        "x-authority": "INVENTORY_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getBatchTrace",
+        "path": "/batches/{id}/trace",
+        "method": "GET",
+        "x-authority": "INVENTORY_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-18",
+    "wbs": "W04",
+    "route": "/warehouses/:warehouseId/import-forms",
+    "title": "Phiếu nhập",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listImportForms",
+      "getImportForm"
+    ],
+    "read_schema": "ImportForm",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Đủfilter nghiệpvụ/creator/approver/NCC/vật tư/ngày,status; originPURCHASE/TRANSFER_IN. Số phiếudo servercấp, khôngônhậpmãchínhthức.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listImportForms",
+        "path": "/warehouses/{warehouseId}/import-forms",
+        "method": "GET",
+        "x-authority": "IMPORT_FORM_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getImportForm",
+        "path": "/warehouses/{warehouseId}/import-forms/{id}",
+        "method": "GET",
+        "x-authority": "IMPORT_FORM_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-19",
+    "wbs": "W04",
+    "route": "/warehouses/:warehouseId/import-forms/new",
+    "title": "Lập và duyệt nhập",
+    "archetype": "wizard",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "createImportForm",
+      "updateImportForm",
+      "submitImportForm",
+      "returnImportForm",
+      "confirmImportForm",
+      "cancelImportForm"
+    ],
+    "read_schema": "ImportForm",
+    "write_schema": "ImportDraft",
+    "fields": [
+      {
+        "field": "supplierId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "businessDate",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      {
+        "field": "poNumber",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 50
+        }
+      },
+      {
+        "field": "invoiceNumber",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "note",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      {
+        "field": "attachmentIds",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "items",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/ImportItemWrite"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        }
+      },
+      {
+        "field": "requesterId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "vatRate",
+        "required": false,
+        "schema": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20,
+          "default": 0
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Bước1NCC/ngày/PO/VAT; bước2dòng/đơnvị/NSX/HSD/ảnh; bước3review/cảnhbáo/xácnhận. CreatorSupervisor, Managerduyệt; labelnháp/gửi chưa cộngtồn.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "createImportForm",
+        "path": "/warehouses/{warehouseId}/import-forms",
+        "method": "POST",
+        "x-authority": "IMPORT_FORM_CREATE",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "updateImportForm",
+        "path": "/warehouses/{warehouseId}/import-forms/{id}",
+        "method": "PATCH",
+        "x-authority": "IMPORT_FORM_UPDATE_DRAFT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "submitImportForm",
+        "path": "/warehouses/{warehouseId}/import-forms/{id}/submit",
+        "method": "POST",
+        "x-authority": "IMPORT_FORM_SUBMIT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "returnImportForm",
+        "path": "/warehouses/{warehouseId}/import-forms/{id}/return",
+        "method": "POST",
+        "x-authority": "IMPORT_FORM_CONFIRM",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "confirmImportForm",
+        "path": "/warehouses/{warehouseId}/import-forms/{id}/confirm",
+        "method": "POST",
+        "x-authority": "IMPORT_FORM_CONFIRM",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "cancelImportForm",
+        "path": "/warehouses/{warehouseId}/import-forms/{id}/cancel",
+        "method": "POST",
+        "x-authority": "IMPORT_FORM_CANCEL_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-20",
+    "wbs": "W04",
+    "route": "/warehouses/:warehouseId/export-forms",
+    "title": "Phiếu xuất",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listExportForms",
+      "getExportForm"
+    ],
+    "read_schema": "ExportForm",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Sáu loại, lọc vật tư/status/ngày/actor. Đánh dấu chứngtừtransferđốiứng và truyết tiền khôngsinhcash.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listExportForms",
+        "path": "/warehouses/{warehouseId}/export-forms",
+        "method": "GET",
+        "x-authority": "EXPORT_FORM_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getExportForm",
+        "path": "/warehouses/{warehouseId}/export-forms/{id}",
+        "method": "GET",
+        "x-authority": "EXPORT_FORM_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-21",
+    "wbs": "W04",
+    "route": "/warehouses/:warehouseId/export-forms/new",
+    "title": "Lập và duyệt xuất",
+    "archetype": "wizard",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "createExportForm",
+      "updateExportForm",
+      "previewFefoExport",
+      "submitExportForm",
+      "returnExportForm",
+      "confirmExportForm",
+      "cancelExportForm"
+    ],
+    "read_schema": "ExportForm",
+    "write_schema": "ExportDraft",
+    "fields": [
+      {
+        "field": "type",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "PRODUCTION",
+            "SALE",
+            "DISPOSAL",
+            "TRANSFER",
+            "LIQUIDATION",
+            "OTHER"
+          ]
+        }
+      },
+      {
+        "field": "businessDate",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      {
+        "field": "destinationWarehouseId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "reason",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      {
+        "field": "attachmentIds",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "items",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/ExportItemWrite"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        }
+      },
+      {
+        "field": "note",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      {
+        "field": "requesterId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "poNumber",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 50
+        }
+      },
+      {
+        "field": "receiverId",
+        "required": false,
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "PreviewFEFOserverkhônggiữchỗ; 409thiếutồn làmreloadpreview. Hủyảnh+lýdo; transferkhođích; >30%Managerconfirm; khôngchochangerole hoặc statebằngfieldform.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "createExportForm",
+        "path": "/warehouses/{warehouseId}/export-forms",
+        "method": "POST",
+        "x-authority": "EXPORT_FORM_CREATE",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "updateExportForm",
+        "path": "/warehouses/{warehouseId}/export-forms/{id}",
+        "method": "PATCH",
+        "x-authority": "EXPORT_FORM_UPDATE_DRAFT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "previewFefoExport",
+        "path": "/warehouses/{warehouseId}/export-preview",
+        "method": "POST",
+        "x-authority": "EXPORT_FORM_CREATE",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "submitExportForm",
+        "path": "/warehouses/{warehouseId}/export-forms/{id}/submit",
+        "method": "POST",
+        "x-authority": "EXPORT_FORM_SUBMIT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "returnExportForm",
+        "path": "/warehouses/{warehouseId}/export-forms/{id}/return",
+        "method": "POST",
+        "x-authority": "EXPORT_FORM_CONFIRM",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "confirmExportForm",
+        "path": "/warehouses/{warehouseId}/export-forms/{id}/confirm",
+        "method": "POST",
+        "x-authority": "EXPORT_FORM_CONFIRM",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "cancelExportForm",
+        "path": "/warehouses/{warehouseId}/export-forms/{id}/cancel",
+        "method": "POST",
+        "x-authority": "EXPORT_FORM_CANCEL_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-22",
+    "wbs": "W05",
+    "route": "/warehouses/:warehouseId/stocktakes",
+    "title": "Kiểm kho",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listStocktakes",
+      "createStocktake",
+      "getStocktake",
+      "listEligibleCounters"
+    ],
+    "read_schema": "Stocktake",
+    "write_schema": "StocktakeDraft",
+    "fields": [
+      {
+        "field": "type",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "PERIODIC",
+            "AD_HOC"
+          ]
+        }
+      },
+      {
+        "field": "scope",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "FULL",
+            "PARTIAL"
+          ]
+        }
+      },
+      {
+        "field": "materialIds",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "assignedUserIds",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "minItems": 2,
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "businessDate",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      {
+        "field": "note",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "NgườilậpkếhoạchManager/Admin,≥2Supervisorassigned; Draftchưa khóa, STARTmớikhóa.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listStocktakes",
+        "path": "/warehouses/{warehouseId}/stocktakes",
+        "method": "GET",
+        "x-authority": "BALANCE_FORM_READ|BALANCE_FORM_READ_ASSIGNED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes",
+        "method": "POST",
+        "x-authority": "BALANCE_FORM_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "getStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}",
+        "method": "GET",
+        "x-authority": "BALANCE_FORM_READ|BALANCE_FORM_READ_ASSIGNED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "listEligibleCounters",
+        "path": "/warehouses/{warehouseId}/eligible-count-users",
+        "method": "GET",
+        "x-authority": "BALANCE_FORM_ASSIGN",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-23",
+    "wbs": "W05",
+    "route": "/warehouses/:warehouseId/stocktakes/:id",
+    "title": "Workspace kiểm đếm",
+    "archetype": "stocktake",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "getStocktake",
+      "startStocktake",
+      "acknowledgementsStocktake",
+      "countsStocktake",
+      "submitStocktake",
+      "confirmStocktake",
+      "cancelStocktake"
+    ],
+    "read_schema": "Stocktake",
+    "write_schema": "StocktakeCount",
+    "fields": [
+      {
+        "field": "version",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      {
+        "field": "materialId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "batchId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "actualQuantity",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{1,12}(\\.\\d{1,6})?$",
+          "description": "DECIMAL(18,6), serialized as base-10 string; >0 where stated; no float."
+        }
+      },
+      {
+        "field": "reasonCode",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "USAGE_LOSS",
+            "ENTRY_ERROR",
+            "UNRECORDED_DAMAGE",
+            "NATURAL_LOSS",
+            "COUNT_ERROR",
+            "UNIT_MISMATCH",
+            "OTHER"
+          ]
+        }
+      },
+      {
+        "field": "explanation",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      {
+        "field": "photoIds",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Bảng sổ/thựctế/delta/%/reason/photo; từnguserackserver; >5%giảitrình,>10%điềutra. Bannerkhóakhohiệncảformnhập/xuất. Managerkháccreatorapprove đểdelta+mởkhóa.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "getStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}",
+        "method": "GET",
+        "x-authority": "BALANCE_FORM_READ|BALANCE_FORM_READ_ASSIGNED",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "startStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}/start",
+        "method": "POST",
+        "x-authority": "BALANCE_FORM_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "acknowledgementsStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}/acknowledgements",
+        "method": "POST",
+        "x-authority": "BALANCE_FORM_RECORD_COUNT_ASSIGNED",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "countsStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}/counts",
+        "method": "POST",
+        "x-authority": "BALANCE_FORM_RECORD_COUNT_ASSIGNED",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "submitStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}/submit",
+        "method": "POST",
+        "x-authority": "BALANCE_FORM_COMPLETE_ASSIGNED",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "confirmStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}/confirm",
+        "method": "POST",
+        "x-authority": "BALANCE_FORM_APPROVE",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "cancelStocktake",
+        "path": "/warehouses/{warehouseId}/stocktakes/{id}/cancel",
+        "method": "POST",
+        "x-authority": "BALANCE_FORM_CANCEL",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-24",
+    "wbs": "W06",
+    "route": "/products",
+    "title": "Sản phẩm và nguồn POS",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listProducts",
+      "getProduct",
+      "requestProductSync"
+    ],
+    "read_schema": "Product",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Chưa nguồnPOS: empty/statebanner rõ, syncdisabled hoặc409DEPENDENCY_NOT_READY. KhôngcómanualproductCRUDthaytíchhợp, khôngfake dữliệu nhưPOSthật.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listProducts",
+        "path": "/products",
+        "method": "GET",
+        "x-authority": "PRODUCT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getProduct",
+        "path": "/products/{id}",
+        "method": "GET",
+        "x-authority": "PRODUCT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "requestProductSync",
+        "path": "/products/sync",
+        "method": "POST",
+        "x-authority": "PRODUCT_SYNC",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-25",
+    "wbs": "W06",
+    "route": "/variants/:id/recipe",
+    "title": "Định mức và giá cost",
+    "archetype": "form",
+    "roles": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "operations": [
+      "getVariant",
+      "setVariantPricing",
+      "getRecipe",
+      "replaceRecipe",
+      "copyRecipe",
+      "archiveRecipe",
+      "listRecipeHistory"
+    ],
+    "read_schema": "Recipe",
+    "write_schema": "RecipeWrite",
+    "fields": [
+      {
+        "field": "version",
+        "required": true,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      {
+        "field": "items",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/RecipeItem"
+          },
+          "minItems": 1,
+          "maxItems": 1000
+        }
+      },
+      {
+        "field": "manualCost",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{1,14}(\\.\\d{1,6})?$",
+          "description": "Unit cost DECIMAL(20,6), not an inventory quantity."
+        }
+      },
+      {
+        "field": "reason",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 1000
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "≥1NVL/qty>0; manualcost/estimated/source vàSYNC/MANUALgiábántáchbiệt. Missingpricekhôngtínhtỷlệ40%; copyselected/history/archivekiểmđangdùng.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "getVariant",
+        "path": "/variants/{id}",
+        "method": "GET",
+        "x-authority": "PRODUCT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "setVariantPricing",
+        "path": "/variants/{id}/pricing",
+        "method": "PATCH",
+        "x-authority": "RECIPE_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "getRecipe",
+        "path": "/variants/{id}/recipe",
+        "method": "GET",
+        "x-authority": "RECIPE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "replaceRecipe",
+        "path": "/variants/{id}/recipe",
+        "method": "PUT",
+        "x-authority": "RECIPE_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "copyRecipe",
+        "path": "/variants/{id}/recipe/copy",
+        "method": "POST",
+        "x-authority": "RECIPE_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "archiveRecipe",
+        "path": "/variants/{id}/recipe/archive",
+        "method": "POST",
+        "x-authority": "RECIPE_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "listRecipeHistory",
+        "path": "/variants/{id}/recipe/history",
+        "method": "GET",
+        "x-authority": "RECIPE_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-26",
+    "wbs": "W07",
+    "route": "/warehouses/:warehouseId/expenses",
+    "title": "Phiếu chi và công nợ",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listExpenseForms",
+      "getExpenseForm",
+      "createExpenseForm",
+      "updateExpenseForm",
+      "submitExpenseForm",
+      "returnExpenseForm",
+      "confirmExpenseForm",
+      "cancelExpenseForm",
+      "settleExpense"
+    ],
+    "read_schema": "FinanceForm",
+    "write_schema": "ExpenseDraft",
+    "fields": [
+      {
+        "field": "businessDate",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      {
+        "field": "partnerId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "netAmount",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+          "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+        }
+      },
+      {
+        "field": "vatRate",
+        "required": false,
+        "schema": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "field": "paymentMethod",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "CASH",
+            "BANK_TRANSFER",
+            "CREDIT_CARD"
+          ]
+        }
+      },
+      {
+        "field": "reason",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      {
+        "field": "attachmentIds",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "sources",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SourceAllocation"
+          },
+          "minItems": 1
+        }
+      },
+      {
+        "field": "note",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      {
+        "field": "type",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "PURCHASE",
+            "TRANSPORT",
+            "HANDLING",
+            "STORAGE",
+            "OTHER_EXPENSE"
+          ]
+        }
+      },
+      {
+        "field": "paymentTermId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "bankReference",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "requesterId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "payerId",
+        "required": false,
+        "schema": {
+          "type": [
+            "string",
+            "null"
+          ],
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "invoiceStatus",
+        "required": false,
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "PURCHASEautoDRAFT/sourceamountreadonly; phíkhác≥1nhập. CODconfirmghi1settlement; DEBTconfirmedchưatrả, nútghi nhận thanh toánđủmộtlần. Hiệnphảitrả/đãtrả/cònnợ/tới hạn riêng.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listExpenseForms",
+        "path": "/warehouses/{warehouseId}/expenses",
+        "method": "GET",
+        "x-authority": "WAREHOUSE_PAYMENT_READ|WAREHOUSE_PAYMENT_READ_OWN",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getExpenseForm",
+        "path": "/warehouses/{warehouseId}/expenses/{id}",
+        "method": "GET",
+        "x-authority": "WAREHOUSE_PAYMENT_READ|WAREHOUSE_PAYMENT_READ_OWN",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createExpenseForm",
+        "path": "/warehouses/{warehouseId}/expenses",
+        "method": "POST",
+        "x-authority": "WAREHOUSE_PAYMENT_CREATE",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "updateExpenseForm",
+        "path": "/warehouses/{warehouseId}/expenses/{id}",
+        "method": "PATCH",
+        "x-authority": "WAREHOUSE_PAYMENT_UPDATE_DRAFT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "submitExpenseForm",
+        "path": "/warehouses/{warehouseId}/expenses/{id}/submit",
+        "method": "POST",
+        "x-authority": "WAREHOUSE_PAYMENT_SUBMIT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "returnExpenseForm",
+        "path": "/warehouses/{warehouseId}/expenses/{id}/return",
+        "method": "POST",
+        "x-authority": "WAREHOUSE_PAYMENT_APPROVE",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "confirmExpenseForm",
+        "path": "/warehouses/{warehouseId}/expenses/{id}/confirm",
+        "method": "POST",
+        "x-authority": "WAREHOUSE_PAYMENT_APPROVE",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "cancelExpenseForm",
+        "path": "/warehouses/{warehouseId}/expenses/{id}/cancel",
+        "method": "POST",
+        "x-authority": "WAREHOUSE_PAYMENT_CANCEL_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "settleExpense",
+        "path": "/warehouses/{warehouseId}/expenses/{id}/settlement",
+        "method": "POST",
+        "x-authority": "WAREHOUSE_PAYMENT_APPROVE",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-27",
+    "wbs": "W07",
+    "route": "/warehouses/:warehouseId/revenues",
+    "title": "Phiếu thu và các đợt hoàn",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listRevenueForms",
+      "getRevenueForm",
+      "createRevenueForm",
+      "updateRevenueForm",
+      "submitRevenueForm",
+      "returnRevenueForm",
+      "confirmRevenueForm",
+      "cancelRevenueForm",
+      "createRefundGroup",
+      "getRefundGroup"
+    ],
+    "read_schema": "FinanceForm",
+    "write_schema": "RevenueDraft",
+    "fields": [
+      {
+        "field": "businessDate",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      {
+        "field": "partnerId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "netAmount",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "pattern": "^\\d{1,16}(\\.\\d{1,4})?$",
+          "description": "VND DECIMAL(20,4); HALF_UP at settlement to integer VND; nonnegative."
+        }
+      },
+      {
+        "field": "vatRate",
+        "required": false,
+        "schema": {
+          "type": "number",
+          "minimum": 0,
+          "maximum": 20
+        }
+      },
+      {
+        "field": "paymentMethod",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "CASH",
+            "BANK_TRANSFER",
+            "E_WALLET"
+          ]
+        }
+      },
+      {
+        "field": "reason",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "maxLength": 2000
+        }
+      },
+      {
+        "field": "attachmentIds",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "format": "uuid"
+          },
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "sources",
+        "required": false,
+        "schema": {
+          "type": "array",
+          "items": {
+            "$ref": "#/components/schemas/SourceAllocation"
+          }
+        }
+      },
+      {
+        "field": "note",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 1000
+        }
+      },
+      {
+        "field": "type",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "SUPPLIER_REFUND",
+            "SUPPLIER_COMPENSATION",
+            "LIQUIDATION",
+            "SCRAP_PACKAGING",
+            "OTHER_REVENUE"
+          ]
+        }
+      },
+      {
+        "field": "bankReference",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 100
+        }
+      },
+      {
+        "field": "refundGroupId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "installmentNo",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      {
+        "field": "plannedInstallments",
+        "required": false,
+        "schema": {
+          "type": "integer",
+          "minimum": 1
+        }
+      },
+      {
+        "field": "requesterId",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Mỗiđợt1phiếu,sumconfirmed≤groupExpected; Hoàn/Bồi/Thanh lý phảiđúngsource. KhôngtựbùtrừAP/AR hoặcđổitồn từPhiếuThu.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listRevenueForms",
+        "path": "/warehouses/{warehouseId}/revenues",
+        "method": "GET",
+        "x-authority": "REVENUE_FORM_READ|REVENUE_FORM_READ_OWN",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getRevenueForm",
+        "path": "/warehouses/{warehouseId}/revenues/{id}",
+        "method": "GET",
+        "x-authority": "REVENUE_FORM_READ|REVENUE_FORM_READ_OWN",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createRevenueForm",
+        "path": "/warehouses/{warehouseId}/revenues",
+        "method": "POST",
+        "x-authority": "REVENUE_FORM_CREATE",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "updateRevenueForm",
+        "path": "/warehouses/{warehouseId}/revenues/{id}",
+        "method": "PATCH",
+        "x-authority": "REVENUE_FORM_UPDATE_DRAFT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "submitRevenueForm",
+        "path": "/warehouses/{warehouseId}/revenues/{id}/submit",
+        "method": "POST",
+        "x-authority": "REVENUE_FORM_SUBMIT_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "returnRevenueForm",
+        "path": "/warehouses/{warehouseId}/revenues/{id}/return",
+        "method": "POST",
+        "x-authority": "REVENUE_FORM_APPROVE",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "confirmRevenueForm",
+        "path": "/warehouses/{warehouseId}/revenues/{id}/confirm",
+        "method": "POST",
+        "x-authority": "REVENUE_FORM_APPROVE",
+        "x-role-family": [
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "cancelRevenueForm",
+        "path": "/warehouses/{warehouseId}/revenues/{id}/cancel",
+        "method": "POST",
+        "x-authority": "REVENUE_FORM_CANCEL_OWN",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createRefundGroup",
+        "path": "/warehouses/{warehouseId}/refund-groups",
+        "method": "POST",
+        "x-authority": "REVENUE_FORM_CREATE",
+        "x-role-family": [
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getRefundGroup",
+        "path": "/warehouses/{warehouseId}/refund-groups/{id}",
+        "method": "GET",
+        "x-authority": "REVENUE_FORM_READ|REVENUE_FORM_READ_OWN",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-28",
+    "wbs": "W08",
+    "route": "/warehouses/:warehouseId/alerts",
+    "title": "Cảnh báo và thông báo",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listAlerts",
+      "markAlertRead",
+      "setAlertSettings"
+    ],
+    "read_schema": "Alert",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "INFO/WARNING/CRITICAL; in-app/email, khôngSMSphasehiệntại. Drilldownscoped, lịch sửdelivery/retrykhôngẩn; readstatecủangườinhận, khôngcoi toastERRORlàstatusphiếu.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listAlerts",
+        "path": "/warehouses/{warehouseId}/alerts",
+        "method": "GET",
+        "x-authority": "ALERT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "markAlertRead",
+        "path": "/warehouses/{warehouseId}/alerts/{id}/read",
+        "method": "POST",
+        "x-authority": "ALERT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "setAlertSettings",
+        "path": "/warehouses/{warehouseId}/alert-settings",
+        "method": "PUT",
+        "x-authority": "ALERT_CONFIGURE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-29",
+    "wbs": "W09",
+    "route": "/warehouses/:warehouseId/reports",
+    "title": "Dashboard và báo cáo",
+    "archetype": "dashboard",
+    "roles": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "operations": [
+      "report_dashboard",
+      "report_inventory_movement",
+      "report_stock_value",
+      "report_imports",
+      "report_exports",
+      "report_stocktakes",
+      "report_supplier_performance",
+      "report_expiry",
+      "report_expense_revenue",
+      "report_debt",
+      "report_wastage",
+      "runCustomReport",
+      "exportReport",
+      "setReportSchedule"
+    ],
+    "read_schema": "Report",
+    "write_schema": "CustomReport",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 120
+        }
+      },
+      {
+        "field": "dimensions",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "DATE",
+              "WAREHOUSE",
+              "MATERIAL",
+              "SUPPLIER",
+              "FORM_TYPE"
+            ]
+          },
+          "maxItems": 5,
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "measures",
+        "required": true,
+        "schema": {
+          "type": "array",
+          "items": {
+            "type": "string",
+            "enum": [
+              "IN_QTY",
+              "OUT_QTY",
+              "CLOSING_QTY",
+              "STOCK_VALUE",
+              "EXPENSE_TOTAL",
+              "REVENUE_TOTAL",
+              "DEBT_TOTAL"
+            ]
+          },
+          "minItems": 1,
+          "uniqueItems": true
+        }
+      },
+      {
+        "field": "fromDate",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      },
+      {
+        "field": "toDate",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "date"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "CutoffVN/from-to, watermark vàFULL/PARTIALrõ; chart+table+drilldowncùngfilter. Customreportallowlist, Excel/PDF/CSVbản thật. ScheduledemailkhôngbậtjobthậttrongDEVLOCAL.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "report_dashboard",
+        "path": "/warehouses/{warehouseId}/reports/dashboard",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_inventory_movement",
+        "path": "/warehouses/{warehouseId}/reports/inventory-movement",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_stock_value",
+        "path": "/warehouses/{warehouseId}/reports/stock-value",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_imports",
+        "path": "/warehouses/{warehouseId}/reports/imports",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_exports",
+        "path": "/warehouses/{warehouseId}/reports/exports",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_stocktakes",
+        "path": "/warehouses/{warehouseId}/reports/stocktakes",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_supplier_performance",
+        "path": "/warehouses/{warehouseId}/reports/supplier-performance",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_expiry",
+        "path": "/warehouses/{warehouseId}/reports/expiry",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_expense_revenue",
+        "path": "/warehouses/{warehouseId}/reports/expense-revenue",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_debt",
+        "path": "/warehouses/{warehouseId}/reports/debt",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "report_wastage",
+        "path": "/warehouses/{warehouseId}/reports/wastage",
+        "method": "GET",
+        "x-authority": "REPORT_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "runCustomReport",
+        "path": "/warehouses/{warehouseId}/reports/custom",
+        "method": "POST",
+        "x-authority": "REPORT_CUSTOM",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "exportReport",
+        "path": "/warehouses/{warehouseId}/report-exports",
+        "method": "POST",
+        "x-authority": "REPORT_EXPORT",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "setReportSchedule",
+        "path": "/warehouses/{warehouseId}/report-schedules",
+        "method": "PUT",
+        "x-authority": "REPORT_SCHEDULE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-30",
+    "wbs": "W10",
+    "route": "/warehouses/:warehouseId/excel-imports",
+    "title": "Nhập Excel",
+    "archetype": "wizard",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "getExcelTemplate",
+      "previewExcelImport",
+      "getExcelImportPreview",
+      "confirmExcelImport"
+    ],
+    "read_schema": "ExcelPreview",
+    "write_schema": "ExcelJobCreate",
+    "fields": [
+      {
+        "field": "fileId",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "format": "uuid"
+        }
+      },
+      {
+        "field": "templateVersion",
+        "required": true,
+        "schema": {
+          "const": "1"
+        }
+      },
+      {
+        "field": "target",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "enum": [
+            "MATERIALS",
+            "IMPORT_FORMS"
+          ]
+        }
+      },
+      {
+        "field": "mode",
+        "required": true,
+        "schema": {
+          "const": "ATOMIC_CREATE_ONLY"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Templatev1,≤1000dòng/5MiB, previewrowerror, ATOMIC_CREATE_ONLY. Vật tưAdmin/Manager; phiếunhậpSupervisor. CreateDRAFTkhôngconfirmtồn. Một dònglỗi thìjobkhôngghidòngnào.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "getExcelTemplate",
+        "path": "/excel-templates/{templateId}",
+        "method": "GET",
+        "x-authority": "EXCEL_IMPORT",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "previewExcelImport",
+        "path": "/warehouses/{warehouseId}/excel-imports",
+        "method": "POST",
+        "x-authority": "EXCEL_IMPORT",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "getExcelImportPreview",
+        "path": "/warehouses/{warehouseId}/excel-imports/{id}",
+        "method": "GET",
+        "x-authority": "EXCEL_IMPORT",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "confirmExcelImport",
+        "path": "/warehouses/{warehouseId}/excel-imports/{id}/confirm",
+        "method": "POST",
+        "x-authority": "EXCEL_IMPORT",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-31",
+    "wbs": "W11",
+    "route": "/archives",
+    "title": "Lưu trữ và khôi phục",
+    "archetype": "form",
+    "roles": [
+      "ADMIN"
+    ],
+    "operations": [
+      "requestArchive",
+      "createRestoreRequest",
+      "getJob"
+    ],
+    "read_schema": "Job",
+    "write_schema": null,
+    "fields": [],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Chỉtargetallowlist, thời hạn≥2năm, requestjob/manifest/restoređốisoát; khôngclientDBconnection hoặcactiveproductiontarget.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "requestArchive",
+        "path": "/archives/requests",
+        "method": "POST",
+        "x-authority": "ARCHIVE_MANAGE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "createRestoreRequest",
+        "path": "/restore-requests",
+        "method": "POST",
+        "x-authority": "BACKUP_MANAGE",
+        "x-role-family": [
+          "ADMIN"
+        ]
+      },
+      {
+        "operationId": "getJob",
+        "path": "/jobs/{id}",
+        "method": "GET",
+        "x-authority": "JOB_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      }
+    ]
+  },
+  {
+    "id": "UI-32",
+    "wbs": "W03",
+    "route": "/material-types",
+    "title": "Loại nguyên vật liệu",
+    "archetype": "list",
+    "roles": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "operations": [
+      "listNamedMasters_material_types",
+      "createNamedMaster_material_types",
+      "getNamedMaster_material_types",
+      "updateNamedMaster_material_types",
+      "deleteNamedMaster_material_types"
+    ],
+    "read_schema": "NamedMaster",
+    "write_schema": "NamedMasterWrite",
+    "fields": [
+      {
+        "field": "name",
+        "required": true,
+        "schema": {
+          "type": "string",
+          "minLength": 1,
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "description",
+        "required": false,
+        "schema": {
+          "type": "string",
+          "maxLength": 255
+        }
+      },
+      {
+        "field": "isActive",
+        "required": true,
+        "schema": {
+          "type": "boolean"
+        }
+      }
+    ],
+    "states": [
+      "LOADING",
+      "EMPTY",
+      "READY",
+      "VALIDATION_ERROR",
+      "UNAUTHORIZED",
+      "FORBIDDEN",
+      "CONFLICT",
+      "OFFLINE",
+      "SUBMITTING",
+      "SUCCESS"
+    ],
+    "submit_guard": "Có quyền từ API + đúng scope/owner/state, version hiện tại; xác nhận thay đổi trước write nghiệp vụ; chống submit lặp và giữ cùng Idempotency-Key khi retry.",
+    "error_handling": "422 gắn lỗi vào field + focus đầu lỗi; 409 nêu nguyên nhân/reload và không ghi đè; 401 lock/login; 403 ẩn thao tác và giải thích; 404 không lộ đối tượng ngoài scope; offline không tự gửi lại giao dịch bằng key mới.",
+    "notes": "Dùng quyềnMATERIALcùngmigration hiệncó; khôngtạoMATERIAL_TYPEcodegiả nếu chưa cóseed. Categoryđangđượcmaterialdùngkhôngxóa.",
+    "design_status": "APPROVED_FOR_IMPLEMENTATION_CONTRACT_NOT_RUNNING_UI",
+    "operation_bindings": [
+      {
+        "operationId": "listNamedMasters_material_types",
+        "path": "/material-types",
+        "method": "GET",
+        "x-authority": "MATERIAL_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "createNamedMaster_material_types",
+        "path": "/material-types",
+        "method": "POST",
+        "x-authority": "MATERIAL_CREATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "getNamedMaster_material_types",
+        "path": "/material-types/{id}",
+        "method": "GET",
+        "x-authority": "MATERIAL_READ",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER",
+          "SUPERVISOR"
+        ]
+      },
+      {
+        "operationId": "updateNamedMaster_material_types",
+        "path": "/material-types/{id}",
+        "method": "PATCH",
+        "x-authority": "MATERIAL_UPDATE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      },
+      {
+        "operationId": "deleteNamedMaster_material_types",
+        "path": "/material-types/{id}",
+        "method": "DELETE",
+        "x-authority": "MATERIAL_DELETE",
+        "x-role-family": [
+          "ADMIN",
+          "MANAGER"
+        ]
+      }
+    ]
+  }
+]

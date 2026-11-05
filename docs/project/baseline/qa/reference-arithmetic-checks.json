@@ -1,0 +1,14 @@
+{
+  "level": "DESIGN_REFERENCE_ONLY",
+  "checks": 6,
+  "passed": 6,
+  "application_tests_run": false,
+  "examples": [
+    "Weighted-average receipt value",
+    "Average-valued FEFO export",
+    "Full-depletion rounding residue",
+    "VAT HALF_UP",
+    "Refund installments remaining",
+    "Transfer value conservation"
+  ]
+}

@@ -1,0 +1,62 @@
+[
+  {
+    "standard": "ISO/IEC/IEEE 15289:2019",
+    "reference_url": "https://www.iso.org/standard/74909.html",
+    "project_sections": [
+      "Document control",
+      "Scope and source register",
+      "Phase entry/exit and WBS",
+      "Ownership, schedule and progress",
+      "Case/procedure/evidence and acceptance",
+      "Risk/change control/history"
+    ],
+    "tailoring": "Tổ chức mục đích, nội dung và kiểm soát hồ sơ vòng đời; mã tài liệu, phiên bản, nguồn, trách nhiệm và đầu ra.",
+    "assessment": "AUTHOR_CHECKED_STRUCTURE; NOT_FORMAL_CLAUSE_CONFORMANCE",
+    "checked_date": "2026-11-05"
+  },
+  {
+    "standard": "ISO/IEC/IEEE 29148:2018",
+    "reference_url": "https://www.iso.org/standard/72089.html",
+    "project_sections": [
+      "Document control",
+      "Scope and source register",
+      "Phase entry/exit and WBS",
+      "Ownership, schedule and progress",
+      "Case/procedure/evidence and acceptance",
+      "Risk/change control/history"
+    ],
+    "tailoring": "Nguồn yêu cầu, truy vết sang task/case, acceptance criteria và kiểm soát thay đổi yêu cầu.",
+    "assessment": "AUTHOR_CHECKED_STRUCTURE; NOT_FORMAL_CLAUSE_CONFORMANCE",
+    "checked_date": "2026-11-05"
+  },
+  {
+    "standard": "ISO/IEC/IEEE 29119-3:2021",
+    "reference_url": "https://www.iso.org/standard/79429.html",
+    "project_sections": [
+      "Document control",
+      "Scope and source register",
+      "Phase entry/exit and WBS",
+      "Ownership, schedule and progress",
+      "Case/procedure/evidence and acceptance",
+      "Risk/change control/history"
+    ],
+    "tailoring": "Test plan, test design, case/procedure, execution record, incident và test completion report.",
+    "assessment": "AUTHOR_CHECKED_STRUCTURE; NOT_FORMAL_CLAUSE_CONFORMANCE",
+    "checked_date": "2026-11-05"
+  },
+  {
+    "standard": "ISO 21502:2020",
+    "reference_url": "https://www.iso.org/standard/74947.html",
+    "project_sections": [
+      "Document control",
+      "Scope and source register",
+      "Phase entry/exit and WBS",
+      "Ownership, schedule and progress",
+      "Case/procedure/evidence and acceptance",
+      "Risk/change control/history"
+    ],
+    "tailoring": "Lập WBS, trách nhiệm, phụ thuộc, nguồn lực, mốc, rủi ro và báo cáo tiến độ.",
+    "assessment": "AUTHOR_CHECKED_STRUCTURE; NOT_FORMAL_CLAUSE_CONFORMANCE",
+    "checked_date": "2026-11-05"
+  }
+]

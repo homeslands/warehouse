@@ -1,0 +1,43 @@
+{
+  "id": "D08",
+  "namespace": "DECISION",
+  "title": "Stack FE và chuẩn coding áp dụng từng app",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Chốt lựa chọn trong ADR, cách đáp ứng design bằng stack nào; D33 conventions theo phạm vi app; không đổi tài liệu để hợp thức hóa source khi chưa duyệt.",
+  "source_reference": "D23 P235:P236 Redux/Context, AntDesign/MaterialUI; D33 conventions; source Zustand/Query/shadcn",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Tech Lead + chủ thiết kế",
+  "affected_packages": [
+    "W00",
+    "W02",
+    "W03",
+    "W06"
+  ],
+  "answer": "Chọn React/TypeScript + Ant Design + Redux Toolkit cho client state; React Query cho server cache.",
+  "rules": [
+    "Giữ React/FSD; lựa chọn Ant Design trong hai lựa chọn ADR thay vì MaterialUI. Redux Toolkit cho client/domain workflow state; React Query chỉ quản lý server state, không sao chép cùng dữ liệu vào hai store.",
+    "Zustand/shadcn/Radix hiện tại là lệch đích phải có kế hoạch chuyển dần tại W02 và từng màn; không tạo màn mới pha hai bộ design system. Chỉ loại thành phần cũ khi regression tương ứng đạt.",
+    "Tuân thủ D33 với ánh xạ app: BE giữ formatter/ESLint đang chạy, dấu chấm phẩy theo config; FE dùng formatter app đã được bàn giao, naming/domain structure theo FSD. Không tự mass-format code ngoài task. Interface I-prefix chỉ cho hợp đồng interface mới nếu D33 yêu cầu, không đổi hàng loạt DTO/class hoặc type aliases.",
+    "Mốc version dependency được khóa bằng lockfile khi thực hiện; không dùng quyết định này để tự nâng package major/Node. D03/D08 làm estimate cũ cần thẩm định lại, không được giữ lịch như cam kết."
+  ],
+  "rationale": "Chọn một nhánh công nghệ đã nêu trong ADR, giữ quản lý server cache tách biệt và chuyển UI có kiểm soát.",
+  "change_control_id": "CR-D08-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Màn mới dùng component/tokens Ant Design, có behavior snapshot được duyệt.",
+    "Client workflow không ghi trùng dữ liệu React Query vào Redux.",
+    "Chuyển một màn không làm fail full check/regression các màn cũ."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "98db61beb036d5da1d9d5a41ba4b7896a0816f83d25522daf444d76516f2cb95"
+}

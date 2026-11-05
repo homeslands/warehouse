@@ -1,0 +1,43 @@
+{
+  "id": "D01",
+  "namespace": "DECISION",
+  "title": "Tự sinh phiếu chi/thu và liên kết chứng từ",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Chọn manual/automatic theo loại, thời điểm và hủy; cập nhật BRD/SRS, ví dụ chống trùng và tổng tiền. Yêu cầu liên kết theo loại chi tách ở D19, chứng từ ở D20.",
+  "source_reference": "D13 P358 \"không auto tạo phiếu chi từ phiếu nhập kho\" ↔ D13 P366–P367, D17 P85, BR-PAY-002 (T138R3), BR-WAR-002 (T344R3), D24 P474/P593; D00 P2 (đã hỏi, chưa ghi đáp án)",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Business Owner + BA",
+  "affected_packages": [
+    "W04",
+    "W07"
+  ],
+  "answer": "Xác nhận nhập tự sinh đúng một phiếu chi NHÁP mua NVL; thu được lập thủ công theo loại.",
+  "rules": [
+    "Import CONFIRMED phát sinh ExpenseForm DRAFT PURCHASE có liên kết đúng một ImportForm, snapshot NCC/tiền/VAT. Không tạo chi khi lưu nháp hoặc gửi duyệt.",
+    "Phiếu chi tự sinh chưa ghi nhận đã trả tiền; chỉ ExpenseForm CONFIRMED mới ghi sổ tài chính. Creator là người tạo nhập, approver là Manager khác creator.",
+    "Unique source_import_id + PURCHASE và khóa transaction/outbox bảo đảm retry không tạo trùng. Tạo sổ tồn và outbox trong cùng transaction; lỗi tạo chi được retry quan sát được, không xác nhận chi ngầm.",
+    "Không tự sinh phiếu thu từ mọi loại xuất. Phiếu thu theo các loại D17 T160; thu thanh lý phải liên kết xuất LIQUIDATION đã xác nhận. Confirmed không sửa/xóa/cancel trực tiếp.",
+    "Tựtạochi chỉápdụngoriginTypePURCHASE; TRANSFER_INlàphiếuđốinội theoD34, khôngphảimua vàkhôngsinhExpense.",
+    "D36làm rõsổtài chính: importghiobligation,ExpenseCODconfirmedghi settlement/cash;DEBTconfirmedchưaphảiđãtrả. KhôngcộngAPhai lần."
+  ],
+  "rationale": "Giữ BR-PAY-002/BR-WAR-002 và phần mô tả tự động, thay thế duy nhất câu không auto trong BRD P358; tách tạo chứng từ khỏi thanh toán thực.",
+  "change_control_id": "CR-D01-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Confirm nhập hai lần/retry chỉ có một expense draft và một bút toán tồn.",
+    "Chưa duyệt chi thì paid=0; người tạo không tự duyệt chi.",
+    "Xuất OTHER không tự phát sinh doanh thu."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "8a77b2d13c50f4493632ca016a58a9b4fa4e5ee902ae5887002140acfa56d790"
+}

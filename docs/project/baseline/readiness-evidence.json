@@ -1,0 +1,591 @@
+{
+  "id": "WH-READY-20261105-R2",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_scope": "Preimplementation design and planning; not product QA/owner acceptance",
+  "evidence": [
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D01.json",
+      "sha256": "d8c78a530008cc610f07d26043b71d54a67a33fc5bc9274758f1a6e1d8f27006"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D01.md",
+      "sha256": "31fa8111b670d5f7c8b4361094555607799319980e22075d396ff810ed16970f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D02.json",
+      "sha256": "75c302f5f6e49863c5740a8384b515721aea05357dac87de290f84fe9fe1c21a"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D02.md",
+      "sha256": "ccf8d9750634b0a7ef7a26c0aa40937f50373becc50ff1443fe9d728231f22d8"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D03.json",
+      "sha256": "7a48b232b5c57273a0db5009e7602fc1fcb586cf047b9ae255ef7ded4b970752"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D03.md",
+      "sha256": "9db4fd15ba35588f80d3128c7967cf252d6b8f2ac40ac60cc00fbb2d765baa84"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D04.json",
+      "sha256": "b730baab776d785d8de89af482c605e6ff92fe3251a748255355c257afd6d06c"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D04.md",
+      "sha256": "9a8748febe388958323b4aa4be59e5063956791607d7ceae680cd35a860121b1"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D05.json",
+      "sha256": "af2c8e43a08e112a196a24438624f9cf69dd4a1f9bf3c60d6895584bcf561611"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D05.md",
+      "sha256": "b0a487086648289ccb813b7ba11277f842e2b262756c667a006eaee587f5323f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D06.json",
+      "sha256": "02681e961a58feb441d9cec5f18c9839702c16d29c02688cd0493accd6187574"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D06.md",
+      "sha256": "9a0b6dd7fff32a74119f0e8a6b352a3ca6eae659aa51f8e41eb492af86f07d4b"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D07.json",
+      "sha256": "1733a1d5b9aefc8a77f467e8537fc49cc02608b058dbabea3b2a0d28b5d6b005"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D07.md",
+      "sha256": "16de7513e2b1ffe3a1c9e0c62c9bdcf0efcc0f71491600d18aa71ffc292f51d3"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D08.json",
+      "sha256": "2fa84f0b525d6970390dc83b6d2f3d9b7e4f86265535d92ca498090b100f4eed"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D08.md",
+      "sha256": "c6e863bbac7a1c94efdf9b3859fac3d863b5e95cfdc88655cedacddb83520599"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D09.json",
+      "sha256": "c743bbdf636255ebc9d26d04ad3b4c6407a6db7c7b3c4535fb628119c4f0912e"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D09.md",
+      "sha256": "c8e800118c706560d5a368820f4cdeceba3babf5bb1d7d3c52c069a19a5e87ba"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D10.json",
+      "sha256": "44416d0a47af4b424dfece8ee7fed951e0a6d76f8a452fa4fd69fc05fb269977"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D10.md",
+      "sha256": "dff5dce1168a3ba06d015e17e4de1e4c6fbe7c620e36c36ca3423622ba92bddc"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D11.json",
+      "sha256": "b158ac7849b464ac924df60d12d9d602d249e798649339174dbae7792bdeb130"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D11.md",
+      "sha256": "3f453fa477ff20a0f7e9af65a9fbdd3718d80e32177006ee34c748249f7c420b"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D12.json",
+      "sha256": "ff6bb698ac106525ce5db2ca9fb6fccb5b1938b373709a38bbf67ffdc7427ff8"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D12.md",
+      "sha256": "8f269195c3d63374454c41fdb5e3a0fd5f0c2e1f6d5a81e86d945bf3a3311ed4"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D13.json",
+      "sha256": "8611fb30bee938164b2f46ceacfd8122bd63ab350fefa97316ad5a885fd23b90"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D13.md",
+      "sha256": "4cd35bf5fbd0d7c3614837f11fa53b0a6601139355bc8300988f7286ecc05566"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D14.json",
+      "sha256": "2ffe1cda1a514e0601099f167dee9e4773be8819162d0ae69de34e91c0517d8c"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D14.md",
+      "sha256": "60a7996f88a1efcf6286e320f76b2ca5870ed98695e315aa79916594512779c3"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D15.json",
+      "sha256": "555e84b2414a54c8c707219a969d914e07802ca82efabe659c64086878ee7411"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D15.md",
+      "sha256": "305f07ed1c05e15be942454652156415570fd6c28bd66832f2a971d95e3f9e23"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D16.json",
+      "sha256": "25eab683f2a584ca8da5d4b9c83627118c6a5b16e618ef120ad6c51f4de4a081"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D16.md",
+      "sha256": "9dfd776fc6b947614b201b0e142cef06017e92d0daacf948af3c6ac6a4b22f8d"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D17.json",
+      "sha256": "f7a36578b70fd5f5547e6115ccf6eb227b3b047fca0487cd369e85bd7182d146"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D17.md",
+      "sha256": "c3b9d8dbdbf4b09be4e307affe047d3580b055f811062073bce129c44fc6a97a"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D18.json",
+      "sha256": "1cec96b771144b0004b3840b0904aaf1f4029e90515039580c95ceea57c188bf"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D18.md",
+      "sha256": "e3140e189621ea5140f95678981de96b2f61c5e5e962cdf752e357fa2ee2d25e"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D19.json",
+      "sha256": "09a2dc3fefa5a6a3dd42efd7c4f380c1aa633538916759365a66dd52c39ce208"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D19.md",
+      "sha256": "64a224554cca6b2e0ee646b6a1382d330ecdb818294a02c35625bbb544017cda"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D20.json",
+      "sha256": "2db44a854d88700f1567c039c8a401e1fe4fc29fde796e04316f6435d944d9ea"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D20.md",
+      "sha256": "b60fc3a0d407423e62eaf0fa20265d0f689944c5c952f7d01497a679c03dfdbd"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D21.json",
+      "sha256": "0908154ee0ee90d018a73f2891441ae3281d7aaaefe777d717b7574bdf2bd7d5"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D21.md",
+      "sha256": "931da75f2281d9e8a925ac769cefcca66495dabb8c9505c24c5ca852811a1548"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D22.json",
+      "sha256": "5ee62dd03806429dfffa0efda5c4001cd8c13f65f1f91e535239c9b6a965f4b3"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D22.md",
+      "sha256": "13ec4f04000506ad6a58e17f760fffee1a910d685f0dc809820be734bb0c52f9"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D23.json",
+      "sha256": "a8370224e98ad53ad94759c7d2376803f0e9f7c8e33e3e932d1bc25b758f0a89"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D23.md",
+      "sha256": "615f67af109e7ed55785a7323fa719e6fdae80732ab35d0e1d962b578a96252e"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D24.json",
+      "sha256": "d350afdeba32a5f2885d1b170bd3a7b59c04f85c3bd7baf6a5df99b6f9247f6f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D24.md",
+      "sha256": "ce28df953374968141de8e0dd9f1c0577b28a84f36d8a4000729f85828475400"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D25.json",
+      "sha256": "c4005c3404587cbf9d1cb903f8e5e5e1c37cd0f9e79709f3836d7760d007dcd1"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D25.md",
+      "sha256": "0e3e6123f4415e9920d8672a3d9c15a724e7c71d16fbe5d0ecc6fa5956375ae8"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D26.json",
+      "sha256": "7f829da5316cd10de1ddbff19fddcacbbfd5e5d97f9ce4a0703f9974fc2f3b3c"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D26.md",
+      "sha256": "7b17a6fa7ce9660a52ae0e648bbd470e1e74be981f4a44f2b2eb5ad85824c9b6"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D27.json",
+      "sha256": "aeb68e5a8176e5abd2e28601058ca2d727df7ee60bfda0a950161cc50ccc6aa2"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D27.md",
+      "sha256": "246a7374a5a8e69f795a384c0210d5da9b4b55dcec731e4aa9d35d3204449898"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D28.json",
+      "sha256": "d51e26b0e0da3cea95de91dce67117d7f0cee6a050cd373b8694cca054124007"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D28.md",
+      "sha256": "00d6aaaac321b0dac6ada04cb3b85d556a9d521a2d6d777606583d7496af5ae6"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D29.json",
+      "sha256": "9f96da4823c75fe0fba9b465d5701667f09c3b76538bdc738e7bc16d5d435ad7"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D29.md",
+      "sha256": "537ef55b168c15d34c61149810fdd3274085c2973efe60ff42f015864e4438a9"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D30.json",
+      "sha256": "723e5ae81be0ee11bf653c411b5fdac3def5ba76d540a435f07955e14d8bd17c"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D30.md",
+      "sha256": "915d3594ced977cb1e42f3563d0d0c6b6fcd508c536f66f206b3085880c3f85e"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D31.json",
+      "sha256": "06fb055fdb736d1a71194694ab36e3c712c9bdf27af303659d6c2046bf39e6a8"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D31.md",
+      "sha256": "0982b4b7835a68ed6b9edb46a9aeaa6ba646f0339a9e563584bd2484029bdad6"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D32.json",
+      "sha256": "a8883f9f485e1513fb3ad77269aafe0911de5d2ecc0c88e0d9badd08ae33effc"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D32.md",
+      "sha256": "a10c8b20cb4c73c3f949e1111b06033032faf5d87303dbafecc479a4e271f249"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D33.json",
+      "sha256": "266618ffd8436108082731abc5c650ad4cd295786eb353a70a8959037083e61f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D33.md",
+      "sha256": "74ff404956c4da97b46b9d6b7b055df280b3eae6aae40ca322c807efac53fa51"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D34.json",
+      "sha256": "b8ecf55801ac21b1e186197718cefd8f5c78c0c805c4ab98f42b4948e0e6cb72"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D34.md",
+      "sha256": "8b8fb89abd8b9288219650309c095864918074c348f825fef81ac4d52e362e4f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D35.json",
+      "sha256": "cbaf661bf249a98caccd404fe6b10b01efb156badda358014a9ead14324e5aad"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D35.md",
+      "sha256": "2aaaa750caea9d6e4b6c8de2452c2e6c289b8030e31c9c83c697d847008e22a0"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D36.json",
+      "sha256": "1e9e3a71a630cd3a00447cb3e27de465df71d9d346a4e9b2f7b9169aa4b3eb0d"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D36.md",
+      "sha256": "184ce6ccf688784e70d06b55eb1209c2f226fc0e1eace4b400e2fc4b020d791d"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D37.json",
+      "sha256": "b1ac45fe2663f7100a03257d5164ef8ac32845c379b90c7773a57a0186c1f86c"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D37.md",
+      "sha256": "a8e05e5469708835c5083aa43b8ea62d61aa0daa3d299b607ad07d4a14ef2343"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/authority.json",
+      "sha256": "6d46eeda23e5a9f7c0b10f75bb2b4dd0f509fd594eabaeeacdde69578e8419e2"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/decision-pack.json",
+      "sha256": "a2f836650b3ced1b4b29a3bb8c03b55d29ca6b7ec74e2e616a59b8c758f9e070"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/carryover-alignment.md",
+      "sha256": "bcd5421891a9124d9e03abd77372204ac9efec3b3a1c84d2d0db0315140e8314"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/architecture-and-boundaries.md",
+      "sha256": "640a4a3cdd696a09f8712c9ee1535cfae273fbe85f1a4ea7b0bc03e602088899"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/authority-registry.json",
+      "sha256": "8c452de16626af83c63c09f5e2bd98c0bddc98acd0f4051e24ea563cb498a6c7"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/business-rules.md",
+      "sha256": "52633b822736819da68b7974c9953580f846128ddc357b78e45dc876c920f3ae"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/data-and-migration.md",
+      "sha256": "c9918163d08785633e09b13d708b0a659cbd1d7e3885abf2053eb529f5185538"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/data-dictionary-validation.json",
+      "sha256": "e60e174a89197b6e59d57eda8507579bdac0c7d8ba3e8d2c921f737e2b66d841"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/dependency-baseline.json",
+      "sha256": "3ce71664c650749b207b4e01cb2ca670e4786e1516ad1121178a49145f96af15"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/dependency-registry-observation.json",
+      "sha256": "f753c626675fbba5fc9cd34a90cf409713c6abb3b2181f093ca6c5d90d958fb3"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/design-tokens.json",
+      "sha256": "90c8dc9690ce310af57885d856d5bb94dc244072deabf782feb8e1a0eea772dd"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/endpoint-catalog.csv",
+      "sha256": "a7191f04fc33479f65eee60b489108a6cae0c99ef20870682002d8eb19a1ca7e"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/openapi-v1.json",
+      "sha256": "3da92ccef4be335d3bff5e55dd722e3502886d57be0e175cf0e2b2097b4c514f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/operation-ui-disposition.json",
+      "sha256": "4b25f375e263b510b5be97eb2a10b39866ae06dc875ccf99b286e87a61ff9112"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/permission-policy.csv",
+      "sha256": "bc21f2dda208e37c74576d40a5d19ea69fae43c2db8c22f8fec608af8c11b37f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/permission-policy.json",
+      "sha256": "04b6668caf15ab7387dc27068f336537318ce98b89fcc6f1b97f11837f5a3ff4"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/proto-field-map.json",
+      "sha256": "11309067660b2bbb5ebea86d5525c0451ad60a4ca94e3f8b2da7c7e1cfc14917"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/schemas.json",
+      "sha256": "81496630464f9440bc221567cf39be7850bc2890505473d9acf928b67d8c5eef"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/screen-catalog.csv",
+      "sha256": "aad734156e16a6817fc1e46a590636fdd2b8978feec06c969e3281b3a09cff8a"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/screen-contracts.json",
+      "sha256": "5ed2da2a17799c35189efba282da914a48ecb4e74d9ac45d6c7d02f68dedbef5"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/screen-contracts.md",
+      "sha256": "e20e0ed83a941fea0fa9dcbd483957103fcaffec2dc47115cc9bc09852338eb7"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/sdd-field-inventory.json",
+      "sha256": "c5bd367a22602f2f9446ea6284d2736fec03aa49ad49704c7aad0cd54b75969a"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/sdd-field-traceability.csv",
+      "sha256": "a4a13a7ee760aa6c4ba14544ef2d485cf729267cb07e32b5c5c61f9ec91ce13a"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/warehouse-storage.proto",
+      "sha256": "0575a7ffc0b396bfd335c16591101a45bc0bd7ac85da378aa17ea7bd3954b3b0"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/wireframes/auth.svg",
+      "sha256": "da603ff01dc39420bcad72bcee080a1f82d8f32dbc10fa2d3555267ace576b9c"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/wireframes/dashboard.svg",
+      "sha256": "846076642d4564d97aad9ca437a94a38127ab67900cb038faf0592d3cf9e1776"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/wireframes/form.svg",
+      "sha256": "13f347796b82065b653a9abd85c6f48ed296a8bc27ab7f591273faac383cedc7"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/wireframes/list.svg",
+      "sha256": "2b2f8b2509865bf76d2ab723c4c8dafb53b45635a6dcacfaae2ab1248ed0cbcc"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/wireframes/matrix.svg",
+      "sha256": "cda52faa307d3e3c9167c0bf35fd9a5c69885535a03b474b93156334d8c14d2d"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/wireframes/stocktake.svg",
+      "sha256": "5efc1f6d9ac6933b6a4a895f664343f7fa9df66a917782c14f789418ea390dc6"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/contracts/wireframes/wizard.svg",
+      "sha256": "58c6765efe6fa8372da443e40be75e6c52d179f950d74bdfa0eaa294b9acad67"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W00.json",
+      "sha256": "87d10bea82cf212635efa152b11f609f4234b970287f7b7e1e6603b0789fe275"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W00.md",
+      "sha256": "8e9f5c85cec52030d27f11a936674d59e598912478e31940f6aed6a6fd464311"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W01.json",
+      "sha256": "63669bfa727f31b8f2226656553f9a712b4db46ad9318ad7533ec6b3dd529234"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W01.md",
+      "sha256": "a42979bb391eb303b00cf005604a97eb6f26ddfc0ba983d91900bbd413f08436"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W02.json",
+      "sha256": "9b906e1496bad6cd4df7a627eba2f9ad4aa830c44299928a09d8b8b28664ea02"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W02.md",
+      "sha256": "6dda132c5da5bf4dab71c11c425eb9f8c5cec23120cd5da218ab68b41dbfdc3f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W03.json",
+      "sha256": "0c45488ea6dff56abcc05c3ec235ca84bb067ed3867aff8e46dd9d752b3937bc"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W03.md",
+      "sha256": "121fd63362308b9125ff7ecb4cdabf2fe06502fcc9f79b2b0b8285d7c6acc3a0"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W04.json",
+      "sha256": "21c5c3c1598f494fd35ba1f64321fb69e988195e206beae2a885226023fb435a"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W04.md",
+      "sha256": "d28f2a4fb58fb68c154f2fe1f2bb386cbb1e7e1a8909530bbccca1180c823040"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W05.json",
+      "sha256": "e8d25ac718f2f6808dac5ed4ac0b634deee7d59b9cf1fafb6ffcb6952fa9decd"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W05.md",
+      "sha256": "1c1396b23f723f96f13d98cfb5702931135614d6032ae9f77c1b59506ef4eaba"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W06.json",
+      "sha256": "3a7a5768b66da02478f2de3a3e9cc6d1ffcfcd1465f84c0eb79c2b7e8bbad740"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W06.md",
+      "sha256": "70267e2f7ba943dd5c37ef64e880809712c34199b94305aabefaecd761fa03d3"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W07.json",
+      "sha256": "931e06250957b3c8806a3ee8ca711c07b5b70524691c820924f6a605c289444e"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W07.md",
+      "sha256": "eefb654de45f03a1222e9c837d612e0e59f1179f6823f52130e8c613d4695d97"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W08.json",
+      "sha256": "5734e878ae6d4866cc2e6bd6453519f8a0c41e906ecd83efe159cb0a00e4b700"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W08.md",
+      "sha256": "918cf9144fd5364212e386ba80a5bef105d82efbd548a7061db65c5238d86e30"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W09.json",
+      "sha256": "c1078d9c3d2ae690c4c1f21f960184cceceede1eb7f29e13b44f63ce7ef86ae6"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W09.md",
+      "sha256": "096c5de9c2cb125e213f1831425cdd5060bae4783dc5e047e7a2734a6c67d6f4"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W10.json",
+      "sha256": "db5bf7bc2eeb84a73584e4b2f3bb17810cdc8b6c4e3969daaaf4b7903198d280"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W10.md",
+      "sha256": "be9c33070db0f2049439daf7380b2d75249005edd16c737dcf2a0a51e3932742"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W11.json",
+      "sha256": "874ea06b281ad52f57063ada2c32672d24438aca249ef55d96d60dabfb5d465f"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/W11.md",
+      "sha256": "f3ef11a7223f612831e6edf8f499332e60f04dc0f268ca883ae6ca53943692d8"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/dossiers/index.json",
+      "sha256": "0de13f784a9da9b7dfc732e32f99a4f2e09f79a0227869a90211617319b2bc45"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/environment/HANDOFF.md",
+      "sha256": "20fd89e74b7c8e7b76240a2b8346cee60b8ff8dc70667613d5de7e6a69f9e1e6"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/environment/probe-baseline.json",
+      "sha256": "6de7c4945be9f4e03a09d64ed85ce47a40d1eb851960f3bc64f40033f9844101"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/environment/target.json",
+      "sha256": "1d9c9be6c7eee9ad205c79d34a43c5134e8f8ffb2399340f3209a6e5a8afedea"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/execution-gates.md",
+      "sha256": "7c2c7a9b8598997fb6fc89d09d6c5a41f4e35cb2f2681a0e460de718d71278ed"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/planning/estimate-breakdown.csv",
+      "sha256": "8239466155a4858adc324255c59a2db327cd68c6a82dddc7def2a6e091f11d40"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/planning/implementation-plan.md",
+      "sha256": "763026221584761063e737c4ba1df03e298b9a9e341f73fc41e1a719b46c20e4"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/planning/plan.json",
+      "sha256": "4e2297e24a97da80ef0df80739e9f1eef2d63113332940467d512717a95bddb5"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/planning/resource-schedule.csv",
+      "sha256": "e3f31ebc6279d91e003380799dd9588fd82c961d5ada9a5d46601ca2912ee099"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/planning/schedule-validation.json",
+      "sha256": "845e9a021d7188e21333a63cd0f3770d52a951e2f46e4e3cc2e31c886d77d3e2"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/basis-validation.json",
+      "sha256": "3318820672d5bf2109fddf2bad4e624e7fe6e777a0076ec00efa3fdf3998bddf"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/fixture-plan.json",
+      "sha256": "d78e5a2c5c021431b1128478a77470c24884d54117d95368ffb911d2a4825470"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/reference-arithmetic-checks.json",
+      "sha256": "55fce54de47fc8a18732af92aa86007c7d6879a10fc90561f251b301abe6c68e"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/requirement-case-links.csv",
+      "sha256": "b3e9c870e0dff709ec2f177de9ca01cca2a838c61c4698985ee17ad31bbfa27d"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/test-cases.json",
+      "sha256": "0950ce652631354538e21ebf1021c3765fdb6808707806f95d23f6d0f2439f02"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/qa/test-matrix.csv",
+      "sha256": "7084481853d4fd6bcafe52bfcc5f3b7c78f130b45e037bebf871563eef712123"
+    },
+    {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json",
+      "sha256": "d5519e37b464a90ff14e0c9222c49d5f0d0fc070bdd67560da3d3490e5387cbf"
+    }
+  ]
+}

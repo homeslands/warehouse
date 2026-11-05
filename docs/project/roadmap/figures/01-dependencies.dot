@@ -1,0 +1,21 @@
+digraph G {graph [rankdir=LR, bgcolor="white",pad="0.2",nodesep="0.3",ranksep="0.45",fontname="DejaVu Sans",dpi=160]; node [shape=box,style="rounded,filled",fillcolor="#e8f2f1",color="#b5cecc",fontname="DejaVu Sans",fontsize=11,margin="0.13,0.13"]; edge [color="#6d8992",arrowsize=0.7,fontname="DejaVu Sans",fontsize=9]; 
+ w0[label="W00 / trước T0
+Baseline + quyết định + môi trường",fillcolor="#ffedc7"];
+ w1[label="W01
+Gate test"];w2[label="W02
+Nền & kiến trúc"];w3[label="W03
+Danh mục"];
+ w4[label="W04
+Nhập / xuất / giá trị"];w5[label="W05
+Kiểm kho"];
+ w6[label="W06
+POS / định mức"];w7[label="W07
+Thu chi / nợ"];
+ w8[label="W08
+Cảnh báo"];w9[label="W09
+Báo cáo"];
+ w10[label="W10
+Excel / API"];w11[label="W11
+NFR / UAT local",fillcolor="#dbeafe"];
+ w0->w2 [style=dashed,label="T0"];w1->w2;w2->w3;w3->w4;w3->w6;w4->w6;w4->w5;w4->w7;w4->w8;w5->w8;w7->w8;w5->w9;w6->w9;w7->w9;w8->w9;w9->w10;w3->w10;w4->w10;w6->w10;w10->w11;
+ }

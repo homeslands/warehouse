@@ -1,0 +1,19 @@
+{
+  "checked_at": "2026-11-05T10:35:56+07:00",
+  "head": "384c53d9f9c81d320793069b3dffd690ae88c0af",
+  "changes_since_task_entry": [],
+  "changes_since_R2_worker_snapshot": [
+    {
+      "path": "app/warehouse-api/src/file/file.controller.spec.ts",
+      "previous_sha256": "7e624b679da54b627c98592387eadd63290fe539e51e867d819fba9a4e90be23",
+      "current_sha256": "3e744f1578194cfa83f0496f5e6f0175d25ba2e99a0b5ee2a2ab40fbb06ace37"
+    },
+    {
+      "path": "app/warehouse-api/src/file/file.util.spec.ts",
+      "previous_sha256": "5fc08f9ddadec58bb09641d220f1d1f0efa242bcc5ac92ca2d26c4ceb802b901",
+      "current_sha256": "344aee574aba3dff84980f02ea5dfdcfee2f1b3a0789690a79147a22ca2aa7c2"
+    }
+  ],
+  "interpretation": "No application-source changes between this planning task entry and final check. Two upload test files already differ from the older R2 worker snapshot; that comparison does not establish changes during publication. This task did not write application source or revert WIP.",
+  "design_bundle_files_intact": 146
+}

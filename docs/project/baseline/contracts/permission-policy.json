@@ -1,0 +1,1489 @@
+[
+  {
+    "code": "ALERT_CONFIGURE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "setAlertSettings"
+    ]
+  },
+  {
+    "code": "ALERT_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listAlerts",
+      "markAlertRead"
+    ]
+  },
+  {
+    "code": "ARCHIVE_MANAGE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "requestArchive"
+    ]
+  },
+  {
+    "code": "AUDIT_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listAuditEvents"
+    ]
+  },
+  {
+    "code": "BACKUP_MANAGE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listBackupRequests",
+      "createBackupRequest",
+      "createRestoreRequest"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_APPROVE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "confirmStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_ASSIGN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listEligibleCounters"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_CANCEL",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "cancelStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_COMPLETE_ASSIGNED",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "submitStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createStocktake",
+      "startStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listStocktakes",
+      "getStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_READ_ASSIGNED",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listStocktakes",
+      "getStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_RECORD_COUNT_ASSIGNED",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "acknowledgementsStocktake",
+      "countsStocktake"
+    ]
+  },
+  {
+    "code": "EXCEL_IMPORT",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "getExcelTemplate",
+      "previewExcelImport",
+      "getExcelImportPreview",
+      "confirmExcelImport"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_CANCEL_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "cancelExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_CONFIRM",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "returnExportForm",
+      "confirmExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createExportForm",
+      "previewFefoExport"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listExportForms",
+      "getExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_SUBMIT_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "submitExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_UPDATE_DRAFT_OWN",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateExportForm"
+    ]
+  },
+  {
+    "code": "FILE_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "uploadFile"
+    ]
+  },
+  {
+    "code": "FILE_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "getFileMetadata",
+      "getFileAccess"
+    ]
+  },
+  {
+    "code": "FINANCE_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listSupplierTransactions"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_CANCEL_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "cancelImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_CONFIRM",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "returnImportForm",
+      "confirmImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listImportForms",
+      "getImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_SUBMIT_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "submitImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_UPDATE_DRAFT_OWN",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateImportForm"
+    ]
+  },
+  {
+    "code": "INVENTORY_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listInventory",
+      "listBatches",
+      "listInventoryHistory",
+      "getBatchTrace"
+    ]
+  },
+  {
+    "code": "JOB_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "getJob"
+    ]
+  },
+  {
+    "code": "LOG_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listTechnicalLogs"
+    ]
+  },
+  {
+    "code": "MANAGE_PERMISSIONS",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listAuthorities",
+      "listAuthorityGroups",
+      "updateAuthorityMetadata",
+      "putRoleAuthority",
+      "deleteRoleAuthority"
+    ]
+  },
+  {
+    "code": "MATERIAL_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createMaterial_materials",
+      "createNamedMaster_material_types",
+      "createPosition"
+    ]
+  },
+  {
+    "code": "MATERIAL_DELETE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "deleteMaterial_materials",
+      "deleteNamedMaster_material_types",
+      "deletePosition"
+    ]
+  },
+  {
+    "code": "MATERIAL_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listMaterials_materials",
+      "getMaterial_materials",
+      "listNamedMasters_material_types",
+      "getNamedMaster_material_types",
+      "listPositions"
+    ]
+  },
+  {
+    "code": "MATERIAL_UPDATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateMaterial_materials",
+      "updateNamedMaster_material_types",
+      "updatePosition",
+      "setConversion",
+      "setInventoryThresholds"
+    ]
+  },
+  {
+    "code": "PAYMENT_TERM_MANAGE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createPaymentTerm"
+    ]
+  },
+  {
+    "code": "POS_EXPORT_CREATE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "posExport"
+    ]
+  },
+  {
+    "code": "POS_INVENTORY_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "posInventory"
+    ]
+  },
+  {
+    "code": "POS_RECIPE_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "posRecipe"
+    ]
+  },
+  {
+    "code": "PRODUCT_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listProducts",
+      "getProduct",
+      "getVariant"
+    ]
+  },
+  {
+    "code": "PRODUCT_SYNC",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "requestProductSync"
+    ]
+  },
+  {
+    "code": "RECIPE_CREATE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "copyRecipe"
+    ]
+  },
+  {
+    "code": "RECIPE_DELETE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "archiveRecipe"
+    ]
+  },
+  {
+    "code": "RECIPE_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "getRecipe",
+      "listRecipeHistory"
+    ]
+  },
+  {
+    "code": "RECIPE_UPDATE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "setVariantPricing",
+      "replaceRecipe"
+    ]
+  },
+  {
+    "code": "REPORT_CUSTOM",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "runCustomReport"
+    ]
+  },
+  {
+    "code": "REPORT_EXPORT",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "exportReport"
+    ]
+  },
+  {
+    "code": "REPORT_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "report_dashboard",
+      "report_inventory_movement",
+      "report_stock_value",
+      "report_imports",
+      "report_exports",
+      "report_stocktakes",
+      "report_supplier_performance",
+      "report_expiry",
+      "report_expense_revenue",
+      "report_debt",
+      "report_wastage"
+    ]
+  },
+  {
+    "code": "REPORT_SCHEDULE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "setReportSchedule"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_APPROVE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "returnRevenueForm",
+      "confirmRevenueForm"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_CANCEL_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "cancelRevenueForm"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_CREATE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createRevenueForm",
+      "createRefundGroup"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_READ",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listRevenueForms",
+      "getRevenueForm",
+      "getRefundGroup"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_READ_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listRevenueForms",
+      "getRevenueForm",
+      "getRefundGroup"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_SUBMIT_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "submitRevenueForm"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_UPDATE_DRAFT_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateRevenueForm"
+    ]
+  },
+  {
+    "code": "ROLE_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createRole"
+    ]
+  },
+  {
+    "code": "ROLE_DELETE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "deleteRole"
+    ]
+  },
+  {
+    "code": "ROLE_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listRoles",
+      "getRole"
+    ]
+  },
+  {
+    "code": "ROLE_UPDATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateRole"
+    ]
+  },
+  {
+    "code": "STORE_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "STORE_DELETE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "deleteNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "STORE_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listNamedMasters_stores",
+      "getNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "STORE_UPDATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "SUPPLIER_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createSupplier_suppliers"
+    ]
+  },
+  {
+    "code": "SUPPLIER_DELETE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "deleteSupplier_suppliers"
+    ]
+  },
+  {
+    "code": "SUPPLIER_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listSuppliers_suppliers",
+      "getSupplier_suppliers",
+      "listPaymentTerms"
+    ]
+  },
+  {
+    "code": "SUPPLIER_UPDATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateSupplier_suppliers"
+    ]
+  },
+  {
+    "code": "UNIT_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createUnit_units"
+    ]
+  },
+  {
+    "code": "UNIT_DELETE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "deleteUnit_units"
+    ]
+  },
+  {
+    "code": "UNIT_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listUnits_units",
+      "getUnit_units"
+    ]
+  },
+  {
+    "code": "UNIT_UPDATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateUnit_units"
+    ]
+  },
+  {
+    "code": "USER_CHANGE_PASSWORD",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "resetUserPassword"
+    ]
+  },
+  {
+    "code": "USER_CHANGE_ROLE",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "changeUserRole"
+    ]
+  },
+  {
+    "code": "USER_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createUser"
+    ]
+  },
+  {
+    "code": "USER_DELETE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "deleteUser"
+    ]
+  },
+  {
+    "code": "USER_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listUsers",
+      "getUser"
+    ]
+  },
+  {
+    "code": "USER_UPDATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN"
+    ],
+    "default_grant_families": [
+      "ADMIN"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateUser"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createWarehouse_warehouses"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_DELETE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "deleteWarehouse_warehouses"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_APPROVE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "returnExpenseForm",
+      "confirmExpenseForm",
+      "settleExpense"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_CANCEL_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "cancelExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_CREATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "createExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listExpenseForms",
+      "getExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_READ_OWN",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listExpenseForms",
+      "getExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_SUBMIT_OWN",
+    "source_status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "submitExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_UPDATE_DRAFT_OWN",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_READ",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER",
+      "SUPERVISOR"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "listWarehouses_warehouses",
+      "getWarehouse_warehouses"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_UPDATE",
+    "source_status": "EXISTS_IN_SOURCE",
+    "allowed_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "default_grant_families": [
+      "ADMIN",
+      "MANAGER"
+    ],
+    "enforcement": "authority AND family AND warehouse scope AND row/state policy; Admin is not a universal operational bypass",
+    "operations": [
+      "updateWarehouse_warehouses"
+    ]
+  }
+]

@@ -1,0 +1,46 @@
+{
+  "id": "D05",
+  "namespace": "DECISION",
+  "title": "Giá nhập, NSX/HSD, biên cảnh báo và min/max",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Bảng HSD theo loại vật tư/hàng tặng (bắt buộc hay tùy chọn) và biên ngày; < hay ≤ ngưỡng; ngưỡng gần hạn cố định hay theo sản phẩm; max > min; nguồn giá tham chiếu cho chênh 20%.",
+  "source_reference": "D13 P21 \"HSD: bắt buộc\", P54 \"(required)\" ↔ P133 \"nếu có\" ↔ D17 T53R3 \"(optional)\", D24 T109R11 is_expiry DEFAULT FALSE; BR-IMP-003/004; \"HSD < 30 ngày\" T362R6, T24R6, T53R4 ↔ D13 P338 \"≤ 30 ngày\"; D13 P234 ngưỡng gần hạn theo từng sản phẩm ↔ 30 ngày cố định; ExportItem HSD bắt buộc D13 P223, D24 T239R7; BR-STK-002 \">\" ↔ code max>=min; code @Min(0), flag < />",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Chủ kho + BA",
+  "affected_packages": [
+    "W00",
+    "W03",
+    "W04",
+    "W08"
+  ],
+  "answer": "Giá nhập >0, HSD theo chính sách vật tư, max>min; biên cảnh báo được định nghĩa thống nhất.",
+  "rules": [
+    "quantity>0 và unitPrice>0 khi lưu phiếu hợp lệ. Không dùng giá 0 cho hàng tặng trong baseline; nghiệp vụ hàng tặng cần CR riêng trước khi cho phép.",
+    "Material.is_expiry quyết định theo dõi HSD: true thì HSD bắt buộc trước submit/confirm và phải > ngày nhập; false cho phép không có HSD, nếu nhập HSD vẫn phải > ngày nhập. NSX nếu có phải ≤ ngày nhập và < HSD. Không suy ra HSD giả cho vật tư không theo dõi.",
+    "HSD và NSX là ngày nghiệp vụ Asia/Ho_Chi_Minh; ngày nhập không phải createdAt. HSD bằng ngày nhập bị từ chối. Đổi is_expiry của vật tư có lô cũ cần backfill/đối soát, không tự điền ngày.",
+    "min≥0, max>min; cảnh báo thấp khi tồn≤min, cao khi tồn≥max. Cảnh báo sau confirm xuất dựa tồn sau thao tác; cảnh báo nhập dựa tồn dự kiến/sau thao tác theo trạng thái.",
+    "Gần hạn: 0≤ số ngày tới HSD <30; đúng 30 chưa cảnh báo, quá hạn tách mức đỏ. Ngưỡng 30 cố định của baseline, không cấu hình theo từng sản phẩm ở phase này.",
+    "Chênh giá: giá nhập quy về đơn vị gốc so với giá lần nhập CONFIRMED gần nhất của cùng vật tư/kho trước giao dịch; abs(new-old)/old>20% thì cảnh báo, bằng20% không. Chưa có giá cũ thì hiển thị chưa có giá so sánh.",
+    "Material có ngưỡng mặc định; override theo warehouse/material nếu được cấu hình phải kiểm min≥0,max>min trên cặp effective. Clear override về null thì kế thừa mặc định; cảnh báo dùng effective threshold có ghi nguồn, không lấy nhầm một trường thiếu từAPI."
+  ],
+  "rationale": "Giữ các BR định lượng rõ; is_expiry trong SDD giải quyết HSD optional/required. Việc thay câu ≤30 bằng <30 được ghi trong baseline thay thế.",
+  "change_control_id": "CR-D05-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Giá0 hoặc HSD=ngày nhập bị chặn; vật tư không HSD được null.",
+    "Tồn đúng min/max phát cảnh báo; max=min bị chặn.",
+    "HSD29ngày có, 30ngày không; giá tăng đúng20% không, trên20% có."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "5851831067f87b7997e89231ce387c055a64a4f30b81228c12d58f1f9f43df05"
+}

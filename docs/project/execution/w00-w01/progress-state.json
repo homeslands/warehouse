@@ -1,0 +1,202 @@
+{
+  "as_of": "2026-11-05T10:20:45+07:00",
+  "tasks": {
+    "W00-BE": {
+      "status": "DOCUMENTATION_COMPLETE_RECEIPT_PENDING",
+      "assignee": "Mekong-HCM",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W00-BE-M01": "COMPLETE",
+        "W00-BE-M02": "COMPLETE",
+        "W00-BE-M03": "COMPLETE",
+        "W00-BE-M04": "COMPLETE",
+        "W00-BE-M05": "NOT_STARTED"
+      },
+      "publication_evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/w00-w01-delivery-20261105/evidence/issue-readback.json",
+        "issue": "https://github.com/homeslands/warehouse/issues/158"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "documentation_owner": "Mekong-HCM"
+    },
+    "W00-FE": {
+      "status": "DOCUMENTATION_COMPLETE_RECEIPT_PENDING",
+      "assignee": "quyetthangdev",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W00-FE-M01": "COMPLETE",
+        "W00-FE-M02": "COMPLETE",
+        "W00-FE-M03": "COMPLETE",
+        "W00-FE-M04": "COMPLETE",
+        "W00-FE-M05": "NOT_STARTED"
+      },
+      "publication_evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/w00-w01-delivery-20261105/evidence/issue-readback.json",
+        "issue": "https://github.com/homeslands/warehouse/issues/159"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "documentation_owner": "Mekong-HCM"
+    },
+    "W00-QA": {
+      "status": "DOCUMENTATION_COMPLETE_RECEIPT_PENDING",
+      "assignee": "lananh138",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W00-QA-M01": "COMPLETE",
+        "W00-QA-M02": "COMPLETE",
+        "W00-QA-M03": "COMPLETE",
+        "W00-QA-M04": "COMPLETE",
+        "W00-QA-M05": "NOT_STARTED"
+      },
+      "publication_evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/w00-w01-delivery-20261105/evidence/issue-readback.json",
+        "issue": "https://github.com/homeslands/warehouse/issues/160"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "documentation_owner": "Mekong-HCM"
+    },
+    "W01-BE-01": {
+      "status": "NOT_STARTED",
+      "assignee": "Mekong-HCM",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-BE-01-M01": "NOT_STARTED",
+        "W01-BE-01-M02": "NOT_STARTED",
+        "W01-BE-01-M03": "NOT_STARTED",
+        "W01-BE-01-M04": "NOT_STARTED",
+        "W01-BE-01-M05": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-BE-02": {
+      "status": "NOT_STARTED",
+      "assignee": "Mekong-HCM",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-BE-02-M01": "NOT_STARTED",
+        "W01-BE-02-M02": "NOT_STARTED",
+        "W01-BE-02-M03": "NOT_STARTED",
+        "W01-BE-02-M04": "NOT_STARTED",
+        "W01-BE-02-M05": "NOT_STARTED",
+        "W01-BE-02-M06": "NOT_STARTED",
+        "W01-BE-02-M07": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-FE-01": {
+      "status": "NOT_STARTED",
+      "assignee": "quyetthangdev",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-FE-01-M01": "NOT_STARTED",
+        "W01-FE-01-M02": "NOT_STARTED",
+        "W01-FE-01-M03": "NOT_STARTED",
+        "W01-FE-01-M04": "NOT_STARTED",
+        "W01-FE-01-M05": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-FE-02": {
+      "status": "NOT_STARTED",
+      "assignee": "quyetthangdev",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-FE-02-M01": "NOT_STARTED",
+        "W01-FE-02-M02": "NOT_STARTED",
+        "W01-FE-02-M03": "NOT_STARTED",
+        "W01-FE-02-M04": "NOT_STARTED",
+        "W01-FE-02-M05": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-QA-01": {
+      "status": "NOT_STARTED",
+      "assignee": "lananh138",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-QA-01-M01": "NOT_STARTED",
+        "W01-QA-01-M02": "NOT_STARTED",
+        "W01-QA-01-M03": "NOT_STARTED",
+        "W01-QA-01-M04": "NOT_STARTED",
+        "W01-QA-01-M05": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-QA-02": {
+      "status": "NOT_STARTED",
+      "assignee": "lananh138",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-QA-02-M01": "NOT_STARTED",
+        "W01-QA-02-M02": "NOT_STARTED",
+        "W01-QA-02-M03": "NOT_STARTED",
+        "W01-QA-02-M04": "NOT_STARTED",
+        "W01-QA-02-M05": "NOT_STARTED",
+        "W01-QA-02-M06": "NOT_STARTED",
+        "W01-QA-02-M07": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    }
+  },
+  "assignment_update": {
+    "at": "2026-11-05T12:54:32.349484+07:00",
+    "timezone": "Asia/Bangkok",
+    "github_evidence": ".agents/tasks/issue-assignment-20261105/assignment-summary.json",
+    "coordinator": "Mekong-HCM",
+    "does_not_change_delivery_status": true
+  }
+}

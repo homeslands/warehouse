@@ -1,0 +1,38 @@
+{
+  "id": "D16",
+  "namespace": "DECISION",
+  "title": "[Quản trị, không phải mâu thuẫn tài liệu] Tách nghiệm thu local và vận hành/CI/CD",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "DEV LOCAL vẫn áp dụng: chưa triển khai CI/CD/deploy/job thật. Ghi deferred có owner cho gate môi trường, TLS/uptime; muốn mở phase vận hành phải có chỉ dẫn mới; không loại NFR khỏi thiết kế.",
+  "source_reference": "D23 ADR CI/CD/infrastructure P247–P255; AGENTS LOCAL-001",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Chủ dự án",
+  "affected_packages": [
+    "W11"
+  ],
+  "answer": "Phê duyệt DEV LOCAL; gate vận hành/CI/CD được hoãn có kiểm soát, không bỏ khỏi phạm vi.",
+  "rules": [
+    "Trong giai đoạn này chỉ thiết kế/code/test local theo task được giao; không tạo/sửa/bật CI/CD, deploy, auto-merge hoặc lịch chạy môi trường thật.",
+    "W11 có thể bàn giao local với biên bản gate vận hành còn mở. Không được gọi toàn bộ SRS ACCEPTED khi HTTPS/uptime/POS/restore bắt buộc chưa có bằng chứng.",
+    "Mở phase vận hành cần chỉ dẫn riêng của người dùng, target/environment và quyền thực thi. Decision approval này không cấp quyền Git, DB hiện hữu, hạ tầng hoặc dịch vụ trả phí."
+  ],
+  "rationale": "Giữ LOCAL-001 và phân biệt kết quả local với khả năng vận hành.",
+  "change_control_id": "CR-D16-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "NFR vận hành thiếu evidence vẫn NOT_RUN dù code/build xanh.",
+    "Checklist bàn giao local hiển thị owner/điều kiện mở từng gate hoãn."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "320a685c16f8f6dc513da1a6428c6e4a099841852e9c2134b15ec2bc993566a4"
+}

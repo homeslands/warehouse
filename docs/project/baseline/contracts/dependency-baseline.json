@@ -1,0 +1,73 @@
+{
+  "id": "WH-DEPENDENCIES-R2",
+  "status": "APPROVED_FOR_W02_INSTALL_NOT_INSTALLED",
+  "new_direct_dependencies": {
+    "antd": {
+      "version": "6.7.0",
+      "peerDependencies": {
+        "react": ">=18.0.0",
+        "react-dom": ">=18.0.0"
+      },
+      "dist.integrity": "sha512-QwFK+butqX4HA3xG2zWN9OOQVLdlV4S3WC5BETtDEXGypBlSZy0LPFFwQIGJl10UtGAQi3p6Z4WiDVf7nr4FcA=="
+    },
+    "@reduxjs/toolkit": {
+      "version": "2.14.0",
+      "peerDependencies": {
+        "react": "^16.9.0 || ^17.0.0 || ^18 || ^19",
+        "react-redux": "^7.2.1 || ^8.1.3 || ^9.0.0",
+        "@types/react": "*"
+      },
+      "dist.integrity": "sha512-m/PxMwRe0xLL6XUsAgy0YjInklHcfi9uMwFhJk+QINqjxqPvyc89T5cMjszA5bDmTE0gwGc7zr9LRO4gL+mhaw=="
+    },
+    "react-redux": {
+      "version": "9.3.1",
+      "peerDependencies": {
+        "react": "^18.0 || ^19",
+        "redux": "^5.0.0",
+        "@types/react": "^18.2.25 || ^19"
+      },
+      "dist.integrity": "sha512-vxMLT0lalUjbZPkoTepWyKAZbjIIFssNx/CEL9lTfwQBU6XpkGSmCNdcCIrkOBUgB68uftZMnbXVb6DwGnhRKQ=="
+    },
+    "@nestjs/microservices": {
+      "version": "10.4.22",
+      "peerDependencies": {
+        "mqtt": "*",
+        "nats": "*",
+        "rxjs": "^7.1.0",
+        "amqplib": "*",
+        "ioredis": "*",
+        "kafkajs": "*",
+        "@nestjs/core": "^10.0.0",
+        "@grpc/grpc-js": "*",
+        "cache-manager": "*",
+        "@nestjs/common": "^10.0.0",
+        "reflect-metadata": "^0.1.12 || ^0.2.0",
+        "@nestjs/websockets": "^10.0.0",
+        "amqp-connection-manager": "*"
+      },
+      "dist.integrity": "sha512-9Oxc0jQuppGLaQv5yaB2tVS2rAZzZ9NqDS1A4UlDLiYwJB7M6e89G6tmyOQjGjPwgoXPxQS4Vg2voSiKiED2gw=="
+    },
+    "@grpc/grpc-js": {
+      "version": "1.14.7",
+      "dist.integrity": "sha512-W4W/fcBMGRVtG6dW2c7cw2mnpS3hvbBd+oQXjh2iYFTZDk1JJmcNqkM5KSaPubQpamlUUurrlb7G1s9NJeERmQ=="
+    },
+    "@grpc/proto-loader": {
+      "version": "0.8.1",
+      "dist.integrity": "sha512-wtF6h+DY6M3YaDBPAmvuuA6jV8Sif9MjtOI5euKFWRgCDl5PeDpPsHR9u2l6St5ceY8AZgoNDww5+HvEsXFsGg=="
+    }
+  },
+  "existing_versions": {
+    "react": "19.2.7",
+    "react-dom": "19.2.7",
+    "@nestjs/common": "10.4.22",
+    "@nestjs/core": "10.4.22",
+    "rxjs": "7.8.2",
+    "typescript": "5.9.3"
+  },
+  "policy": "Node24; preserve existing locked app versions. Use exact new direct pins and ordinary lockfile update under W02 ownership. Resolve peer errors explicitly; no --force/--legacy-peer-deps. Registry integrity is provenance, not an installation/security test.",
+  "primary_sources": [
+    "https://ant.design/docs/react/migration-v6/",
+    "https://redux-toolkit.js.org/introduction/getting-started",
+    "https://docs.nestjs.com/microservices/grpc"
+  ]
+}

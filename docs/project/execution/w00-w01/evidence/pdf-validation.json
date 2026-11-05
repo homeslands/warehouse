@@ -1,0 +1,18 @@
+{
+  "checked_at": "2026-11-05T10:27:46+07:00",
+  "documents": [
+    {
+      "document": "W00",
+      "pdf_pages": 13,
+      "words_outside_page": []
+    },
+    {
+      "document": "W01",
+      "pdf_pages": 16,
+      "words_outside_page": []
+    }
+  ],
+  "report_manifest_valid": true,
+  "visual_inspection": "Final page renders inspected, table/diagram/acceptance flow compacted; no clipping or orphan acceptance-only pages observed.",
+  "tracker_blocking": []
+}

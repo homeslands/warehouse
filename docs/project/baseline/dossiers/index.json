@@ -1,0 +1,110 @@
+[
+  {
+    "wbs": "W00",
+    "name": "Chốt baseline thiết kế và điều kiện làm việc (rolling wave)",
+    "operations": 0,
+    "screens": 0,
+    "cases": 0,
+    "requirements": 3,
+    "dossier": "W00.md"
+  },
+  {
+    "wbs": "W01",
+    "name": "Ổn định gate và dựng harness kiểm thử",
+    "operations": 0,
+    "screens": 0,
+    "cases": 0,
+    "requirements": 0,
+    "dossier": "W01.md"
+  },
+  {
+    "wbs": "W02",
+    "name": "Nền kiến trúc, quyền, phiên, audit, tệp và quản trị",
+    "operations": 37,
+    "screens": 11,
+    "cases": 116,
+    "requirements": 22,
+    "dossier": "W02.md"
+  },
+  {
+    "wbs": "W03",
+    "name": "Danh mục, kho, vị trí và quy đổi",
+    "operations": 39,
+    "screens": 6,
+    "cases": 90,
+    "requirements": 47,
+    "dossier": "W03.md"
+  },
+  {
+    "wbs": "W04",
+    "name": "Nhập, xuất, lô, luân chuyển và sổ giá trị",
+    "operations": 21,
+    "screens": 5,
+    "cases": 63,
+    "requirements": 59,
+    "dossier": "W04.md"
+  },
+  {
+    "wbs": "W05",
+    "name": "Chu trình kiểm kho và điều chỉnh được duyệt",
+    "operations": 9,
+    "screens": 2,
+    "cases": 26,
+    "requirements": 30,
+    "dossier": "W05.md"
+  },
+  {
+    "wbs": "W06",
+    "name": "POS, sản phẩm, biến thể và định mức",
+    "operations": 13,
+    "screens": 2,
+    "cases": 34,
+    "requirements": 27,
+    "dossier": "W06.md"
+  },
+  {
+    "wbs": "W07",
+    "name": "Thu chi kho, thanh toán và công nợ",
+    "operations": 20,
+    "screens": 2,
+    "cases": 50,
+    "requirements": 52,
+    "dossier": "W07.md"
+  },
+  {
+    "wbs": "W08",
+    "name": "Cảnh báo nghiệp vụ và thông báo",
+    "operations": 3,
+    "screens": 1,
+    "cases": 11,
+    "requirements": 26,
+    "dossier": "W08.md"
+  },
+  {
+    "wbs": "W09",
+    "name": "Dashboard, báo cáo và xuất dữ liệu",
+    "operations": 14,
+    "screens": 1,
+    "cases": 33,
+    "requirements": 25,
+    "dossier": "W09.md"
+  },
+  {
+    "wbs": "W10",
+    "name": "Import Excel và hợp đồng tích hợp hoàn chỉnh",
+    "operations": 4,
+    "screens": 1,
+    "cases": 13,
+    "requirements": 4,
+    "dossier": "W10.md"
+  },
+  {
+    "wbs": "W11",
+    "name": "NFR, hồi quy, UAT và bàn giao local",
+    "operations": 1,
+    "screens": 1,
+    "cases": 28,
+    "requirements": 19,
+    "dossier": "W11.md"
+  }
+]

@@ -1,0 +1,17 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+<rect width="1200" height="760" fill="#f5f7fa"/>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#213b49;font-size:16px}.small{font-size:12px;fill:#607784}.title{font-size:28px;font-weight:bold}.on-primary{fill:white}</style>
+<rect x="0" y="0" width="1200" height="58" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<text x="24" y="35" class="">WAREHOUSE · MẪU THIẾT KẾ ĐƯỢC DUYỆT</text>
+<text x="760" y="35" class="small">Chưa phải ảnh ứng dụng chạy thật</text>
+<rect x="350" y="120" width="500" height="540" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<text x="390" y="176" class="title">Đăng nhập / Khóa phiên</text>
+<text x="390" y="225" class="">Số điện thoại</text>
+<rect x="390" y="243" width="420" height="48" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<text x="390" y="325" class="">Mật khẩu</text>
+<rect x="390" y="343" width="420" height="48" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<text x="390" y="430" class="small">Lỗi tại trường / thông báo chung an toàn</text>
+<rect x="390" y="480" width="420" height="48" rx="8" fill="#1677ff" stroke="#d4e1e8"/>
+<text x="535" y="511" class="on-primary">Đăng nhập</text>
+<text x="390" y="580" class="small">Cookie refresh không hiển thị trong giao diện</text>
+</svg>

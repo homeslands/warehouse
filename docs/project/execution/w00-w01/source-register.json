@@ -1,0 +1,62 @@
+[
+  {
+    "id": "SRC-01",
+    "title": "Baseline quyết định R2",
+    "path": ".agents/tasks/preimplementation-gates-20261105/approvals/r2/decision-pack.json",
+    "sha256": "a2f836650b3ced1b4b29a3bb8c03b55d29ca6b7ec74e2e616a59b8c758f9e070"
+  },
+  {
+    "id": "SRC-02",
+    "title": "Kế hoạch R2 đội1:1:1",
+    "path": ".agents/tasks/preimplementation-gates-20261105/planning/plan.json",
+    "sha256": "4e2297e24a97da80ef0df80739e9f1eef2d63113332940467d512717a95bddb5"
+  },
+  {
+    "id": "SRC-03",
+    "title": "Gate và bằng chứng",
+    "path": ".agents/tasks/preimplementation-gates-20261105/gates.json",
+    "sha256": "a3cdc81a6e40177766dcec4941bf38d85fb8849f7e6e94f1231ae3d15f9e719c"
+  },
+  {
+    "id": "SRC-04",
+    "title": "Dossier W00",
+    "path": ".agents/tasks/preimplementation-gates-20261105/dossiers/W00.json",
+    "sha256": "87d10bea82cf212635efa152b11f609f4234b970287f7b7e1e6603b0789fe275"
+  },
+  {
+    "id": "SRC-05",
+    "title": "Dossier W01",
+    "path": ".agents/tasks/preimplementation-gates-20261105/dossiers/W01.json",
+    "sha256": "63669bfa727f31b8f2226656553f9a712b4db46ad9318ad7533ec6b3dd529234"
+  },
+  {
+    "id": "SRC-06",
+    "title": "Fixture 8actor/3kho",
+    "path": ".agents/tasks/preimplementation-gates-20261105/qa/fixture-plan.json",
+    "sha256": "d78e5a2c5c021431b1128478a77470c24884d54117d95368ffb911d2a4825470"
+  },
+  {
+    "id": "SRC-07",
+    "title": "Grant test local",
+    "path": ".agents/tasks/preimplementation-gates-20261105/environment/HANDOFF.md",
+    "sha256": "20fd89e74b7c8e7b76240a2b8346cee60b8ff8dc70667613d5de7e6a69f9e1e6"
+  },
+  {
+    "id": "SRC-08",
+    "title": "Carryover upload",
+    "path": ".agents/tasks/preimplementation-gates-20261105/carryover-alignment.md",
+    "sha256": "bcd5421891a9124d9e03abd77372204ac9efec3b3a1c84d2d0db0315140e8314"
+  },
+  {
+    "id": "SRC-09",
+    "title": "Audit API compile cũ",
+    "path": ".agents/tasks/audit-20261104/evidence/api-typecheck.log",
+    "sha256": "0e330d011e92d3cc6354a8cd941ed5114a9c088e5dd6478634356914b01e8767"
+  },
+  {
+    "id": "SRC-10",
+    "title": "Audit UI full check cũ",
+    "path": ".agents/tasks/audit-20261104/evidence/ui-check.log",
+    "sha256": "dddce18843cea07d8f45e16ec8c83c0932e312ec0d2ea09d5c82a7ca58860ade"
+  }
+]

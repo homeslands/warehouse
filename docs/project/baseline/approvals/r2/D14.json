@@ -1,0 +1,44 @@
+{
+  "id": "D14",
+  "namespace": "DECISION",
+  "title": "Nghiệm thu bảo mật, audit, log và phục hồi",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Danh mục audit, masking/retention log, idle definition, token/session controls, TLS target; backup 30 ngày và archive ≥ 2 năm là hai chính sách khác nhau; ký RPO/RTO/protocol restore nếu chưa có.",
+  "source_reference": "D17 T352R2:R7, T358R4; D21 P5–P32 audit/outbox, P155–P156 phân vùng và clear log định kỳ, P178–P179 version; D23 ADR-003",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Chủ dữ liệu + Tech Lead + QA",
+  "affected_packages": [
+    "W00",
+    "W02",
+    "W11"
+  ],
+  "answer": "Chốt session30phút, audit cùng transaction, backup30ngày và lưu nghiệp vụ≥2năm.",
+  "rules": [
+    "Access JWT15phút chỉ trong memory; refresh tối đa7ngày trong cookie HttpOnly/Secure/SameSite=Lax ở môi trường HTTPS, rotation và reuse-revoke theo session family. Refresh cookie endpoints kiểm Origin/CSRF. Không lưu refresh token localStorage.",
+    "Idle30phút do server dựa hoạt động người dùng; polling/refresh không kéo dài idle. UI đồng bộ khóa/logout nhiều tab; mất quyền/logout-all vô hiệu session trên request tiếp theo.",
+    "Audit bắt buộc actor, action, entity/version, old/new đã che dữ liệu nhạy cảm, IP/UA/traceId và timestamp; audit/sổ nội bộ cùng transaction, outbox cho external service. Không ghi password/token/body tệp.",
+    "Backup01:00 Asia/Ho_Chi_Minh hằng ngày, giữ30bản ngày gần nhất, private DB+tệp; mục tiêu RPO≤24h, RTO≤4h và có restore drill. Chỉ viết/test cơ chế ở phase local, chưa bật lịch thật.",
+    "Nghiệp vụ và audit nghiệp vụ giữ≥2năm; archive chỉ chuyển lớp lưu, restore tra cứu được. Log kỹ thuật30ngày, security events90ngày; phân vùng/cleanup chỉ áp theo loại, không xóa nghiệp vụ bằng cron log.",
+    "HTTPS bắt buộc ở môi trường nghiệm thu vận hành; localhost test HTTP phải ghi rõ ngoại lệ môi trường, không gọi TLS PASS. Hai API public nhạy cảm phát hiện ở audit phải về default-deny theo matrix."
+  ],
+  "rationale": "Giữ ngưỡng SRS; thêm protocol rõ cho các phần logging/session/restore chưa được định nghĩa đủ để test.",
+  "change_control_id": "CR-D14-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Polling đều nhưng không thao tác30phút vẫn bị khóa ở server.",
+    "Rollback nghiệp vụ không để lại audit thành công hoặc outbox phát sai.",
+    "Restore đủ DB+tệp trong mục tiêu đã chốt; chưa chạy thì NOT_RUN."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "4c12f4f25921217f41e8e7b983314d4bcc760cac64380074cfaf77f33f6f7133"
+}

@@ -1,0 +1,705 @@
+[
+  {
+    "code": "ALERT_CONFIGURE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "setAlertSettings"
+    ]
+  },
+  {
+    "code": "ALERT_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listAlerts",
+      "markAlertRead"
+    ]
+  },
+  {
+    "code": "ARCHIVE_MANAGE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "requestArchive"
+    ]
+  },
+  {
+    "code": "AUDIT_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listAuditEvents"
+    ]
+  },
+  {
+    "code": "BACKUP_MANAGE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listBackupRequests",
+      "createBackupRequest",
+      "createRestoreRequest"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_APPROVE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "confirmStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_ASSIGN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listEligibleCounters"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_CANCEL",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "cancelStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_COMPLETE_ASSIGNED",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "submitStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createStocktake",
+      "startStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listStocktakes",
+      "getStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_READ_ASSIGNED",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listStocktakes",
+      "getStocktake"
+    ]
+  },
+  {
+    "code": "BALANCE_FORM_RECORD_COUNT_ASSIGNED",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "acknowledgementsStocktake",
+      "countsStocktake"
+    ]
+  },
+  {
+    "code": "EXCEL_IMPORT",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "getExcelTemplate",
+      "previewExcelImport",
+      "getExcelImportPreview",
+      "confirmExcelImport"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_CANCEL_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "cancelExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_CONFIRM",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "returnExportForm",
+      "confirmExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createExportForm",
+      "previewFefoExport"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listExportForms",
+      "getExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_SUBMIT_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "submitExportForm"
+    ]
+  },
+  {
+    "code": "EXPORT_FORM_UPDATE_DRAFT_OWN",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateExportForm"
+    ]
+  },
+  {
+    "code": "FILE_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "uploadFile"
+    ]
+  },
+  {
+    "code": "FILE_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "getFileMetadata",
+      "getFileAccess"
+    ]
+  },
+  {
+    "code": "FINANCE_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listSupplierTransactions"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_CANCEL_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "cancelImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_CONFIRM",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "returnImportForm",
+      "confirmImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listImportForms",
+      "getImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_SUBMIT_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "submitImportForm"
+    ]
+  },
+  {
+    "code": "IMPORT_FORM_UPDATE_DRAFT_OWN",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateImportForm"
+    ]
+  },
+  {
+    "code": "INVENTORY_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listInventory",
+      "listBatches",
+      "listInventoryHistory",
+      "getBatchTrace"
+    ]
+  },
+  {
+    "code": "JOB_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "getJob"
+    ]
+  },
+  {
+    "code": "LOG_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listTechnicalLogs"
+    ]
+  },
+  {
+    "code": "MANAGE_PERMISSIONS",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listAuthorities",
+      "listAuthorityGroups",
+      "updateAuthorityMetadata",
+      "putRoleAuthority",
+      "deleteRoleAuthority"
+    ]
+  },
+  {
+    "code": "MATERIAL_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createMaterial_materials",
+      "createNamedMaster_material_types",
+      "createPosition"
+    ]
+  },
+  {
+    "code": "MATERIAL_DELETE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "deleteMaterial_materials",
+      "deleteNamedMaster_material_types",
+      "deletePosition"
+    ]
+  },
+  {
+    "code": "MATERIAL_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listMaterials_materials",
+      "getMaterial_materials",
+      "listNamedMasters_material_types",
+      "getNamedMaster_material_types",
+      "listPositions"
+    ]
+  },
+  {
+    "code": "MATERIAL_UPDATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateMaterial_materials",
+      "updateNamedMaster_material_types",
+      "updatePosition",
+      "setConversion",
+      "setInventoryThresholds"
+    ]
+  },
+  {
+    "code": "PAYMENT_TERM_MANAGE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "createPaymentTerm"
+    ]
+  },
+  {
+    "code": "POS_EXPORT_CREATE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "posExport"
+    ]
+  },
+  {
+    "code": "POS_INVENTORY_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "posInventory"
+    ]
+  },
+  {
+    "code": "POS_RECIPE_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "posRecipe"
+    ]
+  },
+  {
+    "code": "PRODUCT_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listProducts",
+      "getProduct",
+      "getVariant"
+    ]
+  },
+  {
+    "code": "PRODUCT_SYNC",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "requestProductSync"
+    ]
+  },
+  {
+    "code": "RECIPE_CREATE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "copyRecipe"
+    ]
+  },
+  {
+    "code": "RECIPE_DELETE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "archiveRecipe"
+    ]
+  },
+  {
+    "code": "RECIPE_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "getRecipe",
+      "listRecipeHistory"
+    ]
+  },
+  {
+    "code": "RECIPE_UPDATE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "setVariantPricing",
+      "replaceRecipe"
+    ]
+  },
+  {
+    "code": "REPORT_CUSTOM",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "runCustomReport"
+    ]
+  },
+  {
+    "code": "REPORT_EXPORT",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "exportReport"
+    ]
+  },
+  {
+    "code": "REPORT_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "report_dashboard",
+      "report_inventory_movement",
+      "report_stock_value",
+      "report_imports",
+      "report_exports",
+      "report_stocktakes",
+      "report_supplier_performance",
+      "report_expiry",
+      "report_expense_revenue",
+      "report_debt",
+      "report_wastage"
+    ]
+  },
+  {
+    "code": "REPORT_SCHEDULE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "setReportSchedule"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_APPROVE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "returnRevenueForm",
+      "confirmRevenueForm"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_CANCEL_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "cancelRevenueForm"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_CREATE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "createRevenueForm",
+      "createRefundGroup"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_READ",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listRevenueForms",
+      "getRevenueForm",
+      "getRefundGroup"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_READ_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "listRevenueForms",
+      "getRevenueForm",
+      "getRefundGroup"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_SUBMIT_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "submitRevenueForm"
+    ]
+  },
+  {
+    "code": "REVENUE_FORM_UPDATE_DRAFT_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "updateRevenueForm"
+    ]
+  },
+  {
+    "code": "ROLE_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createRole"
+    ]
+  },
+  {
+    "code": "ROLE_DELETE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "deleteRole"
+    ]
+  },
+  {
+    "code": "ROLE_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listRoles",
+      "getRole"
+    ]
+  },
+  {
+    "code": "ROLE_UPDATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateRole"
+    ]
+  },
+  {
+    "code": "STORE_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "STORE_DELETE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "deleteNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "STORE_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listNamedMasters_stores",
+      "getNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "STORE_UPDATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateNamedMaster_stores"
+    ]
+  },
+  {
+    "code": "SUPPLIER_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createSupplier_suppliers"
+    ]
+  },
+  {
+    "code": "SUPPLIER_DELETE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "deleteSupplier_suppliers"
+    ]
+  },
+  {
+    "code": "SUPPLIER_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listSuppliers_suppliers",
+      "getSupplier_suppliers",
+      "listPaymentTerms"
+    ]
+  },
+  {
+    "code": "SUPPLIER_UPDATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateSupplier_suppliers"
+    ]
+  },
+  {
+    "code": "UNIT_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createUnit_units"
+    ]
+  },
+  {
+    "code": "UNIT_DELETE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "deleteUnit_units"
+    ]
+  },
+  {
+    "code": "UNIT_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listUnits_units",
+      "getUnit_units"
+    ]
+  },
+  {
+    "code": "UNIT_UPDATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateUnit_units"
+    ]
+  },
+  {
+    "code": "USER_CHANGE_PASSWORD",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "resetUserPassword"
+    ]
+  },
+  {
+    "code": "USER_CHANGE_ROLE",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "changeUserRole"
+    ]
+  },
+  {
+    "code": "USER_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createUser"
+    ]
+  },
+  {
+    "code": "USER_DELETE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "deleteUser"
+    ]
+  },
+  {
+    "code": "USER_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listUsers",
+      "getUser"
+    ]
+  },
+  {
+    "code": "USER_UPDATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateUser"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createWarehouse_warehouses"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_DELETE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "deleteWarehouse_warehouses"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_APPROVE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "returnExpenseForm",
+      "confirmExpenseForm",
+      "settleExpense"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_CANCEL_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "cancelExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_CREATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "createExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listExpenseForms",
+      "getExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_READ_OWN",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listExpenseForms",
+      "getExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_SUBMIT_OWN",
+    "status": "REQUIRES_CODE_AND_SEED_MIGRATION",
+    "used_by": [
+      "submitExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_PAYMENT_UPDATE_DRAFT_OWN",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateExpenseForm"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_READ",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "listWarehouses_warehouses",
+      "getWarehouse_warehouses"
+    ]
+  },
+  {
+    "code": "WAREHOUSE_UPDATE",
+    "status": "EXISTS_IN_SOURCE",
+    "used_by": [
+      "updateWarehouse_warehouses"
+    ]
+  }
+]

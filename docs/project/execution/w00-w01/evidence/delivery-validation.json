@@ -1,0 +1,17 @@
+{
+  "task_count": 9,
+  "microtask_count": 49,
+  "issue_count": 11,
+  "native_parent_links": 9,
+  "published_body_hashes_match": true,
+  "source_register_unchanged": true,
+  "application_source_files_unchanged": 1183,
+  "R2_readiness_bundle_unchanged": 146,
+  "W01_implementation_status_unchanged": true,
+  "html_broken_local_links": [],
+  "review_level": "AUTHOR_DOCUMENT_AND_PUBLICATION_CHECK_ONLY; NOT_APPLICATION_QA_OR_INDEPENDENT_REVIEW",
+  "initial_source_check_at": "2026-11-05T10:21:37+07:00",
+  "final_checked_at": "2026-11-05T10:29:55+07:00",
+  "final_source_changes": [],
+  "source_check_note": "Initial file-hash check passed at its recorded time; final concurrent changes are recorded separately, not overwritten or attributed to this task."
+}

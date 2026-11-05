@@ -1,0 +1,39 @@
+{
+  "id": "D20",
+  "namespace": "DECISION",
+  "title": "Chứng từ của phiếu chi tạo từ phiếu nhập",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Chặn khi lưu, chặn khi duyệt hay chỉ cảnh báo; áp cho loại chi nào.",
+  "source_reference": "BR-WAR-008 (T344R9), D13 P425 \"bắt buộc\" ↔ D17 T136R20 File \"✗\", P130 \"(optional)\", T140R4 cảnh báo \"Chứng từ thiếu\" (ngầm cho phép thiếu)",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Business Owner + BA",
+  "affected_packages": [
+    "W07",
+    "W08"
+  ],
+  "answer": "Chứng từ tài chính bắt buộc trước submit/confirm; draft có thể còn thiếu.",
+  "rules": [
+    "Mọi ExpenseForm và RevenueForm phải có≥1file hợp lệ theo D06 khi SUBMITTED/CONFIRMED; DRAFT thiếu file được lưu và hiển thị cảnh báo chặn gửi duyệt.",
+    "Expense tự sinh từ nhập có thể liên kết file chứng từ của nhập bằng reference có kiểm quyền và giữ bản chứng cứ; nếu nhập chưa có file thì expense ở DRAFT, không tự xác nhận.",
+    "Confirmed attachment bất biến; bổ sung/đính chính chứng cứ chỉ qua event audit append-only có quyền và không ghi đè tệp gốc."
+  ],
+  "rationale": "Giữ BR-WAR-008/009 và cho phép thao tác nháp trước khi đủ bộ chứng từ.",
+  "change_control_id": "CR-D20-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Draft thiếu file lưu được, submit bị chặn.",
+    "Attachment nhập được tham chiếu đúng quyền không bị upload nhân đôi để đủ điều kiện."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "2eb8b0743cd8c36b1b4781fb28073ec364af648445024d919af9a9630ebc14f5"
+}
