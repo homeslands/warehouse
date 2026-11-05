@@ -91,7 +91,8 @@ jobs:
       - name: Set up Node.js
         uses: actions/setup-node@v4
         with:
-          node-version: "22"
+          # Cùng bản Node với dev (`.nvmrc` = 24, `engines: >=24`), không hard-code.
+          node-version-file: app/warehouse-api/.nvmrc
 
       - name: Install BE dependencies
         working-directory: ./app/warehouse-api
@@ -101,6 +102,8 @@ jobs:
         working-directory: ./app/warehouse-api
         run: npm run build
 
-      # - name: Run BE tests
-      #   working-directory: ./app/warehouse-api
-      #   run: npm run test
+      # Unit test thuần (không cần MySQL/Redis). E2E harness (`test:e2e`) cần target DB test riêng
+      # nên KHÔNG chạy ở đây — xem app/warehouse-api/test/README-e2e.md.
+      - name: Run BE unit tests
+        working-directory: ./app/warehouse-api
+        run: npm test -- --ci
