@@ -139,13 +139,16 @@ describe('SupplierService', () => {
       });
 
       const { where } = supplierRepository.findAndCount.mock.calls[0][0];
-      expect(where).toHaveLength(3);
-      for (const branch of where) {
+      // Mỗi nhánh OR đúng 1 field tìm kiếm, theo thứ tự name / contactPerson / email.
+      const searchFields = ['name', 'contactPerson', 'email'];
+      expect(where).toHaveLength(searchFields.length);
+      where.forEach((branch: Record<string, { type: string; value: string }>, i: number) => {
+        expect(Object.keys(branch).sort()).toEqual(['phonenumber', searchFields[i]].sort());
+        expect(branch.phonenumber.type).toBe('like');
         expect(branch.phonenumber.value).toBe(String.raw`%02\%\_\\4%`);
-        const keyword = branch.name ?? branch.contactPerson ?? branch.email;
-        expect(keyword.type).toBe('like');
-        expect(keyword.value).toBe(String.raw`%a\%\_\\b%`);
-      }
+        expect(branch[searchFields[i]].type).toBe('like');
+        expect(branch[searchFields[i]].value).toBe(String.raw`%a\%\_\\b%`);
+      });
     });
 
     it('filters createdAt by startDate / endDate in every search branch, date-only endDate covers the whole day', async () => {

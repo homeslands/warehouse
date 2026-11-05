@@ -190,6 +190,7 @@ export class UserService {
    */
   private nameSearchWhere(base: FindOptionsWhere<User>, name: string): FindOptionsWhere<User>[] {
     // `Raw` dưới không cần `ESCAPE`: `escapeLike` dùng `\` — ký tự escape mặc định của LIKE MySQL.
+    // Giả định server KHÔNG bật sql_mode `NO_BACKSLASH_ESCAPES` (khi bật, LIKE không còn escape mặc định).
     const pattern = `%${escapeLike(name)}%`;
     return [
       { ...base, firstName: Like(pattern) },
