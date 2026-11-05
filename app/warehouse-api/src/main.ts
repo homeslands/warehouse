@@ -41,4 +41,5 @@ async function bootstrap() {
   await app.listen(port);
 }
 
-bootstrap();
+// [BE-TYPE-03] `void` đánh dấu bỏ qua có chủ ý; lỗi khởi động vẫn là unhandled rejection ⇒ process thoát như cũ.
+void bootstrap();
