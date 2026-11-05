@@ -35,3 +35,11 @@ Grant test WH-TEST-ENV-20261105 mô tả target local đã cấp cho workspace b
 ## Nguồn và tính toàn vẹn
 
 [PUBLICATION-MANIFEST](PUBLICATION-MANIFEST.json) ánh xạ source SHA256 → published SHA256. JSON/CSV/proto/SVG giữ byte gốc, trừ gap-register.csv audit chỉ bổ sung header evidence_view_key bị thiếu (giữ nguyên20dòng dữ liệu); Markdown/HTML chỉ điều chỉnh link, thêm note và vô hiệu khối lệnh tooling local không phát hành. PDF dựng lại từ HTML bản đọc với link HTTPS tới nhánh Git. Không đổi business rules/contract hoặc giả approval sản phẩm. Baseline hashes ở source-register/readiness-evidence là hash **nguồn gốc**, không phải checksum của file đọc đã chuyển link.
+
+## Cập nhật sau PUB-R1
+
+- **[PU-20261105-01](execution/w00-w01/progress-updates/PU-20261105-01.md)** (05/11/2026, Mekong-HCM)
+  - W01-BE #161/#162 đã merge (PR #190/#191) và đã xác minh sau merge. Hiện READY_FOR_QA, **chưa ACCEPTED**.
+  - FE/QA dùng harness `app/warehouse-api/test/README-e2e.md` (`npm run test:e2e:serve`).
+  - Receipt W00-FE/QA vẫn đang chờ.
+  - Bản cập nhật này làm `progress-state.json` và file này khác hash trong PUBLICATION-MANIFEST (manifest chỉ mô tả snapshot PUB-R1).
