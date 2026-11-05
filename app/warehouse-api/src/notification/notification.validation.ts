@@ -1,4 +1,4 @@
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const NOTIFICATION_NOT_FOUND = 'NOTIFICATION_NOT_FOUND';
 export const SENDER_NOT_FOUND = 'SENDER_NOT_FOUND';

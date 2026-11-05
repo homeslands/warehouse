@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 // Supplier Error Code 1012xx
 export const SUPPLIER_NOT_FOUND = 'SUPPLIER_NOT_FOUND';

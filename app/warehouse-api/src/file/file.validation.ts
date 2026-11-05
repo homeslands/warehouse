@@ -1,4 +1,4 @@
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const FILE_NOT_FOUND = 'FILE_NOT_FOUND';
 export const FILE_SIZE_EXCEEDS_LIMIT_ALLOWED = 'FILE_SIZE_EXCEEDS_LIMIT_ALLOWED';

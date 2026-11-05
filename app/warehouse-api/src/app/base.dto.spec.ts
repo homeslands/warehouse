@@ -1,6 +1,6 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { BaseQueryDto } from './base.dto';
+import { BaseQueryDto, MAX_PAGE_SIZE } from './base.dto';
 import { AppValidation } from './app.validation';
 import { GetAllImportFormRequestDto } from 'src/import-form/import-form.dto';
 
@@ -46,6 +46,48 @@ describe.each([
   // Query DTO của từng module kế thừa `BaseQueryDto` ⇒ nhận cùng key.
   it(`applies ${key} to subclasses (GetAllImportFormRequestDto)`, () => {
     expect(messagesOf(GetAllImportFormRequestDto, { [field]: '0' }, field)).toEqual([key]);
+  });
+});
+
+// Issue #179: `size` ≤ `MAX_PAGE_SIZE` (500); biên 500 qua, 501 chặn bằng cùng key SIZE_INVALID.
+describe('BaseQueryDto.size upper bound (issue #179)', () => {
+  it.each([
+    ['500', '500', 500],
+    ['number 500', 500, 500],
+  ])('accepts %s', (_label, value, expected) => {
+    const dto = plainToInstance(BaseQueryDto, { size: value });
+    expect(validateSync(dto, { whitelist: true })).toEqual([]);
+    expect(dto.size).toBe(expected);
+  });
+
+  it.each([
+    ['501', '501'],
+    ['number 501', 501],
+    ['1000000000', '1000000000'],
+  ])('rejects %s with SIZE_INVALID', (_label, value) => {
+    expect(messagesOf(BaseQueryDto, { size: value }, 'size')).toEqual(['SIZE_INVALID']);
+  });
+
+  it('caps at MAX_PAGE_SIZE = 500', () => {
+    expect(MAX_PAGE_SIZE).toBe(500);
+  });
+
+  it('applies the cap to subclasses (GetAllImportFormRequestDto)', () => {
+    expect(messagesOf(GetAllImportFormRequestDto, { size: '501' }, 'size')).toEqual([
+      'SIZE_INVALID',
+    ]);
+  });
+});
+
+// Issue #179: 4 key date/sort chuyển 400 → 422 (mặc định `createErrorCode`), giữ code + message.
+describe('BaseQueryDto date/sort error codes (issue #179)', () => {
+  it.each([
+    ['START_DATE_INVALID', 100850, 'startDate must be a valid date (YYYY-MM-DD or ISO 8601)'],
+    ['END_DATE_INVALID', 100851, 'endDate must be a valid date (YYYY-MM-DD or ISO 8601)'],
+    ['SORT_INVALID', 100852, 'sort must be ASC or DESC'],
+    ['SORT_BY_INVALID', 100853, 'sortBy is not supported by this endpoint'],
+  ])('%s is %d / 422 with the unchanged message', (key, code, message) => {
+    expect(AppValidation[key]).toEqual({ code, message, statusCode: 422 });
   });
 });
 

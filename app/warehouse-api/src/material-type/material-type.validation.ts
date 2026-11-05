@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const MATERIAL_TYPE_NOT_FOUND = 'MATERIAL_TYPE_NOT_FOUND';
 export const MATERIAL_TYPE_NAME_IS_REQUIRED = 'MATERIAL_TYPE_NAME_IS_REQUIRED';

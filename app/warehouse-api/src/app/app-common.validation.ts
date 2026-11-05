@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from './app.validation';
+import { createErrorCode, TErrorCodeValue } from './error-code.util';
 
 export const DATA_VERSION_CONFLICT = 'DATA_VERSION_CONFLICT';
 
@@ -29,27 +29,23 @@ export const AppCommonValidation: TAppCommonErrorCode = {
     HttpStatus.CONFLICT,
   ),
   // `BaseQueryDto` (`src/app/base.dto.ts`). 100801+ đã bị inventory dùng ⇒ nhảy lên 1008(5x).
+  // Mọi key query dưới đây trả 422 (mặc định của `createErrorCode`) — issue #179 thống nhất 4 key
+  // date/sort (trước đó 400) với page/size (#170) để status không phụ thuộc thứ tự field sai.
   START_DATE_INVALID: createErrorCode(
     100850,
     'startDate must be a valid date (YYYY-MM-DD or ISO 8601)',
-    HttpStatus.BAD_REQUEST,
   ),
   END_DATE_INVALID: createErrorCode(
     100851,
     'endDate must be a valid date (YYYY-MM-DD or ISO 8601)',
-    HttpStatus.BAD_REQUEST,
   ),
   // `BaseQueryDto.sort`.
-  SORT_INVALID: createErrorCode(100852, 'sort must be ASC or DESC', HttpStatus.BAD_REQUEST),
+  SORT_INVALID: createErrorCode(100852, 'sort must be ASC or DESC'),
   // `sortBy` của query DTO từng module (`<Module>SortBy`): sai giá trị enum (DTO) hoặc field mà
   // service không khai trong `buildSortOrder()`.
-  SORT_BY_INVALID: createErrorCode(
-    100853,
-    'sortBy is not supported by this endpoint',
-    HttpStatus.BAD_REQUEST,
-  ),
-  // `BaseQueryDto.page` / `.size` (mọi list endpoint): không phải số nguyên hoặc < 1. 422 (mặc định của
-  // `createErrorCode`) theo issue #170 — khác 4 key query phía trên vẫn trả 400.
+  SORT_BY_INVALID: createErrorCode(100853, 'sortBy is not supported by this endpoint'),
+  // `BaseQueryDto.page` / `.size` (mọi list endpoint): không phải số nguyên hoặc < 1 (#170); `size`
+  // còn bị chặn trên ở `MAX_PAGE_SIZE` = 500 (#179).
   PAGE_INVALID: createErrorCode(100854, 'page must be an integer >= 1'),
-  SIZE_INVALID: createErrorCode(100855, 'size must be an integer >= 1'),
+  SIZE_INVALID: createErrorCode(100855, 'size must be an integer between 1 and 500'),
 };

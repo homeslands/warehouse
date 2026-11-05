@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const UNIT_NOT_FOUND = 'UNIT_NOT_FOUND';
 export const UNIT_NAME_IS_REQUIRED = 'UNIT_NAME_IS_REQUIRED';
