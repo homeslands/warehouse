@@ -1,7 +1,10 @@
 import { matchesSearch } from '@/shared/lib/search-text'
 import type { InventoryItem } from '@/entities/inventory'
 
-/** Số vật tư của kho form tải về để chọn / tìm (BE chưa có tìm theo mã / tên cho kho — spec §4.9). */
+/**
+ * Số vật tư của kho form tải về để chọn / tìm (BE chưa có tìm theo mã / tên cho kho — spec §4.9).
+ * Không vượt 500: BE chặn `size` > `MAX_PAGE_SIZE` (500) bằng 422 `SIZE_INVALID` (100855, #179).
+ */
 export const EXPORT_STOCK_SIZE = 500
 
 /** Lọc tại chỗ theo mã hoặc tên, không phân biệt dấu / hoa thường; giữ thứ tự BE. Chuỗi trống → tất cả. */

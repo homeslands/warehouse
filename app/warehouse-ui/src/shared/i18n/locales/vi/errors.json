@@ -67,6 +67,7 @@
   "exampleNotFound": "Không tìm thấy example",
   "exampleNameDoesExist": "Tên example đã tồn tại",
   "exampleNameIsRequired": "Vui lòng nhập tên example",
+  "exampleVersionInvalid": "Phiên bản example bị thiếu hoặc không hợp lệ. Hãy tải lại rồi thử lại.",
   "dataVersionConflict": "Dữ liệu vừa bị người khác thay đổi. Hãy tải lại rồi thử lại.",
   "warehouseNotFound": "Không tìm thấy kho",
   "warehouseNameIsRequired": "Vui lòng nhập tên kho",
@@ -198,6 +199,7 @@
   "importFormCodeSearchInvalid": "Mã tìm kiếm chỉ gồm chữ, số, \"_\" và \"-\"",
   "importFormItemExpiryDateInvalid": "Hạn dùng của một dòng không hợp lệ hoặc trước ngày nhập",
   "importFormDateRangeInvalid": "Ngày bắt đầu không được sau ngày kết thúc",
+  "importFormVersionInvalid": "Thiếu hoặc sai phiên bản của phiếu nhập. Hãy tải lại rồi thử lại.",
   "inventoryNotFound": "Vật tư chưa được gắn vào kho này",
   "inventoryDoesExist": "Vật tư đã có ở kho này",
   "inventorySlugRequired": "Thiếu vật tư cần gắn",
@@ -220,6 +222,8 @@
   "endDateInvalid": "Ngày kết thúc không hợp lệ",
   "sortInvalid": "Thứ tự sắp xếp không hợp lệ",
   "sortByInvalid": "Không sắp xếp được theo cột này",
+  "pageInvalid": "Số trang không hợp lệ (phải là số nguyên từ 1)",
+  "sizeInvalid": "Số dòng mỗi trang phải là số nguyên từ 1 đến 500",
   "exportFormNotFound": "Không tìm thấy phiếu xuất (có thể đã bị xoá)",
   "exportFormCodeRequired": "Nhập mã phiếu",
   "exportFormCodeInvalid": "Mã phiếu gồm 2–32 ký tự chữ, số hoặc gạch ngang",
@@ -258,6 +262,7 @@
   "exportFormCodeSearchInvalid": "Mã tìm kiếm chỉ gồm chữ, số, \"_\" và \"-\"",
   "exportFormNotPending": "Phiếu chưa ở trạng thái Chờ duyệt — gửi duyệt trước khi xác nhận",
   "exportFormCannotBeCancelled": "Chỉ huỷ được phiếu Nháp hoặc Chờ duyệt",
+  "exportFormVersionInvalid": "Thiếu hoặc sai phiên bản của phiếu xuất. Hãy tải lại rồi thử lại.",
   "inventoryAvailableInsufficient": "Tồn kho khả dụng không đủ (đã trừ phần đang giữ chỗ)",
   "materialBatchInsufficient": "Các lô không đủ số lượng khả dụng (đã trừ phần đang giữ chỗ)"
 }
