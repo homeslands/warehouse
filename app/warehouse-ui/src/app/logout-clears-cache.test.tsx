@@ -1,12 +1,16 @@
+import { createSlice } from '@reduxjs/toolkit'
 import { QueryClientProvider } from '@tanstack/react-query'
 import { act, render, screen } from '@testing-library/react'
 import { HttpResponse, http as mswHttp } from 'msw'
 import { MemoryRouter } from 'react-router-dom'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { server } from '@/shared/test/msw'
-import { setCacheCleaner, useAuthStore } from '@/entities/session'
+import { useAuthStore } from '@/entities/session'
 import { ExamplesPage } from '@/pages/examples'
+import { wireClientStateLifecycle } from '@/app/client-state-lifecycle'
 import { queryClient } from '@/app/query-client'
+import { store } from '@/app/store'
+import { rootReducer } from '@/shared/store'
 
 // Test binding spec 2.2: "render danh sách, logout, kiểm tra cache rỗng". Sống ở tầng `app`
 // (không phải entities/session hay pages/examples) vì nó cần cả queryClient thật của app VÀ
@@ -27,6 +31,15 @@ import { queryClient } from '@/app/query-client'
 // giữ lại như một đảm bảo phòng thủ, để phiên mới luôn bắt đầu rỗng dù trang cũ có lỡ còn sống.
 const BASE = 'http://localhost:8085/api/v1'
 
+// Slice CHỈ dùng trong test (mock draft, M01 chưa có slice thật) để chứng minh logout purge Redux.
+const draftSlice = createSlice({
+  name: 'testDraft',
+  initialState: { dirty: false },
+  reducers: { touch: (state) => void (state.dirty = true) },
+})
+const selectDirty = rootReducer.inject(draftSlice).selector((s) => s.testDraft.dirty)
+let unwire: () => void = () => {}
+
 const example = {
   id: '1',
   slug: 'example-a',
@@ -37,9 +50,8 @@ const example = {
 }
 
 beforeEach(() => {
-  // Tiêm đúng như bootstrap.tsx thật — cleaner ở đây gọi queryClient.clear() thật,
-  // không phải mock, để test chứng minh cache thật sự rỗng sau logout + đăng nhập lại.
-  setCacheCleaner(() => queryClient.clear())
+  // Wiring giống hệt bootstrap.tsx (cùng hàm, cùng queryClient/store singleton của app) — không
+  // mock, để test chứng minh cả React Query lẫn Redux thật sự rỗng sau logout + đăng nhập lại.
 
   server.use(
     mswHttp.get(`${BASE}/examples`, () =>
@@ -65,15 +77,16 @@ beforeEach(() => {
     user: { userName: 'root', roleName: 'SUPER_ADMIN', scope: [] },
     status: 'authenticated',
   })
+  unwire = wireClientStateLifecycle({ queryClient, store })
 })
 
 afterEach(() => {
-  // queryClient và cleaner là singleton của tầng app — dọn lại để không rò sang file test khác.
+  // queryClient/store và wiring là singleton của tầng app — dọn lại để không rò sang file test khác.
+  unwire()
   queryClient.clear()
-  setCacheCleaner(() => {})
 })
 
-describe('logout xoá cache react-query (integration)', () => {
+describe('logout xoá cache react-query và client state Redux (integration)', () => {
   it('trang cũ vẫn mounted lúc logout — phiên mới vẫn không thấy dữ liệu của phiên trước', async () => {
     const view = render(
       <QueryClientProvider client={queryClient}>
@@ -85,6 +98,8 @@ describe('logout xoá cache react-query (integration)', () => {
 
     await screen.findByText('Example A')
     expect(queryClient.getQueryCache().getAll().length).toBeGreaterThan(0)
+    store.dispatch(draftSlice.actions.touch())
+    expect(selectDirty(store.getState())).toBe(true)
 
     // KHÔNG unmount ở đây — đúng luồng thật là trang vẫn còn mounted lúc người dùng bấm logout.
     // ExamplesPage chỉ đọc `user` từ useAuthStore (để hiện/ẩn nút Tạo) — logout() set user về
@@ -95,6 +110,8 @@ describe('logout xoá cache react-query (integration)', () => {
     act(() => {
       void useAuthStore.getState().logout()
     })
+    // Logout thật → Redux purge ngay (screen-contracts R2: logout purge query/Redux/draft).
+    expect(selectDirty(store.getState())).toBe(false)
 
     // Bắt đầu phiên của người dùng kế tiếp trên cùng tab — đúng lúc sản phẩm cam kết cache rỗng.
     act(() => {
