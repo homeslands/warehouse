@@ -39,7 +39,21 @@ export default defineConfig(({ mode, command }) => {
                 test: /node_modules[\\/](i18next|i18next-browser-languagedetector|react-i18next)[\\/]/,
                 priority: 20,
               },
-              { name: 'vendor', test: /node_modules/, priority: 10 },
+              {
+                // Redux Toolkit (D08, #242 M01/M02): store dựng ngay ở bootstrap → chunk riêng, tải ngay.
+                name: 'redux',
+                test: /node_modules[\\/](@reduxjs|redux|redux-thunk|reselect|immer|react-redux)[\\/]/,
+                priority: 20,
+              },
+              {
+                // KHÔNG gom antd / @ant-design / @rc-component / dayjs (chỉ antd dùng) vào nhóm nào:
+                // gom thì component chỉ màn `lazy` dùng (Form, Input, Card… của UI-01/UI-02) bị kéo
+                // vào chunk tải ngay cùng `ConfigProvider`. Để rolldown tự chia theo import động
+                // (#242 M02, F4 của M01: vendor 332 → 685 kB khi còn gom chung).
+                name: 'vendor',
+                test: /node_modules[\\/](?!antd[\\/]|@ant-design[\\/]|@rc-component[\\/]|dayjs[\\/])/,
+                priority: 10,
+              },
             ],
           },
         },
