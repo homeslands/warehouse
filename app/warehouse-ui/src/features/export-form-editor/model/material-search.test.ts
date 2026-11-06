@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest'
 import type { InventoryItem } from '@/entities/inventory'
-import { baseUnitSlugOf, filterStock } from './material-search'
+import { EXPORT_STOCK_SIZE, baseUnitSlugOf, filterStock } from './material-search'
 
 const item = (code: string, name: string, extra: Partial<InventoryItem> = {}): InventoryItem =>
   ({
@@ -49,5 +49,12 @@ describe('baseUnitSlugOf', () => {
     expect(baseUnitSlugOf(item('A', 'a'))).toBe('u-kg')
     expect(baseUnitSlugOf(item('A', 'a', { baseUnit: null }))).toBe('u-kg')
     expect(baseUnitSlugOf(item('A', 'a', { baseUnit: null, units: [] }))).toBe('')
+  })
+})
+
+describe('EXPORT_STOCK_SIZE', () => {
+  it('không vượt giới hạn `size` của BE (500) — vượt là 422 SIZE_INVALID, ô chọn vật tư trống', () => {
+    expect(EXPORT_STOCK_SIZE).toBeGreaterThanOrEqual(1)
+    expect(EXPORT_STOCK_SIZE).toBeLessThanOrEqual(500)
   })
 })

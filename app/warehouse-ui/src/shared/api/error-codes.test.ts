@@ -1,6 +1,7 @@
-import { describe, expect, it } from 'vitest'
+import { describe, expect, it, vi } from 'vitest'
 import enErrors from '@/shared/i18n/locales/en/errors.json'
 import viErrors from '@/shared/i18n/locales/vi/errors.json'
+import i18n from '@/shared/i18n'
 import { resolveApiErrorMessage } from '@/shared/lib/api-error-message'
 import { apiError } from '@/shared/test/api'
 import { ERROR_CODE_KEYS } from './error-codes'
@@ -198,5 +199,76 @@ describe('ERROR_CODE_KEYS — phiếu xuất (WMS-21)', () => {
     expect(key).toBeDefined()
     expect(viErrors[key]).toBeTruthy()
     expect(enErrors[key as keyof typeof enErrors]).toBeTruthy()
+  })
+})
+
+/**
+ * #172 — BE #170/#179: `page`/`size` (mọi list endpoint) và `version` (PATCH / đổi trạng thái
+ * phiếu) từ 400 KHÔNG có `code` chuyển sang 422 kèm mã; 4 mã date/sort chuyển 400 → 422 (mã giữ
+ * nguyên). Nguồn: warehouse-api src/app/app-common.validation.ts, import-form / export-form /
+ * example `*.validation.ts`.
+ */
+describe('ERROR_CODE_KEYS — 422 query chung + version (#172)', () => {
+  it.each([
+    [100854, 'pageInvalid', 'Số trang không hợp lệ (phải là số nguyên từ 1)'],
+    [100855, 'sizeInvalid', 'Số dòng mỗi trang phải là số nguyên từ 1 đến 500'],
+    [
+      101334,
+      'importFormVersionInvalid',
+      'Thiếu hoặc sai phiên bản của phiếu nhập. Hãy tải lại rồi thử lại.',
+    ],
+    [
+      101439,
+      'exportFormVersionInvalid',
+      'Thiếu hoặc sai phiên bản của phiếu xuất. Hãy tải lại rồi thử lại.',
+    ],
+    [
+      999904,
+      'exampleVersionInvalid',
+      'Phiên bản example bị thiếu hoặc không hợp lệ. Hãy tải lại rồi thử lại.',
+    ],
+  ] as const)('mã %i → khoá %s, có bản dịch vi và en', (code, key, viText) => {
+    expect(ERROR_CODE_KEYS[code]).toBe(key)
+    expect(viErrors[key]).toBe(viText)
+    expect(enErrors[key]).toBeTruthy()
+    expect(enErrors[key]).not.toBe(viErrors[key])
+  })
+
+  it.each([
+    [100850, 'startDateInvalid'],
+    [100851, 'endDateInvalid'],
+    [100852, 'sortInvalid'],
+    [100853, 'sortByInvalid'],
+  ] as const)('mã date/sort %i (400 → 422, mã không đổi) vẫn → khoá %s', (code, key) => {
+    expect(ERROR_CODE_KEYS[code]).toBe(key)
+    expect(viErrors[key]).toBeTruthy()
+    expect(enErrors[key]).toBeTruthy()
+  })
+
+  it.each([
+    [100854, 'Số trang không hợp lệ (phải là số nguyên từ 1)'],
+    [100855, 'Số dòng mỗi trang phải là số nguyên từ 1 đến 500'],
+    [101334, 'Thiếu hoặc sai phiên bản của phiếu nhập. Hãy tải lại rồi thử lại.'],
+    [101439, 'Thiếu hoặc sai phiên bản của phiếu xuất. Hãy tải lại rồi thử lại.'],
+    [100852, 'Thứ tự sắp xếp không hợp lệ'],
+  ])(
+    'response 422 mã %i → câu tiếng Việt, không rơi về message backend',
+    async (code, expected) => {
+      const warn = vi.spyOn(console, 'warn').mockImplementation(() => {})
+      const error = await apiError(422, code, 'page must be an integer >= 1').json()
+      expect(resolveApiErrorMessage(error)).toBe(expected)
+      expect(warn).not.toHaveBeenCalled()
+      warn.mockRestore()
+    },
+  )
+
+  it('đổi ngôn ngữ sang en → câu tiếng Anh của bản dịch, không phải message backend', async () => {
+    const error = await apiError(422, 100855, 'size must be an integer between 1 and 500').json()
+    await i18n.changeLanguage('en')
+    try {
+      expect(resolveApiErrorMessage(error)).toBe(enErrors.sizeInvalid)
+    } finally {
+      await i18n.changeLanguage('vi')
+    }
   })
 })
