@@ -11,6 +11,7 @@ import { renderWithRouter, type TestAuth } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
 import { mockMobileViewport } from '@/shared/test/viewport'
 import { ExportFormsPage } from './ExportFormsPage'
+import { fillText } from '@/shared/test/fill'
 
 // jsdom không đo kích thước — giả kết quả đo "vừa / không vừa một hàng". Mặc định: vừa.
 const fit = vi.hoisted(() => ({ fits: true }))
@@ -466,16 +467,19 @@ describe('ExportFormsPage — toast sau khi lưu', () => {
 
   async function fillCreate(user: ReturnType<typeof renderPage>['user']) {
     await user.click(await screen.findByRole('button', { name: 'Tạo phiếu xuất' }))
-    await screen.findByRole('dialog', { name: 'Tạo phiếu xuất · Kho A' })
-    await user.click(await screen.findByRole('radio', { name: 'Sản xuất' }))
-    await user.type(screen.getByRole('textbox', { name: /^Người nhận/ }), 'Xưởng 1')
-    await user.type(screen.getByRole('textbox', { name: /^Số PO/ }), 'PO-12')
-    await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
-    await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
+    // Truy vấn trong sheet, không cả màn hình: tính tên truy cập luôn cả trang danh sách phía sau (#163: profile
+    // ~1s queryAllByRole mỗi lần fillCreate khi chạy coverage).
+    const sheet = await screen.findByRole('dialog', { name: 'Tạo phiếu xuất · Kho A' })
+    await user.click(await within(sheet).findByRole('radio', { name: 'Sản xuất' }))
+    await fillText(user, within(sheet).getByRole('textbox', { name: /^Người nhận/ }), 'Xưởng 1')
+    await fillText(user, within(sheet).getByRole('textbox', { name: /^Số PO/ }), 'PO-12')
+    await user.click(within(sheet).getByRole('button', { name: 'Tiếp tục' }))
+    await user.click(await within(sheet).findByRole('combobox', { name: 'Vật tư dòng 1' }))
+    // Danh sách vật tư mở trong portal, nằm ngoài sheet.
     await user.click(await screen.findByRole('option', { name: /VT-01 · Bột mì/ }))
-    await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
-    await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
-    await screen.findByRole('heading', { name: 'Kiểm tra phiếu xuất' })
+    await fillText(user, within(sheet).getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
+    await user.click(within(sheet).getByRole('button', { name: 'Tiếp tục' }))
+    await within(sheet).findByRole('heading', { name: 'Kiểm tra phiếu xuất' })
   }
 
   async function save(user: ReturnType<typeof renderPage>['user'], label: string) {
