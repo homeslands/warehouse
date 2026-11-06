@@ -647,6 +647,9 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
         )
       )[0].n,
     );
+    // Follow-up re-review I-02a: khẳng định trên MySQL thật rằng collation coi biến thể bằng số ASCII (rủi ro
+    // M2 có thật), không chỉ ghi record.
+    expect(collationMatches).toBe(1);
     const before = await countSessions(fixture.ids.SUP_B);
 
     const ip = '198.51.100.77';
@@ -687,11 +690,17 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
     expect(variantStatuses.slice(0, 18).every((status) => status === 401)).toBe(true);
     expect(variantStatuses.slice(18)).toEqual([429, 429]);
     expect(await countSessions(fixture.ids.SUP_B)).toBe(before);
+
+    // Chiều NAT (follow-up re-review): bucket sai định dạng của IP này đã cạn (429) nhưng người dùng hợp lệ
+    // sau cùng IP (khác identifier, đúng định dạng) vẫn đăng nhập được.
+    const sameIpUser = await login('SUP_A1', ip);
+    expect(sameIpUser.sessionId).toBeDefined();
     writeEvidence('I02-R2-M2-digit-variants', {
       case: 'TC-AUTH-08 + review M2',
       level: 'REAL_RPC_DB_REDIS',
       mysqlCollationTreatsVariantsEqual: collationMatches > 0,
       variantsLoggedIn: false,
+      validLoginSameIpAfterMalformedBucketExhausted: true,
       malformedBucketLimitedAfter: 20,
     });
   });

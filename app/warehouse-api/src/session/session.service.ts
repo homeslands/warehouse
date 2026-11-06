@@ -472,6 +472,14 @@ export class SessionService {
   }
 
   /** Hash bcrypt của chuỗi ngẫu nhiên, tạo 1 lần/instance, chỉ để cân thời gian khi không có user. */
+  /**
+   * Tạo sẵn hash giả bcrypt khi khởi động (review I-02a Info), để request "user không tồn tại" đầu tiên không
+   * chậm hơn các request khác. Composition root gọi 1 lần; không gọi thì vẫn tạo lười như cũ.
+   */
+  async warmUp(): Promise<void> {
+    await this.fakeHash();
+  }
+
   private fakeHash(): Promise<string> {
     this.dummyHash ??= bcrypt.hash(uuidv4(), this.saltRounds);
     return this.dummyHash;
