@@ -24,3 +24,9 @@ coverage/
 *.njsproj
 *.sln
 *.sw?
+
+# Playwright browser smoke (e2e/) — report/trace/screenshot là evidence local, không commit
+/playwright-report/
+/test-results/
+/blob-report/
+/playwright/.cache/
