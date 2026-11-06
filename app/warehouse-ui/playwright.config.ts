@@ -15,6 +15,7 @@ import { assertLoopbackApi, fixtureSecretPath } from './e2e/support/real-api'
  * - `WH_E2E_EVIDENCE_DIR`: thư mục tuyệt đối ngoài repo để ghi report/trace/screenshot; mặc định
  *   `playwright-report/` + `test-results/` (đã gitignore).
  * - retries 0: test FAIL không được retry thành PASS nghiệm thu.
+ * - trace chỉ giữ khi FAIL (chứa mật khẩu actor) — xem `shared.trace`.
  */
 const secretFile = fixtureSecretPath()
 // Chỉ đọc `baseUrl` (không phải secret) để dựng proxy. Thiếu biến ⇒ proxy trống ⇒ Vite từ chối
@@ -34,7 +35,9 @@ const shared = {
   timezoneId: 'Asia/Ho_Chi_Minh',
   // Chặn service worker để không có gì (kể cả MSW) chen vào giữa trang và API thật.
   serviceWorkers: 'block',
-  trace: 'on',
+  // Trace ghi giá trị `fill` (mật khẩu) và body `POST /auth/login` ⇒ chỉ giữ khi test FAIL. Run PASS
+  // không còn trace; run có trace thì phải reseed (khởi động lại harness) để vô hiệu mật khẩu.
+  trace: 'retain-on-failure',
   screenshot: 'on',
   video: 'off',
 } as const
