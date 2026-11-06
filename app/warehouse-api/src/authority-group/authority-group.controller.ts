@@ -4,6 +4,8 @@ import { AppResponseDto } from 'src/app/app.dto';
 import { ApiResponseWithType } from 'src/app/app.decorator';
 import { AuthorityGroupService } from './authority-group.service';
 import { AuthorityGroupResponseDto } from './authority-group.dto';
+import { RequireAuthority } from 'src/authority/authority.decorator';
+import { AuthorityCode } from 'src/authority/authority.constants';
 
 @ApiTags('Authority Group')
 @Controller('authority-groups')
@@ -11,7 +13,10 @@ import { AuthorityGroupResponseDto } from './authority-group.dto';
 export class AuthorityGroupController {
   constructor(private readonly authorityGroupService: AuthorityGroupService) {}
 
+  // F-196-01 (#197 I-03a): R2 `listAuthorityGroups` yêu cầu MANAGE_PERMISSIONS (trước chỉ cần JWT). FE @4335203
+  // không gọi route này.
   @Get()
+  @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all authority groups' })
   @ApiResponseWithType({

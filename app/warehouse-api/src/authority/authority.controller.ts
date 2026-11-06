@@ -27,7 +27,10 @@ import {
 export class AuthorityController {
   constructor(private readonly authorityService: AuthorityService) {}
 
+  // F-196-01 (#197 I-03a): R2 `listAuthorities` yêu cầu MANAGE_PERMISSIONS; trước đây chỉ cần JWT. FE chỉ gọi
+  // `GET /authorities` từ màn `/permissions`, vốn đã gác bằng MANAGE_PERMISSIONS ⇒ không phá FE.
   @Get()
+  @RequireAuthority(AuthorityCode.ManagePermissions)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Get all authorities (optionally filter by group)' })
   @ApiResponseWithType({

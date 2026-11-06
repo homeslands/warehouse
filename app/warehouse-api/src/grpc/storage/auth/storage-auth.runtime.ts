@@ -7,6 +7,10 @@ import { RedisFixedWindowRateLimiter } from 'src/session/rate-limiter';
 import { ACCESS_TOKEN_SECRET_MIN_LENGTH, SESSION_CONFIG_KEYS } from 'src/session/session.constants';
 import { Clock, systemClock } from 'src/session/session.policy';
 import { SessionService } from 'src/session/session.service';
+import { AuthorityV1Service } from 'src/rbac-v1/authority-v1.service';
+import { RedisLegacyRbacCacheInvalidator } from 'src/rbac-v1/legacy-rbac-cache';
+import { RoleV1Service } from 'src/rbac-v1/role-v1.service';
+import { createStorageRbacHandlers } from '../rbac/storage-rbac.handlers';
 import { createStorageAuthHandlers } from './storage-auth.handlers';
 
 /** Cấu hình phiên phía Storage (W02 I-02b). Đọc qua ConfigService; sai ⇒ lỗi khi khởi động (fail-closed). */
@@ -62,8 +66,15 @@ export interface StorageAuthRuntimeOptions {
   config: StorageSessionConfig;
   /** Đồng hồ: production dùng `systemClock`; test inject để kiểm idle/hết hạn không sleep. */
   clock?: Clock;
+  /**
+   * Client Redis của DB cache RBAC **legacy** (`REDIS_AUTH_DB`) — để xoá cache legacy sau khi v1 đổi quyền
+   * (I-03a). Có thể khác client rate limit.
+   */
+  legacyRbacRedis: Redis;
   /** Log lỗi không lường trước của handler (chỉ tên RPC/traceId/tên lỗi). */
   logError(message: string): void;
+  /** Log cảnh báo (vd xoá cache legacy lỗi). */
+  logWarn(message: string): void;
 }
 
 export interface StorageAuthRuntime {
@@ -88,8 +99,23 @@ export async function createStorageAuthRuntime(
     saltRounds: options.config.saltRounds,
   });
   await sessions.warmUp();
+  const legacyCache = new RedisLegacyRbacCacheInvalidator(
+    options.legacyRbacRedis,
+    options.dataSource,
+    options.logWarn,
+  );
+  const base = { sessions, clock, logError: options.logError };
   return {
     sessions,
-    handlers: createStorageAuthHandlers({ sessions, clock, logError: options.logError }),
+    handlers: {
+      ...createStorageAuthHandlers(base),
+      // I-03a: RBAC v1 (role/authority/permission). Key RPC không trùng với nhóm phiên.
+      ...createStorageRbacHandlers({
+        ...base,
+        dataSource: options.dataSource,
+        roles: new RoleV1Service(options.dataSource, legacyCache, clock),
+        authorities: new AuthorityV1Service(options.dataSource),
+      }),
+    },
   };
 }
