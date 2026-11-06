@@ -1,102 +1,127 @@
 import { createHmac, timingSafeEqual } from 'crypto';
 
 /**
- * Phần Gateway của refresh cookie + CSRF + Origin (W02 I-02; business-rules §21, D14 mục 1, OpenAPI
- * `RefreshCookie` = cookie `wh_refresh`). Không cần dependency mới: cookie đọc thủ công từ header `Cookie`
+ * Phần Gateway của refresh cookie + CSRF + Origin (W02 I-02/I-02b; business-rules §21, D14 mục 1, OpenAPI
+ * `RefreshCookie` = cookie `wh_refresh`; ở HTTPS dùng tên có tiền tố — xem `CookieProfile`). Không cần dependency mới: cookie đọc thủ công từ header `Cookie`
  * (không dùng `cookie-parser`), CSRF là HMAC của Node `crypto`.
  *
  * Gateway HTTP v1 (controller + đặt cookie trên response) làm ở I-02b; file này là primitive đã test.
  */
-export const REFRESH_COOKIE_NAME = 'wh_refresh';
 export const REFRESH_COOKIE_PATH = '/api/v1/auth';
-/** Giá trị cookie hợp lệ = refresh token base64url 43 ký tự (xem `generateRefreshToken`). */
-const REFRESH_COOKIE_VALUE = /^[A-Za-z0-9_-]{43}$/;
+const CSRF_COOKIE_PATH = '/';
+/** Giá trị cookie hợp lệ = token base64url 43 ký tự (refresh token, CSRF HMAC). */
+const COOKIE_TOKEN_VALUE = /^[A-Za-z0-9_-]{43}$/;
 
-export interface RefreshCookieOptions {
+/**
+ * Tên cookie theo chế độ Secure (review I-02b L2 — chống cookie tossing từ subdomain cùng site):
+ * - Secure (mọi môi trường HTTPS): refresh `__Secure-wh_refresh` (giữ `Path=/api/v1/auth` của R2 — `__Host-`
+ *   bắt buộc `Path=/` nên không dùng được cho refresh; lệch tên `wh_refresh` của OpenAPI, DEV-197-20), CSRF
+ *   `__Host-wh_csrf` (host-only, `Path=/`, không có `Domain`: subdomain KHÔNG đặt được cookie này).
+ *   Cookie không tiền tố (`wh_refresh`) do subdomain/HTTP đặt bị bỏ qua hoàn toàn.
+ * - Không Secure (chỉ localhost HTTP dev/test, `GATEWAY_COOKIE_SECURE=false`): `wh_refresh` / `wh_csrf` —
+ *   trình duyệt từ chối cookie có tiền tố nếu thiếu `Secure`.
+ */
+export interface CookieProfile {
+  secure: boolean;
+  refreshName: string;
+  csrfName: string;
+}
+
+export const SECURE_COOKIE_PROFILE: CookieProfile = {
+  secure: true,
+  refreshName: '__Secure-wh_refresh',
+  csrfName: '__Host-wh_csrf',
+};
+export const INSECURE_DEV_COOKIE_PROFILE: CookieProfile = {
+  secure: false,
+  refreshName: 'wh_refresh',
+  csrfName: 'wh_csrf',
+};
+
+export function cookieProfile(secure: boolean): CookieProfile {
+  return secure ? SECURE_COOKIE_PROFILE : INSECURE_DEV_COOKIE_PROFILE;
+}
+
+const PREFIXED = /^__(Secure|Host)-/;
+
+/** Fail-closed: Secure ⇒ cả 2 tên phải có tiền tố (CSRF phải `__Host-`); không Secure ⇒ không tiền tố. */
+export function assertCookieProfile(profile: CookieProfile): void {
+  const refreshPrefixed = PREFIXED.test(profile.refreshName);
+  const csrfHostOnly = profile.csrfName.startsWith('__Host-');
+  if (profile.secure && (!refreshPrefixed || !csrfHostOnly))
+    throw new RangeError('secure cookies must use __Secure-/__Host- prefixed names');
+  if (!profile.secure && (refreshPrefixed || PREFIXED.test(profile.csrfName)))
+    throw new RangeError('prefixed cookie names require Secure');
+}
+
+export interface CookieOptions {
   /** Giây còn lại tới `expiresAt` của phiên (Max-Age). */
   maxAgeSeconds: number;
-  /**
-   * `Secure` bắt buộc ở mọi môi trường nghiệm thu (D14 mục 6: HTTPS). Chỉ tắt cho localhost HTTP test và phải
-   * ghi ngoại lệ môi trường.
-   */
-  secure: boolean;
 }
 
-/** `Set-Cookie` cho refresh token: HttpOnly; SameSite=Lax; Path=/api/v1/auth; Secure (business-rules §21). */
-export function buildRefreshCookie(token: string, options: RefreshCookieOptions): string {
-  if (!REFRESH_COOKIE_VALUE.test(token))
-    throw new RangeError('refresh token has an invalid format');
-  if (!Number.isSafeInteger(options.maxAgeSeconds) || options.maxAgeSeconds < 0)
+function assertMaxAge(maxAgeSeconds: number): void {
+  if (!Number.isSafeInteger(maxAgeSeconds) || maxAgeSeconds < 0)
     throw new RangeError('maxAgeSeconds must be a non-negative integer');
-  return serializeCookie(token, options.maxAgeSeconds, options.secure);
 }
 
-/** `Set-Cookie` xoá cookie (logout/logout-all/refresh lỗi 401). */
-export function buildClearedRefreshCookie(secure: boolean): string {
-  return serializeCookie('', 0, secure);
-}
-
-function serializeCookie(value: string, maxAgeSeconds: number, secure: boolean): string {
-  return serializeNamedCookie(REFRESH_COOKIE_NAME, value, {
+/** `Set-Cookie` refresh: HttpOnly; SameSite=Lax; Path=/api/v1/auth; Secure (business-rules §21). */
+export function buildRefreshCookie(
+  token: string,
+  options: CookieOptions,
+  profile: CookieProfile,
+): string {
+  assertCookieProfile(profile);
+  if (!COOKIE_TOKEN_VALUE.test(token)) throw new RangeError('refresh token has an invalid format');
+  assertMaxAge(options.maxAgeSeconds);
+  return serializeNamedCookie(profile.refreshName, token, {
     path: REFRESH_COOKIE_PATH,
-    maxAgeSeconds,
-    secure,
+    maxAgeSeconds: options.maxAgeSeconds,
+    secure: profile.secure,
     httpOnly: true,
   });
 }
 
 /**
- * Đọc refresh token từ header `Cookie` (RFC 6265 `name=value; name=value`). Trả `undefined` nếu:
- * - không có cookie `wh_refresh`;
- * - có NHIỀU hơn 1 cookie `wh_refresh` (cookie tossing từ subdomain/path khác — không đoán cái nào đúng);
- * - giá trị không đúng định dạng refresh token.
- * Không decode %-encoding (token base64url không cần); không ném lỗi.
+ * Cookie CSRF đọc được bằng JS (DEV-197-08: FE lấy lại `csrfToken` sau reload). KHÔNG `HttpOnly` có chủ đích;
+ * giá trị là HMAC gắn với refresh cookie hiện hành (signed double-submit). Gateway KHÔNG so header với cookie
+ * này, chỉ so với HMAC của refresh cookie. Ở chế độ Secure là `__Host-wh_csrf`: subdomain không đặt được, nên
+ * FE chỉ đọc CSRF do chính host này phát.
  */
-export function readRefreshCookie(cookieHeader: string | string[] | undefined): string | undefined {
-  if (cookieHeader === undefined) return undefined;
-  const header = Array.isArray(cookieHeader) ? cookieHeader.join('; ') : cookieHeader;
-  const values: string[] = [];
-  for (const pair of header.split(';')) {
-    const separator = pair.indexOf('=');
-    if (separator < 0) continue;
-    if (pair.slice(0, separator).trim() === REFRESH_COOKIE_NAME)
-      values.push(pair.slice(separator + 1).trim());
-  }
-  if (values.length !== 1) return undefined;
-  return REFRESH_COOKIE_VALUE.test(values[0]) ? values[0] : undefined;
+export function buildCsrfCookie(
+  csrfToken: string,
+  options: CookieOptions,
+  profile: CookieProfile,
+): string {
+  assertCookieProfile(profile);
+  if (!COOKIE_TOKEN_VALUE.test(csrfToken)) throw new RangeError('CSRF token has an invalid format');
+  assertMaxAge(options.maxAgeSeconds);
+  return serializeNamedCookie(profile.csrfName, csrfToken, {
+    path: CSRF_COOKIE_PATH,
+    maxAgeSeconds: options.maxAgeSeconds,
+    secure: profile.secure,
+    httpOnly: false,
+  });
 }
 
 /**
- * Cookie CSRF đọc được bằng JS (I-02b, DEV-197-08: FE lấy lại `csrfToken` sau reload). KHÔNG `HttpOnly` có
- * chủ đích; giá trị là HMAC gắn với refresh cookie hiện hành (signed double-submit) nên:
- * - origin khác không đọc được cookie của site ⇒ không dựng được header `X-CSRF-Token`;
- * - subdomain/MITM có ghi đè được cookie này cũng không tính được HMAC đúng cho refresh cookie (HttpOnly) ⇒
- *   Gateway vẫn từ chối (Gateway KHÔNG so header với cookie này, chỉ so với HMAC của refresh cookie).
- * `Path=/` để trang FE đọc được; `SameSite=Lax`, `Secure` như refresh cookie.
+ * `Set-Cookie` xoá mọi biến thể host-only mà Gateway có thể xoá: cookie của profile hiện tại, và ở chế độ Secure
+ * cả tên không tiền tố (cookie cũ/HTTP). Cookie `Domain=<parent>` do subdomain đặt KHÔNG xoá được từ host này
+ * (Gateway không biết domain cha) — rủi ro DoS còn lại ghi ở DEV-197-08.
  */
-export const CSRF_COOKIE_NAME = 'wh_csrf';
-const CSRF_COOKIE_PATH = '/';
-const CSRF_VALUE = /^[A-Za-z0-9_-]{43}$/;
-
-export function buildCsrfCookie(csrfToken: string, options: RefreshCookieOptions): string {
-  if (!CSRF_VALUE.test(csrfToken)) throw new RangeError('CSRF token has an invalid format');
-  if (!Number.isSafeInteger(options.maxAgeSeconds) || options.maxAgeSeconds < 0)
-    throw new RangeError('maxAgeSeconds must be a non-negative integer');
-  return serializeNamedCookie(CSRF_COOKIE_NAME, csrfToken, {
-    path: CSRF_COOKIE_PATH,
-    maxAgeSeconds: options.maxAgeSeconds,
-    secure: options.secure,
-    httpOnly: false,
-  });
-}
-
-export function buildClearedCsrfCookie(secure: boolean): string {
-  return serializeNamedCookie(CSRF_COOKIE_NAME, '', {
-    path: CSRF_COOKIE_PATH,
-    maxAgeSeconds: 0,
-    secure,
-    httpOnly: false,
-  });
+export function buildClearedCookies(profile: CookieProfile): string[] {
+  assertCookieProfile(profile);
+  const clear = (name: string, path: string, httpOnly: boolean, secure: boolean) =>
+    serializeNamedCookie(name, '', { path, maxAgeSeconds: 0, secure, httpOnly });
+  const cookies = [
+    clear(profile.refreshName, REFRESH_COOKIE_PATH, true, profile.secure),
+    clear(profile.csrfName, CSRF_COOKIE_PATH, false, profile.secure),
+  ];
+  if (profile.secure)
+    cookies.push(
+      clear(INSECURE_DEV_COOKIE_PROFILE.refreshName, REFRESH_COOKIE_PATH, true, true),
+      clear(INSECURE_DEV_COOKIE_PROFILE.csrfName, CSRF_COOKIE_PATH, false, true),
+    );
+  return cookies;
 }
 
 interface CookieAttributes {
@@ -116,6 +141,35 @@ function serializeNamedCookie(name: string, value: string, attributes: CookieAtt
   parts.push('SameSite=Lax');
   if (attributes.secure) parts.push('Secure');
   return parts.join('; ');
+}
+
+export type RefreshCookieRead =
+  | { status: 'ok'; token: string }
+  | { status: 'missing' }
+  /** Nhiều cookie cùng tên (cookie tossing / Domain khác) hoặc giá trị sai định dạng. */
+  | { status: 'conflict' };
+
+/**
+ * Đọc refresh token từ header `Cookie` (RFC 6265 `name=value; name=value`) theo đúng tên của profile; tên khác
+ * (vd `wh_refresh` không tiền tố khi Secure) bị bỏ qua. Nhiều giá trị cùng tên ⇒ `conflict` (không đoán cái nào
+ * đúng). Không decode %-encoding; không ném lỗi.
+ */
+export function readRefreshCookie(
+  cookieHeader: string | string[] | undefined,
+  profile: CookieProfile,
+): RefreshCookieRead {
+  if (cookieHeader === undefined) return { status: 'missing' };
+  const header = Array.isArray(cookieHeader) ? cookieHeader.join('; ') : cookieHeader;
+  const values: string[] = [];
+  for (const pair of header.split(';')) {
+    const separator = pair.indexOf('=');
+    if (separator < 0) continue;
+    if (pair.slice(0, separator).trim() === profile.refreshName)
+      values.push(pair.slice(separator + 1).trim());
+  }
+  if (values.length === 0) return { status: 'missing' };
+  if (values.length > 1 || !COOKIE_TOKEN_VALUE.test(values[0])) return { status: 'conflict' };
+  return { status: 'ok', token: values[0] };
 }
 
 const CSRF_CONTEXT = 'wh-csrf-v1:';

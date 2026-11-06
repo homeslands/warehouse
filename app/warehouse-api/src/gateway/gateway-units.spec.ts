@@ -1,7 +1,6 @@
 import { ValidationPipe } from '@nestjs/common';
 import { AppValidation } from 'src/app/app.validation';
 import { createErrorCode } from 'src/app/error-code.util';
-import { CSRF_COOKIE_NAME, buildCsrfCookie } from 'src/grpc/gateway/auth/refresh-cookie';
 import {
   GatewayMappingError,
   toActionResult,
@@ -207,13 +206,5 @@ describe('Gateway v1 units (W02 I-02b)', () => {
       );
       expect(() => pipe2.transform('x')).toThrow(GatewayException);
     });
-  });
-
-  it('builds the readable CSRF cookie (not HttpOnly, Path=/)', () => {
-    const token = 'A'.repeat(43);
-    expect(buildCsrfCookie(token, { maxAgeSeconds: 10, secure: true })).toBe(
-      `${CSRF_COOKIE_NAME}=${token}; Path=/; Max-Age=10; SameSite=Lax; Secure`,
-    );
-    expect(() => buildCsrfCookie('bad;x', { maxAgeSeconds: 1, secure: true })).toThrow(RangeError);
   });
 });

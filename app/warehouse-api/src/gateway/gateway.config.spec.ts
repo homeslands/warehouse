@@ -43,6 +43,10 @@ describe('readGatewayConfig (fail-closed Gateway v1 configuration)', () => {
     expect(read({ GATEWAY_TRUST_PROXY: 'loopback, 10.0.0.0/8' }).trustProxy).toBe(
       'loopback,10.0.0.0/8',
     );
+    expect(read({ GATEWAY_TRUST_PROXY: '10.0.0.0/8,fc00::/16, 192.168.1.10' }).trustProxy).toBe(
+      '10.0.0.0/8,fc00::/16,192.168.1.10',
+    );
+    expect(read({ GATEWAY_TRUST_PROXY: '3' }).trustProxy).toBe(3);
     expect(read({ GATEWAY_TRUST_PROXY: '1', GATEWAY_PORT: '8086' })).toMatchObject({
       trustProxy: 1,
       port: 8086,
@@ -68,7 +72,14 @@ describe('readGatewayConfig (fail-closed Gateway v1 configuration)', () => {
     ],
     ['bad cookie flag', { GATEWAY_COOKIE_SECURE: 'yes' }, 'GATEWAY_COOKIE_SECURE'],
     ['bad trust proxy', { GATEWAY_TRUST_PROXY: 'everyone' }, 'GATEWAY_TRUST_PROXY'],
-    ['too many hops', { GATEWAY_TRUST_PROXY: '11' }, 'GATEWAY_TRUST_PROXY'],
+    ['too many hops', { GATEWAY_TRUST_PROXY: '4' }, 'GATEWAY_TRUST_PROXY'],
+    ['zero hops', { GATEWAY_TRUST_PROXY: '0' }, 'GATEWAY_TRUST_PROXY'],
+    ['IPv4 /0', { GATEWAY_TRUST_PROXY: '0.0.0.0/0' }, 'GATEWAY_TRUST_PROXY'],
+    ['IPv6 /0', { GATEWAY_TRUST_PROXY: '::/0' }, 'GATEWAY_TRUST_PROXY'],
+    ['IPv4 prefix too short', { GATEWAY_TRUST_PROXY: '10.0.0.0/7' }, 'GATEWAY_TRUST_PROXY'],
+    ['IPv6 prefix too short', { GATEWAY_TRUST_PROXY: 'fc00::/15' }, 'GATEWAY_TRUST_PROXY'],
+    ['mixed list with /0', { GATEWAY_TRUST_PROXY: 'loopback, 0.0.0.0/0' }, 'GATEWAY_TRUST_PROXY'],
+    ['not an IP', { GATEWAY_TRUST_PROXY: '999.1.1.1/8' }, 'GATEWAY_TRUST_PROXY'],
     ['bad port', { GATEWAY_PORT: '70000' }, 'GATEWAY_PORT'],
   ])('rejects %s without echoing the value', (_name, overrides, key) => {
     let error: unknown;

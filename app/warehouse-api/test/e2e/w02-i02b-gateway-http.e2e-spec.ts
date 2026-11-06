@@ -36,6 +36,9 @@ const MINUTE = 60_000;
 const REDIS_NAMESPACE = 'wh:preimpl:20261105:';
 const ALLOWED_ORIGIN = 'https://wh.example.test';
 const API = '/api/v1';
+/** Tên cookie ở cấu hình Secure (review I-02b L2): refresh `__Secure-`, CSRF `__Host-`. */
+const REFRESH = '__Secure-wh_refresh';
+const CSRF = '__Host-wh_csrf';
 
 class ManualClock {
   private current = new Date();
@@ -97,7 +100,7 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     const cookies = setCookies(response);
     return {
       access: response.body.result.accessToken,
-      refresh: cookies.wh_refresh.value,
+      refresh: cookies[REFRESH].value,
       csrf: response.body.result.csrfToken,
       sessionId: response.body.result.sessionId,
       response,
@@ -112,7 +115,7 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     ip = nextIp(),
   ) => {
     const headers: Record<string, string> = { 'X-Forwarded-For': ip };
-    if (cookie !== undefined) headers.Cookie = `wh_refresh=${cookie}`;
+    if (cookie !== undefined) headers.Cookie = `${REFRESH}=${cookie}`;
     if (csrf !== undefined) headers['X-CSRF-Token'] = csrf;
     if (origin !== null) headers.Origin = origin;
     return http().post(`${API}/auth/refresh`).set(headers);
@@ -244,21 +247,21 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     expect(JSON.stringify(body)).not.toMatch(/refresh/i);
 
     const cookies = setCookies(issued.response);
-    expect(cookies.wh_refresh.value).toMatch(/^[A-Za-z0-9_-]{43}$/);
-    expect(cookies.wh_refresh.attributes).toEqual(
+    expect(cookies[REFRESH].value).toMatch(/^[A-Za-z0-9_-]{43}$/);
+    expect(cookies[REFRESH].attributes).toEqual(
       expect.arrayContaining(['Path=/api/v1/auth', 'HttpOnly', 'SameSite=Lax', 'Secure']),
     );
     const maxAge = Number(
-      cookies.wh_refresh.attributes.find((a) => a.startsWith('Max-Age='))?.slice(8),
+      cookies[REFRESH].attributes.find((a) => a.startsWith('Max-Age='))?.slice(8),
     );
     expect(maxAge).toBeGreaterThan(7 * 24 * 3600 - 60);
     expect(maxAge).toBeLessThanOrEqual(7 * 24 * 3600);
-    // DEV-197-08: cookie CSRF đọc được bằng JS (không HttpOnly), Path=/, giá trị = csrfToken trong JSON.
-    expect(cookies.wh_csrf.value).toBe(body.result.csrfToken);
-    expect(cookies.wh_csrf.attributes).toEqual(
+    // DEV-197-08: cookie CSRF `__Host-` đọc được bằng JS (không HttpOnly), Path=/, giá trị = csrfToken JSON.
+    expect(cookies[CSRF].value).toBe(body.result.csrfToken);
+    expect(cookies[CSRF].attributes).toEqual(
       expect.arrayContaining(['Path=/', 'SameSite=Lax', 'Secure']),
     );
-    expect(cookies.wh_csrf.attributes).not.toContain('HttpOnly');
+    expect(cookies[CSRF].attributes).not.toContain('HttpOnly');
     const claims = JSON.parse(
       Buffer.from(body.result.accessToken.split('.')[1], 'base64url').toString('utf8'),
     );
@@ -269,8 +272,8 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
       level: 'REAL_API_DB_REDIS (localhost HTTP)',
       status: issued.response.status,
       resultKeys: Object.keys(body.result).sort(),
-      refreshCookieAttributes: cookies.wh_refresh.attributes,
-      csrfCookieAttributes: cookies.wh_csrf.attributes,
+      refreshCookieAttributes: cookies[REFRESH].attributes,
+      csrfCookieAttributes: cookies[CSRF].attributes,
       accessTtlSeconds: claims.exp - claims.iat,
       userFieldsReturned: Object.keys(body.result.user).sort(),
     });
@@ -343,11 +346,11 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     expect(rows[0].usedAt).toBeNull();
     expect(rows[0].current).not.toBeNull();
 
-    // Đối chứng: cùng cookie + Origin đúng + CSRF đọc lại từ cookie `wh_csrf` (kịch bản reload) ⇒ 200, rotate.
-    const csrfFromCookie = setCookies(issued.response).wh_csrf.value;
+    // Đối chứng: cùng cookie + Origin đúng + CSRF đọc lại từ cookie `__Host-wh_csrf` (kịch bản reload) ⇒ 200, rotate.
+    const csrfFromCookie = setCookies(issued.response)[CSRF].value;
     const ok = await refreshCall(issued.refresh, csrfFromCookie);
     expect(ok.status).toBe(200);
-    expect(setCookies(ok).wh_refresh.value).not.toBe(issued.refresh);
+    expect(setCookies(ok)[REFRESH].value).not.toBe(issued.refresh);
     expect(ok.body.result.csrfToken).not.toBe(issued.csrf);
     expect(await hashRows(issued.sessionId)).toHaveLength(2);
     writeEvidence('TC-AUTH-04-http', {
@@ -369,11 +372,11 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     const reuse = await refreshCall(issued.refresh, issued.csrf);
     expectErrorEnvelope(reuse, 401, 'SESSION_REFRESH_TOKEN_REUSED');
     const cleared = setCookies(reuse);
-    expect(cleared.wh_refresh).toMatchObject({ value: '' });
-    expect(cleared.wh_refresh.attributes).toContain('Max-Age=0');
-    expect(cleared.wh_csrf.attributes).toContain('Max-Age=0');
+    expect(cleared[REFRESH]).toMatchObject({ value: '' });
+    expect(cleared[REFRESH].attributes).toContain('Max-Age=0');
+    expect(cleared[CSRF].attributes).toContain('Max-Age=0');
 
-    const afterReuse = await refreshCall(next.wh_refresh.value, rotated.body.result.csrfToken);
+    const afterReuse = await refreshCall(next[REFRESH].value, rotated.body.result.csrfToken);
     expectErrorEnvelope(afterReuse, 401, 'SESSION_REVOKED');
     const protectedCall = await http()
       .get(`${API}/sessions`)
@@ -395,7 +398,7 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     const r1 = await refreshCall(issued.refresh, issued.csrf);
     expect(r1.status).toBe(200);
     clock.advance(15 * MINUTE);
-    const r2 = await refreshCall(setCookies(r1).wh_refresh.value, r1.body.result.csrfToken);
+    const r2 = await refreshCall(setCookies(r1)[REFRESH].value, r1.body.result.csrfToken);
     expect(r2.status).toBe(200);
     const poll = await http()
       .get(`${API}/sessions`)
@@ -406,10 +409,7 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
       .get(`${API}/sessions`)
       .set('Authorization', bearer(r2.body.result.accessToken));
     expectErrorEnvelope(idle, 401, 'SESSION_IDLE_EXPIRED');
-    const idleRefresh = await refreshCall(
-      setCookies(r2).wh_refresh.value,
-      r2.body.result.csrfToken,
-    );
+    const idleRefresh = await refreshCall(setCookies(r2)[REFRESH].value, r2.body.result.csrfToken);
     expectErrorEnvelope(idleRefresh, 401, 'SESSION_IDLE_EXPIRED');
 
     // Hoạt động tương tác thật (POST /auth/activity) mới gia hạn.
@@ -445,7 +445,7 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     expect(out.body.result).toMatchObject({ id: a.sessionId, status: 'REVOKED' });
     expect(Object.keys(out.body.result).sort()).toEqual(['id', 'status', 'traceId', 'version']);
     expect(out.body.result.version).toBeGreaterThanOrEqual(2);
-    expect(setCookies(out).wh_refresh.attributes).toContain('Max-Age=0');
+    expect(setCookies(out)[REFRESH].attributes).toContain('Max-Age=0');
     const next = await http().get(`${API}/sessions`).set('Authorization', bearer(b.access));
     expectErrorEnvelope(next, 401, 'SESSION_REVOKED');
     const again = await http()
@@ -590,7 +590,7 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
     const lock = await http().post(`${API}/auth/lock`).set('Authorization', bearer(mine.access));
     expect(lock.status).toBe(200);
     expect(lock.body.result).toMatchObject({ status: 'LOCKED' });
-    expect(setCookies(lock).wh_refresh.attributes).toContain('Max-Age=0');
+    expect(setCookies(lock)[REFRESH].attributes).toContain('Max-Age=0');
     expectErrorEnvelope(
       await http().get(`${API}/sessions`).set('Authorization', bearer(mine.access)),
       401,
@@ -718,6 +718,52 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
       badUuid: badId.status,
       sortByName: sortByName.body.errors,
       getProfile: profile.status,
+    });
+  });
+
+  it('L2 (review I-02b) cookie tossing: unprefixed cookie ignored, duplicate prefixed cookie rejected, no rotation', async () => {
+    const victim = await login('SUP_A1');
+    // SUP_A2 đã đổi mật khẩu ở case TC-AUTH-07 ⇒ dùng actor khác.
+    const attacker = await login('MANAGER_A');
+    // (a) Cookie không tiền tố (kiểu subdomain/HTTP đặt) — dù là token hợp lệ + CSRF đúng — bị bỏ qua.
+    const unprefixed = await http()
+      .post(`${API}/auth/refresh`)
+      .set({
+        'X-Forwarded-For': nextIp(),
+        Origin: ALLOWED_ORIGIN,
+        Cookie: `wh_refresh=${attacker.refresh}`,
+        'X-CSRF-Token': attacker.csrf,
+      });
+    expectErrorEnvelope(unprefixed, 401, 'GATEWAY_REFRESH_COOKIE_MISSING');
+    // (b) 2 cookie `__Secure-wh_refresh` (host-only của nạn nhân + Domain=parent của kẻ tấn công) ⇒ từ chối,
+    // xoá mọi biến thể host-only, không rotate token nào.
+    const tossed = await http()
+      .post(`${API}/auth/refresh`)
+      .set({
+        'X-Forwarded-For': nextIp(),
+        Origin: ALLOWED_ORIGIN,
+        Cookie: `${REFRESH}=${victim.refresh}; ${REFRESH}=${attacker.refresh}`,
+        'X-CSRF-Token': attacker.csrf,
+      });
+    expectErrorEnvelope(tossed, 401, 'GATEWAY_REFRESH_COOKIE_CONFLICT');
+    const cleared = setCookies(tossed);
+    expect(Object.keys(cleared).sort()).toEqual([CSRF, REFRESH, 'wh_csrf', 'wh_refresh'].sort());
+    for (const cookie of Object.values(cleared)) expect(cookie.attributes).toContain('Max-Age=0');
+    for (const sessionId of [victim.sessionId, attacker.sessionId]) {
+      const rows = await hashRows(sessionId);
+      expect(rows).toHaveLength(1);
+      expect(rows[0].usedAt).toBeNull();
+    }
+    // Cookie CSRF luôn là `__Host-` (subdomain không đặt được) ⇒ FE không đọc được CSRF do kẻ khác cài.
+    expect(setCookies(victim.response)[CSRF]).toBeDefined();
+    expect(setCookies(victim.response).wh_csrf).toBeUndefined();
+    writeEvidence('I02B-R2-L2-cookie-tossing', {
+      case: 'review I-02b L2',
+      level: 'REAL_API_DB_REDIS (localhost HTTP)',
+      unprefixedCookie: unprefixed.body.errorKey,
+      duplicatePrefixedCookie: tossed.body.errorKey,
+      clearedVariants: Object.keys(cleared).sort(),
+      rotated: false,
     });
   });
 

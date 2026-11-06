@@ -1,10 +1,12 @@
 import { Metadata, status as GrpcStatus } from '@grpc/grpc-js';
 import { Inject, Injectable } from '@nestjs/common';
 import {
-  buildClearedCsrfCookie,
-  buildClearedRefreshCookie,
+  assertCookieProfile,
+  buildClearedCookies,
   buildCsrfCookie,
   buildRefreshCookie,
+  CookieProfile,
+  cookieProfile,
   deriveCsrfToken,
   isValidCsrfToken,
   readRefreshCookie,
@@ -69,6 +71,7 @@ const OK = 200;
 export class GatewayAuthService {
   private readonly tokens: AccessTokenService;
   private readonly refreshLimiter: RateLimiter;
+  private readonly cookies: CookieProfile;
 
   constructor(
     @Inject(GATEWAY_CONFIG) private readonly config: GatewayConfig,
@@ -77,6 +80,9 @@ export class GatewayAuthService {
   ) {
     this.tokens = new AccessTokenService(config.accessTokenSecret, clock);
     this.refreshLimiter = new InMemoryFixedWindowRateLimiter(clock);
+    // Secure ⇒ tên `__Secure-`/`__Host-`; sai cặp ⇒ ném lỗi khi dựng (fail-closed, review I-02b L2).
+    this.cookies = cookieProfile(config.cookieSecure);
+    assertCookieProfile(this.cookies);
   }
 
   async login(
@@ -100,11 +106,17 @@ export class GatewayAuthService {
     await this.throttleRefresh(context);
     if (!this.config.originAllowlist.allows(headers.origin))
       throw new GatewayException(GatewayValidation.GATEWAY_ORIGIN_REJECTED);
-    const refreshToken = readRefreshCookie(headers.cookie);
-    if (!refreshToken) {
+    const read = readRefreshCookie(headers.cookie, this.cookies);
+    if (read.status !== 'ok') {
+      // Thiếu, hoặc nhiều cookie cùng tên (cookie tossing) ⇒ không đoán; xoá mọi biến thể host-only xoá được.
       setCookies(this.clearedCookies());
-      throw new GatewayException(GatewayValidation.GATEWAY_REFRESH_COOKIE_MISSING);
+      throw new GatewayException(
+        read.status === 'missing'
+          ? GatewayValidation.GATEWAY_REFRESH_COOKIE_MISSING
+          : GatewayValidation.GATEWAY_REFRESH_COOKIE_CONFLICT,
+      );
     }
+    const refreshToken = read.token;
     if (!isValidCsrfToken(this.config.csrfSecret, refreshToken, headers.csrfToken))
       throw new GatewayException(GatewayValidation.GATEWAY_CSRF_INVALID);
 
@@ -299,20 +311,16 @@ export class GatewayAuthService {
       Math.floor((expiresAt - this.clock.now().getTime()) / MS_PER_SECOND),
     );
     const csrfToken = deriveCsrfToken(this.config.csrfSecret, refreshToken);
-    const cookieOptions = { maxAgeSeconds, secure: this.config.cookieSecure };
     const result = toLoginResult(response.result, csrfToken);
     setCookies([
-      buildRefreshCookie(refreshToken, cookieOptions),
-      buildCsrfCookie(csrfToken, cookieOptions),
+      buildRefreshCookie(refreshToken, { maxAgeSeconds }, this.cookies),
+      buildCsrfCookie(csrfToken, { maxAgeSeconds }, this.cookies),
     ]);
     return v1Success(result, context.traceId, message, OK, this.clock.now());
   }
 
   private clearedCookies(): string[] {
-    return [
-      buildClearedRefreshCookie(this.config.cookieSecure),
-      buildClearedCsrfCookie(this.config.cookieSecure),
-    ];
+    return buildClearedCookies(this.cookies);
   }
 }
 

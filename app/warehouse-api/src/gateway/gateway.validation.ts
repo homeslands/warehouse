@@ -71,6 +71,12 @@ export const GatewayValidation = {
     'Service temporarily unavailable',
     HttpStatus.SERVICE_UNAVAILABLE,
   ),
+  GATEWAY_REFRESH_COOKIE_CONFLICT: code(
+    118310,
+    'GATEWAY_REFRESH_COOKIE_CONFLICT',
+    'Authentication required',
+    HttpStatus.UNAUTHORIZED,
+  ),
 } as const satisfies Record<string, GatewayErrorCodeValue>;
 
 /** `FieldError.errorKey` cho lỗi validation ở biên Gateway (ngoài các key `SESSION_*` dùng chung với Storage). */
