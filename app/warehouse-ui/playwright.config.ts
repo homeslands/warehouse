@@ -12,10 +12,11 @@ import { assertLoopbackApi, fixtureSecretPath } from './e2e/support/real-api'
  * - API origin lấy từ `baseUrl` trong file fixture (chỉ loopback). `vite preview` proxy `/api` tới
  *   đó, nên trình duyệt gọi cùng origin `http://localhost:<port>` (CORS harness chỉ cho localhost).
  * - `WH_E2E_UI_PORT` (mặc định 5186): cổng riêng của `vite preview`, KHÔNG dùng lại server đang chạy.
- * - `WH_E2E_EVIDENCE_DIR`: thư mục tuyệt đối ngoài repo để ghi report/trace/screenshot; mặc định
- *   `playwright-report/` + `test-results/` (đã gitignore).
+ * - `WH_E2E_EVIDENCE_DIR`: thư mục tuyệt đối ngoài repo để ghi results.json/trace/screenshot; mặc định
+ *   `test-results/` (đã gitignore).
  * - retries 0: test FAIL không được retry thành PASS nghiệm thu.
  * - trace chỉ giữ khi FAIL (chứa mật khẩu actor) — xem `shared.trace`.
+ * - Không dùng HTML reporter: nó luôn ghi step `Fill "<mật khẩu>"`, kể cả khi run PASS.
  */
 const secretFile = fixtureSecretPath()
 // Chỉ đọc `baseUrl` (không phải secret) để dựng proxy. Thiếu biến ⇒ proxy trống ⇒ Vite từ chối
@@ -27,7 +28,6 @@ const apiUrl = secretFile
 const uiPort = Number(process.env.WH_E2E_UI_PORT ?? '5186')
 const E2E_DIST = 'node_modules/.e2e-dist'
 const evidenceDir = process.env.WH_E2E_EVIDENCE_DIR
-const reportDir = evidenceDir ? resolve(evidenceDir, 'html-report') : 'playwright-report'
 const outputDir = evidenceDir ? resolve(evidenceDir, 'test-results') : 'test-results'
 
 const shared = {
@@ -52,11 +52,7 @@ export default defineConfig({
   forbidOnly: true,
   timeout: 60_000,
   expect: { timeout: 10_000 },
-  reporter: [
-    ['list'],
-    ['html', { outputFolder: reportDir, open: 'never' }],
-    ['json', { outputFile: resolve(outputDir, 'results.json') }],
-  ],
+  reporter: [['list'], ['json', { outputFile: resolve(outputDir, 'results.json') }]],
   use: {
     ...shared,
     baseURL: `http://localhost:${uiPort}`,
