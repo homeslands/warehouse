@@ -186,8 +186,9 @@ function sessionActionRuns(sessions: SessionService): Record<string, RpcRun> {
     );
   return {
     Logout: action('revocation', (principal) => sessions.logout(principal)),
-    Logoutall: action('revocation', (principal) => sessions.logoutAll(principal)),
-    Lock: action('revocation', (principal) => sessions.lock(principal)),
+    // Review I-02a M1: logout-all và lock cần phiên còn dùng được; chỉ logout (chạm đúng phiên đó) lặp được.
+    Logoutall: action('strict', (principal) => sessions.logoutAll(principal)),
+    Lock: action('strict', (principal) => sessions.lock(principal)),
     ChangeOwnPassword: action('strict', (principal, request) =>
       sessions.changeOwnPassword(principal, parsePasswordChangeInput(request.data)),
     ),

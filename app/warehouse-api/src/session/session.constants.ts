@@ -31,6 +31,18 @@ export const REFRESH_RATE_LIMIT: RateLimitRule = { limit: 30, windowMs: MINUTE_M
  * (30/phút/session) — DEV-197-10, chờ BA/Tech Lead chốt.
  */
 export const ACTIVITY_RATE_LIMIT: RateLimitRule = { limit: 30, windowMs: MINUTE_MS };
+/**
+ * Số lần thử đổi mật khẩu (so mật khẩu hiện tại) mỗi user mỗi phút. R2 không cho con số — tạm 10/phút
+ * (DEV-197-13, review I-02a L2), chờ BA/Tech Lead chốt.
+ */
+export const CHANGE_PASSWORD_RATE_LIMIT: RateLimitRule = { limit: 10, windowMs: MINUTE_MS };
+
+/**
+ * Định dạng identifier khi login: OpenAPI R2 `User.phoneNumber` (`^\+?[0-9]{9,15}$`), chỉ chữ số ASCII
+ * (bao trùm regex legacy `VN_PHONENUMBER_REGEX`). Chặn biến thể fullwidth/Arabic-Indic mà collation
+ * `utf8mb4_0900_ai_ci` coi là bằng nhau (review I-02a M2).
+ */
+export const LOGIN_PHONE_NUMBER_FORMAT = /^\+?[0-9]{9,15}$/;
 
 export const PASSWORD_MIN_CHARACTERS = 12;
 export const PASSWORD_MAX_UTF8_BYTES = 72;

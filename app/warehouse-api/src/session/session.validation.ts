@@ -135,6 +135,18 @@ export const SessionValidation = {
     'Service temporarily unavailable',
     GrpcStatus.UNAVAILABLE,
   ),
+  SESSION_CLIENT_IP_MISSING: code(
+    118219,
+    'SESSION_CLIENT_IP_MISSING',
+    'Service temporarily unavailable',
+    GrpcStatus.UNAVAILABLE,
+  ),
+  SESSION_CHANGE_PASSWORD_RATE_LIMITED: code(
+    118220,
+    'SESSION_CHANGE_PASSWORD_RATE_LIMITED',
+    'Too many password change attempts, please try again later',
+    GrpcStatus.RESOURCE_EXHAUSTED,
+  ),
 } as const satisfies Record<string, SessionErrorCodeValue>;
 
 /** `FieldError.errorKey` cho lỗi validation từng field (đi kèm `SESSION_REQUEST_INVALID`). */

@@ -86,13 +86,15 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
   async function call<T>(
     rpc: string,
     request: object,
-    options: { access?: string; ip?: string; authorization?: string } = {},
+    options: { access?: string; ip?: string | null; authorization?: string } = {},
   ): Promise<{ response: RpcEnvelope<T>; headers: Metadata }> {
+    // `ip: null` ⇒ Gateway không gửi `x-client-ip` (kiểm review L1).
+    const ip = options.ip === null ? undefined : (options.ip ?? nextIp());
     return client.unaryWithHeaders<RpcEnvelope<T>>(rpc, request, {
       traceId: uuidv4(),
       authorization:
         options.authorization ?? (options.access ? `Bearer ${options.access}` : undefined),
-      client: { ip: options.ip ?? nextIp(), userAgent: 'e2e-agent/1.0 (I-02)' },
+      client: { ip, userAgent: 'e2e-agent/1.0 (I-02)' },
     });
   }
 
@@ -522,7 +524,7 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
     });
   });
 
-  it('TC-AUTH-06 logout-all revokes the other session on its next request; repeat is idempotent', async () => {
+  it('TC-AUTH-06 logout-all revokes the other session on its next request; a revoked session cannot repeat it', async () => {
     const a = await login('MANAGER_AB');
     const b = await login('MANAGER_AB');
     const first = await call<Record<string, unknown>>('Logoutall', {}, { access: a.access });
@@ -535,10 +537,10 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
       status: 401,
       errorKey: 'SESSION_REVOKED',
     });
-    const again = await call<Record<string, unknown>>('Logoutall', {}, { access: a.access });
-    expect(again.response.result).toEqual({
-      ...first.response.result,
-      traceId: again.response.result.traceId,
+    // Review I-02a M1: phiên đã thu hồi không gọi lại logout-all được (401), không ghi gì thêm.
+    expect(await failure(call('Logoutall', {}, { access: a.access }))).toMatchObject({
+      status: 401,
+      errorKey: 'SESSION_REVOKED',
     });
     const reasons = await dataSource.query(
       'SELECT revoke_reason_column AS reason FROM auth_session_tbl WHERE id_column IN (?, ?)',
@@ -551,7 +553,8 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
     writeEvidence('TC-AUTH-06-rpc', {
       case: 'TC-AUTH-06',
       level: 'REAL_RPC_DB_REDIS',
-      idempotent: true,
+      otherSessionRevokedOnNextRequest: true,
+      repeatFromRevokedSession: 'SESSION_REVOKED',
     });
   });
 
@@ -583,6 +586,156 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
     expect(await failure(call('Refresh', { refreshCookieToken: locked.refresh }))).toMatchObject({
       status: 401,
       errorKey: 'SESSION_LOCKED',
+    });
+    expect(await failure(call('Lock', {}, { access: locked.access }))).toMatchObject({
+      status: 401,
+      errorKey: 'SESSION_LOCKED',
+    });
+  });
+
+  it('M1 (review I-02a) a dead session token cannot log out or lock the user new session', async () => {
+    const alias = 'SUP_A_NO_EXPORT';
+    // A: đã logout. B: bị thu hồi do reuse refresh. D: đã lock. C: phiên mới của chính user.
+    const a = await login(alias);
+    await call('Logout', {}, { access: a.access });
+    const b = await login(alias);
+    await refresh(b.refresh);
+    await failure(call('Refresh', { refreshCookieToken: b.refresh }));
+    const d = await login(alias);
+    await call('Lock', {}, { access: d.access });
+    const c = await login(alias);
+
+    const outcomes: Array<{ dead: string; operation: string; errorKey: string }> = [];
+    for (const [dead, issued, expectedKey] of [
+      ['logged-out', a, 'SESSION_REVOKED'],
+      ['reuse-revoked', b, 'SESSION_REVOKED'],
+      ['locked', d, 'SESSION_LOCKED'],
+    ] as const)
+      for (const rpc of ['Logoutall', 'Lock']) {
+        const denied = await failure(call(rpc, {}, { access: issued.access }));
+        expect(denied).toMatchObject({ status: 401, errorKey: expectedKey });
+        outcomes.push({ dead, operation: rpc, errorKey: denied.errorKey });
+      }
+    // Logout của phiên đã chết vẫn trả kết quả idempotent cho CHÍNH phiên đó.
+    const repeat = await call<Record<string, unknown>>('Logout', {}, { access: a.access });
+    expect(repeat.response.result).toMatchObject({ id: a.sessionId, status: 'REVOKED' });
+
+    expect(await sessionRow(c.sessionId)).toMatchObject({ revokedAt: null, lockedAt: null });
+    await call('ListOwnSessions', {}, { access: c.access });
+    writeEvidence('I02-R2-M1-dead-session', {
+      case: 'TC-AUTH-05/06 + review M1',
+      level: 'REAL_RPC_DB_REDIS',
+      outcomes,
+      newSessionAlive: true,
+    });
+  });
+
+  it('M2 (review I-02a) non-ASCII digit variants never reach the user and open no extra bucket', async () => {
+    const ascii = fixture.phonenumbers.SUP_B;
+    const fullwidth = [...ascii]
+      .map((ch) => String.fromCharCode(ch.charCodeAt(0) - 0x30 + 0xff10))
+      .join('');
+    const arabicIndic = [...ascii]
+      .map((ch) => String.fromCharCode(ch.charCodeAt(0) - 0x30 + 0x0660))
+      .join('');
+    // Bằng chứng rủi ro trên MySQL thật: collation coi biến thể bằng số ASCII.
+    const collationMatches = Number(
+      (
+        await dataSource.query(
+          'SELECT COUNT(*) AS n FROM user_tbl WHERE phonenumber_column IN (?, ?)',
+          [fullwidth, arabicIndic],
+        )
+      )[0].n,
+    );
+    const before = await countSessions(fixture.ids.SUP_B);
+
+    const ip = '198.51.100.77';
+    // Biến thể + ĐÚNG mật khẩu ⇒ 401 chung, không đăng nhập.
+    for (const variant of [fullwidth, arabicIndic])
+      expect(
+        await failure(
+          call(
+            'Login',
+            { data: { phoneNumber: variant, password: fixture.passwords.SUP_B } },
+            { ip },
+          ),
+        ),
+      ).toMatchObject({ status: 401, errorKey: 'SESSION_INVALID_CREDENTIALS' });
+    // Bucket ASCII cạn (20 lần sai) ⇒ biến thể không mở bucket mới để thử tiếp: vẫn không đăng nhập được, và
+    // mọi biến thể sai định dạng dùng chung 1 bucket theo IP ⇒ cũng bị 429 sau 20 lần.
+    for (let attempt = 1; attempt <= 20; attempt += 1)
+      await failure(call('Login', { data: { phoneNumber: ascii, password: 'nope' } }, { ip }));
+    expect(
+      await failure(call('Login', { data: { phoneNumber: ascii, password: 'nope' } }, { ip })),
+    ).toMatchObject({ status: 429 });
+    const variantStatuses: number[] = [];
+    for (let attempt = 1; attempt <= 20; attempt += 1) {
+      const variant = attempt % 2 ? fullwidth : `+${arabicIndic}`;
+      variantStatuses.push(
+        (
+          await failure(
+            call(
+              'Login',
+              { data: { phoneNumber: variant, password: fixture.passwords.SUP_B } },
+              { ip },
+            ),
+          )
+        ).status,
+      );
+    }
+    // 2 lần ở trên + 20 lần này = 22 lần sai định dạng cùng IP ⇒ từ lần 21 bị 429.
+    expect(variantStatuses.slice(0, 18).every((status) => status === 401)).toBe(true);
+    expect(variantStatuses.slice(18)).toEqual([429, 429]);
+    expect(await countSessions(fixture.ids.SUP_B)).toBe(before);
+    writeEvidence('I02-R2-M2-digit-variants', {
+      case: 'TC-AUTH-08 + review M2',
+      level: 'REAL_RPC_DB_REDIS',
+      mysqlCollationTreatsVariantsEqual: collationMatches > 0,
+      variantsLoggedIn: false,
+      malformedBucketLimitedAfter: 20,
+    });
+  });
+
+  it('L1 (review I-02a) login without a valid client IP is a 503 infrastructure error, not a shared bucket', async () => {
+    const payload = { data: { phoneNumber: fixture.phonenumbers.SUP_A1, password: 'nope' } };
+    for (const ip of [null, 'not-an-ip'])
+      expect(await failure(call('Login', payload, { ip }))).toMatchObject({
+        grpc: GrpcStatus.UNAVAILABLE,
+        status: 503,
+        code: 118219,
+      });
+  });
+
+  it('L2 (review I-02a) changeOwnPassword is limited to 10 attempts per user per minute', async () => {
+    const issued = await login('MANAGER_C');
+    for (let attempt = 1; attempt <= 10; attempt += 1)
+      expect(
+        await failure(
+          call(
+            'ChangeOwnPassword',
+            { data: { currentPassword: 'not-the-password', newPassword: 'a-new-password-1' } },
+            { access: issued.access },
+          ),
+        ),
+      ).toMatchObject({ status: 422 });
+    const limited = await failure(
+      call(
+        'ChangeOwnPassword',
+        { data: { currentPassword: fixture.passwords.MANAGER_C, newPassword: 'a-new-password-1' } },
+        { access: issued.access },
+      ),
+    );
+    expect(limited).toMatchObject({
+      status: 429,
+      errorKey: 'SESSION_CHANGE_PASSWORD_RATE_LIMITED',
+    });
+    // Mật khẩu không đổi.
+    await login('MANAGER_C');
+    writeEvidence('I02-R2-L2-change-password-limit', {
+      case: 'review L2',
+      level: 'REAL_RPC_DB_REDIS',
+      attemptsBeforeLimit: 10,
+      limited,
     });
   });
 

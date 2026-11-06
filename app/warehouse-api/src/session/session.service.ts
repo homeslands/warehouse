@@ -7,7 +7,7 @@ import { RateLimiter } from './rate-limiter';
 import { RefreshTokenFamily, RefreshTokenHash } from './refresh-token.entity';
 import {
   ACTIVITY_RATE_LIMIT,
-  LOGIN_RATE_LIMIT,
+  CHANGE_PASSWORD_RATE_LIMIT,
   RateLimitRule,
   REFRESH_RATE_LIMIT,
   SESSION_MAX_LIFETIME_MS,
@@ -16,6 +16,7 @@ import {
 } from './session.constants';
 import { AuthSession } from './session.entity';
 import { SessionException } from './session.exception';
+import { assertLoginAllowed, enforceRateLimit } from './session.throttle';
 import {
   insertCurrentHash,
   LOCK,
@@ -121,11 +122,7 @@ export class SessionService {
 
   async login(input: LoginInput, client: ClientInfo): Promise<IssuedSession> {
     const info = normalizeClientInfo(client);
-    await this.enforceRateLimit(
-      `login:${info.ip ?? 'unknown'}:${input.phoneNumber}`,
-      LOGIN_RATE_LIMIT,
-      SessionValidation.SESSION_LOGIN_RATE_LIMITED,
-    );
+    await assertLoginAllowed(this.rateLimiter, input.phoneNumber, info);
 
     const user = await this.dataSource
       .getRepository(User)
@@ -275,7 +272,8 @@ export class SessionService {
   /**
    * Storage tự kiểm JWT trong metadata `authorization` (architecture "Đường tin cậy" bước 3): chữ ký/iss/aud/
    * exp/typ, phiên tồn tại và thuộc đúng `sub`. `strict`: phiên chưa revoked/locked/idle/expired và user còn
-   * active. `revocation` (logout, logout-all, lock): bỏ qua trạng thái phiên để thao tác thu hồi/khoá lặp lại được.
+   * active. `revocation` (CHỈ logout): bỏ qua trạng thái phiên để logout lặp lại cho cùng kết quả — logout chỉ
+   * chạm chính phiên của token, không bao giờ phiên khác (review I-02a M1).
    */
   async authenticate(
     authorization: string | undefined,
@@ -317,6 +315,10 @@ export class SessionService {
     return this.dataSource.transaction(async (manager) => {
       const now = this.clock.now();
       const { current, sessions } = await lockUserSessions(manager, principal);
+      // Review I-02a M1: chỉ phiên còn dùng được mới thu hồi được phiên KHÁC. Access JWT (≤15') của phiên đã
+      // thu hồi/khoá/idle không được đá phiên mới của user. Kiểm lại trên bản đã khoá (đã kiểm ở authenticate).
+      const unusable = sessionUnusableReason(current, now);
+      if (unusable) throw new SessionException(unusable);
       for (const session of sessions)
         if (!session.revokedAt)
           await revokeSession(manager, session, SessionRevokeReason.LogoutAll, now);
@@ -324,20 +326,23 @@ export class SessionService {
     });
   }
 
-  /** Khoá phiên hiện tại (UI-02). Phiên khoá không dùng/refresh được nữa; khoá lặp ⇒ cùng kết quả. */
+  /**
+   * Khoá phiên hiện tại (UI-02). Phiên khoá không dùng/refresh được nữa. Chỉ phiên còn dùng được mới khoá
+   * được (review I-02a M1); khoá lần 2 ⇒ 401 `SESSION_LOCKED`.
+   */
   async lock(principal: SessionPrincipal): Promise<SessionActionOutcome> {
     return this.dataSource.transaction(async (manager) => {
+      const now = this.clock.now();
       const session = await lockOwnSession(manager, principal, principal.sessionId);
-      if (session.revokedAt) throw new SessionException(SessionValidation.SESSION_REVOKED);
-      if (!session.lockedAt) {
-        session.lockedAt = this.clock.now();
-        session.version += 1;
-        await manager.update(
-          AuthSession,
-          { id: Equal(session.id) },
-          { lockedAt: session.lockedAt, version: session.version },
-        );
-      }
+      const unusable = sessionUnusableReason(session, now);
+      if (unusable) throw new SessionException(unusable);
+      session.lockedAt = now;
+      session.version += 1;
+      await manager.update(
+        AuthSession,
+        { id: Equal(session.id) },
+        { lockedAt: session.lockedAt, version: session.version },
+      );
       return this.outcome(session, SessionActionStatus.Locked);
     });
   }
@@ -419,6 +424,12 @@ export class SessionService {
     principal: SessionPrincipal,
     input: PasswordChangeInput,
   ): Promise<SessionActionOutcome> {
+    // Review I-02a L2: giới hạn số lần thử mật khẩu hiện tại theo user (DEV-197-13, con số tạm).
+    await this.enforceRateLimit(
+      `change-password:${principal.userId}`,
+      CHANGE_PASSWORD_RATE_LIMIT,
+      SessionValidation.SESSION_CHANGE_PASSWORD_RATE_LIMITED,
+    );
     const user = await this.dataSource
       .getRepository(User)
       .findOne({ where: { id: Equal(principal.userId) } });
@@ -452,22 +463,12 @@ export class SessionService {
     return { id: session.id, version: session.version, status };
   }
 
-  /**
-   * Rate limit fail-closed: Redis lỗi ⇒ UNAVAILABLE (503), không cho qua (architecture: "UNAVAILABLE …
-   * không fail-open"). Chỉ bắt lỗi hạ tầng của limiter, lỗi khác không đi qua đây.
-   */
-  private async enforceRateLimit(
+  private enforceRateLimit(
     key: string,
     rule: RateLimitRule,
     exceeded: SessionErrorCodeValue,
   ): Promise<void> {
-    let allowed: boolean;
-    try {
-      allowed = await this.rateLimiter.hit(key, rule);
-    } catch {
-      throw new SessionException(SessionValidation.SESSION_STORE_UNAVAILABLE);
-    }
-    if (!allowed) throw new SessionException(exceeded);
+    return enforceRateLimit(this.rateLimiter, key, rule, exceeded);
   }
 
   /** Hash bcrypt của chuỗi ngẫu nhiên, tạo 1 lần/instance, chỉ để cân thời gian khi không có user. */

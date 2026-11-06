@@ -1,5 +1,7 @@
 import {
   ACCESS_TOKEN_TTL_SECONDS,
+  CHANGE_PASSWORD_RATE_LIMIT,
+  LOGIN_PHONE_NUMBER_FORMAT,
   PASSWORD_MAX_UTF8_BYTES,
   SESSION_IDLE_TIMEOUT_MS,
 } from './session.constants';
@@ -46,6 +48,23 @@ describe('session policy (W02 I-02, clock injected — no real sleep)', () => {
   it('uses the R2 durations: access 15 minutes, idle 30 minutes', () => {
     expect(ACCESS_TOKEN_TTL_SECONDS).toBe(900);
     expect(SESSION_IDLE_TIMEOUT_MS).toBe(30 * MINUTE);
+  });
+
+  it('accepts only ASCII phone identifiers (review I-02a M2) and limits password changes to 10/min (L2)', () => {
+    for (const ok of ['0900000001', '+84900000001', '123456789'])
+      expect(LOGIN_PHONE_NUMBER_FORMAT.test(ok)).toBe(true);
+    for (const bad of [
+      '０９００００００１',
+      '٠٩٠٠٠٠٠٠٠١',
+      '09000000０1',
+      '12345678',
+      '1234567890123456',
+      '0900 000 001',
+      'e2e-root',
+      '0900000001\n',
+    ])
+      expect(LOGIN_PHONE_NUMBER_FORMAT.test(bad)).toBe(false);
+    expect(CHANGE_PASSWORD_RATE_LIMIT).toEqual({ limit: 10, windowMs: MINUTE });
   });
 
   describe('sessionUnusableReason', () => {
