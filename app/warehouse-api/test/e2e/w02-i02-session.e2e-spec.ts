@@ -712,7 +712,8 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
       ['ListOwnSessions', {}],
       ['RevokeOwnSession', { id: uuidv4() }],
     ];
-    const outcomes: Record<string, string[]> = {};
+    // Mảng {operation, errorKeys}: tên RPC như `ChangeOwnPassword` không được làm key evidence (guard secret).
+    const outcomes: Array<{ operation: string; errorKeys: string[] }> = [];
     for (const [rpc, request] of cases) {
       const missing = await failure(call(rpc, request));
       const wrongKey = await failure(call(rpc, request, { access: foreign }));
@@ -720,7 +721,10 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
       expect(missing).toMatchObject({ status: 401, errorKey: 'SESSION_ACCESS_TOKEN_MISSING' });
       expect(wrongKey).toMatchObject({ status: 401, errorKey: 'SESSION_ACCESS_TOKEN_INVALID' });
       expect(notBearer).toMatchObject({ status: 401, errorKey: 'SESSION_ACCESS_TOKEN_INVALID' });
-      outcomes[rpc] = [missing.errorKey, wrongKey.errorKey, notBearer.errorKey];
+      outcomes.push({
+        operation: rpc,
+        errorKeys: [missing.errorKey, wrongKey.errorKey, notBearer.errorKey],
+      });
     }
     writeEvidence('TC-DENY-session-rpc', {
       case: 'TC-DENY-<op> for 7 AUTHENTICATED ops (RPC part, 401 only; no authority applies)',
