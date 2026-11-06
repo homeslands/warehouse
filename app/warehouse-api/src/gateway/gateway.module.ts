@@ -14,12 +14,18 @@ import { StorageGrpcClient } from 'src/grpc/gateway/storage-grpc.client';
 import { Clock, systemClock } from 'src/session/session.policy';
 import { GatewayAuthController } from './auth/gateway-auth.controller';
 import { GatewayAuthService } from './auth/gateway-auth.service';
+import { GatewayAccessVerifier } from './gateway-access';
+import { GatewayRbacController } from './rbac/gateway-rbac.controller';
+import { GatewayRbacService } from './rbac/gateway-rbac.service';
 import { GatewayConfig, readGatewayConfig } from './gateway.config';
 import { GATEWAY_CLOCK, GATEWAY_CONFIG, GATEWAY_V1_PREFIX } from './gateway.constants';
 import { GatewayRequestContextMiddleware } from './gateway-request';
 import { GatewayV1ExceptionFilter } from './gateway-v1-exception.filter';
 // Guard trùng mã lỗi v1 ↔ legacy chạy khi nạp module (DEV-197-04).
 import './v1-error-codes';
+
+/** Controller HTTP v1: phiên (I-02b) + role/authority/permission (I-03a). */
+const GATEWAY_CONTROLLERS = [GatewayAuthController, GatewayRbacController];
 
 function gatewayProviders(configProvider: Provider, clock: Clock): Provider[] {
   return [
@@ -31,7 +37,9 @@ function gatewayProviders(configProvider: Provider, clock: Clock): Provider[] {
       useFactory: (config: GatewayConfig) => new StorageGrpcClient(config.storage),
     },
     { provide: Logger, useValue: new Logger('GatewayV1') },
+    GatewayAccessVerifier,
     GatewayAuthService,
+    GatewayRbacService,
     { provide: APP_FILTER, useClass: GatewayV1ExceptionFilter },
   ];
 }
@@ -53,7 +61,7 @@ export class GatewayModule implements NestModule {
   static forConfig(config: GatewayConfig, clock: Clock = systemClock): DynamicModule {
     return {
       module: GatewayModule,
-      controllers: [GatewayAuthController],
+      controllers: GATEWAY_CONTROLLERS,
       providers: gatewayProviders({ provide: GATEWAY_CONFIG, useValue: config }, clock),
     };
   }
@@ -62,7 +70,7 @@ export class GatewayModule implements NestModule {
     return {
       module: GatewayModule,
       imports: [ConfigModule.forRoot({ cache: true })],
-      controllers: [GatewayAuthController],
+      controllers: GATEWAY_CONTROLLERS,
       providers: gatewayProviders(
         { provide: GATEWAY_CONFIG, inject: [ConfigService], useFactory: readGatewayConfig },
         systemClock,

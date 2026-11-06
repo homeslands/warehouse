@@ -5,6 +5,7 @@ import {
   StorageRpcValidation,
 } from 'src/grpc/gateway/storage-rpc.validation';
 import { SessionValidation } from 'src/session/session.validation';
+import { RbacValidation } from 'src/rbac-v1/rbac-v1.validation';
 import { GatewayValidation } from './gateway.validation';
 
 /**
@@ -21,6 +22,7 @@ export const V1_ERROR_CODE_REGISTRIES: Readonly<
   StorageRpcValidation,
   StorageRpcSpecialValidation,
   SessionValidation,
+  RbacValidation,
   GatewayValidation,
 };
 

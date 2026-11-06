@@ -230,8 +230,10 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
   });
 
   it('I02-MIG migration 1783728000048: applied, hash-only schema, FK collation from parent, down → up', async () => {
-    const last = migrations.history[migrations.history.length - 1];
-    expect(last.name).toBe(MIGRATION_NAME);
+    // Từ I-03a có migration sau 048 ⇒ chỉ cần 048 nằm trong history; down/up gỡ lần lượt từ migration mới nhất.
+    const last = migrations.history.find((record) => record.name === MIGRATION_NAME);
+    expect(last).toBeDefined();
+    const newer = migrations.history.filter((record) => record.timestamp > '1783728000048');
     const tableNames = async () =>
       (
         await dataSource.query(
@@ -246,14 +248,18 @@ describe('W02 I-02a session over Storage RPC (real DB + Redis + mTLS)', () => {
     // Bảng `session_tbl` của express-mysql-session (legacy) không bị migration này đụng tới.
 
     // Down rồi up lại qua đúng cơ chế TypeORM (cập nhật bảng `migrations`) — chỉ ở phase expand, DB test riêng.
-    await dataSource.undoLastMigration({ transaction: 'each' });
+    for (let index = 0; index <= newer.length; index += 1)
+      await dataSource.undoLastMigration({ transaction: 'each' });
     expect(await tableNames()).toEqual([]);
     const afterDown: MigrationRecord[] = await dataSource.query(
       'SELECT `timestamp`, `name` FROM `migrations` ORDER BY `timestamp` DESC LIMIT 1',
     );
     expect(afterDown[0].name).not.toBe(MIGRATION_NAME);
     const reapplied = await dataSource.runMigrations({ transaction: 'each' });
-    expect(reapplied.map((migration) => migration.name)).toEqual([MIGRATION_NAME]);
+    expect(reapplied.map((migration) => migration.name)).toEqual([
+      MIGRATION_NAME,
+      ...newer.map((record) => record.name),
+    ]);
     expect(await tableNames()).toHaveLength(3);
 
     const columns: Array<{

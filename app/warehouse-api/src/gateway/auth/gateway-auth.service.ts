@@ -18,12 +18,10 @@ import {
   REFRESH_EXPIRES_AT_METADATA_KEY,
   REFRESH_TOKEN_METADATA_KEY,
 } from 'src/grpc/grpc.constants';
-import { AccessTokenService } from 'src/session/access-token.service';
 import { RateLimiter } from 'src/session/rate-limiter';
-import { SessionException } from 'src/session/session.exception';
 import { Clock } from 'src/session/session.policy';
-import { SessionValidation } from 'src/session/session.validation';
 import { v1Success, V1SuccessEnvelope } from 'src/shared/api-v1/envelope';
+import { GatewayAccessVerifier } from '../gateway-access';
 import { GatewayConfig } from '../gateway.config';
 import { GATEWAY_CLOCK, GATEWAY_CONFIG, REFRESH_IP_RATE_LIMIT } from '../gateway.constants';
 import { GatewayException } from '../gateway.exception';
@@ -55,7 +53,6 @@ interface RpcEnvelope {
   result?: unknown;
 }
 
-const BEARER = /^Bearer ([A-Za-z0-9_-]+\.[A-Za-z0-9_-]+\.[A-Za-z0-9_-]+)$/i;
 const MS_PER_SECOND = 1_000;
 const OK = 200;
 
@@ -69,7 +66,6 @@ const OK = 200;
  */
 @Injectable()
 export class GatewayAuthService {
-  private readonly tokens: AccessTokenService;
   private readonly refreshLimiter: RateLimiter;
   private readonly cookies: CookieProfile;
 
@@ -77,8 +73,8 @@ export class GatewayAuthService {
     @Inject(GATEWAY_CONFIG) private readonly config: GatewayConfig,
     @Inject(GATEWAY_CLOCK) private readonly clock: Clock,
     private readonly storage: StorageGrpcClient,
+    private readonly access: GatewayAccessVerifier,
   ) {
-    this.tokens = new AccessTokenService(config.accessTokenSecret, clock);
     this.refreshLimiter = new InMemoryFixedWindowRateLimiter(clock);
     // Secure ⇒ tên `__Secure-`/`__Host-`; sai cặp ⇒ ném lỗi khi dựng (fail-closed, review I-02b L2).
     this.cookies = cookieProfile(config.cookieSecure);
@@ -264,17 +260,8 @@ export class GatewayAuthService {
     );
   }
 
-  /**
-   * Gateway kiểm access JWT (chữ ký/iss/aud/exp/typ) trước RPC — architecture "Đường tin cậy" bước 2. Sai ⇒
-   * 401 cùng mã Storage dùng, RPC không được gửi. Storage vẫn tự kiểm lại + kiểm phiên trong DB.
-   * `Authorization` phải đúng `Bearer <jwt>` một dấu cách (follow-up I2: chặt hơn passport legacy).
-   */
   private verifyAccess(authorization: string | undefined): string {
-    if (!authorization) throw new SessionException(SessionValidation.SESSION_ACCESS_TOKEN_MISSING);
-    const match = BEARER.exec(authorization);
-    if (!match) throw new SessionException(SessionValidation.SESSION_ACCESS_TOKEN_INVALID);
-    this.tokens.verify(match[1]);
-    return authorization;
+    return this.access.verify(authorization);
   }
 
   private rpcContext(

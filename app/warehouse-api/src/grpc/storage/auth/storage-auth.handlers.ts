@@ -35,9 +35,9 @@ import {
   storageRpcFailure,
 } from '../storage-grpc.server';
 
-type RawRequest = Record<string, unknown>;
+export type RawRequest = Record<string, unknown>;
 
-interface HandlerResult {
+export interface HandlerResult {
   result: object;
   /** Chỉ Login/Refresh: gửi về Gateway trong response header metadata, không nằm trong message. */
   refreshToken?: string;
@@ -113,19 +113,19 @@ function sessionView(session: AuthSession, currentSessionId: string): object {
   return view;
 }
 
-type RpcRun = (
+export type RpcRun = (
   request: RawRequest,
   context: StorageCallContext,
   metadata: Metadata,
 ) => Promise<HandlerResult>;
-type AuthenticatedRun = (
+export type AuthenticatedRun = (
   request: RawRequest,
   principal: SessionPrincipal,
   context: StorageCallContext,
 ) => Promise<object>;
 
 /** Bọc 1 RPC unary: đọc context, chạy, gửi refresh token (nếu có) trong header metadata, map lỗi. */
-function unaryHandler(
+export function unaryHandler(
   deps: StorageAuthHandlerDependencies,
   rpc: string,
   run: RpcRun,
@@ -152,7 +152,7 @@ function unaryHandler(
 }
 
 /** RPC cần đăng nhập: Storage tự xác thực JWT + phiên trước khi chạy nghiệp vụ. */
-function authenticated(
+export function authenticated(
   sessions: SessionService,
   mode: AuthenticationMode,
   run: AuthenticatedRun,

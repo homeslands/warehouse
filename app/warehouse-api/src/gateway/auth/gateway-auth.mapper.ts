@@ -12,28 +12,28 @@ export class GatewayMappingError extends Error {
   }
 }
 
-type Raw = Record<string, unknown>;
+export type Raw = Record<string, unknown>;
 
-const asRaw = (value: unknown, schema: string): Raw => {
+export const asRaw = (value: unknown, schema: string): Raw => {
   if (typeof value !== 'object' || value === null || Array.isArray(value))
     throw new GatewayMappingError(schema);
   return value as Raw;
 };
 
-function requireString(raw: Raw, key: string, schema: string): string {
+export function requireString(raw: Raw, key: string, schema: string): string {
   const value = raw[key];
   if (typeof value !== 'string' || value.length === 0) throw new GatewayMappingError(schema);
   return value;
 }
 
-function requireBoolean(raw: Raw, key: string, schema: string): boolean {
+export function requireBoolean(raw: Raw, key: string, schema: string): boolean {
   const value = raw[key];
   if (typeof value !== 'boolean') throw new GatewayMappingError(schema);
   return value;
 }
 
 /** int64 proto (chuỗi do `longs: String`) → số nguyên an toàn ≥ `min`. */
-function requireInt(raw: Raw, key: string, schema: string, min: number): number {
+export function requireInt(raw: Raw, key: string, schema: string, min: number): number {
   const value = raw[key];
   const parsed = typeof value === 'string' && /^\d{1,15}$/.test(value) ? Number(value) : NaN;
   if (!Number.isSafeInteger(parsed) || parsed < min) throw new GatewayMappingError(schema);
@@ -132,18 +132,18 @@ function toSession(value: unknown): V1Session {
   return session;
 }
 
-export interface V1SessionPage {
+/** Trang v1 chung (OpenAPI list result): 7 key, `items` map bằng hàm của resource. */
+export interface V1Page<T> {
   page: number;
   pageSize: number;
   total: number;
   totalPages: number;
   hasNext: boolean;
   hasPrevious: boolean;
-  items: V1Session[];
+  items: T[];
 }
 
-export function toSessionPage(result: unknown): V1SessionPage {
-  const schema = 'listOwnSessions result';
+export function toPage<T>(result: unknown, schema: string, map: (item: unknown) => T): V1Page<T> {
   const raw = asRaw(result, schema);
   const items = raw.items;
   if (!Array.isArray(items)) throw new GatewayMappingError(schema);
@@ -154,6 +154,12 @@ export function toSessionPage(result: unknown): V1SessionPage {
     totalPages: raw.totalPages === undefined ? 0 : requireInt(raw, 'totalPages', schema, 0),
     hasNext: raw.hasNext === true,
     hasPrevious: raw.hasPrevious === true,
-    items: items.map(toSession),
+    items: items.map(map),
   };
+}
+
+export type V1SessionPage = V1Page<V1Session>;
+
+export function toSessionPage(result: unknown): V1SessionPage {
+  return toPage(result, 'listOwnSessions result', toSession);
 }

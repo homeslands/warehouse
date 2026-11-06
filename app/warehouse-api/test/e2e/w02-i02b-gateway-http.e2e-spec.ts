@@ -162,7 +162,10 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
         rateLimitPrefix,
       },
       clock,
+      // Suite này không đổi quyền ⇒ không có cache legacy cần xoá; dùng chung client.
+      legacyRbacRedis: redis,
       logError: (message) => storageErrors.push(message),
+      logWarn: (message) => storageErrors.push(message),
     });
 
     pki = new TestPki();
