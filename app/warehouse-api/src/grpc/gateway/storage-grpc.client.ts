@@ -11,6 +11,8 @@ import { isValidTraceId } from 'src/shared/api-v1/trace-id';
 import { getStorageServiceDefinition } from '../storage-proto.runtime';
 import {
   AUTHORIZATION_METADATA_KEY,
+  CLIENT_IP_METADATA_KEY,
+  CLIENT_USER_AGENT_METADATA_KEY,
   GRPC_DEFAULT_AUTHORITY,
   GRPC_SSL_TARGET_NAME_OVERRIDE,
   STORAGE_GRPC_MAX_DEADLINE_MS,
@@ -42,7 +44,23 @@ export interface StorageRpcCallContext {
   authorization?: string;
   /** Ghi đè deadline mặc định cho RPC này (ms). */
   deadlineMs?: number;
+  /**
+   * IP/User-Agent của browser (W02 I-02, DEV-197-07) cho throttle login và danh sách phiên. Không phải
+   * identity. Giá trị không gửi được qua metadata ASCII bị bỏ (không chặn request).
+   */
+  client?: { ip?: string; userAgent?: string };
 }
+
+/** Kết quả RPC kèm response header metadata (Login/Refresh mang refresh token ở đây). */
+export interface StorageUnaryResult<TResponse> {
+  response: TResponse;
+  headers: Metadata;
+}
+
+/** IP dạng chữ (IPv4/IPv6) ≤ 45 ký tự; User-Agent ASCII in được ≤ 500 ký tự (cắt bớt, không ném lỗi). */
+const CLIENT_IP_VALUE = /^[0-9A-Fa-f.:]{2,45}$/;
+const PRINTABLE_ASCII = /^[ -~]+$/;
+const USER_AGENT_MAX_LENGTH = 500;
 
 /** Deadline (ms) là số nguyên trong [MIN, MAX] — xem `STORAGE_GRPC_MAX_DEADLINE_MS`. */
 export function assertStorageDeadlineMs(value: unknown): asserts value is number {
@@ -112,14 +130,36 @@ export class StorageGrpcClient implements OnModuleDestroy {
         throw new RangeError('authorization header is malformed');
       setAsciiMetadata(metadata, AUTHORIZATION_METADATA_KEY, context.authorization);
     }
+    const { ip, userAgent } = context.client ?? {};
+    if (ip !== undefined && CLIENT_IP_VALUE.test(ip))
+      setAsciiMetadata(metadata, CLIENT_IP_METADATA_KEY, ip);
+    if (userAgent !== undefined && PRINTABLE_ASCII.test(userAgent))
+      setAsciiMetadata(
+        metadata,
+        CLIENT_USER_AGENT_METADATA_KEY,
+        userAgent.slice(0, USER_AGENT_MAX_LENGTH),
+      );
     return metadata;
   }
 
+  /** Lỗi lập trình (RPC lạ/stream, deadline/traceId sai) ném đồng bộ như I-01b, không thành Promise reject. */
   unary<TResponse extends object = Record<string, unknown>>(
     rpc: string,
     request: object,
     context: StorageRpcCallContext,
   ): Promise<TResponse> {
+    return this.unaryWithHeaders<TResponse>(rpc, request, context).then(({ response }) => response);
+  }
+
+  /**
+   * Như `unary`, kèm response header metadata của Storage. Header đến trước message (gRPC), nên khi callback
+   * chạy thì `headers` đã có.
+   */
+  unaryWithHeaders<TResponse extends object = Record<string, unknown>>(
+    rpc: string,
+    request: object,
+    context: StorageRpcCallContext,
+  ): Promise<StorageUnaryResult<TResponse>> {
     const method = this.service[rpc];
     if (!method) throw new RangeError(`unknown Storage RPC ${rpc}`);
     if (method.requestStream || method.responseStream)
@@ -139,8 +179,9 @@ export class StorageGrpcClient implements OnModuleDestroy {
       );
     const metadata = StorageGrpcClient.buildMetadata(context);
 
-    return new Promise<TResponse>((resolve, reject) => {
-      this.client.makeUnaryRequest<object, TResponse>(
+    return new Promise<StorageUnaryResult<TResponse>>((resolve, reject) => {
+      let headers = new Metadata();
+      const call = this.client.makeUnaryRequest<object, TResponse>(
         method.path,
         method.requestSerialize,
         method.responseDeserialize,
@@ -159,9 +200,12 @@ export class StorageGrpcClient implements OnModuleDestroy {
             );
             return;
           }
-          resolve(response);
+          resolve({ response, headers });
         },
       );
+      call.on('metadata', (received: Metadata) => {
+        headers = received;
+      });
     });
   }
 

@@ -9,6 +9,19 @@
 export const AUTHORIZATION_METADATA_KEY = 'authorization';
 export const TRACE_ID_METADATA_KEY = 'x-trace-id';
 
+/**
+ * Metadata phiên v1 (W02 I-02, DEV-197-07; R2 proto không có field cho các giá trị này):
+ * - `x-client-ip` / `x-client-user-agent` (Gateway → Storage): IP/User-Agent của browser mà Gateway thấy,
+ *   dùng cho throttle login theo IP + identifier và `Session.ipMasked`/`userAgent`. Chỉ tin vì đi qua kênh
+ *   mTLS từ Gateway đã allowlist; không phải identity.
+ * - `warehouse-refresh-token` (Storage → Gateway, response header metadata của Login/Refresh thành công):
+ *   refresh token plaintext để Gateway đặt cookie HttpOnly. `LoginResult` không có field refresh token
+ *   (JSON không được chứa nó). Không log, không chuyển tiếp vào body.
+ */
+export const CLIENT_IP_METADATA_KEY = 'x-client-ip';
+export const CLIENT_USER_AGENT_METADATA_KEY = 'x-client-user-agent';
+export const REFRESH_TOKEN_METADATA_KEY = 'warehouse-refresh-token';
+
 /** Tên TLS (SAN DNS) của cert Storage mà Gateway kiểm khi kết nối, khi địa chỉ là IP/loopback. */
 export const GRPC_SSL_TARGET_NAME_OVERRIDE = 'grpc.ssl_target_name_override';
 export const GRPC_DEFAULT_AUTHORITY = 'grpc.default_authority';

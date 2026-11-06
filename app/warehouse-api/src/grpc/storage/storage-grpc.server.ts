@@ -188,6 +188,12 @@ export function storageRpcFailure(
   detail?: StorageErrorDetail,
   details = GrpcStatus[code],
 ): ServerErrorResponse {
+  // Follow-up I1 (review I-01b): marker này chỉ interceptor allowlist được phát. Handler dùng nó sẽ biến lỗi
+  // phiên/quyền của user thành 503 ở Gateway ⇒ chặn ngay tại đây (lỗi lập trình, không phải input).
+  if (detail?.errorKey === CALLER_IDENTITY_REJECTED_ERROR_KEY)
+    throw new RangeError(
+      `${CALLER_IDENTITY_REJECTED_ERROR_KEY} is reserved for the caller allowlist`,
+    );
   const metadata = new Metadata();
   if (detail) metadata.set(STORAGE_ERROR_DETAIL_METADATA_KEY, encodeStorageErrorDetail(detail));
   return Object.assign(new Error(details), { code, details, metadata });
