@@ -1,6 +1,11 @@
 import { status as GrpcStatus } from '@grpc/grpc-js';
+import { HttpStatus } from '@nestjs/common';
 import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 import { httpStatusForGrpc } from 'src/shared/grpc/grpc-http-status';
+import {
+  CALLER_IDENTITY_REJECTED_CODE,
+  CALLER_IDENTITY_REJECTED_ERROR_KEY,
+} from 'src/shared/grpc/service-identity';
 
 /**
  * Mã lỗi Gateway dùng khi Storage trả status gRPC KHÔNG kèm detail hợp lệ (lỗi transport, deadline phía
@@ -78,3 +83,29 @@ export function storageRpcFallbackKey(grpc: GrpcStatus): TStorageRpcErrorCodeKey
   const key = `STORAGE_RPC_${GrpcStatus[grpc]}`;
   return key in StorageRpcValidation ? (key as TStorageRpcErrorCodeKey) : STORAGE_RPC_INTERNAL;
 }
+
+/**
+ * Mã đặc biệt dải 1181xx (review I-01b), KHÔNG theo bảng gRPC → HTTP:
+ * - `STORAGE_CALLER_IDENTITY_REJECTED` (118101): Storage từ chối service identity của Gateway (marker
+ *   trong `service-identity.ts`) ⇒ 503: sự cố cấu hình cert/allowlist, không phải lỗi phiên/quyền user.
+ * - `GATEWAY_AUTHORIZATION_MALFORMED` (118102): header `Authorization` có ký tự không gửi được qua gRPC
+ *   (TAB, CR/LF, non-ASCII…) ⇒ 401 như thiếu/sai token; RPC không được gửi, giá trị không vào log.
+ */
+export const STORAGE_CALLER_IDENTITY_REJECTED = CALLER_IDENTITY_REJECTED_ERROR_KEY;
+export const GATEWAY_AUTHORIZATION_MALFORMED = 'GATEWAY_AUTHORIZATION_MALFORMED';
+
+export type TStorageRpcSpecialKey =
+  typeof STORAGE_CALLER_IDENTITY_REJECTED | typeof GATEWAY_AUTHORIZATION_MALFORMED;
+
+export const StorageRpcSpecialValidation: Record<TStorageRpcSpecialKey, TErrorCodeValue> = {
+  [STORAGE_CALLER_IDENTITY_REJECTED]: createErrorCode(
+    CALLER_IDENTITY_REJECTED_CODE,
+    'Service temporarily unavailable',
+    HttpStatus.SERVICE_UNAVAILABLE,
+  ),
+  [GATEWAY_AUTHORIZATION_MALFORMED]: createErrorCode(
+    118102,
+    'Authentication required',
+    HttpStatus.UNAUTHORIZED,
+  ),
+};

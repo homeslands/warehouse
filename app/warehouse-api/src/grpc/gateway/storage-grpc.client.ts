@@ -4,6 +4,7 @@ import {
   Metadata,
   ServiceDefinition,
   ServiceError,
+  status as GrpcStatus,
 } from '@grpc/grpc-js';
 import { OnModuleDestroy } from '@nestjs/common';
 import { isValidTraceId } from 'src/shared/api-v1/trace-id';
@@ -12,10 +13,13 @@ import {
   AUTHORIZATION_METADATA_KEY,
   GRPC_DEFAULT_AUTHORITY,
   GRPC_SSL_TARGET_NAME_OVERRIDE,
+  STORAGE_GRPC_MAX_DEADLINE_MS,
+  STORAGE_GRPC_MIN_DEADLINE_MS,
   TRACE_ID_METADATA_KEY,
 } from '../grpc.constants';
 import { createGatewayChannelCredentials, MtlsMaterial } from '../mtls/mtls-credentials';
 import { StorageRpcError } from './storage-rpc.error';
+import { GATEWAY_AUTHORIZATION_MALFORMED } from './storage-rpc.validation';
 
 export interface StorageGrpcClientConfig {
   /** `host:port` của Storage. */
@@ -40,10 +44,37 @@ export interface StorageRpcCallContext {
   deadlineMs?: number;
 }
 
-const assertPositiveInteger = (name: string, value: number) => {
-  if (!Number.isSafeInteger(value) || value <= 0)
-    throw new RangeError(`${name} must be a positive integer (ms)`);
-};
+/** Deadline (ms) là số nguyên trong [MIN, MAX] — xem `STORAGE_GRPC_MAX_DEADLINE_MS`. */
+export function assertStorageDeadlineMs(value: unknown): asserts value is number {
+  if (
+    typeof value !== 'number' ||
+    !Number.isSafeInteger(value) ||
+    value < STORAGE_GRPC_MIN_DEADLINE_MS ||
+    value > STORAGE_GRPC_MAX_DEADLINE_MS
+  )
+    throw new RangeError(
+      `deadlineMs must be an integer in [${STORAGE_GRPC_MIN_DEADLINE_MS}, ${STORAGE_GRPC_MAX_DEADLINE_MS}] ms`,
+    );
+}
+
+/**
+ * Quy tắc giá trị metadata ASCII của grpc-js (`Metadata.set` cho key không đuôi `-bin`): chỉ `[ -~]`.
+ * Vi phạm thì grpc-js ném Error có CHÉP NGUYÊN giá trị vào message (review I-01b M1: JWT vào log) ⇒
+ * phải kiểm trước khi gọi `Metadata.set`, và lỗi của mình không bao giờ chứa giá trị.
+ */
+const GRPC_ASCII_METADATA_VALUE = /^[ -~]*$/;
+/** `Authorization`: các token ASCII in được, cách nhau đúng 1 dấu cách (không TAB/CR/LF/non-ASCII). */
+const AUTHORIZATION_VALUE = /^[\x21-\x7e]+(?: [\x21-\x7e]+)*$/;
+
+export function isForwardableAuthorization(value: unknown): value is string {
+  return typeof value === 'string' && AUTHORIZATION_VALUE.test(value);
+}
+
+function setAsciiMetadata(metadata: Metadata, key: string, value: string): void {
+  if (!GRPC_ASCII_METADATA_VALUE.test(value))
+    throw new RangeError(`metadata ${key} contains characters not allowed by gRPC`);
+  metadata.set(key, value);
+}
 
 /**
  * Client gRPC Gateway → Storage qua mTLS. Mỗi RPC mang metadata `authorization` (JWT gốc, nếu có) +
@@ -58,7 +89,7 @@ export class StorageGrpcClient implements OnModuleDestroy {
     private readonly config: StorageGrpcClientConfig,
     channelCredentials: ChannelCredentials = createGatewayChannelCredentials(config.tls),
   ) {
-    assertPositiveInteger('deadlineMs', config.deadlineMs);
+    assertStorageDeadlineMs(config.deadlineMs);
     if (!config.serverName) throw new RangeError('serverName is required');
     this.service = getStorageServiceDefinition();
     this.client = new Client(config.address, channelCredentials, {
@@ -67,16 +98,19 @@ export class StorageGrpcClient implements OnModuleDestroy {
     });
   }
 
-  /** Metadata gửi Storage: chỉ `x-trace-id` và (nếu có) `authorization` nguyên văn. */
+  /**
+   * Metadata gửi Storage: chỉ `x-trace-id` và (nếu có) `authorization` nguyên văn. Mọi giá trị qua
+   * `setAsciiMetadata`; lỗi có message cố định, không chứa giá trị.
+   */
   static buildMetadata(context: StorageRpcCallContext): Metadata {
     if (!isValidTraceId(context.traceId))
       throw new RangeError('traceId must be a UUID from normalizeTraceId');
     const metadata = new Metadata();
-    metadata.set(TRACE_ID_METADATA_KEY, context.traceId);
+    setAsciiMetadata(metadata, TRACE_ID_METADATA_KEY, context.traceId);
     if (context.authorization !== undefined) {
-      if (typeof context.authorization !== 'string' || !context.authorization)
-        throw new RangeError('authorization must be a non-empty string when provided');
-      metadata.set(AUTHORIZATION_METADATA_KEY, context.authorization);
+      if (!isForwardableAuthorization(context.authorization))
+        throw new RangeError('authorization header is malformed');
+      setAsciiMetadata(metadata, AUTHORIZATION_METADATA_KEY, context.authorization);
     }
     return metadata;
   }
@@ -91,7 +125,18 @@ export class StorageGrpcClient implements OnModuleDestroy {
     if (method.requestStream || method.responseStream)
       throw new RangeError(`Storage RPC ${rpc} is a stream; use a stream call`);
     const deadlineMs = context.deadlineMs ?? this.config.deadlineMs;
-    assertPositiveInteger('deadlineMs', deadlineMs);
+    assertStorageDeadlineMs(deadlineMs);
+    // Header Authorization sai định dạng là lỗi input của client ⇒ 401 qua filter, RPC không được gửi.
+    if (context.authorization !== undefined && !isForwardableAuthorization(context.authorization))
+      return Promise.reject(
+        new StorageRpcError(
+          rpc,
+          GrpcStatus.UNAUTHENTICATED,
+          context.traceId,
+          new Metadata(),
+          GATEWAY_AUTHORIZATION_MALFORMED,
+        ),
+      );
     const metadata = StorageGrpcClient.buildMetadata(context);
 
     return new Promise<TResponse>((resolve, reject) => {

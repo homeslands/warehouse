@@ -6,7 +6,16 @@ import {
 } from 'src/shared/grpc/storage-error-detail';
 import { StorageRpcError } from './storage-rpc.error';
 import { translateStorageRpcError } from './storage-rpc-error.translator';
-import { storageRpcFallbackKey, StorageRpcValidation } from './storage-rpc.validation';
+import {
+  GATEWAY_AUTHORIZATION_MALFORMED,
+  storageRpcFallbackKey,
+  StorageRpcSpecialValidation,
+  StorageRpcValidation,
+} from './storage-rpc.validation';
+import {
+  CALLER_IDENTITY_REJECTED_CODE,
+  CALLER_IDENTITY_REJECTED_ERROR_KEY,
+} from 'src/shared/grpc/service-identity';
 
 const TRACE = '3f2504e0-4f89-41d3-9a0c-0305e82c3301';
 const NOW = new Date('2026-11-06T01:00:00.000Z');
@@ -118,5 +127,76 @@ describe('translateStorageRpcError', () => {
   it('never exposes the gRPC error text on StorageRpcError', () => {
     const error = errorWith(GrpcStatus.INTERNAL);
     expect(error.message).toBe('Storage RPC GetRole failed with INTERNAL');
+  });
+});
+
+describe('translateStorageRpcError — special cases (review I-01b)', () => {
+  const marker: StorageErrorDetail = {
+    code: CALLER_IDENTITY_REJECTED_CODE,
+    errorKey: CALLER_IDENTITY_REJECTED_ERROR_KEY,
+    errors: [],
+  };
+
+  it.each([GrpcStatus.UNAUTHENTICATED, GrpcStatus.PERMISSION_DENIED])(
+    'maps a service-identity rejection with gRPC %s to 503, not 401/403',
+    (grpc) => {
+      const { statusCode, body, special } = translateStorageRpcError(errorWith(grpc, marker), NOW);
+      expect(special).toBe('STORAGE_CALLER_IDENTITY_REJECTED');
+      expect(statusCode).toBe(503);
+      expect(body).toEqual({
+        statusCode: 503,
+        code: CALLER_IDENTITY_REJECTED_CODE,
+        errorKey: 'STORAGE_CALLER_IDENTITY_REJECTED',
+        message: 'Service temporarily unavailable',
+        traceId: TRACE,
+        timestamp: NOW.toISOString(),
+      });
+    },
+  );
+
+  it('keeps 401 for a user-session UNAUTHENTICATED without the marker', () => {
+    const { statusCode, special } = translateStorageRpcError(
+      errorWith(GrpcStatus.UNAUTHENTICATED, { code: 7, errorKey: 'SESSION_EXPIRED', errors: [] }),
+      NOW,
+    );
+    expect(statusCode).toBe(401);
+    expect(special).toBeUndefined();
+  });
+
+  it('ignores the marker on other statuses', () => {
+    const { statusCode, special } = translateStorageRpcError(
+      errorWith(GrpcStatus.NOT_FOUND, marker),
+      NOW,
+    );
+    expect(statusCode).toBe(404);
+    expect(special).toBeUndefined();
+  });
+
+  it('maps a Gateway-side malformed Authorization to 401 regardless of trailers', () => {
+    const error = new StorageRpcError(
+      'GetRole',
+      GrpcStatus.UNAUTHENTICATED,
+      TRACE,
+      new Metadata(),
+      GATEWAY_AUTHORIZATION_MALFORMED,
+    );
+    const { statusCode, body, special } = translateStorageRpcError(error, NOW);
+    expect(special).toBe(GATEWAY_AUTHORIZATION_MALFORMED);
+    expect(statusCode).toBe(401);
+    expect(body).toMatchObject({
+      code: StorageRpcSpecialValidation.GATEWAY_AUTHORIZATION_MALFORMED.code,
+      errorKey: 'GATEWAY_AUTHORIZATION_MALFORMED',
+    });
+    expect(error.message).toBe('Storage RPC GetRole not sent: GATEWAY_AUTHORIZATION_MALFORMED');
+  });
+
+  it('uses unique 1181xx codes that do not collide with the fallback table', () => {
+    const special = Object.values(StorageRpcSpecialValidation).map((value) => value.code);
+    const fallback = new Set(Object.values(StorageRpcValidation).map((value) => value.code));
+    special.forEach((value) => {
+      expect(Math.floor(value / 100)).toBe(1181);
+      expect(fallback.has(value)).toBe(false);
+    });
+    expect(new Set(special).size).toBe(special.length);
   });
 });

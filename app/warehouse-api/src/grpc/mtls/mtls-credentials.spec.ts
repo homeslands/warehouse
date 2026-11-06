@@ -75,11 +75,23 @@ describe('mTLS material and Gateway client config', () => {
       expect(() => readStorageGrpcClientConfig(new ConfigService(partial))).toThrow(key);
     });
 
-    it.each(['0', '-1', '1.5', 'abc'])('refuses deadline %p', (deadline) => {
+    it.each(['0', '-1', '1.5', 'abc', '30001', '9007199254740991'])(
+      'refuses deadline %p',
+      (deadline) => {
+        const config = readStorageGrpcClientConfig(
+          new ConfigService({ ...values, [keys.deadlineMs]: deadline }),
+        );
+        expect(() => new StorageGrpcClient(config)).toThrow(RangeError);
+      },
+    );
+
+    it.each(['1', '30000'])('accepts deadline %p (bounds)', (deadline) => {
       const config = readStorageGrpcClientConfig(
         new ConfigService({ ...values, [keys.deadlineMs]: deadline }),
       );
-      expect(() => new StorageGrpcClient(config)).toThrow(RangeError);
+      const client = new StorageGrpcClient(config);
+      client.close();
+      expect(client).toBeInstanceOf(StorageGrpcClient);
     });
   });
 });

@@ -16,6 +16,10 @@ import {
   STORAGE_ERROR_DETAIL_METADATA_KEY,
   StorageErrorDetail,
 } from 'src/shared/grpc/storage-error-detail';
+import {
+  CALLER_IDENTITY_REJECTED_CODE,
+  CALLER_IDENTITY_REJECTED_ERROR_KEY,
+} from 'src/shared/grpc/service-identity';
 import { getStorageServiceDefinition } from '../storage-proto.runtime';
 import {
   AUTHORIZATION_METADATA_KEY,
@@ -28,13 +32,21 @@ import {
   peerIdentity,
 } from '../mtls/mtls-credentials';
 
+/** Detail marker đính khi từ chối caller (dựng 1 lần, đã validate bởi encoder). */
+const CALLER_IDENTITY_REJECTED_DETAIL = encodeStorageErrorDetail({
+  code: CALLER_IDENTITY_REJECTED_CODE,
+  errorKey: CALLER_IDENTITY_REJECTED_ERROR_KEY,
+  errors: [],
+});
+
 /**
  * Bootstrap server gRPC của Storage (W02 I-01b). Chưa có composition root riêng: hàm này là điểm khởi
  * động để composition root Storage (I-02+) gọi, và để test loopback.
  *
  * - Chỉ nhận kết nối mTLS: client phải trình cert do CA chung cấp (TLS handshake).
  * - Thêm allowlist identity (CN cert): cert hợp lệ nhưng không phải Gateway ⇒ PERMISSION_DENIED,
- *   không có identity ⇒ UNAUTHENTICATED. Handler không chạy, nên không truy cập DB (TC-ARC-01).
+ *   không có identity ⇒ UNAUTHENTICATED, kèm marker `STORAGE_CALLER_IDENTITY_REJECTED` (Gateway ⇒ 503).
+ *   Handler không chạy, nên không truy cập DB (TC-ARC-01).
  * - RPC chưa có handler ⇒ grpc-js trả UNIMPLEMENTED. I-01b không tự viết handler nghiệp vụ.
  */
 export interface StorageGrpcServerConfig {
@@ -51,8 +63,14 @@ export interface RunningStorageGrpcServer {
   shutdown(): Promise<void>;
 }
 
+/**
+ * Từ chối caller: giữ status gRPC UNAUTHENTICATED/PERMISSION_DENIED (TC-ARC-01) và đính marker
+ * `STORAGE_CALLER_IDENTITY_REJECTED` để Gateway không trả 401/403 cho end-user (review I-01b L1).
+ */
 function rejectCall(call: ServerInterceptingCallInterface, code: GrpcStatus, details: string) {
-  call.sendStatus({ code, details, metadata: new Metadata() });
+  const metadata = new Metadata();
+  metadata.set(STORAGE_ERROR_DETAIL_METADATA_KEY, CALLER_IDENTITY_REJECTED_DETAIL);
+  call.sendStatus({ code, details, metadata });
 }
 
 /** Chặn mọi RPC từ caller không thuộc allowlist, trước khi handler nhận metadata/message. */

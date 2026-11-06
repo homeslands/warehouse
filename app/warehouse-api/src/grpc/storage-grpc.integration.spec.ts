@@ -6,7 +6,15 @@ import {
   ServerUnaryCall,
   status as GrpcStatus,
 } from '@grpc/grpc-js';
-import { Controller, Get, Headers, INestApplication, Param, UseFilters } from '@nestjs/common';
+import {
+  Controller,
+  Get,
+  Headers,
+  INestApplication,
+  Logger,
+  Param,
+  UseFilters,
+} from '@nestjs/common';
 import { ConfigModule } from '@nestjs/config';
 import { Test } from '@nestjs/testing';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
@@ -22,8 +30,13 @@ import { StorageGrpcClientModule } from './gateway/storage-grpc-client.module';
 import { StorageRpcError } from './gateway/storage-rpc.error';
 import { StorageRpcErrorFilter } from './gateway/storage-rpc-error.filter';
 import { translateStorageRpcError } from './gateway/storage-rpc-error.translator';
-import { StorageRpcValidation } from './gateway/storage-rpc.validation';
-import { STORAGE_GRPC_CONFIG_KEYS } from './grpc.constants';
+import {
+  GATEWAY_AUTHORIZATION_MALFORMED,
+  STORAGE_CALLER_IDENTITY_REJECTED,
+  StorageRpcSpecialValidation,
+  StorageRpcValidation,
+} from './gateway/storage-rpc.validation';
+import { STORAGE_GRPC_CONFIG_KEYS, STORAGE_GRPC_MAX_DEADLINE_MS } from './grpc.constants';
 import {
   readStorageCallContext,
   RunningStorageGrpcServer,
@@ -41,7 +54,18 @@ jest.setTimeout(60_000);
 
 const STORAGE_NAME = 'warehouse-storage';
 const GATEWAY_NAME = 'warehouse-gateway';
-const JWT = 'Bearer eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1MSJ9.c2lnbmF0dXJl';
+const TOKEN = 'eyJhbGciOiJIUzI1NiJ9.eyJzdWIiOiJ1MSJ9.c2lnbmF0dXJl';
+const JWT = `Bearer ${TOKEN}`;
+/** Header không gửi được qua gRPC metadata (review I-01b M1). */
+const MALFORMED_AUTHORIZATIONS: Array<[string, string]> = [
+  ['TAB separator', `Bearer\t${TOKEN}`],
+  ['CR/LF injection', `Bearer ${TOKEN}\r\nx-role: ADMIN`],
+  ['latin1 character', `Bearer ${TOKEN}\u00e9`],
+  ['non-latin1 character', `Bearer ${TOKEN}\u1e9e`],
+  ['leading space', ` Bearer ${TOKEN}`],
+  ['double space', `Bearer  ${TOKEN}`],
+  ['empty value', ''],
+];
 const STANDARD_METADATA = new Set(['user-agent', 'content-type', 'te']);
 
 interface GetJobRequest {
@@ -225,12 +249,36 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
       expect(received).toHaveLength(0);
     });
 
-    it('returns PERMISSION_DENIED for a valid certificate whose identity is not allowlisted', async () => {
+    const identityRejection = async (cert: TestCertificate, expected: GrpcStatus) => {
+      const error = await callGetJob(newClient(cert), 'echo').catch(
+        (reason: StorageRpcError) => reason,
+      );
+      expect(error).toBeInstanceOf(StorageRpcError);
+      expect((error as StorageRpcError).grpcCode).toBe(expected);
+      expect(received).toHaveLength(0);
+      return translateStorageRpcError(error as StorageRpcError);
+    };
+
+    it('returns PERMISSION_DENIED for a CA-issued certificate whose CN is not allowlisted → 503 (not 403)', async () => {
       const other = pki.issue(ca, 'ui', 'warehouse-ui', 'clientAuth');
-      expect(await grpcCodeOf(callGetJob(newClient(other), 'echo'))).toBe(
+      const { statusCode, body, special } = await identityRejection(
+        other,
         GrpcStatus.PERMISSION_DENIED,
       );
-      expect(received).toHaveLength(0);
+      expect(special).toBe(STORAGE_CALLER_IDENTITY_REJECTED);
+      expect(statusCode).toBe(503);
+      expect(body).toMatchObject({
+        code: StorageRpcSpecialValidation.STORAGE_CALLER_IDENTITY_REJECTED.code,
+        errorKey: 'STORAGE_CALLER_IDENTITY_REJECTED',
+        message: 'Service temporarily unavailable',
+      });
+    });
+
+    it('returns UNAUTHENTICATED for a CA-issued certificate without CN (SAN only) → 503 (not 401)', async () => {
+      const sanOnly = pki.issue(ca, 'san-only', null, 'clientAuth', GATEWAY_NAME);
+      const { statusCode, special } = await identityRejection(sanOnly, GrpcStatus.UNAUTHENTICATED);
+      expect(special).toBe(STORAGE_CALLER_IDENTITY_REJECTED);
+      expect(statusCode).toBe(503);
     });
 
     it('refuses to talk to a Storage whose certificate is not from the shared CA', async () => {
@@ -288,6 +336,34 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
       expect(received[0].customMetadataKeys).toEqual(['x-trace-id']);
     });
 
+    it.each(MALFORMED_AUTHORIZATIONS)(
+      'rejects an Authorization with %s before sending; 401 without leaking the token',
+      async (_label, authorization) => {
+        const traceId = normalizeTraceId(undefined);
+        const error = await newClient(gatewayCert)
+          .unary('GetJob', { id: 'echo' }, { traceId, authorization })
+          .catch((reason: unknown) => reason);
+        expect(error).toBeInstanceOf(StorageRpcError);
+        expect((error as StorageRpcError).gatewayReason).toBe(GATEWAY_AUTHORIZATION_MALFORMED);
+        expect((error as StorageRpcError).message).not.toContain(TOKEN);
+        expect(received).toHaveLength(0);
+        const { statusCode, body } = translateStorageRpcError(error as StorageRpcError);
+        expect(statusCode).toBe(401);
+        expect(body).toMatchObject({ errorKey: 'GATEWAY_AUTHORIZATION_MALFORMED', traceId });
+        expect(JSON.stringify(body)).not.toContain(TOKEN);
+      },
+    );
+
+    it.each(MALFORMED_AUTHORIZATIONS)(
+      'buildMetadata refuses an Authorization with %s with a message that has no value',
+      (_label, authorization) => {
+        const traceId = normalizeTraceId(undefined);
+        expect(() => StorageGrpcClient.buildMetadata({ traceId, authorization })).toThrow(
+          new RangeError('authorization header is malformed'),
+        );
+      },
+    );
+
     it('refuses to send a traceId that was not normalized to a UUID', () => {
       expect(() =>
         newClient(gatewayCert).unary('GetJob', { id: 'echo' }, { traceId: 'abc\r\nx: 1' }),
@@ -303,6 +379,43 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
   });
 
   describe('deadline', () => {
+    it.each([0, -1, 1.5, STORAGE_GRPC_MAX_DEADLINE_MS + 1, Number.MAX_SAFE_INTEGER])(
+      'refuses a per-call deadline override of %p ms',
+      (deadlineMs) => {
+        const client = newClient(gatewayCert);
+        expect(() =>
+          client.unary(
+            'GetJob',
+            { id: 'echo' },
+            { traceId: normalizeTraceId(undefined), deadlineMs },
+          ),
+        ).toThrow(RangeError);
+      },
+    );
+
+    it.each([1, STORAGE_GRPC_MAX_DEADLINE_MS])(
+      'accepts a configured deadline of %p ms',
+      (deadlineMs) => {
+        expect(() => newClient(gatewayCert, undefined, { deadlineMs })).not.toThrow();
+      },
+    );
+
+    it.each([0, STORAGE_GRPC_MAX_DEADLINE_MS + 1])(
+      'refuses a configured deadline of %p ms',
+      (deadlineMs) => {
+        expect(() => newClient(gatewayCert, undefined, { deadlineMs })).toThrow(RangeError);
+      },
+    );
+
+    it('accepts the maximum deadline on a real call', async () => {
+      const response = await callGetJob(
+        newClient(gatewayCert),
+        'echo',
+        STORAGE_GRPC_MAX_DEADLINE_MS,
+      );
+      expect(response.result.id).toBe('echo');
+    });
+
     it('propagates the configured deadline to Storage', async () => {
       const before = Date.now();
       await callGetJob(newClient(gatewayCert, undefined, { deadlineMs: 1_500 }), 'echo');
@@ -400,9 +513,6 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
   });
 
   describe('HTTP → Gateway → gRPC → Storage (Nest app, supertest)', () => {
-    let app: INestApplication;
-    const warnings: string[] = [];
-
     @Controller('probe')
     @UseFilters(StorageRpcErrorFilter)
     class ProbeController {
@@ -421,8 +531,17 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
       }
     }
 
-    beforeAll(async () => {
+    interface ProbeApp {
+      app: INestApplication;
+      warnings: string[];
+      errors: string[];
+    }
+
+    /** App Nest chỉ cho test, Gateway dùng cert `cert` (để thử cả cert ngoài allowlist). */
+    const createProbeApp = async (cert: TestCertificate): Promise<ProbeApp> => {
       const keys = STORAGE_GRPC_CONFIG_KEYS;
+      const warnings: string[] = [];
+      const errors: string[] = [];
       const moduleRef = await Test.createTestingModule({
         imports: [
           ConfigModule.forRoot({
@@ -433,8 +552,8 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
                 [keys.address]: address,
                 [keys.serverName]: STORAGE_NAME,
                 [keys.caPath]: ca.certPath,
-                [keys.certPath]: gatewayCert.certPath,
-                [keys.keyPath]: gatewayCert.keyPath,
+                [keys.certPath]: cert.certPath,
+                [keys.keyPath]: cert.keyPath,
                 [keys.deadlineMs]: '2000',
               }),
             ],
@@ -445,20 +564,44 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
         providers: [
           {
             provide: WINSTON_MODULE_NEST_PROVIDER,
-            useValue: { log: jest.fn(), error: jest.fn(), warn: (m: string) => warnings.push(m) },
+            useValue: {
+              log: jest.fn(),
+              error: (m: string) => errors.push(m),
+              warn: (m: string) => warnings.push(m),
+            },
           },
         ],
       }).compile();
-      app = moduleRef.createNestApplication();
+      const app = moduleRef.createNestApplication({ logger: false });
       await app.init();
+      return { app, warnings, errors };
+    };
+
+    let probe: ProbeApp;
+    /** Bắt log của exception handler mặc định của Nest (đường M1 cũ làm lộ JWT ở đây). */
+    let nestLoggerError: jest.SpyInstance;
+
+    beforeAll(async () => {
+      probe = await createProbeApp(gatewayCert);
     });
+
+    beforeEach(() => {
+      probe.warnings.length = 0;
+      probe.errors.length = 0;
+      nestLoggerError = jest.spyOn(Logger.prototype, 'error');
+    });
+
+    afterEach(() => nestLoggerError.mockRestore());
 
     afterAll(async () => {
-      await app?.close();
+      await probe?.app.close();
     });
 
+    const loggedText = () =>
+      JSON.stringify([probe.warnings, probe.errors, nestLoggerError.mock.calls]);
+
     it('returns a v1 success envelope whose traceId is the one Storage received', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(probe.app.getHttpServer())
         .get('/probe/jobs/echo')
         .set('Authorization', JWT)
         .expect(200);
@@ -469,7 +612,7 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
     });
 
     it('returns a v1 error envelope for a Storage business error', async () => {
-      const response = await request(app.getHttpServer())
+      const response = await request(probe.app.getHttpServer())
         .get('/probe/jobs/conflict')
         .set('Authorization', JWT)
         .expect(409);
@@ -481,16 +624,62 @@ describe('Storage gRPC runtime over mTLS (loopback, real grpc-js)', () => {
     });
 
     it('returns 500 with a safe message and logs without secrets for INTERNAL', async () => {
-      warnings.length = 0;
-      const response = await request(app.getHttpServer())
+      const response = await request(probe.app.getHttpServer())
         .get('/probe/jobs/internal')
         .set('Authorization', JWT)
         .expect(500);
       expect(response.body.message).toBe('Internal error');
       expect(JSON.stringify(response.body)).not.toMatch(/hunter2|secret/);
-      expect(warnings).toHaveLength(1);
-      expect(warnings[0]).toContain(`traceId=${response.body.traceId}`);
-      expect(warnings[0]).not.toMatch(/hunter2|secret|eyJ/);
+      expect(probe.warnings).toHaveLength(1);
+      expect(probe.warnings[0]).toContain(`traceId=${response.body.traceId}`);
+      expect(probe.warnings[0]).not.toMatch(/hunter2|secret|eyJ/);
+    });
+
+    // Node HTTP chỉ cho phép TAB và byte latin1 trong giá trị header (CR/LF bị chặn ở client test).
+    it.each([
+      ['TAB separator', `Bearer\t${TOKEN}`],
+      ['latin1 character', `Bearer ${TOKEN}\u00e9`],
+    ])(
+      'returns 401 for an Authorization header with %s and never logs the token',
+      async (_label, authorization) => {
+        const response = await request(probe.app.getHttpServer())
+          .get('/probe/jobs/echo')
+          .set('Authorization', authorization)
+          .expect(401);
+        expect(response.body).toMatchObject({
+          statusCode: 401,
+          code: StorageRpcSpecialValidation.GATEWAY_AUTHORIZATION_MALFORMED.code,
+          errorKey: 'GATEWAY_AUTHORIZATION_MALFORMED',
+          message: 'Authentication required',
+        });
+        expect(JSON.stringify(response.body)).not.toContain(TOKEN);
+        expect(received).toHaveLength(0);
+        expect(nestLoggerError).not.toHaveBeenCalled();
+        expect(loggedText()).not.toContain(TOKEN);
+      },
+    );
+
+    it('returns 503 (not 403) and logs an error when Storage rejects the Gateway identity', async () => {
+      const misconfigured = await createProbeApp(
+        pki.issue(ca, 'gw-wrong', 'warehouse-ui', 'clientAuth'),
+      );
+      try {
+        const response = await request(misconfigured.app.getHttpServer())
+          .get('/probe/jobs/echo')
+          .set('Authorization', JWT)
+          .expect(503);
+        expect(response.body).toMatchObject({
+          errorKey: 'STORAGE_CALLER_IDENTITY_REJECTED',
+          message: 'Service temporarily unavailable',
+        });
+        expect(received).toHaveLength(0);
+        expect(misconfigured.errors).toHaveLength(1);
+        expect(misconfigured.errors[0]).toContain('rejected the Gateway service identity');
+        expect(misconfigured.errors[0]).toContain(`traceId=${response.body.traceId}`);
+        expect(misconfigured.errors[0]).not.toContain(TOKEN);
+      } finally {
+        await misconfigured.app.close();
+      }
     });
   });
 });

@@ -47,8 +47,17 @@ export class TestPki {
     return { name, ...this.read(name) };
   }
 
-  /** Cert lá do `ca` ký, CN + SAN DNS = `commonName`. */
-  issue(ca: TestCa, name: string, commonName: string, usage: 'serverAuth' | 'clientAuth') {
+  /**
+   * Cert lá do `ca` ký, CN + SAN DNS = `commonName`. `commonName = null` ⇒ cert chỉ có SAN `dnsName`
+   * (subject không CN, kiểu PKI SPIFFE/SAN-only).
+   */
+  issue(
+    ca: TestCa,
+    name: string,
+    commonName: string | null,
+    usage: 'serverAuth' | 'clientAuth',
+    dnsName = commonName,
+  ) {
     const extFile = join(this.dir, `${name}.ext`);
     writeFileSync(
       extFile,
@@ -56,14 +65,15 @@ export class TestPki {
         'basicConstraints=CA:FALSE',
         'keyUsage=critical,digitalSignature',
         `extendedKeyUsage=${usage}`,
-        `subjectAltName=DNS:${commonName}`,
+        `subjectAltName=DNS:${dnsName}`,
       ].join('\n'),
     );
+    const subject = commonName === null ? '/O=warehouse-test' : `/CN=${commonName}`;
     // Tham số openssl xếp theo cặp cờ/giá trị cho dễ đọc.
     // prettier-ignore
     this.openssl([
       'req', '-newkey', 'ec', '-pkeyopt', 'ec_paramgen_curve:prime256v1', '-nodes',
-      '-keyout', `${name}.key`, '-out', `${name}.csr`, '-subj', `/CN=${commonName}`,
+      '-keyout', `${name}.key`, '-out', `${name}.csr`, '-subj', subject,
     ]);
     // Tham số openssl xếp theo cặp cờ/giá trị cho dễ đọc.
     // prettier-ignore

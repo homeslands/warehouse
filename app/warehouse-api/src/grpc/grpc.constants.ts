@@ -29,3 +29,13 @@ export const STORAGE_GRPC_CONFIG_KEYS = {
 
 /** Thời gian chờ server đóng êm (ms) trước khi buộc huỷ các call còn treo. */
 export const GRPC_SERVER_SHUTDOWN_GRACE_MS = 5_000;
+
+/**
+ * Biên deadline một RPC unary Gateway → Storage (ms), áp cho cả cấu hình lẫn ghi đè theo call
+ * (review I-01b L2). R2/NFR chưa cho con số; 30 000 ms là trần tạm, chờ Tech Lead chốt:
+ * - unary W02 là đọc/ghi 1 transaction; việc dài (backup/restore) là job bất đồng bộ (202 + `getJob`);
+ * - upload là client-stream (I-04) có deadline riêng;
+ * - trần chặn cấu hình nhầm (thừa số 0) tạo deadline gần như vô hạn, giữ request HTTP treo.
+ */
+export const STORAGE_GRPC_MIN_DEADLINE_MS = 1;
+export const STORAGE_GRPC_MAX_DEADLINE_MS = 30_000;
