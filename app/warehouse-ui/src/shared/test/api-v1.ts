@@ -91,3 +91,18 @@ export function v1LoginResult(overrides: Partial<V1LoginResult> = {}): V1LoginRe
 export function v1Action(status = 'OK'): V1ActionResult {
   return { id: '44444444-4444-4444-8444-444444444444', version: 1, status, traceId: TRACE_ID }
 }
+
+/**
+ * MOCK cookie CSRF do server đặt (BE Q2: `wh_csrf` khi HTTP dev — jsdom chạy `http://localhost`).
+ * JS đọc được, không HttpOnly. `null` = xoá.
+ */
+export function setCsrfCookie(value: string | null) {
+  document.cookie =
+    value === null ? 'wh_csrf=; Path=/; Max-Age=0' : `wh_csrf=${encodeURIComponent(value)}; Path=/`
+}
+
+/** Marker phiên trong localStorage như tab khác/lần tải trước để lại (không chứa credential). */
+export function setSessionMarker(marker: { sessionId: string; locked: boolean } | null) {
+  if (marker === null) localStorage.removeItem('warehouse.auth.v1')
+  else localStorage.setItem('warehouse.auth.v1', JSON.stringify(marker))
+}

@@ -11,10 +11,11 @@ import {
   V1_SESSION_STORAGE_KEY,
   clearCredentials,
   getAccessToken,
-  readPersistedSession,
+  readCsrfCookie,
+  readSessionMarker,
   v1Get,
 } from '@/shared/api/v1'
-import { V1_BASE, v1LoginResult, v1User, v1error, v1ok } from '@/shared/test/api-v1'
+import { V1_BASE, setCsrfCookie, v1LoginResult, v1User, v1error, v1ok } from '@/shared/test/api-v1'
 import { server } from '@/shared/test/msw'
 
 let store: AppStore
@@ -92,11 +93,13 @@ describe('syncV1SessionFromOtherTab (D14 §2: đồng bộ khoá/đăng xuất n
     await login()
   })
 
-  it('tab khác khoá → tab này khoá (bỏ access token)', () => {
-    const current = readPersistedSession()
+  it('tab khác khoá → tab này khoá (bỏ access + CSRF, xoá cookie CSRF)', () => {
+    setCsrfCookie('csrf-cookie-000001')
+    const current = readSessionMarker()
     otherTabWrites(JSON.stringify({ ...current, locked: true }))
     expect(session()).toMatchObject({ status: 'locked', endReason: 'locked' })
     expect(getAccessToken()).toBeNull()
+    expect(readCsrfCookie()).toBeNull()
   })
 
   it('tab khác đăng xuất → tab này đăng xuất (purge)', () => {
@@ -105,7 +108,7 @@ describe('syncV1SessionFromOtherTab (D14 §2: đồng bộ khoá/đăng xuất n
   })
 
   it('tab khác mở khoá (phiên mới) khi tab này đang khoá → refresh lấy access của phiên mới', async () => {
-    const current = readPersistedSession()
+    const current = readSessionMarker()
     otherTabWrites(JSON.stringify({ ...current, locked: true }))
     expect(session().status).toBe('locked')
     let csrf: string | null = null
@@ -115,19 +118,19 @@ describe('syncV1SessionFromOtherTab (D14 §2: đồng bộ khoá/đăng xuất n
         return v1ok(v1LoginResult({ accessToken: 'access-unlocked' }))
       }),
     )
-    otherTabWrites(
-      JSON.stringify({ csrfToken: 'csrf-other-tab-0001', sessionId: 'new-session', locked: false }),
-    )
+    // Tab kia login lại: server đặt cookie CSRF mới (MOCK), marker không chứa credential.
+    setCsrfCookie('csrf-other-tab-0001')
+    otherTabWrites(JSON.stringify({ sessionId: 'new-session', locked: false }))
     await expect.poll(() => session().status).toBe('authenticated')
     expect(csrf).toBe('csrf-other-tab-0001')
     expect(getAccessToken()).toBe('access-unlocked')
   })
 
-  it('cùng phiên, không khoá (tab khác vừa rotate CSRF) → không làm gì', () => {
-    const current = readPersistedSession()
+  it('cùng phiên, không khoá (tab khác vừa refresh) → không làm gì', () => {
+    const current = readSessionMarker()
     if (current === null) throw new Error('cần phiên đang lưu')
     const before = store.getState()
-    syncV1SessionFromOtherTab(store, { ...current, csrfToken: 'csrf-rotated-00001' })
+    syncV1SessionFromOtherTab(store, { ...current })
     expect(store.getState()).toBe(before)
   })
 })

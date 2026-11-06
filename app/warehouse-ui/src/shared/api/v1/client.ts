@@ -8,12 +8,14 @@ import { getEnv } from '@/shared/config/env'
 import type { SessionEndReason } from '@/shared/api/types'
 import {
   getAccessToken,
-  readPersistedSession,
-  setAccessToken,
-  writePersistedSession,
+  readSessionMarker,
+  resolveCsrfToken,
+  storeSessionCredentials,
+  wipeCsrfCookie,
 } from './credentials'
 import { V1NetworkError, V1ProtocolError, parseV1Envelope, parseV1Error } from './errors'
 import { V1_AUTH_PATHS, V1_CSRF_HEADER } from './paths'
+import { withCrossTabRefreshLock } from './refresh-mutex'
 import { sessionEndReasonForV1, terminalReasonFor } from './session-end'
 import type { V1Envelope, V1LoginResult } from './types'
 
@@ -25,7 +27,10 @@ import type { V1Envelope, V1LoginResult } from './types'
  * - Lỗi: `ApiV1Error` (schema `Error`: `errorKey`, `code`, `errors[]`), `V1ProtocolError` (lệch hợp
  *   đồng) hoặc `V1NetworkError` (không có response). Request bị huỷ giữ nguyên lỗi huỷ của axios.
  * - 401: refresh qua cookie `wh_refresh` + header `X-CSRF-Token`, single-flight (một lần/tab, và
- *   tuần tự giữa các tab bằng Web Locks nếu trình duyệt có), gửi lại ĐÚNG MỘT lần. Không có vòng lặp.
+ *   tuần tự giữa các tab bằng Web Locks, không có thì mutex localStorage + BroadcastChannel — BE Q3:
+ *   không có grace window), gửi lại ĐÚNG MỘT lần. Không có vòng lặp.
+ * - Cookie chỉ đi kèm request auth cần nó (L2 review r1): login (nhận Set-Cookie), refresh, logout,
+ *   logout-all (server xoá cookie). Request khác không bật credentials.
  */
 
 type TrackedConfig = InternalAxiosRequestConfig & { _sentToken?: string | null; _retried?: boolean }
@@ -34,7 +39,7 @@ export type V1SessionHooks = {
   /**
    * Phiên kết thúc (refresh bị từ chối, 401 terminal, hoặc vẫn 401 sau khi refresh). Hợp đồng:
    * handler PHẢI đưa credentials về trạng thái không-hoạt-động đồng bộ (`clearCredentials` hoặc
-   * `markCredentialsLocked`) — các 401 đồng thời đến sau sẽ thấy và không gọi lại.
+   * `lockCredentials`) — các 401 đồng thời đến sau sẽ thấy và không gọi lại.
    */
   onSessionEnd: (reason: SessionEndReason) => void
   /** Refresh thành công (rotation) — tầng trên cập nhật danh tính nếu cần. */
@@ -50,13 +55,17 @@ export function setV1SessionHooks(next: V1SessionHooks): void {
 
 export const V1_REFRESH_TIMEOUT_MS = 15_000
 
-/** Tên Web Lock dùng chung giữa các tab — hai tab refresh cùng cookie sẽ bị coi là reuse (TC-AUTH-05). */
-export const V1_REFRESH_LOCK = 'warehouse.auth.v1.refresh'
-
 const baseURL = getEnv().apiBaseUrl
 
-/** `withCredentials`: cookie `wh_refresh` đi kèm cả khi API khác origin (credentials: include). */
-export const apiV1Http: AxiosInstance = axios.create({ baseURL, withCredentials: true })
+/** Path auth cần cookie (`Path=/api/v1/auth`): gửi/nhận/xoá `wh_refresh` kể cả khi API khác origin. */
+export const V1_COOKIE_PATHS: ReadonlySet<string> = new Set([
+  V1_AUTH_PATHS.login,
+  V1_AUTH_PATHS.refresh,
+  V1_AUTH_PATHS.logout,
+  V1_AUTH_PATHS.logoutAll,
+])
+
+export const apiV1Http: AxiosInstance = axios.create({ baseURL })
 
 // Không gắn interceptor: refresh không được tự kích hoạt lại luồng 401.
 const refreshHttp: AxiosInstance = axios.create({
@@ -95,38 +104,35 @@ export function assertLoginResult(result: unknown): V1LoginResult {
   return result
 }
 
-/** Bắt đầu/rotate phiên ở client từ một `LoginResult` hợp lệ. */
+/** Bắt đầu/rotate phiên ở client từ một `LoginResult` hợp lệ (access + CSRF chỉ vào memory). */
 export function applyLoginResult(result: V1LoginResult): void {
-  setAccessToken(result.accessToken)
-  writePersistedSession({ csrfToken: result.csrfToken, sessionId: result.sessionId, locked: false })
+  storeSessionCredentials(result)
 }
 
 /** Phiên đã kết thúc (đăng xuất/khoá) trong lúc refresh đang bay. */
 class SessionGoneError extends Error {}
 
-async function withCrossTabLock<T>(task: () => Promise<T>): Promise<T> {
-  const locks = typeof navigator === 'undefined' ? undefined : navigator.locks
-  if (!locks) return task()
-  // Lock giữ tới khi `task` xong; tab khác chờ rồi đọc CSRF/cookie đã rotate.
-  return await locks.request(V1_REFRESH_LOCK, task)
-}
-
 async function doRefresh(): Promise<V1LoginResult> {
-  // Đọc CSRF BÊN TRONG lock: tab khác vừa rotate thì đây là bản mới, cookie trình duyệt cũng mới.
-  const before = readPersistedSession()
-  if (before === null || before.locked) throw new SessionGoneError()
+  // Đọc CSRF BÊN TRONG lock: tab khác vừa rotate thì cookie CSRF đã là bản mới.
+  const before = readSessionMarker()
+  const csrf = resolveCsrfToken()
+  if (before === null || before.locked || csrf === null) throw new SessionGoneError()
   let result: V1LoginResult
   try {
     const res = await refreshHttp.post<unknown>(V1_AUTH_PATHS.refresh, undefined, {
-      headers: { [V1_CSRF_HEADER]: before.csrfToken },
+      headers: { [V1_CSRF_HEADER]: csrf },
     })
     result = assertLoginResult(parseV1Envelope<unknown>(res.data).result)
   } catch (error) {
     throw toV1Error(error)
   }
-  const now = readPersistedSession()
-  // Đăng xuất / khoá trong lúc chờ: KHÔNG ghi lại, nếu không tab này tự đăng nhập lại.
-  if (now === null || now.locked) throw new SessionGoneError()
+  const now = readSessionMarker()
+  // Đăng xuất / khoá trong lúc chờ: KHÔNG ghi lại (nếu không tab này tự mở khoá) và xoá cookie CSRF
+  // server vừa đặt kèm response — khoá phải không mở lại được bằng cách sửa marker rồi reload.
+  if (now === null || now.locked) {
+    wipeCsrfCookie()
+    throw new SessionGoneError()
+  }
   applyLoginResult(result)
   hooks.onRefreshed?.(result)
   return result
@@ -136,7 +142,7 @@ let inflight: Promise<V1LoginResult> | null = null
 
 /** Mọi 401 cùng lúc chờ CHUNG một promise → đúng một `POST /auth/refresh` mỗi tab. */
 export function refreshV1Session(): Promise<V1LoginResult> {
-  inflight ??= withCrossTabLock(doRefresh).finally(() => {
+  inflight ??= withCrossTabRefreshLock(doRefresh).finally(() => {
     inflight = null
   })
   return inflight
@@ -147,8 +153,8 @@ export function isSessionGone(error: unknown): boolean {
 }
 
 function isActive(): boolean {
-  const persisted = readPersistedSession()
-  return persisted !== null && !persisted.locked
+  const marker = readSessionMarker()
+  return marker !== null && !marker.locked
 }
 
 /** Chỉ kết thúc phiên khi còn phiên hoạt động: N request lỗi cùng lúc → handler chạy một lần. */
@@ -164,6 +170,7 @@ apiV1Http.interceptors.request.use((config) => {
   const token = getAccessToken()
   if (token) tracked.headers.Authorization = `Bearer ${token}`
   tracked._sentToken = token
+  tracked.withCredentials = V1_COOKIE_PATHS.has(tracked.url ?? '')
   return tracked
 })
 

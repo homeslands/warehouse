@@ -11,11 +11,14 @@ export type LoginV1Failure = {
   fieldErrors: { field: LoginV1Field; message: string }[]
   /** Thông báo chung (role="alert"); `null` khi mọi lỗi đã gắn được vào ô. */
   alert: { message: string; traceId?: string } | null
+  /** Chỉ `true` khi sai thông tin đăng nhập (401/403): lỗi mạng/hệ thống/429 giữ mật khẩu đã gõ. */
+  clearPassword: boolean
 }
 
 /**
  * Lỗi đăng nhập → thứ form hiển thị. Theo screen-contracts UI-01 + quy tắc chung:
- * - 401/403: thông điệp CHUNG, không tiết lộ tài khoản có tồn tại hay bị khoá (TC-AUTH-02).
+ * - 401/403: thông điệp CHUNG, không tiết lộ tài khoản có tồn tại hay bị khoá (TC-AUTH-02; BE Q1:
+ *   `SESSION_INVALID_CREDENTIALS` cho mọi trường hợp sai).
  * - 422: gắn `errors[]` vào ô tương ứng; field lạ (không có ô) rơi vào thông báo chung.
  * - 429: vượt giới hạn 20 lần/phút (TC-AUTH-08).
  * - Không có response: offline — không tự gửi lại.
@@ -26,10 +29,18 @@ export function describeLoginV1Error(error: unknown): LoginV1Failure {
   const traceId = error instanceof ApiV1Error ? error.traceId : undefined
 
   if (status === 401 || status === 403) {
-    return { fieldErrors: [], alert: { message: i18n.t('auth:v1.invalidCredentials') } }
+    return {
+      fieldErrors: [],
+      alert: { message: i18n.t('auth:v1.invalidCredentials') },
+      clearPassword: true,
+    }
   }
   if (status === 429) {
-    return { fieldErrors: [], alert: { message: i18n.t('auth:v1.rateLimited') } }
+    return {
+      fieldErrors: [],
+      alert: { message: i18n.t('auth:v1.rateLimited') },
+      clearPassword: false,
+    }
   }
   if (status === 422 && error instanceof ApiV1Error) {
     const fieldErrors = error.fieldErrors
@@ -40,13 +51,15 @@ export function describeLoginV1Error(error: unknown): LoginV1Failure {
     return {
       fieldErrors,
       alert: unmatched ? { message: error.message, ...(traceId ? { traceId } : {}) } : null,
+      clearPassword: false,
     }
   }
   if (error instanceof V1NetworkError || status === undefined) {
-    return { fieldErrors: [], alert: { message: i18n.t('auth:v1.offline') } }
+    return { fieldErrors: [], alert: { message: i18n.t('auth:v1.offline') }, clearPassword: false }
   }
   return {
     fieldErrors: [],
     alert: { message: i18n.t('auth:v1.unexpected'), ...(traceId ? { traceId } : {}) },
+    clearPassword: false,
   }
 }

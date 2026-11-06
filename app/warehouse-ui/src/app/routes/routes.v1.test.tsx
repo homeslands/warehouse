@@ -59,8 +59,11 @@ describe('cờ apiV1Auth BẬT', () => {
     expect(document.querySelector('[data-slot="login-background"]')).toBeNull()
   })
 
-  it('đang khôi phục phiên (unknown) → vùng được bảo vệ chưa render gì, không điều hướng', () => {
+  it('đang khôi phục phiên (unknown) → vòng chờ (role=status), chưa render vùng được bảo vệ, không điều hướng', async () => {
     const { router } = renderWithRouter(routes(), { route: '/warehouses', store })
+    expect(
+      await screen.findByRole('status', { name: 'Đang tải...' }, { timeout: 5000 }),
+    ).toBeInTheDocument()
     expect(router.state.location.pathname).toBe('/warehouses')
     expect(screen.queryByRole('navigation')).not.toBeInTheDocument()
   })
@@ -117,10 +120,13 @@ describe('ProtectedRouteV1', () => {
     )
     expect(screen.getByText('Nội dung được bảo vệ')).toBeInTheDocument()
 
+    // Tương tác thật đầu tiên → báo ngay (review r1 M1); thêm trong 60 giây → không báo.
     fireEvent.pointerDown(document.body)
-    vi.setSystemTime(Date.now() + ACTIVITY_REPORT_INTERVAL_MS)
     fireEvent.keyDown(document.body, { key: 'a' })
-    fireEvent.keyDown(document.body, { key: 'b' })
     await waitFor(() => expect(activity).toEqual(['Bearer access-guard']))
+    vi.setSystemTime(Date.now() + ACTIVITY_REPORT_INTERVAL_MS)
+    fireEvent.keyDown(document.body, { key: 'b' })
+    fireEvent.keyDown(document.body, { key: 'c' })
+    await waitFor(() => expect(activity).toEqual(['Bearer access-guard', 'Bearer access-guard']))
   })
 })

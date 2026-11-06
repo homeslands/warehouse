@@ -52,13 +52,13 @@ export function LoginV1Form({
     },
     onSuccess: (result) => onSuccess?.(result),
     onError: (error) => {
-      const { fieldErrors, alert } = describeLoginV1Error(error)
+      const { fieldErrors, alert, clearPassword } = describeLoginV1Error(error)
       form.setFields(fieldErrors.map(({ field, message }) => ({ name: field, errors: [message] })))
       setFailure(alert)
       const first = fieldErrors[0]
       if (first) form.focusField(first.field)
-      // Mật khẩu sai không giữ lại trong ô — gõ lại từ đầu (không áp cho lỗi mạng/hệ thống).
-      if (alert && fieldErrors.length === 0) form.setFieldValue('password', '')
+      // Sai thông tin đăng nhập: xoá ô mật khẩu để gõ lại. Lỗi mạng/hệ thống/429 giữ nguyên.
+      if (clearPassword) form.setFieldValue('password', '')
     },
   })
 

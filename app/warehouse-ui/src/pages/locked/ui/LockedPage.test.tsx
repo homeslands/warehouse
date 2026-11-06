@@ -6,7 +6,7 @@ import { screen, waitFor } from '@testing-library/react'
 import { http as mswHttp } from 'msw'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { endV1Session, injectSessionV1, loginV1, selectSessionV1 } from '@/entities/session'
-import { clearCredentials, readPersistedSession } from '@/shared/api/v1'
+import { clearCredentials, readSessionMarker } from '@/shared/api/v1'
 import { appReducer } from '@/shared/store'
 import { V1_BASE, v1LoginResult, v1User, v1ok } from '@/shared/test/api-v1'
 import { server } from '@/shared/test/msw'
@@ -81,13 +81,13 @@ describe('LockedPage (UI-02)', () => {
     expect(body).toEqual({ phoneNumber: '0900000001', password: 'mat-khau' })
   })
 
-  it('Đăng xuất từ màn khoá → về đăng nhập, xoá CSRF, không gọi API (không còn access token)', async () => {
+  it('Đăng xuất từ màn khoá → về đăng nhập, xoá marker, không gọi API (không còn access token)', async () => {
     await lockAs('idle')
     const { user } = renderLocked()
     await user.click(screen.getByRole('button', { name: 'Đăng xuất' }))
     expect(await screen.findByText('Màn đăng nhập')).toBeInTheDocument()
     expect(selectSessionV1(store.getState()).endReason).toBe('loggedOut')
-    expect(readPersistedSession()).toBeNull()
+    expect(readSessionMarker()).toBeNull()
   })
 
   it('không bị khoá (chưa đăng nhập) → chuyển /login, giữ redirect', async () => {

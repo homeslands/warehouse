@@ -8,28 +8,29 @@ import {
   selectSessionV1,
   sessionRefreshed,
 } from '@/entities/session'
-import { setV1SessionHooks, subscribeCrossTab, type V1PersistedSession } from '@/shared/api/v1'
+import { setV1SessionHooks, subscribeCrossTab, type V1SessionMarker } from '@/shared/api/v1'
 import { wireClientStateLifecycleV1 } from './client-state-lifecycle'
 
 /**
  * Đồng bộ với tab khác (D14 §2 "UI đồng bộ khoá/logout nhiều tab"). Chỉ phản ứng với thay đổi do
  * TAB KHÁC ghi (`storage` không bắn ở tab ghi).
  */
-export function syncV1SessionFromOtherTab(store: AppStore, persisted: V1PersistedSession | null) {
+export function syncV1SessionFromOtherTab(store: AppStore, marker: V1SessionMarker | null) {
   const { status, sessionId } = selectSessionV1(store.getState())
-  if (persisted === null) {
+  if (marker === null) {
     // Tab khác đăng xuất / phiên chết: không biết lý do thật → coi như đăng xuất (purge), như legacy.
     if (status === 'authenticated' || status === 'locked') {
       store.dispatch(endV1Session('loggedOut'))
     }
     return
   }
-  if (persisted.locked) {
+  if (marker.locked) {
     if (status === 'authenticated') store.dispatch(endV1Session('locked'))
     return
   }
-  // Tab khác đăng nhập / mở khoá / đổi phiên: lấy access token của phiên đang lưu bằng refresh.
-  if (status !== 'authenticated' || persisted.sessionId !== sessionId) {
+  // Tab khác đăng nhập / mở khoá / đổi phiên: lấy access token của phiên mới bằng refresh (cookie
+  // `wh_refresh` + cookie CSRF mới của phiên đó — marker không chứa credential).
+  if (status !== 'authenticated' || marker.sessionId !== sessionId) {
     void store.dispatch(restoreV1Session())
   }
 }
@@ -53,7 +54,7 @@ export function wireSessionV1({
       ),
   })
   const stopLifecycle = wireClientStateLifecycleV1({ queryClient, store })
-  const stopCrossTab = subscribeCrossTab((persisted) => syncV1SessionFromOtherTab(store, persisted))
+  const stopCrossTab = subscribeCrossTab((marker) => syncV1SessionFromOtherTab(store, marker))
   void store.dispatch(restoreV1Session())
 
   return () => {

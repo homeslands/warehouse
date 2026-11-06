@@ -39,12 +39,15 @@ describe('R2-1: bảng errorKey v1 → lý do → purge được quyết định
       ]),
     )
     expect(decided).toEqual({
+      SESSION_REVOKED: { reason: 'revoked', purge: true },
       SESSION_IDLE_EXPIRED: { reason: 'idle', purge: false },
       SESSION_LOCKED: { reason: 'locked', purge: false },
-      SESSION_REVOKED: { reason: 'revoked', purge: true },
-      SESSION_REFRESH_TOKEN_REUSED: { reason: 'revoked', purge: true },
-      SESSION_USER_INACTIVE: { reason: 'userInactive', purge: true },
       SESSION_EXPIRED: { reason: 'expired', purge: false },
+      SESSION_USER_INACTIVE: { reason: 'userInactive', purge: true },
+      SESSION_REFRESH_TOKEN_INVALID: { reason: 'unauthorized', purge: false },
+      SESSION_REFRESH_TOKEN_REUSED: { reason: 'revoked', purge: true },
+      GATEWAY_REFRESH_COOKIE_MISSING: { reason: 'unauthorized', purge: false },
+      GATEWAY_REFRESH_COOKIE_CONFLICT: { reason: 'unauthorized', purge: false },
     })
   })
 

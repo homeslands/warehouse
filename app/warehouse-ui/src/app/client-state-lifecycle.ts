@@ -29,15 +29,17 @@ import { purgeClientState } from '@/shared/store'
  * Ánh xạ v1 (R2-1 review M01 — legacy phân loại bằng mã số 100002–100005 trong `shared/api/http.ts`,
  * v1 bằng `errorKey` trong `shared/api/v1/session-end.ts`; cả hai cùng ra `SessionEndReason`):
  *
- * | errorKey v1 (PR draft BE, chưa chốt)          | Legacy        | Lý do          | Redux    |
- * |-----------------------------------------------|---------------|----------------|----------|
- * | (logout chủ động)                             | (logout)      | `loggedOut`    | purge    |
- * | SESSION_REVOKED, SESSION_REFRESH_TOKEN_REUSED | 401 100005    | `revoked`      | purge    |
- * | SESSION_USER_INACTIVE                         | 403 100002    | `userInactive` | purge    |
- * | SESSION_EXPIRED                               | 401 100003/4  | `expired`      | giữ      |
- * | 401/403 khoá lạ hoặc body lệch hợp đồng       | 401/403 khác  | `unauthorized` | giữ      |
- * | SESSION_IDLE_EXPIRED                          | —             | `idle`         | giữ (UI-02) |
- * | SESSION_LOCKED, `POST /auth/lock`             | —             | `locked`       | giữ (UI-02) |
+ * | errorKey v1 (BE Q1 #197 — đề xuất BE, chưa là enum R2)                         | Legacy        | Lý do          | Redux       |
+ * |----------------------------------------------------------------------------------|---------------|----------------|-------------|
+ * | (logout chủ động)                                                                | (logout)      | `loggedOut`    | purge       |
+ * | SESSION_REVOKED, SESSION_REFRESH_TOKEN_REUSED                                    | 401 100005    | `revoked`      | purge       |
+ * | SESSION_USER_INACTIVE                                                            | 403 100002    | `userInactive` | purge       |
+ * | SESSION_EXPIRED                                                                  | 401 100003/4  | `expired`      | giữ         |
+ * | SESSION_REFRESH_TOKEN_INVALID, GATEWAY_REFRESH_COOKIE_MISSING/_CONFLICT,         | 401/403 khác  | `unauthorized` | giữ         |
+ * | 401 khoá lạ hoặc body lệch hợp đồng                                              |               |                |             |
+ * | SESSION_IDLE_EXPIRED                                                             | —             | `idle`         | giữ (UI-02) |
+ * | SESSION_LOCKED, `POST /auth/lock`                                                | —             | `locked`       | giữ (UI-02) |
+ * | 403 GATEWAY_CSRF_INVALID / GATEWAY_ORIGIN_REJECTED / RBAC_PERMISSION_DENIED, 5xx | —             | (giữ phiên)    | —           |
  *
  * `idle`/`locked` giữ CHỦ ĐỘNG (không phải mặc định): UI-02 "reauth cùng user mới được phục hồi
  * draft trong memory; đổi user/logout phải purge" — đổi user do điều kiện (2) xử lý.

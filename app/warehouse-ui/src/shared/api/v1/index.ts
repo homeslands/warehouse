@@ -19,6 +19,9 @@ export {
 } from './errors'
 export { V1_AUTH_PATHS, V1_CSRF_HEADER } from './paths'
 export {
+  V1_INFRA_503_KEYS,
+  V1_KEEP_SESSION_403_KEYS,
+  V1_REFRESH_ONCE_KEYS,
   V1_SESSION_END_KEYS,
   isLockReason,
   sessionEndReasonForV1,
@@ -28,16 +31,25 @@ export {
   V1_ACTIVITY_STORAGE_KEY,
   V1_SESSION_STORAGE_KEY,
   clearCredentials,
+  csrfCookieName,
   getAccessToken,
-  markCredentialsLocked,
-  readPersistedSession,
+  lockCredentials,
+  readCsrfCookie,
+  readSessionMarker,
   readSharedActivityAt,
   subscribeCrossTab,
   writeSharedActivityAt,
-  type V1PersistedSession,
+  type V1SessionMarker,
 } from './credentials'
 export {
+  V1_REFRESH_CHANNEL,
   V1_REFRESH_LOCK,
+  V1_REFRESH_MUTEX_KEY,
+  createStorageMutex,
+  withCrossTabRefreshLock,
+} from './refresh-mutex'
+export {
+  V1_COOKIE_PATHS,
   V1_REFRESH_TIMEOUT_MS,
   apiV1Http,
   applyLoginResult,

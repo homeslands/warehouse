@@ -125,6 +125,7 @@ describe('LoginV1Page (UI-01)', () => {
     await user.type(screen.getByLabelText('Mật khẩu'), 'abc')
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Bạn đã thử quá nhiều lần')
+    expect(screen.getByLabelText('Mật khẩu')).toHaveValue('abc')
   })
 
   it('500 → lỗi hệ thống kèm mã tra cứu traceId', async () => {
@@ -152,6 +153,8 @@ describe('LoginV1Page (UI-01)', () => {
     await user.click(screen.getByRole('button', { name: 'Đăng nhập' }))
     expect(await screen.findByRole('alert')).toHaveTextContent('Không kết nối được máy chủ')
     expect(calls).toBe(1)
+    // Review r1 L1: chỉ xoá mật khẩu khi sai thông tin đăng nhập, không xoá khi lỗi mạng.
+    expect(screen.getByLabelText('Mật khẩu')).toHaveValue('abc')
   })
 
   it('thành công → về trang `redirect`; bấm gửi 2 lần chỉ 1 request', async () => {

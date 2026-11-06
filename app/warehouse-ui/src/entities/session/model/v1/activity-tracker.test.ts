@@ -42,12 +42,8 @@ describe('activity tracker — business-rules §Auth/RBAC, D14 §2', () => {
     expect(report).not.toHaveBeenCalled()
   })
 
-  it('pointerdown / keydown thật → báo activity, giới hạn 1 lần mỗi khoảng', async () => {
+  it('tương tác thật ĐẦU TIÊN sau khi khởi động được báo NGAY (review r1 M1), sau đó tối đa 1 lần mỗi khoảng', async () => {
     fireEvent.pointerDown(document.body)
-    expect(report).not.toHaveBeenCalled() // vừa đăng nhập: chính login đã đặt mốc
-
-    vi.advanceTimersByTime(ACTIVITY_REPORT_INTERVAL_MS)
-    fireEvent.keyDown(document.body, { key: 'a' })
     expect(report).toHaveBeenCalledTimes(1)
 
     // Gõ phím liên tục trong khoảng chờ: không gửi thêm.
@@ -57,8 +53,35 @@ describe('activity tracker — business-rules §Auth/RBAC, D14 §2', () => {
     expect(report).toHaveBeenCalledTimes(1)
 
     await vi.advanceTimersByTimeAsync(1)
-    fireEvent.pointerDown(document.body)
+    fireEvent.keyDown(document.body, { key: 'a' })
     expect(report).toHaveBeenCalledTimes(2)
+  })
+
+  it('restore sau reload / tab mới gần mốc idle: thao tác ngay sau khi khởi động vẫn được báo (không chờ 60 giây)', () => {
+    // Kịch bản review M1: lần báo cuối ở T0, đọc 29 phút, F5 → tracker mới khởi động.
+    stop()
+    vi.advanceTimersByTime(29 * MINUTE)
+    stop = startActivityTracker({ report, onIdle })
+    vi.advanceTimersByTime(5_000)
+    fireEvent.keyDown(document.body, { key: 'x' })
+    expect(report).toHaveBeenCalledTimes(1)
+  })
+
+  it('tab khác vừa báo trong khoảng (mốc chung) → tab này không báo trùng (review r1 L4)', () => {
+    stop()
+    let sharedAt: number | null = Date.now()
+    stop = startActivityTracker({
+      report,
+      onIdle,
+      shared: { read: () => sharedAt, write: (at) => (sharedAt = at) },
+    })
+    vi.advanceTimersByTime(10_000)
+    fireEvent.pointerDown(document.body)
+    expect(report).not.toHaveBeenCalled()
+    vi.advanceTimersByTime(ACTIVITY_REPORT_INTERVAL_MS - 10_000)
+    fireEvent.pointerDown(document.body)
+    expect(report).toHaveBeenCalledTimes(1)
+    expect(sharedAt).toBe(Date.now())
   })
 
   it('pointermove / scroll / wheel không tính là tương tác', () => {
@@ -92,7 +115,6 @@ describe('activity tracker — business-rules §Auth/RBAC, D14 §2', () => {
 
   it('activity lỗi (429/401) bị nuốt, không ném ra ngoài, lần sau vẫn theo khoảng', async () => {
     report.mockRejectedValueOnce(new Error('429'))
-    vi.advanceTimersByTime(ACTIVITY_REPORT_INTERVAL_MS)
     fireEvent.keyDown(document.body, { key: 'a' })
     await vi.advanceTimersByTimeAsync(0)
     vi.advanceTimersByTime(ACTIVITY_REPORT_INTERVAL_MS)

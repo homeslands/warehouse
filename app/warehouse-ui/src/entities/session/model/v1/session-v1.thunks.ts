@@ -6,8 +6,8 @@ import {
   getAccessToken,
   isLockReason,
   isSessionGone,
-  markCredentialsLocked,
-  readPersistedSession,
+  lockCredentials,
+  readSessionMarker,
   refreshV1Session,
   sessionEndReasonForV1,
   type V1LoginBody,
@@ -57,7 +57,7 @@ export const endV1Session =
   (dispatch) => {
     injectSessionV1()
     if (isLockReason(reason)) {
-      markCredentialsLocked()
+      lockCredentials()
       dispatch(sessionLocked(reason))
     } else {
       clearCredentials()
@@ -77,17 +77,18 @@ export const loginV1 =
   }
 
 /**
- * Sau reload: access token đã mất (chỉ ở memory) → lấy lại bằng refresh cookie. Không có dấu vết
- * phiên thì không gọi gì. Lỗi tạm thời (mạng/5xx/429) giữ CSRF để F5 lúc có mạng là vào lại.
+ * Sau reload: access/CSRF trong memory đã mất → refresh bằng cookie `wh_refresh` + CSRF đọc từ cookie
+ * CSRF. Không có marker, marker đang khoá, hoặc không có CSRF (khoá đã xoá cookie) → KHÔNG gọi refresh.
+ * Lỗi tạm thời (mạng/5xx/429) giữ marker để F5 lúc có mạng là vào lại.
  */
 export const restoreV1Session = (): V1Thunk<Promise<void>> => async (dispatch) => {
   injectSessionV1()
-  const persisted = readPersistedSession()
-  if (persisted === null) {
+  const marker = readSessionMarker()
+  if (marker === null) {
     dispatch(sessionAbsent())
     return
   }
-  if (persisted.locked) {
+  if (marker.locked) {
     dispatch(sessionLocked('locked'))
     return
   }
@@ -102,13 +103,21 @@ export const restoreV1Session = (): V1Thunk<Promise<void>> => async (dispatch) =
 }
 
 /**
- * Khoá chủ động (`POST /auth/lock`). Che dữ liệu NGAY (bỏ token, chuyển `locked`) rồi mới báo server
- * bằng token đã giữ lại; lỗi/chậm vẫn giữ trạng thái khoá ở client.
+ * Khoá chủ động (`POST /auth/lock`).
+ * 1. Che dữ liệu NGAY (state `locked`; layout bị gỡ khỏi DOM).
+ * 2. Báo server qua interceptor v1: 401 access hết hạn → refresh một lần rồi gửi lại.
+ * 3. Dù server khoá được hay không (mạng lỗi, 5xx, quá 5 giây): bỏ access + CSRF khỏi memory và xoá
+ *    cookie CSRF — sửa marker rồi reload cũng không refresh được; mở khoá chỉ bằng login (BE Q5).
  */
 export const lockV1 = (): V1Thunk<Promise<void>> => async (dispatch) => {
-  const token = getAccessToken()
-  dispatch(endV1Session('locked'))
-  if (token !== null) await settleWithin(lockRequestV1(token))
+  injectSessionV1()
+  dispatch(sessionLocked('locked'))
+  try {
+    if (getAccessToken() !== null) await settleWithin(lockRequestV1())
+  } finally {
+    // Phiên đã bị kết thúc trong lúc gửi (vd 401 revoked) → marker đã xoá, không tạo lại.
+    if (readSessionMarker() !== null) lockCredentials()
+  }
 }
 
 /** Đăng xuất: thu hồi trên server nếu còn access token, rồi luôn kết thúc ở client (purge). */

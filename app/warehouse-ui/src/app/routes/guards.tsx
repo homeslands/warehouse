@@ -1,6 +1,7 @@
 import type { ReactNode } from 'react'
 import { Navigate, useLocation } from 'react-router-dom'
 import { useAuthStore, useSessionActivityV1, useSessionV1 } from '@/entities/session'
+import { HydrateFallback } from './HydrateFallback'
 import { lockedPathFor, loginPathFor } from './login-path'
 
 export function ProtectedRoute({ children }: { children: ReactNode }) {
@@ -22,7 +23,8 @@ export function ProtectedRouteV1({ children }: { children: ReactNode }) {
   const location = useLocation()
   useSessionActivityV1()
 
-  if (status === 'unknown') return null
+  // Đang khôi phục phiên sau reload (refresh bằng cookie): vòng chờ thay vì màn trắng.
+  if (status === 'unknown') return <HydrateFallback />
   if (status === 'locked') return <Navigate to={lockedPathFor(location)} replace />
   if (status !== 'authenticated') return <Navigate to={loginPathFor(location, endReason)} replace />
   return <>{children}</>

@@ -28,13 +28,11 @@ export const logoutAllRequestV1 = (): Promise<V1ActionResult> =>
   v1Post<V1ActionResult>(V1_AUTH_PATHS.logoutAll)
 
 /**
- * operationId `lock`. Nhận access token tường minh: phía client khoá màn hình TRƯỚC (bỏ token khỏi
- * memory để che dữ liệu ngay), rồi mới gửi request này bằng token đã giữ lại.
+ * operationId `lock`. Đi qua interceptor v1: access token hết hạn (401) thì refresh MỘT lần rồi gửi
+ * lại (review r1 M2) — để server thật sự khoá phiên chứ không chỉ che màn hình.
  */
-export const lockRequestV1 = (accessToken: string): Promise<V1ActionResult> =>
-  v1Post<V1ActionResult>(V1_AUTH_PATHS.lock, undefined, {
-    headers: { Authorization: `Bearer ${accessToken}` },
-  })
+export const lockRequestV1 = (): Promise<V1ActionResult> =>
+  v1Post<V1ActionResult>(V1_AUTH_PATHS.lock)
 
 /** operationId `recordInteractiveActivity` — CHỈ gọi từ tương tác thật (activity-tracker). */
 export const recordActivityV1 = (): Promise<V1ActionResult> =>

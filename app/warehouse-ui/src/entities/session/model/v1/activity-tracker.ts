@@ -10,8 +10,12 @@
  * - Chỉ handler của sự kiện `pointerdown` / `keydown` gọi `report`. Timer KHÔNG BAO GIỜ gọi `report`
  *   — timer chỉ kiểm hạn idle để khoá màn hình cục bộ (không gửi request nào).
  * - Request API (polling, refresh) không đụng tới tracker → không gia hạn idle.
- * - Báo tối đa 1 lần / `reportIntervalMs`. Tương tác trong khoảng chờ không được báo bù bằng timer;
- *   vì vậy server có thể tính idle sớm hơn tối đa `reportIntervalMs` so với tương tác cuối.
+ * - Tương tác thật ĐẦU TIÊN sau khi khởi động (login, restore sau reload, tab mới, tab khác mở khoá)
+ *   được báo NGAY (review r1 M1): refresh không gia hạn idle, nên không được giả định server đã có mốc.
+ * - Sau đó báo tối đa 1 lần / `reportIntervalMs` cho CẢ PHIÊN: tab khác vừa báo trong khoảng này
+ *   (mốc `shared`) thì tab này bỏ qua (review r1 L4; server giới hạn 30 lần/phút/phiên — BE Q4).
+ *   Tương tác trong khoảng chờ không được báo bù bằng timer; server có thể tính idle sớm hơn tối đa
+ *   `reportIntervalMs` so với tương tác cuối.
  * - `pointermove`/`scroll` KHÔNG tính: con trỏ trôi hay trang tự cuộn không phải thao tác.
  * - Idle là của PHIÊN (chung mọi tab): trước khi khoá, lấy mốc muộn nhất giữa tương tác của tab này
  *   và mốc tab khác đã báo (`shared`). Tab bị bỏ quên không khoá người đang làm ở tab khác.
@@ -21,9 +25,8 @@
 export const IDLE_TIMEOUT_MS = 30 * 60_000
 
 /**
- * Khoảng tối thiểu giữa hai lần `POST /auth/activity`. Server có rate limit riêng
- * (`SESSION_ACTIVITY_RATE_LIMITED` ở PR draft BE) nhưng R2 chưa công bố ngưỡng — 60 giây là giá trị
- * FE tự chọn (sai số 1/30 trên ngưỡng idle), CẦN BE xác nhận.
+ * Khoảng tối thiểu giữa hai lần `POST /auth/activity` của cả phiên. BE Q4 (#197): server giới hạn
+ * 30 lần/phút/phiên (DEV-197-10, số tạm vì R2 không có) và xác nhận 60 giây là phù hợp.
  */
 export const ACTIVITY_REPORT_INTERVAL_MS = 60_000
 
@@ -60,9 +63,10 @@ export function startActivityTracker({
   idleTimeoutMs = IDLE_TIMEOUT_MS,
   reportIntervalMs = ACTIVITY_REPORT_INTERVAL_MS,
 }: ActivityTrackerOptions): () => void {
-  // Lúc bắt đầu = vừa đăng nhập/mở khoá: chính request đó đã đặt mốc hoạt động trên server.
+  // Mốc idle cục bộ bắt đầu từ lúc khởi động. KHÔNG đặt `lastReport` = bây giờ: tương tác thật đầu
+  // tiên phải được báo ngay (sau restore, server có thể đã gần idle).
   let lastInteraction = now()
-  let lastReport = now()
+  let lastReport = Number.NEGATIVE_INFINITY
   let reporting = false
   let stopped = false
   let timer: ReturnType<typeof setTimeout> | undefined
@@ -91,7 +95,10 @@ export function startActivityTracker({
     if (stopped) return
     const at = now()
     lastInteraction = at
-    if (reporting || at - lastReport < reportIntervalMs) return
+    if (reporting) return
+    // Mốc báo của cả phiên: của tab này hoặc tab khác, lấy cái muộn hơn.
+    const sessionLastReport = Math.max(lastReport, shared?.read() ?? Number.NEGATIVE_INFINITY)
+    if (at - sessionLastReport < reportIntervalMs) return
     lastReport = at
     reporting = true
     shared?.write(at)
