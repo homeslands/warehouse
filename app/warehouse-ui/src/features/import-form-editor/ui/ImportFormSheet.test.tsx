@@ -10,6 +10,7 @@ import { confirmDialog } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { ImportFormSheet } from './ImportFormSheet'
+import { fillText } from '@/shared/test/fill'
 
 const BASE = 'http://localhost:8085/api/v1'
 const URL_W = `${BASE}/warehouses/w-a/import-forms`
@@ -160,7 +161,7 @@ async function noteBox(user: User) {
 const editLoaded = () => screen.findByRole('combobox', { name: 'Vật tư dòng 1' })
 
 async function fillInfo(user: User) {
-  await user.type(await screen.findByRole('textbox', { name: /^Số hoá đơn/ }), 'HD-9')
+  await fillText(user, await screen.findByRole('textbox', { name: /^Số hoá đơn/ }), 'HD-9')
 }
 async function next(user: User) {
   await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
@@ -168,8 +169,8 @@ async function next(user: User) {
 async function fillLine(user: User) {
   await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
   await user.click(await screen.findByRole('option', { name: /VT-01 · Bột mì/ }))
-  await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
-  await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '1000')
+  await fillText(user, screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
+  await fillText(user, screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '1000')
 }
 /** Tạo: đi hết ① → ② → ③. */
 async function toReview(user: User) {
@@ -206,8 +207,8 @@ async function addCementLine(user: User, price: string) {
   await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
   await user.click(await screen.findByRole('button', { name: /Thêm vật tư vào kho/ }))
   await user.click(await screen.findByRole('button', { name: 'Gắn giả' }))
-  await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
-  await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), price)
+  await fillText(user, screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
+  await fillText(user, screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), price)
 }
 
 describe('ImportFormSheet', () => {
