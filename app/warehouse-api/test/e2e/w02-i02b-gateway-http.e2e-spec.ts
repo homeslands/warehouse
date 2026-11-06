@@ -383,7 +383,7 @@ describe('W02 I-02b Gateway HTTP v1 → Storage gRPC (real DB + Redis + mTLS)', 
       case: 'TC-AUTH-05 / TC-API-refresh',
       level: 'REAL_API_DB_REDIS (localhost HTTP)',
       reuse: reuse.body.errorKey,
-      newTokenAfterReuse: afterReuse.body.errorKey,
+      rotatedCookieAfterReuse: afterReuse.body.errorKey,
       protectedWithOldSession: protectedCall.body.errorKey,
       cookiesCleared: true,
     });
