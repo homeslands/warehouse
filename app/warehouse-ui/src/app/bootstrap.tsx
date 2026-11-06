@@ -3,7 +3,7 @@ import { createRoot } from 'react-dom/client'
 import { RouterProvider } from 'react-router-dom'
 import { App } from '@/app/App'
 import { router } from '@/app/routes'
-import { queryClient } from '@/app/query-client'
+import { clearClientState } from '@/app/clear-client-state'
 import { setCacheCleaner, useAuthStore } from '@/entities/session'
 import { setSessionEndHandler } from '@/shared/api/http'
 import '@/app/styles/index.css'
@@ -11,7 +11,8 @@ import '@/shared/i18n'
 
 export function bootstrap(container: HTMLElement): void {
   // Tiêm hàm dọn cache ở đây, không trong entities/session: entity không được import app.
-  setCacheCleaner(() => queryClient.clear())
+  // Dọn cả client state Redux (screen-contracts R2: logout/đổi user purge query/Redux/draft).
+  setCacheCleaner(clearClientState)
 
   // Tiêm cách kết thúc phiên: interceptor (shared) chỉ báo lý do, không được import entities.
   // Không tải lại trang: ProtectedRoute tự điều hướng và giữ được địa chỉ để quay lại.
