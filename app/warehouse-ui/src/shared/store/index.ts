@@ -1,5 +1,6 @@
 export {
   appReducer,
+  preserveOnPurge,
   purgeClientState,
   rootReducer,
   type LazyLoadedSlices,

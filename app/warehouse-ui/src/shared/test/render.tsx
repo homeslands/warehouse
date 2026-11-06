@@ -3,6 +3,8 @@ import { render, type RenderOptions } from '@testing-library/react'
 import userEvent from '@testing-library/user-event'
 import { ThemeProvider } from 'next-themes'
 import type { ReactElement, ReactNode } from 'react'
+import { Provider as ReduxProvider } from 'react-redux'
+import type { Store } from '@reduxjs/toolkit'
 import { TooltipProvider } from '@/shared/ui/tooltip'
 import {
   MemoryRouter,
@@ -59,6 +61,11 @@ export type RenderWithProvidersOptions = {
   auth?: TestAuth
   /** Mặc định client mới, `retry: false`, KHÔNG có handler toast global của `app/query-client.ts`. */
   queryClient?: QueryClient
+  /**
+   * Redux store cho màn/feature đọc `useAppSelector` (vd phiên v1). Không truyền = không bọc
+   * `ReduxProvider` (hành vi cũ). Test dựng store riêng bằng `configureStore({ reducer: appReducer })`.
+   */
+  store?: Store
 } & Omit<RenderOptions, 'wrapper' | 'queries'>
 
 function resolveUser(auth: TestAuth): TestUser | null {
@@ -73,16 +80,17 @@ function newTestQueryClient(): QueryClient {
   })
 }
 
-/** Theme + QueryClient, KHÔNG có router — hai hàm render dưới tự thêm router của mình. */
-function providersFor(queryClient: QueryClient) {
+/** Theme + QueryClient (+ Redux nếu có store), KHÔNG có router — hai hàm render dưới tự thêm router. */
+function providersFor(queryClient: QueryClient, store?: Store) {
   return function Providers({ children }: { children: ReactNode }) {
-    return (
+    const tree = (
       <ThemeProvider attribute="class" defaultTheme="system" enableSystem disableTransitionOnChange>
         <QueryClientProvider client={queryClient}>
           <TooltipProvider delayDuration={300}>{children}</TooltipProvider>
         </QueryClientProvider>
       </ThemeProvider>
     )
+    return store ? <ReduxProvider store={store}>{tree}</ReduxProvider> : tree
   }
 }
 
@@ -91,12 +99,13 @@ export function renderWithProviders(ui: ReactElement, options: RenderWithProvide
     route = '/',
     auth = 'none',
     queryClient = newTestQueryClient(),
+    store,
     ...renderOptions
   } = options
 
   applyAuth(resolveUser(auth))
   const user = userEvent.setup()
-  const Providers = providersFor(queryClient)
+  const Providers = providersFor(queryClient, store)
 
   // `wrapper` (không bọc thẳng `ui`) để `rerender` vẫn giữ provider.
   const wrapper = ({ children }: { children: ReactNode }) => (
@@ -118,6 +127,7 @@ export function renderWithRouter(routes: RouteObject[], options: RenderWithProvi
     route = '/',
     auth = 'none',
     queryClient = newTestQueryClient(),
+    store,
     ...renderOptions
   } = options
 
@@ -127,7 +137,7 @@ export function renderWithRouter(routes: RouteObject[], options: RenderWithProvi
 
   return {
     ...render(<RouterProvider router={router} />, {
-      wrapper: providersFor(queryClient),
+      wrapper: providersFor(queryClient, store),
       ...renderOptions,
     }),
     queryClient,

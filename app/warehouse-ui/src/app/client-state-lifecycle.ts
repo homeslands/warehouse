@@ -1,6 +1,12 @@
 import type { QueryClient } from '@tanstack/react-query'
 import type { AppStore } from '@/app/store'
-import { setCacheCleaner, useAuthStore, type CurrentUser } from '@/entities/session'
+import {
+  selectSessionV1,
+  setCacheCleaner,
+  useAuthStore,
+  type CurrentUser,
+  type V1SessionStatus,
+} from '@/entities/session'
 import type { SessionEndReason } from '@/shared/api/types'
 import { purgeClientState } from '@/shared/store'
 
@@ -19,12 +25,33 @@ import { purgeClientState } from '@/shared/store'
  *
  * React Query giữ hành vi cũ: `queryClient.clear()` ở mọi start/endSession (server cache tải lại
  * được, không phải draft).
+ *
+ * Ánh xạ v1 (R2-1 review M01 — legacy phân loại bằng mã số 100002–100005 trong `shared/api/http.ts`,
+ * v1 bằng `errorKey` trong `shared/api/v1/session-end.ts`; cả hai cùng ra `SessionEndReason`):
+ *
+ * | errorKey v1 (PR draft BE, chưa chốt)          | Legacy        | Lý do          | Redux    |
+ * |-----------------------------------------------|---------------|----------------|----------|
+ * | (logout chủ động)                             | (logout)      | `loggedOut`    | purge    |
+ * | SESSION_REVOKED, SESSION_REFRESH_TOKEN_REUSED | 401 100005    | `revoked`      | purge    |
+ * | SESSION_USER_INACTIVE                         | 403 100002    | `userInactive` | purge    |
+ * | SESSION_EXPIRED                               | 401 100003/4  | `expired`      | giữ      |
+ * | 401/403 khoá lạ hoặc body lệch hợp đồng       | 401/403 khác  | `unauthorized` | giữ      |
+ * | SESSION_IDLE_EXPIRED                          | —             | `idle`         | giữ (UI-02) |
+ * | SESSION_LOCKED, `POST /auth/lock`             | —             | `locked`       | giữ (UI-02) |
+ *
+ * `idle`/`locked` giữ CHỦ ĐỘNG (không phải mặc định): UI-02 "reauth cùng user mới được phục hồi
+ * draft trong memory; đổi user/logout phải purge" — đổi user do điều kiện (2) xử lý.
  */
 const PURGE_REASONS: ReadonlySet<SessionEndReason> = new Set([
   'loggedOut',
   'revoked',
   'userInactive',
 ])
+
+/** Lý do làm purge Redux — export để test khoá bảng trên với `V1_SESSION_END_KEYS`. */
+export function isPurgeReason(reason: SessionEndReason): boolean {
+  return PURGE_REASONS.has(reason)
+}
 
 export type AuthSnapshot = {
   hasSession: boolean
@@ -82,4 +109,72 @@ export function wireClientStateLifecycle({
     unsubscribe()
     setCacheCleaner(() => {})
   }
+}
+
+/** Ảnh chụp phiên v1 (Redux `sessionV1`) đủ cho quyết định purge. */
+export type V1AuthSnapshot = {
+  status: V1SessionStatus
+  /** `User.id` (UUID) — danh tính ổn định của v1, thay `userSlug ?? userName` của legacy. */
+  identityId: string | null
+  endReason: SessionEndReason | null
+}
+
+export function v1Snapshot(state: Parameters<typeof selectSessionV1>[0]): V1AuthSnapshot {
+  const { status, identity, endReason } = selectSessionV1(state)
+  return { status, identityId: identity?.id ?? null, endReason }
+}
+
+/**
+ * Như `decideClientStatePurge` nhưng cho phiên v1, thêm trạng thái `locked`:
+ * - về `anonymous` với lý do thuộc `PURGE_REASONS` → purge;
+ * - `authenticated` với danh tính khác danh tính trước đó (kể cả mở khoá bằng user khác) → purge nếu
+ *   khác chủ hiện tại;
+ * - khoá (`idle`/`locked`) và mở khoá cùng user → giữ.
+ * `clearQueries`: React Query xoá khi rời hoặc bước vào `authenticated` (như legacy start/endSession).
+ */
+export function decideV1ClientStatePurge(
+  owner: string | null,
+  prev: V1AuthSnapshot,
+  next: V1AuthSnapshot,
+): { owner: string | null; purge: boolean; clearQueries: boolean } {
+  const wasAuthenticated = prev.status === 'authenticated'
+  const isAuthenticated = next.status === 'authenticated'
+  const clearQueries = wasAuthenticated !== isAuthenticated
+
+  const ended = next.status === 'anonymous' && prev.status !== 'anonymous'
+  if (ended && next.endReason !== null && PURGE_REASONS.has(next.endReason)) {
+    return { owner: null, purge: true, clearQueries }
+  }
+  if (isAuthenticated && next.identityId !== null && next.identityId !== prev.identityId) {
+    return {
+      owner: next.identityId,
+      purge: owner !== null && owner !== next.identityId,
+      clearQueries,
+    }
+  }
+  return { owner, purge: false, clearQueries }
+}
+
+/** Nối vòng đời phiên v1 (Redux) với cache. Gọi từ `wireSessionV1`; trả hàm gỡ. */
+export function wireClientStateLifecycleV1({
+  queryClient,
+  store,
+}: {
+  queryClient: QueryClient
+  store: AppStore
+}): () => void {
+  let prev = v1Snapshot(store.getState())
+  let owner: string | null = prev.status === 'authenticated' ? prev.identityId : null
+  return store.subscribe(() => {
+    const next = v1Snapshot(store.getState())
+    if (next.status === prev.status && next.identityId === prev.identityId) {
+      prev = next
+      return
+    }
+    const decision = decideV1ClientStatePurge(owner, prev, next)
+    prev = next
+    owner = decision.owner
+    if (decision.clearQueries) queryClient.clear()
+    if (decision.purge) store.dispatch(purgeClientState())
+  })
 }

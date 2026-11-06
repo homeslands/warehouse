@@ -9,3 +9,13 @@ export function loginPathFor(
   const target = `${location.pathname}${location.search}${location.hash}`
   return `/login?redirect=${encodeURIComponent(target)}`
 }
+
+/** UI-02: luôn nhớ trang đang mở để mở khoá xong quay lại đúng chỗ (draft còn trong memory). */
+export function lockedPathFor(location: {
+  pathname: string
+  search: string
+  hash: string
+}): string {
+  const target = `${location.pathname}${location.search}${location.hash}`
+  return `/locked?redirect=${encodeURIComponent(target)}`
+}

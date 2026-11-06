@@ -140,6 +140,18 @@ export const BACKEND_SUPPORTS = {
    * làm (2026-10-15 sandbox còn bỏ qua). Bật khi BE deploy và đã thử với API thật.
    */
   inventorySearch: false,
+
+  /**
+   * Auth/session theo API v1 (#242 W02-FE-M02, OpenAPI R2): login trả `LoginResult` (access trong
+   * memory, refresh ở cookie HttpOnly `wh_refresh`, `X-CSRF-Token`), idle 30 phút phía server +
+   * `POST /auth/activity`, khoá `POST /auth/lock`, màn UI-01 `/login` (antd) và UI-02 `/locked`.
+   *
+   * **TẮT.** API v1 chưa chạy trên main (BE #197 còn PR draft) — D07/#242: không bật capability chưa
+   * có API. Bật là CUTOVER (W02-BE-01 §5c): BE revoke toàn bộ phiên legacy cùng mốc, phải thống nhất
+   * FE (THẮNG) + QA (LAN ANH) + BE trước. Ngoài ra shell (menu theo quyền, đăng xuất, `/auth/me`) vẫn
+   * đọc phiên legacy — phải chuyển sang phiên v1 trước khi bật (xem handoff M02).
+   */
+  apiV1Auth: false,
 } as const
 
 /** Kiểu của một bộ cờ — để hàm nhận cờ làm tham số (test truyền `true` được; `as const` ghim `false`). */

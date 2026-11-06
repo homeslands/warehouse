@@ -20,7 +20,7 @@ import { ErrorPage } from '@/pages/error'
 import { ForbiddenPage } from '@/pages/forbidden'
 import { NotFoundPage } from '@/pages/not-found'
 import { AppLayout } from './AppLayout'
-import { ProtectedRoute } from './guards'
+import { ProtectedRoute, ProtectedRouteV1 } from './guards'
 import { HydrateFallback } from './HydrateFallback'
 import { LegacyNewImportFormRedirect } from './LegacyNewImportFormRedirect'
 import { RoleGate } from './RoleGate'
@@ -53,7 +53,8 @@ export type CreateRoutesOptions = {
    * Backend đã gác màn nào bằng authority — mặc định lấy từ `BACKEND_SUPPORTS`. Là tham số (không
    * đọc thẳng) để test dựng được cây route với cờ bật mà không phải mock module.
    */
-  capabilities?: Pick<BackendCapabilities, 'authorityGuards' | 'storeAuthorityGuards'>
+  capabilities?: Partial<Pick<BackendCapabilities, 'apiV1Auth'>> &
+    Pick<BackendCapabilities, 'authorityGuards' | 'storeAuthorityGuards'>
 }
 
 /**
@@ -291,6 +292,24 @@ export function createRoutes({
 
   if (dev) screens.push(...devScreens())
 
+  // Auth v1 (#242 M02): cờ tắt thì cây route y như trước — `/login` legacy, không có `/locked`.
+  const v1Auth = capabilities.apiV1Auth === true
+  const Guard = v1Auth ? ProtectedRouteV1 : ProtectedRoute
+  // Màn v1 dùng component antd (Form/Input/Card…): tải `lazy` để cờ tắt không kéo chúng vào lần tải
+  // đầu. Ngoại lệ có chủ đích với quy ước "login import tĩnh" ở trên — chỉ áp khi cờ bật.
+  const authRoutes: RouteObject[] = v1Auth
+    ? [
+        {
+          path: '/login',
+          lazy: () => import('@/pages/login-v1').then((m) => ({ Component: m.LoginV1Page })),
+        },
+        {
+          path: '/locked',
+          lazy: () => import('@/pages/locked').then((m) => ({ Component: m.LockedPage })),
+        },
+      ]
+    : [{ path: '/login', element: <LoginPage /> }]
+
   return [
     {
       // Route gốc pathless: `errorElement` ở đây bắt lỗi render của TOÀN BỘ cây con — kể cả lỗi
@@ -301,13 +320,13 @@ export function createRoutes({
       // thay vì trang trắng (không có thì react-router còn cảnh báo thiếu HydrateFallback).
       hydrateFallbackElement: <HydrateFallback />,
       children: [
-        { path: '/login', element: <LoginPage /> },
+        ...authRoutes,
         { path: '/forbidden', element: <ForbiddenPage /> },
         {
           element: (
-            <ProtectedRoute>
+            <Guard>
               <AppLayout screens={screens} />
-            </ProtectedRoute>
+            </Guard>
           ),
           children: [{ element: <RoleGate />, children: screens }],
         },

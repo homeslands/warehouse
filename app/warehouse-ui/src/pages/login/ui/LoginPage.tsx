@@ -37,6 +37,9 @@ const SESSION_END_MESSAGE = {
   revoked: 'auth:sessionEnd.revoked',
   userInactive: 'auth:sessionEnd.userInactive',
   unauthorized: 'auth:sessionEnd.unauthorized',
+  // Chỉ luồng v1 tạo hai lý do này (cờ `apiV1Auth`); khai cho đủ kiểu, legacy không bao giờ gặp.
+  idle: 'auth:sessionEnd.idle',
+  locked: 'auth:sessionEnd.locked',
 } as const satisfies Record<Exclude<SessionEndReason, 'loggedOut'>, string>
 
 /*

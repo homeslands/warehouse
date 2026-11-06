@@ -52,8 +52,13 @@ export type ListParams<F extends object = Record<never, never>> = {
   sortBy?: string
 } & F
 
-/** Vì sao phiên kết thúc — interceptor và vòng đời phiên dùng chung, màn login hiện câu tương ứng. */
-export type SessionEndReason = 'expired' | 'revoked' | 'userInactive' | 'unauthorized' | 'loggedOut'
+/**
+ * Vì sao phiên kết thúc — interceptor và vòng đời phiên dùng chung, màn login hiện câu tương ứng.
+ * `idle` / `locked` chỉ phát sinh ở luồng v1 (server idle 30 phút / `POST /auth/lock`) → màn khoá
+ * UI-02; legacy không bao giờ tạo hai lý do này.
+ */
+export type SessionEndReason =
+  'expired' | 'revoked' | 'userInactive' | 'unauthorized' | 'loggedOut' | 'idle' | 'locked'
 
 /** `result` của POST /auth/login và /auth/refresh. */
 export type AuthTokens = {
