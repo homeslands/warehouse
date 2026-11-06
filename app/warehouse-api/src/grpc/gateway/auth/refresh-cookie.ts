@@ -37,15 +37,12 @@ export function buildClearedRefreshCookie(secure: boolean): string {
 }
 
 function serializeCookie(value: string, maxAgeSeconds: number, secure: boolean): string {
-  const parts = [
-    `${REFRESH_COOKIE_NAME}=${value}`,
-    `Path=${REFRESH_COOKIE_PATH}`,
-    `Max-Age=${maxAgeSeconds}`,
-    'HttpOnly',
-    'SameSite=Lax',
-  ];
-  if (secure) parts.push('Secure');
-  return parts.join('; ');
+  return serializeNamedCookie(REFRESH_COOKIE_NAME, value, {
+    path: REFRESH_COOKIE_PATH,
+    maxAgeSeconds,
+    secure,
+    httpOnly: true,
+  });
 }
 
 /**
@@ -67,6 +64,58 @@ export function readRefreshCookie(cookieHeader: string | string[] | undefined): 
   }
   if (values.length !== 1) return undefined;
   return REFRESH_COOKIE_VALUE.test(values[0]) ? values[0] : undefined;
+}
+
+/**
+ * Cookie CSRF đọc được bằng JS (I-02b, DEV-197-08: FE lấy lại `csrfToken` sau reload). KHÔNG `HttpOnly` có
+ * chủ đích; giá trị là HMAC gắn với refresh cookie hiện hành (signed double-submit) nên:
+ * - origin khác không đọc được cookie của site ⇒ không dựng được header `X-CSRF-Token`;
+ * - subdomain/MITM có ghi đè được cookie này cũng không tính được HMAC đúng cho refresh cookie (HttpOnly) ⇒
+ *   Gateway vẫn từ chối (Gateway KHÔNG so header với cookie này, chỉ so với HMAC của refresh cookie).
+ * `Path=/` để trang FE đọc được; `SameSite=Lax`, `Secure` như refresh cookie.
+ */
+export const CSRF_COOKIE_NAME = 'wh_csrf';
+const CSRF_COOKIE_PATH = '/';
+const CSRF_VALUE = /^[A-Za-z0-9_-]{43}$/;
+
+export function buildCsrfCookie(csrfToken: string, options: RefreshCookieOptions): string {
+  if (!CSRF_VALUE.test(csrfToken)) throw new RangeError('CSRF token has an invalid format');
+  if (!Number.isSafeInteger(options.maxAgeSeconds) || options.maxAgeSeconds < 0)
+    throw new RangeError('maxAgeSeconds must be a non-negative integer');
+  return serializeNamedCookie(CSRF_COOKIE_NAME, csrfToken, {
+    path: CSRF_COOKIE_PATH,
+    maxAgeSeconds: options.maxAgeSeconds,
+    secure: options.secure,
+    httpOnly: false,
+  });
+}
+
+export function buildClearedCsrfCookie(secure: boolean): string {
+  return serializeNamedCookie(CSRF_COOKIE_NAME, '', {
+    path: CSRF_COOKIE_PATH,
+    maxAgeSeconds: 0,
+    secure,
+    httpOnly: false,
+  });
+}
+
+interface CookieAttributes {
+  path: string;
+  maxAgeSeconds: number;
+  secure: boolean;
+  httpOnly: boolean;
+}
+
+function serializeNamedCookie(name: string, value: string, attributes: CookieAttributes): string {
+  const parts = [
+    `${name}=${value}`,
+    `Path=${attributes.path}`,
+    `Max-Age=${attributes.maxAgeSeconds}`,
+  ];
+  if (attributes.httpOnly) parts.push('HttpOnly');
+  parts.push('SameSite=Lax');
+  if (attributes.secure) parts.push('Secure');
+  return parts.join('; ');
 }
 
 const CSRF_CONTEXT = 'wh-csrf-v1:';

@@ -21,6 +21,11 @@ export const TRACE_ID_METADATA_KEY = 'x-trace-id';
 export const CLIENT_IP_METADATA_KEY = 'x-client-ip';
 export const CLIENT_USER_AGENT_METADATA_KEY = 'x-client-user-agent';
 export const REFRESH_TOKEN_METADATA_KEY = 'warehouse-refresh-token';
+/**
+ * (I-02b) Mốc hết hạn tuyệt đối của phiên (ISO-8601 UTC) đi kèm refresh token, để Gateway đặt `Max-Age`
+ * cookie đúng tuổi còn lại của phiên. Không phải secret. Cùng nhóm DEV-197-07.
+ */
+export const REFRESH_EXPIRES_AT_METADATA_KEY = 'warehouse-refresh-expires-at';
 
 /** Tên TLS (SAN DNS) của cert Storage mà Gateway kiểm khi kết nối, khi địa chỉ là IP/loopback. */
 export const GRPC_SSL_TARGET_NAME_OVERRIDE = 'grpc.ssl_target_name_override';

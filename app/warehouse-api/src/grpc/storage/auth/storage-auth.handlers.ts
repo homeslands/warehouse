@@ -26,6 +26,7 @@ import {
 import {
   CLIENT_IP_METADATA_KEY,
   CLIENT_USER_AGENT_METADATA_KEY,
+  REFRESH_EXPIRES_AT_METADATA_KEY,
   REFRESH_TOKEN_METADATA_KEY,
 } from '../../grpc.constants';
 import {
@@ -40,6 +41,8 @@ interface HandlerResult {
   result: object;
   /** Chỉ Login/Refresh: gửi về Gateway trong response header metadata, không nằm trong message. */
   refreshToken?: string;
+  /** Hết hạn tuyệt đối của phiên/cookie (đi cùng `refreshToken`). */
+  refreshExpiresAt?: Date;
 }
 
 export interface StorageAuthHandlerDependencies {
@@ -130,10 +133,12 @@ function unaryHandler(
   return (call: ServerUnaryCall<RawRequest, object>, callback: sendUnaryData<object>) => {
     const context = readStorageCallContext(call);
     run(call.request ?? {}, context, call.metadata).then(
-      ({ result, refreshToken }) => {
+      ({ result, refreshToken, refreshExpiresAt }) => {
         if (refreshToken !== undefined) {
           const headers = new Metadata();
           headers.set(REFRESH_TOKEN_METADATA_KEY, refreshToken);
+          if (refreshExpiresAt)
+            headers.set(REFRESH_EXPIRES_AT_METADATA_KEY, refreshExpiresAt.toISOString());
           call.sendMetadata(headers);
         }
         callback(null, {
@@ -159,7 +164,11 @@ function authenticated(
 }
 
 function issued(session: IssuedSession): HandlerResult {
-  return { result: loginResult(session), refreshToken: session.refreshToken };
+  return {
+    result: loginResult(session),
+    refreshToken: session.refreshToken,
+    refreshExpiresAt: session.session.expiresAt,
+  };
 }
 
 function sessionPage(page: SessionPage, currentSessionId: string): object {
