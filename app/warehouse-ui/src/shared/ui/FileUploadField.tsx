@@ -5,7 +5,14 @@ import { useTranslation } from 'react-i18next'
 import { FILE_MAX_BYTES } from '@/shared/api/file.api'
 import { Button } from '@/shared/ui/button'
 import { IconTooltip } from '@/shared/ui/IconTooltip'
-import { FormDescription, FormField, FormItem, FormLabel, FormMessage } from '@/shared/ui/form'
+import {
+  FormControl,
+  FormDescription,
+  FormField,
+  FormItem,
+  FormLabel,
+  FormMessage,
+} from '@/shared/ui/form'
 
 type Props<T extends FieldValues> = {
   form: UseFormReturn<T>
@@ -20,6 +27,19 @@ type Props<T extends FieldValues> = {
   onUploadingChange: (uploading: boolean) => void
   /** Khoá i18n có namespace của hai lỗi — `FormMessage` tự dịch. */
   messages: { tooLarge: string; failed: string }
+  /** `accept` của `<input type="file">` — chỉ lọc gợi ý trong hộp chọn file; kiểm thật ở `validate`. */
+  accept?: string
+  /** Kiểm file phía client sau bước kích thước; trả khoá i18n của lỗi, `undefined` = hợp lệ (vẫn upload). */
+  validate?: (file: File) => string | undefined
+  /** Lỗi của `upload` → khoá i18n hiện tại ô. Không truyền = luôn `messages.failed`. */
+  uploadErrorMessage?: (error: unknown) => string
+  /** Dòng gợi ý dưới ô; mặc định `common:fileHint`. */
+  hint?: string
+  /**
+   * Có giá trị = không được tải file mới (vd thiếu quyền): nút chọn file bị khoá và câu này thay dòng gợi ý.
+   * File đã gắn vẫn hiện và gỡ được (gỡ là sửa phiếu, không phải upload).
+   */
+  disabledReason?: string
 }
 
 /**
@@ -34,11 +54,17 @@ export function FileUploadField<T extends FieldValues>({
   displayName,
   onUploadingChange,
   messages,
+  accept,
+  validate,
+  uploadErrorMessage,
+  hint,
+  disabledReason,
 }: Props<T>) {
   const { t } = useTranslation('common')
   const inputId = useId()
   const inputRef = useRef<HTMLInputElement>(null)
   const [uploading, setUploading] = useState(false)
+  const locked = disabledReason !== undefined
   const empty = '' as FieldPathValue<T, FieldPath<T>>
 
   const setBusy = (busy: boolean) => {
@@ -47,22 +73,35 @@ export function FileUploadField<T extends FieldValues>({
   }
 
   const onPick = async (file: File | undefined) => {
-    if (!file) return
+    if (!file || locked) return
     form.clearErrors(name)
+    const resetInput = () => {
+      // Cho chọn lại đúng file đó sau khi lỗi / gỡ.
+      if (inputRef.current) inputRef.current.value = ''
+    }
     if (file.size > FILE_MAX_BYTES) {
       form.setError(name, { type: 'server', message: messages.tooLarge })
+      resetInput()
+      return
+    }
+    const invalid = validate?.(file)
+    if (invalid !== undefined) {
+      form.setError(name, { type: 'server', message: invalid })
+      resetInput()
       return
     }
     setBusy(true)
     try {
       const key = await upload(file)
       form.setValue(name, key as FieldPathValue<T, FieldPath<T>>, { shouldDirty: true })
-    } catch {
-      form.setError(name, { type: 'server', message: messages.failed })
+    } catch (error) {
+      form.setError(name, {
+        type: 'server',
+        message: uploadErrorMessage?.(error) ?? messages.failed,
+      })
     } finally {
       setBusy(false)
-      // Cho chọn lại đúng file đó sau khi lỗi / gỡ.
-      if (inputRef.current) inputRef.current.value = ''
+      resetInput()
     }
   }
 
@@ -79,7 +118,8 @@ export function FileUploadField<T extends FieldValues>({
             type="file"
             className="sr-only"
             tabIndex={-1}
-            disabled={uploading}
+            accept={accept}
+            disabled={uploading || locked}
             onChange={(e) => void onPick(e.target.files?.[0])}
           />
           {field.value !== '' ? (
@@ -104,22 +144,26 @@ export function FileUploadField<T extends FieldValues>({
               </IconTooltip>
             </div>
           ) : (
-            <Button
-              type="button"
-              variant="outline"
-              className="w-fit"
-              disabled={uploading}
-              onClick={() => inputRef.current?.click()}
-            >
-              {uploading ? (
-                <Loader2Icon className="animate-spin" aria-hidden />
-              ) : (
-                <PaperclipIcon aria-hidden />
-              )}
-              {uploading ? t('fileUploading') : t('fileChoose')}
-            </Button>
+            // `FormControl`: nút là chỗ người dùng focus (input thật bị ẩn) → gắn `aria-describedby` tới gợi ý /
+            // lý do khoá / câu lỗi và `aria-invalid` để screen reader đọc kèm.
+            <FormControl>
+              <Button
+                type="button"
+                variant="outline"
+                className="w-fit"
+                disabled={uploading || locked}
+                onClick={() => inputRef.current?.click()}
+              >
+                {uploading ? (
+                  <Loader2Icon className="animate-spin" aria-hidden />
+                ) : (
+                  <PaperclipIcon aria-hidden />
+                )}
+                {uploading ? t('fileUploading') : t('fileChoose')}
+              </Button>
+            </FormControl>
           )}
-          <FormDescription>{t('fileHint')}</FormDescription>
+          <FormDescription>{disabledReason ?? hint ?? t('fileHint')}</FormDescription>
           <FormMessage />
         </FormItem>
       )}

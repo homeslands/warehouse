@@ -392,6 +392,7 @@ export function ImportFormsPage() {
           AddMaterialDialog={AddWarehouseMaterialDialog}
           canPickSupplier={pageAbility.pickSupplier}
           canConfirm={pageAbility.confirmOnSave}
+          canUploadFile={pageAbility.uploadFile}
           onSaved={(outcome) =>
             // "Xem" bấm khi sheet đang mở (đang nhập phiếu khác) → bỏ qua, không làm mất phần đang nhập mà không hỏi.
             toastSaveOutcome(t, outcome, sheet.formSlug === undefined, () => {

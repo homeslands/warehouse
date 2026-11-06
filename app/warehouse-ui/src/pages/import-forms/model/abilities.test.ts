@@ -29,6 +29,7 @@ describe('importFormAbilities', () => {
       print: true,
       pickSupplier: false,
       confirmOnSave: true,
+      uploadFile: false,
     })
   })
 
@@ -42,6 +43,17 @@ describe('importFormAbilities', () => {
         warehouseActive: true,
       }),
     ).toMatchObject({ pickSupplier: true, confirmOnSave: true, confirm: false })
+  })
+
+  it('uploadFile = FILE_CREATE (BE #168), độc lập với quyền phiếu', () => {
+    expect(importFormAbilities(user(['FILE_CREATE']), { warehouseActive: true }).uploadFile).toBe(
+      true,
+    )
+    expect(
+      importFormAbilities(user(['IMPORT_FORM_CREATE', 'IMPORT_FORM_UPDATE_DRAFT']), {
+        warehouseActive: true,
+      }).uploadFile,
+    ).toBe(false)
   })
 
   it('chỉ _OWN: phiếu mình được, phiếu người khác không', () => {
@@ -94,6 +106,7 @@ describe('importFormAbilities', () => {
         print: true,
         pickSupplier: false,
         confirmOnSave: true,
+        uploadFile: false,
       })
     },
   )
@@ -123,6 +136,7 @@ describe('importFormAbilities', () => {
       print: true,
       pickSupplier: true,
       confirmOnSave: true,
+      uploadFile: true,
     })
     expect(importFormAbilities(null, { form: mine, warehouseActive: true })).toEqual({
       create: false,
@@ -133,6 +147,7 @@ describe('importFormAbilities', () => {
       print: false,
       pickSupplier: false,
       confirmOnSave: false,
+      uploadFile: false,
     })
   })
 })

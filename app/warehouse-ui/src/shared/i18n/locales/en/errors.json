@@ -60,6 +60,7 @@
   "errorWhenUploadFile": "File upload failed",
   "mustExcelFile": "The file must be an Excel file",
   "excelFileWrongHeader": "The Excel file has wrong column headers",
+  "fileTypeNotAllowed": "File type not allowed (pdf, jpg, jpeg, png, webp, xls, xlsx, doc, docx), or the extension does not match the declared type",
   "notificationNotFound": "Notification not found",
   "senderNotFound": "Sender not found",
   "receiverNotFound": "Receiver not found",
