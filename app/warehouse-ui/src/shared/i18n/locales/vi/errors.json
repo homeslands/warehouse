@@ -60,6 +60,7 @@
   "errorWhenUploadFile": "Tải tệp lên thất bại",
   "mustExcelFile": "Tệp phải có định dạng Excel",
   "excelFileWrongHeader": "Tệp Excel sai tiêu đề cột",
+  "fileTypeNotAllowed": "Loại file không được phép (pdf, jpg, jpeg, png, webp, xls, xlsx, doc, docx) hoặc đuôi không khớp nội dung khai báo",
   "notificationNotFound": "Không tìm thấy thông báo",
   "senderNotFound": "Không tìm thấy người gửi",
   "receiverNotFound": "Không tìm thấy người nhận",

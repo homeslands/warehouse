@@ -36,7 +36,8 @@
     "unit": "Đơn vị tính",
     "material": "Vật tư",
     "store": "Cửa hàng",
-    "taxProfile": "Hồ sơ thuế"
+    "taxProfile": "Hồ sơ thuế",
+    "file": "Tệp đính kèm"
   },
   "authorityNames": {
     "EXAMPLE_CREATE": "Tạo example",
@@ -108,7 +109,8 @@
     "SUPPLIER_UPDATE": "Sửa nhà cung cấp",
     "SUPPLIER_DELETE": "Xoá nhà cung cấp",
     "TAX_PROFILE_READ": "Xem/tra cứu hồ sơ mã số thuế",
-    "TAX_PROFILE_UPDATE": "Làm mới hồ sơ mã số thuế"
+    "TAX_PROFILE_UPDATE": "Làm mới hồ sơ mã số thuế",
+    "FILE_CREATE": "Tải file đính kèm lên"
   },
   "expandAll": "Mở tất cả",
   "collapseAll": "Thu gọn tất cả",

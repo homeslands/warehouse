@@ -36,7 +36,8 @@
     "unit": "Units",
     "material": "Materials",
     "store": "Stores",
-    "taxProfile": "Tax profiles"
+    "taxProfile": "Tax profiles",
+    "file": "Attachments"
   },
   "authorityNames": {
     "EXAMPLE_CREATE": "Create example",
@@ -108,7 +109,8 @@
     "SUPPLIER_UPDATE": "Edit suppliers",
     "SUPPLIER_DELETE": "Delete suppliers",
     "TAX_PROFILE_READ": "View/look up tax profiles",
-    "TAX_PROFILE_UPDATE": "Refresh tax profiles"
+    "TAX_PROFILE_UPDATE": "Refresh tax profiles",
+    "FILE_CREATE": "Upload attachments"
   },
   "expandAll": "Expand all",
   "collapseAll": "Collapse all",

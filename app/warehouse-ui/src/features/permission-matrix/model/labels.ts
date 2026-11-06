@@ -21,6 +21,7 @@ export const GROUP_KEYS = {
   Material: 'material',
   Store: 'store',
   'Tax Profile': 'taxProfile',
+  File: 'file',
 } as const
 
 function isGroupName(name: string): name is keyof typeof GROUP_KEYS {

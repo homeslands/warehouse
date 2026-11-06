@@ -239,6 +239,7 @@ function DetailContent({ warehouseSlug }: { warehouseSlug: string }) {
         AddMaterialDialog={AddWarehouseMaterialDialog}
         canPickSupplier={ability.pickSupplier}
         canConfirm={ability.confirmOnSave}
+        canUploadFile={ability.uploadFile}
         onSaved={(outcome) => toastSaveOutcome(t, outcome, false)}
       />
       <ConfirmImportFormDialog
