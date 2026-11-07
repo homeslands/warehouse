@@ -129,7 +129,7 @@ Thứ tự kiểm tra trong service: `code`, rồi `name`, rồi `taxCode` (`sto
 
 ## GET /api/v1/stores/:slug
 
-- **Quyền:** `STORE_READ`. **Không** giới hạn phạm vi: MANAGER/SUPERVISOR có `STORE_READ` đọc được mọi cửa hàng nếu biết slug, kể cả cửa hàng không có trong danh sách của họ (`store.controller.ts:84-98`, `store.service.ts:116-123`).
+- **Quyền:** `STORE_READ`. Endpoint không áp phạm vi kho (`store.controller.ts:84-98`, `store.service.ts:116-123`).
 - **Path params:** `slug` (`string`).
 - **Response 200:** `result` là `StoreResponseDto`.
 - **Lỗi riêng:**
@@ -257,7 +257,7 @@ Nguồn: `src/store/store.validation.ts:47-110` (`StoreValidation`, dải 1010xx
 ## Ghi chú cho FE
 
 - **Gắn kho đã có chủ không còn lỗi.** Kho bị chuyển sang cửa hàng mới, và cửa hàng cũ có dòng `RELEASED`. Nếu muốn hỏi người dùng trước khi chuyển, FE tự kiểm tra trước (ví dụ xem `GET /warehouses/:slug` hoặc danh sách cửa hàng). API không có bước xác nhận.
-- **Phạm vi đọc không đồng nhất:** danh sách chỉ giới hạn MANAGER/SUPERVISOR, còn chi tiết và lịch sử không giới hạn. Đừng dùng "có trong danh sách" để suy ra quyền.
+- **Phạm vi:** chỉ `GET /stores` lọc theo kho của MANAGER/SUPERVISOR. FE quyết định hiện nút theo authority của user, không theo việc cửa hàng có trong danh sách hay không.
 - **Lịch sử** vẫn hiện tên và slug của kho hay cửa hàng đã bị xoá mềm.
 - **Không có optimistic lock.** Thao tác gắn kho dùng khoá dòng ở DB, hai request đồng thời chạy lần lượt.
 - `sort`/`startDate`/`endDate` không có tác dụng ở mọi danh sách của module này.

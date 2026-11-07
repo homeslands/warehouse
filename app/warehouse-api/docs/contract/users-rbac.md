@@ -134,7 +134,7 @@ Cột nullable (`dob`, `email`, `address`) trả `null` hay vắng mặt thì **
 - **Quyền:** `USER_CHANGE_PASSWORD`. `@Throttle` 10 req / 60 giây / IP.
   - Không được nhắm vào chính mình: đổi mật khẩu của mình thì dùng `POST /api/v1/auth/change-password`.
   - Người gọi khác `SUPER_ADMIN` không đổi được mật khẩu của `SUPER_ADMIN`, cũng không đổi được của user có cấp **cao hơn** mình. Ngang cấp thì **được**.
-  - **Không** áp phạm vi kho: mọi user thoả điều kiện cấp đều đổi được.
+  - Không áp warehouse scope.
 - **Path params:** `userSlug`: `string (slug)`.
 - **Body:** `ChangeUserPasswordRequestDto`
 
