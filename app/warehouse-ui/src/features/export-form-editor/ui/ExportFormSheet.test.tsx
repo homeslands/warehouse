@@ -10,7 +10,6 @@ import { server } from '@/shared/test/msw'
 import { confirmDialog } from '@/shared/test/confirm'
 import { renderWithProviders } from '@/shared/test/render'
 import { ExportFormSheet } from './ExportFormSheet'
-import { fillText } from '@/shared/test/fill'
 
 const BASE = 'http://localhost:8085/api/v1'
 const URL_W = `${BASE}/warehouses/w-a/export-forms`
@@ -204,8 +203,8 @@ const tick = () => new Promise((r) => setTimeout(r, 100))
 
 async function fillInfo(user: User, type = 'Sản xuất') {
   await user.click(await screen.findByRole('radio', { name: type }))
-  await fillText(user, screen.getByRole('textbox', { name: /^Người nhận/ }), 'Xưởng 1')
-  await fillText(user, screen.getByRole('textbox', { name: /^Số PO/ }), 'PO-12')
+  await user.type(screen.getByRole('textbox', { name: /^Người nhận/ }), 'Xưởng 1')
+  await user.type(screen.getByRole('textbox', { name: /^Số PO/ }), 'PO-12')
 }
 async function next(user: User) {
   await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
@@ -213,7 +212,7 @@ async function next(user: User) {
 async function fillLine(user: User, quantity = '5', line = 1) {
   await user.click(await screen.findByRole('combobox', { name: `Vật tư dòng ${line}` }))
   await user.click(await screen.findByRole('option', { name: /VT-01 · Bột mì/ }))
-  await fillText(user, qtyBox(line), quantity)
+  await user.type(qtyBox(line), quantity)
 }
 async function toReview(
   user: User,
@@ -223,7 +222,7 @@ async function toReview(
   await next(user)
   await fillLine(user, opts.quantity)
   if (opts.price !== undefined)
-    await fillText(user, screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), opts.price)
+    await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), opts.price)
   await next(user)
   await waitFor(() => expect(reviewHeading()).toBeVisible())
 }
