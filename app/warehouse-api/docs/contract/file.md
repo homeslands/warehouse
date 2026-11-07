@@ -5,7 +5,7 @@
 > `src/file/s3/s3-key.util.ts`, `src/file/file.validation.ts`, migration
 > `src/migrations/1783728000047-seed-file-authorities.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Đối chiếu code tại `origin/main` 814c015.
+> Đối chiếu code tại `origin/main` 5555273.
 
 ## Tóm tắt endpoint
 
@@ -105,7 +105,7 @@ Các case 121000/121001/121002/121003/121012 có unit test ở `src/file/file.co
 ## Mã lỗi của module
 
 Toàn bộ `src/file/file.validation.ts:35-55`. Mọi mã dùng HTTP mặc định 422 của `createErrorCode`
-(`src/app/error-code.util.ts:30-35`).
+(`src/app/error-code.util.ts:15-21`).
 
 | Key | code | HTTP | message |
 |---|---|---|---|
@@ -129,8 +129,8 @@ Toàn bộ `src/file/file.validation.ts:35-55`. Mọi mã dùng HTTP mặc đị
 ## Ghi chú cho FE
 
 - **Key nằm trong `message`, không trong `result`.** Đây là hợp đồng hiện tại (`file.controller.ts:59-60`).
-  FE đang tách key bằng regex ở `warehouse-ui/src/shared/api/file.api.ts:75-91` — vẫn đúng với code BE.
-- **Lệch với FE:** `fileDisplayName` ở `warehouse-ui/src/shared/api/file.api.ts:94-97` giả định key dạng
+  FE đang tách key bằng regex ở `warehouse-ui/src/shared/api/file.api.ts:12-17` — vẫn đúng với code BE.
+- **Lệch với FE:** `fileDisplayName` ở `warehouse-ui/src/shared/api/file.api.ts:32-33` giả định key dạng
   `<tên>-<Date.now()>.<đuôi>` (13 chữ số). Code BE hiện dùng **UUID v4** làm hậu tố (`s3-key.util.ts:56`),
   nên regex đó không bỏ được hậu tố. Tên trong key cũng đã bị làm sạch (bỏ dấu, chữ thường), không còn là tên gốc.
 - Giới hạn FE chặn trước (10 MB tính cả biên, 1 file, allowlist đuôi + mimetype) phải lấy từ bảng ở trên

@@ -2,7 +2,7 @@
 
 > Nguồn: `src/import-form/import-form.controller.ts`, `import-form.dto.ts`, `import-form.validation.ts`,
 > `import-form.service.ts`, `import-form.mapper.ts`, `import-form.constants.ts`, `import-form.entity.ts`,
-> `import-form-item.entity.ts` (đường dẫn tính từ `app/warehouse-api`). Đối chiếu tại commit `814c015`.
+> `import-form-item.entity.ts` (đường dẫn tính từ `app/warehouse-api`). Đối chiếu tại commit `5555273`.
 > Base URL: `/api/v1`. Envelope, lỗi chung, auth, guard, phân trang: xem [conventions.md](conventions.md).
 
 Mọi route nằm dưới `/api/v1/warehouses/:warehouseSlug/import-forms` và có `@WarehouseScope('warehouseSlug')`

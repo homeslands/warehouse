@@ -4,7 +4,7 @@
 > `notification.entity.ts`, `notification.mapper.ts`, `notification.validation.ts`,
 > `src/notification/firebase/*` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Đối chiếu code tại `origin/main` 814c015.
+> Đối chiếu code tại `origin/main` 5555273.
 
 ## Tóm tắt endpoint
 
@@ -45,7 +45,7 @@ Không endpoint nào có `@RequireAuthority`, `@HasRole`, warehouse scope hay fe
 |---|---|---|---|---|
 | `page` | number (int ≥ 1) | Không | mặc định 1 | Sai → `PAGE_INVALID` (conventions.md) |
 | `size` | number (int 1–500) | Không | mặc định 10 | Sai → `SIZE_INVALID` |
-| `receiver` | string (slug user) | Không | — | Slug của user nhận. FE **luôn** truyền slug của user đang đăng nhập (`notification.service.ts:186-193`) |
+| `receiver` | string (slug user) | Không | — | Slug của user nhận. FE **luôn** truyền slug của user đang đăng nhập |
 | `isRead` | `'true'` \| `'false'` | Không | — | Chỉ `'true'` có tác dụng. `'false'` (hoặc giá trị khác) thành `false` và **bị bỏ qua** do `if (options.isRead)` (`notification.service.ts:195`) — không lọc được "chưa đọc" |
 | `type` | string | Không | — | So khớp chính xác `type` |
 | `sort`, `startDate`, `endDate` | — | Không | được validate theo `BaseQueryDto` | **Không được dùng** trong service: luôn sắp `createdAt DESC`, không lọc ngày (`notification.service.ts:180-184`) |
@@ -104,8 +104,8 @@ Các cột `title`, `body`, `language`, `senderName`, `receiverName` **không c�
 | `platform` | `'ios'` \| `'android'` \| `'web'` | Có | `@IsNotEmpty`, `@IsEnum(FirebasePlatform)` | `firebase/firebase.constant.ts:1-5` |
 | `userAgent` | string | Không | không giới hạn độ dài trong DTO | Cột DB `VARCHAR(255)` (`...000007...ts:14`) |
 
-- **Hành vi:** nếu `token` đã tồn tại (của bất kỳ user nào) thì **chuyển token đó sang user hiện tại** và cập nhật
-  `platform`, `userAgent`; nếu chưa thì tạo mới (`notification.service.ts:142-166`). Gọi lặp lại an toàn.
+- **Hành vi:** đăng ký token thiết bị cho user hiện tại, cập nhật `platform`, `userAgent` nếu token đã có
+  (`notification.service.ts:142-166`). Gọi lặp lại an toàn.
 - **Response 200** (`@HttpCode(200)`, không phải 201): `result` là `FirebaseRegisterDeviceTokenResponseDto`
   (`notification.dto.ts:138-142`):
 
@@ -130,8 +130,7 @@ Các cột `title`, `body`, `language`, `senderName`, `receiverName` **không c�
 
 ## DELETE /api/v1/notification/firebase/unregister-device-token/:token
 
-- **Quyền:** cần JWT, không cần authority (`notification.controller.ts:79-89`). **Không kiểm tra token thuộc user
-  hiện tại** (`notification.service.ts:168-175`).
+- **Quyền:** cần JWT, không cần authority (`notification.controller.ts:79-89`). FE chỉ gỡ token của thiết bị hiện tại.
 - **Path params:**
 
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
@@ -160,8 +159,7 @@ Chỉ `NOTIFICATION_NOT_FOUND` được ném trong code hiện tại; 155502–1
 ## Ghi chú cho FE
 
 - FE (`warehouse-ui/src`) hiện **không gọi** endpoint nào của module này.
-- Gọi `GET /notification` luôn kèm `receiver` = slug user hiện tại và gửi kèm token. Quyền của endpoint này
-  sẽ được BE siết lại; khi đổi, BE cập nhật mục này.
+- Gọi `GET /notification` luôn kèm `receiver` = slug user hiện tại và gửi kèm token.
 - Không lọc được "chưa đọc" (`isRead=false` bị bỏ qua). Muốn đếm chưa đọc phải tự lọc phía client (chưa có
   endpoint đếm).
 - `PATCH .../read` dùng **slug** thông báo, trả lỗi 422 (không phải 404) khi không tìm thấy.

@@ -2,7 +2,7 @@
 
 > Nguồn: `src/supplier/supplier.controller.ts`, `src/supplier/supplier.dto.ts`, `src/supplier/supplier.validation.ts`, `src/supplier/supplier.service.ts`, `src/supplier/supplier.mapper.ts`, `src/supplier/supplier.constants.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Đối chiếu code tại `origin/main` 814c015.
+> Đối chiếu code tại `origin/main` 5555273.
 
 ## Tóm tắt endpoint
 

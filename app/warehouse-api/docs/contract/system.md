@@ -5,7 +5,7 @@
 > `src/logger/logger.controller.ts`, `src/logger/logger.dto.ts`, `src/logger/logger.service.ts`,
 > `src/logger/logger.middleware.ts`, `src/feature-flag-system/**` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Đối chiếu code tại `origin/main` 814c015.
+> Đối chiếu code tại `origin/main` 5555273.
 
 ## Tóm tắt endpoint
 

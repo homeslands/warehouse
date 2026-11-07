@@ -2,7 +2,7 @@
 
 > Nguồn: `src/material-type/material-type.{controller,dto,validation,service,mapper}.ts`, `src/material/material.{controller,dto,validation,service,mapper,entity}.ts`, `src/material/material-unit.entity.ts`, `src/material-batch/material-batch.{controller,dto,validation,constants,service,mapper}.ts`, `src/shared/utils/{code.util,query.util,decimal.validator,decimal.transformer}.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Đối chiếu code tại `origin/main` 814c015. Chỗ nào lệch với `docs/plans/material.md` hay `docs/specs/material.md` thì **code là chuẩn**; các điểm lệch ghi ở [Ghi chú cho FE](#ghi-chú-cho-fe).
+> Đối chiếu code tại `origin/main` 5555273. Chỗ nào lệch với `docs/plans/material.md` hay `docs/specs/material.md` thì **code là chuẩn**; các điểm lệch ghi ở [Ghi chú cho FE](#ghi-chú-cho-fe).
 
 ## Tóm tắt endpoint
 
@@ -402,7 +402,7 @@ Quy đổi số lượng giữa 2 đơn vị của cùng một vật tư. Endpoi
 
 Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc trừ khi xử lý phiếu xuất. Không có API tạo, sửa hay xoá lô (`material-batch.controller.ts:19-22`).
 
-**Warehouse scope** (`@WarehouseScope('warehouseSlug')`, `material-batch.controller.ts:27`; guard ở `src/warehouse/guard/warehouse-scope.guard.ts:46-79`): user phải là manager hoặc member của kho. `SUPER_ADMIN` và `ADMIN` được bỏ qua bước kiểm tra này. Guard có thể trả:
+**Warehouse scope** (`@WarehouseScope('warehouseSlug')`, `material-batch.controller.ts:27`; guard ở `src/warehouse/guard/warehouse-scope.guard.ts`): user phải là manager hoặc member của kho. `SUPER_ADMIN` và `ADMIN` được bỏ qua bước kiểm tra này. Guard có thể trả:
 
 | HTTP | code | Khi nào |
 |---|---|---|

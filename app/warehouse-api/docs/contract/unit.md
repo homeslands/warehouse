@@ -2,7 +2,7 @@
 
 > Nguồn: `src/unit/unit.controller.ts`, `src/unit/unit.dto.ts`, `src/unit/unit.validation.ts`, `src/unit/unit.service.ts`, `src/unit/unit.mapper.ts`, `src/shared/utils/code.util.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Đối chiếu code tại `origin/main` 814c015.
+> Đối chiếu code tại `origin/main` 5555273.
 
 Module này chỉ quản lý danh mục đơn vị. **Quy đổi đơn vị theo vật tư** (gắn đơn vị quy đổi, tỉ lệ, quy đổi số lượng) nằm ở module material, xem [material.md](material.md#đơn-vị-quy-đổi-của-vật-tư).
 

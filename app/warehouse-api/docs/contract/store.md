@@ -2,7 +2,7 @@
 
 > Nguồn: `src/store/store.controller.ts`, `src/store/store.dto.ts`, `src/store/store.validation.ts`, `src/store/store.service.ts`, `src/store/store.mapper.ts`, `src/store/store.constants.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Mô tả code tại `main` `814c015`.
+> Mô tả code tại `main` `5555273`.
 
 Mỗi cửa hàng gắn với **tối đa một kho**, và mỗi kho thuộc **tối đa một cửa hàng** (UNIQUE `store_tbl.warehouse_id_column`). Cửa hàng không có cột quản lý riêng: `manager` của cửa hàng là manager của kho đang gắn.
 

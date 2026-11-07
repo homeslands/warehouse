@@ -2,7 +2,7 @@
 
 > Nguồn: `src/inventory/inventory.controller.ts`, `src/inventory/inventory.dto.ts`, `src/inventory/inventory.validation.ts`, `src/inventory/inventory.service.ts`, `src/inventory/inventory.mapper.ts`, `src/inventory/inventory.util.ts`, `src/inventory/inventory.constants.ts`, `src/inventory/inventory.entity.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Mô tả code tại `main` `814c015`.
+> Mô tả code tại `main` `5555273`.
 
 Một dòng tồn kho (`Inventory`) là một cặp (kho, vật tư). Vật tư phải được **gán vào kho** thì mới có tồn, và mới nhập/xuất qua phiếu được. Mọi route nằm dưới `/api/v1/warehouses/:warehouseSlug/materials` (`inventory.controller.ts:34`).
 
@@ -18,7 +18,7 @@ Một dòng tồn kho (`Inventory`) là một cặp (kho, vật tư). Vật tư 
 | DELETE | /api/v1/warehouses/:warehouseSlug/materials/:materialSlug | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | Gỡ vật tư khỏi kho |
 | GET | /api/v1/warehouses/:warehouseSlug/materials/:materialSlug/histories | `MATERIAL_READ` + `WAREHOUSE_READ` | Lịch sử thay đổi tồn |
 
-**Phạm vi kho:** controller **không** gắn `@WarehouseScope`, và service cũng không kiểm tra user có thuộc kho hay không. Chỉ authority quyết định. Theo seed mặc định, `MANAGER` và `SUPERVISOR` có cả `MATERIAL_READ` lẫn `WAREHOUSE_READ` (`src/migrations/1783728000025-seed-material-authorities.ts:21-25`, `src/migrations/1783728000014-seed-warehouse-authorities.ts:33-37`), nên họ đọc được tồn của **mọi** kho nếu biết slug. Các quyền ghi (`MATERIAL_UPDATE`, `WAREHOUSE_UPDATE`, `MATERIAL_CREATE`) mặc định chỉ cấp cho `ADMIN`. Quyền thật lấy từ `permission_tbl` lúc chạy.
+**Phạm vi kho:** quyền do authority quyết định (`MATERIAL_READ`, `WAREHOUSE_READ` cho đọc; `MATERIAL_UPDATE`, `WAREHOUSE_UPDATE`, `MATERIAL_CREATE` cho ghi). Module này không gắn `@WarehouseScope`. Quyền thật lấy từ `permission_tbl` lúc chạy.
 
 ## Cách tính số lượng
 
@@ -312,4 +312,4 @@ Nguồn: `src/inventory/inventory.validation.ts:45-117` (`InventoryValidation`, 
 - **Kho ngừng hoạt động:** chặn gán vật tư (`PUT`/`POST`), nhưng **không** chặn sửa ngưỡng, điều chỉnh tồn hay gỡ.
 - **`PUT` trả 200, `POST` trả 201.**
 - **Path dùng `materialSlug`** (slug vật tư), không dùng `slug` của dòng tồn.
-- **Phạm vi:** module này không giới hạn theo kho của user. Muốn chỉ hiện kho của user, FE lấy danh sách kho từ `GET /warehouses` hoặc `GET /auth/me`. Phía server không chặn.
+- **Phạm vi:** FE chỉ hiện các kho của user, lấy danh sách từ `GET /warehouses` hoặc `GET /auth/me`.

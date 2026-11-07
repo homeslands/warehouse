@@ -2,7 +2,7 @@
 
 > Nguồn: `src/warehouse/warehouse.controller.ts`, `src/warehouse/warehouse.dto.ts`, `src/warehouse/warehouse.validation.ts`, `src/warehouse/warehouse.service.ts`, `src/warehouse/warehouse.mapper.ts`, `src/warehouse/warehouse.constants.ts`, `src/warehouse/guard/warehouse-scope.guard.ts`, `src/warehouse/decorator/warehouse-scope.decorator.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Mô tả code tại `main` `814c015`.
+> Mô tả code tại `main` `5555273`.
 
 Endpoint con `/api/v1/warehouses/:warehouseSlug/materials...` (tồn kho) nằm ở [inventory.md](inventory.md). Phiếu nhập/xuất và lô vật tư theo kho nằm ở [import-form.md](import-form.md), [export-form.md](export-form.md), [material.md](material.md).
 

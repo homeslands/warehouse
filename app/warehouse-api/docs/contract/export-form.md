@@ -3,7 +3,7 @@
 > Nguồn: `src/export-form/export-form.controller.ts`, `export-form.dto.ts`, `export-form.validation.ts`,
 > `export-form.service.ts`, `export-form.mapper.ts`, `export-form.constants.ts`, `export-form.entity.ts`,
 > `export-form-item.entity.ts`. Phần giữ chỗ trên lô và tồn kho nằm ở `src/material-batch/material-batch.service.ts`
-> và `src/inventory/inventory.service.ts` (đường dẫn tính từ `app/warehouse-api`). Đối chiếu tại commit `814c015`.
+> và `src/inventory/inventory.service.ts` (đường dẫn tính từ `app/warehouse-api`). Đối chiếu tại commit `5555273`.
 > Base URL: `/api/v1`. Envelope, lỗi chung, auth, guard, phân trang: xem [conventions.md](conventions.md).
 
 Mọi route nằm dưới `/api/v1/warehouses/:warehouseSlug/export-forms`, có `@WarehouseScope('warehouseSlug')` ở mức class

@@ -2,7 +2,7 @@
 
 > Nguồn: `src/tax-profile/tax-profile.controller.ts`, `src/tax-profile/tax-profile.dto.ts`, `src/tax-profile/tax-profile.validation.ts`, `src/tax-profile/tax-profile.service.ts`, `src/tax-profile/tax-profile.constants.ts`, `src/tax-profile/tax-profile.mapper.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
-> Đối chiếu code tại `origin/main` 814c015.
+> Đối chiếu code tại `origin/main` 5555273.
 
 Module này là bộ nhớ đệm (cache) thông tin doanh nghiệp theo mã số thuế. Dữ liệu lấy từ bên thứ ba (`https://api.vietqr.io/v2/business`, `tax-profile.constants.ts:6`). FE không tạo, sửa hay xoá hồ sơ trực tiếp.
 

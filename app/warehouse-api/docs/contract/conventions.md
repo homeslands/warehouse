@@ -2,7 +2,7 @@
 
 > Nguồn: `src/main.ts`, `src/app/app.module.ts`, `src/app/app.dto.ts`, `src/app/base.dto.ts`, `src/app/base.mapper.ts`, `src/app/http-exception.filter.ts`, `src/app/optimistic-lock.filter.ts`, `src/app/error-code.util.ts`, `src/app/app.validation.ts`, `src/app/app-common.validation.ts`, `src/shared/utils/pagination.util.ts`, `src/shared/utils/query.util.ts`, `src/auth/passport/jwt/*`, `src/role/role.guard.ts`, `src/role/role.interceptor.ts`, `src/warehouse/guard/warehouse-scope.guard.ts`, `src/feature-flag-system/*`, `src/config/cors.config.ts`, `src/config/session.config.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 >
-> Mô tả code tại `main` `814c015`. Áp dụng cho mọi endpoint, trừ khi file module ghi khác.
+> Mô tả code tại `main` `5555273`. Áp dụng cho mọi endpoint, trừ khi file module ghi khác.
 
 ## 1. Base URL
 
@@ -48,7 +48,7 @@ Ngoại lệ: `src/app/app.controller.ts` (`/hello`, `/real-ip`, `/error-codes`)
 
 ### Dạng dữ liệu chung trong `result`
 
-- **Định danh public là `slug`** (chuỗi 10 ký tự `[a-z0-9]`, `src/app/app.subscriber.ts:4`), không phải `id`. Response không bao giờ có `id` (uuid) (`src/app/base.mapper.ts`, chỉ map `slug/createdAt/updatedAt`). Slug được sinh ngẫu nhiên, kể cả slug của role/authority seed sẵn. FE **không được hardcode slug**. Muốn tìm role thì dùng `name`, muốn tìm authority thì dùng `code`.
+- **Định danh public là `slug`** (chuỗi 10 ký tự `[a-z0-9]`, `src/app/app.subscriber.ts:4`), không phải `id`. Response không có `id` (uuid) (`src/app/base.mapper.ts`, chỉ map `slug/createdAt/updatedAt`), trừ `receiverId`/`senderId` của notification ([notification.md](notification.md)). Slug được sinh ngẫu nhiên, kể cả slug của role/authority seed sẵn. FE **không được hardcode slug**. Muốn tìm role thì dùng `name`, muốn tìm authority thì dùng `code`.
 - `BaseResponseDto` (`src/app/base.dto.ts`): mọi response DTO kế thừa có `slug`, `createdAt`, `updatedAt`.
 - **`createdAt` / `updatedAt` KHÔNG phải ISO-8601.** Mapper đổi `Date → string` bằng `Date.prototype.toString()` (`src/app/base.mapper.ts:14-15`), ra dạng `"Wed Sep 30 2026 11:22:59 GMT+0700 (Indochina Time)"` theo múi giờ server. Fixture FE `app/warehouse-ui/src/entities/user/ui/columns.test.tsx:11` dùng đúng dạng này. `new Date(value)` của trình duyệt V8 parse được dạng này, nhưng chuẩn ECMAScript không bắt buộc.
 - Field có giá trị `undefined` **không xuất hiện** trong JSON, vì interceptor chạy `JSON.parse(JSON.stringify(...))` (`src/role/role.interceptor.ts:17`). Field `null` vẫn giữ là `null`. Vì vậy FE cần xử lý cả 2 trường hợp: field vắng mặt và field bằng `null`. Với cột nullable map qua automapper, giá trị trả về là `null` hay vắng mặt thì **chưa xác minh**.

@@ -65,7 +65,7 @@ Dùng chung cho `login`, `refresh` và `change-password` (`result.tokens`). Ngu�
 
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
-| `phonenumber` | `string` | có | `@IsNotEmpty`. **Không** kiểm định dạng số điện thoại | Không trim. Tài khoản root dùng giá trị `ROOT_PHONENUMBER` (mặc định `root`) |
+| `phonenumber` | `string` | có | `@IsNotEmpty`. **Không** kiểm định dạng số điện thoại | Không trim. |
 | `password` | `string` | có | `@IsNotEmpty` | |
 
 - **Response 200:** `result` có dạng `LoginAuthResponseDto` (xem trên). Mỗi lần login tạo một `sid` mới, tức một phiên mới.
@@ -91,7 +91,7 @@ Dùng chung cho `login`, `refresh` và `change-password` (`result.tokens`). Ngu�
 - **Response 200:** `result` là cặp token mới `LoginAuthResponseDto`:
   - Giữ nguyên `sid`.
   - Access token mới mang `role` **đọc lại từ DB**, nên phản ánh role hiện tại.
-  - Refresh token mới có hạn đầy đủ `REFRESHABLE_DURATION`, tính từ lúc gọi. Nghĩa là phiên có thể kéo dài mãi nếu cứ refresh trước khi hết hạn.
+  - Refresh token mới có hạn đầy đủ `REFRESHABLE_DURATION`, tính từ lúc gọi.
   - **Không xoay vòng:** refresh token cũ vẫn dùng được tới `exp` của nó. Muốn vô hiệu ngay thì gọi `logout`/`logout-all`.
 - **Lỗi riêng:**
 
