@@ -94,8 +94,6 @@ export const AUTHORITY_CODES = [
   // Hồ sơ thuế
   'TAX_PROFILE_READ',
   'TAX_PROFILE_UPDATE',
-  // Tệp (migration 1783728000047, BE #168): `POST /file/upload` — ô đính kèm của phiếu nhập
-  'FILE_CREATE',
 ] as const
 
 export type AuthorityCode = (typeof AUTHORITY_CODES)[number]

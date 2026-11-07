@@ -20,8 +20,6 @@ export type ImportFormAbilities = {
   pickSupplier: boolean
   /** IMPORT_FORM_CONFIRM, không xét phiếu: có nút "Lưu & xác nhận" trong sheet (tạo mới lẫn sửa). */
   confirmOnSave: boolean
-  /** FILE_CREATE (`POST /file/upload`, BE #168): được tải chứng từ đính kèm lên trong sheet. */
-  uploadFile: boolean
 }
 
 type Ctx = {
@@ -56,6 +54,5 @@ export function importFormAbilities(
     print: can(user, 'IMPORT_FORM_EXPORT'),
     pickSupplier: can(user, 'SUPPLIER_READ'),
     confirmOnSave: can(user, 'IMPORT_FORM_CONFIRM'),
-    uploadFile: can(user, 'FILE_CREATE'),
   }
 }

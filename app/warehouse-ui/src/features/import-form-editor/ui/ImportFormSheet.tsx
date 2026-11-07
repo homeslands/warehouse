@@ -157,8 +157,6 @@ type ImportFormSheetProps = {
   canPickSupplier?: boolean
   /** Có IMPORT_FORM_CONFIRM: hiện "Lưu & xác nhận" (bước ③ khi tạo, chân sheet khi sửa). */
   canConfirm?: boolean
-  /** Có FILE_CREATE: được tải chứng từ đính kèm lên. Thiếu → nút chọn file bị khoá kèm lý do. */
-  canUploadFile?: boolean
 }
 
 /**
@@ -180,7 +178,6 @@ export function ImportFormSheet({
   AddMaterialDialog,
   canPickSupplier = false,
   canConfirm = false,
-  canUploadFile = false,
 }: ImportFormSheetProps) {
   const { t } = useTranslation(['importForms', 'common'])
   const qc = useQueryClient()
@@ -808,7 +805,6 @@ export function ImportFormSheet({
                   canPickSupplier={canPickSupplier}
                   supplierOptions={supplierOptions}
                   onUploadingChange={setUploading}
-                  canUploadFile={canUploadFile}
                 />
               </section>
 

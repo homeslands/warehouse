@@ -77,8 +77,6 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   121009: 'errorWhenUploadFile',
   121010: 'mustExcelFile',
   121011: 'excelFileWrongHeader',
-  // warehouse-api src/file/file.validation.ts — `POST /file/upload` sai loại / đuôi≠mimetype (#168, #184).
-  121012: 'fileTypeNotAllowed',
   155501: 'notificationNotFound',
   155502: 'senderNotFound',
   155503: 'receiverNotFound',
@@ -86,8 +84,6 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   999901: 'exampleNotFound',
   999902: 'exampleNameDoesExist',
   999903: 'exampleNameIsRequired',
-  // warehouse-api src/example/example.validation.ts — `version` thiếu/sai (#170, 422).
-  999904: 'exampleVersionInvalid',
   100800: 'dataVersionConflict',
   // warehouse-api src/warehouse/warehouse.validation.ts (2026-09-22).
   100501: 'warehouseNotFound',
@@ -234,8 +230,6 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   101331: 'importFormDateRangeInvalid',
   101332: 'importFormCodeSearchInvalid',
   101333: 'importFormItemExpiryDateInvalid',
-  // `version` của PATCH phiếu nhập / đổi trạng thái: thiếu, null, không nguyên hoặc < 1 (#170, 422).
-  101334: 'importFormVersionInvalid',
   // warehouse-api src/inventory/inventory.validation.ts (2026-10-14). 100800 là DATA_VERSION_CONFLICT (khai ở trên).
   100801: 'inventoryNotFound',
   100802: 'inventoryDoesExist',
@@ -256,14 +250,10 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   100731: 'materialNameSearchInvalid',
   100732: 'materialCodeSearchInvalid',
   100816: 'inventorySupplierSlugInvalid',
-  // warehouse-api src/app/app-common.validation.ts — query chung `BaseQueryDto` của mọi list endpoint.
-  // Cả 6 mã đều 422 (#170 page/size, #179 date/sort trước là 400); `size` > 500 cũng là 100855.
   100850: 'startDateInvalid',
   100851: 'endDateInvalid',
   100852: 'sortInvalid',
   100853: 'sortByInvalid',
-  100854: 'pageInvalid',
-  100855: 'sizeInvalid',
   // warehouse-api src/export-form/export-form.validation.ts (WMS-21, 2026-10-26).
   101401: 'exportFormNotFound',
   101402: 'exportFormCodeRequired',
@@ -303,8 +293,6 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   101436: 'exportFormCodeSearchInvalid',
   101437: 'exportFormNotPending',
   101438: 'exportFormCannotBeCancelled',
-  // `version` của PATCH phiếu xuất / đổi trạng thái (#170, 422).
-  101439: 'exportFormVersionInvalid',
   // Thiếu hàng khi gửi duyệt / xác nhận (cả hai 409): tồn kho (inventory) và lô (material-batch).
   100817: 'inventoryAvailableInsufficient',
   101502: 'materialBatchInsufficient',

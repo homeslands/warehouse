@@ -1,4 +1,3 @@
-import { availableParallelism } from 'node:os'
 import { loadEnv } from 'vite'
 import { defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
@@ -51,12 +50,6 @@ export default defineConfig(({ mode, command }) => {
       globals: true,
       setupFiles: ['./src/shared/test/setup.ts', './src/app/test-setup.ts'],
       css: false,
-      // Giới hạn worker (#163): mặc định vitest dùng CPU-1 worker; trên máy 28 luồng, mỗi worker
-      // chạy jsdom + coverage v8 cùng lúc nên tranh CPU, làm form nặng vượt timeout 5s
-      // (đo 06/11: mặc định 39–64 FAIL, 50% 8 FAIL, 25% 0 FAIL). Dùng 25% số luồng, sàn 2
-      // để runner 2–4 vCPU không bị dồn về 1 worker như cách vitest làm tròn '25%'.
-      // Muốn đổi thì dùng VITEST_MAX_WORKERS hoặc --maxWorkers.
-      maxWorkers: Math.max(2, Math.floor(availableParallelism() / 4)),
       env: {
         VITE_API_BASE_URL: 'http://localhost:8085/api/v1',
       },

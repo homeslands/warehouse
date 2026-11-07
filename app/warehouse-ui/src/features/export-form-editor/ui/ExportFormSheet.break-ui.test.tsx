@@ -14,7 +14,6 @@ import { ok, paginated } from '@/shared/test/api'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { ExportFormSheet } from './ExportFormSheet'
-import { fillText } from '@/shared/test/fill'
 
 const BASE = 'http://localhost:8085/api/v1'
 const URL_W = `${BASE}/warehouses/w-a/export-forms`
@@ -288,13 +287,13 @@ describe('ExportFormSheet — break-ui', () => {
   it('worst case: tạo tới ③ khi dòng vượt khả dụng — lý do khoá nút chiếm cả hàng dưới các nút', async () => {
     const { user } = renderSheet(null, WORST_STOCK, 'Kho A')
     await user.click(await screen.findByRole('radio', { name: 'Bán' }))
-    await fillText(user, screen.getByRole('textbox', { name: /^Người nhận/ }), LONG_RECEIVER)
-    await fillText(user, screen.getByRole('textbox', { name: /^Số PO/ }), 'PO-1')
+    await user.type(screen.getByRole('textbox', { name: /^Người nhận/ }), LONG_RECEIVER)
+    await user.type(screen.getByRole('textbox', { name: /^Số PO/ }), 'PO-1')
     await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
     await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
     await user.click(await screen.findByRole('option', { name: /^A · B/ }))
-    await fillText(user, screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '123456789')
-    await fillText(user, screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '987654321')
+    await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '123456789')
+    await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '987654321')
     await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
     await screen.findByRole('heading', { name: 'Kiểm tra phiếu xuất' })
     const reason = within(footer()).getByText(/vượt số khả dụng/)

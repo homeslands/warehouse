@@ -11,7 +11,7 @@
 export const BACKEND_SUPPORTS = {
   /**
    * Sắp xếp theo cột cho Kho/Cửa hàng. Hợp đồng chung của backend (WMS-16-be(14)): `sort=ASC|DESC` +
-   * `sortBy=<trường>` (mặc định `createdAt DESC`); gửi `sort[]=field:DIR` (dạng cũ) → 422 `SORT_INVALID` (100852).
+   * `sortBy=<trường>` (mặc định `createdAt DESC`); gửi `sort[]=field:DIR` (dạng cũ) → 400 `SORT_INVALID`.
    * `sortBy` enum của Kho/Cửa hàng chưa được kiểm với API thật nên cờ này vẫn tắt — các màn đã có enum
    * đi theo cờ riêng (`userSort`, `supplierSort`, `materialSort`, `materialTypeSort`, `importFormSort`).
    */

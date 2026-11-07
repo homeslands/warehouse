@@ -26,7 +26,6 @@ import {
   WORST_SUPPLIERS,
   WORST_WAREHOUSE_NAME,
 } from './worst-case.fixtures'
-import { fillText } from '@/shared/test/fill'
 
 const BASE = 'http://localhost:8085/api/v1'
 const URL_W = `${BASE}/warehouses/w-a/import-forms`
@@ -160,11 +159,7 @@ describe('ImportFormSheet — break-ui', () => {
     const { user } = renderSheet(null, WORST_MATERIALS, WORST_SUPPLIERS, WORST_WAREHOUSE_NAME)
     await user.click(await screen.findByRole('combobox', { name: /Bên bán/ }))
     await user.click(await screen.findByText(new RegExp(`^${WORST_SUPPLIERS[0].code} · `)))
-    await fillText(
-      user,
-      screen.getByRole('textbox', { name: /^Số hoá đơn/ }),
-      'HD-2026-000000123456',
-    )
+    await user.type(screen.getByRole('textbox', { name: /^Số hoá đơn/ }), 'HD-2026-000000123456')
     await dump('worst-create-info')
     await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
     await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
@@ -172,8 +167,8 @@ describe('ImportFormSheet — break-ui', () => {
       name: new RegExp(`^${WORST_MATERIALS[0].code} · `),
     })
     await user.click(first)
-    await fillText(user, screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '123456789')
-    await fillText(user, screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '987654321')
+    await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '123456789')
+    await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '987654321')
     await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
     await screen.findByRole('heading', { name: 'Kiểm tra phiếu nhập' })
     await dump('worst-create-review')

@@ -168,10 +168,8 @@ describe('ExportFormItemsField — worst case', () => {
     )
     renderWithProviders(<Harness items={items} />)
     expect(screen.getAllByTestId(/^line-\d+$/)).toHaveLength(EXPORT_FORM_ITEMS_MAX)
-    // Tìm nút qua chữ (như ImportFormItemsField.test.tsx), không qua vai trò + tên: tính tên truy cập của nút buộc jsdom
-    // dựng `button.labels` bằng cách quét mọi <label> của 200 dòng (#163: ~10s khi chạy coverage).
-    expect(screen.getByText('Thêm dòng').closest('button')).toBeDisabled()
-    expect(screen.queryByText('Chọn nhiều vật tư')).not.toBeInTheDocument()
+    expect(screen.getByRole('button', { name: 'Thêm dòng' })).toBeDisabled()
+    expect(screen.queryByRole('button', { name: 'Chọn nhiều vật tư' })).not.toBeInTheDocument()
     expect(screen.getByText('Đã đủ 200 dòng — tối đa của một phiếu.')).toBeInTheDocument()
   }, 30_000)
 

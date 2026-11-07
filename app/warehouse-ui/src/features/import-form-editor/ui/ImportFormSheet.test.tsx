@@ -10,7 +10,6 @@ import { confirmDialog } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { ImportFormSheet } from './ImportFormSheet'
-import { fillText } from '@/shared/test/fill'
 
 const BASE = 'http://localhost:8085/api/v1'
 const URL_W = `${BASE}/warehouses/w-a/import-forms`
@@ -86,8 +85,6 @@ type SetupOptions = {
   detail?: ImportForm | 'error'
   canPickSupplier?: boolean
   canConfirm?: boolean
-  /** Mặc định có FILE_CREATE — đa số test upload chứng từ; test "thiếu quyền" truyền `false`. */
-  canUploadFile?: boolean
   AddMaterialDialog?: ComponentType<AddMaterialDialogProps>
 }
 
@@ -97,7 +94,6 @@ function setup({
   detail,
   canPickSupplier,
   canConfirm,
-  canUploadFile = true,
   AddMaterialDialog,
 }: SetupOptions = {}) {
   server.use(
@@ -132,7 +128,6 @@ function setup({
       onSaved={onSaved}
       canPickSupplier={canPickSupplier}
       canConfirm={canConfirm}
-      canUploadFile={canUploadFile}
       AddMaterialDialog={AddMaterialDialog}
       materialAbilities={
         AddMaterialDialog
@@ -165,7 +160,7 @@ async function noteBox(user: User) {
 const editLoaded = () => screen.findByRole('combobox', { name: 'Vật tư dòng 1' })
 
 async function fillInfo(user: User) {
-  await fillText(user, await screen.findByRole('textbox', { name: /^Số hoá đơn/ }), 'HD-9')
+  await user.type(await screen.findByRole('textbox', { name: /^Số hoá đơn/ }), 'HD-9')
 }
 async function next(user: User) {
   await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
@@ -173,8 +168,8 @@ async function next(user: User) {
 async function fillLine(user: User) {
   await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
   await user.click(await screen.findByRole('option', { name: /VT-01 · Bột mì/ }))
-  await fillText(user, screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
-  await fillText(user, screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '1000')
+  await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
+  await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), '1000')
 }
 /** Tạo: đi hết ① → ② → ③. */
 async function toReview(user: User) {
@@ -211,8 +206,8 @@ async function addCementLine(user: User, price: string) {
   await user.click(await screen.findByRole('combobox', { name: 'Vật tư dòng 1' }))
   await user.click(await screen.findByRole('button', { name: /Thêm vật tư vào kho/ }))
   await user.click(await screen.findByRole('button', { name: 'Gắn giả' }))
-  await fillText(user, screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
-  await fillText(user, screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), price)
+  await user.type(screen.getByRole('textbox', { name: 'Số lượng dòng 1' }), '5')
+  await user.type(screen.getByRole('textbox', { name: 'Đơn giá dòng 1' }), price)
 }
 
 describe('ImportFormSheet', () => {
@@ -462,31 +457,10 @@ describe('ImportFormSheet', () => {
     await user.clear(await noteBox(user))
     const save = saveButton()
     expect(save).toBeEnabled()
-    await user.upload(
-      screen.getByLabelText('Chứng từ đính kèm'),
-      new File(['x'], 'a.pdf', { type: 'application/pdf' }),
-    )
+    await user.upload(screen.getByLabelText('Chứng từ đính kèm'), new File(['x'], 'a.pdf'))
     await waitFor(() => expect(save).toBeDisabled())
     release()
     await waitFor(() => expect(save).toBeEnabled())
-  })
-
-  it('thiếu FILE_CREATE (tạo mới) → nút chọn file bị khoá kèm lý do', async () => {
-    setup({ canUploadFile: false })
-    expect(await screen.findByRole('button', { name: 'Chọn file' })).toBeDisabled()
-    expect(screen.getByLabelText('Chứng từ đính kèm')).toBeDisabled()
-    expect(
-      screen.getByText('Bạn không có quyền tải file lên (cần quyền “Tải file đính kèm lên”).'),
-    ).toBeInTheDocument()
-  })
-
-  it('thiếu FILE_CREATE (sửa phiếu đã có file) → vẫn thấy file và gỡ được, sửa ghi chú vẫn lưu được', async () => {
-    const { user } = setup({ formSlug: 'if-1', detail: draftForm, canUploadFile: false })
-    await user.clear(await noteBox(user))
-    expect(screen.getByText('hoa-don.pdf')).toBeInTheDocument()
-    await user.click(screen.getByRole('button', { name: 'Gỡ file' }))
-    expect(screen.getByRole('button', { name: 'Chọn file' })).toBeDisabled()
-    expect(saveButton()).toBeEnabled()
   })
 
   it('đã sửa mà bấm Huỷ → hỏi "Bỏ thay đổi chưa lưu?"; Tiếp tục sửa thì ở lại', async () => {
@@ -827,10 +801,7 @@ describe('ImportFormSheet - wizard tạo mới', () => {
     )
     const { user } = setup()
     await fillInfo(user)
-    await user.upload(
-      screen.getByLabelText('Chứng từ đính kèm'),
-      new File(['x'], 'a.pdf', { type: 'application/pdf' }),
-    )
+    await user.upload(screen.getByLabelText('Chứng từ đính kèm'), new File(['x'], 'a.pdf'))
     await waitFor(() => expect(screen.getByRole('button', { name: 'Tiếp tục' })).toBeDisabled())
     await user.click(within(stepsNav()).getByRole('button', { name: /Chi tiết vật tư$/ }))
     await new Promise((r) => setTimeout(r, 50))
@@ -1722,10 +1693,7 @@ describe('ImportFormSheet - đợt sửa cuối', () => {
       )
       const { user } = setup()
       await fillInfo(user)
-      await user.upload(
-        screen.getByLabelText('Chứng từ đính kèm'),
-        new File(['x'], 'a.pdf', { type: 'application/pdf' }),
-      )
+      await user.upload(screen.getByLabelText('Chứng từ đính kèm'), new File(['x'], 'a.pdf'))
       const nav = within(stepsNav())
       await waitFor(() =>
         expect(nav.getByRole('button', { name: /Chi tiết vật tư$/ })).toBeDisabled(),
