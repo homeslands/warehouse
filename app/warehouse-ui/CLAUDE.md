@@ -1,0 +1,947 @@
+# warehouse-ui
+
+Frontend quản lý kho. React 19 + Vite 8 + TypeScript strict. Cấu trúc theo **Feature-Sliced Design**.
+
+## Chạy
+
+Node 24 (`.nvmrc`). Node cũ hơn làm Vitest chết lúc khởi động.
+
+```bash
+nvm use && npm install && cp .env.example .env && npm run dev
+```
+
+## Kiến trúc — cái gì đi đâu
+
+Sáu tầng. **Tầng trên import tầng dưới, không bao giờ ngược lại:**
+
+```
+app  →  pages  →  widgets  →  features  →  entities  →  shared
+```
+
+| Tầng | Chứa gì | Ví dụ |
+|---|---|---|
+| `app/` | Composition root: `main.tsx`, providers, router, guards, styles | `app/main.tsx`, `app/App.tsx`, `app/routes/` |
+| `pages/` | Một slice = một màn hình ứng với một route | `pages/examples/`, `pages/login/` |
+| `widgets/` | Khối UI composite có trạng thái, không phải một trang | `widgets/app-shell/` |
+| `features/` | Một hành động người dùng | `features/auth-login/`, `features/theme-toggle/` |
+| `entities/` | Model nghiệp vụ: type + api + hook đọc/ghi | `entities/example/`, `entities/session/` |
+| `shared/` | Không biết gì về nghiệp vụ | `shared/ui/`, `shared/api/`, `shared/lib/` |
+
+`app/main.tsx` là entry point thật (`index.html` trỏ thẳng vào đây), `app/App.tsx` là providers,
+`app/routes/` gồm khai báo route (`index.tsx` — `createRoutes({ dev })` và `router`), kiểu `handle`
+(`handle.ts`), dựng menu (`nav.ts` → `buildNav`), chặn quyền theo route (`RoleGate.tsx`), layout chính
+(`AppLayout.tsx`, tiêm menu vào `AppShell` và `NavContext`) và `ProtectedRoute` (`guards.tsx`).
+
+Các file test dựng cả cây router (`app/routes/ErrorPage.test.tsx`, `NotFoundPage.test.tsx`,
+`routes.test.tsx`) nằm ở `app/routes/`, không phải trong `pages/tương-ứng/` — chúng import
+`createRoutes` từ `@/app/routes` và render bằng `createMemoryRouter` / `renderWithRouter`, tức là test
+*composition* ở tầng `app`, không phải test riêng một page. Một test trong `pages/` mà
+`import { createRoutes } from '@/app/routes'` là vi phạm ranh giới (`pages` không được import `app`).
+
+### Ba luật, ESLint giữ hộ
+
+1. **Chiều import.** Vi phạm → `boundaries/dependencies` báo lỗi.
+2. **Không import ngang tầng.** `features/example-form` không được import `features/example-delete`;
+   `entities/store` không được import `entities/warehouse`. Cần dùng chung thì đẩy xuống tầng dưới,
+   hoặc — khi cả hai đã là entity và không còn tầng nào thấp hơn để đẩy xuống — làm ở `features`, nơi
+   được phép import cả hai (vd `features/store-assign-warehouse` invalidate cả `storeKeys.all` lẫn
+   `warehouseKeys.all` sau khi gán kho cho cửa hàng).
+3. **Public API.** Mỗi slice có `index.ts` là cổng duy nhất. Import `@/entities/example`, không bao giờ `@/entities/example/api/hooks`. Ngoại lệ: `shared/` import thẳng theo segment (`@/shared/ui/button`).
+
+**Barrel `index.ts` chỉ được chứa `export`.** Không import phụ, không side-effect, không logic — đó là nguồn gốc vòng import.
+
+Import trong cùng một slice dùng đường dẫn tương đối (`../model/types`) và không bị luật nào chặn.
+
+### Bẫy: `import/resolver` trong `eslint.config.js`
+
+`eslint-plugin-boundaries` chỉ nhận ra alias `@/...` nhờ:
+
+```js
+settings: { 'import/resolver': { typescript: { project: './tsconfig.app.json' } } }
+```
+
+(gói `eslint-import-resolver-typescript` trong devDependencies). **Đừng xoá dòng này.** Thiếu nó,
+boundaries không phân giải nổi `@/...` và mọi rule ranh giới **im lặng cho qua** — `npm run lint`
+vẫn xanh nhưng không còn enforce gì cả. Chuyện này đã từng xảy ra thật trong dự án. Nếu nghi ngờ
+rule ranh giới đang im lặng bất thường, kiểm bằng cách cố tình tạo một vi phạm (ví dụ cho
+`features/` import thẳng `entities/x/model/...` thay vì qua `index.ts`) — nếu lint không bắt được,
+resolver đang hỏng.
+
+`boundaries/entry-point` in ra vài dòng cảnh báo deprecation mỗi lần `npm run lint` chạy
+(`Rule "boundaries/entry-point" is deprecated...`). Đó là bình thường, đừng đi sửa nó.
+
+### Bẫy: `paths` bị khai hai lần
+
+Alias `@/*` → `./src/*` nằm ở **cả hai** file:
+
+- `tsconfig.app.json` — dùng thật bởi `tsc` và Vite (qua `resolve.tsconfigPaths` trong `vite.config.ts`).
+- `tsconfig.json` ở gốc — không được tsc/Vite dùng, tồn tại chỉ để `npx shadcn add` phân giải được
+  alias khi thêm component (shadcn CLI chỉ đọc `tsconfig.json` gốc, không đọc `tsconfig.app.json`).
+
+Đổi alias thì phải sửa **cả hai file**. Bản sao ở `tsconfig.json` gốc là cố ý — đừng "dọn dẹp" xoá nó.
+
+### Thêm một màn hình nghiệp vụ mới
+
+1. Type + api + hook → `entities/<tên>/` — slice này cần `index.ts` riêng export public API, nếu
+   không `boundaries/entry-point` từ chối mọi import vào nó.
+2. Hành động (dialog tạo/sửa/xoá) → `features/<tên>-<hành-động>/` — slice này cũng cần `index.ts`
+   riêng export public API, cùng lý do.
+3. Màn hình → `pages/<tên>/` — slice này cũng cần `index.ts` riêng export public API, cùng lý do.
+4. Khai route trong `createRoutes` (`app/routes/index.tsx`), thêm vào mảng `screens` (thứ tự khai báo =
+   thứ tự trong nhóm menu). **Một khai báo duy nhất** sinh ra menu, chặn quyền, breadcrumb và tiêu đề tab:
+
+   ```tsx
+   {
+     path: '/materials',
+     lazy: () => import('@/pages/materials').then((m) => ({ Component: m.MaterialsPage })),
+     handle: {
+       roles: [ROLES.ADMIN, ROLES.MANAGER, ROLES.SUPERVISOR],
+       nav: { group: 'catalog', labelKey: 'nav:materials', icon: Package },
+       crumb: 'nav:materials',
+     } satisfies AppRouteHandle,
+   }
+   ```
+
+   - `lazy` (không `element`): mỗi màn một chunk JS. Chỉ login / 403 / 404 / trang lỗi import tĩnh.
+   - `roles`: lấy đúng danh sách `@HasRole(...)` của endpoint GET ở backend. Không khai `roles` = mọi
+     người đã đăng nhập; `roles: []` = chỉ `SUPER_ADMIN`. `SUPER_ADMIN` luôn qua (không cần liệt kê).
+     `RoleGate` lấy `roles` của match **sâu nhất** có khai: route con không khai thì thừa hưởng cha;
+     route con khai `roles` riêng thì dùng roles của nó (có thể rộng hơn cha) — cha không phải trần
+     quyền (menu cũng vậy).
+   - `authority`: gác theo **quyền** (`Authority.code`, endpoint gắn `@RequireAuthority(...)` ở
+     backend thay vì `@HasRole`). Khai cùng `roles` thì phải qua **cả hai** (AND) — khớp cách
+     backend tách `@HasRole` và `@RequireAuthority` thành hai guard độc lập. Ví dụ: `/permissions`
+     khai `handle.authority: ['MANAGE_PERMISSIONS', 'ROLE_READ']` — **mảng = phải có tất cả** (màn gọi
+     nhiều endpoint gác bằng mã khác nhau; kiểm bằng `hasAuthority` trong `app/routes/handle.ts`).
+     Chuỗi rỗng bị coi như không khai (fail-closed,
+     xem `readHandle` ở `app/routes/handle.ts`) — đừng khai `authority: ''` để "tạm tắt gác".
+   - Không thêm route `loader` (kể cả trả từ `lazy`) trừ khi kiểm quyền trước: loader chạy trước
+     `RoleGate` (RoleGate chỉ là layout render sau khi loader xong).
+   - `nav`: bỏ đi thì màn không hiện trên sidebar (vd trang chi tiết). `group` ∈ `NAV_GROUP_ORDER`
+     (`catalog` → `admin` → `dev`, trong `app/routes/handle.ts`); nhóm mới = thêm vào đó + khoá
+     `nav:groups.<key>`. Màn chưa làm thì **không** khai mục menu.
+   - `crumb`: nhãn breadcrumb + tiêu đề tab (`"<crumb> · <tên app>"`).
+   - **Trang chi tiết** là route con lồng dưới route danh sách (`/warehouses/:slug` dưới `/warehouses`),
+     khai `handle.crumb: 'nav:detail'`. Trang gọi `useCrumbTitle(record?.name)` (`@/widgets/app-shell`)
+     để breadcrumb và tiêu đề tab hiện tên bản ghi. Bấm **cả hàng** mở chi tiết (`DataTable`
+     `onRowClick`; ô tên vẫn là `<Link>` cho bàn phím và Ctrl/⌘+bấm), cả hai gửi `state.backTo`; nút
+     quay lại đọc bằng `readBackTo(location.state, '/warehouses')` (`shared/lib/back-link.ts`). Thân
+     trang là **một**
+     `DetailCard` "Tổng quan" (`shared/ui/detail.tsx`): nhãn trên giá trị, lưới 1/2/3 cột; nhóm khác
+     loại (vd pháp nhân) là `DetailGroup` có tiêu đề trong cùng card; trường dài `span="full"`; tạo/cập
+     nhật lúc ở chân card (`DetailMeta`). Không lặp lại tên — đã là `<h1>`.
+   - `labelKey` / `crumb` là khoá namespace `nav` (`shared/i18n/locales/{vi,en}/nav.json`), kiểm lúc
+     biên dịch — thêm khoá vào **cả hai** file trước.
+   - Luôn `satisfies AppRouteHandle`: `handle` của react-router là `unknown`, thiếu `satisfies` thì
+     khai sai không bị bắt.
+5. `roles`/`authority` của route = quyền **XEM** (guard của endpoint GET). Quyền **GHI** gác riêng
+   trong màn, **theo đúng decorator của từng endpoint ghi**:
+   - `@RequireAuthority(X)` → `can(user, 'X')`, **mỗi nút một mã** của đúng endpoint nó gọi
+     (`/examples`: Tạo ↔ `EXAMPLE_CREATE`, Sửa ↔ `EXAMPLE_UPDATE`, Xoá ↔ `EXAMPLE_DELETE`).
+   - `@HasRole(RoleEnum.Admin)` → `hasRole(user, ROLES.ADMIN)`.
+   - Màn mà backend **đang chuyển** từ role sang authority (`/warehouses`, `/stores`): luật đặt ở
+     `pages/<x>/model/abilities.ts` — một hàm thuần `<x>Abilities(user, flags)` trả
+     `{ create, update, delete, … }`, nhánh theo cờ trong `BACKEND_SUPPORTS`. Trang gọi
+     `<x>Abilities(user, BACKEND_SUPPORTS)`; test truyền cờ trực tiếp (không mock module). Route đọc
+     cờ qua `createRoutes({ capabilities })`.
+   - Nút mở hộp cần tải dữ liệu của **endpoint khác** thì cần cả quyền đó: gán quản lý kho =
+     `WAREHOUSE_ASSIGN_MANAGER` **và** `USER_READ` **và** `ROLE_READ` (hộp tải `GET /roles` rồi `GET /users`);
+     gán kho cho cửa hàng =
+     `STORE_UPDATE` **và** `WAREHOUSE_UPDATE` (chính endpoint gán đòi cả hai) **và** `WAREHOUSE_READ`
+     (hộp tải danh sách kho).
+   Không có quyền thì ẩn hẳn nút, và **không dựng cột thao tác** khi không còn nút nào trong cột
+   (ngăn cách trước mục Xoá cũng chỉ vẽ khi phía trên còn mục khác).
+6. Test composition (menu hiện đúng theo role, `/forbidden` khi thiếu quyền) ở `app/routes/`, dùng
+   `renderWithRouter(createRoutes({ dev: false }), { route, auth })`.
+
+Đừng nhét cả bốn tầng vào một thư mục — đó chính là thứ cấu trúc này tồn tại để ngăn.
+
+Màn chỉ dành cho dev (Example) khai trong `devScreens()` — sau cả cờ `dev` **và** `import.meta.env.DEV`
+để bản build production bỏ hẳn cả route lẫn chunk JS.
+
+### Thêm một API mới
+
+1. Type → `entities/<x>/model/types.ts`, **viết tay** (không sinh từ Swagger); chỉ **các loại phiếu**
+   (nhập/xuất/kiểm kho) còn `version` → kế thừa `Versioned` (`shared/api/types.ts`); danh mục (kho, cửa
+   hàng, vật tư, loại vật tư, đơn vị) **không** có `version` từ `WMS-10-be(2)`. Đối chiếu Swagger khi khai:
+   trường backend **luôn trả** thì khai **bắt buộc** dù Swagger ghi tuỳ chọn (DTO dùng `@ApiPropertyOptional`
+   cả cho `slug`, `createdAt`, `updatedAt`, `version`). Danh sách có bộ lọc: khai `<X>Filters` cạnh type,
+   tham số là `ListParams<<X>Filters>`.
+2. Hàm gọi API → `entities/<x>/api/<x>.api.ts`, chỉ dùng `getData` / `getPaginated` / `postData` /
+   `patchData` / `putData` / `deleteData` từ `shared/api/http.ts`. **Không dùng `axios` trực tiếp** — mất
+   refresh token. Backend dùng `PUT` cho các endpoint "thay đúng một slot" và idempotent
+   (`PUT /warehouses/:slug/manager`, `PUT /stores/:slug/warehouse`): **đừng gộp chúng vào form sửa** —
+   một lần bấm Lưu hoá thành hai request, lỗi nửa chừng không xử lý gọn được. Endpoint bỏ gán nhận
+   `null` tường minh (`managerSlug: null`, `warehouseSlug: null`), không phải thiếu field hay chuỗi rỗng.
+3. Key → `entities/<x>/api/query-keys.ts`, theo mẫu `entities/example/api/query-keys.ts`.
+4. Hook → `entities/<x>/api/hooks.ts`:
+   - danh sách phân trang có `placeholderData: keepPreviousData`;
+   - query phụ thuộc tham số có `enabled`;
+   - mutation invalidate `keys.all` + toast thành công;
+   - **không tự toast lỗi** — `app/query-client.ts` làm hộ. Tự xử lý lỗi (ví dụ báo tại ô form) thì đặt
+     `meta: { suppressErrorToast: true }` và tự gọi `toastApiError` cho các lỗi còn lại.
+5. Mã lỗi mới → `shared/api/error-codes.ts` + `errors.json` cả vi và en.
+6. Export qua `index.ts` của slice.
+7. Test: dữ liệu giả dựng qua `ok<T>()` / `paginated<T>()` / `apiError()` (`shared/test/api.ts`) với type
+   của entity, render qua `renderWithProviders` (`shared/test/render.tsx`).
+
+## Tầng API
+
+Backend bọc mọi response trong envelope `{ message, statusCode, timestamp, result }`, còn lỗi thì
+**hình dạng khác hẳn**: `{ statusCode, code?, timestamp, path, method, message }`. Envelope và lỗi
+khai tay trong `shared/api/types.ts`; type entity khai tay trong `entities/<x>/model/types.ts`.
+**Không sinh type từ Swagger**: envelope không có trong Swagger, trường luôn có bị ghi tuỳ chọn, và
+phải sinh lại mỗi lần backend deploy.
+
+`shared/api/http.ts` cô lập các điểm lệch của backend, **không nơi nào khác trong app được thấy chúng**:
+
+- Request phân trang dùng `size`, response trả `pageSize`
+- Response trả `hasPrevios` (typo của backend)
+- `getPaginated(url, { page, size, ...filters })` bỏ bộ lọc `undefined` / `null` / `''` trước khi gửi
+
+Tài nguyên định danh bằng `slug`, không phải `id`.
+
+### Token và phiên
+
+- Token chỉ đọc/ghi qua `shared/api/token-storage.ts` (key `warehouse.auth`). Không đụng `localStorage` trực tiếp.
+- Access token sống 15 phút. Request nhận **401** → interceptor gọi `/auth/refresh` **một lần** cho mọi
+  request đang chờ (single-flight), rồi gửi lại. Refresh hỏng → interceptor báo lý do
+  (`expired` / `revoked` / `userInactive` / `unauthorized`) qua `setSessionEndHandler` →
+  `endSession(reason)` → `ProtectedRoute` đưa về `/login?redirect=…` và màn login hiện lý do.
+- `/auth/login`, `/auth/refresh` không bao giờ kích hoạt refresh. `/auth/logout` **có**: backend đòi
+  access token còn hạn, nên logout sau khi token hết hạn refresh rồi gửi lại để thật sự thu hồi phiên.
+- Lỗi mạng, hết giờ (refresh timeout 15s), 5xx, 408, 429 khi refresh **không** kết thúc phiên.
+- Refresh hỏng mà storage đã giữ cặp token khác (đổi mật khẩu, tab khác đăng nhập) → không kết thúc
+  phiên mới, gửi lại bằng cặp đang lưu.
+- Phiên bắt đầu/kết thúc chỉ qua `entities/session`: `startSession`, `endSession`, `logout`,
+  `replaceTokens` (đổi mật khẩu — không xoá cache). Tab khác đăng nhập/đăng xuất được đồng bộ qua sự kiện `storage`.
+
+### Lỗi
+
+- Toast lỗi là việc của `app/query-client.ts` (`QueryCache` / `MutationCache`). **Hook không tự toast lỗi.**
+- Query lỗi ở lần tải đầu không toast (component hiện lỗi tại chỗ); đã có dữ liệu mà tải lại lỗi thì toast.
+- 401 và request bị huỷ không bao giờ toast.
+- **403 do thiếu quyền** (`isPermissionDenied`, `shared/api/http.ts`) = `scope` trong store đã cũ
+  vì người khác vừa đổi quyền của role mình. `app/query-client.ts` nạp lại `/auth/me`
+  (`refreshCurrentUser`, gộp các lời gọi chồng nhau thành một request) → menu, nút, `RoleGate` tự
+  cập nhật; mất quyền vào màn đang đứng thì bị đưa sang `/forbidden`. Toast dùng
+  `id: 'permission-denied'` nên nhiều request cùng bị từ chối chỉ hiện **một** toast. Việc nạp lại
+  chạy **trước** mọi nhánh bỏ toast (`suppressErrorToast`, lỗi lần tải đầu) — các nhánh đó chỉ tắt
+  việc *báo*, không tắt việc *làm mới quyền*. Backend không gắn `code` cho loại 403 này nên nhận diện
+  bằng `statusCode === 403` + không `code` + message `"Forbidden resource"` (câu mặc định của Nest);
+  phải khớp message vì `FeatureGuard` cũng trả 403 không `code`. Có mã riêng từ backend thì đổi sang
+  so `code`. Phần làm mới quyền **không** có trong `mutationToastQueryClient()` (`shared` không import
+  được `entities`) — test nó ở tầng `app` (`app/query-client.test.ts`, `app/permission-revoked.test.tsx`).
+  Chỉ bắt được **bị thu** quyền; chiều **được cấp thêm** do `usePermissionSync` lo (dưới đây).
+- **Quay lại tab thì kiểm tra lại quyền**: `usePermissionSync` (`entities/session`, gắn trong
+  `app/App.tsx` cạnh `useSession`) nạp lại `/auth/me` khi tab hiện lại sau khi bị ẩn **≥ 30s**
+  và cách lần trước **≥ 60s** (tính cả lần nạp lúc mở phiên) — luật nằm ở hàm thuần `shouldRecheck`.
+  Vai trò hoặc tập `scope` khác đi (không tính thứ tự) → toast thông tin "Quyền của bạn vừa được cập
+  nhật."; không đổi thì im lặng. Chuyển giữa các màn trong app **không** tốn request nào.
+- **Trang 403 nêu lý do**: `RoleGate` nhớ màn gần nhất đã cho vào; bị chặn ngay tại **đúng** màn
+  đó (quyền đổi giữa phiên) → `/forbidden?reason=permissionChanged`, `ForbiddenPage` hiện "Quyền truy
+  cập đã thay đổi". Tự gõ URL không có quyền → `/forbidden` trần, câu chung như cũ.
+- **Bẫy khi test các hook trong `entities/session`**: `src/app/test-setup.ts` import barrel
+  `@/entities/session` trước khi file test chạy, nên module trong barrel đã giữ bản **thật** của mọi
+  thứ nó import — `vi.mock('sonner')` hay `vi.mock('./refresh-user')` trong file test **không chen
+  vào được**, mock im lặng không bao giờ thấy lời gọi. Kiểm thứ người dùng thấy (render `<Toaster />`
+  thật, đếm request bằng MSW) hoặc tách luật ra hàm thuần (`shouldRecheck`). Module **ngoài** barrel
+  (vd `app/query-client.ts`) thì `vi.mock('@/entities/session', …)` vẫn ăn bình thường.
+- Tự xử lý lỗi → `meta: { suppressErrorToast: true }` rồi tự gọi `toastApiError` cho phần còn lại
+  (ví dụ `features/change-password`).
+
+## Màn danh sách / form — bộ khung dùng chung
+
+Ghép từ các mảnh độc lập (không có "màn CRUD cấu hình sẵn"). Mẫu đầy đủ: `pages/examples/ui/ExamplesPage.tsx`.
+
+- **Trang / số dòng / bộ lọc trên URL**: `useListParams(FILTERS)` (`shared/lib/list-params.ts`), `FILTERS` là
+  `z.object({...})` khai **ngoài** component (không lọc thì `z.object({})`; lọc số dùng `z.coerce`). Giá trị sai
+  trên URL → mặc định; `setFilters`/`setSize` về trang 1; ghi bằng `replace`. Số dòng: `PAGE_SIZE_OPTIONS`
+  (10/20/50, mặc định 10).
+  - Lọc boolean dùng `z.stringbool()` — **không** `z.coerce.boolean()` (nó hiểu `"false"` là `true`). Bộ lọc
+    nhiều giá trị / mảng (`?status=a&status=b`) **chưa hỗ trợ**: `useListParams` chỉ đọc giá trị đầu.
+  - Giữ schema lọc của trang khớp kiểu lọc của entity:
+    `const FILTERS = z.object({...}) satisfies z.ZodType<XFilters>`. Bắt được sai kiểu giá trị, **không**
+    bắt thiếu/thừa khoá optional — tên khoá vẫn phải tự soát.
+  - Effect phụ thuộc **giá trị nguyên thuỷ** (`filters.name`), không phụ thuộc cả object `filters` — object
+    đổi identity mỗi lần URL đổi (kể cả chỉ đổi trang).
+- **Tự lùi trang**: `useClampPage(isPlaceholderData ? undefined : data?.totalPages, page, setPage)`.
+- **Bảng**: `DataTable` (`shared/ui/data-table/DataTable.tsx`) — truyền `data={data?.items}` (undefined = chưa
+  có dữ liệu), `isLoading={isPending}`, `error`, `pagination={{ …, isFetching: isPlaceholderData }}`.
+  Thanh trên bảng: `ListToolbar` — `search` (ô tìm, căn **trái**, `SearchInput` debounce 300 ms),
+  `filters` rồi `actions` (nút Tạo…) căn **phải**, nút hành động ngoài cùng; không có ô tìm thì cả cụm vẫn
+  nằm bên phải.
+  Khung bảng hẹp: cột phụ khai `meta: { hideBelow: '@sm' | '@2xl' | '@4xl' }` trong `ColumnDef` — **container
+  query** theo bề rộng thật của khung bảng (breakpoint theo cửa sổ sai khi sidebar đang mở); xem đủ ở trang
+  chi tiết. Cột tên, trạng thái, thao tác không khai. Cột chỉ có icon (menu `⋯`) khai `meta: { compactHeader: true }` — chữ tiêu
+  đề chỉ còn cho trình đọc màn hình khi khung hẹp. Cột `id: 'actions'` được `DataTable` **ghim mép phải**
+  (`data-pinned="right"`, nền đục, bóng mép khi bảng tràn) — một ô quá rộng không đẩy được nút `⋯` ra ngoài.
+  Ô mặc định không xuống dòng (`TableCell` của shadcn). Cột chữ dài do người dùng nhập: bọc
+  `block max-w-* whitespace-normal`; chuỗi không có khoảng trắng (email) thêm `break-words` — **đừng dùng
+  `[overflow-wrap:anywhere]`**: nó hạ min-content về 1 ký tự nên bảng bóp cột, email ngắn cũng gãy giữa chữ.
+  Nhãn ngắn mà có thể dài (vai trò tự tạo): `truncate` + `title`.
+  Trang chi tiết: menu ⋯ ở đầu trang chỉ dùng khi có từ hai thao tác phụ trở lên (Kho, Cửa hàng); chỉ còn mỗi Xoá thì
+  để nút `variant="destructive"` ngay cạnh nút Sửa (Vật tư, Nhà cung cấp). Nút bị khoá thì lý do là dòng chữ nhỏ hiện
+  sẵn dưới hàng nút, nối `aria-describedby` — không dùng `title` (nút disabled không nhận hover). Danh sách trong ô: 2 mục + "+N", đủ ở
+  `title` và `sr-only`. Kiểm bằng skill `break-ui` (dữ liệu xấu thật, nhiều khổ màn) trước khi báo xong.
+  Bộ lọc trên thanh (`ListToolbar`), không cần khai gì thêm:
+  - **Desktop vừa một hàng**: ô tìm trái, bộ lọc + nút hành động phải.
+  - **Desktop không vừa** (laptop có sidebar — `toolbar-fit.ts` đo chỗ thật của thanh, không theo cửa sổ): gom
+    vào nút "Bộ lọc (n)" mở popover; thanh luôn một hàng, nút hành động không rơi xuống hàng riêng.
+    Popover (`FilterDisplay` = `popover`): tiêu đề "Bộ lọc", rộng `w-80`, **nhãn phía trên mỗi ô**; `SelectFilter` có ≤ 4
+    lựa chọn thật (không tính "Tất cả") thành **nút bấm nhanh** (bấm lại để bỏ chọn), nhiều hơn thì `Select` có nhãn.
+    Bộ lọc tự viết (Combobox…) bọc `FilterField label` (nhãn chỉ hiện ở popover) và truyền `chevron="down"` cho
+    đồng bộ mũi tên ⌄ với `Select`. **Ngữ cảnh của cả trang (vd Kho ở phiếu nhập) không phải bộ lọc** → đặt ở đầu
+    trang cạnh tiêu đề, không trong `filters`, không tính vào `activeFilterCount`.
+  - **Mobile < 768px**: hàng 1 ô tìm + nút hành động, hàng 2 **chip lướt ngang** (không có ô tìm thì nút hành
+    động đứng cuối hàng chip). `SelectFilter`/`DateRangeFilter` tự đổi sang dạng chip qua `filter-display.ts`:
+    chưa chọn ghi tên bộ lọc, đã chọn ghi giá trị + ✕. Bộ lọc khác loại (Combobox, ô tick) được hàng chip bo tròn.
+  - Nút hành động trên mobile chỉ còn icon (`<span className="max-md:sr-only">` cho chữ) để ô tìm không bị cắt.
+  - Truyền `activeFilterCount` (số trên nút "Bộ lọc") và `onClearFilters` (nút "Xoá bộ lọc").
+- **Form**: `Form`/`FormField`/`FormItem`/`FormLabel`/`FormControl`/`FormMessage` (`shared/ui/form.tsx`).
+  Message của schema Zod là **khoá i18n có namespace** (`'examples:nameRequired'`) — `FormMessage` tự dịch;
+  chuỗi không phải khoá hiện nguyên. **Mọi** rule cần message là khoá, kể cả lỗi sai kiểu:
+  `z.number({ error: 'materials:minRequired' })` — thiếu thì UI tiếng Việt hiện câu tiếng Anh gốc của Zod.
+- **Lỗi backend vào ô**: mutation đặt `meta: { suppressErrorToast: true }`, rồi trong `onError`:
+  `if (!applyApiErrorToForm(form, error, { 999902: 'name' })) toastApiError(error)`.
+- **Đừng dùng thuộc tính validate gốc của HTML trên input** (`required`, `type="email"`,
+  `pattern`, `min`/`max`). Trình duyệt **và jsdom** chạy validate gốc TRƯỚC khi submit, nên form
+  không gửi, resolver Zod không chạy, và **không lỗi nào hiện ra** — nhìn như bấm Lưu mà không có
+  gì xảy ra. Đã cắn thật với `type="email"` ở `features/profile-form`. Cần bàn phím email trên
+  mobile thì dùng `inputMode="email"` (chỉ gợi ý bàn phím, không validate).
+- **Trường bắt buộc**: `<FormItem required>` (khai một lần trên `FormItem`, dữ liệu tĩnh qua context —
+  không phải state/effect) khiến `FormLabel` tự hiện dấu `*` đỏ (aria-hidden) và `FormControl` tự gắn
+  `aria-required="true"` cho control cùng `FormItem` — không dùng thuộc tính `required` gốc của HTML (gây
+  bong bóng validate trình duyệt). Form sửa khoá nút Lưu khi form chưa đổi so với giá trị lúc mở
+  (`!formState.isDirty`); **không** khoá nút vì form chưa hợp lệ — bấm Lưu vẫn phải báo lỗi tại từng ô và
+  focus vào ô lỗi đầu tiên (`handleSubmit` mặc định `shouldFocusError`).
+- **Kiểm ngay khi nhập xong**: mọi `useForm` khai `mode: 'onTouched'` — một ô được kiểm khi rời ô lần đầu,
+  sau đó kiểm lại mỗi lần gõ (lỗi tự mất khi sửa đúng); không la lỗi khi mới gõ chữ đầu. Ô **trống** chỉ đi
+  ngang qua chưa bị la "bắt buộc" — lỗi đó hiện sau lần bấm gửi đầu (ô đang sửa bị xoá trắng thì báo ngay);
+  luật nằm ở `visibleError` trong `shared/ui/form.tsx`, không giấu lỗi backend (`type: 'server'`). Ô có
+  ràng buộc định dạng (SĐT, mã, MST, độ dài mật khẩu) có `FormDescription` gợi ý hiện sẵn; có lỗi thì câu
+  lỗi thay chỗ gợi ý — câu lỗi vì thế ngắn ("… không đúng định dạng"), chi tiết nằm ở gợi ý. Luật nối hai ô
+  (`refine` cấp object, vd "Nhập lại mật khẩu" khớp "Mật khẩu") cần thêm
+  `useRevalidateWhenTouched(form, nguồn, đích)` (`shared/lib/form-validation.ts`) — RHF chỉ kiểm lại ô
+  đang gõ nên lỗi ở ô đích đứng yên khi sửa ô nguồn. Ô chọn (`Select`, `Combobox`, `DatePicker`, `Switch`)
+  không nối `onBlur` nên chỉ báo lỗi khi bấm Lưu — chấp nhận được vì chọn xong là hợp lệ.
+- **409 (`isVersionConflict`) thì đóng hộp** — chỉ áp cho thứ còn `version` (màn Example, và các loại
+  phiếu sau này): khi mutation trả 409 vì `version` lệch, bên gọi tự đóng hộp thay vì giữ nó mở — giữ
+  mở chỉ tạo vòng lặp thử lại vì `version` trong tay đã cũ.
+  - **Kho và cửa hàng KHÔNG có nhánh này**: backend bỏ `version` cho danh mục ở `WMS-10-be(2)`. Hệ
+    quả: hai người sửa cùng một kho cùng lúc thì **người lưu sau ghi đè người lưu trước, không có
+    cảnh báo** — quyết định của backend, FE không bù được.
+- **Sheet hay dialog** — quy ước của dự án, chọn theo *hình dạng thao tác*, không theo sở thích:
+  - **form nhiều ô → `FormSheet`** (`shared/ui/FormSheet.tsx`): ngăn trượt bên phải ~480px (full width
+    dưới 640px), tiêu đề cố định, vùng nội dung cuộn được, chân sheet cố định chứa Huỷ/Lưu. Props:
+    `open`, `onOpenChange`, `title`, `description?`, `submitLabel`, `isPending`, `submitDisabled?`,
+    `isDirty?`, `confirmation?`, `actions?`, `onSubmit`, `children`. `actions({ requestClose, isPending })` thay cả bộ Huỷ /
+    `secondaryAction` / nút gửi ở chân sheet (wizard nhiều bước; khi đó `submitLabel` không cần), `footerStart` vẫn giữ; chân sheet
+    `flex-wrap`, `footerStart` chiếm cả hàng dưới `sm`. Truyền `isDirty={form.formState.isDirty}`: đóng
+    form đã sửa mà chưa lưu (Huỷ, ×, Esc, bấm ra ngoài) thì hỏi "Bỏ thay đổi chưa lưu?" trước.
+    **Thao tác TẠO phải xác nhận** (nghiệp vụ chốt): `handleSubmit` chỉ giữ giá trị đã hợp lệ vào state
+    rồi mở `confirmation` ("Xác nhận tạo …", tóm tắt mã/tên); bấm xác nhận mới gọi API; gửi lỗi thì đóng
+    hộp để lỗi tại ô hiện ra. **Mọi thao tác ghi (tạo / sửa / gán) đều hỏi lại trước khi gọi API**; không hỏi khi
+    không có gì đổi (nút Lưu khi sửa khoá theo `!isDirty`) và validate lỗi thì không mở hộp. **Sửa** dùng
+    `useSaveChangesConfirmation` (`shared/ui`): hộp "Lưu thay đổi {{entity}} {{name}}?" + dòng "Đã sửa: …" từ
+    `changedFieldLabels` (`shared/lib/changed-fields.ts`), nút lùi "Quay lại" (`cancelLabel` của `FormSheetConfirmation`).
+    **Hộp một thao tác** (gán, đổi vai trò, reset / đổi mật khẩu, đơn vị quy đổi, tạo vật tư trong kho…) không chồng hộp
+    thứ hai mà đổi nội dung bằng `DialogConfirmStep` (`shared/ui`); lỗi thuộc ô → về màn nhập, 404 / 409 ở đổi vai trò / quy đổi
+    → toast + đóng, lỗi khác → toast, ở lại màn xác nhận. **Wizard** phiếu nhập / xuất: `pendingAction` + `ConfirmDialog` trong sheet,
+    chữ do `importSaveConfirmCopy(t, action, ctx)` / `exportSaveConfirmCopy(...)` (`model/save-confirm.ts`); Esc / bấm ngoài khi hộp lưu
+    đang mở chỉ đóng hộp đó (phụ thuộc thứ tự listener của Radix — có test canh, chạy lại sau khi nâng Radix).
+    Test bấm qua hộp bằng `confirmDialog(user, nhãn)` (hộp trên cùng) và qua bước trong hộp bằng `confirmStep(user, nhãn)` (`shared/test/confirm.ts`). Nút Lưu nằm TRONG `<form>` (không dùng thuộc tính `form=` — jsdom không nối
+    nó qua portal của Radix). Mẫu: `features/warehouse-form`, `features/store-form`.
+    Bẫy CSS: class ghi đè chiều rộng phải dùng cùng tiền tố biến thể
+    (`data-[side=right]:sm:max-w-[480px]`), vì `sheet.tsx` gốc có `data-[side=right]:w-3/4` — class
+    trần thua về specificity và jsdom **không** phát hiện được (chỉ thấy khi xem CSS đã build).
+    Cùng loại bẫy, hai biến thể khác đã cắn thật trong dự án này:
+    - `AlertDialogContent` có `data-[size=sm]:max-w-xs`. Truyền `className="max-w-md"` **không ăn**:
+      tailwind-merge không coi hai class khác biến thể là trùng, và selector kèm `[data-size]` thắng
+      specificity. Phải viết `data-[size=sm]:max-w-md`.
+    - `AlertDialogAction`/`AlertDialogCancel` truyền className qua `Slot` của Radix, mà `Slot`
+      **nối chuỗi** chứ không chạy tailwind-merge → `size="lg"` (`h-9`) cộng `className="h-11"` để lại
+      CẢ HAI trên phần tử, thắng thua do thứ tự utility trong stylesheet. Đừng ghi đè chiều cao bằng
+      className ở đó — thêm hẳn một `size` vào `button.tsx` (đó là lý do có `xl`).
+
+    Cả hai đều vô hình khi đọc code và khi chạy test. Cách kiểm: render thật rồi in `element.className`
+    ra xem class nào còn sống sót.
+  - **Form nhiều dòng (phiếu nhập) → `FormSheet size="wide"`** (~1024px, full width dưới 640px; prop `size?: 'default' | 'wide'`).
+    `footerStart` đặt tổng tiền bên trái chân sheet, cùng hàng Huỷ / Lưu nháp. `ImportFormSheet`
+    (`features/import-form-editor`) luôn mount, trang cha điều khiển `open` (+ `formSlug` khi sửa); sheet tự tải
+    chi tiết khi sửa (`useImportForm(..., { enabled: open })`), chỉ kiểm `status === 'DRAFT'` — quyền sửa do trang cha kiểm
+    trước khi truyền `formSlug`. **Không có URL riêng cho form**: F5 / Back khi đang mở sẽ mất phần đang nhập, như mọi sheet
+    khác; đóng tab có cảnh báo `beforeunload` (chỉ khi mở và đã sửa). Tạo đi qua bước ③ Kiểm tra (thay hộp xác nhận chung, xem dưới), sửa cũng hỏi xác nhận lưu ở mọi bước (hộp "Lưu thay đổi phiếu …?"); 409 / 101314 khi sửa →
+    đóng sheet + toast + invalidate cả kho.
+    **Luồng cho người mới (WMS-17-FE 5)**: NCC = **bên bán** (người xuất hoá đơn / mình trả tiền). Đầu phiếu có `supplierSlug`
+    (bắt buộc khi có `SUPPLIER_READ`, ẩn khi thiếu quyền — prop `canPickSupplier`); mỗi dòng có thể đổi bên bán riêng
+    (`supplierOverride`), bên bán dòng trùng đầu phiếu thì lưu `''` (theo đầu phiếu); payload gửi `items[].supplierSlug`.
+    Phiếu nháp cũ không có bên bán thì suy từ các dòng. Tìm vật tư chạy **phía BE** (`useAvailableMaterialSearch`: size 50, debounce
+    300 ms, `toCodeOrNameQuery`) và chia 2 nhóm "Hàng thường mua của X" / "Vật tư khác" (`Combobox` có thêm `groups`, `onSearchChange`,
+    `serverFiltered`, `isLoading`, `loadingText`, `defaultOpen`, `onOpenChange` — báo cả lúc đóng không chọn gì).
+    **Ô xổ vật tư của dòng rộng bằng cả bảng dòng** (dạng thẻ: bằng thẻ) — `widthAnchor` = `<section>` của `ImportFormItemsField`,
+    danh sách cao tới `max-h-[60vh]`; mỗi mục (`renderOption`) là mã đậm · tên đủ (xuống dòng, không cắt) | "Tồn: …" + mã đơn vị gốc
+    | các mã đơn vị. Cột của mục theo **container query** (`@container` trên mục, cột từ `@2xl`, bề rộng cố định để các mục thẳng cột;
+    hẹp hơn thì xếp dọc) — không theo `sm:` của cửa sổ, vì danh sách rộng bằng bảng chứ không bằng cửa sổ.
+    **"Chọn nhiều vật tư"** (cạnh "Thêm dòng") mở `ImportFormMaterialPicker`: ô tìm (BE, như ô xổ) + bảng ô tick · mã · tên · tồn ·
+    đơn vị · NCC, nhóm theo bên bán đầu phiếu (`splitBySupplier`, `model/material-groups.ts`, dùng chung với ô xổ); bảng nhiều cột chỉ
+    từ `lg` (hộp `lg:max-w-5xl`), hẹp hơn thì ba ô sau xuống dòng dưới tên kèm nhãn; số tồn `whitespace-nowrap` (không gãy giữa chữ
+    số). Vật tư đã có trong phiếu (bất kỳ đơn vị) hiện "đã có", vật tư chưa có đơn vị gốc hiện câu `inventory:noBaseUnit` — cả hai không
+    tick được. "Thêm (n) dòng" → mỗi vật tư một dòng với đơn vị gốc, SL / đơn giá trống, bên bán theo đầu phiếu, thứ tự ổn định (danh
+    sách tải sẵn đã nhóm, rồi vật tư chỉ có trong kết quả tìm theo thứ tự tick). Luật thuần `addPickedLines` (`model/add-picked-lines.ts`, uỷ quyền cho `fillBlankLines` của `shared/lib/fill-blank-lines.ts` — phiếu xuất dùng cùng):
+    **chỉ lấp dòng trống HẲN** (`isBlankLine`: không vật tư, không SL, không đơn giá, không ghi chú, không đổi bên bán — dòng gõ dở
+    không có vật tư được giữ nguyên) rồi mới nối cuối; focus vào ô Số lượng của dòng mới đầu tiên (huỷ → về nút "Chọn nhiều vật tư",
+    nút đó ẩn thì `h2` của section). **Tối đa 200 dòng**: `capacity = IMPORT_FORM_ITEMS_MAX − số dòng không trống hẳn`; tick đủ thì
+    khoá các ô còn lại, câu `pickerLimit` ("Phiếu tối đa 200 dòng — còn chọn được n", nối `aria-describedby`) hiện khi giới hạn chặn
+    được thật; hết chỗ thì ẩn nút mở hộp và footer. Hộp có footer "＋ Thêm vật tư vào kho…" (cùng điều kiện với ô xổ) — vật tư vừa tạo
+    thành dòng ngay (lấp dòng trống đầu tiên), hộp chọn vẫn mở và giữ các ô đã tick.
+    **Wizard 3 bước** trong chính `FormSheet`: ① Thông tin phiếu (`ImportFormInfoStep`) → ② Chi tiết vật tư (dòng tóm tắt
+    `ImportFormInfoSummary` "Mua của … · HĐ … · ngày" + "sửa", rồi `ImportFormItemsField`) → ③ Kiểm tra & lưu (`ImportFormReviewStep`:
+    tóm tắt, "Cần xem lại (n)" với "sửa" về đúng ô của dòng, bảng dòng chỉ xem; mọi cảnh báo đều MỀM, không chặn lưu). Ba bước
+    **luôn mount, bước khác bị `hidden`** (giữ upload / `useFieldArray`, để `trigger` / `setFocus` với tới ô ẩn) — ô ẩn không nhận
+    focus nên luôn đổi bước TRƯỚC (`flushSync`) rồi mới focus; đổi bước không có ô đích thì cuộn lên đầu và focus `h2[tabIndex=-1]`
+    của bước. Luật bước là hàm thuần ở `model/wizard.ts` (`stepFields`, `firstStepWithError`, `firstErrorField` — hai hàm sau bọc bản chung `shared/lib/wizard-errors.ts`, phiếu xuất dùng cùng). **Lùi tự do, tiến
+    phải hợp lệ**: tiến (Tiếp tục, bấm bước sau trên dải) chạy `form.trigger` lần lượt cho mọi bước trước đích, dừng ở bước sai đầu
+    tiên và focus ô lỗi (Combobox / DatePicker / `SelectTrigger` phải nhận `ref={field.ref}`, không thì `setFocus` im lặng; `show()` dự phòng bằng ô `aria-invalid` đầu tiên rồi `h2` của bước); đang upload chứng từ thì không tiến (dải bước khoá các bước sau, `lockForward`). Nút chân sheet có `key` riêng và bỏ qua cú bấm `detail > 1` — bấm đúp "Tiếp tục" ở ② không được rơi vào nút lưu của ③. Bẫy: `visibleError` giấu lỗi "bắt buộc" của ô trống chưa chạm tới lần
+    gửi đầu, nên khi bước sai mà form chưa submit lần nào sheet chạy một `handleSubmit` "khan" (không lưu gì) để bật `isSubmitted`,
+    rồi `clearErrors` các ô của những bước sau — đừng gỡ nó (có test "② không còn lỗi Chọn vật tư sót lại"). Mở: tạo → ①, sửa → ②
+    (đóng / mở lại → bắt đầu lại). Dải bước (`ImportFormStepper`, bọc mỏng quanh `shared/ui/WizardStepper`) là điều hướng thật: vòng số nối bằng đường kẻ (< sm chỉ giữ nhãn bước
+    đang xem), `aria-current="step"` = bước đang hiện, ✓ khi đủ (`importFormStepStatus`: ① = số HĐ + bên bán nếu chọn được NCC;
+    ② = ≥ 1 dòng đủ, kèm "· n dòng") — ✓ chỉ là gợi ý, quyền đi tiếp do `trigger` quyết. Chân sheet đi qua **`FormSheet.actions`**
+    (Tổng ở `footerStart`, khi tạo chỉ từ ②): tạo ① Huỷ · Tiếp tục, ② Quay lại · Tiếp tục, ③ Quay lại · Lưu nháp · Lưu & xác nhận (khi gửi, chỉ nút vừa bấm đổi thành "Đang lưu...",
+    nút kia giữ chữ và bị khoá; không có `canConfirm` thì Lưu nháp là nút chính) — **tạo chỉ lưu được ở ③**; sửa ở MỌI bước: Huỷ · Lưu & xác nhận
+    (`canConfirm`) · **Lưu**, không có Quay lại / Tiếp tục (đi qua dải bước và "sửa"). **Enter**: tạo ở ① / ② = Tiếp tục, ở ③ KHÔNG làm
+    gì (mọi nút ở ③ là `type="button"` — một phím Enter lỡ tay không được "Lưu & xác nhận", hành động cộng tồn ngay); sửa = Lưu.
+    Mọi lần lưu (③ khi tạo, Lưu / Lưu & xác nhận / Enter khi sửa) chạy `handleSubmit` toàn phiếu với `onInvalid` → sang bước có lỗi
+    đầu tiên và focus ô đó; lỗi backend gắn vào ô (`applyApiErrorToForm`) cũng chuyển bước, lỗi theo dòng 101319–101328 và lỗi cả danh sách dòng (101311 tổng, 101317 / 101318 số dòng) → toast +
+    về ②. Sửa: "Lưu" mở hộp hỏi rồi mới PATCH (Enter khi không đổi gì và không `needsPatch` thì không làm gì), "Lưu & xác nhận" (không đổi gì → chỉ xác nhận với `original.version`, xác nhận lỗi thì KHÔNG báo "đã
+    lưu": 409 / 101314 → như PATCH bị 409, lỗi khác → toast, giữ sheet; có đổi → PATCH rồi xác nhận). Nháp cũ có dòng chưa lưu bên bán
+    (hiện "theo đầu phiếu") cũng tính là cần PATCH (`needsPatch`, chỉ khi `canPickSupplier`) — nút Lưu mở dù form không dirty.
+    Bước ③ tự `useWatch` toàn form trong một khung nhỏ (`ReviewStepWatcher`) — đừng đặt `form.watch()` ở gốc sheet (cả sheet vẽ lại
+    mỗi phím gõ). Toast sau khi lưu ngắn (một dòng, tối đa một nút "Xem"; lý do xác nhận lỗi ở `description`), nút "Xem" bị bỏ qua khi sheet đang mở. "Lưu & xác nhận" cần ability
+    `confirmOnSave` = `can('IMPORT_FORM_CONFIRM')` (`canConfirm` của sheet; thiếu quyền thì chỉ có Lưu nháp); `pickSupplier` = `can('SUPPLIER_READ')`.
+    Sheet gọi `onSaved(outcome: ImportFormSaveOutcome { form, confirmed, confirmError? })`; hook create / update / confirm nhận option
+    `successToast: false` và sheet luôn tắt, **trang cha tự toast** qua `toastSaveOutcome` (`pages/import-forms/model/saveToast.ts`, hàm thuần):
+    xác nhận lỗi sau khi đã lưu → toast cảnh báo "đã lưu nhưng chưa xác nhận", sheet vẫn đóng. `AddMaterialDialogProps.defaultSupplierSlug`
+    chọn sẵn NCC ở tab "Tạo vật tư mới" (chỉ khi có ability `attachSupplier`). Cảnh báo "tồn vượt max" dùng `effectiveMaximumInventory?` của
+    `available-materials` — **BE chưa trả trường này** nên cảnh báo im lặng cho tới khi BE thêm. Ngữ cảnh kho vẫn nằm trên `?warehouse=` của danh sách / chi tiết
+    (`pages/import-forms/model/paths.ts`).
+    Ô chọn vật tư của dòng có `footer` "＋ Thêm vật tư vào kho…" (prop `footer` của `Combobox`: nhận chữ đang gõ + hàm đóng)
+    → hộp thêm vật tư nằm ở `features/warehouse-material-add`; phiếu nhập nhận nó qua prop `AddMaterialDialog` do `pages/import-forms`
+    truyền (feature không import feature). Kiểu dùng chung (`AddMaterialDialogProps`, `AddedMaterial`, `MaterialAddAbilities`,
+    `NO_MATERIAL_ADD`) ở `entities/inventory`. Hộp có hai tab: "Chọn từ danh mục" (`GET /materials`, "đã ở kho" tính theo
+    `Material.warehouses`, + "Gắn vào kho" `PUT /warehouses/{w}/materials` — bấm "Gắn vào kho" mở ngay trong dòng bước nhập **ngưỡng riêng của kho** (tuỳ chọn, trống = theo ngưỡng vật tư, hiện làm gợi ý), "Xác nhận gắn" mới gửi; FE kiểm theo ngưỡng HIỆU LỰC như backend (`validateAssignThresholds`, lỗi 100809–100811 tại ô); ô tìm **trống** liệt kê sẵn 50 vật tư đầu của danh mục rồi
+    loại vật tư đã ở kho — BE chưa có bộ lọc "chưa thuộc kho X" (`notInWarehouseSlug`) nên danh mục > 50 thì có dòng "gõ để tìm thêm") và "Tạo vật tư mới" (`POST`, `quantity: 0`, tuỳ chọn gắn NCC và **ngưỡng mặc định của vật tư** — 2 ô Tồn tối thiểu / tối đa gửi trong `material`, trống = không gửi = backend lưu 0, lỗi 100708–100710 tại ô;
+    nút "Tạo và gắn vào kho" ở chân hộp, nối `<form id>` của section qua `form=` — submit chặn `stopPropagation` vì cây React của hộp
+    có thể nằm trong form phiếu). Câu mô tả của hộp là prop (phiếu nhập truyền câu riêng); chữ của hộp ở namespace `inventory`.
+    Dòng có ô **Hạn dùng** (`DatePicker`, không bắt buộc, gửi `expiryDate: 'YYYY-MM-DD'`; trước ngày nhập → lỗi tại ô, BE 101333
+    không có chỉ số dòng → toast + về ②), hiện cả ở ③, trang chi tiết và bản in. Lưới 8 cột dùng container query `@4xl` (56rem,
+    bề rộng khung, không phải `md:`): tổng bề rộng tối thiểu cột + khe = 56rem — thêm / nới cột thì nâng breakpoint theo, nếu không
+    nút ghi chú / xoá bị đẩy ra khỏi khung (đã xảy ra ở `@3xl` khi thêm Hạn dùng); thành tiền rất lớn xuống dòng trong cột
+    (`[overflow-wrap:anywhere]`, cột có bề rộng tối thiểu cố định nên không bị bóp). Ô Đơn vị chỉ hiện MÃ đơn vị (tên đủ ở danh sách + `title`) vì cột hẹp. Quyền
+    `MaterialAddAbilities` do trang tính (`materialAddAbilities`). Hộp chờ `available-materials` tải lại rồi mới `onAdded(AddedMaterial)`; items field
+    chọn dòng NGAY bằng nhãn + đơn vị gốc hộp trả về (không chờ vật tư xuất hiện trong `materials`). Invalidate chéo (vật tư khả dụng, danh mục
+    vật tư, NCC) nằm ở hộp — entity `inventory` không import entity khác.
+  - **thao tác một ô (gán, chọn) → `Dialog`**: mẫu `features/warehouse-assign-manager`,
+    `features/store-assign-warehouse`. Không dựng react-hook-form cho một ô — state cục bộ + một
+    `<p role="alert">` cho lỗi backend thuộc ô đó là đủ.
+  - **Mọi hộp thoại đều cùng một hình dáng**: huy hiệu icon `DialogIcon` (`shared/ui/DialogIcon.tsx`
+    — quầng ba lớp, `tone="destructive"` cho hành động phá huỷ, mặc định là tông chính) ở đầu, phần
+    đầu căn giữa (`<DialogHeader className="items-center text-center">`), chân hộp phẳng
+    (`className="flex-row border-t-0 bg-transparent [&>button]:flex-1"`) với nút `size="xl"`.
+    Dùng `flex-1` chứ **không** `grid-cols-2`: nhiều hộp có nút hiện theo điều kiện (vd "Bỏ gán" chỉ
+    hiện khi đã gán ai đó), lưới cứng hai cột sẽ để nút còn lại nằm lẻ nửa bên trái.
+    Cỡ chữ tiêu đề/mô tả nằm ở `DialogTitle`/`AlertDialogTitle` gốc — đừng gắn `text-*` ở từng hộp.
+  - **xác nhận → `ConfirmDialog`** (`shared/ui/ConfirmDialog.tsx`, bọc `Dialog`): xoá, ngừng/mở
+    hoạt động, đăng xuất mọi thiết bị. `tone`: `destructive` (mặc định) cho hành động phá huỷ,
+    `success` cho hành động tích cực (vd mở lại hoạt động), `default` cho trung tính — đổi cả màu
+    quầng icon lẫn nút xác nhận.
+    **Hành động đổi trạng thái bản ghi thì HỎI LẠI cả hai chiều**: một hộp lo cả bật lẫn tắt, hướng
+    suy ra từ `isActive` của chính bản ghi (`features/<x>-toggle-active`), trang chỉ giữ một mẩu
+    state. Đừng làm chiều "bật" thành thao tác một cú bấm — trước đây từng vậy và nó lệch hẳn
+    khỏi phần còn lại. **Đừng dựng lại hộp xác nhận bằng `AlertDialog` trần** —
+    sáu hộp hiện có đều đi qua nó, thêm hộp thứ bảy cũng vậy. Props: `open`, `onOpenChange`, `icon`
+    (glyph trần, quầng ba lớp do hộp tự vẽ), `title`, `description`, `confirmLabel`, `cancelLabel`,
+    `closeLabel`, `isPending?`, `onConfirm`. Phần "nhớ bản ghi cuối lúc hộp mờ dần" thuộc về bên gọi
+    vì nó gắn với entity.
+    **Vì sao bọc `Dialog` chứ không phải `AlertDialog`:** `AlertDialog` của Radix hard-code
+    `onPointerDownOutside: (e) => e.preventDefault()` — không gỡ được bằng props — nên không bao giờ
+    đóng được bằng cách bấm ra ngoài. `ConfirmDialog` vì thế dựng trên `Dialog` rồi đặt lại
+    `role="alertdialog"` (Radix spread `...contentProps` SAU `role` nên ghi đè được): vừa có cử chỉ
+    bấm-ra-ngoài-để-đóng, vừa giữ đúng ngữ nghĩa ARIA. Đổi lại phải **tự** chặn mọi lối đóng khi
+    đang gửi (`onEscapeKeyDown`, `onPointerDownOutside`, `showCloseButton={!isPending}`) — có test
+    trong `ConfirmDialog.test.tsx`.
+
+  - **Mọi hộp thoại đều có đủ nút Huỷ + nút xác nhận, và đóng được bằng cách bấm ra ngoài** (trừ lúc
+    đang gửi request). Nút × của `Dialog`/`Sheet` lấy nhãn từ `common:close` — **đừng hardcode
+    "Close"**; bản shadcn gốc viết cứng tiếng Anh, đã sửa ở cả `dialog.tsx` và `sheet.tsx`.
+  - Màn Example giữ `Dialog` cho form — cố ý, **đừng đi sửa nó**.
+  - **Không đóng được khi đang gửi**: `FormSheet` và hai hộp gán (`AssignWarehouseManagerDialog`,
+    `AssignStoreWarehouseDialog`) đều chặn `onEscapeKeyDown` / `onPointerDownOutside` và giấu nút ×
+    (`showCloseButton={!isPending}`) lúc đang gửi — `Dialog.Close`/`SheetContent` của Radix gọi thẳng
+    `onOpenChange` khi bấm ×, không đi qua hai handler kia, nên phải xử lý riêng. Cùng luật cho các hộp xác nhận:
+    `DialogConfirmStep` (bước xác nhận trong hộp nhóm C), hộp của `useSaveChangesConfirmation` (qua `isPending` của
+    `ConfirmDialog` trong `FormSheet`) và hộp lưu của wizard phiếu nhập / xuất (`ConfirmDialog`) — `isPending` khoá mọi
+    lối đóng (Esc, bấm ngoài, ×, Quay lại), chặn gửi lần hai, và nút xác nhận đổi sang "Đang lưu..." (`common:saving`).
+- **Linh kiện**: `Combobox` (nút xoá × nằm TRONG khung ô, trước mũi tên; lọc tại client, không phân biệt dấu — trừ khi `serverFiltered` (nhóm `groups`, `onSearchChange`, `isLoading`: tìm phía server);
+  `widthAnchor` (ref phần tử neo: lúc mở, danh sách có mép trái + bề rộng trùng phần tử đó, đo mỗi lần mở, vẫn ≥ 18rem — ô hẹp trong
+  bảng mà danh sách cần rộng bằng cả bảng), `renderOption` (thay nhãn trong mỗi mục; `value` / tìm theo nhãn / dấu tích giữ nguyên),
+  `listClassName` (lớp thêm cho `CommandList`, vd `max-h-[60vh]` thay trần `max-h-72`)), `NameList` (`shared/ui/NameList.tsx` — `max`
+  tên đầu (mặc định 2) + "+N", đủ tên ở `title` và `sr-only`; dùng ở hộp thêm vật tư và hộp chọn nhiều vật tư), `DatePicker` (giá trị `YYYY-MM-DD`),
+  `NumberInput` (`number | undefined`, không bao giờ `NaN`), `MoneyInput` (ô **tiền** — định dạng ngay khi gõ theo ngôn ngữ:
+  vi `1.500.000,5`, en `1,500,000.5`, tối đa 2 số lẻ, hậu tố ₫; dán `1,500,000` vẫn là một triệu rưỡi; luật thuần ở
+  `shared/lib/money-input.ts` — mọi ô tiền dùng nó, **không** dùng `NumberInput` cho tiền), `Checkbox`, `Switch`, `Textarea`, `Badge`,
+  `Skeleton`, `AlertDialog` / `ConfirmDialog` (xác nhận phá huỷ), `Select` (`shared/ui/select.tsx`, shadcn/Radix — mọi ô
+  chọn trong app đều dùng nó, **không còn `<select>` gốc ở đâu**), `SelectFilter`
+  (`shared/ui/data-table/SelectFilter.tsx` — ô lọc một-trong-vài-giá-trị trên `ListToolbar`, bọc quanh
+  `Select`, nhãn qua `aria-label`).
+  - Radix `Select.Item` **không nhận `value=""`** (chuỗi rỗng dành riêng cho "chưa chọn gì", khai vậy
+    là ném lỗi). `SelectFilter` vì thế đổi mục "không lọc" sang một giá trị nội bộ rồi dịch ngược về
+    `''` trước khi báo ra — bên ngoài vẫn chỉ thấy `''`. Ô chọn mới nào có mục "tất cả" phải làm y vậy.
+  - Nhãn nhìn thấy được **không** nối được bằng `<label>` bọc ngoài (nút mở là `<button>`, không phải
+    control của form) — đặt tên khả truy cập bằng `aria-label` trên `SelectTrigger`.
+- **Ô tuỳ chọn và chuỗi rỗng**: `@IsOptional()` của backend chỉ bỏ qua `undefined`/`null`, **không** bỏ
+  qua `''`. Ô tuỳ chọn có validator định dạng (`phonenumber` `@Matches`, `email` `@IsEmail`) phải gửi
+  `undefined` khi trống, nếu không backend trả lỗi định dạng cho một ô người dùng đã bỏ trắng. Ô tuỳ
+  chọn chỉ có `@IsOptional()` (`description`, `address`, `invoiceAddress`) gửi `''` được — và đó là
+  cách duy nhất để **xoá** nội dung cũ khi sửa (PATCH partial: field vắng mặt = giữ nguyên).
+- **Ngừng/mở hoạt động** là PATCH chỉ `{ isActive }` (partial), không phải gửi lại cả form.
+  Backend bắt **ngừng hoạt động trước khi xoá** (100517 / 101016) → khoá sẵn mục Xoá và nêu lý do bằng
+  `DropdownMenuItemHint` (`shared/ui/dropdown-menu.tsx`, dòng chữ nhỏ ngay dưới mục, nối `aria-describedby`) —
+  **không** dùng `title`: mục disabled không nhận hover nên tooltip không bao giờ hiện, mobile cũng không có hover.
+- **Danh sách lựa chọn dựng từ trang dữ liệu đang hiển thị thì luôn có thể cũ** (kho "còn trống" của
+  `AssignStoreWarehouseDialog` tính từ `warehouseSlug` của các dòng cửa hàng ở `StoresPage`, không
+  phải một trường "thuộc cửa hàng nào" trên chính kho) — cửa hàng ở trang khác hay người khác vừa gán
+  thì không thấy được. Vì vậy lỗi trùng/đã-bị-chiếm (101019/101020) phải hiện **tại ô chọn**, kèm
+  invalidate cả hai danh sách liên quan; invalidate chéo entity đặt ở tầng `features`
+  (`AssignStoreWarehouseDialog` invalidate cả `warehouseKeys.all` lẫn `storeKeys.all`), không phải
+  trong hook của một entity — ranh giới FSD: `entities/store` không được import `entities/warehouse`.
+- **Hiển thị**: `formatNumber` / `formatCurrency` (VND) / `formatDate` / `formatDateTime` (`shared/lib/format.ts`)
+  theo ngôn ngữ đang chọn, rỗng → `—`. Ô bảng / trang chi tiết **thiếu giá trị** thì dùng `<EmptyValue />`
+  (`shared/ui/EmptyValue.tsx`): chữ xám "Chưa có" / "Not set" — không `—`, không `N/A`; trường có câu riêng
+  ("Chưa có quản lý", "Chưa gán kho") thì dùng câu đó. Component dùng chúng phải gọi `useTranslation()`.
+- **Test**: `renderWithProviders(ui, { route, auth: 'admin' | 'customer' | CurrentUser | 'none', queryClient })`.
+  `auth` được tầng app tiêm qua `src/app/test-setup.ts` (shared không import entities).
+  Chọn giá trị trong một `Select`: dùng `chooseOption(user, '<tên ô>', '<nhãn mục>')` /
+  `selectedLabel('<tên ô>')` (`shared/test/select.ts`) — `user.selectOptions` chỉ chạy với `<select>`
+  gốc, Radix Select là nút mở + danh sách trong portal. Muốn đếm toast với
+  handler global thật thì test ở tầng `app` với `queryClient` của `app/query-client.ts`. Component cần
+  **data router** (`useMatches`, `useNavigation`, `lazy`, `handle` — vd `AppShell`) thì dùng
+  `renderWithRouter(routes, { route, auth })` (cùng file), trả thêm `router`.
+  - `mutationToastQueryClient()` (`shared/test/query-client.ts`): client mặc định của
+    `renderWithProviders` **không có** `MutationCache`, nên khẳng định kiểu
+    `expect(toast.error).not.toHaveBeenCalled()` (kiểm `meta.suppressErrorToast`) đúng sẵn dù hook có
+    bug hay không — không bao giờ đỏ được. Test nào khẳng định điều đó phải truyền
+    `queryClient: mutationToastQueryClient()` vào `renderWithProviders`. Đây là bản sao đúng chốt
+    `MutationCache.onError` của `app/query-client.ts` (`shared` không import được `app`) — sửa một bên
+    thì phải soát lại bên kia.
+
+Bẫy khi thêm linh kiện shadcn (style `radix-nova`):
+- `npx shadcn add` hỏi ghi đè file đã có và treo khi không có TTY → `yes n | npx shadcn@latest add <tên> --yes`.
+- CLI để nguyên `import { cn } from "cn"` **và cài nhầm gói npm `cn`** → `npm uninstall cn`, sửa import về
+  `@/shared/lib/cn`, chạy `prettier --write`.
+- `radix-nova` không còn `form` — `shared/ui/form.tsx` chép từ `new-york-v4`.
+- File export `xxxVariants` / hook cạnh component → thêm warning react-refresh; bỏ export hoặc tách file.
+- jsdom thiếu `ResizeObserver` / `scrollIntoView` (cmdk) và **Pointer Capture API** (`hasPointerCapture`,
+  Radix Select gọi trong `pointerdown` của nút mở) — stub trong `shared/test/setup.ts`; thêm polyfill
+  khác chỉ khi có test đỏ vì nó. Thiếu stub pointer capture thì test chết dưới dạng *Unhandled Error*
+  chứ không phải test đỏ bình thường, dễ nhìn nhầm là lỗi khác.
+- `sidebar` đã tách `SidebarContext` / `useSidebar` / `SIDEBAR_COOKIE_NAME` sang `shared/ui/sidebar-context.ts`
+  (import `useSidebar` từ đó, không từ `sidebar.tsx`); `shared/lib/use-mobile.ts` viết lại bằng
+  `matchMedia(...).matches` — test màn nhỏ chỉ cần giả `matchMedia`. Chạy lại `shadcn add` cho các file này
+  thì phải tách/sửa lại. Tooltip cần `TooltipProvider` (đặt ở gốc `app/App.tsx`, `delayDuration={300}`).
+- Nút chỉ có icon (không chữ nhìn thấy) phải bọc `IconTooltip` (`shared/ui/IconTooltip.tsx`) với cùng nhãn `aria-label`; `TooltipProvider` nằm ở gốc `app/App.tsx` (và trong `renderWithProviders` / `renderWithRouter` / `renderWithTooltip` cho test). Nút disabled truyền `disabled` để tooltip vẫn hiện; lý do khoá vẫn là dòng chữ nhỏ, không vào tooltip.
+- `breadcrumb`: đã bỏ `role="link"` / `aria-disabled` của `BreadcrumbPage` (chữ thường, chỉ giữ
+  `aria-current="page"`).
+- `sidebar`: `SidebarInset` render `<div>` (bản gốc là `<main>`) — `AppShell` tự đặt `<main>` quanh vùng
+  nội dung để header nằm ngoài main. Ngoài ra đã sửa: `Sidebar` nhận `mobileTitle` / `mobileDescription`
+  (tên ngăn trượt mobile, truyền chuỗi đã dịch); `SidebarTrigger` có `aria-expanded` / `aria-controls`
+  (`sidebarId` trong context); Ctrl/⌘ + B bỏ qua khi đang gõ (input/textarea/select/contentEditable,
+  IME) hoặc ở trong dialog.
+
+## Quyền
+
+Hai trục gác độc lập, cả hai **bypass `SUPER_ADMIN`** (khớp `AuthorityGuard`/`HasRoleGuard` của
+backend cho nó qua trước khi nhìn `scope`):
+
+- `hasRole(user, ...roles)` gác theo **vai trò** (`ROLES` / `Role` trong `entities/session`, khớp
+  `RoleEnum` của backend: `SUPER_ADMIN`, `ADMIN`, `MANAGER`, `SUPERVISOR`).
+- `can(user, 'CODE')` gác theo **quyền** — `CODE` là một `Authority.code`, tra trong `user.scope`
+  (mảng mã authority, `entities/session/model/permissions.ts`; nạp từ Redis mỗi request nên vừa
+  bật/tắt quyền admin là có hiệu lực ngay). Từ `WMS-10-be(1)` (2026-09-25) backend gác **mọi**
+  endpoint nghiệp vụ bằng `@RequireAuthority` — **64 mã** (thêm `ROLE_*` từ `WMS-10-be(5)`: `GET /roles` cần `ROLE_READ`), seed mặc định chép đúng `@HasRole` cũ.
+  **Nhiều mã trong một decorator là AND**: route nối hai tài nguyên không có mã riêng (gán kho cho
+  cửa hàng = `STORE_UPDATE` + `WAREHOUSE_UPDATE`; vật tư trong kho = `MATERIAL_*` + `WAREHOUSE_*`) →
+  FE gác bằng `can(A) && can(B)`. Phiếu **nhập** (WMS-16) và phiếu **xuất** (WMS-20) đã có endpoint — `IMPORT_FORM_*` / `EXPORT_FORM_*` gác thật, luật `_OWN` so `requesterSlug` với `userSlug` (`pages/{import,export}-forms/model/abilities.ts`); phiếu kiểm / chi chưa có endpoint. Lịch sử + chỗ backend làm khác đề xuất:
+  `docs/proposals/2026-09-24-authority-based-guards.md`. FE gọi `can()` ở `/permissions`,
+  `/examples`, `/warehouses`, `/stores`, `/users`, `/suppliers`, `/materials`, `/material-types`, `/units`, `/roles` (tám
+  màn sau qua `pages/*/model/abilities.ts`). `USER_DELETE` có trong
+  `AUTHORITY_CODES` (để `/permissions` không báo lệch) nhưng **không có nút nào dùng** — chỉ khoá, không xoá. Đếm bằng `grep
+  AuthorityCode\.` trên migration chỉ ra 37 vì ba migration đầu (009/010/011) seed 9 mã còn lại bằng
+  chuỗi literal, không qua hằng số — đếm đúng phải dựa trên số hằng khai trong
+  `authority.constants.ts`, không phải cách migration tham chiếu tới chúng.
+  Vật tư trong kho: xem = `MATERIAL_READ` + `WAREHOUSE_READ`; gỡ = `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE`; thêm = `materialAddAbilities` (`features/warehouse-material-add`).
+  `SUPPLIER_CREATE/READ/UPDATE/DELETE` (WMS-11) gác `/suppliers`: ghi giao dịch dùng `SUPPLIER_UPDATE`, gắn / gỡ vật tư
+  thêm `MATERIAL_UPDATE` (AND), tab Vật tư thêm `MATERIAL_READ` — chi tiết ở "Nợ kỹ thuật" → Nhà cung cấp.
+  `MATERIAL_*` gác cả **loại vật tư** (không có mã riêng); `UNIT_*` gác `/units`. Thêm / Sửa vật tư cần thêm `UNIT_READ`
+  (form tải `GET /units`); bảng đơn vị quy đổi ở trang chi tiết vật tư cần `UNIT_READ`, gắn / sửa tỉ lệ / gỡ cần
+  `MATERIAL_UPDATE` + `UNIT_UPDATE` (WMS-15). `ROLE_CREATE/UPDATE/DELETE` gác nút ghi ở `/roles` (route `ROLE_READ`);
+  chỉ thao tác vai trò `level` thấp hơn mình (`canManageTarget`), vai trò có sẵn không xoá được. Ba mã này thuộc
+  `PROTECTED_AUTHORITY_CODES` (chỉ SUPER_ADMIN cấp được).
+
+Chọn cái nào: **theo đúng thứ backend gác**. Endpoint gắn `@RequireAuthority(X)` → FE gác bằng
+`can(user, 'X')`. Endpoint gắn `@HasRole(...)` → gác bằng `hasRole`.
+
+Mã authority có **kiểu**: `AuthorityCode` / `AUTHORITY_CODES` (`shared/api/authority-codes.ts`),
+bản sao của `app/warehouse-api/src/authority/authority.constants.ts`. `can()` và `handle.authority`
+chỉ nhận mã trong danh sách — gõ sai là lỗi biên dịch (có test `@ts-expect-error` giữ điều này).
+Bản sao thì có thể lệch: màn `/permissions` so với `GET /authorities` và `console.warn` khi dev
+(`authorityCodeDrift`) — thấy cảnh báo thì sửa danh sách (đồng bộ lần cuối 2026-10-08, thêm 4 mã `SUPPLIER_*` của WMS-11).
+
+`scope` nạp một lần vào store lúc mở phiên, không tự làm mới. Người dùng tự đổi quyền của **chính
+role mình** (`features/permission-matrix`) thì phải gọi `refreshCurrentUser()`
+(`entities/session/model/refresh-user.ts`) ngay sau khi API thành công — nếu không, `scope` trong
+store cũ đi và `can()` nói dối cho tới lần đăng nhập sau.
+
+Bảng quyền theo vai trò (BRD §5, bản đã chốt) ở **`docs/permissions.md`** — gác route và hiện/ẩn nút
+theo đúng đó, đừng suy diễn lại từ BRD. Tóm tắt: cả ba role đều **tạo/sửa** được phiếu nhập, xuất,
+kiểm kho, chi kho; chỉ `ADMIN`/`MANAGER` được **duyệt**; phiếu `Confirmed` bất biến với mọi role.
+
+Gác màn hình: `handle.roles` (vai trò) và/hoặc `handle.authority` (quyền, `Authority.code`) của
+route (xem "Thêm một màn hình nghiệp vụ mới") — khai **cả hai** thì phải qua cả hai (AND), khớp cách
+backend tách `@HasRole` và `@RequireAuthority` thành hai guard độc lập. `RoleGate` đưa về
+`/forbidden`, `buildNav` ẩn mục menu — cả hai đọc `handle` của match sâu nhất có khai; không bọc
+từng route bằng component guard. Màn `/permissions` (`pages/permissions`) là ví dụ gác bằng quyền:
+`handle.authority: ['MANAGE_PERMISSIONS', 'ROLE_READ']`, nav nhóm `admin`.
+
+Màn `/permissions` **không** hiện tên quyền backend trả về (lẫn Anh–Việt: "Create user" cạnh "Tạo
+phiếu nhập kho"): tên quyền dịch theo **mã** (`permissions:authorityNames.<CODE>`), tên nhóm dịch theo
+tên nhóm backend (`GROUP_KEYS` trong `features/permission-matrix/model/labels.ts` →
+`permissions:groupNames.*`); dòng mã bên dưới giữ nguyên. Mã/nhóm FE chưa biết → hiện tên backend.
+**Thêm mã vào `AUTHORITY_CODES` thì thêm tên vào cả `vi` lẫn `en`** — `labels.test.ts` đỏ nếu thiếu.
+Cột vai trò xếp theo `level` thật (`sortRolesByRank` → `sortRolesByLevel` của `entities/user`, cấp cao trước, không biết
+cấp xuống cuối) — vai trò tự tạo ở `/roles` nằm đúng chỗ trong thứ bậc. R1 khoá cột theo `level` (`canManageTarget`):
+vai trò tự tạo phân quyền được khi thấp cấp hơn mình; thiếu `level` → khoá.
+
+Trong màn `/permissions`, **mọi** lần gạt switch đều đi qua `ConfirmDialog` — cả cấp lẫn gỡ, cho mọi
+vai trò, không chỉ ca tự thu hồi. Bảng dày switch cạnh nhau, không có undo, và thay đổi có hiệu lực
+ngay với mọi người dùng đang đăng nhập, nên một cú bấm nhầm không được phép là một cú bấm. Hộp có ba
+nhánh chữ (cấp / gỡ / tự thu hồi `MANAGE_PERMISSIONS` của chính role mình) — sửa một nhánh thì soát
+cả ba, có test riêng cho từng nhánh. Toast **thành công** nằm trong `useTogglePermission`, toast lỗi
+vẫn để chốt `MutationCache.onError` lo như mọi nơi khác.
+
+**Tên vai trò hiển thị** luôn qua `useRoleLabel()` (`entities/session`, khoá `common:roles.<ROLE>`):
+`MANAGER` → "Quản lý" / "Manager". Không in thẳng `roleName` ra UI (góc avatar, trang Tài khoản, cột và hộp
+xác nhận ở `/permissions`). Vai trò lạ → hiện nguyên mã. Họ tên người: `formatFullName` / `initialsOf` / `formatPersonLabel`
+(`shared/lib/person-name.ts`), họ trước tên. Người đăng nhập chưa có tên → hiện "Người dùng" (`common:unnamedUser`) kèm
+icon, **không** lấy số điện thoại làm tên (số điện thoại ở dòng phụ).
+
+**MANAGER và SUPERVISOR chỉ thấy phần của mình — backend lọc** (`WMS-10-be(7)`, mở rộng cho SUPERVISOR ở PR #72):
+`GET /warehouses` trả kho mình quản lý **hoặc là thành viên** (`warehouse_member_tbl`), `GET /stores` trả cửa hàng
+gắn với các kho đó; `managerSlug`/`hasManager` bị bỏ qua. FE vì vậy **không** có công tắc "kho của tôi", không gọi
+`/warehouses/mine`, ẩn hai bộ lọc theo quản lý và dùng câu báo trống riêng (`warehouses:mineEmpty`,
+`stores:mineEmpty`). Backend so tên vai trò (`WAREHOUSE_SCOPED_ROLES`) **không** miễn SUPER_ADMIN → FE dùng
+`isWarehouseScoped(user.roleName)` (`entities/session`), không dùng `hasRole` của FE. Chi tiết `GET /…/:slug`
+backend **chưa** lọc (mở link kho khác vẫn xem được).
+
+## Đa ngôn ngữ
+
+Tiếng Việt mặc định, tiếng Anh thứ hai. Khoá được kiểm tra kiểu lúc biên dịch.
+
+Namespace `nav`: nhãn menu, tên nhóm (`groups.*`), breadcrumb, tiêu đề tab và trang Tổng quan.
+
+Mỗi màn nghiệp vụ có namespace riêng trùng tên số nhiều của entity (`warehouses`, `stores`) chứa tiêu
+đề, tên cột, nhãn ô form, chuỗi dialog và toast của màn đó — thêm màn mới là thêm một cặp file
+`locales/{vi,en}/<tên>.json` rồi khai trong `shared/i18n/index.ts` (cả `resources` lẫn `ns`).
+
+Hai namespace dễ nhầm:
+- `errors` (số nhiều) — bản dịch mã lỗi backend, tra qua `shared/api/error-codes.ts`
+- `errorPages` — chuỗi của ba trang lỗi
+
+Thêm mã lỗi mới ở backend thì phải thêm vào `error-codes.ts`, nếu không người dùng thấy câu tiếng
+Anh nguyên bản của backend (kèm `console.warn`).
+
+## Giao diện sáng/tối
+
+`next-themes`, class trên `<html>`. Dùng token (`bg-background`, `text-muted-foreground`), **không
+dùng màu cứng** (`bg-slate-50`) — nếu không dark mode chỉ đúng một nửa.
+
+## Màn đăng nhập
+
+Ảnh nền ở `pages/login/assets/` (hai bản 1280px / 1920px, JPEG ~55%, nạp qua `srcSet`, `alt=""`,
+`fetchPriority="high"`). Đổi ảnh thì nén lại cỡ đó (`sips -s formatOptions 55 --resampleWidth …`) —
+ảnh gốc từ máy ảnh vài MB là thứ lớn nhất trang tải đầu tiên. Lớp phủ tối trên ảnh dùng `black/…` cố
+định ở cả hai chế độ sáng/tối (chữ trắng trên ảnh phải đọc được) — ngoại lệ có chủ đích của luật "dùng
+token". Thẻ đăng nhập là **kính mờ** (glassmorphism): màu `white/…` cố định, gom trong các hằng
+`GLASS_*` đầu `LoginPage.tsx` — nền thật của thẻ là ảnh đã làm mờ, không phải `--background`, nên nó
+**không** đổi theo sáng/tối. Không có `backdrop-filter` thì rơi về nền `slate-900/70` để chữ trắng vẫn đọc
+được. **Bẫy autofill:** Chrome tô ô tự điền bằng nền `#e8f0fe` mà `background` không gỡ được — trên kính
+nó thành một mảng xanh nhạt. Mẹo cũ "kéo dài `transition` của `background-color`" **đã hết tác dụng** ở Chrome
+mới (thử thật: ra chữ trắng trên nền xanh nhạt). Cách đang dùng ở `GLASS_INPUT`: `background-clip: text`
+(thu nền autofill vào trong nét chữ) + `-webkit-text-fill-color` phủ chữ lên — Chrome không cho đổi màu
+nền nhưng cho đổi phạm vi vẽ nền. Đã kiểm bằng một ô giả lập nền `!important` trong Chrome headless.
+
+**Chụp màn hình để kiểm tra giao diện** (jsdom không dựng CSS): `npm run build && npx vite preview`,
+rồi Chrome headless `--screenshot --window-size=W,H`. **Bẫy:** Chrome kẹp chiều rộng cửa sổ tối thiểu
+~500px — `--window-size=390,…` vẫn dựng layout ở 500px rồi cắt ảnh, trông như bị tràn ngang dù layout
+đúng. Chụp cỡ điện thoại thì nhúng trang vào `<iframe width="390">` trong một file HTML tạm.
+
+## Cỡ chữ
+
+Thang cỡ chữ khai trong khối `@theme` ở `app/styles/index.css` (`--text-xs` … `--text-2xl` kèm
+`--text-*--line-height`), nâng ~14% so với mặc định Tailwind. **Muốn chữ to/nhỏ hơn thì sửa thang ở
+đó, đừng đi đổi `text-sm` thành `text-base` ở từng component** — mọi utility `text-*` đọc từ các
+biến này nên một chỗ sửa là cả app theo.
+
+Cỡ hardcode dạng `text-[0.9rem]` (`shared/ui/button.tsx` size `sm`, `shared/ui/calendar.tsx`)
+**không** theo thang — đổi thang thì phải chỉnh tay mấy chỗ đó cho cân.
+
+Chiều cao cố định đi kèm cỡ chữ: `Button` `h-8`, `Badge` `h-6`, `Input` `h-9`. Nâng cỡ chữ mà quên
+nâng chiều cao thì `Badge` (có `overflow-hidden`) cắt mất chữ.
+
+## Lệnh
+
+| Lệnh | Việc |
+|---|---|
+| `npm run dev` | Dev server, cổng 5175 (`strictPort`, khớp `ALLOWED_ORIGINS` của api); `/api` được proxy tới `VITE_API_PROXY_TARGET` (xem `setup.md`) |
+| `npm test` | Vitest |
+| `npm run typecheck` | `tsc --noEmit` |
+| `npm run lint` | ESLint, gồm cả luật ranh giới FSD |
+| `npm run format:check` | Prettier, chỉ kiểm tra |
+| `npm run test:coverage` | Vitest kèm coverage — ngưỡng trong `vite.config.ts` là sàn chặn tụt lùi, biên rất mỏng; không hạ ngưỡng |
+| `npm run build` | Build production |
+| `npm run check` | Chạy đủ lint → typecheck → test:coverage → build → format:check, dừng ở bước lỗi đầu tiên. **Chạy trước khi push.** |
+
+Baseline hiện tại của `npm run lint`: đúng **một** warning có sẵn
+(`react-refresh/only-export-components` ở `shared/ui/button.tsx`) — không phải do bạn gây ra, đừng
+mất công tìm cách sửa nó.
+
+## Nợ kỹ thuật đang treo
+
+- **Màn Người dùng (`/users`, WMS-12): FE chặn tạm thay backend ở vài chỗ — đừng gỡ trước khi backend làm.**
+  Đã dùng API thật (PR #72, #78; 2026-10-07): tạo, sửa hồ sơ (`PATCH`), đổi vai trò (`.../change-role`), khoá /
+  mở khoá (`PUT .../lock`, `PUT .../unlock`), đặt lại mật khẩu hộ; sửa / đổi vai trò / khoá / mở khoá cùng mã
+  `USER_UPDATE`. Bấm dòng (hoặc nút tên, cho bàn phím) mở `UserDetailSheet` (`entities/user`) — chỉ đọc, slug trên
+  URL (`?user=`, link / F5 / Back mở lại đúng người), dữ liệu qua `useUser` (`GET /users/{slug}`, dòng của danh sách làm
+  placeholder; 100405 = ngoài phạm vi / đã xoá → câu báo trong sheet); chân sheet = đúng các thao tác của menu ⋯
+  (`ability.row`), focus ban đầu ở khung sheet chứ không ở nút "Khoá". Bảng thành viên kho mở cùng sheet, chỉ xem.
+  Bảng thành viên kho: thao tác trong menu ⋯ ("Gỡ khỏi kho") như mọi bảng khác. **`DELETE /users/{slug}` giờ là XOÁ thật (`USER_DELETE`) — FE không gọi, không có nút xoá**
+  (nghiệp vụ đã chốt **chỉ khoá**; đề nghị backend gỡ endpoint — proposal mục 3.7). Cờ `userSearch`, `userSort`
+  đã bật (nhập toàn chữ số → `phonenumber`, còn lại → `name`: `pages/users/model/search-query.ts`). Thành viên kho ở
+  `widgets/warehouse-members` (trang chi tiết kho; xem cần `USER_READ`, thêm/gỡ cần `WAREHOUSE_UPDATE` + `USER_READ`). Khối này cố ý KHÔNG áp lớp lọc tạm `ability.visible` của `/users` (thành viên kho đều dưới ADMIN; người xem cần `USER_READ`) và đi theo cờ `userSearch` — cờ tắt thì đóng cả khối (backend cũ bỏ qua `warehouseSlug`).
+  Còn chờ backend
+  (`docs/proposals/2026-09-30-user-management-api.md`):
+  - **Phạm vi `GET /users` / `GET /users/{slug}` do backend lọc** (WMS-13-be, 2026-10-09): dưới ADMIN chỉ thấy manager
+    + thành viên của các kho mình là manager HOẶC thành viên (kể cả SUPERVISOR; không lọc theo cấp; chưa thuộc kho nào
+    → danh sách rỗng; ngoài phạm vi → 100405). FE **không** lọc thêm ở client (đã gỡ `ability.visible`) — người
+    ngang/cao hơn cùng kho vẫn hiện, chỉ không có thao tác (`ability.row`).
+  - **Lớp chặn tạm ở FE** (giao diện thôi, gọi thẳng API vẫn vượt được):
+    - Mật khẩu ≥ 8 ký tự (`shared/lib/password-policy.ts`) ở `user-form`, `user-reset-password`, `change-password`.
+      Backend chốt chính sách thì giữ luật cho khớp và map mã lỗi của backend vào ô.
+    - Nút "Đặt lại mật khẩu" ẩn trên người ngang/cao hơn: backend (PR #80) mới chặn người cấp CAO hơn, vẫn cho
+      đặt lại người CÙNG cấp và chưa kiểm phạm vi kho — đừng "sửa" abilities cho khớp backend.
+  - `PATCH` chưa nhận `null` → form sửa **không xoá trống** được email/ngày sinh/địa chỉ: ô trống bị bỏ qua (giữ
+    nguyên, có gợi ý `users:keepWhenEmpty`), chỉ gửi trường đã đổi (`toUpdateInput`).
+  - Luật cấp dùng `role.level` của cả hai bên: người bị tác động (`UserResponseDto`) và chính mình (`GET /auth/me`
+    trả `role.level` từ PR #80). Phiên cũ chưa có `me.role` mới lùi về `BUILT_IN_ROLE_LEVELS`
+    (`entities/user/model/role-level.ts`) — phải khớp `level` backend seed.
+  - "Chính mình" so bằng `userSlug` của `/auth/me` (PR #80, bỏ `userId`) qua `isSameUser` (`entities/user`);
+    phiên cũ chưa có `userSlug` lùi về so định danh đăng nhập.
+  - `warehouses` trong `UserResponseDto` chỉ là kho làm **thành viên**, không gồm kho người đó quản lý. Bộ lọc kho
+    chỉ hiện khi có `WAREHOUSE_READ`; MANAGER chỉ có `USER_READ` xem được thành viên của mọi kho (backend chưa lọc phạm vi).
+- **Nhà cung cấp (`/suppliers`, WMS-14): đã dùng API thật của WMS-11; còn chờ backend**
+  (`docs/proposals/2026-10-08-supplier-api.md`). Test tay: `docs/test-checklists/WMS-14-fe-supplier-checklist.md`.
+
+  | Thiếu / chặn tạm | Hệ quả ở FE |
+  |---|---|
+  | Tìm `search`/`code`/`taxCode`/`phonenumber` (WMS-13, `dev` qua PR #89) **đã bật** `supplierSearch`; sắp xếp cột **đã bật** `supplierSort` | `search` chỉ khớp tên / người liên hệ / email (KHÔNG khớp mã), `code` khớp đủ mã. Sắp xếp cột Mã / Tên / Ngày tạo (`sortBy` `code|name|createdAt`), có thêm lọc khoảng ngày tạo (`startDate`/`endDate`). Một ô tìm, đoán tham số theo dạng nhập (`pages/suppliers/model/search-query.ts`); 10 chữ số (MST hay SĐT) đoán sai thì câu báo trống có nút đổi (`?searchBy=`). Test với cờ bật: `SuppliersPage.sort-search.test.tsx` |
+  | Lọc `GET /suppliers/{slug}/materials` (`code` / `name` / `from` / `to`, WMS-13) | tab Vật tư có ô tìm (mã khớp đúng / tên chứa chuỗi) + khoảng "Ngày tạo vật tư", cờ `supplierMaterialFilters` **đã bật**. Bộ lọc giữ ở state của tab, không lên URL (tab Giao dịch đã dùng `page` / `startDate` / `endDate`). `from`/`to` theo ngày tạo VẬT TƯ, không phải ngày gắn |
+  | WMS-13 **tạm ẩn** `GET`/`POST /suppliers/{slug}/transactions` | tab Giao dịch sau cờ `supplierTransactions` (**tắt**): trang chỉ còn Hồ sơ + Vật tư, `?tab=transactions` rơi về Vật tư. Code tab / form ghi giao dịch giữ nguyên |
+  | Gắn / gỡ theo lô (WMS-13-be: `PUT`/`DELETE /suppliers/{slug}/materials`, body `{ materialSlugs }` 1–100; route cũ `/:materialSlug` đã bị xoá) — **tất cả hoặc không**, lỗi không nói vật tư nào hỏng | hộp Gắn = danh sách có ô tìm (bỏ dấu, `shared/lib/search-text.ts`) + ô tick, "Gắn (n)"; chọn nhiều mà bị 100701 thì câu báo nói rõ CẢ LÔ chưa gắn. Bảng Vật tư có cột ô tick (chỉ trang đang xem; đổi trang/bộ lọc là bỏ chọn) + nút "Gỡ (n)"; gỡ một vật tư qua menu ⋯. Ô tick là component cố định đọc `SelectionContext`, mảng cột `useMemo` — `flexRender` coi `header`/`cell` inline là component, dựng lại mảng cột sẽ remount ô và mất focus bàn phím |
+  | Một vật tư thuộc được **nhiều** NCC (BE đổi 2026-10-15: `supplier` → `suppliers[]`, 101212 không còn) | hộp "Gắn vật tư" **không** lọc `hasSupplier` nữa: tải 100 vật tư đầu rồi ẩn vật tư đã gắn với CHÍNH NCC này theo `suppliers` của từng vật tư (không tải thêm). 100 bản ghi đầu tính cả vật tư đã gắn → ứng viên có thể < 100. `PUT /materials/{slug}/suppliers` (thay cả danh sách NCC của một vật tư) **chưa dùng** |
+  | `PATCH` dùng `pickDefined`, không nhận `null` | form sửa **không xoá trống** được ô tuỳ chọn: ô trống bị bỏ khỏi body (giữ nguyên, gợi ý `suppliers:keepWhenEmpty`) |
+  | Chưa có API công nợ | trang chi tiết không có tổng mua / trả / còn nợ — đừng tự cộng từ danh sách giao dịch (phân trang, có lọc) |
+  | Sổ giao dịch chỉ thêm | không có nút sửa / xoá giao dịch; luôn hỏi xác nhận trước khi ghi |
+
+  Quyền theo **authority**, không có nhánh lùi theo vai trò: xem = `SUPPLIER_READ`; thêm / sửa / xoá = `SUPPLIER_CREATE`
+  / `_UPDATE` / `_DELETE`; ghi giao dịch = `SUPPLIER_UPDATE` (khi cờ `supplierTransactions` bật); gắn / gỡ vật tư = `SUPPLIER_UPDATE` + `MATERIAL_UPDATE`; tab
+  Vật tư cần thêm `MATERIAL_READ`. Trên sandbox (2026-10-08) chỉ ADMIN có quyền ghi; MANAGER / SUPERVISOR chỉ xem.
+- **Vật tư / Loại vật tư / Đơn vị (`/materials`, `/material-types`, `/units`, WMS-15): đã dùng API thật.** Test tay:
+  `docs/test-checklists/WMS-15-fe-material-checklist.md`. Còn treo:
+  - Sắp xếp cột Mã / Tên / Ngày tạo (`materialSort`, `materialTypeSort` **đã bật**) và lọc khoảng ngày tạo (`toCreatedRange`, `shared/lib/date-range.ts`) — xem mục "Sắp xếp theo cột và tìm kiếm". Ô chọn Loại / Đơn vị / đơn vị gắn được chỉ lấy **100 bản ghi đầu**
+    (lọc tại client; giá trị đang gán nằm ngoài vẫn được chèn vào ô chọn của form sửa); vượt thì cần tìm phía server.
+  - Ô tìm "mã hoặc tên" (`toCodeOrNameQuery`, `shared/lib/code.ts`): có số / gạch hoặc gõ toàn chữ hoa một từ (`KG`)
+    → `code`, còn lại → `name`. Với `GET /materials` cả hai đều khớp **tiền tố** (không phân biệt hoa thường); `code` chỉ nhận
+    `A-Z 0-9 _ -`, `name` chỉ chữ (kể cả tiếng Việt) / số / khoảng trắng — ký tự khác BE trả 400 (100732 / 100731), nên FE làm sạch
+    bằng `toMaterialSearchQuery` (`shared/lib/code.ts`): trong tên thì bỏ ký tự lạ ở đầu rồi **cắt tại ký tự lạ đầu tiên** (`Xi măng (PCB40)` → `Xi măng`, để giá trị gửi luôn là tiền tố của tên thật mà BE khớp `LIKE 'x%'`), trong mã thì **bị xoá** ký tự lạ. Đây là hàm dùng chung ở `shared/lib/code.ts`, không phải hàm cùng tên cục bộ của `widgets/supplier-materials/model/search-query.ts`.
+    Ô tìm chỉ toàn ký hiệu → **không gửi request**: trang Vật tư hiện trạng thái trống-do-lọc, ô tìm danh mục trong hộp thêm vật tư hiện câu gợi ý.
+    Loại vật tư / NCC vẫn `code` khớp đúng. Đoán sai thì câu báo trống có nút "Tìm theo mã / tên"
+    (`CodeOrNameEmpty`, `?searchBy=`).
+  - Vật tư trả `units[]` (`unitSlug`, `unitCode`, `unitName`, `conversionRate`, `isBaseUnit`; đơn vị gốc đứng trước); `MaterialUnit` là alias của
+    `MaterialConversionUnit`. Hiện ở ô tìm danh mục trong hộp thêm vật tư.
+  - **Cấu trúc `MaterialResponseDto` đổi ở WMS-13-be(9) (2026-10-12)**: loại / đơn vị gốc là object lồng `type`, `baseUnit`
+    (`null` = chưa có), thêm `hasSupplier` + `suppliers[]` (nhiều NCC từ 2026-10-15, trước đó là `supplier` đơn lẻ); các trường phẳng `typeSlug`/`typeCode`/`baseUnitCode`… **đã bỏ**.
+    Body gửi lên và bộ lọc vẫn là `typeSlug` / `baseUnitSlug`. `GET /suppliers/{slug}/materials` vẫn trả dạng phẳng
+    (`SupplierMaterial`) — hai kiểu khác nhau, đừng gộp.
+  - Đơn vị gốc là một dòng của bảng đơn vị quy đổi ở backend → `materialCount.asConversionUnit` GỒM số vật tư làm gốc;
+    cột "Đang dùng" trừ ra khi hiện phần tách.
+  - Đổi đơn vị gốc chỉ biết bị khoá sau khi gửi (100723 — đã có tồn hoặc đơn vị quy đổi khác); xoá Loại / Vật tư chỉ
+    biết bị chặn sau khi gửi (100609 / 100712) — báo trong hộp. Xoá Đơn vị khoá sẵn theo `materialCount.total`.
+  - `NumberInput` coi `.` và `,` đều là dấu thập phân ("1.000" = 1) và viết lại về dạng chuẩn khi rời ô (ô tiền thì dùng `MoneyInput`). Ngưỡng tồn /
+    tỉ lệ chặn ≥ 1e12 (`DECIMAL_18_6_LIMIT`, cột `DECIMAL(18,6)`; backend không chặn → lỗi 500).
+  - `POST /materials/:slug/convert` (quy đổi số lượng): **cố ý không dùng** — chốt 2026-10-12 là không cần màn / công cụ
+    quy đổi riêng. Đừng dựng lại khi chưa có yêu cầu mới.
+- **Vật tư trong kho (tab ở trang chi tiết kho, WMS-17 phần 3): đã dùng API thật; còn chờ backend.** Tab `?tab=materials|members`
+  (`pages/warehouses/model/detail-tab.ts`); bảng ở `widgets/warehouse-inventory` (lọc `typeSlug` / `belowMinimum` / `aboveMaximum`;
+  trang + bộ lọc giữ ở state, không lên URL). Chữ của cả khối (tab, sheet lịch sử, hộp thêm / gỡ) ở namespace `inventory`. Còn treo:
+  - Ô tìm sau cờ `inventorySearch` (**tắt**) — BE đang làm `name` / `code`; bật chỉ khi đã thử với API thật.
+  - Đơn vị: `InventoryItem.baseUnit` (`{ slug, code, name }` | `null`) + `units[]` (BE đã trả). Ô Tồn / Giữ chỗ / Khả dụng và cột Ngưỡng
+    kèm `baseUnit.code` ("502 CHAI", "10 – 100 CHAI"); `baseUnit: null` → chỉ số.
+  - Không sort: `GET /warehouses/{w}/materials` chưa đổi (chưa nhận `sort`/`sortBy`), bảng không khai `sortField`.
+  - Tạo vật tư mới trong hộp thêm vật tư gửi `supplierSlug` ngay trong `POST` (một request, một transaction: tạo + gắn kho + gắn NCC). NCC không tồn tại (101201) / `supplierSlug` sai (100816) hiện ngay tại ô Nhà cung cấp, không tạo gì; không còn toast lỗi nửa chừng.
+  - Sheet lịch sử mở bằng `?material=` — mở bằng URL thì lấy tồn từ `GET /materials/{slug}` (`warehouses[]`) nên **không hiện ngưỡng**.
+    Lỗi tải hiện tại chỗ trong sheet kèm nút "Thử lại". Ghi chú "Import form X" đổi thành "Phiếu nhập X" bằng mẫu chuỗi.
+  - Gỡ chặn sẵn khi tồn / giữ chỗ > 0; mã 100801 coi như đã gỡ (không còn nhánh riêng).
+  - Test của app `beforeAll` nạp trước `@/pages/warehouses` vì lần transform lạnh mất hơn 1s (quá timeout mặc định).
+  Test tay: `docs/test-checklists/WMS-17-fe-warehouse-inventory-checklist.md`.
+- **Màn Tài khoản (`/account`) mới có phần đọc.** Sửa hồ sơ (`PATCH /auth/me`) và danh sách thiết
+  bị (`GET`/`DELETE /auth/sessions`) đã dựng sẵn sau `BACKEND_SUPPORTS.profileEdit` / `.sessionList`
+  nhưng backend **chưa có endpoint nào**. Từ 2026-09-30 `GET /auth/me` đã trả hồ sơ (`phonenumber`,
+  `firstName`, `lastName`, `email`, `dob`, `address`) — góc avatar và trang Tài khoản hiện họ tên (lùi về
+  `userName` khi tên rỗng); form sửa hồ sơ sau cờ vẫn dùng `fullName` cũ, phải đổi khi backend có `PATCH`. Xem
+  `docs/proposals/2026-09-23-account-profile-and-sessions.md`. Phần sau cờ có test riêng chạy với
+  cờ BẬT (`pages/account/ui/AccountPage.flags.test.tsx`).
+- **Env nhét vào bundle lúc build.** Mỗi môi trường cần một image riêng; không promote image từ
+  staging lên production được. Chuyển sang runtime config (`window.__ENV__`) khi nào cần điều đó.
+- **Chưa tìm theo tên/mã, chưa lọc cửa hàng theo kho.** Backend `GET /warehouses` và `GET /stores` chưa
+  nhận `name` / `code` / `warehouseSlug` → hai màn chưa có `SearchInput`. Thêm khi backend làm.
+- **Danh sách "kho còn trống" do FE tự tính.** Hộp gán kho cho cửa hàng loại kho đã gán dựa trên **trang
+  dữ liệu cửa hàng đang hiển thị** — cửa hàng ở trang khác không thấy được. Backend vẫn là chốt chặn
+  (101019/101020) và lỗi hiện ngay tại ô chọn; bỏ được khi backend có `GET /warehouses?hasStore=false`.
+- **`Switch` chưa nối `field.name` / `field.onBlur`** khi dùng trong `react-hook-form`
+  (`WarehouseFormSheet`, `StoreFormSheet` chỉ truyền `checked`/`onCheckedChange`/`ref`) — chưa gây lỗi
+  thấy được vì `isActive` luôn có giá trị mặc định, nhưng thiếu validate-on-blur và tên field khi debug.
+- **`phonenumber` / `email` gửi `undefined` khi trống nên không xoá được giá trị cũ qua form** (khác với
+  `description`/`address`/`invoiceAddress`, gửi `''` xoá được bình thường) — hệ quả trực tiếp của bẫy
+  "Ô tuỳ chọn và chuỗi rỗng" ở trên; cần API riêng hoặc backend nới `@IsOptional()` mới xoá được.
+- **Sắp xếp theo cột, lọc ngày và tìm kiếm.** Mỗi màn sau cờ riêng trong `shared/api/backend-capabilities.ts`;
+  cờ `sort` / `search` chung (mặc định `false`) chỉ còn dành cho Kho và Cửa hàng.
+  - Sort: `useListParams` giữ trạng thái trên URL (`?sort=name:DESC`, không đổi). `sortToParam(sort, allowed)`
+    (`shared/lib/list-params.ts`) đổi sang định dạng BE mới `sort=ASC|DESC` + `sortBy=<trường>`
+    (`ListParams.sort` / `.sortBy`); trường không nằm trong `allowed` (URL cũ / bookmark, vd `?sort=firstName:ASC`)
+    bị bỏ → `{}`, không gửi `sortBy` lạ (BE trả 400 `SORT_BY_INVALID` 100853), bảng hiện không sắp. Không có `sort` thì BE
+    mặc định `createdAt DESC`. **Đừng gửi `sort[]=x:DESC`** (định dạng cũ, BE trả 400 `SORT_INVALID` 100852).
+    `DataTable` nhận prop `sorting`; cột nào sắp được thì khai `meta: { sortField: '<trường>' }` trong `ColumnDef`
+    và trường đó phải có trong danh sách `allowed` của màn. Bấm lần lượt tăng → giảm → thôi sắp.
+    **Không dùng `getSortedRowModel`** của TanStack: nó chỉ sắp trong trang hiện tại (10–50 dòng)
+    nên người dùng tưởng cả danh sách đã sắp — sai âm thầm, tệ hơn là không có.
+  - Trường sắp được theo màn (đúng enum `sortBy` của BE):
+
+    | Màn | Cờ | Trường |
+    | --- | --- | --- |
+    | Người dùng | `userSort` (bật) | `createdAt`, `name` (BE còn `dob` nhưng chưa có cột) |
+    | Nhà cung cấp | `supplierSort` (bật) | `code`, `name`, `createdAt` |
+    | Vật tư | `materialSort` (bật) | `code`, `name`, `createdAt` |
+    | Loại vật tư | `materialTypeSort` (bật) | `code`, `name`, `createdAt` |
+    | Phiếu nhập | `importFormSort` (bật) | `code` (không có cột ngày tạo → Ngày nhập không sắp được) |
+    | Phiếu xuất | (không cờ) | `code` (BE nhận cả `createdAt` nhưng cột Ngày tạo chưa khai `sortField`) |
+    | Kho, Cửa hàng | `sort` (**tắt**) | BE chưa đổi |
+
+  - Lọc ngày tạo: `startDate` / `endDate` (`YYYY-MM-DD`, gồm hai đầu) ở Người dùng, Vật tư, Loại vật tư, NCC, Phiếu nhập,
+    dùng `DateRangeFilter` + `toCreatedRange` (`shared/lib/date-range.ts`; khoảng đảo ngược thì tự đổi chỗ). Test bấm "Xoá bộ lọc":
+    trong jsdom nút chỉ hiện ở hàng chip mobile hoặc popover → dùng `mockMobileViewport` (`shared/test/viewport.ts`).
+  - Search Kho / Cửa hàng: `SearchInput` đã gắn sẵn vào `ListToolbar` của hai màn, khoá bộ lọc là `search`.
+    **Tên tham số chưa chốt với backend** — nếu backend đặt `q`/`keyword`/`name` thì đổi khoá đó ở
+    `WarehouseFilters`/`StoreFilters` và trong `FILTERS` của hai màn.
+  - **Bật cờ chỉ khi đã thử với API thật.** Bật nhầm thì UI hiện mũi tên / ô tìm mà dữ liệu không
+    đổi. Phần sau cờ có test riêng chạy với cờ BẬT
+    (`pages/warehouses/ui/WarehousesPage.sort-search.test.tsx`, `pages/suppliers/ui/SuppliersPage.sort-search.test.tsx`) — sửa phần này thì chạy cả các file đó.
+- **Root `tsconfig.json` dùng `baseUrl`**, field mà TypeScript 6 deprecate. Xem lại khi nâng cấp TS,
+  và kiểm lại `npx shadcn add` vẫn ghi đúng vào `src/shared/ui/` sau khi sửa.
+- **Refresh token nằm ở `localStorage`.** XSS đọc được và giữ phiên **vô thời hạn**: mỗi lần
+  `/auth/refresh` ký refresh token mới với hạn 30 ngày mới, nên chỉ logout / logout-all / đổi mật khẩu
+  mới chặn được. Chờ backend chuyển sang cookie httpOnly — xem `docs/proposals/2026-09-17-refresh-token-httponly-cookie.md`.
+- **`features/profile-form` chưa có bước xác nhận sửa.** Form hồ sơ đang ẩn sau `BACKEND_SUPPORTS.profileEdit`;
+  khi bật cờ này phải nối `useSaveChangesConfirmation` + `changedFieldLabels` như các form sửa khác (luật "mọi thao tác ghi đều hỏi").
+- **Nợ có điều kiện kích hoạt — `ConfirmDialog` chung.** Bốn hộp xác nhận
+  (`DeleteWarehouseDialog`/`DeleteStoreDialog`, `DeactivateWarehouseDialog`/`DeactivateStoreDialog`) là bản sao
+  cấu trúc của nhau, chỉ khác kiểu entity, tên prop và khoá i18n. Cố ý giữ vậy lúc này: bản generic cần
+  ~6 props chuỗi + `getSlug`/`getName` để bù phần khác nhau, đắt hơn là chép. **Điều kiện kích hoạt: entity
+  thứ ba cần cùng cặp hộp này thì rút `ConfirmDialog` ra `shared/ui` TRƯỚC khi chép lần thứ ba** — lúc đó là
+  6 bản, và một sửa đổi hành vi chung (ví dụ nhánh còn thiếu: `AlertDialog` chưa chặn Esc lúc đang gửi, khác
+  với `FormSheet` và hai hộp gán) sẽ phải làm ở 6 chỗ, thiếu một chỗ thì không gì bắt được.
+- **`useWarehouses` có option `enabled`, `useStores` thì không** (chưa nơi nào cần tải danh sách cửa hàng có
+  điều kiện). Ai chép `entities/store` làm mẫu mà cần nạp có điều kiện thì tự thêm, theo đúng dạng của
+  `useWarehouses`.
+- **`toRejection` (`src/shared/api/http.ts`) trả `error.response?.data ?? error`, mà axios để nguyên
+  chuỗi rỗng khi 5xx không có body** — `??` chỉ thay khi `data` là `null`/`undefined`, `''` lọt qua
+  nguyên vẹn. Hệ quả đang chạm người dùng: `isApiError('')` là `false` nên `resolveApiErrorMessage`
+  trả `errors:network` ("Không kết nối được máy chủ") cho một lỗi 500 **có** phản hồi từ server —
+  sai loại lỗi, ở toast global, `DataTable`, hai hộp gán (`AssignWarehouseManagerDialog`,
+  `AssignStoreWarehouseDialog`) và màn phân quyền. Phụ: `isVersionConflict('')` cũng `false` (409
+  không body sẽ không đóng được sheet/hộp theo đúng quy ước "409 thì đóng hộp"), và `retry` coi `''`
+  là lỗi tạm thời nên thử lại tới 3 lần thay vì dừng ngay. Sửa tối thiểu khi làm:
+  `const d = error.response?.data; return d === undefined || d === '' ? error : d`. **Đợt này chưa
+  sửa** — chạm tầng `shared`, ảnh hưởng nhiều test.
+- **Vai trò (`/roles`, WMS-15 phần 2): đã dùng API thật.** Test tay: `docs/test-checklists/WMS-15-fe-role-checklist.md`.
+  Còn treo: tên và cấp không đổi được (backend chỉ sửa mô tả); tên không dùng lại được kể cả sau khi xoá (FE chặn trùng
+  không phân biệt hoa thường với vai trò đang có + mã / nhãn vi-en của vai trò có sẵn, nhưng không biết tên vai trò đã
+  xoá → 100102 báo tại ô Tên); backend không trả số người dùng của vai trò → chặn xoá chỉ biết sau khi gửi (100106, hộp
+  xoá có link `/users?roleSlug=`). SUPER_ADMIN cũng chỉ tạo được cấp < cấp SUPER_ADMIN (FE tự chặn, backend chưa —
+  vai trò cấp ≥ SUPER_ADMIN gán được SUPER_ADMIN qua `change-role`): `docs/proposals/2026-10-11-role-level-cap.md`.
+- **Luật ủy quyền R1–R4 ở màn `/permissions`: FE ĐÃ DỰNG SẴN sau cờ `permissionDelegationRules`
+  (mặc định `false`), chờ backend.** Đặc tả: `docs/proposals/2026-09-25-permission-delegation-rules.md`.
+  Luật từng ô là hàm thuần `cellLock` / `isRankLocked` (`features/permission-matrix/model/cell-rules.ts`),
+  thứ tự R3 → R1 → R2 → R4 như backend; SUPER_ADMIN miễn R1–R3, R4 ("vai trò cuối cùng") áp cho mọi
+  người và áp cả khi cờ tắt. Cột vai trò ngang/cao hơn mình vẽ ✓/— (chỉ xem) thay cho switch. Hằng số
+  phải khớp backend: `BUILT_IN_ROLE_LEVELS` (`entities/user/model/role-level.ts`, chỉ dùng khi thiếu `level`), `PROTECTED_AUTHORITY_CODES`
+  (`shared/api/authority-codes.ts`). **Còn thiếu**: bốn mã lỗi mới (`AUTHORITY_PROTECTED`,
+  `ROLE_RANK_NOT_ALLOWED`, `AUTHORITY_NOT_HELD`, `LAST_PERMISSION_ADMIN`) chưa có trong
+  `error-codes.ts` vì backend chưa chọn số — tới lúc đó lỗi từ chối hiện câu chung. Bật cờ xong thì
+  hộp cảnh báo "tự thu hồi" trong `PermissionMatrix.tsx` không còn ai chạm tới được (R1 khoá cột của
+  chính mình) — gỡ nó khi gỡ cờ. Test với cờ bật: `PermissionMatrix.delegation.test.tsx`.
+- **Cờ chuyển tiếp role → authority còn chưa gỡ.** `authorityGuards` (kho + người dùng) và
+  `storeAuthorityGuards` (cửa hàng) trong `shared/api/backend-capabilities.ts` **đã bật** từ
+  2026-09-25 (backend `WMS-10-be(1)`). Còn giữ để tắt được nếu một môi trường chưa lên bản backend
+  mới. Khi mọi môi trường đã chạy ổn: gỡ hai cờ, gỡ nhánh `hasRole` trong
+  `pages/{warehouses,stores}/model/abilities.ts`, gỡ `capabilities` khỏi `createRoutes`, và bỏ các
+  test chạy với cờ tắt (`abilities.test.ts` phần "cờ TẮT", `describe` "cờ TẮT" cuối
+  `app/routes/routes.test.tsx`). Nhắc: từ lúc backend deploy, mọi ô đã bật/tắt ở `/permissions` có
+  hiệu lực thật (sandbox 2026-09-24: MANAGER đang có `WAREHOUSE_CREATE` → tạo được kho).
+- **Ma trận quyền seed ở backend dịch từ BRD §5.5 bản CŨ, lệch với bản chốt 2026-09-23** (Manager tạo/sửa
+  được cả bốn loại phiếu). Cần vào màn `/permissions` bật **7 ô** cho `MANAGER`:
+  `IMPORT_FORM_CREATE`, `EXPORT_FORM_CREATE`, `BALANCE_FORM_CREATE`, `BALANCE_FORM_RECORD_COUNT`,
+  `IMPORT_FORM_UPDATE_DRAFT`, `EXPORT_FORM_UPDATE_DRAFT`, `WAREHOUSE_PAYMENT_UPDATE_DRAFT`. Không cần
+  migration — đúng thiết kế backend (bật qua UI là seed dữ liệu, không phải đổi code). **Hai ô phiếu nhập
+  (`IMPORT_FORM_CREATE`, `IMPORT_FORM_UPDATE_DRAFT`) đã có tác dụng** — phiếu nhập có endpoint từ WMS-16, FE dùng ở
+  `/import-forms`; hai ô phiếu xuất (`EXPORT_FORM_CREATE`, `EXPORT_FORM_UPDATE_DRAFT`) cũng vậy từ WMS-20 / WMS-21 (`/export-forms`).
+  Ba ô còn lại (`BALANCE_FORM_*`, `WAREHOUSE_PAYMENT_*`) vẫn chưa có tác dụng: các module đó chưa có endpoint — bật trước chỉ là
+  chuẩn bị dữ liệu cho lúc backend làm module đó và gác bằng `@RequireAuthority`.
+- **Phiếu nhập (`/import-forms`, WMS-17): đã dùng API thật; còn chờ backend** (`docs/proposals/2026-10-13-file-upload-api.md`):
+  key file bóc từ `message` của `/file/upload` (`shared/api/file.api.ts`); không có link tải file; lỗi theo dòng (101319–101328)
+  không có chỉ số dòng → chỉ toast; đã lọc theo ngày tạo (`toCreatedRange`) và sắp xếp theo Mã (`importFormSort`; cột Ngày nhập không sắp được vì danh sách không có cột ngày tạo); ô "Tìm theo" Mã phiếu / Số hoá đơn / Số PO cạnh ô tìm (`?search=&searchBy=`, mặc định `code`; gửi đúng MỘT khoá `code`|`invoiceCode`|`purchaseOrder`; `code` làm sạch + viết hoa, toàn ký hiệu → không gọi API và hiện trạng thái trống-do-lọc; số HĐ / PO trim + cắt 64 ký tự — `pages/import-forms/model/search-query.ts`); bộ lọc "Người lập" / "Người xác nhận" (`?requester=` / `?approver=` → `requesterSlug` / `approverSlug`; `PersonFilter` (`entities/user`, dùng chung với phiếu xuất) tìm phía server qua `GET /users`, chữ → `name`, toàn số → `phonenumber`; chỉ hiện khi `can(user,'USER_READ')`, thiếu quyền thì không gửi dù URL có; `activeFilterCount` không đếm ô tìm, khớp MaterialsPage, và "Xoá bộ lọc" KHÔNG xoá `search` / `searchBy` — như mọi trang danh sách; nút chỉ hiện khi có bộ lọc khác đang bật; nút của ô ghi "Người lập: <người>" / "Người xác nhận: <người>" để hai ô khác nhau, danh sách xổ chỉ ghi người; `?requester=` trỏ người không tải được → "<nhãn>: Người không xác định" kèm ✕; `GET /users` chỉ chạy khi mở ô hoặc đang gõ tìm, `GET /users/{slug}` lấy nhãn chạy ngay khi có giá trị; chip mobile đã chọn ẩn mũi tên, ✕ ở cuối); dòng phiếu không có mã đơn vị gốc → cột quy đổi
+  thiếu mã khi phiếu không có dòng 1:1. Test tay:
+  `docs/test-checklists/WMS-17-fe-import-form-checklist.md`. Ô đính kèm của cả hai loại phiếu là `shared/ui/FileUploadField` (chọn là tải ngay, form giữ `key`). Hai chi tiết dễ vấp khi sửa: lỗi upload file ở ô đính kèm dùng
+  `setError(…, { type: 'server' })` vì `visibleError` trong `shared/ui/form.tsx` ẩn các loại lỗi khác trên ô rỗng chưa chạm;
+  chân của form phiếu nhập là chân của `FormSheet` (cố định trong sheet, không còn `sticky` của trang). Thêm vật tư từ phiếu: vật tư tạo nhanh chỉ có đơn vị gốc; seed quyền mặc định chỉ ADMIN gắn / tạo vật tư (MANAGER / SUPERVISOR thấy nút khoá kèm lý do — admin bật `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` (+ `MATERIAL_CREATE`) ở `/permissions`). Hộp thêm vật tư khoá mọi đường đóng khi đang gắn / tạo; dòng chọn vật tư ngay bằng nhãn / đơn vị gốc hộp trả về nên kho > 100 vật tư vẫn chọn được; danh sách NCC trong hộp tạo vật tư chỉ tải 100 NCC đầu; vật tư cũ chưa có đơn vị gốc không gắn được từ phiếu (nút khoá).
+- **Phiếu xuất (`/export-forms`, WMS-21): đã dùng API thật của WMS-20; còn chờ backend** (`docs/proposals/2026-10-26-export-form-api.md`).
+  Bố cục / wizard / toast chép theo phiếu nhập (mảnh chung:
+  `WizardStepper`, `FileUploadField`, `shared/lib/wizard-errors.ts`, `fillBlankLines`, `PersonFilter` của `entities/user`); hai
+  editor cố ý **không** gộp (luật dòng / giá / lô khác nhau). Chặn tạm / dựa vào điều BE chưa có:
+  - **Tìm vật tư ở máy, trần 500**: `GET /warehouses/{w}/materials` chưa tìm được theo mã / tên → form tải một trang `size: 500`
+    rồi lọc tại client (`model/material-search.ts`); `total` > 500 thì ô xổ và hộp chọn nhiều ghi "Chỉ tìm trong 500 vật tư đầu
+    của kho". Nháp có vật tư ngoài 500 đầu vẫn hiện đúng nhãn / đơn vị (lấy từ dòng phiếu, `model/fallback.ts`).
+  - **Số PO bắt buộc với mọi lý do xuất** (theo DTO BE) — đang hỏi PO; nới thì chỉ đổi schema + dòng tóm tắt.
+  - **Lỗi thiếu hàng không có dòng**: 100817 / 101502 (409) không nói dòng nào → sau "Lưu & gửi duyệt" lỗi, FE tải lại khả dụng
+    (vật tư + lô) rồi tự tính lại luật vượt khả dụng để đánh dấu dòng; không ra dòng thì báo chung. Hai mã này **không** được rơi
+    vào nhánh "409 thì đóng sheet" (`isVersionConflict` chỉ khớp mã version — giữ vậy).
+  - **Nhãn lô chỉ có hạn dùng**: dòng phiếu BE chỉ trả `batchSlug` + `batchExpiryDate` → trang chi tiết / bản in ghi "HSD …" /
+    "Lô không hạn" (cố ý không gọi thêm `material-batches`); hai lô cùng hạn trông giống nhau.
+  - **Kho nhận (Chuyển kho) theo phạm vi**: `GET /warehouses` lọc theo kho mình thuộc → thường 0–1 kho; còn lại "Kho khác — nhập
+    tên". `receiver` dạng `Kho: <mã> · <tên>` là quy ước của FE (`model/receiver.ts`), BE chỉ thấy một chuỗi.
+  - **`clearLinePrices` (`model/pricing.ts`) ghi vào `control._defaultValues`** — API nội bộ của RHF (7.81): đổi Bán → lý do khác
+    phải xoá cả giá MẶC ĐỊNH, nếu không Controller giá remount làm giá cũ "hồi sinh". Nâng RHF thì chạy lại test "quay lại Bán →
+    ô giá trống" ở `ExportFormSheet.test.tsx` / `pricing.test.ts`.
+  - BE tách một dòng không chọn lô thành nhiều dòng theo lô (FEFO) **lúc gửi duyệt** — trang chi tiết / bản in khoá theo `slug`
+    của dòng, không coi hai dòng cùng vật tư là trùng.
+  - Lưới dòng ② dùng `@4xl` như phiếu nhập (lưới Bán ≈ 55.75rem); bản in A4 phiếu Bán 9 cột làm cột Ghi chú dòng rất hẹp.
