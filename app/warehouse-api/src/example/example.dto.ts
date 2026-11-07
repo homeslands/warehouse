@@ -26,13 +26,13 @@ export class UpdateExampleRequestDto extends PartialType(CreateExampleRequestDto
     description: 'Version received from the most recent GET, used to detect conflicts',
     minimum: 1,
   })
-  @IsNotEmpty()
-  @IsInt()
+  @IsNotEmpty({ message: 'EXAMPLE_VERSION_INVALID' })
+  @IsInt({ message: 'EXAMPLE_VERSION_INVALID' })
   // `@Min(1)`: TypeORM bọc cả khối so sánh version của optimistic lock trong
   // `if (result && lockMode === 'optimistic' && lockVersion)` (`SelectQueryBuilder.js:691-693`) —
   // `0` là falsy nên `version: 0` khiến check KHÔNG chạy và `save()` ghi đè vô điều kiện, chỉ với 1
   // request. `@IsNotEmpty`/`@IsInt` đều cho `0` qua; `@VersionColumn` luôn bắt đầu từ 1.
-  @Min(1)
+  @Min(1, { message: 'EXAMPLE_VERSION_INVALID' })
   version: number;
 }
 

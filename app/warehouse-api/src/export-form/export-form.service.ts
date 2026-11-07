@@ -1,4 +1,4 @@
-import { ForbiddenException, Inject, Injectable, Logger } from '@nestjs/common';
+import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   EntityManager,
   FindOptionsRelations,
@@ -24,7 +24,6 @@ import {
 import { ExportForm } from './export-form.entity';
 import { ExportFormItem } from './export-form-item.entity';
 import {
-  EXPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES,
   EXPORT_FORM_UPLOAD_FOLDER,
   ExportFormStatus,
   ExportFormType,
@@ -53,16 +52,22 @@ import {
 } from 'src/shared/utils/query.util';
 import { AuthorityCode, TAuthorityCode } from 'src/authority/authority.constants';
 import { CurrentUserDto } from 'src/user/user.decorator';
-import { RoleEnum } from 'src/role/role.enum';
 import { User } from 'src/user/user.entity';
 import { UserException } from 'src/user/user.exception';
 import { UserValidation } from 'src/user/user.validation';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
-import { WarehouseException } from 'src/warehouse/warehouse.exception';
-import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
+import { findWarehouse } from 'src/warehouse/warehouse.util';
 import { S3Service } from 'src/file/s3/s3.service';
 import { FileException } from 'src/file/file.exception';
+import { isAllowedUploadType } from 'src/file/file.util';
 import { FileValidation } from 'src/file/file.validation';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
+import { MONEY_MAX, QUANTITY_MAX, roundMoney } from 'src/shared/utils/decimal.util';
+import { fullName } from 'src/shared/utils/name.util';
+import {
+  assertFullOrOwnAuthority,
+  assertHasAnyAuthority,
+} from 'src/authority/authority-check.util';
 
 const EXPORT_FORM_RELATIONS: FindOptionsRelations<ExportForm> = {
   requester: true,
@@ -75,14 +80,6 @@ const EXPORT_FORM_DETAIL_RELATIONS: FindOptionsRelations<ExportForm> = {
   ...EXPORT_FORM_RELATIONS,
   items: { material: true, unit: true, batch: true },
 };
-
-/** Trần của DECIMAL(18,2) và DECIMAL(18,6). */
-const MONEY_MAX = 1e16;
-const QUANTITY_MAX = 1e12;
-
-const roundMoney = (value: number) => Number(value.toFixed(2));
-
-const fullName = (user: User) => `${user.lastName} ${user.firstName}`.trim();
 
 /**
  * Mọi thao tác khoá theo kho ở route: tra phiếu luôn kèm `warehouse.slug` (xem `ImportFormService`).
@@ -116,16 +113,16 @@ export class ExportFormService {
     currentUser: CurrentUserDto,
   ): Promise<string> {
     const context = `${ExportFormService.name}.${this.uploadFile.name}`;
-    this.assertHasAny(currentUser, [
+    assertHasAnyAuthority(currentUser, [
       AuthorityCode.ExportFormCreate,
       AuthorityCode.ExportFormUpdateDraft,
       AuthorityCode.ExportFormUpdateDraftOwn,
     ]);
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
     if (!warehouse.isActive)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_WAREHOUSE_INACTIVE);
     if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
-    if (!EXPORT_FORM_UPLOAD_ALLOWED_MIME_TYPES.includes(file.mimetype))
+    if (!isAllowedUploadType(file.originalname, file.mimetype))
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_FILE_TYPE_NOT_ALLOWED);
 
     const key = await this.s3Service.uploadFile(file, EXPORT_FORM_UPLOAD_FOLDER);
@@ -139,7 +136,7 @@ export class ExportFormService {
     currentUser: CurrentUserDto,
   ): Promise<ExportFormResponseDto> {
     const context = `${ExportFormService.name}.${this.createExportForm.name}`;
-    const warehouse = await this.findWarehouse(warehouseSlug);
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
     if (!warehouse.isActive)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_WAREHOUSE_INACTIVE);
 
@@ -173,7 +170,7 @@ export class ExportFormService {
     warehouseSlug: string,
     query: GetAllExportFormRequestDto,
   ): Promise<AppPaginatedResponseDto<ExportFormResponseDto>> {
-    await this.findWarehouse(warehouseSlug);
+    await findWarehouse(this.warehouseRepository, warehouseSlug);
 
     const { start, end } = resolveDateRange(query.startDate, query.endDate);
     if (start && end && start >= end)
@@ -200,17 +197,12 @@ export class ExportFormService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, ExportForm, ExportFormResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, ExportForm, ExportFormResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<ExportFormResponseDto>;
+      query,
+    );
   }
 
   async findOne(warehouseSlug: string, slug: string): Promise<ExportFormResponseDto> {
@@ -349,7 +341,7 @@ export class ExportFormService {
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_PENDING);
     // Xuất huỷ cần thêm quyền duyệt riêng — phụ thuộc dữ liệu phiếu nên guard không kiểm được.
     if (form.type === ExportFormType.Disposal)
-      this.assertHasAny(currentUser, [AuthorityCode.ExportFormApproveDisposal]);
+      assertHasAnyAuthority(currentUser, [AuthorityCode.ExportFormApproveDisposal]);
     const items = this.assertItemsHaveMaterial(form);
     const approver = await this.findUser(currentUser.userId);
 
@@ -680,13 +672,6 @@ export class ExportFormService {
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_DRAFT);
   }
 
-  /** Có ít nhất 1 trong `codes` (hoặc `SUPER_ADMIN`), không thì 403 như `AuthorityGuard`. */
-  private assertHasAny(currentUser: CurrentUserDto, codes: TAuthorityCode[]): void {
-    if (currentUser.roleName === RoleEnum.SuperAdmin) return;
-    const scope = currentUser.scope ?? [];
-    if (!codes.some((code) => scope.includes(code))) throw new ForbiddenException();
-  }
-
   /** "Bản đầy đủ HOẶC bản `_OWN`" — xem `ImportFormService.assertCanModify`. */
   private assertCanModify(
     form: ExportForm,
@@ -694,12 +679,13 @@ export class ExportFormService {
     fullCode: TAuthorityCode,
     ownCode: TAuthorityCode,
   ): void {
-    if (currentUser.roleName === RoleEnum.SuperAdmin) return;
-    const scope = currentUser.scope ?? [];
-    if (scope.includes(fullCode)) return;
-    if (!scope.includes(ownCode)) throw new ForbiddenException();
-    if (form.requester?.id !== currentUser.userId)
-      throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_OWNER);
+    assertFullOrOwnAuthority(
+      currentUser,
+      fullCode,
+      ownCode,
+      form.requester?.id,
+      () => new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_OWNER),
+    );
   }
 
   /** UNIQUE `code` tính cả bản ghi xoá mềm ⇒ tra `withDeleted` để báo lỗi riêng. */
@@ -714,12 +700,6 @@ export class ExportFormService {
         ? ExportFormValidation.EXPORT_FORM_CODE_RESERVED_BY_DELETED_EXPORT_FORM
         : ExportFormValidation.EXPORT_FORM_CODE_DOES_EXIST,
     );
-  }
-
-  private async findWarehouse(slug: string): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.findOneBy({ slug });
-    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
-    return warehouse;
   }
 
   private async findUser(id: string): Promise<User> {

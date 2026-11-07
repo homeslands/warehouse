@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const INVALID_CREDENTIALS = 'INVALID_CREDENTIALS';
 export const USER_NOT_ACTIVE = 'USER_NOT_ACTIVE';

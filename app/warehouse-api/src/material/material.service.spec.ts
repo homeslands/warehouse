@@ -900,6 +900,23 @@ describe('MaterialService', () => {
       });
       expect(result.total).toBe(1);
     });
+
+    it('lọc unit name dạng chứa chuỗi, escape ký tự đại diện của LIKE', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial({ baseUnit: unit() }));
+      materialUnitRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findConversionUnits('mat-slug-1', { page: 1, size: 10, name: 'Bao' });
+      await service.findConversionUnits('mat-slug-1', {
+        page: 1,
+        size: 10,
+        name: String.raw`a%_\b`,
+      });
+
+      const [[normal], [special]] = materialUnitRepository.findAndCount.mock.calls;
+      expect(normal.where.unit.name.type).toBe('like');
+      expect(normal.where.unit.name.value).toBe('%Bao%');
+      expect(special.where.unit.name.value).toBe(String.raw`%a\%\_\\b%`);
+    });
   });
 
   describe('addConversionUnit', () => {

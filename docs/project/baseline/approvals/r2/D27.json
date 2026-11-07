@@ -1,0 +1,41 @@
+{
+  "id": "D27",
+  "namespace": "DECISION",
+  "title": "Nguyên liệu tách ra nhiều thành phần đầu ra",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Có cần mô hình 1 NVL → nhiều thành phần không; nếu có thì ảnh hưởng danh mục, công thức và xuất kho thế nào.",
+  "source_reference": "D00 P1 \"cam thì lấy nước làm gì, vỏ làm gì: Đã hỏi\" (chưa ghi đáp án)",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Business Owner + BA",
+  "affected_packages": [
+    "W00",
+    "W03",
+    "W06"
+  ],
+  "answer": "Biểu diễn nước cam/vỏ cam bằng NVL riêng và công thức tham chiếu; không tự sinh sản lượng hoặc tồn kho từ việc đổi đơn vị.",
+  "rules": [
+    "Cho danh mục các thành phần đầu ra là Material riêng có đơn vị/định mức và recipe sử dụng độc lập. MộtNVL có thể được dùng trong nhiều công thức.",
+    "Quy đổi kg↔g là quy đổi cùng vật tư, không phải cam→nước/vỏ. Không tự giả định tỷ lệ thu hồi, tạo tồn đầu ra hoặc nhân đôi giá trị khi sửa recipe.",
+    "Workflow chế biến một đầu vào ra nhiều đầu ra không có đặc tả/UC hoàn chỉnh trong bộ thiết kế; baseline hiện không thêm module sản xuất/yield. Muốn tự động chuyển đổi tồn phải lập CR với bảngyield/hao hụt/giá trị và case bảo toàn trước khi triển khai.",
+    "Đây là câu trả lời Không cho yêu cầu tự động hóa ở QuestionP1, không loại module recipe/POS hoặc xuất PRODUCTION đã có trong SRS."
+  ],
+  "rationale": "Không tự phát minh phân hệ sản xuất từ một câu hỏi chưa trả lời; giữ danh mục/công thức đã được đặc tả.",
+  "change_control_id": "CR-D27-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Đổi công thức không tự cộng tồn nước cam/vỏ cam.",
+    "1kg→1000gkhông tạo thêmMaterial hoặc tổng giá trị mới."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "d66a731648bf0db2a6bb8e3ece7d88142c7283f9151bd61aad5e4c4aca479d51"
+}

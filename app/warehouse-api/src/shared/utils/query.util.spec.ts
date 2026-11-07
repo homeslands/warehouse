@@ -51,4 +51,15 @@ describe('buildSortOrder', () => {
       expect.objectContaining({ code: AppCommonValidation.SORT_BY_INVALID.code }),
     );
   });
+
+  // Issue #179: SORT_BY_INVALID đi theo `createErrorCode` mặc định ⇒ 422 (trước đó 400).
+  it('throws SORT_BY_INVALID with status 422', () => {
+    let error: unknown;
+    try {
+      buildSortOrder<Row, RowSortBy>({ sortBy: 'dob' as RowSortBy }, { name: ['name'] });
+    } catch (e) {
+      error = e;
+    }
+    expect((error as AppException).getStatus()).toBe(422);
+  });
 });

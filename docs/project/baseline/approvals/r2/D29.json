@@ -1,0 +1,42 @@
+{
+  "id": "D29",
+  "namespace": "DECISION",
+  "title": "Vệ sinh tài liệu thiết kế",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "UC8 là gì (nếu thêm phạm vi thì đưa vào D17); đổi mã BR trùng; BR-EXP-006/007 bị xóa hay bị thiếu.",
+  "source_reference": "D20 P47 \"UC5,6,7,8\" (không có UC8); D17 trùng mã BR-REC ở T186 (phiếu thu) và T368 (công thức); BR-EXP nhảy từ 005 (T364R6) sang 008 (T364R7)",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "BA + chủ tài liệu",
+  "affected_packages": [
+    "W04",
+    "W06",
+    "W07"
+  ],
+  "answer": "Chuẩn hóa mã bằng alias có truy vết; không suy diễn chức năng còn thiếu từ số UC/BR nhảy.",
+  "rules": [
+    "Giữ IDgốc+locator trong evidence; alias mới PAY-REC-001..008 cho BR-REC@T186 và RCP-001..004 cho BR-REC@T368. Không sửa hash nguồn hoặc làm mất liên kếttest cũ.",
+    "BR-EXP-008 vẫn là rule ghi history có thật; số006/007được đánh dấu RESERVED_NOT_SPECIFIED, không tạo rule mới vì thiếu số.",
+    "D20tham chiếuUC8không có nội dung: alias UC8=WAREHOUSE_FINANCE, dùng SRS§4.8 làm basis. BA phải viết UC thu/chi/công nợ theoD01/D19/D20/D23/D25trướcW07; không gọiUC8đã có đặc tả.",
+    "Change log chỉ rõ các nguồn bị thay thế bởi baseline này và versioncase. MãdocDxx và mãdecisionDxx phải có cột namespace/locator, không dùng tênD24trơ để đoán làschema haydecision."
+  ],
+  "rationale": "Lấp chỗ tham chiếu lỗi bằng mapping rõ mà không sáng tác quy tắc hoặc ghi đè nguồn.",
+  "change_control_id": "CR-D29-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Hai BR-REC-001khác miền không ánh xạ chung mộtcase.",
+    "Không có feature tự phát cho BR-EXP-006/007.",
+    "UC8financeđược thiết kế trướcW07và trace vềSRS§4.8."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "87798f7504e0f081365de17693c72ad900b5bbb82735a364790b7d98f8a2cf05"
+}

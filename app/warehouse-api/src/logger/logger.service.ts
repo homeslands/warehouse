@@ -6,6 +6,7 @@ import { Mapper } from '@automapper/core';
 import { LoggerEntry } from './logger.entity';
 import { GetLoggerRequestDto, LoggerResponseDto } from './logger.dto';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
 export class LoggerService {
@@ -23,16 +24,11 @@ export class LoggerService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(logs, LoggerEntry, LoggerResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(logs, LoggerEntry, LoggerResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<LoggerResponseDto>;
+      query,
+    );
   }
 }

@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const USER_PHONENUMBER_DOES_EXIST = 'USER_PHONENUMBER_DOES_EXIST';
 export const USER_PHONENUMBER_IS_REQUIRED = 'USER_PHONENUMBER_IS_REQUIRED';

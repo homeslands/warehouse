@@ -16,14 +16,9 @@ export abstract class BaseFileInterceptor implements NestInterceptor {
     return new Promise((resolve, reject) => {
       this.upload(req, req.res, (err) => {
         if (err) {
-          if (err instanceof FileException) {
-            if (err.code) {
-              switch (err.code) {
-                case 121010:
-                  return reject(new FileException(FileValidation.MUST_EXCEL_FILE));
-              }
-            }
-          }
+          // `FileException` do `fileFilter` ném đã mang đúng mã lỗi — trả nguyên, không gộp thành
+          // `ERROR_WHEN_UPLOAD_FILE`.
+          if (err instanceof FileException) return reject(err);
 
           if (err instanceof multer.MulterError) {
             switch (err.code) {

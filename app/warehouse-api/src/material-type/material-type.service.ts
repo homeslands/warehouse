@@ -17,7 +17,13 @@ import { MaterialTypeValidation } from './material-type.validation';
 import { Material } from 'src/material/material.entity';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
 export class MaterialTypeService {
@@ -54,7 +60,7 @@ export class MaterialTypeService {
 
     const where: FindOptionsWhere<MaterialType> = {};
     if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
+    if (query.name) where.name = Like(`%${escapeLike(query.name)}%`);
     const createdAt = toDateRangeOperator(start, end);
     if (createdAt) where.createdAt = createdAt;
 
@@ -67,17 +73,12 @@ export class MaterialTypeService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, MaterialType, MaterialTypeResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, MaterialType, MaterialTypeResponseDto),
       total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<MaterialTypeResponseDto>;
+      query,
+    );
   }
 
   async findOne(slug: string): Promise<MaterialTypeResponseDto> {

@@ -16,6 +16,8 @@ import { UnitValidation } from './unit.validation';
 import { Material } from 'src/material/material.entity';
 import { pickDefined } from 'src/shared/utils/obj.util';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
+import { escapeLike } from 'src/shared/utils/query.util';
 
 @Injectable()
 export class UnitService {
@@ -53,7 +55,7 @@ export class UnitService {
   ): Promise<AppPaginatedResponseDto<UnitResponseDto>> {
     const where: FindOptionsWhere<Unit> = {};
     if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
+    if (query.name) where.name = Like(`%${escapeLike(query.name)}%`);
     if (excludedUnitIds.length > 0) where.id = Not(In(excludedUnitIds));
 
     const [items, total] = await this.unitRepository.findAndCount({
@@ -62,7 +64,6 @@ export class UnitService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
     const dtos = this.mapper.mapArray(items, Unit, UnitResponseDto);
 
@@ -73,15 +74,7 @@ export class UnitService {
       dto.materialCount = await this.countMaterialsUsing(unitId);
     }
 
-    return {
-      items: dtos,
-      total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<UnitResponseDto>;
+    return toPaginatedResponse(dtos, total, query);
   }
 
   async findOne(slug: string): Promise<UnitResponseDto> {

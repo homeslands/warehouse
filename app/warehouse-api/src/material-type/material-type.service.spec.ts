@@ -137,6 +137,18 @@ describe('MaterialTypeService', () => {
       expect(where).not.toHaveProperty('createdAt');
     });
 
+    it('searches name as substring, escaping LIKE wildcards', async () => {
+      materialTypeRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, name: 'Thep' });
+      await service.findAll({ page: 1, size: 10, name: String.raw`a%_\b` });
+
+      const [[normal], [special]] = materialTypeRepository.findAndCount.mock.calls;
+      expect(normal.where.name.type).toBe('like');
+      expect(normal.where.name.value).toBe('%Thep%');
+      expect(special.where.name.value).toBe(String.raw`%a\%\_\\b%`);
+    });
+
     it.each([
       [undefined, SortOrder.DESC],
       [SortOrder.ASC, SortOrder.ASC],

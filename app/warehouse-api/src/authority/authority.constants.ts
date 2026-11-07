@@ -122,6 +122,10 @@ export const AuthorityCode = {
   SupplierRead: 'SUPPLIER_READ',
   SupplierUpdate: 'SUPPLIER_UPDATE',
   SupplierDelete: 'SUPPLIER_DELETE',
+
+  // ===== Seed ở migration 1783728000047 (File) =====
+  // `POST /file/upload` — upload file đính kèm lên S3. Chỉ có CREATE: chưa có route đọc/xoá file.
+  FileCreate: 'FILE_CREATE',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];
 

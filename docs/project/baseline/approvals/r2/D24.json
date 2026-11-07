@@ -1,0 +1,40 @@
+{
+  "id": "D24",
+  "namespace": "DECISION",
+  "title": "Ngữ nghĩa xóa định mức/công thức",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Xóa dòng NVL hay xóa cả công thức; có cho xóa dòng cuối không; \"đang được sử dụng\" nghĩa là gì.",
+  "source_reference": "D18!D9 \"xóa thành phần không cần thiết\", D17 T50R4 \"Thêm/xóa nguyên vật liệu\" ↔ D20 T134R3–R9 xóa cả công thức, trạng thái \"Đã xóa\", chặn khi đang dùng ↔ BR-REC-001 (T368R2) ≥ 1 NVL",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Business Owner + BA",
+  "affected_packages": [
+    "W06"
+  ],
+  "answer": "Cho xóa dòng NVL và lưu phiên bản; xóa cả công thức là archive có kiểm tham chiếu.",
+  "rules": [
+    "Công thức hợp lệ của variant phải≥1NVL, mỗi định mức>0; xóa dòng cuối bị chặn. Copy được toàn bộ hoặc các dòng được chọn theoSRS, không copy identity/audit của nguồn.",
+    "Sửa/thêm/xóa dòng tạo version mới và lưu lý do, actor, before/after; phiếu đã dùng recipe giữ version snapshot không đổi theo công thức mới.",
+    "Xóa cả công thức là soft archive; nếu đang được dùng bởi workflow chưa hoàn tất thì chặn. Archive variant recipe làm variant không sẵn sàng xuất theo recipe cho đến có công thức hợp lệ mới; không xóa lịch sử sản xuất/phiếu.",
+    "Không xóa cứng product/variant có tham chiếu lịch sử; POS inactive chỉ vô hiệu cho thao tác mới."
+  ],
+  "rationale": "Đáp ứng cả xóa thành phần và UC xóa công thức mà vẫn giữ BR≥1NVL và lịch sử.",
+  "change_control_id": "CR-D24-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Xóa dòng cuối của recipe active trả lỗi, archive toàn công thức là action riêng.",
+    "Phiếu cũ giữ recipeVersion sau khi sửa công thức.",
+    "Copy một phần không tạo công thức rỗng."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "8dbe6f2d2b40be7d284ffc875f3d39ca9872b71eaff52eb97f132be6a08918b4"
+}

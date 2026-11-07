@@ -1,0 +1,17 @@
+[
+  {
+    "operationId": "posInventory",
+    "disposition": "INTEGRATION_ONLY: future POS internal API, not a user screen",
+    "wbs": "W06"
+  },
+  {
+    "operationId": "posRecipe",
+    "disposition": "INTEGRATION_ONLY: future POS internal API, not a user screen",
+    "wbs": "W06"
+  },
+  {
+    "operationId": "posExport",
+    "disposition": "INTEGRATION_ONLY: future POS internal API, not a user screen",
+    "wbs": "W06"
+  }
+]

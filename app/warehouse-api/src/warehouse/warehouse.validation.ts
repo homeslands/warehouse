@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const WAREHOUSE_NOT_FOUND = 'WAREHOUSE_NOT_FOUND';
 export const WAREHOUSE_NAME_IS_REQUIRED = 'WAREHOUSE_NAME_IS_REQUIRED';

@@ -128,6 +128,29 @@ describe('SupplierService', () => {
       );
     });
 
+    it('escapes LIKE wildcards in phonenumber and search keyword', async () => {
+      supplierRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({
+        page: 1,
+        size: 10,
+        phonenumber: String.raw`02%_\4`,
+        search: String.raw`a%_\b`,
+      });
+
+      const { where } = supplierRepository.findAndCount.mock.calls[0][0];
+      // Mỗi nhánh OR đúng 1 field tìm kiếm, theo thứ tự name / contactPerson / email.
+      const searchFields = ['name', 'contactPerson', 'email'];
+      expect(where).toHaveLength(searchFields.length);
+      where.forEach((branch: Record<string, { type: string; value: string }>, i: number) => {
+        expect(Object.keys(branch).sort()).toEqual(['phonenumber', searchFields[i]].sort());
+        expect(branch.phonenumber.type).toBe('like');
+        expect(branch.phonenumber.value).toBe(String.raw`%02\%\_\\4%`);
+        expect(branch[searchFields[i]].type).toBe('like');
+        expect(branch[searchFields[i]].value).toBe(String.raw`%a\%\_\\b%`);
+      });
+    });
+
     it('filters createdAt by startDate / endDate in every search branch, date-only endDate covers the whole day', async () => {
       supplierRepository.findAndCount.mockResolvedValue([[], 0]);
 
@@ -297,6 +320,16 @@ describe('SupplierService', () => {
           },
         }),
       );
+    });
+
+    it('escapes LIKE wildcards in the material name filter', async () => {
+      materialRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findMaterials('s1', { page: 1, size: 10, name: String.raw`th%_\p` });
+
+      const { where } = materialRepository.findAndCount.mock.calls[0][0];
+      expect(where.name.type).toBe('like');
+      expect(where.name.value).toBe(String.raw`%th\%\_\\p%`);
     });
 
     it('filters createdAt by an inclusive from/to range', async () => {

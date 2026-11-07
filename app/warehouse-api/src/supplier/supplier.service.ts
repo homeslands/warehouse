@@ -28,9 +28,14 @@ import {
 } from './supplier.dto';
 import { Supplier } from './supplier.entity';
 import { SupplierTransaction } from './supplier-transaction.entity';
-import { MATERIAL_TRANSACTION_TYPES, MONEY_SCALE } from './supplier.constants';
+import { MATERIAL_TRANSACTION_TYPES } from './supplier.constants';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { buildSortOrder, resolveDateRange, toDateRangeOperator } from 'src/shared/utils/query.util';
+import {
+  buildSortOrder,
+  escapeLike,
+  resolveDateRange,
+  toDateRangeOperator,
+} from 'src/shared/utils/query.util';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { SupplierException } from './supplier.exception';
 import { SupplierValidation } from './supplier.validation';
@@ -44,6 +49,8 @@ import { MaterialException } from 'src/material/material.exception';
 import { MaterialValidation } from 'src/material/material.validation';
 import { CurrentUserDto } from 'src/user/user.decorator';
 import { User } from 'src/user/user.entity';
+import { roundMoney } from 'src/shared/utils/decimal.util';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 const MATERIAL_RELATIONS: FindOptionsRelations<Material> = { type: true, baseUnit: true };
 
@@ -51,8 +58,6 @@ const TRANSACTION_RELATIONS: FindOptionsRelations<SupplierTransaction> = {
   material: true,
   performedBy: true,
 };
-
-const roundMoney = (value: number): number => Number(value.toFixed(MONEY_SCALE));
 
 @Injectable()
 export class SupplierService {
@@ -89,11 +94,11 @@ export class SupplierService {
     if (createdAt) filters.createdAt = createdAt;
     if (query.code) filters.code = query.code;
     if (query.taxCode) filters.taxCode = query.taxCode;
-    if (query.phonenumber) filters.phonenumber = Like(`%${query.phonenumber}%`);
+    if (query.phonenumber) filters.phonenumber = Like(`%${escapeLike(query.phonenumber)}%`);
 
     // `where` dạng mảng ⇒ TypeORM nối các phần tử bằng OR, mỗi phần tử bọc trong ngoặc riêng. Lặp
     // lại `filters` trong từng nhánh để ra: filters AND (name LIKE OR contactPerson LIKE OR email LIKE).
-    const keyword = query.search ? Like(`%${query.search}%`) : undefined;
+    const keyword = query.search ? Like(`%${escapeLike(query.search)}%`) : undefined;
     const where: FindOptionsWhere<Supplier> | FindOptionsWhere<Supplier>[] = keyword
       ? [
           { ...filters, name: keyword },
@@ -108,7 +113,11 @@ export class SupplierService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    return this.paginate(query, total, this.mapper.mapArray(items, Supplier, SupplierResponseDto));
+    return toPaginatedResponse(
+      this.mapper.mapArray(items, Supplier, SupplierResponseDto),
+      total,
+      query,
+    );
   }
 
   async findOne(slug: string): Promise<SupplierResponseDto> {
@@ -159,7 +168,7 @@ export class SupplierService {
     const where: FindOptionsWhere<Material> = { suppliers: { id: supplier.id } };
     if (query.typeSlug) where.type = { slug: query.typeSlug };
     if (query.code) where.code = query.code;
-    if (query.name) where.name = Like(`%${query.name}%`);
+    if (query.name) where.name = Like(`%${escapeLike(query.name)}%`);
     const from = query.from ? new Date(query.from) : undefined;
     const to = query.to ? new Date(query.to) : undefined;
     if (from && to) where.createdAt = Between(from, to);
@@ -173,10 +182,10 @@ export class SupplierService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    return this.paginate(
-      query,
-      total,
+    return toPaginatedResponse(
       this.mapper.mapArray(items, Material, SupplierMaterialResponseDto),
+      total,
+      query,
     );
   }
 
@@ -308,10 +317,10 @@ export class SupplierService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    return this.paginate(
-      query,
-      total,
+    return toPaginatedResponse(
       this.mapper.mapArray(items, SupplierTransaction, SupplierTransactionResponseDto),
+      total,
+      query,
     );
   }
 
@@ -367,22 +376,5 @@ export class SupplierService {
   private async assertTaxCodeIsFree(taxCode: string): Promise<void> {
     const existed = await this.supplierRepository.findOneBy({ taxCode });
     if (existed) throw new SupplierException(SupplierValidation.SUPPLIER_TAX_CODE_DOES_EXIST);
-  }
-
-  private paginate<T>(
-    query: { page: number; size: number },
-    total: number,
-    items: T[],
-  ): AppPaginatedResponseDto<T> {
-    const totalPages = Math.ceil(total / query.size);
-    return {
-      items,
-      total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<T>;
   }
 }

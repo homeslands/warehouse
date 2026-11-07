@@ -1,0 +1,45 @@
+{
+  "id": "D12",
+  "namespace": "DECISION",
+  "title": "Cost, giá trị tồn và KPI/báo cáo",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Phân biệt giá định mức, giá vốn bình quân, chi phí/công nợ; cost tự tính hay tự nhập; ký công thức/cutoff/kỳ/timezone, ngưỡng/recipient, report custom/supplier/expiry và chiến lược tổng hợp trên MySQL. Nguồn giá bán tách ở D26.",
+  "source_reference": "D17 P10 \"Tự động tính toán chi phí nguyên vật liệu\", D13 P103, D23 ADR-009 P189/P196 ↔ D17 T50R2 \"giá cost (tự nhập, không tự động tính được...)\" + mode on/off đồng bộ giá gốc 3rd; D13 P321 giá trung bình gia quyền; D23 ADR-008 P171–P174; D24 T446R9; D17 §4.8.4",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "BA + kế toán + chủ kho",
+  "affected_packages": [
+    "W04",
+    "W06",
+    "W07",
+    "W08",
+    "W09"
+  ],
+  "answer": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+  "rules": [
+    "Giá vốn tồn áp dụng D09: Cnew=(Qold×Cold+Qin×Cin)/(Qold+Qin); xuất giữ đơn giá vốn, Q=0 thì giá trị tồn=0, giữ snapshot cost cho lịch sử. Chênh kiểm tăng dùng cost hiện hành; nếu kho chưa có cost cần giá đã phê duyệt, không tự0.",
+    "Recipe lưu cost_manual riêng, cost_estimated=Σđịnh mức đơn vị gốc×giá vốn vật tư của kho, effective_cost theo mode đã chốt. Không ghi đè cost_manual khi hiển thị cost_estimated; nguồn giá bán theo D26.",
+    "Ledger tồn/lô/phiếu CONFIRMED/kiểm COMPLETED là nguồn báo cáo; phiếu nháp/hủy không cộng tổng. Kỳ theo ngày nghiệp vụ Asia/Ho_Chi_Minh, cutoff [from00:00,to+1ngày00:00). Mọi chart/drill-down/export dùng cùng filter và công thức.",
+    "Giữ đầy đủ report custom, supplier performance, expiry và nhập/xuất/tồn/giá vốn/hao hụt/thu chi/nợ. Trên MySQL triển khai materialized summary tables có watermark và outbox refresh; không gọi CREATE MATERIALIZED VIEW giả nếu DB không hỗ trợ.",
+    "Summary và query builder phải cho biết asOf/watermark; dữ liệu có thể drill-down/reconcile với sổ. Refresh sau confirmed qua queue, mục tiêu<60s; khi cần đối soát dùng chế độ truy vấn sổ trực tiếp. Đây là protocol bổ sung, không số đo đã đạt."
+  ],
+  "rationale": "Giữ các mục tiêu cost/report gốc nhưng phân biệt các đại lượng bị dùng lẫn và cách hiện thực trên MySQL.",
+  "change_control_id": "CR-D12-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Nháp/hủy không làm tăng báo cáo kỳ; confirmed xuất trừ đúng cost snapshot.",
+    "Summary/export/drill-down khớp sổ ở cùng watermark.",
+    "Sửa cost_manual không tự đổi giá trị tồn của kho."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "1e24fc0d8e5bd431d850d8a376fd9b7ade121289711fd64123e4feb9911fb8b7"
+}

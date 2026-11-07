@@ -1,0 +1,17 @@
+{
+  "id": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_method": "Explicit delegated coordinator approval. Preserve R1 files; no user signature or independent reviewer verdict is fabricated.",
+  "user_instruction": "Tiếp tục duyệt và chốt theo quyền điều phối; mục tiêu quyết định hết các gate trước khi implement.",
+  "scope": "Giải quyết D01–D29 và baseline bổ sung trước WXX; không xác nhận môi trường, công việc hoặc test chưa thực hiện.",
+  "limits": [
+    "DEV LOCAL, không CI/CD/deploy/job thật/commit/push/DB hiện hữu.",
+    "Không ghi giả vendor, credential, người nhận việc, test PASS hoặc chữ ký owner.",
+    "Tài liệu gốc bất biến; baseline bổ sung chỉ thay các mâu thuẫn nêu rõ."
+  ],
+  "source_head": "384c53d9f9c81d320793069b3dffd690ae88c0af",
+  "original_design_inventory": "/home/chuong/Desktop/warehouse/.agents/tasks/roadmap-20261104/evidence/source-inventory.json",
+  "original_design_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "user_clarification": "he khac se lam sau, chua co nha cung cap sms ( ma chac cung khong can)"
+}

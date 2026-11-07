@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const TAX_PROFILE_NOT_FOUND = 'TAX_PROFILE_NOT_FOUND';
 export const TAX_PROFILE_TAX_CODE_IS_REQUIRED = 'TAX_PROFILE_TAX_CODE_IS_REQUIRED';

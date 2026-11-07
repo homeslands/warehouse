@@ -1,4 +1,4 @@
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const EXPORT_DATABASE_ERROR = 'EXPORT_DATABASE_ERROR';
 

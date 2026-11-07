@@ -25,7 +25,7 @@ jobs:
           SSH_PORT: ${{ secrets.SSH_PORT_STAGING }}
           SSH_PRIVATE_KEY: ${{ secrets.SSH_PRIVATE_KEY_STAGING }}
         run: |
-          echo "$ENV" > .deploy/staging/.env
+          echo "$ENV" > .github/deploy/staging/.env
           mkdir -p ~/.ssh
           echo "$SSH_PRIVATE_KEY" > ~/.ssh/id_rsa
           chmod 600 ~/.ssh/id_rsa
@@ -34,11 +34,11 @@ jobs:
 
           # Export env. Docker swarm is not able to read .env file
           set -o allexport
-          source .deploy/staging/.env
+          source .github/deploy/staging/.env
           set +o allexport
 
-          docker compose -f .deploy/staging/docker-compose.yml pull
-          docker stack deploy -c .deploy/staging/docker-compose.yml warehouse_stack --detach=true
+          docker compose -f .github/deploy/staging/docker-compose.yml pull
+          docker stack deploy -c .github/deploy/staging/docker-compose.yml warehouse_stack --detach=true
 
           # Remove exited containers
           # docker rm $(docker ps -aq -f status=exited)

@@ -660,6 +660,21 @@ describe('ImportFormService', () => {
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
       );
     });
+
+    it('escapes LIKE wildcards in the substring name filter', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      inventoryRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAvailableMaterials('wh-slug', {
+        page: 1,
+        size: 10,
+        name: String.raw`a%_\b`,
+      } as never);
+
+      const [options] = inventoryRepository.findAndCount.mock.calls[0];
+      expect(options.where.material.name.type).toBe('like');
+      expect(options.where.material.name.value).toBe(String.raw`%a\%\_\\b%`);
+    });
   });
 
   describe('findAll / findOne', () => {
@@ -1092,6 +1107,21 @@ describe('ImportFormService', () => {
 
       await expectError(
         service.uploadFile(html, actor([AuthorityCode.ImportFormCreate])),
+        ImportFormValidation.IMPORT_FORM_FILE_TYPE_NOT_ALLOWED.code,
+      );
+      expect(s3Service.uploadFile).not.toHaveBeenCalled();
+    });
+
+    // #184: đuôi phải khớp mimetype — `x.html` khai `application/pdf` bị chặn với mã cũ, không lên S3.
+    it.each([
+      ['x.html', 'application/pdf'],
+      ['x.png', 'application/pdf'],
+    ])('rejects %s declared as %s without touching S3', async (originalname, mimetype) => {
+      await expectError(
+        service.uploadFile(
+          { originalname, mimetype } as Express.Multer.File,
+          actor([AuthorityCode.ImportFormCreate]),
+        ),
         ImportFormValidation.IMPORT_FORM_FILE_TYPE_NOT_ALLOWED.code,
       );
       expect(s3Service.uploadFile).not.toHaveBeenCalled();

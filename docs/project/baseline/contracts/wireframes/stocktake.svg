@@ -1,0 +1,46 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="1200" height="760" viewBox="0 0 1200 760">
+<rect width="1200" height="760" fill="#f5f7fa"/>
+<style>text{font-family:DejaVu Sans,sans-serif;fill:#213b49;font-size:16px}.small{font-size:12px;fill:#607784}.title{font-size:28px;font-weight:bold}.on-primary{fill:white}</style>
+<rect x="0" y="0" width="1200" height="58" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<text x="24" y="35" class="">WAREHOUSE · MẪU THIẾT KẾ ĐƯỢC DUYỆT</text>
+<text x="760" y="35" class="small">Chưa phải ảnh ứng dụng chạy thật</text>
+<rect x="0" y="58" width="208" height="702" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<text x="22" y="112" class="">Tổng quan</text>
+<text x="22" y="166" class="">Danh mục</text>
+<text x="22" y="220" class="">Nhập / Xuất</text>
+<text x="22" y="274" class="">Kiểm kho</text>
+<text x="22" y="328" class="">Thu / Chi</text>
+<text x="22" y="382" class="">Báo cáo</text>
+<text x="22" y="436" class="">Quản trị</text>
+<text x="240" y="112" class="title">Workspace kiểm kho</text>
+<text x="240" y="145" class="small">Kho đang chọn · Quyền thao tác từ API · Trạng thái nghiệp vụ</text>
+<rect x="240" y="170" width="920" height="54" rx="8" fill="#fff6e5" stroke="#d4e1e8"/>
+<text x="260" y="203" class="">Banner ngữ cảnh: kho khóa / dữ liệu thiếu / tác vụ chờ duyệt</text>
+<rect x="240" y="245" width="610" height="42" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<text x="254" y="272" class="">Tìm kiếm / bộ lọc / ngày / trạng thái</text>
+<rect x="940" y="245" width="220" height="42" rx="8" fill="#1677ff" stroke="#d4e1e8"/>
+<text x="968" y="272" class="on-primary">Tạo mới theo quyền</text>
+<rect x="240" y="315" width="920" height="270" rx="8" fill="#ffffff" stroke="#d4e1e8"/>
+<rect x="240" y="315" width="920" height="43" rx="8" fill="#e8f0f5" stroke="#d4e1e8"/>
+<text x="260" y="343" class="">Tên / Phiếu</text>
+<text x="500" y="343" class="">Ngày / Sổ sách</text>
+<text x="720" y="343" class="">Trạng thái / Thực tế</text>
+<text x="980" y="343" class="">Thao tác</text>
+<text x="260" y="401" class="">Dòng dữ liệu mẫu</text>
+<text x="500" y="401" class="">Giá trị / đơn vị</text>
+<text x="720" y="401" class="">Theo state và quyền</text>
+<text x="980" y="401" class="">Xem / Thao tác</text>
+<text x="260" y="444" class="">Dòng dữ liệu mẫu</text>
+<text x="500" y="444" class="">Giá trị / đơn vị</text>
+<text x="720" y="444" class="">Theo state và quyền</text>
+<text x="980" y="444" class="">Xem / Thao tác</text>
+<text x="260" y="487" class="">Dòng dữ liệu mẫu</text>
+<text x="500" y="487" class="">Giá trị / đơn vị</text>
+<text x="720" y="487" class="">Theo state và quyền</text>
+<text x="980" y="487" class="">Xem / Thao tác</text>
+<text x="260" y="530" class="">Dòng dữ liệu mẫu</text>
+<text x="500" y="530" class="">Giá trị / đơn vị</text>
+<text x="720" y="530" class="">Theo state và quyền</text>
+<text x="980" y="530" class="">Xem / Thao tác</text>
+<text x="242" y="724" class="small">320–390px: một cột hoặc card; thao tác chính ≥44px; focus, lỗi và nhãn rõ</text>
+</svg>

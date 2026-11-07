@@ -1,0 +1,13 @@
+﻿id,objective,task_ids,steps,expected,level,status,actual,evidence,source
+W01-TC01,Target/config sai,W01-BE-02;W01-QA-02,Đổi targetRef/DB name sang giá trị không allowlist,Dừng trước connect/write; không dùng fallback.env,CONFIG_GUARD,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC02,Migration/seed thật,W01-BE-02;W01-QA-02,"Trên DB mới đúng grant, chạy migrations và seed fixture","Có history/fixture version; không synchronize, không leak secret",REAL_DB,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC03,Seed/reset chạy lại,W01-BE-02;W01-QA-02,Seed/reset đúng target hai lần,"Số user/kho/quyền ổn định, không trùng và không tác động DB khác",REAL_DB,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC04,Login/profile,W01-BE-02;W01-QA-02,POST /auth/login user fixture rồi GET /auth/me,200 đúng actor; không giả token hoặc bypass guards,REAL_API_DB_REDIS,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC05,Ẩn danh,W01-BE-02;W01-QA-02,GET /auth/me và /warehouses không token,401; không trả dữ liệu,REAL_API,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC06,Thiếu authority,W01-BE-02;W01-QA-02,Fixture thiếu WAREHOUSE_READ gọi GET /warehouses,"403, không dùng SUPER_ADMIN bypass; không trả dữ liệu",REAL_API_DB,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC07,Scope kho,W01-BE-02;W01-QA-02,SupervisorA có READ gọi danh sách và truy cập khoB,Danh sách chỉ khoA; khoB bị che/chặn theo endpoint policy; không lộ dataB,REAL_API_DB,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC08,Rollback và helper race,W01-BE-02;W01-QA-02,Hai connection/barrier trên dữ liệu probe test; rollback một transaction,"Barrier hoạt động, rollback không để ghi dở; không công bố nghiệp vụ confirm W04 đã PASS",REAL_DB_HELPER,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC09,Browser login/list desktop,W01-FE-02;W01-QA-02,"1440px, user fixture login rồi xem danh sách kho",API thật trả đúng dữ liệu/scope; không route.fulfill; không lỗi console chặn,REAL_BROWSER_API,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC10,Browser mobile,W01-FE-02;W01-QA-02,"390px, login/list với cùng target",Thao tác chính dùng được; không overflow che action; evidence cùng run,REAL_BROWSER_API,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC11,Browser auth/deny/logout,W01-FE-02;W01-QA-02,User thiếu quyền và logout rồi mở protected route,Không hiển thị data trái phép; logout xóa session client; API vẫn quyết định quyền,REAL_BROWSER_API,NOT_RUN,,,SRC-05; SRC-06; SRC-07
+W01-TC12,Full gate và test discovery,W01-BE-01;W01-FE-01;W01-QA-02,Chạy unit/typecheck/UI check và test:e2e tìm thấy test trên diff cuối,"Không suite compile/test fail chưa xử lý, không skip/coverage downgrade/no-tests-found",FULL_GATE,NOT_RUN,,,SRC-05; SRC-06; SRC-07

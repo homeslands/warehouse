@@ -1,0 +1,59 @@
+{
+  "id": "W00",
+  "name": "Chốt baseline thiết kế và điều kiện làm việc (rolling wave)",
+  "decision_status": "APPROVED",
+  "implementation_status": "DOCUMENTATION_COMPLETE",
+  "depends_on": [],
+  "owners": {
+    "BE": "BE01 — 1 backend; coordination assignment, actual human logs receipt/start",
+    "FE": "FE01 — 1 frontend; coordination assignment, actual human logs receipt/start",
+    "QA": "QA01 — 1 tester; coordination assignment, actual human logs receipt/start"
+  },
+  "paths": {
+    "BE": "Chỉ đọc app/warehouse-api/src và app/warehouse-api/src/migrations; contract đề xuất ghi trong task (mới, đề xuất).",
+    "FE": "Chỉ đọc app/warehouse-ui/src; screen map/wireflow đề xuất ghi trong task (mới, đề xuất).",
+    "QA": "Test strategy, test basis và ma trận vai trò trong .agents/tasks/<task-id>/ (mới, đề xuất); không ghi DB."
+  },
+  "scope": {
+    "BE": "Chốt typed contract, quyền, dữ liệu và migration policy.",
+    "FE": "Chốt screen/action/state và wireframe theo Ant Design.",
+    "QA": "Chốt test basis, fixture và target test riêng; chưa chạy QA ứng dụng."
+  },
+  "decisions": [
+    "D02",
+    "D03",
+    "D05",
+    "D06",
+    "D07",
+    "D08",
+    "D09",
+    "D14",
+    "D17",
+    "D18",
+    "D23",
+    "D27",
+    "D31",
+    "D32",
+    "D33",
+    "D35"
+  ],
+  "operation_ids": [],
+  "direct_schema_refs": [],
+  "screen_ids": [],
+  "test_case_ids": [],
+  "requirement_ids": [
+    "DS-10",
+    "DS-11",
+    "DS-12"
+  ],
+  "entry": "All linked R2 decisions + W00 design gate; task dependencies in planning/plan.json. W01 may start now; subsequent implementation waits upstream QA closure. No further business choice is required for current phase.",
+  "handoff": [
+    "Changed paths with exact SHA/diff and migration IDs, excluding others WIP",
+    "Actual command, runtime, environment ID, results and defect/case IDs",
+    "Contract/API/FE parity and negative cases; DB and browser evidence at required level",
+    "No OPEN design deviation: create CR before changing approved behavior"
+  ],
+  "exit": "Role tasks COMPLETE with evidence; QA real-level results, independent code review and owner acceptance before package ACCEPTED. Current no-review request applies to preparing this decision pack, not fabrication of future review results.",
+  "design_contracts": "../contracts/openapi-v1.json, warehouse-storage.proto, schemas.json, business-rules.md, data-and-migration.md, screen-contracts.json",
+  "qa_status": "DESIGNED_NOT_RUN"
+}

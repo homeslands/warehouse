@@ -17,10 +17,13 @@ export class FileService {
     private readonly s3Service: S3Service,
   ) {}
 
-  async uploadFile(file: Express.Multer.File) {
+  async uploadFile(file: Express.Multer.File | undefined): Promise<string> {
     const context = `${FileService.name}.${this.uploadFile.name}`;
+    // Request không có part `file` thì multer để `undefined` chứ không báo lỗi.
+    if (!file) throw new FileException(FileValidation.FILE_NOT_FOUND);
     const key = await this.s3Service.uploadFile(file);
-    this.logger.log(`File ${file.originalname} uploaded to S3 with key ${key}`, context);
+    // Chỉ log key đã làm sạch — `originalname` thô của client có thể chứa CR/LF (log injection).
+    this.logger.log(`File uploaded to S3 with key ${key}`, context);
     return key;
   }
 

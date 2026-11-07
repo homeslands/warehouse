@@ -1,0 +1,126 @@
+[
+  {
+    "id": "E01",
+    "title": "POS thật hoãn theo người dùng",
+    "phase": "FUTURE_PHASE",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "DEFERRED_USER",
+    "status": "DEFERRED_USER",
+    "owner": "Owner POS",
+    "blocks": "FUT-POS live claim",
+    "unlock": "Mở phase mới, vendor contract/sandbox và mapping revision",
+    "evidence": {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D11.md",
+      "sha256": "3f453fa477ff20a0f7e9af65a9fbdd3718d80e32177006ee34c748249f7c420b"
+    },
+    "acceptance_packages": []
+  },
+  {
+    "id": "E02a",
+    "title": "Target MySQL/Redis riêng đã probe",
+    "phase": "PRE_IMPLEMENTATION",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "VERIFIED_INFRA_ONLY",
+    "status": "VERIFIED",
+    "owner": "Coordinator → BE01/QA01",
+    "blocks": "W01 harness target",
+    "unlock": "Re-probe target handle trước mỗi run; không dùng probe cũ làm RBAC proof",
+    "evidence": {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/environment/probe-baseline.json",
+      "sha256": "6de7c4945be9f4e03a09d64ed85ce47a40d1eb851960f3bc64f40033f9844101"
+    },
+    "acceptance_packages": []
+  },
+  {
+    "id": "E02b",
+    "title": "Migration/seed/user/RBAC ứng dụng",
+    "phase": "POST_IMPLEMENTATION",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "NOT_RUN",
+    "status": "NOT_RUN",
+    "owner": "BE01 + QA01",
+    "blocks": "W01 acceptance; W02 implementation",
+    "unlock": "Thực thi protocol E02b trên target đã cấp; không lấy JSON fixture làm user thật",
+    "evidence": null,
+    "acceptance_packages": [
+      "W01",
+      "W02"
+    ]
+  },
+  {
+    "id": "E03",
+    "title": "SMS hoãn khỏi phase hiện tại",
+    "phase": "FUTURE_PHASE",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "DEFERRED_USER",
+    "status": "DEFERRED_USER",
+    "owner": "Coordinator / business owner",
+    "blocks": "FUT-SMS live claim",
+    "unlock": "Chỉ mở lại bằng chỉ dẫn/CR mới",
+    "evidence": {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/approvals/r2/D22.md",
+      "sha256": "13ec4f04000506ad6a58e17f760fffee1a910d685f0dc809820be734bb0c52f9"
+    },
+    "acceptance_packages": []
+  },
+  {
+    "id": "E04-local",
+    "title": "TLS/mTLS, NFR và restore local",
+    "phase": "POST_IMPLEMENTATION",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "NOT_RUN",
+    "status": "NOT_RUN",
+    "owner": "BE01 + QA01",
+    "blocks": "W11 local acceptance",
+    "unlock": "Chạy workload/TLS/restore test thật theo execution-gates.md",
+    "evidence": null,
+    "acceptance_packages": [
+      "W11"
+    ]
+  },
+  {
+    "id": "E04-operational",
+    "title": "Vận hành, uptime và release",
+    "phase": "PRE_RELEASE",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "NOT_RUN",
+    "status": "NOT_RUN",
+    "owner": "Owner môi trường vận hành + QA01",
+    "blocks": "Full project / production release",
+    "unlock": "Target/grant triển khai riêng + 30 ngày quan sát + evidence release",
+    "evidence": null,
+    "acceptance_packages": []
+  },
+  {
+    "id": "E05",
+    "title": "Re-estimate gRPC/Ant Design, lịch 1:1:1",
+    "phase": "PRE_IMPLEMENTATION",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "VERIFIED_DOCUMENT",
+    "status": "VERIFIED",
+    "owner": "Coordinator / BE01 FE01 QA01",
+    "blocks": "W02+ planning",
+    "unlock": "Lịch 84 task, không trùng nguồn lực; tái estimate sau W01/W02",
+    "evidence": {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/planning/plan.json",
+      "sha256": "4e2297e24a97da80ef0df80739e9f1eef2d63113332940467d512717a95bddb5"
+    },
+    "acceptance_packages": []
+  },
+  {
+    "id": "E06",
+    "title": "Contract và dossier đủ trước implement",
+    "phase": "PRE_IMPLEMENTATION",
+    "decisionStatus": "APPROVED",
+    "evidenceStatus": "VERIFIED_DESIGN_ONLY",
+    "status": "VERIFIED",
+    "owner": "Coordinator / BE01 FE01 QA01",
+    "blocks": "WXX design entry",
+    "unlock": "37 quyết định, typed contract/data/UI/test basis và validation có hash",
+    "evidence": {
+      "path": "/home/chuong/Desktop/warehouse/.agents/tasks/preimplementation-gates-20261105/verification/design-validation.json",
+      "sha256": "d5519e37b464a90ff14e0c9222c49d5f0d0fc070bdd67560da3d3490e5387cbf"
+    },
+    "acceptance_packages": []
+  }
+]

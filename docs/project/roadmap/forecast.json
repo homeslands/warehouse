@@ -1,0 +1,1528 @@
+{
+  "as_of": "2026-11-05T10:20:49+07:00",
+  "anchor": "2026-11-05",
+  "calendar_start": null,
+  "actual_start_recorded": false,
+  "duration_days": {
+    "low": 239,
+    "high": 419
+  },
+  "calendar_forecast": null,
+  "tasks_low": {
+    "W01-BE.I": {
+      "id": "W01-BE.I",
+      "package": "W01",
+      "role": "BE",
+      "start": 0,
+      "end": 4,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W01-FE": {
+      "id": "W01-FE",
+      "package": "W01",
+      "role": "FE",
+      "start": 0,
+      "end": 4,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W01-QA.D": {
+      "id": "W01-QA.D",
+      "package": "W01",
+      "role": "QA",
+      "start": 0,
+      "end": 2,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W01-QA.T": {
+      "id": "W01-QA.T",
+      "package": "W01",
+      "role": "QA",
+      "start": 4,
+      "end": 7,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W02-BE.C": {
+      "id": "W02-BE.C",
+      "package": "W02",
+      "role": "BE",
+      "start": 4,
+      "end": 7,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W02-BE.I": {
+      "id": "W02-BE.I",
+      "package": "W02",
+      "role": "BE",
+      "start": 7,
+      "end": 44,
+      "days": 37,
+      "status": "NOT_STARTED"
+    },
+    "W02-FE": {
+      "id": "W02-FE",
+      "package": "W02",
+      "role": "FE",
+      "start": 7,
+      "end": 33,
+      "days": 26,
+      "status": "NOT_STARTED"
+    },
+    "W02-QA.D": {
+      "id": "W02-QA.D",
+      "package": "W02",
+      "role": "QA",
+      "start": 7,
+      "end": 14,
+      "days": 7,
+      "status": "NOT_STARTED"
+    },
+    "W02-QA.T": {
+      "id": "W02-QA.T",
+      "package": "W02",
+      "role": "QA",
+      "start": 44,
+      "end": 56,
+      "days": 12,
+      "status": "NOT_STARTED"
+    },
+    "W03-BE.C": {
+      "id": "W03-BE.C",
+      "package": "W03",
+      "role": "BE",
+      "start": 44,
+      "end": 45,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W03-FE": {
+      "id": "W03-FE",
+      "package": "W03",
+      "role": "FE",
+      "start": 45,
+      "end": 51,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W02-BE.F": {
+      "id": "W02-BE.F",
+      "package": "W02",
+      "role": "BE",
+      "start": 56,
+      "end": 60,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W02-FE.F": {
+      "id": "W02-FE.F",
+      "package": "W02",
+      "role": "FE",
+      "start": 56,
+      "end": 59,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W03-QA.D": {
+      "id": "W03-QA.D",
+      "package": "W03",
+      "role": "QA",
+      "start": 56,
+      "end": 58,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W02-QA.R": {
+      "id": "W02-QA.R",
+      "package": "W02",
+      "role": "QA",
+      "start": 60,
+      "end": 62,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W03-BE.I": {
+      "id": "W03-BE.I",
+      "package": "W03",
+      "role": "BE",
+      "start": 62,
+      "end": 67,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W03-QA.T": {
+      "id": "W03-QA.T",
+      "package": "W03",
+      "role": "QA",
+      "start": 67,
+      "end": 70,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W04-BE.C": {
+      "id": "W04-BE.C",
+      "package": "W04",
+      "role": "BE",
+      "start": 67,
+      "end": 70,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W03-BE.F": {
+      "id": "W03-BE.F",
+      "package": "W03",
+      "role": "BE",
+      "start": 70,
+      "end": 71,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W03-FE.F": {
+      "id": "W03-FE.F",
+      "package": "W03",
+      "role": "FE",
+      "start": 70,
+      "end": 71,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W04-QA.D": {
+      "id": "W04-QA.D",
+      "package": "W04",
+      "role": "QA",
+      "start": 70,
+      "end": 74,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W04-FE": {
+      "id": "W04-FE",
+      "package": "W04",
+      "role": "FE",
+      "start": 71,
+      "end": 81,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W03-QA.R": {
+      "id": "W03-QA.R",
+      "package": "W03",
+      "role": "QA",
+      "start": 74,
+      "end": 75,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W04-BE.I": {
+      "id": "W04-BE.I",
+      "package": "W04",
+      "role": "BE",
+      "start": 75,
+      "end": 90,
+      "days": 15,
+      "status": "NOT_STARTED"
+    },
+    "W04-QA.T": {
+      "id": "W04-QA.T",
+      "package": "W04",
+      "role": "QA",
+      "start": 90,
+      "end": 98,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W05-BE.C": {
+      "id": "W05-BE.C",
+      "package": "W05",
+      "role": "BE",
+      "start": 90,
+      "end": 92,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W05-FE": {
+      "id": "W05-FE",
+      "package": "W05",
+      "role": "FE",
+      "start": 92,
+      "end": 102,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W06-BE.C": {
+      "id": "W06-BE.C",
+      "package": "W06",
+      "role": "BE",
+      "start": 92,
+      "end": 94,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W07-BE.C": {
+      "id": "W07-BE.C",
+      "package": "W07",
+      "role": "BE",
+      "start": 94,
+      "end": 97,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W04-BE.F": {
+      "id": "W04-BE.F",
+      "package": "W04",
+      "role": "BE",
+      "start": 98,
+      "end": 100,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W05-QA.D": {
+      "id": "W05-QA.D",
+      "package": "W05",
+      "role": "QA",
+      "start": 98,
+      "end": 101,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W06-QA.D": {
+      "id": "W06-QA.D",
+      "package": "W06",
+      "role": "QA",
+      "start": 101,
+      "end": 104,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W04-FE.F": {
+      "id": "W04-FE.F",
+      "package": "W04",
+      "role": "FE",
+      "start": 102,
+      "end": 103,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W06-FE": {
+      "id": "W06-FE",
+      "package": "W06",
+      "role": "FE",
+      "start": 103,
+      "end": 111,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W04-QA.R": {
+      "id": "W04-QA.R",
+      "package": "W04",
+      "role": "QA",
+      "start": 104,
+      "end": 106,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W05-BE.I": {
+      "id": "W05-BE.I",
+      "package": "W05",
+      "role": "BE",
+      "start": 106,
+      "end": 116,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W07-QA.D": {
+      "id": "W07-QA.D",
+      "package": "W07",
+      "role": "QA",
+      "start": 106,
+      "end": 110,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W07-FE": {
+      "id": "W07-FE",
+      "package": "W07",
+      "role": "FE",
+      "start": 111,
+      "end": 124,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W05-QA.T": {
+      "id": "W05-QA.T",
+      "package": "W05",
+      "role": "QA",
+      "start": 116,
+      "end": 121,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W06-BE.I": {
+      "id": "W06-BE.I",
+      "package": "W06",
+      "role": "BE",
+      "start": 116,
+      "end": 124,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W05-BE.F": {
+      "id": "W05-BE.F",
+      "package": "W05",
+      "role": "BE",
+      "start": 124,
+      "end": 125,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W05-FE.F": {
+      "id": "W05-FE.F",
+      "package": "W05",
+      "role": "FE",
+      "start": 124,
+      "end": 125,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W06-QA.T": {
+      "id": "W06-QA.T",
+      "package": "W06",
+      "role": "QA",
+      "start": 124,
+      "end": 128,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W07-BE.I": {
+      "id": "W07-BE.I",
+      "package": "W07",
+      "role": "BE",
+      "start": 125,
+      "end": 138,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W05-QA.R": {
+      "id": "W05-QA.R",
+      "package": "W05",
+      "role": "QA",
+      "start": 128,
+      "end": 129,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W06-FE.F": {
+      "id": "W06-FE.F",
+      "package": "W06",
+      "role": "FE",
+      "start": 128,
+      "end": 129,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W06-BE.F": {
+      "id": "W06-BE.F",
+      "package": "W06",
+      "role": "BE",
+      "start": 138,
+      "end": 139,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W07-QA.T": {
+      "id": "W07-QA.T",
+      "package": "W07",
+      "role": "QA",
+      "start": 138,
+      "end": 144,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W08-BE.C": {
+      "id": "W08-BE.C",
+      "package": "W08",
+      "role": "BE",
+      "start": 139,
+      "end": 141,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W08-FE": {
+      "id": "W08-FE",
+      "package": "W08",
+      "role": "FE",
+      "start": 141,
+      "end": 149,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W06-QA.R": {
+      "id": "W06-QA.R",
+      "package": "W06",
+      "role": "QA",
+      "start": 144,
+      "end": 145,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W07-BE.F": {
+      "id": "W07-BE.F",
+      "package": "W07",
+      "role": "BE",
+      "start": 144,
+      "end": 146,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W08-QA.D": {
+      "id": "W08-QA.D",
+      "package": "W08",
+      "role": "QA",
+      "start": 145,
+      "end": 148,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W07-FE.F": {
+      "id": "W07-FE.F",
+      "package": "W07",
+      "role": "FE",
+      "start": 149,
+      "end": 151,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W07-QA.R": {
+      "id": "W07-QA.R",
+      "package": "W07",
+      "role": "QA",
+      "start": 151,
+      "end": 152,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W08-BE.I": {
+      "id": "W08-BE.I",
+      "package": "W08",
+      "role": "BE",
+      "start": 152,
+      "end": 161,
+      "days": 9,
+      "status": "NOT_STARTED"
+    },
+    "W08-QA.T": {
+      "id": "W08-QA.T",
+      "package": "W08",
+      "role": "QA",
+      "start": 161,
+      "end": 165,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W09-BE.C": {
+      "id": "W09-BE.C",
+      "package": "W09",
+      "role": "BE",
+      "start": 161,
+      "end": 164,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W09-FE": {
+      "id": "W09-FE",
+      "package": "W09",
+      "role": "FE",
+      "start": 164,
+      "end": 177,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W08-BE.F": {
+      "id": "W08-BE.F",
+      "package": "W08",
+      "role": "BE",
+      "start": 165,
+      "end": 166,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W09-QA.D": {
+      "id": "W09-QA.D",
+      "package": "W09",
+      "role": "QA",
+      "start": 165,
+      "end": 169,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W08-FE.F": {
+      "id": "W08-FE.F",
+      "package": "W08",
+      "role": "FE",
+      "start": 177,
+      "end": 178,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W08-QA.R": {
+      "id": "W08-QA.R",
+      "package": "W08",
+      "role": "QA",
+      "start": 178,
+      "end": 179,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W09-BE.I": {
+      "id": "W09-BE.I",
+      "package": "W09",
+      "role": "BE",
+      "start": 179,
+      "end": 192,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W09-QA.T": {
+      "id": "W09-QA.T",
+      "package": "W09",
+      "role": "QA",
+      "start": 192,
+      "end": 198,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W10-BE.C": {
+      "id": "W10-BE.C",
+      "package": "W10",
+      "role": "BE",
+      "start": 192,
+      "end": 193,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W10-FE": {
+      "id": "W10-FE",
+      "package": "W10",
+      "role": "FE",
+      "start": 193,
+      "end": 199,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W09-BE.F": {
+      "id": "W09-BE.F",
+      "package": "W09",
+      "role": "BE",
+      "start": 198,
+      "end": 200,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W10-QA.D": {
+      "id": "W10-QA.D",
+      "package": "W10",
+      "role": "QA",
+      "start": 198,
+      "end": 201,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W09-FE.F": {
+      "id": "W09-FE.F",
+      "package": "W09",
+      "role": "FE",
+      "start": 199,
+      "end": 201,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W09-QA.R": {
+      "id": "W09-QA.R",
+      "package": "W09",
+      "role": "QA",
+      "start": 201,
+      "end": 202,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W10-BE.I": {
+      "id": "W10-BE.I",
+      "package": "W10",
+      "role": "BE",
+      "start": 202,
+      "end": 208,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W10-QA.T": {
+      "id": "W10-QA.T",
+      "package": "W10",
+      "role": "QA",
+      "start": 208,
+      "end": 212,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W11-BE.C": {
+      "id": "W11-BE.C",
+      "package": "W11",
+      "role": "BE",
+      "start": 208,
+      "end": 209,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W11-FE": {
+      "id": "W11-FE",
+      "package": "W11",
+      "role": "FE",
+      "start": 209,
+      "end": 216,
+      "days": 7,
+      "status": "NOT_STARTED"
+    },
+    "W10-BE.F": {
+      "id": "W10-BE.F",
+      "package": "W10",
+      "role": "BE",
+      "start": 212,
+      "end": 213,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W11-QA.D": {
+      "id": "W11-QA.D",
+      "package": "W11",
+      "role": "QA",
+      "start": 212,
+      "end": 217,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W10-FE.F": {
+      "id": "W10-FE.F",
+      "package": "W10",
+      "role": "FE",
+      "start": 216,
+      "end": 217,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W10-QA.R": {
+      "id": "W10-QA.R",
+      "package": "W10",
+      "role": "QA",
+      "start": 217,
+      "end": 218,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W11-BE.I": {
+      "id": "W11-BE.I",
+      "package": "W11",
+      "role": "BE",
+      "start": 218,
+      "end": 226,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W11-QA.T": {
+      "id": "W11-QA.T",
+      "package": "W11",
+      "role": "QA",
+      "start": 226,
+      "end": 236,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W11-BE.F": {
+      "id": "W11-BE.F",
+      "package": "W11",
+      "role": "BE",
+      "start": 236,
+      "end": 237,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W11-FE.F": {
+      "id": "W11-FE.F",
+      "package": "W11",
+      "role": "FE",
+      "start": 236,
+      "end": 237,
+      "days": 1,
+      "status": "NOT_STARTED"
+    },
+    "W11-QA.R": {
+      "id": "W11-QA.R",
+      "package": "W11",
+      "role": "QA",
+      "start": 237,
+      "end": 239,
+      "days": 2,
+      "status": "NOT_STARTED"
+    }
+  },
+  "tasks_high": {
+    "W01-BE.I": {
+      "id": "W01-BE.I",
+      "package": "W01",
+      "role": "BE",
+      "start": 0,
+      "end": 7,
+      "days": 7,
+      "status": "NOT_STARTED"
+    },
+    "W01-FE": {
+      "id": "W01-FE",
+      "package": "W01",
+      "role": "FE",
+      "start": 0,
+      "end": 7,
+      "days": 7,
+      "status": "NOT_STARTED"
+    },
+    "W01-QA.D": {
+      "id": "W01-QA.D",
+      "package": "W01",
+      "role": "QA",
+      "start": 0,
+      "end": 3,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W01-QA.T": {
+      "id": "W01-QA.T",
+      "package": "W01",
+      "role": "QA",
+      "start": 7,
+      "end": 12,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W02-BE.C": {
+      "id": "W02-BE.C",
+      "package": "W02",
+      "role": "BE",
+      "start": 7,
+      "end": 12,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W02-BE.I": {
+      "id": "W02-BE.I",
+      "package": "W02",
+      "role": "BE",
+      "start": 12,
+      "end": 73,
+      "days": 61,
+      "status": "NOT_STARTED"
+    },
+    "W02-FE": {
+      "id": "W02-FE",
+      "package": "W02",
+      "role": "FE",
+      "start": 12,
+      "end": 54,
+      "days": 42,
+      "status": "NOT_STARTED"
+    },
+    "W02-QA.D": {
+      "id": "W02-QA.D",
+      "package": "W02",
+      "role": "QA",
+      "start": 12,
+      "end": 22,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W02-QA.T": {
+      "id": "W02-QA.T",
+      "package": "W02",
+      "role": "QA",
+      "start": 73,
+      "end": 93,
+      "days": 20,
+      "status": "NOT_STARTED"
+    },
+    "W03-BE.C": {
+      "id": "W03-BE.C",
+      "package": "W03",
+      "role": "BE",
+      "start": 73,
+      "end": 75,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W03-FE": {
+      "id": "W03-FE",
+      "package": "W03",
+      "role": "FE",
+      "start": 75,
+      "end": 85,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W02-BE.F": {
+      "id": "W02-BE.F",
+      "package": "W02",
+      "role": "BE",
+      "start": 93,
+      "end": 106,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W02-FE.F": {
+      "id": "W02-FE.F",
+      "package": "W02",
+      "role": "FE",
+      "start": 93,
+      "end": 102,
+      "days": 9,
+      "status": "NOT_STARTED"
+    },
+    "W03-QA.D": {
+      "id": "W03-QA.D",
+      "package": "W03",
+      "role": "QA",
+      "start": 93,
+      "end": 96,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W02-QA.R": {
+      "id": "W02-QA.R",
+      "package": "W02",
+      "role": "QA",
+      "start": 106,
+      "end": 112,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W03-BE.I": {
+      "id": "W03-BE.I",
+      "package": "W03",
+      "role": "BE",
+      "start": 112,
+      "end": 120,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W03-QA.T": {
+      "id": "W03-QA.T",
+      "package": "W03",
+      "role": "QA",
+      "start": 120,
+      "end": 125,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W04-BE.C": {
+      "id": "W04-BE.C",
+      "package": "W04",
+      "role": "BE",
+      "start": 120,
+      "end": 125,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W03-BE.F": {
+      "id": "W03-BE.F",
+      "package": "W03",
+      "role": "BE",
+      "start": 125,
+      "end": 127,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W03-FE.F": {
+      "id": "W03-FE.F",
+      "package": "W03",
+      "role": "FE",
+      "start": 125,
+      "end": 127,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W04-QA.D": {
+      "id": "W04-QA.D",
+      "package": "W04",
+      "role": "QA",
+      "start": 125,
+      "end": 131,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W04-FE": {
+      "id": "W04-FE",
+      "package": "W04",
+      "role": "FE",
+      "start": 127,
+      "end": 143,
+      "days": 16,
+      "status": "NOT_STARTED"
+    },
+    "W03-QA.R": {
+      "id": "W03-QA.R",
+      "package": "W03",
+      "role": "QA",
+      "start": 131,
+      "end": 133,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W04-BE.I": {
+      "id": "W04-BE.I",
+      "package": "W04",
+      "role": "BE",
+      "start": 133,
+      "end": 156,
+      "days": 23,
+      "status": "NOT_STARTED"
+    },
+    "W04-QA.T": {
+      "id": "W04-QA.T",
+      "package": "W04",
+      "role": "QA",
+      "start": 156,
+      "end": 168,
+      "days": 12,
+      "status": "NOT_STARTED"
+    },
+    "W05-BE.C": {
+      "id": "W05-BE.C",
+      "package": "W05",
+      "role": "BE",
+      "start": 156,
+      "end": 159,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W05-FE": {
+      "id": "W05-FE",
+      "package": "W05",
+      "role": "FE",
+      "start": 159,
+      "end": 174,
+      "days": 15,
+      "status": "NOT_STARTED"
+    },
+    "W06-BE.C": {
+      "id": "W06-BE.C",
+      "package": "W06",
+      "role": "BE",
+      "start": 159,
+      "end": 162,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W07-BE.C": {
+      "id": "W07-BE.C",
+      "package": "W07",
+      "role": "BE",
+      "start": 162,
+      "end": 167,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W04-BE.F": {
+      "id": "W04-BE.F",
+      "package": "W04",
+      "role": "BE",
+      "start": 168,
+      "end": 173,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W05-QA.D": {
+      "id": "W05-QA.D",
+      "package": "W05",
+      "role": "QA",
+      "start": 168,
+      "end": 173,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W06-QA.D": {
+      "id": "W06-QA.D",
+      "package": "W06",
+      "role": "QA",
+      "start": 173,
+      "end": 177,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W04-FE.F": {
+      "id": "W04-FE.F",
+      "package": "W04",
+      "role": "FE",
+      "start": 174,
+      "end": 178,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W07-QA.D": {
+      "id": "W07-QA.D",
+      "package": "W07",
+      "role": "QA",
+      "start": 177,
+      "end": 183,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W06-FE": {
+      "id": "W06-FE",
+      "package": "W06",
+      "role": "FE",
+      "start": 178,
+      "end": 191,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W04-QA.R": {
+      "id": "W04-QA.R",
+      "package": "W04",
+      "role": "QA",
+      "start": 183,
+      "end": 187,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W05-BE.I": {
+      "id": "W05-BE.I",
+      "package": "W05",
+      "role": "BE",
+      "start": 187,
+      "end": 202,
+      "days": 15,
+      "status": "NOT_STARTED"
+    },
+    "W07-FE": {
+      "id": "W07-FE",
+      "package": "W07",
+      "role": "FE",
+      "start": 191,
+      "end": 211,
+      "days": 20,
+      "status": "NOT_STARTED"
+    },
+    "W05-QA.T": {
+      "id": "W05-QA.T",
+      "package": "W05",
+      "role": "QA",
+      "start": 202,
+      "end": 210,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W06-BE.I": {
+      "id": "W06-BE.I",
+      "package": "W06",
+      "role": "BE",
+      "start": 202,
+      "end": 215,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W05-FE.F": {
+      "id": "W05-FE.F",
+      "package": "W05",
+      "role": "FE",
+      "start": 211,
+      "end": 214,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W05-BE.F": {
+      "id": "W05-BE.F",
+      "package": "W05",
+      "role": "BE",
+      "start": 215,
+      "end": 218,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W06-QA.T": {
+      "id": "W06-QA.T",
+      "package": "W06",
+      "role": "QA",
+      "start": 215,
+      "end": 222,
+      "days": 7,
+      "status": "NOT_STARTED"
+    },
+    "W07-BE.I": {
+      "id": "W07-BE.I",
+      "package": "W07",
+      "role": "BE",
+      "start": 218,
+      "end": 239,
+      "days": 21,
+      "status": "NOT_STARTED"
+    },
+    "W05-QA.R": {
+      "id": "W05-QA.R",
+      "package": "W05",
+      "role": "QA",
+      "start": 222,
+      "end": 225,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W06-FE.F": {
+      "id": "W06-FE.F",
+      "package": "W06",
+      "role": "FE",
+      "start": 222,
+      "end": 225,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W06-BE.F": {
+      "id": "W06-BE.F",
+      "package": "W06",
+      "role": "BE",
+      "start": 239,
+      "end": 242,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W07-QA.T": {
+      "id": "W07-QA.T",
+      "package": "W07",
+      "role": "QA",
+      "start": 239,
+      "end": 249,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W08-BE.C": {
+      "id": "W08-BE.C",
+      "package": "W08",
+      "role": "BE",
+      "start": 242,
+      "end": 245,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W08-FE": {
+      "id": "W08-FE",
+      "package": "W08",
+      "role": "FE",
+      "start": 245,
+      "end": 258,
+      "days": 13,
+      "status": "NOT_STARTED"
+    },
+    "W06-QA.R": {
+      "id": "W06-QA.R",
+      "package": "W06",
+      "role": "QA",
+      "start": 249,
+      "end": 252,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W07-BE.F": {
+      "id": "W07-BE.F",
+      "package": "W07",
+      "role": "BE",
+      "start": 249,
+      "end": 254,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W08-QA.D": {
+      "id": "W08-QA.D",
+      "package": "W08",
+      "role": "QA",
+      "start": 252,
+      "end": 256,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W07-FE.F": {
+      "id": "W07-FE.F",
+      "package": "W07",
+      "role": "FE",
+      "start": 258,
+      "end": 262,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W07-QA.R": {
+      "id": "W07-QA.R",
+      "package": "W07",
+      "role": "QA",
+      "start": 262,
+      "end": 266,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W08-BE.I": {
+      "id": "W08-BE.I",
+      "package": "W08",
+      "role": "BE",
+      "start": 266,
+      "end": 281,
+      "days": 15,
+      "status": "NOT_STARTED"
+    },
+    "W08-QA.T": {
+      "id": "W08-QA.T",
+      "package": "W08",
+      "role": "QA",
+      "start": 281,
+      "end": 288,
+      "days": 7,
+      "status": "NOT_STARTED"
+    },
+    "W09-BE.C": {
+      "id": "W09-BE.C",
+      "package": "W09",
+      "role": "BE",
+      "start": 281,
+      "end": 286,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W09-FE": {
+      "id": "W09-FE",
+      "package": "W09",
+      "role": "FE",
+      "start": 286,
+      "end": 307,
+      "days": 21,
+      "status": "NOT_STARTED"
+    },
+    "W08-BE.F": {
+      "id": "W08-BE.F",
+      "package": "W08",
+      "role": "BE",
+      "start": 288,
+      "end": 291,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W09-QA.D": {
+      "id": "W09-QA.D",
+      "package": "W09",
+      "role": "QA",
+      "start": 288,
+      "end": 294,
+      "days": 6,
+      "status": "NOT_STARTED"
+    },
+    "W08-FE.F": {
+      "id": "W08-FE.F",
+      "package": "W08",
+      "role": "FE",
+      "start": 307,
+      "end": 310,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W08-QA.R": {
+      "id": "W08-QA.R",
+      "package": "W08",
+      "role": "QA",
+      "start": 310,
+      "end": 313,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W09-BE.I": {
+      "id": "W09-BE.I",
+      "package": "W09",
+      "role": "BE",
+      "start": 313,
+      "end": 334,
+      "days": 21,
+      "status": "NOT_STARTED"
+    },
+    "W09-QA.T": {
+      "id": "W09-QA.T",
+      "package": "W09",
+      "role": "QA",
+      "start": 334,
+      "end": 344,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W10-BE.C": {
+      "id": "W10-BE.C",
+      "package": "W10",
+      "role": "BE",
+      "start": 334,
+      "end": 336,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W10-FE": {
+      "id": "W10-FE",
+      "package": "W10",
+      "role": "FE",
+      "start": 336,
+      "end": 346,
+      "days": 10,
+      "status": "NOT_STARTED"
+    },
+    "W09-BE.F": {
+      "id": "W09-BE.F",
+      "package": "W09",
+      "role": "BE",
+      "start": 344,
+      "end": 349,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W10-QA.D": {
+      "id": "W10-QA.D",
+      "package": "W10",
+      "role": "QA",
+      "start": 344,
+      "end": 348,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W09-FE.F": {
+      "id": "W09-FE.F",
+      "package": "W09",
+      "role": "FE",
+      "start": 346,
+      "end": 351,
+      "days": 5,
+      "status": "NOT_STARTED"
+    },
+    "W09-QA.R": {
+      "id": "W09-QA.R",
+      "package": "W09",
+      "role": "QA",
+      "start": 351,
+      "end": 355,
+      "days": 4,
+      "status": "NOT_STARTED"
+    },
+    "W10-BE.I": {
+      "id": "W10-BE.I",
+      "package": "W10",
+      "role": "BE",
+      "start": 355,
+      "end": 364,
+      "days": 9,
+      "status": "NOT_STARTED"
+    },
+    "W10-QA.T": {
+      "id": "W10-QA.T",
+      "package": "W10",
+      "role": "QA",
+      "start": 364,
+      "end": 371,
+      "days": 7,
+      "status": "NOT_STARTED"
+    },
+    "W11-BE.C": {
+      "id": "W11-BE.C",
+      "package": "W11",
+      "role": "BE",
+      "start": 364,
+      "end": 367,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W11-FE": {
+      "id": "W11-FE",
+      "package": "W11",
+      "role": "FE",
+      "start": 367,
+      "end": 378,
+      "days": 11,
+      "status": "NOT_STARTED"
+    },
+    "W10-BE.F": {
+      "id": "W10-BE.F",
+      "package": "W10",
+      "role": "BE",
+      "start": 371,
+      "end": 373,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W11-QA.D": {
+      "id": "W11-QA.D",
+      "package": "W11",
+      "role": "QA",
+      "start": 371,
+      "end": 379,
+      "days": 8,
+      "status": "NOT_STARTED"
+    },
+    "W10-FE.F": {
+      "id": "W10-FE.F",
+      "package": "W10",
+      "role": "FE",
+      "start": 378,
+      "end": 380,
+      "days": 2,
+      "status": "NOT_STARTED"
+    },
+    "W10-QA.R": {
+      "id": "W10-QA.R",
+      "package": "W10",
+      "role": "QA",
+      "start": 380,
+      "end": 383,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W11-BE.I": {
+      "id": "W11-BE.I",
+      "package": "W11",
+      "role": "BE",
+      "start": 383,
+      "end": 395,
+      "days": 12,
+      "status": "NOT_STARTED"
+    },
+    "W11-QA.T": {
+      "id": "W11-QA.T",
+      "package": "W11",
+      "role": "QA",
+      "start": 395,
+      "end": 411,
+      "days": 16,
+      "status": "NOT_STARTED"
+    },
+    "W11-BE.F": {
+      "id": "W11-BE.F",
+      "package": "W11",
+      "role": "BE",
+      "start": 411,
+      "end": 414,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W11-FE.F": {
+      "id": "W11-FE.F",
+      "package": "W11",
+      "role": "FE",
+      "start": 411,
+      "end": 414,
+      "days": 3,
+      "status": "NOT_STARTED"
+    },
+    "W11-QA.R": {
+      "id": "W11-QA.R",
+      "package": "W11",
+      "role": "QA",
+      "start": 414,
+      "end": 419,
+      "days": 5,
+      "status": "NOT_STARTED"
+    }
+  },
+  "note": "Relative forecast until staffed T0 recorded; no promised date. Completed work uses remaining=0; blocked work still has effort and does not become ready by reaching a date."
+}

@@ -1,0 +1,36 @@
+{
+  "checked_at": "2026-11-05T10:23:42+07:00",
+  "baseline": "SOURCE_DRIFT",
+  "blocking": [],
+  "warnings": [
+    "Source đổi so với snapshot audit: 8 file sửa/xóa, 4 file mới. WIP upload đã ghi trong carryover-alignment.md; task implement phải lưu exact dirty diff và đối soát trước nghiệm thu."
+  ],
+  "source_head": "384c53d9f9c81d320793069b3dffd690ae88c0af",
+  "snapshot_head": "384c53d9f9c81d320793069b3dffd690ae88c0af",
+  "task_status_counts": {
+    "BLOCKED": 0,
+    "COMPLETE": 3,
+    "IN_PROGRESS": 0,
+    "NOT_STARTED": 84,
+    "READY_FOR_QA": 0
+  },
+  "package_acceptance": {
+    "W00": "NOT_ASSESSED",
+    "W01": "NOT_ASSESSED",
+    "W02": "NOT_ASSESSED",
+    "W03": "NOT_ASSESSED",
+    "W04": "NOT_ASSESSED",
+    "W05": "NOT_ASSESSED",
+    "W06": "NOT_ASSESSED",
+    "W07": "NOT_ASSESSED",
+    "W08": "NOT_ASSESSED",
+    "W09": "NOT_ASSESSED",
+    "W10": "NOT_ASSESSED",
+    "W11": "NOT_ASSESSED"
+  },
+  "calendar": {
+    "t0": null,
+    "deadline": null
+  },
+  "note": "Integrity check only; evidence content, authority and test adequacy require human review. No application test run."
+}

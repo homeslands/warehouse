@@ -1,0 +1,31 @@
+{
+  "task_count": 9,
+  "implementation_tasks": 6,
+  "microtasks": 49,
+  "capacity": {
+    "BE": 1,
+    "FE": 1,
+    "QA": 1
+  },
+  "no_role_overlap": true,
+  "dependencies_valid": true,
+  "effort": {
+    "BE": [
+      4,
+      7
+    ],
+    "FE": [
+      4,
+      7
+    ],
+    "QA": [
+      5,
+      8
+    ]
+  },
+  "duration": {
+    "low": 8,
+    "high": 14
+  },
+  "actual_implementation_started": false
+}

@@ -103,7 +103,8 @@ export class ImportFormController {
     summary: 'Upload an attachment for an import form to S3',
     description:
       'Returns the S3 link; send it as `file` in POST/PATCH import form. Max 10MB, ' +
-      'pdf/jpg/png/webp/xls/xlsx/doc/docx. Requires IMPORT_FORM_CREATE, ' +
+      'pdf/jpg/jpeg/png/webp/xls/xlsx/doc/docx; the file extension must match its mimetype. ' +
+      'Requires IMPORT_FORM_CREATE, ' +
       'IMPORT_FORM_UPDATE_DRAFT or IMPORT_FORM_UPDATE_DRAFT_OWN',
   })
   @ApiResponseWithType({ status: HttpStatus.CREATED, description: 'Uploaded', type: String })

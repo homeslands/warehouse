@@ -160,10 +160,10 @@ export class UpdateExportFormRequestDto extends PartialType(CreateExportFormRequ
     description: 'Version received from the most recent GET, used to detect conflicts',
     minimum: 1,
   })
-  @IsNotEmpty()
-  @IsInt()
+  @IsNotEmpty({ message: 'EXPORT_FORM_VERSION_INVALID' })
+  @IsInt({ message: 'EXPORT_FORM_VERSION_INVALID' })
   // `@Min(1)`: `version: 0` là falsy ⇒ TypeORM bỏ qua check optimistic lock (xem CLAUDE.md).
-  @Min(1)
+  @Min(1, { message: 'EXPORT_FORM_VERSION_INVALID' })
   version: number;
 }
 
@@ -173,9 +173,9 @@ export class ChangeExportFormStatusRequestDto {
     description: 'Version received from the most recent GET, used to detect conflicts',
     minimum: 1,
   })
-  @IsNotEmpty()
-  @IsInt()
-  @Min(1)
+  @IsNotEmpty({ message: 'EXPORT_FORM_VERSION_INVALID' })
+  @IsInt({ message: 'EXPORT_FORM_VERSION_INVALID' })
+  @Min(1, { message: 'EXPORT_FORM_VERSION_INVALID' })
   version: number;
 }
 

@@ -1,0 +1,253 @@
+{
+  "as_of": "2026-11-05T23:16:41+07:00",
+  "tasks": {
+    "W00-BE": {
+      "status": "COMPLETE",
+      "assignee": "Mekong-HCM",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W00-BE-M01": "COMPLETE",
+        "W00-BE-M02": "COMPLETE",
+        "W00-BE-M03": "COMPLETE",
+        "W00-BE-M04": "COMPLETE",
+        "W00-BE-M05": "COMPLETE"
+      },
+      "publication_evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/w00-w01-delivery-20261105/evidence/issue-readback.json",
+        "issue": "https://github.com/homeslands/warehouse/issues/158"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "documentation_owner": "Mekong-HCM",
+      "receipt": {
+        "by": "Mekong-HCM",
+        "at": "2026-11-05T13:39:38+07:00",
+        "base_sha": "2d080e7",
+        "record": "https://github.com/homeslands/warehouse/issues/158#issuecomment-6651562097"
+      }
+    },
+    "W00-FE": {
+      "status": "DOCUMENTATION_COMPLETE_RECEIPT_PENDING",
+      "assignee": "quyetthangdev",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W00-FE-M01": "COMPLETE",
+        "W00-FE-M02": "COMPLETE",
+        "W00-FE-M03": "COMPLETE",
+        "W00-FE-M04": "COMPLETE",
+        "W00-FE-M05": "NOT_STARTED"
+      },
+      "publication_evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/w00-w01-delivery-20261105/evidence/issue-readback.json",
+        "issue": "https://github.com/homeslands/warehouse/issues/159"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "documentation_owner": "Mekong-HCM"
+    },
+    "W00-QA": {
+      "status": "COMPLETE",
+      "assignee": "lananh138",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W00-QA-M01": "COMPLETE",
+        "W00-QA-M02": "COMPLETE",
+        "W00-QA-M03": "COMPLETE",
+        "W00-QA-M04": "COMPLETE",
+        "W00-QA-M05": "COMPLETE"
+      },
+      "publication_evidence": {
+        "path": "/home/chuong/Desktop/warehouse/.agents/tasks/w00-w01-delivery-20261105/evidence/issue-readback.json",
+        "issue": "https://github.com/homeslands/warehouse/issues/160"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "documentation_owner": "Mekong-HCM",
+      "ownership_ack": {
+        "by": "lananh138",
+        "m05_ticked_at": "2026-11-05T21:47:59+07:00",
+        "comment_at": "2026-11-05T21:53:57+07:00",
+        "record": "https://github.com/homeslands/warehouse/issues/160#issuecomment-6661101847",
+        "run_id": "W01-RUN-20261105-01",
+        "note": "M05 do tester tự tick trên issue; SHA/diff + actual_start ghi khi bắt đầu #165"
+      }
+    },
+    "W01-BE-01": {
+      "status": "READY_FOR_QA",
+      "assignee": "Mekong-HCM",
+      "actual_start": "2026-11-05T13:23:00+07:00",
+      "actual_finish": "2026-11-05T16:19:00+07:00",
+      "evidence": [
+        "https://github.com/homeslands/warehouse/pull/190",
+        "https://github.com/homeslands/warehouse/issues/161#issuecomment-6651533161"
+      ],
+      "microtasks": {
+        "W01-BE-01-M01": "COMPLETE",
+        "W01-BE-01-M02": "COMPLETE",
+        "W01-BE-01-M03": "COMPLETE",
+        "W01-BE-01-M04": "COMPLETE",
+        "W01-BE-01-M05": "COMPLETE"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "levels": {
+        "implemented": true,
+        "unit_typecheck_lint_build": "PASS (Node 24.15.0)",
+        "independent_review": "PASS",
+        "merged": "PR #190 → d655305",
+        "postmerge_verify_main_1a0bee8": "PASS",
+        "ci_unit_test_be": "NOT_RUN (#182)",
+        "qa": "PENDING #166",
+        "accepted": false
+      },
+      "issue_state": "CLOSED (COMPLETED, auto by PR merge) — không đồng nghĩa ACCEPTED"
+    },
+    "W01-BE-02": {
+      "status": "READY_FOR_QA",
+      "assignee": "Mekong-HCM",
+      "actual_start": "2026-11-05T13:45:00+07:00",
+      "actual_finish": "2026-11-05T16:19:00+07:00",
+      "evidence": [
+        "https://github.com/homeslands/warehouse/pull/191",
+        "https://github.com/homeslands/warehouse/issues/162#issuecomment-6654188739"
+      ],
+      "microtasks": {
+        "W01-BE-02-M01": "COMPLETE",
+        "W01-BE-02-M02": "COMPLETE",
+        "W01-BE-02-M03": "COMPLETE",
+        "W01-BE-02-M04": "COMPLETE",
+        "W01-BE-02-M05": "COMPLETE",
+        "W01-BE-02-M06": "COMPLETE",
+        "W01-BE-02-M07": "COMPLETE"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      },
+      "levels": {
+        "implemented": true,
+        "be_dev_run_W01_TC01_08": "PASS on test target WH-TEST-ENV-20261105 (REAL_API_DB_REDIS/REAL_DB/CONFIG_GUARD)",
+        "independent_review": "PASS (r3)",
+        "merged": "PR #191 → 1a0bee8",
+        "postmerge_verify_main_1a0bee8": "PASS (e2e 18/18, unit 1280/1280)",
+        "browser_TC09_12": "NOT_RUN (#164)",
+        "qa": "PENDING #166",
+        "accepted": false
+      },
+      "issue_state": "CLOSED (COMPLETED, auto by PR merge) — không đồng nghĩa ACCEPTED"
+    },
+    "W01-FE-01": {
+      "status": "NOT_STARTED",
+      "assignee": "quyetthangdev",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-FE-01-M01": "NOT_STARTED",
+        "W01-FE-01-M02": "NOT_STARTED",
+        "W01-FE-01-M03": "NOT_STARTED",
+        "W01-FE-01-M04": "NOT_STARTED",
+        "W01-FE-01-M05": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-FE-02": {
+      "status": "NOT_STARTED",
+      "assignee": "quyetthangdev",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-FE-02-M01": "NOT_STARTED",
+        "W01-FE-02-M02": "NOT_STARTED",
+        "W01-FE-02-M03": "NOT_STARTED",
+        "W01-FE-02-M04": "NOT_STARTED",
+        "W01-FE-02-M05": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-QA-01": {
+      "status": "NOT_STARTED",
+      "assignee": "lananh138",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-QA-01-M01": "NOT_STARTED",
+        "W01-QA-01-M02": "NOT_STARTED",
+        "W01-QA-01-M03": "NOT_STARTED",
+        "W01-QA-01-M04": "NOT_STARTED",
+        "W01-QA-01-M05": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    },
+    "W01-QA-02": {
+      "status": "NOT_STARTED",
+      "assignee": "lananh138",
+      "actual_start": null,
+      "actual_finish": null,
+      "evidence": [],
+      "microtasks": {
+        "W01-QA-02-M01": "NOT_STARTED",
+        "W01-QA-02-M02": "NOT_STARTED",
+        "W01-QA-02-M03": "NOT_STARTED",
+        "W01-QA-02-M04": "NOT_STARTED",
+        "W01-QA-02-M05": "NOT_STARTED",
+        "W01-QA-02-M06": "NOT_STARTED",
+        "W01-QA-02-M07": "NOT_STARTED"
+      },
+      "assignment_authority": {
+        "source": "DIRECT_USER_INSTRUCTION_2026-11-05",
+        "assigned_at": "2026-11-05T12:54:32.349484+07:00",
+        "scope": "Issue ownership only; not receipt/actual_start/test acceptance"
+      }
+    }
+  },
+  "assignment_update": {
+    "at": "2026-11-05T12:54:32.349484+07:00",
+    "timezone": "Asia/Bangkok",
+    "github_evidence": ".agents/tasks/issue-assignment-20261105/assignment-summary.json",
+    "coordinator": "Mekong-HCM",
+    "does_not_change_delivery_status": true
+  },
+  "updates": [
+    {
+      "id": "PU-20261105-01",
+      "at": "2026-11-05T23:16:41+07:00",
+      "by": "Mekong-HCM (PM/doc)",
+      "doc": "progress-updates/PU-20261105-01.md",
+      "note": "Cập nhật sau PUB-R1; hash file này khác PUBLICATION-MANIFEST (manifest mô tả snapshot PUB-R1)."
+    }
+  ]
+}

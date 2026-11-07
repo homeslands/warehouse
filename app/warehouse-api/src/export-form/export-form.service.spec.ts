@@ -842,7 +842,7 @@ describe('ExportFormService', () => {
   });
 
   describe('uploadFile', () => {
-    const file = { mimetype: 'application/pdf' } as Express.Multer.File;
+    const file = { originalname: 'a.pdf', mimetype: 'application/pdf' } as Express.Multer.File;
 
     beforeEach(() => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse);
@@ -889,11 +889,27 @@ describe('ExportFormService', () => {
       await expectError(
         service.uploadFile(
           'wh-slug',
-          { mimetype: 'text/html' } as Express.Multer.File,
+          { originalname: 'x.html', mimetype: 'text/html' } as Express.Multer.File,
           actor([AuthorityCode.ExportFormCreate]),
         ),
         ExportFormValidation.EXPORT_FORM_FILE_TYPE_NOT_ALLOWED.code,
       );
+    });
+
+    // #184: đuôi phải khớp mimetype — `x.html` khai `application/pdf` bị chặn với mã cũ, không lên S3.
+    it.each([
+      ['x.html', 'application/pdf'],
+      ['x.png', 'application/pdf'],
+    ])('rejects %s declared as %s without touching S3', async (originalname, mimetype) => {
+      await expectError(
+        service.uploadFile(
+          'wh-slug',
+          { originalname, mimetype } as Express.Multer.File,
+          actor([AuthorityCode.ExportFormCreate]),
+        ),
+        ExportFormValidation.EXPORT_FORM_FILE_TYPE_NOT_ALLOWED.code,
+      );
+      expect(s3Service.uploadFile).not.toHaveBeenCalled();
     });
   });
 });

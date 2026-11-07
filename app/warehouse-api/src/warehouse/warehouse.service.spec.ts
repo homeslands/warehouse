@@ -40,6 +40,14 @@ const managerUser = (overrides: Record<string, unknown> = {}) =>
     ...overrides,
   }) as never;
 
+/** Shape `WarehouseManagerDto` mà mapper dựng từ `managerUser()`. */
+const managerSummary = {
+  slug: 'manager-slug-1',
+  phonenumber: '0900000000',
+  firstName: 'Minh',
+  lastName: 'Nguyen',
+};
+
 const createDto = () => ({
   name: 'Kho Hà Nội 1',
   code: 'WH-HN-01',
@@ -257,7 +265,7 @@ describe('WarehouseService', () => {
       expect(whereOf()).toEqual({ manager: { slug: 'manager-slug-1' } });
     });
 
-    it('computes pagination metadata and flattens the manager and store fields', async () => {
+    it('computes pagination metadata and maps the manager to its summary object', async () => {
       warehouseRepository.findAndCount.mockResolvedValue([
         [
           baseWarehouse({
@@ -278,24 +286,24 @@ describe('WarehouseService', () => {
         hasNext: true,
         hasPrevios: true,
       });
-      expect(result.items[0]).toMatchObject({
-        managerSlug: 'manager-slug-1',
-        managerPhonenumber: '0900000000',
-        managerFirstName: 'Minh',
-        managerLastName: 'Nguyen',
-        storeSlug: 'store-slug-1',
-        storeName: 'Cửa hàng Hà Nội 1',
-      });
+      // `toEqual` khoá đúng 4 field của `WarehouseManagerDto` — role/id/isActive của user không được lộ.
+      expect(result.items[0].manager).toEqual(managerSummary);
+      // Hành vi hiện tại: read path chưa trả store (docs/specs/warehouse.md, mục Quan hệ với Store) và
+      // không còn field phẳng cũ. Nếu contract đổi sang trả store thì cập nhật assertion này cùng DTO.
+      for (const key of ['store', 'storeSlug', 'storeName', 'managerSlug']) {
+        expect(result.items[0]).not.toHaveProperty(key);
+      }
     });
 
-    it('leaves manager and store fields empty when neither is linked', async () => {
+    it('leaves the manager empty and exposes no store data when neither is linked', async () => {
       warehouseRepository.findAndCount.mockResolvedValue([[baseWarehouse()], 1]);
 
       const result = await service.findAll({ page: 1, size: 10 }, admin);
 
-      expect(result.items[0].managerSlug).toBeUndefined();
-      expect(result.items[0].storeSlug).toBeUndefined();
-      expect(result.items[0].storeName).toBeUndefined();
+      expect(result.items[0].manager).toBeUndefined();
+      for (const key of ['store', 'storeSlug', 'storeName']) {
+        expect(result.items[0]).not.toHaveProperty(key);
+      }
     });
   });
 
@@ -827,7 +835,7 @@ describe('WarehouseService', () => {
       expect(warehouseRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ manager: expect.objectContaining({ id: 'user-id-1' }) }),
       );
-      expect(result.managerSlug).toBe('manager-slug-1');
+      expect(result.manager).toEqual(managerSummary);
     });
 
     it('unassigns without looking the user up when managerSlug is null', async () => {
@@ -837,7 +845,7 @@ describe('WarehouseService', () => {
       expect(warehouseRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ manager: null }),
       );
-      expect(result.managerSlug).toBeUndefined();
+      expect(result.manager).toBeUndefined();
     });
 
     it('throws when the target user does not exist', async () => {

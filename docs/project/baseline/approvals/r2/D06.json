@@ -1,0 +1,42 @@
+{
+  "id": "D06",
+  "namespace": "DECISION",
+  "title": "Lưu file, kích thước và quyền truy cập",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Chốt MySQL/storage service/S3 theo loại file, 5MB hay 10MB, private URL/retention/backup cả DB + tệp và phục hồi nhất quán.",
+  "source_reference": "D23 ADR-006 P124/P131 longtext ↔ T231R7 \"Separate Storage Service\" ↔ P249 \"MySql/ S3-compatible\"; D24 T361R6 LONGBLOB; D17 T136R20, T184R17 max 5MB; code S3 và form 10MB",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Tech Lead + chủ dữ liệu",
+  "affected_packages": [
+    "W00",
+    "W02"
+  ],
+  "answer": "Tệp nằm trong private S3-compatible storage; MySQL lưu metadata; chứng từ tối đa 5MiB/tệp.",
+  "rules": [
+    "Chọn Separate Storage Service/provider private S3-compatible theo ADR summary; không lưu binary/base64 trong MySQL LONGTEXT/LONGBLOB. Ghi nhận thay thế ADR-006 P124/P131 và D24 T361R6 bằng metadata/object key/checksum.",
+    "Chứng từ PDF/JPG/PNG: kiểm MIME thực, phần mở rộng, size≤5×1024×1024 byte; attachment gắn entity và quyền kho. File Excel import theo D15 riêng, không gộp với chứng từ.",
+    "Download qua xác thực và kiểm quyền hoặc URL ký hạn tối đa5phút sau authorization; không bucket public, không đặt backup trong public web root. Client không tự chọn object key truy cập kho khác.",
+    "Backup/restore gồm MySQL + object manifest/checksum/version; xóa nghiệp vụ mềm không xóa chứng từ còn trong thời hạn lưu. Upload chưa gắn entity chỉ cleanup sau24h nếu không còn tham chiếu.",
+    "Làm rõ theo chỉ dẫn file upload mới: giới hạn5MiB/PDF-JPG-PNG ở đây áp cho chứng từ tài chính. Generic upload theoD30 có9loại/10MiB; khi gắn vào phiếu tài chính vẫn phải kiểm lại đúngpurpose/size/type, không dùng generic upload để bypass."
+  ],
+  "rationale": "Giải quyết ba lựa chọn lưu trữ mâu thuẫn bằng Separate Storage; giữ 5MB nghiêm hơn code10MB và bảo toàn chứng cứ.",
+  "change_control_id": "CR-D06-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "5MiB nhận, 5MiB+1byte từ chối; đổi đuôi không qua MIME check.",
+    "User khoA không download attachment khoB bằng sửa ID.",
+    "Restore DB+tệp khớp checksum và đủ liên kết."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "c48ad2d70d1db8fc0422d95e31473011e998f6ef67370320f4c365d5020b0405"
+}

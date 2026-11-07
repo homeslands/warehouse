@@ -42,8 +42,9 @@ import { TokenRevocationService } from 'src/auth/token-revocation.service';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { WarehouseMember } from 'src/warehouse/warehouse-member.entity';
 import { pickDefined } from 'src/shared/utils/obj.util';
-import { buildSortOrder, resolveDateRange } from 'src/shared/utils/query.util';
+import { buildSortOrder, escapeLike, resolveDateRange } from 'src/shared/utils/query.util';
 import { WAREHOUSE_UNSCOPED_ROLES } from 'src/warehouse/warehouse.constants';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
 export class UserService {
@@ -122,22 +123,13 @@ export class UserService {
     if (allowedIds && filter.excludedIds?.length)
       allowedIds = allowedIds.filter((id) => !filter.excludedIds.includes(id));
     // `IN ()` rỗng.
-    if (allowedIds && !allowedIds.length)
-      return {
-        items: [],
-        total: 0,
-        page: query.page,
-        pageSize: query.size,
-        totalPages: 0,
-        hasNext: false,
-        hasPrevios: query.page > 1,
-      } as AppPaginatedResponseDto<UserResponseDto>;
+    if (allowedIds && !allowedIds.length) return toPaginatedResponse<UserResponseDto>([], 0, query);
 
     const where: FindOptionsWhere<User> = {};
     if (allowedIds) where.id = In(allowedIds);
     // `IN ()` rỗng là lỗi cú pháp MySQL ⇒ chỉ thêm khi mảng có phần tử.
     else if (filter.excludedIds?.length) where.id = Not(In(filter.excludedIds));
-    if (query.phonenumber) where.phonenumber = Like(`%${query.phonenumber}%`);
+    if (query.phonenumber) where.phonenumber = Like(`%${escapeLike(query.phonenumber)}%`);
     if (query.birthday) where.dob = query.birthday;
     if (start && end) where.createdAt = And(MoreThanOrEqual(start), LessThan(end));
     else if (start) where.createdAt = MoreThanOrEqual(start);
@@ -166,17 +158,8 @@ export class UserService {
       skip: (query.page - 1) * query.size,
       take: query.size,
     });
-    const totalPages = Math.ceil(total / query.size);
 
-    return {
-      items: this.mapper.mapArray(items, User, UserResponseDto),
-      total,
-      page: query.page,
-      pageSize: query.size,
-      totalPages,
-      hasNext: query.page < totalPages,
-      hasPrevios: query.page > 1,
-    } as AppPaginatedResponseDto<UserResponseDto>;
+    return toPaginatedResponse(this.mapper.mapArray(items, User, UserResponseDto), total, query);
   }
 
   /**
@@ -206,7 +189,9 @@ export class UserService {
    * nhánh nên mỗi nhánh phải mang đủ điều kiện chung `base`.
    */
   private nameSearchWhere(base: FindOptionsWhere<User>, name: string): FindOptionsWhere<User>[] {
-    const pattern = `%${name}%`;
+    // `Raw` dưới không cần `ESCAPE`: `escapeLike` dùng `\` — ký tự escape mặc định của LIKE MySQL.
+    // Giả định server KHÔNG bật sql_mode `NO_BACKSLASH_ESCAPES` (khi bật, LIKE không còn escape mặc định).
+    const pattern = `%${escapeLike(name)}%`;
     return [
       { ...base, firstName: Like(pattern) },
       { ...base, lastName: Like(pattern) },

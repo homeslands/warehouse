@@ -1,0 +1,38 @@
+{
+  "id": "D19",
+  "namespace": "DECISION",
+  "title": "Liên kết phiếu nhập cho chi phí không phải mua NVL",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Ký bảng bắt buộc liên kết theo từng loại chi (Vận chuyển, Bốc xếp, Lưu kho, Chi phí khác); không tự chọn bảng T82 hay BR-PAY-003.",
+  "source_reference": "D17 T82R3–R5 \"Phiếu Nhập Kho (optional)\", T82R6 \"Không yêu cầu liên kết\" ↔ D17 P106, P128 \"bắt buộc ≥1\", BR-PAY-003 (T138R4), BR-WAR-003 (T344R4)",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Business Owner + BA",
+  "affected_packages": [
+    "W07"
+  ],
+  "answer": "Mọi chi phí kho không phải mua NVL cũng phải liên kết≥1phiếu nhập.",
+  "rules": [
+    "PURCHASE tự động liên kết một phiếu theo D01. TRANSPORT, HANDLING, STORAGE, OTHER_EXPENSE chọn thủ công≥1ImportForm CONFIRMED cùng kho; không tạo liên kết giả để vượt validation.",
+    "Có thể phân bổ nhiều phiếu; tổng phân bổ net/VAT/gross khớp ExpenseForm và không làm thay đổi giá trị tồn trừ khi CR sau này chốt vốn hóa.",
+    "Chi thực sự không gắn phiếu nhập không được ghi thành chi kho trong module này; cần yêu cầu bổ sung riêng, không tự bỏ BR-PAY-003 vì bảngT82ghi optional."
+  ],
+  "rationale": "Ưu tiên BR-PAY-003/BR-WAR-003 rõ ràng; thay các ô optional/không yêu cầu trong T82.",
+  "change_control_id": "CR-D19-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Chi phí khác không source bị chặn submit.",
+    "Liên kết nhập kho khác scope hoặc chưa confirmed bị từ chối."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "f97487eade55c8cb24d25d28145399ed6a8953d8d495d6834edaf613c596bbbe"
+}

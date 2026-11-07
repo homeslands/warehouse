@@ -21,6 +21,7 @@ import { FirebaseDeviceToken } from './firebase/firebase-device-token.entity';
 import { FirebaseService } from './firebase/firebase.service';
 import { FirebasePlatform } from './firebase/firebase.constant';
 import { FirebaseSendNotificationDto, FirebaseTokenDto } from './firebase/firebase.dto';
+import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 
 @Injectable()
 export class NotificationService {
@@ -206,18 +207,11 @@ export class NotificationService {
     const notifications = await query.getMany();
 
     const total = await query.getCount();
-    const totalPages = Math.ceil(total / options.size);
-    const hasNext = options.page < totalPages;
-    const hasPrevious = options.page > 1;
 
-    return {
-      hasNext: hasNext,
-      hasPrevios: hasPrevious,
-      items: this.mapper.mapArray(notifications, Notification, NotificationResponseDto),
+    return toPaginatedResponse(
+      this.mapper.mapArray(notifications, Notification, NotificationResponseDto),
       total,
-      page: options.page,
-      pageSize: options.size,
-      totalPages,
-    } as AppPaginatedResponseDto<NotificationResponseDto>;
+      options,
+    );
   }
 }

@@ -1,0 +1,507 @@
+{
+  "as_of": "2026-11-05T06:10:45.797364+00:00",
+  "source": "GitHub read-only API",
+  "not_a_test_result": true,
+  "issues": [
+    {
+      "assignees": [],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 187,
+      "state": "OPEN",
+      "title": "[DEVOPS-02] CI build-and-test chỉ chạy job của app có thay đổi",
+      "updatedAt": "2026-11-05T06:09:23Z",
+      "url": "https://github.com/homeslands/warehouse/issues/187"
+    },
+    {
+      "assignees": [],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsMQ",
+          "name": "bug",
+          "description": "Something isn't working",
+          "color": "d73a4a"
+        }
+      ],
+      "milestone": null,
+      "number": 184,
+      "state": "OPEN",
+      "title": "[BE-FIX-04][BE] Làm sạch tên file trong log upload và kiểm cặp đuôi↔mimetype cho upload phiếu nhập/xuất",
+      "updatedAt": "2026-11-05T05:56:28Z",
+      "url": "https://github.com/homeslands/warehouse/issues/184"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 182,
+      "state": "OPEN",
+      "title": "[DEVOPS-01] Bật lại unit test backend trong CI build-and-test sau khi #161 xanh",
+      "updatedAt": "2026-11-05T05:54:01Z",
+      "url": "https://github.com/homeslands/warehouse/issues/182"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsMQ",
+          "name": "bug",
+          "description": "Something isn't working",
+          "color": "d73a4a"
+        }
+      ],
+      "milestone": null,
+      "number": 181,
+      "state": "OPEN",
+      "title": "[BE-FIX-03][BE] Escape ký tự đặc biệt trong mọi tìm kiếm LIKE từ input client",
+      "updatedAt": "2026-11-05T05:53:58Z",
+      "url": "https://github.com/homeslands/warehouse/issues/181"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsMQ",
+          "name": "bug",
+          "description": "Something isn't working",
+          "color": "d73a4a"
+        }
+      ],
+      "milestone": null,
+      "number": 180,
+      "state": "CLOSED",
+      "title": "[BE-FIX-02][BE] S3 key: lấy đúng đuôi cuối, làm sạch tên file và tránh trùng key",
+      "updatedAt": "2026-11-05T06:06:37Z",
+      "url": "https://github.com/homeslands/warehouse/issues/180"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 179,
+      "state": "CLOSED",
+      "title": "[BE-FIX-01][BE] Query validation: thống nhất 422 cho date/sort, giới hạn size ≤ 500, gỡ vòng import validation",
+      "updatedAt": "2026-11-05T06:08:22Z",
+      "url": "https://github.com/homeslands/warehouse/issues/179"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOB3dflw",
+          "login": "lananh138",
+          "name": "Nguyen Thi Lan Anh",
+          "databaseId": 125263767
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 174,
+      "state": "OPEN",
+      "title": "[QA-REG-01][QA] Hồi quy phân trang, hợp đồng lỗi và phiếu sau refactor helper BE",
+      "updatedAt": "2026-11-05T06:07:51Z",
+      "url": "https://github.com/homeslands/warehouse/issues/174"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOB3dflw",
+          "login": "lananh138",
+          "name": "Nguyen Thi Lan Anh",
+          "databaseId": 125263767
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 173,
+      "state": "OPEN",
+      "title": "[QA-UPLOAD-01][QA] Kiểm migration 047, RBAC thật và biên upload của POST /file/upload",
+      "updatedAt": "2026-11-05T05:53:44Z",
+      "url": "https://github.com/homeslands/warehouse/issues/173"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOCoj-Aw",
+          "login": "quyetthangdev",
+          "name": "Phan Quyet Thang",
+          "databaseId": 176750083
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 172,
+      "state": "OPEN",
+      "title": "[FE-ERR-01][FE] Map mã lỗi 422 mới cho version/page/size",
+      "updatedAt": "2026-11-05T05:53:42Z",
+      "url": "https://github.com/homeslands/warehouse/issues/172"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOCoj-Aw",
+          "login": "quyetthangdev",
+          "name": "Phan Quyet Thang",
+          "databaseId": 176750083
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 171,
+      "state": "OPEN",
+      "title": "[FE-UPLOAD-01][FE] Cập nhật ô upload đính kèm phiếu nhập theo ràng buộc mới của POST /file/upload",
+      "updatedAt": "2026-11-05T05:53:38Z",
+      "url": "https://github.com/homeslands/warehouse/issues/171"
+    },
+    {
+      "assignees": [],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 170,
+      "state": "CLOSED",
+      "title": "[BE-CLEAN-03][BE] Message key cho version/page/size: lỗi validate 400 → 422 kèm mã",
+      "updatedAt": "2026-11-05T04:26:22Z",
+      "url": "https://github.com/homeslands/warehouse/issues/170"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 169,
+      "state": "CLOSED",
+      "title": "[BE-CLEAN-02][BE] Gom helper dùng chung: phân trang, roundMoney/trần DECIMAL, findWarehouse, check quyền OR + _OWN",
+      "updatedAt": "2026-11-05T05:55:19Z",
+      "url": "https://github.com/homeslands/warehouse/issues/169"
+    },
+    {
+      "assignees": [],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsMQ",
+          "name": "bug",
+          "description": "Something isn't working",
+          "color": "d73a4a"
+        }
+      ],
+      "milestone": null,
+      "number": 168,
+      "state": "CLOSED",
+      "title": "[BE-SEC-01][BE] Khoá POST /file/upload: yêu cầu FILE_CREATE, giới hạn 10MB và allowlist 9 loại file",
+      "updatedAt": "2026-11-05T04:26:00Z",
+      "url": "https://github.com/homeslands/warehouse/issues/168"
+    },
+    {
+      "assignees": [],
+      "labels": [
+        {
+          "id": "LA_kwDOTRar8s8AAAACqsTsXg",
+          "name": "enhancement",
+          "description": "New feature or request",
+          "color": "a2eeef"
+        }
+      ],
+      "milestone": null,
+      "number": 167,
+      "state": "CLOSED",
+      "title": "[BE-CLEAN-01][BE] Bật bộ rule ESLint clean code cho warehouse-api",
+      "updatedAt": "2026-11-05T04:25:24Z",
+      "url": "https://github.com/homeslands/warehouse/issues/167"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOB3dflw",
+          "login": "lananh138",
+          "name": "Nguyen Thi Lan Anh",
+          "databaseId": 125263767
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 166,
+      "state": "OPEN",
+      "title": "[W01-QA-02][QA] Chạy full gate/API/browser thật, retest và đóng E02b/W01",
+      "updatedAt": "2026-11-05T05:53:31Z",
+      "url": "https://github.com/homeslands/warehouse/issues/166"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOB3dflw",
+          "login": "lananh138",
+          "name": "Nguyen Thi Lan Anh",
+          "databaseId": 125263767
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 165,
+      "state": "OPEN",
+      "title": "[W01-QA-01][QA] Hoàn thiện test plan, fixture/run protocol và ma trận W01",
+      "updatedAt": "2026-11-05T05:53:28Z",
+      "url": "https://github.com/homeslands/warehouse/issues/165"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOCoj-Aw",
+          "login": "quyetthangdev",
+          "name": "Phan Quyet Thang",
+          "databaseId": 176750083
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 164,
+      "state": "OPEN",
+      "title": "[W01-FE-02][FE] Implement browser smoke đăng nhập và danh sách với API thật",
+      "updatedAt": "2026-11-05T05:53:24Z",
+      "url": "https://github.com/homeslands/warehouse/issues/164"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOCoj-Aw",
+          "login": "quyetthangdev",
+          "name": "Phan Quyet Thang",
+          "databaseId": 176750083
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 163,
+      "state": "OPEN",
+      "title": "[W01-FE-01][FE] Tái lập và ổn định full check frontend",
+      "updatedAt": "2026-11-05T05:53:21Z",
+      "url": "https://github.com/homeslands/warehouse/issues/163"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 162,
+      "state": "OPEN",
+      "title": "[W01-BE-02][BE] Implement harness API + DB, migration/seed/reset và helper race",
+      "updatedAt": "2026-11-05T05:53:18Z",
+      "url": "https://github.com/homeslands/warehouse/issues/162"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 161,
+      "state": "OPEN",
+      "title": "[W01-BE-01][BE] Sửa compile/spec lệch DTO và khôi phục gate backend",
+      "updatedAt": "2026-11-05T05:53:15Z",
+      "url": "https://github.com/homeslands/warehouse/issues/161"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOB3dflw",
+          "login": "lananh138",
+          "name": "Nguyen Thi Lan Anh",
+          "databaseId": 125263767
+        },
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 160,
+      "state": "OPEN",
+      "title": "[W00-QA][QA] Bàn giao test basis, fixture và grant môi trường test",
+      "updatedAt": "2026-11-05T05:53:12Z",
+      "url": "https://github.com/homeslands/warehouse/issues/160"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDOCoj-Aw",
+          "login": "quyetthangdev",
+          "name": "Phan Quyet Thang",
+          "databaseId": 176750083
+        },
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 159,
+      "state": "OPEN",
+      "title": "[W00-FE][FE] Bàn giao screen contract, trạng thái UI và phạm vi frontend",
+      "updatedAt": "2026-11-05T05:53:10Z",
+      "url": "https://github.com/homeslands/warehouse/issues/159"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 158,
+      "state": "OPEN",
+      "title": "[W00-BE][BE] Bàn giao contract API, dữ liệu, quyền và migration",
+      "updatedAt": "2026-11-05T05:53:07Z",
+      "url": "https://github.com/homeslands/warehouse/issues/158"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 157,
+      "state": "OPEN",
+      "title": "[W01][PLAN] Ổn định quality gate và implement harness API/DB/browser",
+      "updatedAt": "2026-11-05T05:53:04Z",
+      "url": "https://github.com/homeslands/warehouse/issues/157"
+    },
+    {
+      "assignees": [
+        {
+          "id": "U_kgDODeLPQQ",
+          "login": "Mekong-HCM",
+          "name": "",
+          "databaseId": 232968001
+        }
+      ],
+      "labels": [],
+      "milestone": null,
+      "number": 156,
+      "state": "OPEN",
+      "title": "[W00][PLAN] Baseline, tài liệu thiết kế và bàn giao BE/FE/Tester",
+      "updatedAt": "2026-11-05T05:53:01Z",
+      "url": "https://github.com/homeslands/warehouse/issues/156"
+    }
+  ]
+}

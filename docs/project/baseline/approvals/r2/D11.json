@@ -1,0 +1,45 @@
+{
+  "id": "D11",
+  "namespace": "DECISION",
+  "title": "POS vendor và contract bên ngoài",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Chỉ định vendor/version/sandbox/quyền; mapping product/variant; contract cả 3 endpoint Tồn kho, Công thức, Xuất kho; auth/rate/retry/idempotency/source-of-truth. Không tích hợp dựa trên tên video.",
+  "source_reference": "D05 tham khảo KiotViet; D07:D11 video Sapo chưa xem; D17 T356R2 \"Endpoint: Tồn kho, Công thức, Xuất kho\"; D18!D2 \"bên thứ 3 (POS)\"; người dùng05/11/2026: hệ khác sẽ làm sau.",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "Chủ dự án + POS vendor + Tech Lead",
+  "affected_packages": [
+    "W06",
+    "W10"
+  ],
+  "answer": "Chốt POS khác sẽ tích hợp sau; phase hiện tại hoàn thiện ba API nội bộ và adapter port, không triển khai kết nối POS thật.",
+  "rules": [
+    "Giữ đủ REST v1 Tồn kho, Công thức, Xuất kho và ProductSyncPort. Không chọn Sapo/KiotViet, không mua hoặc tạo tenant; vendor là hệ khác chưa cần quyết định trong phase này theo chỉ dẫn người dùng.",
+    "Phase hiện tại triển khai contract/model/core và test adapter giả có nhãn SIMULATED. Không tự thêm màn nhập sản phẩm thủ công thay cho đồng bộ POS. Khi chưa có nguồn thật, UI sản phẩm thể hiện chưa cấu hình nguồn đồng bộ.",
+    "Adapter live, xác thực vendor, mapping payload vendor và sandbox acceptance là gói FUT-POS được hoãn theo người dùng. Không còn là điều kiện bắt đầu W06/W10 core; vẫn là gate bắt buộc để công bố tích hợp POS thật và nghiệm thu đầy đủ yêu cầu POS gốc.",
+    "Warehouse là nguồn NVL/tồn/recipe; POS tương lai là nguồn product/variant/giá bán gốc. Export API dùng cùng quyền/state/stock checks và idempotency như UI; không bypass.",
+    "Khi mở FUT-POS: owner cấp vendor/version/tenant/contract/sandbox, lập revision mapping và test lại. Không biến fake transport hoặc contract approval thành POS runtime PASS."
+  ],
+  "rationale": "Người dùng đã xác nhận POS là hệ khác và làm sau; đóng lựa chọn phạm vi hiện tại bằng CR, giữ đầy đủ nghĩa vụ tích hợp tương lai.",
+  "change_control_id": "CR-D11-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Ba API nội bộ có contract/case và dùng cùng luật tồn, quyền, idempotency.",
+    "UI chưa có nguồn POS hiển thị trạng thái chưa cấu hình, không dữ liệu bán hàng giả.",
+    "Gate FUT-POS còn NOT_RUN/DEFERRED, không gán PASS khi test fake qua."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "483a91b49f5bc42bce36cff18604772018697a98064cf5872ee006a9204b58b5",
+  "deferred_scope": [
+    "FUT-POS: live vendor adapter, sandbox and runtime acceptance."
+  ]
+}

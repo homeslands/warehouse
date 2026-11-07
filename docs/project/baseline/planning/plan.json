@@ -1,0 +1,2509 @@
+{
+  "id": "WH-PLAN-20261105-R2",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_type": "USER_DELEGATED_COORDINATOR",
+  "capacity": {
+    "BE": 1,
+    "FE": 1,
+    "QA": 1
+  },
+  "calendar_policy": "Relative T0 = first staffed workday after W00 design readiness, start logged by assigned role. No fixed delivery deadline; Mon–Fri, holidays/absence not included.",
+  "actual_start": null,
+  "estimate_basis": "Expert decomposition of remaining work against gRPC/Ant Design baseline. No measured velocity or named human assignment claimed.",
+  "reserve_policy": "BE/FE defect reserve 10–20% after initial QA; separate QA retest 10–20%. Not included twice in component estimates.",
+  "excluded": [
+    "FUT-POS live vendor adapter and sandbox",
+    "FUT-SMS provider and delivery",
+    "CI/CD, production deployment and operational observation"
+  ],
+  "packages": [
+    {
+      "id": "W00",
+      "name": "Chốt baseline thiết kế và điều kiện làm việc (rolling wave)",
+      "deps": [],
+      "gaps": [
+        "G11",
+        "G12",
+        "G20"
+      ],
+      "decisions": [
+        "D02",
+        "D03",
+        "D05",
+        "D06",
+        "D07",
+        "D08",
+        "D09",
+        "D14",
+        "D17",
+        "D18",
+        "D23",
+        "D27",
+        "D31",
+        "D32",
+        "D33",
+        "D35"
+      ],
+      "be": [
+        0,
+        0
+      ],
+      "fe": [
+        0,
+        0
+      ],
+      "qa": [
+        0,
+        0
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "Chưa có API/DTO/error/permission matrix được ký; Swagger tự sinh (api/src/main.ts:35-36) chỉ mô tả code hiện có. Code đã tự chọn một số điểm đang OPEN: role chỉ có SUPERVISOR/MANAGER/ADMIN/SUPER_ADMIN (api/src/role/role.enum.ts:1-6); đã seed 8 quyền BALANCE_FORM_* và 7 quyền WAREHOUSE_PAYMENT_* (api/src/authority/authority.constants.ts:59-76); phiếu xuất có PENDING/reserve (api/src/export-form/export-form.constants.ts:15-19). Migration cuối 1783728000046, có 2 cặp trùng timestamp (008, 024).",
+      "current_fe": "Chưa có screen/route/action map hay visual được duyệt (D28 UI_UX trống theo audit). UI có 18 nhóm page trong ui/src/pages và các cờ tính năng đang tắt trong ui/src/shared/api/backend-capabilities.ts. 12 ảnh audit (evidence/01..12-*.png) là fixture SUPER_ADMIN, không phải thiết kế được ký.",
+      "current_qa": "Chưa có test strategy, DB test riêng hay tài khoản theo vai trò được cấp. Bằng chứng hiện có chỉ là log audit cùng HEAD 384c53d (api-unit.log, ui-check.log); chưa có e2e; workbook test D39 không gắn SHA.",
+      "backend": "Chốt typed contract, quyền, dữ liệu và migration policy.",
+      "frontend": "Chốt screen/action/state và wireframe theo Ant Design.",
+      "tester": "Chốt test basis, fixture và target test riêng; chưa chạy QA ứng dụng.",
+      "accept": "Owner phê duyệt baseline có hash/version; đã ký các quyết định chặn W01–W03 (D02, D03, D05, D06, D07, D08, D09, D14, D23, D27) cùng D17 (phạm vi, gồm danh sách TRACE_EXTRA) và D18 (nhân lực, T0, DB test). Quyết định khác chốt trước gate của gói liên quan theo rolling wave, không chặn T0. Đây là cổng lập lịch, chưa nghiệm thu sản phẩm.",
+      "paths": "Tài liệu đề xuất trong .agents/tasks/<task-id>/ cho tới khi được duyệt; W00 không sửa app/.",
+      "paths_be": "Chỉ đọc app/warehouse-api/src và app/warehouse-api/src/migrations; contract đề xuất ghi trong task (mới, đề xuất).",
+      "paths_fe": "Chỉ đọc app/warehouse-ui/src; screen map/wireflow đề xuất ghi trong task (mới, đề xuất).",
+      "paths_qa": "Test strategy, test basis và ma trận vai trò trong .agents/tasks/<task-id>/ (mới, đề xuất); không ghi DB.",
+      "accept_be": "Contract API/DTO/error/permission cho W01–W03 có version, đã đối chiếu AuthorityCode và migration seed hiện có; có danh sách điểm code đang lệch các quyết định OPEN.",
+      "accept_fe": "Screen/route/action map W02–W03 và bảng trạng thái UI được BA/Designer ký; thư viện và visual theo D07/D08 đã chốt.",
+      "accept_qa": "Test strategy và test basis gắn hash baseline; DB test riêng và tài khoản theo vai trò được cấp bằng văn bản (D18); mỗi dòng truy vết của W01–W03 có case ID dự kiến.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D03": "Giữ kiến trúc đích trong ADR-001: React → REST Gateway → NestJS Storage Service qua gRPC → MySQL.",
+        "D05": "Giá nhập >0, HSD theo chính sách vật tư, max>min; biên cảnh báo được định nghĩa thống nhất.",
+        "D06": "Tệp nằm trong private S3-compatible storage; MySQL lưu metadata; chứng từ tối đa 5MiB/tệp.",
+        "D07": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+        "D08": "Chọn React/TypeScript + Ant Design + Redux Toolkit cho client state; React Query cho server cache.",
+        "D09": "Một NCC cho mỗi phiếu nhập; PO tùy chọn; tiền VND và giá trị tồn tính nhất quán theo đơn vị gốc.",
+        "D14": "Chốt session30phút, audit cùng transaction, backup30ngày và lưu nghiệp vụ≥2năm.",
+        "D17": "Giữ toàn bộ phạm vi BRD/SRS/UC/ADR; không thu gọn thành MVP hoặc chỉ44dòng function list.",
+        "D18": "Dùng capacity lập kế hoạch1BE+1FE+1Tester toàn thời gian,5ngày/tuần; T0 theo gate, chưa áp deadline giả.",
+        "D23": "Admin cấu hình điều khoản thanh toán; seed COD/NET7/NET15/NET30; phương thức thu và chi tách danh mục.",
+        "D27": "Biểu diễn nước cam/vỏ cam bằng NVL riêng và công thức tham chiếu; không tự sinh sản lượng hoặc tồn kho từ việc đổi đơn vị."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Có 29 file đầu vào nhưng chưa có baseline được duyệt; 29 quyết định trong register đều OPEN (D01–D18 từ R0.1, D19–D29 từ kiểm chứng BA). R0.2 bổ sung truy vết cho các yêu cầu không có mã trong SRS/BRD (TRACE_EXTRA), chờ chủ dự án ký giữ hay CR theo D17. W00 chỉ chặn bằng các quyết định cần cho W01–W03 cùng D17/D18; quyết định khác chốt ở gate từng gói."
+    },
+    {
+      "id": "W01",
+      "name": "Ổn định gate và dựng harness kiểm thử",
+      "deps": [],
+      "gaps": [
+        "G13",
+        "G20"
+      ],
+      "decisions": [
+        "D18",
+        "D31",
+        "D32",
+        "D35"
+      ],
+      "be": [
+        4,
+        7
+      ],
+      "fe": [
+        4,
+        7
+      ],
+      "qa": [
+        5,
+        8
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "api/src/warehouse/warehouse.service.spec.ts:296-298,830,840 đọc managerSlug/storeSlug/storeName không còn trên WarehouseResponseDto (evidence/api-typecheck.log). Unit: 55 suite, 1 FAIL, 972/972 test qua (evidence/api-unit.log:126-127). Script test:e2e có (api/package.json:20), supertest đã cài (:91) nhưng không có file *.e2e-spec.ts.",
+      "current_fe": "evidence/ui-check.log:135 \"Failed Tests 43\" (40 timeout, 3 lỗi tìm control); rerun 7 file với 2 worker đều qua, nghi do tranh chấp tài nguyên hoặc cấu hình pool trong ui/vite.config.ts. ui/package.json không có Playwright/Cypress.",
+      "current_qa": "Chỉ có log audit cũ, chưa có lần chạy mới (NOT_RUN ở phiên roadmap). Chưa có DB test riêng được cấp quyền mutate, chưa có seed user thường/2 kho, chưa có helper race.",
+      "backend": "Sửa spec lệch DTO; dựng harness migration/seed/race trên DB mới.",
+      "frontend": "Tái lập và sửa full check; dựng browser smoke với API thật.",
+      "tester": "Seed tám actor test đúng scope; chạy lại full gate và lưu log exact SHA/diff.",
+      "accept": "Full gate chạy lại không còn compile/test failure chưa xử lý, log có SHA và môi trường; harness API+DB và smoke browser chạy được trên DB test riêng được cấp quyền (D18). D18 chưa cấp DB test thì phần harness BLOCKED, không ghi PASS. Gói này chưa chứng minh nghiệp vụ API/DB.",
+      "paths": "BE: api/src/warehouse/warehouse.service.spec.ts, api/test; FE: file test/config có lỗi thực tế, e2e Playwright (mới, đề xuất); QA: evidence local.",
+      "paths_be": "app/warehouse-api/src/warehouse/warehouse.service.spec.ts; app/warehouse-api/test/ (jest-e2e.json; *.e2e-spec.ts và helper seed/race mới, đề xuất).",
+      "paths_fe": "File *.test.ts(x) có lỗi trong app/warehouse-ui/src; app/warehouse-ui/vite.config.ts nếu nguyên nhân được xác minh; app/warehouse-ui/e2e/ và cấu hình Playwright (mới, đề xuất).",
+      "paths_qa": "Log và evidence trong .agents/tasks/<task-id>/evidence; dữ liệu seed và case trong task (mới, đề xuất).",
+      "accept_be": "warehouse.service.spec.ts compile và pass; npm test, typecheck, lint (xem diff sau --fix) sạch; npm run test:e2e tìm thấy ít nhất 1 test và chạy trên DB test riêng (không chấp nhận \"no tests found\").",
+      "accept_fe": "npm run check pass trên Node 24, không tăng timeout, không hạ coverage, không tắt rule; Playwright smoke (đăng nhập + 1 màn danh sách) chạy với API thật trên DB test.",
+      "accept_qa": "Log full gate có SHA, lệnh và môi trường; harness có seed user thường, 2 kho, quyền và script reset; QA chạy lại smoke API/browser độc lập; defect gắn case.",
+      "approved_decision_answers": {
+        "D18": "Dùng capacity lập kế hoạch1BE+1FE+1Tester toàn thời gian,5ngày/tuần; T0 theo gate, chưa áp deadline giả."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "API có 1 suite compile FAIL (5 lỗi TS2339 trong warehouse.service.spec.ts); UI full check FAIL 43 test; lint/build/format exit 0. Rerun 245/245 không thay thế full gate. Chưa có harness API+DB (api/test chỉ có jest-e2e.json) và chưa có e2e browser. Effort R0.2 = sửa gate (BE 0.5–1, FE 3–5, QA 3–5) + harness (BE 2–4, FE 1–2, QA 2–3), làm tròn lên."
+    },
+    {
+      "id": "W02",
+      "name": "Nền kiến trúc, quyền, phiên, audit, tệp và quản trị",
+      "deps": [
+        "W01"
+      ],
+      "gaps": [
+        "G10",
+        "G11",
+        "G14",
+        "G15",
+        "G16"
+      ],
+      "decisions": [
+        "D02",
+        "D03",
+        "D06",
+        "D07",
+        "D08",
+        "D14",
+        "D18",
+        "D30",
+        "D31",
+        "D32",
+        "D35"
+      ],
+      "be": [
+        40,
+        66
+      ],
+      "fe": [
+        26,
+        42
+      ],
+      "qa": [
+        19,
+        30
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "Guard global ở api/src/app/app.module.ts:112-118; sid/blacklist/logout-all ở api/src/auth (auth.constants.ts:6, auth.controller.ts:92,117). @VersionColumn chỉ ở api/src/app/versioned.entity.ts:9 cho phiếu nhập/xuất; master data đã bỏ (migrations/1783728000024-drop-version-from-master-data.ts). @Public trên POST /file/upload (api/src/file/file.controller.ts:14) và GET /notifications (api/src/notification/notification.controller.ts:34; receiver tùy chọn ở notification.service.ts:185-192). Throttler limit 100000/60s (app.module.ts:79); backup ghi vào public/backup (api/src/db/db.service.ts:31) trong khi public được serve tĩnh (app.module.ts:80). Chưa có bảng audit_logs (D24 P369); LoggerEntry chỉ là log kỹ thuật; chưa có traceId. Thiếu GET/DELETE /auth/sessions và PATCH /auth/me.",
+      "current_fe": "Route guard theo authority (ui/src/app/routes/index.tsx:84-95, RoleGate.tsx). Đã có màn users (tạo/sửa, đổi role, reset mật khẩu, bật/tắt), roles, permission matrix, account/profile/đổi mật khẩu, logout-all (ui/src/features/user-*, role-*, permission-matrix, profile-form, change-password, logout-all). Token lưu localStorage (ui/src/shared/api/token-storage.ts:50,59), chưa có idle lock; cờ profileEdit/sessionList đang tắt (backend-capabilities.ts:35,41). Chưa có màn xem audit/log, backup/restore.",
+      "current_qa": "API có spec cho auth (6), rbac (2), role (4), user (3). Không có spec cho file, notification, logger, authority, authority-group, feature-flag-system, backup (db chỉ có transaction-manager.service.spec.ts). Chưa kiểm truy cập ẩn danh, RBAC bằng user thường hay race trên DB thật.",
+      "backend": "Gateway → gRPC Storage; auth/refresh/idle/RBAC, private file, audit/outbox, backup jobs.",
+      "frontend": "Ant Design + Redux shell; auth/session, admin, file/audit/backup screens.",
+      "tester": "Kiểm kiến trúc, cookie/CSRF, quyền dọc/ngang, upload, audit/rollback và restore trên test target.",
+      "accept": "Kiến trúc/stack/contract đạt baseline đã duyệt; không còn endpoint @Public ngoài danh sách được ký; race và RBAC có bằng chứng trên DB test bằng user thường; audit không mất/trùng; backup ngoài web root và restore thành công. Effort 20–32/12–20/11–17 chỉ áp dụng khi giữ monolith + stack FE hiện tại; phương án khác theo D03/D08 phải re-estimate W02–W11 trước T0.",
+      "paths": "BE: api/src/auth, authority, authority-group, permission, rbac, role, user, warehouse/guard, logger, db, file, notification, feature-flag-system, app, shared và migrations; FE: ui/src/app, shared/api, features auth/profile/user/role/permission, widgets/app-shell.",
+      "paths_be": "app/warehouse-api/src/{auth,authority,authority-group,permission,rbac,role,user,warehouse/guard,logger,db,file,notification,feature-flag-system,app,shared}; app/warehouse-api/src/migrations; module audit-log (mới, đề xuất).",
+      "paths_fe": "app/warehouse-ui/src/app (routes, guards); src/shared/api (http, token-storage, backend-capabilities); src/features/{auth-login,profile-form,change-password,logout-all,user-*,role-*,permission-matrix}; src/pages/{account,users,roles,permissions}; src/widgets/app-shell; pages/features audit-log và backup (mới, đề xuất).",
+      "paths_qa": "app/warehouse-api/test/*.e2e-spec.ts cho auth/rbac/file/notification/backup (mới, đề xuất); app/warehouse-ui/e2e cho guard/idle (mới, đề xuất); kết quả trong evidence của task.",
+      "accept_be": "Contract auth/session/audit/file/backup có version; 2 endpoint @Public đã khóa và có test; e2e race và RBAC chạy trên DB test; migration audit_logs có up/down đã review; lint/unit/build sạch.",
+      "accept_fe": "Idle lock 30 phút đồng bộ nhiều tab; màn audit/log/backup theo visual D07; xử lý 401/403/409/429 có component test; npm run check pass; browser evidence desktop/mobile với API thật.",
+      "accept_qa": "Ma trận truy cập ẩn danh phủ 100% route; RBAC kiểm bằng tài khoản thường của từng vai trò D02; audit/backup/restore có đối soát; mọi defect gắn case và SHA.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D03": "Giữ kiến trúc đích trong ADR-001: React → REST Gateway → NestJS Storage Service qua gRPC → MySQL.",
+        "D06": "Tệp nằm trong private S3-compatible storage; MySQL lưu metadata; chứng từ tối đa 5MiB/tệp.",
+        "D07": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+        "D08": "Chọn React/TypeScript + Ant Design + Redux Toolkit cho client state; React Query cho server cache.",
+        "D14": "Chốt session30phút, audit cùng transaction, backup30ngày và lưu nghiệp vụ≥2năm.",
+        "D18": "Dùng capacity lập kế hoạch1BE+1FE+1Tester toàn thời gian,5ngày/tuần; T0 theo gate, chưa áp deadline giả."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Có guard global JWT/Authority/WarehouseScope/Role/Feature; @RequireAuthority ở hầu hết controller nghiệp vụ; sid + blacklist + logout/logout-all; route guard FE theo authority, màn users/roles/permission matrix. Version chỉ có ở phiếu nhập/xuất (master data đã bỏ ở migration 024); lock pessimistic ở confirm/tồn/lô. Thiếu: idle lock, refresh token rotation/cookie (đang để localStorage), API sessions/profile, audit_logs/outbox, màn xem audit/log và backup/restore; backup nằm dưới web root, chưa có retention/restore; chưa có test e2e/race. Có 2 endpoint @Public không qua auth: POST /file/upload (upload S3 không cần đăng nhập) và GET /notifications (đọc được thông báo của mọi user); throttler để limit 100000/phút. Role chỉ có SUPERVISOR/MANAGER/ADMIN/SUPER_ADMIN; có cần thêm vai trò nào theo D02. Nest monolith và FE stack (zustand/react-query/radix) khác ADR. Effort chỉ đúng khi giữ monolith + stack hiện tại; nếu D03/D08 chọn microservices/gRPC hoặc Redux/AntD-MUI thì phải estimate lại W02–W11 trước T0."
+    },
+    {
+      "id": "W03",
+      "name": "Danh mục, kho, vị trí và quy đổi",
+      "deps": [
+        "W02"
+      ],
+      "gaps": [
+        "G06",
+        "G17"
+      ],
+      "decisions": [
+        "D02",
+        "D05",
+        "D07",
+        "D08",
+        "D09",
+        "D23",
+        "D27",
+        "D31",
+        "D33",
+        "D35"
+      ],
+      "be": [
+        6,
+        10
+      ],
+      "fe": [
+        6,
+        10
+      ],
+      "qa": [
+        5,
+        8
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "api/src/{material,material-type,unit,supplier,store,warehouse,tax-profile} có 3–4 spec mỗi module (tax-profile 2). Conversion/convert ở material.controller.ts:109-233; store lịch sử/restore ở store.controller.ts:122-167; warehouse manager/members/active ở warehouse.controller.ts:41-288; material–supplier M:N (migration 041). Không có position/material_position, NSX, is_expiry (D24 T109R11, P160–P194). material.validation.ts:102 kiểm max >= min, khác BR-STK-002 \">\". Chưa xác minh từng module có chặn xóa khi \"đã được sử dụng\" hay không.",
+      "current_fe": "Có trang materials, material-types, units, suppliers, stores, warehouses (ui/src/app/routes/index.tsx:85-199); test page: materials 3, suppliers 6, stores 4, warehouses 8, units 2; widgets material-conversion-units, supplier-materials, warehouse-inventory. Sort/search kho–cửa hàng tắt (backend-capabilities.ts:18,28), inventorySearch tắt (:142). Chưa có fuzzy highlight (NFR-16), vị trí lưu kho, NSX/HSD trên form vật tư.",
+      "current_qa": "Chỉ có unit/component test theo module. Chưa có case từ D20 UC1–UC3 (gồm exception \"đã được sử dụng\" T100R9, T116R9), chưa kiểm FK và precision DECIMAL trên DB thật, chưa có dữ liệu lớn hay tiếng Việt có dấu cho tìm kiếm.",
+      "backend": "Catalog đủ trường SDD, supplier chính, vị trí, conversion, threshold, optimistic version.",
+      "frontend": "Các màn catalog đúng schema; search/filter/sort và lỗi tham chiếu.",
+      "tester": "Kiểm constraint/FK, unit precision, effective thresholds, quyền và trường bắt buộc.",
+      "accept": "Danh mục và quy đổi qua case D20 UC1/2/3 và D17 §4.1; field/validation đồng nhất FE/BE; xóa bị chặn khi đã sử dụng; không mất liên kết hay lịch sử khi sửa.",
+      "paths": "BE: api/src/material, material-type, unit, supplier, store, warehouse, tax-profile và position (mới, đề xuất); FE: entities/features/pages danh mục tương ứng.",
+      "paths_be": "app/warehouse-api/src/{material,material-type,unit,supplier,store,warehouse,tax-profile}; app/warehouse-api/src/migrations; app/warehouse-api/src/position (mới, đề xuất).",
+      "paths_fe": "app/warehouse-ui/src/entities/{material,material-type,unit,supplier,store,warehouse}; src/features/{material-*,material-type-*,unit-*,supplier-*,store-*,warehouse-*}; src/pages/{materials,material-types,units,suppliers,stores,warehouses}; src/widgets/{material-conversion-units,supplier-materials,warehouse-inventory}; entities/position (mới, đề xuất).",
+      "paths_qa": "app/warehouse-api/test/catalog*.e2e-spec.ts (mới, đề xuất); case UC1–UC3 và dữ liệu trong evidence của task.",
+      "accept_be": "Migration position/is_expiry/NSX và min/max có up/down đã review; e2e xóa-đã-dùng trả đúng mã lỗi; unit cho conversion/precision; Swagger khớp contract.",
+      "accept_fe": "Form/list đủ trường D18; fuzzy highlight có test; thông báo lỗi khi xóa mục đã dùng; npm run check pass; browser desktop/mobile.",
+      "accept_qa": "Mọi exception flow UC1–UC3 có kết quả PASS/FAIL trên DB test; precision và FK được đối soát; kết quả gắn SHA.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D05": "Giá nhập >0, HSD theo chính sách vật tư, max>min; biên cảnh báo được định nghĩa thống nhất.",
+        "D07": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+        "D08": "Chọn React/TypeScript + Ant Design + Redux Toolkit cho client state; React Query cho server cache.",
+        "D09": "Một NCC cho mỗi phiếu nhập; PO tùy chọn; tiền VND và giá trị tồn tính nhất quán theo đơn vị gốc.",
+        "D23": "Admin cấu hình điều khoản thanh toán; seed COD/NET7/NET15/NET30; phương thức thu và chi tách danh mục.",
+        "D27": "Biểu diễn nước cam/vỏ cam bằng NVL riêng và công thức tham chiếu; không tự sinh sản lượng hoặc tồn kho từ việc đổi đơn vị."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Đã có CRUD + test API/UI cho vật tư, loại vật tư, đơn vị + quy đổi (convert), NCC (gắn vật tư M:N), cửa hàng (gán kho, lịch sử/restore), kho (manager, members, active), tax-profile lookup. Còn thiếu: vị trí/material_position, NSX, is_expiry, search/sort kho–cửa hàng, search tồn trong kho; min/max đang là max >= min; master data đã bỏ optimistic version ở migration 024. Kho/cửa hàng là phần code có sẵn; thiết kế chỉ có D13 P16 và nhãn ERD, phạm vi chốt theo D02."
+    },
+    {
+      "id": "W04",
+      "name": "Nhập, xuất, lô, luân chuyển và sổ giá trị",
+      "deps": [
+        "W03"
+      ],
+      "gaps": [
+        "G06",
+        "G07",
+        "G08",
+        "G09",
+        "G16",
+        "G17"
+      ],
+      "decisions": [
+        "D01",
+        "D02",
+        "D04",
+        "D05",
+        "D09",
+        "D10",
+        "D12",
+        "D13",
+        "D21",
+        "D28",
+        "D29",
+        "D30",
+        "D31",
+        "D33",
+        "D34",
+        "D35",
+        "D36",
+        "D37"
+      ],
+      "be": [
+        18,
+        28
+      ],
+      "fe": [
+        10,
+        16
+      ],
+      "qa": [
+        12,
+        18
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "@Min(0) unitPrice (api/src/import-form/import-form.dto.ts:62) khác BR-IMP-003 \"> 0\"; assertExpiry chỉ chặn < (import-form.service.ts:620-621) khác BR-IMP-004; mã phiếu client gửi (import-form.dto.ts:108-112, service :303) khác D17 T53R2 \"tự động sinh\"; updateImportForm kiểm version ngoài transaction rồi save không lock lại (import-form.service.ts:292-326); xuất hủy chỉ kiểm authority (export-form.service.ts:351-352); TRANSFER không có kho đích (export-form.constants.ts:26-31); không có averageCost/sổ giá trị (inventory.entity.ts:36-75). Lock pessimistic ở import-form.service.ts:408, export-form.service.ts:429, inventory.service.ts:53,469, material-batch.service.ts:303.",
+      "current_fe": "Route nhập/xuất ở ui/src/app/routes/index.tsx:200-243; features/import-form-editor 16 test, export-form-editor 20 test, cùng submit/confirm/cancel/delete; in bằng window.print (ImportFormDetailPage.tsx:125, ExportFormDetailPage.tsx:129). Cảnh báo vượt max đọc effectiveMaximumInventory (features/import-form-editor/model/review.ts:65-75) nhưng API không trả trường này (api import-form.dto.ts:308-331). Chưa có lý do/ảnh hủy, kho đích, lịch sử biến động/truy xuất nguồn gốc, hiển thị 2 đơn vị.",
+      "current_qa": "API có spec import 3, export 3, inventory 3, batch 2 (unit, DB mock); không có e2e nên chưa có bằng chứng transaction/rollback/race trên DB. Chưa có bộ số liệu đáp án giá trị tồn được ký (D09/D12).",
+      "backend": "Nhập/xuất sáu loại; FEFO vật lý, bình quân giá trị; transfer atomic và payable obligation.",
+      "frontend": "Wizard nhập/xuất; tồn/lô/trace; cảnh báo, version conflict và trạng thái không giữ chỗ.",
+      "tester": "Race confirm, rollback, FEFO/rounding, transfer không sinh chi và chống trùng obligation.",
+      "accept": "Nghiệm thu lõi nhập/xuất/tồn: tổng tồn = tổng lô; cơ chế khả dụng theo D04 đã ký; luân chuyển theo D10 đã ký; sổ giá trị khớp bộ đáp án D12. Các yêu cầu D18!B25:B28, D18!B33:B36 và BR-IMP/EXP/STK trải nhiều gói chỉ đóng đầy đủ sau W07 (tài chính), W08 (cảnh báo), W09 (báo cáo/export); không ký trọn yêu cầu ở mốc W04.",
+      "paths": "BE: api/src/import-form, export-form, inventory, material-batch, migrations và stock-ledger/transfer (mới, đề xuất); FE: entities/features/pages nhập/xuất/tồn.",
+      "paths_be": "app/warehouse-api/src/{import-form,export-form,inventory,material-batch,db}; app/warehouse-api/src/migrations; module stock-ledger/transfer (mới, đề xuất).",
+      "paths_fe": "app/warehouse-ui/src/entities/{import-form,export-form,inventory,material-batch}; src/features/{import-form-*,export-form-*}; src/pages/{import-forms,export-forms}; src/widgets/warehouse-inventory; widget stock-history (mới, đề xuất).",
+      "paths_qa": "app/warehouse-api/test/stock*.e2e-spec.ts (mới, đề xuất); app/warehouse-ui/e2e luồng nhập/xuất (mới, đề xuất); bộ số liệu đáp án trong evidence của task.",
+      "accept_be": "e2e race update-vs-confirm và confirm đồng thời pass trên DB test; giá 0 và HSD cùng ngày bị từ chối; mã phiếu do server cấp; migration sổ giá trị/backfill có up/down và đối soát; không còn trường FE đọc mà API không trả.",
+      "accept_fe": "Wizard dùng dữ liệu cảnh báo từ API; luồng hủy/luân chuyển theo D10; hiển thị 2 đơn vị; lịch sử/truy xuất; component test và npm run check pass; browser evidence với API thật.",
+      "accept_qa": "Case BR-IMP/EXP, UC5/UC6 và FEFO có kết quả trên DB; tồn = lô và giá trị khớp bộ đáp án; race/rollback có log; defect gắn SHA.",
+      "approved_decision_answers": {
+        "D01": "Xác nhận nhập tự sinh đúng một phiếu chi NHÁP mua NVL; thu được lập thủ công theo loại.",
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D04": "Tồn và sổ tiền chỉ thay đổi tại duyệt cuối; nháp/gửi duyệt không giữ chỗ tồn.",
+        "D05": "Giá nhập >0, HSD theo chính sách vật tư, max>min; biên cảnh báo được định nghĩa thống nhất.",
+        "D09": "Một NCC cho mỗi phiếu nhập; PO tùy chọn; tiền VND và giá trị tồn tính nhất quán theo đơn vị gốc.",
+        "D10": "Khóa kiểm kho bắt buộc khi bắt đầu; luân chuyển hai kho một bước nguyên tử; xuất hủy có lý do/ảnh.",
+        "D12": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+        "D13": "Sáu loại xuất riêng: PRODUCTION, SALE, DISPOSAL, TRANSFER, LIQUIDATION, OTHER.",
+        "D21": "Không cho lưu một phiếu xuất hợp lệ vượt tồn hiện tại; confirm luôn kiểm lại trong transaction.",
+        "D28": "Truy xuất theo batch bất biến từ dòng nhập, không dùng phiếu nhập gần nhất để đoán nguồn.",
+        "D29": "Chuẩn hóa mã bằng alias có truy vết; không suy diễn chức năng còn thiếu từ số UC/BR nhảy."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "BE đã có nhập/xuất/tồn/lô/FEFO và unit test; phiếu nhập 3 trạng thái, phiếu xuất 4 trạng thái có PENDING/reserve (code tự chọn, thiết kế không có khái niệm giữ chỗ, chờ D04). UI đã có list/new/detail/print phiếu nhập, wizard xuất 3 bước chọn lô, submit/confirm/cancel/delete. Còn gap: giá nhập cho phép 0 và HSD cùng ngày, mã phiếu do client gửi, hồ sơ hủy, luân chuyển (TRANSFER chỉ là enum), giá trị tồn; rủi ro race update-vs-confirm (G16); chưa xác minh transaction trên DB."
+    },
+    {
+      "id": "W05",
+      "name": "Chu trình kiểm kho và điều chỉnh được duyệt",
+      "deps": [
+        "W04"
+      ],
+      "gaps": [
+        "G01",
+        "G09"
+      ],
+      "decisions": [
+        "D02",
+        "D04",
+        "D10",
+        "D31",
+        "D35",
+        "D37"
+      ],
+      "be": [
+        12,
+        18
+      ],
+      "fe": [
+        10,
+        15
+      ],
+      "qa": [
+        8,
+        13
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "Không có entity/module balance-form (grep rỗng); 8 quyền ở api/src/authority/authority.constants.ts:59-67, seed ở migrations/1783728000012-seed-warehouse-form-authorities.ts:158-202; MANAGER gắn BALANCE_FORM_APPROVE ở api/src/warehouse/warehouse.service.ts:405-407; PATCH :materialSlug/quantity ở api/src/inventory/inventory.controller.ts:164-165 điều chỉnh tồn không qua kiểm kho.",
+      "current_fe": "Không có page/feature kiểm kho; quyền BALANCE_FORM_* chỉ hiện trong ui/src/features/permission-matrix. Form nhập/xuất chưa biết trạng thái kho đang khóa.",
+      "current_qa": "Chưa có case kiểm kho; chưa có dữ liệu để kiểm khóa nhập/xuất hay delta tồn; chưa kiểm PATCH quantity có đồng bộ tồn theo lô hay không.",
+      "backend": "Stocktake lock, hai acknowledgements thật, count, delta và mở khóa atomic.",
+      "frontend": "Workspace phân công/ack/count/ảnh/giải trình và approve tách người tạo.",
+      "tester": "Hai user riêng; khóa nhập/xuất; threshold >5/>10 và complete/cancel race.",
+      "accept": "D18!B29:B32, BR-BAL-001..007 và D20 UC7 đạt; vai trò tạo/hoàn tất/duyệt và cách phân công ≥ 2 người theo D02/D10 đã ký, không tự gộp complete với approve. Không còn đường điều chỉnh tồn bỏ qua kiểm soát đã chốt.",
+      "paths": "BE: balance-form (mới, đề xuất), inventory, material-batch, authority, warehouse, migrations; FE: balance-form entities/features/pages (mới, đề xuất), import/export editor.",
+      "paths_be": "app/warehouse-api/src/balance-form (mới, đề xuất); app/warehouse-api/src/{inventory,material-batch,authority,warehouse}; app/warehouse-api/src/migrations.",
+      "paths_fe": "app/warehouse-ui/src/entities/balance-form, features/balance-form-*, pages/balance-forms (mới, đề xuất); src/features/{import-form-editor,export-form-editor} cho trạng thái khóa.",
+      "paths_qa": "app/warehouse-api/test/balance*.e2e-spec.ts (mới, đề xuất); case UC7 trong evidence của task.",
+      "accept_be": "e2e: khóa/mở khóa, hoàn tất đúng một lần, delta tồn-lô đúng; quyền khớp D02 (migration đổi seed nếu cần, có up/down); PATCH quantity được kiểm soát theo D10.",
+      "accept_fe": "Luồng tạo → đếm → hoàn tất → duyệt chạy với API thật; form nhập/xuất hiển thị trạng thái khóa; npm run check pass; browser mobile cho màn đếm.",
+      "accept_qa": "Mọi BR-BAL và exception UC7 có kết quả trên DB; đối soát tồn/lô/giá trị trước-sau; kết quả gắn SHA.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D04": "Tồn và sổ tiền chỉ thay đổi tại duyệt cuối; nháp/gửi duyệt không giữ chỗ tồn.",
+        "D10": "Khóa kiểm kho bắt buộc khi bắt đầu; luân chuyển hai kho một bước nguyên tử; xuất hủy có lý do/ảnh."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Chưa có BalanceForm/Item, route hay UI. Tuy vậy đã seed 8 authority BALANCE_FORM_* (assigned, record-count, complete, approve) và MANAGER bắt buộc có APPROVE (migration 012). PATCH /inventories/:m/quantity sửa tồn trực tiếp. D02 phải chốt lại bộ quyền đã seed hoặc viết migration đổi tên/xóa."
+    },
+    {
+      "id": "W06",
+      "name": "POS, sản phẩm, biến thể và định mức",
+      "deps": [
+        "W03",
+        "W04"
+      ],
+      "gaps": [
+        "G02"
+      ],
+      "decisions": [
+        "D02",
+        "D03",
+        "D04",
+        "D08",
+        "D11",
+        "D12",
+        "D21",
+        "D24",
+        "D26",
+        "D27",
+        "D29",
+        "D31",
+        "D35"
+      ],
+      "be": [
+        10,
+        16
+      ],
+      "fe": [
+        8,
+        13
+      ],
+      "qa": [
+        7,
+        11
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "grep product|variant|recipe trong api/src không ra module/entity; chưa có connector POS, mapping id_3rd (D24 T87R4, T97R5) hay quyền product/recipe trong api/src/authority/authority.constants.ts.",
+      "current_fe": "Không có entity/page product hoặc recipe trong ui/src; không có màn trạng thái đồng bộ.",
+      "current_qa": "Chưa có POS sandbox/contract (D11) nên chưa có case tích hợp; chưa có case BR-REC công thức.",
+      "backend": "Recipe version/archive/copy, cost tách giá; ba API nội bộ và ProductSyncPort. Không live POS.",
+      "frontend": "Product chưa nguồn: empty-state; recipe/version và manual/synced pricing rõ nguồn.",
+      "tester": "Kiểm recipe, cost và core API; fake adapter có nhãn SIMULATED, FUT-POS chưa nghiệm thu.",
+      "accept": "D18!B2:B9, D20 UC4 và BR-REC-001..004@T368 có bằng chứng; đủ 3 endpoint POS Tồn kho, Công thức, Xuất kho theo D17 T356R2 được kiểm trên sandbox. Chưa có sandbox/contract thì gate BLOCKED, không gọi tích hợp xong.",
+      "paths": "BE: product/variant/recipe/pos-integration (mới, đề xuất), authority, export-form, inventory; FE: product/recipe entities/features/pages (mới, đề xuất) và shared/api.",
+      "paths_be": "app/warehouse-api/src/{product,variant,recipe,pos-integration} (mới, đề xuất); app/warehouse-api/src/{authority,export-form,inventory}; app/warehouse-api/src/migrations.",
+      "paths_fe": "app/warehouse-ui/src/entities/{product,recipe}, features/recipe-*, pages/{products,recipes} (mới, đề xuất); src/shared/api.",
+      "paths_qa": "app/warehouse-api/test/pos*.e2e-spec.ts với stub/sandbox (mới, đề xuất); contract test và case UC4 trong evidence của task.",
+      "accept_be": "3 endpoint POS có contract/version/auth/idempotency và e2e; migration product/variant/variant_material có up/down; lịch sử công thức không mất khi copy/sửa.",
+      "accept_fe": "Màn sản phẩm/công thức chạy với API thật (POS stub cho dev); copy/history/xóa theo D24; npm run check pass; browser evidence.",
+      "accept_qa": "Contract test trên sandbox D11 cho cả 3 endpoint; BR-REC công thức và UC4 có kết quả; thiếu sandbox thì ghi BLOCKED/NOT_RUN.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D03": "Giữ kiến trúc đích trong ADR-001: React → REST Gateway → NestJS Storage Service qua gRPC → MySQL.",
+        "D04": "Tồn và sổ tiền chỉ thay đổi tại duyệt cuối; nháp/gửi duyệt không giữ chỗ tồn.",
+        "D08": "Chọn React/TypeScript + Ant Design + Redux Toolkit cho client state; React Query cho server cache.",
+        "D11": "Duyệt REST contract v1 độc lập vendor; chưa phê duyệt adapter kết nối POS thật khi chưa biết vendor/sandbox.",
+        "D12": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+        "D21": "Không cho lưu một phiếu xuất hợp lệ vượt tồn hiện tại; confirm luôn kiểm lại trong transaction.",
+        "D24": "Cho xóa dòng NVL và lưu phiên bản; xóa cả công thức là archive có kiểm tham chiếu.",
+        "D26": "Giá bán gốc lấy từ POS khi có; mode đồng bộ giá gốc không được ghi đè cost thủ công.",
+        "D27": "Biểu diễn nước cam/vỏ cam bằng NVL riêng và công thức tham chiếu; không tự sinh sản lượng hoặc tồn kho từ việc đổi đơn vị.",
+        "D29": "Chuẩn hóa mã bằng alias có truy vết; không suy diễn chức năng còn thiếu từ số UC/BR nhảy."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Chưa có Product/Variant/Recipe module, route hay code POS; api/docs/specs/product.md và api/docs/plans/product.md là tài liệu, không phải triển khai. REST cho POS theo D17 T356R2 gồm 3 endpoint Tồn kho, Công thức, Xuất kho; tồn và xuất phải dùng logic đã chuẩn hóa ở W04 nên W06 phụ thuộc W04."
+    },
+    {
+      "id": "W07",
+      "name": "Thu chi kho, thanh toán và công nợ",
+      "deps": [
+        "W04"
+      ],
+      "gaps": [
+        "G03",
+        "G17"
+      ],
+      "decisions": [
+        "D01",
+        "D02",
+        "D04",
+        "D09",
+        "D12",
+        "D13",
+        "D19",
+        "D20",
+        "D23",
+        "D25",
+        "D29",
+        "D30",
+        "D31",
+        "D34",
+        "D35",
+        "D36",
+        "D37"
+      ],
+      "be": [
+        16,
+        26
+      ],
+      "fe": [
+        13,
+        20
+      ],
+      "qa": [
+        10,
+        16
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "Endpoint transactions đang ẩn (api/src/supplier/supplier.controller.ts:217-220); SupplierTransaction type PURCHASE/RETURN/PAYMENT (supplier.constants.ts:26-30, supplier-transaction.entity.ts:18-78), createTransaction/findTransactions (supplier.service.ts:232,287); 7 quyền WAREHOUSE_PAYMENT_* (authority.constants.ts:69-76). Không có ExpenseForm/ExpenseItem (D24 P321, P336) hay phiếu thu.",
+      "current_fe": "ui/src/features/supplier-transaction-form (2 test) và widgets/supplier-transactions (1 test) đã có nhưng tắt bằng cờ (shared/api/backend-capabilities.ts:129); không có màn phiếu chi/thu.",
+      "current_qa": "Spec supplier (3) có tham chiếu transaction ở mức unit; chưa có case BR-PAY/BR-REC/BR-WAR; chưa có bộ số liệu VAT/công nợ được ký.",
+      "backend": "Expense/revenue, source links, AP/cash tách biệt, một full settlement và refund installments.",
+      "frontend": "Chi/thu, attachment purpose, công nợ/đã trả/còn nợ và hoàn từng đợt.",
+      "tester": "Đối soát VAT/AP/cash/AR; DEBT confirm không cash; COD/retry không trả hai lần.",
+      "accept": "BR-PAY-001..010, BR-REC-001..008@T186 và BR-WAR-001..013 đạt theo các quyết định đã ký; không thu/chi trùng; công nợ phiếu chi và hoàn tiền nhiều đợt phiếu thu đúng; chứng từ và lịch sử truy về nghiệp vụ gốc. Dashboard/báo cáo thu chi đóng ở W09, cảnh báo công nợ ở W08.",
+      "paths": "BE: expense-form/receipt-form (mới, đề xuất), supplier, import-form, export-form, authority, file, migrations; FE: finance entities/features/pages (mới, đề xuất), features/supplier-transaction-form, widgets/supplier-transactions.",
+      "paths_be": "app/warehouse-api/src/{expense-form,receipt-form} (mới, đề xuất); app/warehouse-api/src/{supplier,import-form,export-form,authority,file}; app/warehouse-api/src/migrations.",
+      "paths_fe": "app/warehouse-ui/src/entities/{expense-form,receipt-form}, features/{expense-form-*,receipt-form-*}, pages/{expense-forms,receipt-forms} (mới, đề xuất); src/features/supplier-transaction-form; src/widgets/supplier-transactions.",
+      "paths_qa": "app/warehouse-api/test/finance*.e2e-spec.ts (mới, đề xuất); bộ số liệu VAT/công nợ/hoàn tiền nhiều đợt trong evidence của task.",
+      "accept_be": "e2e: người tạo ≠ người duyệt, Confirmed bất biến, VAT và ngày đến hạn đúng, idempotency khi tạo chi từ nhập (nếu D01 chọn tự động); migration chuyển đổi SupplierTransaction có up/down; quyền khớp D02.",
+      "accept_fe": "Form/list/filter/print chạy với API thật; không tính tổng phía client khác server; npm run check pass; browser evidence.",
+      "accept_qa": "Mọi BR-PAY/REC/WAR có case và kết quả trên DB; bộ số liệu đối soát được chủ nghiệp vụ ký; kết quả gắn SHA.",
+      "approved_decision_answers": {
+        "D01": "Xác nhận nhập tự sinh đúng một phiếu chi NHÁP mua NVL; thu được lập thủ công theo loại.",
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D04": "Tồn và sổ tiền chỉ thay đổi tại duyệt cuối; nháp/gửi duyệt không giữ chỗ tồn.",
+        "D09": "Một NCC cho mỗi phiếu nhập; PO tùy chọn; tiền VND và giá trị tồn tính nhất quán theo đơn vị gốc.",
+        "D12": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+        "D13": "Sáu loại xuất riêng: PRODUCTION, SALE, DISPOSAL, TRANSFER, LIQUIDATION, OTHER.",
+        "D19": "Mọi chi phí kho không phải mua NVL cũng phải liên kết≥1phiếu nhập.",
+        "D20": "Chứng từ tài chính bắt buộc trước submit/confirm; draft có thể còn thiếu.",
+        "D23": "Admin cấu hình điều khoản thanh toán; seed COD/NET7/NET15/NET30; phương thức thu và chi tách danh mục.",
+        "D25": "ExpenseForm/ExpenseItem cho chi, RevenueForm/RevenueItem cho thu; không tái dùng Transaction chung làm chứng từ tài chính.",
+        "D29": "Chuẩn hóa mã bằng alias có truy vết; không suy diễn chức năng còn thiếu từ số UC/BR nhảy."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Chưa có Expense/Receipt/công nợ. Đã có SupplierTransaction (PURCHASE/RETURN/PAYMENT) + service + UI tab/form nhưng endpoint đang ẩn; đã seed 7 authority WAREHOUSE_PAYMENT_*. Cần quyết định thay thế hay tái dùng mô hình này. Tài liệu mâu thuẫn về tự sinh chi (D01), liên kết phiếu nhập theo loại chi (D19), chứng từ (D20), điều khoản thanh toán (D23); SDD thiếu thiết kế phiếu thu (D25)."
+    },
+    {
+      "id": "W08",
+      "name": "Cảnh báo nghiệp vụ và thông báo",
+      "deps": [
+        "W04",
+        "W05",
+        "W07"
+      ],
+      "gaps": [
+        "G05"
+      ],
+      "decisions": [
+        "D02",
+        "D05",
+        "D12",
+        "D15",
+        "D20",
+        "D22",
+        "D26",
+        "D31",
+        "D35",
+        "D36"
+      ],
+      "be": [
+        11,
+        18
+      ],
+      "fe": [
+        8,
+        13
+      ],
+      "qa": [
+        7,
+        11
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "belowMinimum/aboveMaximum, isBelowMinimum/isAboveMaximum (api/src/inventory/inventory.dto.ts:162-205); expiryBefore (api/src/material-batch/material-batch.dto.ts:49); api/src/notification có consumer/producer nhưng grep NotificationProducer ngoài src/notification rỗng; module notification không có spec. Chưa có bảng Alarm (D24 P348) hay cấu hình ngưỡng.",
+      "current_fe": "Chưa có trung tâm thông báo/cảnh báo; cảnh báo form nhập ở ui/src/features/import-form-editor/model/review.ts:65-75 đọc effectiveMaximumInventory, trường này không có trong ImportFormAvailableMaterialResponseDto (api import-form.dto.ts:308-331).",
+      "current_qa": "Không có test notification; chưa có clock giả, dữ liệu biên ngày/ngưỡng hay case trigger/không trigger.",
+      "backend": "In-app/email, scoped recipients, outbox/dedupe/dead-letter. Không SMS phase này.",
+      "frontend": "Alert center, ngưỡng/cấu hình và delivery state.",
+      "tester": "Boundary min/max/expiry/price, sau commit, rollback không gửi; local mail capture.",
+      "accept": "D18!B43:B44, BR-IMP-005/006, BR-EXP-003, BR-STK-003/004, BR-WAR-013 và cảnh báo D17 §4.7/§4.8.1F có test trigger lẫn không trigger; ngưỡng/kênh/mức độ theo D05/D12/D22 đã ký; đề xuất đặt hàng và bật/tắt/lịch sử có bằng chứng. Không coi hạ tầng notification có sẵn là engine đã hoàn thành.",
+      "paths": "BE: api/src/notification, inventory, material-batch, import-form, export-form và alarm/reorder-suggestion (mới, đề xuất); FE: alert features/pages (mới, đề xuất), import-form-editor, app-shell.",
+      "paths_be": "app/warehouse-api/src/notification; app/warehouse-api/src/{inventory,material-batch,import-form,export-form}; app/warehouse-api/src/migrations; module alarm/reorder-suggestion (mới, đề xuất).",
+      "paths_fe": "app/warehouse-ui/src/features/import-form-editor (model/review.ts); src/widgets/app-shell (chuông thông báo); entities/alarm, features/alarm-settings, pages/{alarms,reorder-suggestions} (mới, đề xuất).",
+      "paths_qa": "app/warehouse-api/test/alarm*.e2e-spec.ts với clock giả (mới, đề xuất); bảng ngưỡng/biên trong evidence của task.",
+      "accept_be": "Mỗi loại cảnh báo có unit cho biên và e2e trigger/không trigger; retry không gửi trùng; migration Alarm/cấu hình có up/down; producer được gọi từ module nghiệp vụ.",
+      "accept_fe": "Trung tâm thông báo, cấu hình, lịch sử, đề xuất đặt hàng chạy với API thật; có a11y announcement; npm run check pass; browser evidence.",
+      "accept_qa": "Bảng biên ngưỡng đủ =/</> cho từng loại; người nhận đúng; kết quả gắn SHA; thiếu môi trường email/SMS thì ghi NOT_RUN.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D05": "Giá nhập >0, HSD theo chính sách vật tư, max>min; biên cảnh báo được định nghĩa thống nhất.",
+        "D12": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+        "D15": "Chốt protocol NFR, Excel import nguyên tử và email báo cáo; chưa tuyên bố đã đạt.",
+        "D20": "Chứng từ tài chính bắt buộc trước submit/confirm; draft có thể còn thiếu.",
+        "D22": "Thông báo tại giao dịch/in-app ngay; email theo lịch; SMS là kênh sự kiện critical được giữ trong scope.",
+        "D26": "Giá bán gốc lấy từ POS khi có; mode đồng bộ giá gốc không được ghi đè cost thủ công."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Có flag tồn dưới min/trên max, filter HSD và notification/FCM, nhưng không module nghiệp vụ nào gọi producer; chưa có engine cảnh báo, đề xuất đặt hàng, bật/tắt hay lịch sử cảnh báo. Cảnh báo vượt max ở form nhập đọc trường API không trả. GET /notifications đang @Public (khóa ở W02). Effort R0.2 đã cộng phạm vi mới được truy vết (đề xuất đặt hàng, hết hàng/tồn cao, bật/tắt và lịch sử cảnh báo)."
+    },
+    {
+      "id": "W09",
+      "name": "Dashboard, báo cáo và xuất dữ liệu",
+      "deps": [
+        "W05",
+        "W06",
+        "W07",
+        "W08"
+      ],
+      "gaps": [
+        "G04",
+        "G09"
+      ],
+      "decisions": [
+        "D02",
+        "D07",
+        "D12",
+        "D15",
+        "D25",
+        "D31",
+        "D34",
+        "D35",
+        "D36",
+        "D37"
+      ],
+      "be": [
+        16,
+        26
+      ],
+      "fe": [
+        13,
+        21
+      ],
+      "qa": [
+        10,
+        16
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "exceljs (api/package.json:52); FileService.generateExcelFile/getTemplateExcel (api/src/file/file.service.ts:70,150) chưa có nơi gọi; không có module report hay PDFKit; chưa có endpoint nào trong D24 T446R2–R9.",
+      "current_fe": "HomePage chỉ nhận nav (ui/src/pages/home/ui/HomePage.tsx:41; routes/index.tsx:74-80); ui/package.json không có thư viện chart; in từng phiếu bằng window.print ở 2 trang detail; quyền IMPORT_FORM_EXPORT/EXPORT_FORM_EXPORT chỉ gác nút in (ui/src/pages/import-forms/model/abilities.ts:54).",
+      "current_qa": "Chưa có dataset có đáp án cho báo cáo, chưa có protocol đo < 5s (D15), chưa kiểm file Excel/PDF/CSV thật.",
+      "backend": "Report summary/watermark, 11 report, custom allowlist, Excel/PDF/CSV và schedule definitions.",
+      "frontend": "Dashboard/chart/table/drilldown cùng filter; FULL/PARTIAL và export state.",
+      "tester": "Đối soát ledger với reports và file thật; không zero-fill dữ liệu legacy thiếu cost.",
+      "accept": "D18!B37:B45, D17 §4.6.1, §4.8.4–§4.8.6, T356R3/R5 và D24 T446 đủ phạm vi; tổng hợp = sổ nguồn, drill-down khớp, không bỏ custom/supplier performance/expiry/hao hụt; file mở và in được. Chưa thay cho NFR vận hành.",
+      "paths": "BE: report (mới, đề xuất), file, inventory, import-form, export-form; FE: dashboard/reports (mới, đề xuất), pages/home.",
+      "paths_be": "app/warehouse-api/src/report (mới, đề xuất); app/warehouse-api/src/{file,inventory,import-form,export-form}; app/warehouse-api/src/migrations (bảng tổng hợp nếu ADR-008 chốt).",
+      "paths_fe": "app/warehouse-ui/src/pages/home; pages/{dashboard,reports}, widgets/report-*, features/report-export (mới, đề xuất).",
+      "paths_qa": "app/warehouse-api/test/report*.e2e-spec.ts (mới, đề xuất); dataset đáp án và file export mẫu trong evidence của task.",
+      "accept_be": "Mỗi endpoint T446 có contract, quyền D02 và test đối soát với dataset; file export mở được; số đo < 5s có log theo protocol D15.",
+      "accept_fe": "Dashboard/báo cáo khớp số API; download hoạt động; npm run check pass; browser desktop/tablet/mobile.",
+      "accept_qa": "Mọi báo cáo được đối soát với sổ nguồn; file thật được mở kiểm; số đo hiệu năng có protocol; kết quả gắn SHA.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D07": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+        "D12": "Tách cost định mức khỏi giá vốn tồn; chốt sổ nguồn và công thức báo cáo.",
+        "D15": "Chốt protocol NFR, Excel import nguyên tử và email báo cáo; chưa tuyên bố đã đạt.",
+        "D25": "ExpenseForm/ExpenseItem cho chi, RevenueForm/RevenueItem cho thu; không tái dùng Transaction chung làm chứng từ tài chính."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "HomePage chỉ là menu; chưa có tổng hợp nhập-xuất-tồn/giá trị/thu chi, chart hay bộ export. API đã có exceljs và FileService.generateExcelFile/getTemplateExcel nhưng chưa dùng; chưa có thư viện chart/PDF. ADR-008 Materialized View phải tự làm bảng tổng hợp + refresh vì MySQL không có MV native."
+    },
+    {
+      "id": "W10",
+      "name": "Import Excel và hợp đồng tích hợp hoàn chỉnh",
+      "deps": [
+        "W03",
+        "W04",
+        "W06",
+        "W09"
+      ],
+      "gaps": [
+        "G04",
+        "G11",
+        "G19"
+      ],
+      "decisions": [
+        "D02",
+        "D03",
+        "D07",
+        "D11",
+        "D15",
+        "D30",
+        "D31",
+        "D35"
+      ],
+      "be": [
+        7,
+        11
+      ],
+      "fe": [
+        6,
+        10
+      ],
+      "qa": [
+        7,
+        11
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "Không có endpoint import; FileService.getTemplateExcel (api/src/file/file.service.ts:150) chưa dùng; Swagger ở api/src/main.ts:35-36; chưa có contract POS ngoài code.",
+      "current_fe": "Không có wizard import, template hay trang help trong ui/src.",
+      "current_qa": "Chưa có file mẫu hợp lệ/lỗi, chưa có expected result cho atomic/partial (D15).",
+      "backend": "XLSX ≤5MiB/1000 dòng; preview rồi atomic CREATE_ONLY, idempotent job.",
+      "frontend": "Wizard upload/preview row errors/confirm và template version.",
+      "tester": "Một dòng lỗi không ghi gì; retry không trùng; import phiếu chỉ tạo DRAFT.",
+      "accept": "T356R2..R5 được truy vết qua W06/W09/W10 (POS đủ Tồn kho, Công thức, Xuất kho); API docs có endpoint/schema/error/permission và case liên kết; import Excel có đối soát và không ghi trùng.",
+      "paths": "BE: bulk-import (mới, đề xuất), file, material, import-form, main.ts; FE: bulk-import wizard (mới, đề xuất), shared/api.",
+      "paths_be": "app/warehouse-api/src/bulk-import (mới, đề xuất); app/warehouse-api/src/{file,material,import-form}; app/warehouse-api/src/main.ts.",
+      "paths_fe": "app/warehouse-ui/src/features/bulk-import, pages/bulk-import (mới, đề xuất); src/shared/api.",
+      "paths_qa": "Bộ file Excel mẫu/lỗi và expected result trong evidence của task; app/warehouse-api/test/import*.e2e-spec.ts (mới, đề xuất).",
+      "accept_be": "Import atomic/partial đúng D15, retry không ghi trùng; template có version; Swagger đủ schema/error/permission; e2e pass.",
+      "accept_fe": "Wizard preview/lỗi từng dòng/summary chạy với API thật; npm run check pass; browser evidence.",
+      "accept_qa": "Ma trận file mẫu đủ biên; end-to-end Excel → tồn → báo cáo được đối soát; kết quả gắn SHA.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D03": "Giữ kiến trúc đích trong ADR-001: React → REST Gateway → NestJS Storage Service qua gRPC → MySQL.",
+        "D07": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+        "D11": "Duyệt REST contract v1 độc lập vendor; chưa phê duyệt adapter kết nối POS thật khi chưa biết vendor/sandbox.",
+        "D15": "Chốt protocol NFR, Excel import nguyên tử và email báo cáo; chưa tuyên bố đã đạt."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "Chưa có endpoint import Excel hay template .xlsx; Swagger tự sinh ở /api/api-docs là nền cho API docs; tài liệu API đầu vào chỉ có A1=SP1. Rate limit/traceId chuyển sang W02 nên BE giảm còn 5–8. REST hiện có không chứng minh tích hợp POS."
+    },
+    {
+      "id": "W11",
+      "name": "NFR, hồi quy, UAT và bàn giao local",
+      "deps": [
+        "W02",
+        "W03",
+        "W04",
+        "W05",
+        "W06",
+        "W07",
+        "W08",
+        "W09",
+        "W10"
+      ],
+      "gaps": [
+        "G18",
+        "G19",
+        "G20"
+      ],
+      "decisions": [
+        "D02",
+        "D07",
+        "D14",
+        "D15",
+        "D16",
+        "D17",
+        "D18",
+        "D31",
+        "D32",
+        "D35"
+      ],
+      "be": [
+        9,
+        15
+      ],
+      "fe": [
+        7,
+        11
+      ],
+      "qa": [
+        15,
+        24
+      ],
+      "current": "Snapshot audit 04/11 tại 384c53d; chưa xác minh lại toàn bộ trên WIP 05/11. Xem carryover-alignment.md. Không suy ra sản phẩm COMPLETE.",
+      "current_be": "Chưa có index review, archive ≥ 2 năm và khôi phục archive (D17 T358R4); app/warehouse-api/setup.md có nhưng chưa đối chiếu với baseline; chưa có lần thử migration trên DB test sạch được ghi lại.",
+      "current_fe": "Chưa kiểm có hệ thống responsive Desktop/Tablet/Mobile, tiếng Việt 100%, tooltip/help (D17 T354R2–R3); evidence/01..12-*.png chỉ là fixture.",
+      "current_qa": "Chưa có kết quả load ≥ 20 user/≥ 100k giao dịch, restore, TLS, uptime; chưa có UAT pack hay test summary gắn SHA.",
+      "backend": "Sửa NFR, archive/restore test, runbooks và release checklist.",
+      "frontend": "Responsive, accessibility, dark/light, vi/en và UI performance.",
+      "tester": "Chạy NFR và hồi quy; uptime/TLS/vận hành thật giữ gate riêng, chưa công bố PASS từ local.",
+      "accept": "Mỗi requirement (gồm TRACE_EXTRA) có case/result/evidence hoặc deviation được chủ dự án ký; không còn defect nghiêm trọng chặn nghiệm thu; reviewer độc lập và owner UAT ký. Uptime 99.5% và TLS chỉ PASS khi có môi trường/cửa sổ đo đủ; bàn giao local không phải release/deploy.",
+      "paths": "BE/FE: chỉ module có lỗi đã xác minh; QA: test matrix, kết quả, NFR protocol, UAT pack; hướng dẫn user/admin/dev/maintenance.",
+      "paths_be": "Chỉ module trong app/warehouse-api/src có defect đã xác minh; app/warehouse-api/setup.md, app/warehouse-api/docs; module archive (mới, đề xuất).",
+      "paths_fe": "Chỉ slice trong app/warehouse-ui/src có defect đã xác minh; app/warehouse-ui/setup.md, app/warehouse-ui/docs.",
+      "paths_qa": "Test matrix, kết quả, NFR protocol, UAT pack, test summary trong .agents/tasks/<task-id>/ (mới, đề xuất); app/warehouse-api/test; app/warehouse-ui/e2e.",
+      "accept_be": "Không còn defect nghiêm trọng mở ở BE; archive/khôi phục có test; tài liệu setup/API/error được reviewer đọc lại.",
+      "accept_fe": "Không còn defect nghiêm trọng mở ở FE; responsive/tiếng Việt/tooltip có browser evidence ở 3 kích thước; có tài liệu người dùng.",
+      "accept_qa": "Test summary phủ mọi dòng truy vết; NFR đo theo protocol hoặc NOT_RUN có lý do; owner UAT ký; review đúng SHA.",
+      "approved_decision_answers": {
+        "D02": "Ba vai trò nghiệp vụ Admin, Manager, Supervisor; dữ liệu nghiệp vụ có phạm vi kho; tách người tạo và duyệt.",
+        "D07": "Chốt chuẩn hồ sơ API/UI và quy tắc giao diện; không lấy tài liệu trống làm căn cứ code.",
+        "D14": "Chốt session30phút, audit cùng transaction, backup30ngày và lưu nghiệp vụ≥2năm.",
+        "D15": "Chốt protocol NFR, Excel import nguyên tử và email báo cáo; chưa tuyên bố đã đạt.",
+        "D16": "Phê duyệt DEV LOCAL; gate vận hành/CI/CD được hoãn có kiểm soát, không bỏ khỏi phạm vi.",
+        "D17": "Giữ toàn bộ phạm vi BRD/SRS/UC/ADR; không thu gọn thành MVP hoặc chỉ44dòng function list.",
+        "D18": "Dùng capacity lập kế hoạch1BE+1FE+1Tester toàn thời gian,5ngày/tuần; T0 theo gate, chưa áp deadline giả."
+      },
+      "scope_precedence": "WH-DEC-20261105-R2 và dossier hiệu lực; R0.2/R1 chỉ lịch sử.",
+      "historical_observation_r02": "DB/load/TLS/backup restore chưa chạy; UI chỉ có 12 ảnh fixture SUPER_ADMIN; api/test không có *.e2e-spec.ts, chưa có Playwright. Chưa có tỷ lệ nghiệm thu toàn dự án hay môi trường vận hành; CI/CD/deploy hoãn theo D16. Archive ≥ 2 năm là tính năng mới, nằm trong BE W11."
+    }
+  ],
+  "tasks": [
+    {
+      "id": "W01-BE.I",
+      "package": "W01",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 4,
+      "effort_high": 7,
+      "dependencies": [],
+      "scope": "Sửa spec lệch DTO; dựng harness migration/seed/race trên DB mới.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 0,
+      "low_end": 4,
+      "high_start": 0,
+      "high_end": 7
+    },
+    {
+      "id": "W01-FE",
+      "package": "W01",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 4,
+      "effort_high": 7,
+      "dependencies": [],
+      "scope": "Tái lập và sửa full check; dựng browser smoke với API thật.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 0,
+      "low_end": 4,
+      "high_start": 0,
+      "high_end": 7
+    },
+    {
+      "id": "W01-QA.D",
+      "package": "W01",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 2,
+      "effort_high": 3,
+      "dependencies": [],
+      "scope": "Seed tám actor test đúng scope; chạy lại full gate và lưu log exact SHA/diff.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 0,
+      "low_end": 2,
+      "high_start": 0,
+      "high_end": 3
+    },
+    {
+      "id": "W01-QA.T",
+      "package": "W01",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 3,
+      "effort_high": 5,
+      "dependencies": [
+        "W01-BE.I",
+        "W01-FE",
+        "W01-QA.D"
+      ],
+      "scope": "Seed tám actor test đúng scope; chạy lại full gate và lưu log exact SHA/diff.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 4,
+      "low_end": 7,
+      "high_start": 7,
+      "high_end": 12
+    },
+    {
+      "id": "W02-BE.C",
+      "package": "W02",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 3,
+      "effort_high": 5,
+      "dependencies": [
+        "W01-BE.I"
+      ],
+      "scope": "Gateway → gRPC Storage; auth/refresh/idle/RBAC, private file, audit/outbox, backup jobs.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 4,
+      "low_end": 7,
+      "high_start": 7,
+      "high_end": 12
+    },
+    {
+      "id": "W02-BE.I",
+      "package": "W02",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 37,
+      "effort_high": 61,
+      "dependencies": [
+        "W02-BE.C",
+        "W01-QA.T"
+      ],
+      "scope": "Gateway → gRPC Storage; auth/refresh/idle/RBAC, private file, audit/outbox, backup jobs.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 7,
+      "low_end": 44,
+      "high_start": 12,
+      "high_end": 73
+    },
+    {
+      "id": "W02-FE",
+      "package": "W02",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 26,
+      "effort_high": 42,
+      "dependencies": [
+        "W02-BE.C"
+      ],
+      "scope": "Ant Design + Redux shell; auth/session, admin, file/audit/backup screens.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 7,
+      "low_end": 33,
+      "high_start": 12,
+      "high_end": 54
+    },
+    {
+      "id": "W02-QA.D",
+      "package": "W02",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 7,
+      "effort_high": 10,
+      "dependencies": [
+        "W02-BE.C"
+      ],
+      "scope": "Kiểm kiến trúc, cookie/CSRF, quyền dọc/ngang, upload, audit/rollback và restore trên test target.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 7,
+      "low_end": 14,
+      "high_start": 12,
+      "high_end": 22
+    },
+    {
+      "id": "W02-QA.T",
+      "package": "W02",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 12,
+      "effort_high": 20,
+      "dependencies": [
+        "W02-BE.I",
+        "W02-FE",
+        "W02-QA.D",
+        "W01-QA.T"
+      ],
+      "scope": "Kiểm kiến trúc, cookie/CSRF, quyền dọc/ngang, upload, audit/rollback và restore trên test target.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 44,
+      "low_end": 56,
+      "high_start": 73,
+      "high_end": 93
+    },
+    {
+      "id": "W02-BE.F",
+      "package": "W02",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 4,
+      "effort_high": 13,
+      "dependencies": [
+        "W02-QA.T"
+      ],
+      "scope": "Gateway → gRPC Storage; auth/refresh/idle/RBAC, private file, audit/outbox, backup jobs.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 56,
+      "low_end": 60,
+      "high_start": 93,
+      "high_end": 106
+    },
+    {
+      "id": "W02-FE.F",
+      "package": "W02",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 3,
+      "effort_high": 9,
+      "dependencies": [
+        "W02-QA.T"
+      ],
+      "scope": "Ant Design + Redux shell; auth/session, admin, file/audit/backup screens.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 56,
+      "low_end": 59,
+      "high_start": 93,
+      "high_end": 102
+    },
+    {
+      "id": "W02-QA.R",
+      "package": "W02",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 2,
+      "effort_high": 6,
+      "dependencies": [
+        "W02-BE.F",
+        "W02-FE.F"
+      ],
+      "scope": "Kiểm kiến trúc, cookie/CSRF, quyền dọc/ngang, upload, audit/rollback và restore trên test target.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 60,
+      "low_end": 62,
+      "high_start": 106,
+      "high_end": 112
+    },
+    {
+      "id": "W03-BE.C",
+      "package": "W03",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 1,
+      "effort_high": 2,
+      "dependencies": [
+        "W02-BE.I"
+      ],
+      "scope": "Catalog đủ trường SDD, supplier chính, vị trí, conversion, threshold, optimistic version.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 44,
+      "low_end": 45,
+      "high_start": 73,
+      "high_end": 75
+    },
+    {
+      "id": "W03-BE.I",
+      "package": "W03",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 5,
+      "effort_high": 8,
+      "dependencies": [
+        "W03-BE.C",
+        "W02-QA.R"
+      ],
+      "scope": "Catalog đủ trường SDD, supplier chính, vị trí, conversion, threshold, optimistic version.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 62,
+      "low_end": 67,
+      "high_start": 112,
+      "high_end": 120
+    },
+    {
+      "id": "W03-FE",
+      "package": "W03",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 6,
+      "effort_high": 10,
+      "dependencies": [
+        "W03-BE.C"
+      ],
+      "scope": "Các màn catalog đúng schema; search/filter/sort và lỗi tham chiếu.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 45,
+      "low_end": 51,
+      "high_start": 75,
+      "high_end": 85
+    },
+    {
+      "id": "W03-QA.D",
+      "package": "W03",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 2,
+      "effort_high": 3,
+      "dependencies": [
+        "W03-BE.C"
+      ],
+      "scope": "Kiểm constraint/FK, unit precision, effective thresholds, quyền và trường bắt buộc.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 56,
+      "low_end": 58,
+      "high_start": 93,
+      "high_end": 96
+    },
+    {
+      "id": "W03-QA.T",
+      "package": "W03",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 3,
+      "effort_high": 5,
+      "dependencies": [
+        "W03-BE.I",
+        "W03-FE",
+        "W03-QA.D",
+        "W02-QA.R"
+      ],
+      "scope": "Kiểm constraint/FK, unit precision, effective thresholds, quyền và trường bắt buộc.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 67,
+      "low_end": 70,
+      "high_start": 120,
+      "high_end": 125
+    },
+    {
+      "id": "W03-BE.F",
+      "package": "W03",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 1,
+      "effort_high": 2,
+      "dependencies": [
+        "W03-QA.T"
+      ],
+      "scope": "Catalog đủ trường SDD, supplier chính, vị trí, conversion, threshold, optimistic version.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 70,
+      "low_end": 71,
+      "high_start": 125,
+      "high_end": 127
+    },
+    {
+      "id": "W03-FE.F",
+      "package": "W03",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 1,
+      "effort_high": 2,
+      "dependencies": [
+        "W03-QA.T"
+      ],
+      "scope": "Các màn catalog đúng schema; search/filter/sort và lỗi tham chiếu.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 70,
+      "low_end": 71,
+      "high_start": 125,
+      "high_end": 127
+    },
+    {
+      "id": "W03-QA.R",
+      "package": "W03",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 1,
+      "effort_high": 2,
+      "dependencies": [
+        "W03-BE.F",
+        "W03-FE.F"
+      ],
+      "scope": "Kiểm constraint/FK, unit precision, effective thresholds, quyền và trường bắt buộc.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 74,
+      "low_end": 75,
+      "high_start": 131,
+      "high_end": 133
+    },
+    {
+      "id": "W04-BE.C",
+      "package": "W04",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 3,
+      "effort_high": 5,
+      "dependencies": [
+        "W03-BE.I"
+      ],
+      "scope": "Nhập/xuất sáu loại; FEFO vật lý, bình quân giá trị; transfer atomic và payable obligation.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 67,
+      "low_end": 70,
+      "high_start": 120,
+      "high_end": 125
+    },
+    {
+      "id": "W04-BE.I",
+      "package": "W04",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 15,
+      "effort_high": 23,
+      "dependencies": [
+        "W04-BE.C",
+        "W03-QA.R"
+      ],
+      "scope": "Nhập/xuất sáu loại; FEFO vật lý, bình quân giá trị; transfer atomic và payable obligation.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 75,
+      "low_end": 90,
+      "high_start": 133,
+      "high_end": 156
+    },
+    {
+      "id": "W04-FE",
+      "package": "W04",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 10,
+      "effort_high": 16,
+      "dependencies": [
+        "W04-BE.C"
+      ],
+      "scope": "Wizard nhập/xuất; tồn/lô/trace; cảnh báo, version conflict và trạng thái không giữ chỗ.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 71,
+      "low_end": 81,
+      "high_start": 127,
+      "high_end": 143
+    },
+    {
+      "id": "W04-QA.D",
+      "package": "W04",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 4,
+      "effort_high": 6,
+      "dependencies": [
+        "W04-BE.C"
+      ],
+      "scope": "Race confirm, rollback, FEFO/rounding, transfer không sinh chi và chống trùng obligation.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 70,
+      "low_end": 74,
+      "high_start": 125,
+      "high_end": 131
+    },
+    {
+      "id": "W04-QA.T",
+      "package": "W04",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 8,
+      "effort_high": 12,
+      "dependencies": [
+        "W04-BE.I",
+        "W04-FE",
+        "W04-QA.D",
+        "W03-QA.R"
+      ],
+      "scope": "Race confirm, rollback, FEFO/rounding, transfer không sinh chi và chống trùng obligation.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 90,
+      "low_end": 98,
+      "high_start": 156,
+      "high_end": 168
+    },
+    {
+      "id": "W04-BE.F",
+      "package": "W04",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 2,
+      "effort_high": 5,
+      "dependencies": [
+        "W04-QA.T"
+      ],
+      "scope": "Nhập/xuất sáu loại; FEFO vật lý, bình quân giá trị; transfer atomic và payable obligation.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 98,
+      "low_end": 100,
+      "high_start": 168,
+      "high_end": 173
+    },
+    {
+      "id": "W04-FE.F",
+      "package": "W04",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 1,
+      "effort_high": 4,
+      "dependencies": [
+        "W04-QA.T"
+      ],
+      "scope": "Wizard nhập/xuất; tồn/lô/trace; cảnh báo, version conflict và trạng thái không giữ chỗ.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 102,
+      "low_end": 103,
+      "high_start": 174,
+      "high_end": 178
+    },
+    {
+      "id": "W04-QA.R",
+      "package": "W04",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 2,
+      "effort_high": 4,
+      "dependencies": [
+        "W04-BE.F",
+        "W04-FE.F"
+      ],
+      "scope": "Race confirm, rollback, FEFO/rounding, transfer không sinh chi và chống trùng obligation.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 104,
+      "low_end": 106,
+      "high_start": 183,
+      "high_end": 187
+    },
+    {
+      "id": "W05-BE.C",
+      "package": "W05",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 2,
+      "effort_high": 3,
+      "dependencies": [
+        "W04-BE.I"
+      ],
+      "scope": "Stocktake lock, hai acknowledgements thật, count, delta và mở khóa atomic.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 90,
+      "low_end": 92,
+      "high_start": 156,
+      "high_end": 159
+    },
+    {
+      "id": "W05-BE.I",
+      "package": "W05",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 10,
+      "effort_high": 15,
+      "dependencies": [
+        "W05-BE.C",
+        "W04-QA.R"
+      ],
+      "scope": "Stocktake lock, hai acknowledgements thật, count, delta và mở khóa atomic.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 106,
+      "low_end": 116,
+      "high_start": 187,
+      "high_end": 202
+    },
+    {
+      "id": "W05-FE",
+      "package": "W05",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 10,
+      "effort_high": 15,
+      "dependencies": [
+        "W05-BE.C"
+      ],
+      "scope": "Workspace phân công/ack/count/ảnh/giải trình và approve tách người tạo.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 92,
+      "low_end": 102,
+      "high_start": 159,
+      "high_end": 174
+    },
+    {
+      "id": "W05-QA.D",
+      "package": "W05",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 3,
+      "effort_high": 5,
+      "dependencies": [
+        "W05-BE.C"
+      ],
+      "scope": "Hai user riêng; khóa nhập/xuất; threshold >5/>10 và complete/cancel race.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 98,
+      "low_end": 101,
+      "high_start": 168,
+      "high_end": 173
+    },
+    {
+      "id": "W05-QA.T",
+      "package": "W05",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 5,
+      "effort_high": 8,
+      "dependencies": [
+        "W05-BE.I",
+        "W05-FE",
+        "W05-QA.D",
+        "W04-QA.R"
+      ],
+      "scope": "Hai user riêng; khóa nhập/xuất; threshold >5/>10 và complete/cancel race.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 116,
+      "low_end": 121,
+      "high_start": 202,
+      "high_end": 210
+    },
+    {
+      "id": "W05-BE.F",
+      "package": "W05",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W05-QA.T"
+      ],
+      "scope": "Stocktake lock, hai acknowledgements thật, count, delta và mở khóa atomic.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 124,
+      "low_end": 125,
+      "high_start": 215,
+      "high_end": 218
+    },
+    {
+      "id": "W05-FE.F",
+      "package": "W05",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W05-QA.T"
+      ],
+      "scope": "Workspace phân công/ack/count/ảnh/giải trình và approve tách người tạo.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 124,
+      "low_end": 125,
+      "high_start": 211,
+      "high_end": 214
+    },
+    {
+      "id": "W05-QA.R",
+      "package": "W05",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W05-BE.F",
+        "W05-FE.F"
+      ],
+      "scope": "Hai user riêng; khóa nhập/xuất; threshold >5/>10 và complete/cancel race.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 128,
+      "low_end": 129,
+      "high_start": 222,
+      "high_end": 225
+    },
+    {
+      "id": "W06-BE.C",
+      "package": "W06",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 2,
+      "effort_high": 3,
+      "dependencies": [
+        "W03-BE.I",
+        "W04-BE.I"
+      ],
+      "scope": "Recipe version/archive/copy, cost tách giá; ba API nội bộ và ProductSyncPort. Không live POS.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 92,
+      "low_end": 94,
+      "high_start": 159,
+      "high_end": 162
+    },
+    {
+      "id": "W06-BE.I",
+      "package": "W06",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 8,
+      "effort_high": 13,
+      "dependencies": [
+        "W06-BE.C",
+        "W03-QA.R",
+        "W04-QA.R"
+      ],
+      "scope": "Recipe version/archive/copy, cost tách giá; ba API nội bộ và ProductSyncPort. Không live POS.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 116,
+      "low_end": 124,
+      "high_start": 202,
+      "high_end": 215
+    },
+    {
+      "id": "W06-FE",
+      "package": "W06",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 8,
+      "effort_high": 13,
+      "dependencies": [
+        "W06-BE.C"
+      ],
+      "scope": "Product chưa nguồn: empty-state; recipe/version và manual/synced pricing rõ nguồn.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 103,
+      "low_end": 111,
+      "high_start": 178,
+      "high_end": 191
+    },
+    {
+      "id": "W06-QA.D",
+      "package": "W06",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 3,
+      "effort_high": 4,
+      "dependencies": [
+        "W06-BE.C"
+      ],
+      "scope": "Kiểm recipe, cost và core API; fake adapter có nhãn SIMULATED, FUT-POS chưa nghiệm thu.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 101,
+      "low_end": 104,
+      "high_start": 173,
+      "high_end": 177
+    },
+    {
+      "id": "W06-QA.T",
+      "package": "W06",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 4,
+      "effort_high": 7,
+      "dependencies": [
+        "W06-BE.I",
+        "W06-FE",
+        "W06-QA.D",
+        "W03-QA.R",
+        "W04-QA.R"
+      ],
+      "scope": "Kiểm recipe, cost và core API; fake adapter có nhãn SIMULATED, FUT-POS chưa nghiệm thu.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 124,
+      "low_end": 128,
+      "high_start": 215,
+      "high_end": 222
+    },
+    {
+      "id": "W06-BE.F",
+      "package": "W06",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W06-QA.T"
+      ],
+      "scope": "Recipe version/archive/copy, cost tách giá; ba API nội bộ và ProductSyncPort. Không live POS.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 138,
+      "low_end": 139,
+      "high_start": 239,
+      "high_end": 242
+    },
+    {
+      "id": "W06-FE.F",
+      "package": "W06",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W06-QA.T"
+      ],
+      "scope": "Product chưa nguồn: empty-state; recipe/version và manual/synced pricing rõ nguồn.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 128,
+      "low_end": 129,
+      "high_start": 222,
+      "high_end": 225
+    },
+    {
+      "id": "W06-QA.R",
+      "package": "W06",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W06-BE.F",
+        "W06-FE.F"
+      ],
+      "scope": "Kiểm recipe, cost và core API; fake adapter có nhãn SIMULATED, FUT-POS chưa nghiệm thu.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 144,
+      "low_end": 145,
+      "high_start": 249,
+      "high_end": 252
+    },
+    {
+      "id": "W07-BE.C",
+      "package": "W07",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 3,
+      "effort_high": 5,
+      "dependencies": [
+        "W04-BE.I"
+      ],
+      "scope": "Expense/revenue, source links, AP/cash tách biệt, một full settlement và refund installments.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 94,
+      "low_end": 97,
+      "high_start": 162,
+      "high_end": 167
+    },
+    {
+      "id": "W07-BE.I",
+      "package": "W07",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 13,
+      "effort_high": 21,
+      "dependencies": [
+        "W07-BE.C",
+        "W04-QA.R"
+      ],
+      "scope": "Expense/revenue, source links, AP/cash tách biệt, một full settlement và refund installments.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 125,
+      "low_end": 138,
+      "high_start": 218,
+      "high_end": 239
+    },
+    {
+      "id": "W07-FE",
+      "package": "W07",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 13,
+      "effort_high": 20,
+      "dependencies": [
+        "W07-BE.C"
+      ],
+      "scope": "Chi/thu, attachment purpose, công nợ/đã trả/còn nợ và hoàn từng đợt.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 111,
+      "low_end": 124,
+      "high_start": 191,
+      "high_end": 211
+    },
+    {
+      "id": "W07-QA.D",
+      "package": "W07",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 4,
+      "effort_high": 6,
+      "dependencies": [
+        "W07-BE.C"
+      ],
+      "scope": "Đối soát VAT/AP/cash/AR; DEBT confirm không cash; COD/retry không trả hai lần.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 106,
+      "low_end": 110,
+      "high_start": 177,
+      "high_end": 183
+    },
+    {
+      "id": "W07-QA.T",
+      "package": "W07",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 6,
+      "effort_high": 10,
+      "dependencies": [
+        "W07-BE.I",
+        "W07-FE",
+        "W07-QA.D",
+        "W04-QA.R"
+      ],
+      "scope": "Đối soát VAT/AP/cash/AR; DEBT confirm không cash; COD/retry không trả hai lần.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 138,
+      "low_end": 144,
+      "high_start": 239,
+      "high_end": 249
+    },
+    {
+      "id": "W07-BE.F",
+      "package": "W07",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 2,
+      "effort_high": 5,
+      "dependencies": [
+        "W07-QA.T"
+      ],
+      "scope": "Expense/revenue, source links, AP/cash tách biệt, một full settlement và refund installments.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 144,
+      "low_end": 146,
+      "high_start": 249,
+      "high_end": 254
+    },
+    {
+      "id": "W07-FE.F",
+      "package": "W07",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 2,
+      "effort_high": 4,
+      "dependencies": [
+        "W07-QA.T"
+      ],
+      "scope": "Chi/thu, attachment purpose, công nợ/đã trả/còn nợ và hoàn từng đợt.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 149,
+      "low_end": 151,
+      "high_start": 258,
+      "high_end": 262
+    },
+    {
+      "id": "W07-QA.R",
+      "package": "W07",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 1,
+      "effort_high": 4,
+      "dependencies": [
+        "W07-BE.F",
+        "W07-FE.F"
+      ],
+      "scope": "Đối soát VAT/AP/cash/AR; DEBT confirm không cash; COD/retry không trả hai lần.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 151,
+      "low_end": 152,
+      "high_start": 262,
+      "high_end": 266
+    },
+    {
+      "id": "W08-BE.C",
+      "package": "W08",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 2,
+      "effort_high": 3,
+      "dependencies": [
+        "W04-BE.I",
+        "W05-BE.I",
+        "W07-BE.I"
+      ],
+      "scope": "In-app/email, scoped recipients, outbox/dedupe/dead-letter. Không SMS phase này.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 139,
+      "low_end": 141,
+      "high_start": 242,
+      "high_end": 245
+    },
+    {
+      "id": "W08-BE.I",
+      "package": "W08",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 9,
+      "effort_high": 15,
+      "dependencies": [
+        "W08-BE.C",
+        "W04-QA.R",
+        "W05-QA.R",
+        "W07-QA.R"
+      ],
+      "scope": "In-app/email, scoped recipients, outbox/dedupe/dead-letter. Không SMS phase này.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 152,
+      "low_end": 161,
+      "high_start": 266,
+      "high_end": 281
+    },
+    {
+      "id": "W08-FE",
+      "package": "W08",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 8,
+      "effort_high": 13,
+      "dependencies": [
+        "W08-BE.C"
+      ],
+      "scope": "Alert center, ngưỡng/cấu hình và delivery state.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 141,
+      "low_end": 149,
+      "high_start": 245,
+      "high_end": 258
+    },
+    {
+      "id": "W08-QA.D",
+      "package": "W08",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 3,
+      "effort_high": 4,
+      "dependencies": [
+        "W08-BE.C"
+      ],
+      "scope": "Boundary min/max/expiry/price, sau commit, rollback không gửi; local mail capture.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 145,
+      "low_end": 148,
+      "high_start": 252,
+      "high_end": 256
+    },
+    {
+      "id": "W08-QA.T",
+      "package": "W08",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 4,
+      "effort_high": 7,
+      "dependencies": [
+        "W08-BE.I",
+        "W08-FE",
+        "W08-QA.D",
+        "W04-QA.R",
+        "W05-QA.R",
+        "W07-QA.R"
+      ],
+      "scope": "Boundary min/max/expiry/price, sau commit, rollback không gửi; local mail capture.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 161,
+      "low_end": 165,
+      "high_start": 281,
+      "high_end": 288
+    },
+    {
+      "id": "W08-BE.F",
+      "package": "W08",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W08-QA.T"
+      ],
+      "scope": "In-app/email, scoped recipients, outbox/dedupe/dead-letter. Không SMS phase này.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 165,
+      "low_end": 166,
+      "high_start": 288,
+      "high_end": 291
+    },
+    {
+      "id": "W08-FE.F",
+      "package": "W08",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W08-QA.T"
+      ],
+      "scope": "Alert center, ngưỡng/cấu hình và delivery state.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 177,
+      "low_end": 178,
+      "high_start": 307,
+      "high_end": 310
+    },
+    {
+      "id": "W08-QA.R",
+      "package": "W08",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W08-BE.F",
+        "W08-FE.F"
+      ],
+      "scope": "Boundary min/max/expiry/price, sau commit, rollback không gửi; local mail capture.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 178,
+      "low_end": 179,
+      "high_start": 310,
+      "high_end": 313
+    },
+    {
+      "id": "W09-BE.C",
+      "package": "W09",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 3,
+      "effort_high": 5,
+      "dependencies": [
+        "W05-BE.I",
+        "W06-BE.I",
+        "W07-BE.I",
+        "W08-BE.I"
+      ],
+      "scope": "Report summary/watermark, 11 report, custom allowlist, Excel/PDF/CSV và schedule definitions.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 161,
+      "low_end": 164,
+      "high_start": 281,
+      "high_end": 286
+    },
+    {
+      "id": "W09-BE.I",
+      "package": "W09",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 13,
+      "effort_high": 21,
+      "dependencies": [
+        "W09-BE.C",
+        "W05-QA.R",
+        "W06-QA.R",
+        "W07-QA.R",
+        "W08-QA.R"
+      ],
+      "scope": "Report summary/watermark, 11 report, custom allowlist, Excel/PDF/CSV và schedule definitions.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 179,
+      "low_end": 192,
+      "high_start": 313,
+      "high_end": 334
+    },
+    {
+      "id": "W09-FE",
+      "package": "W09",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 13,
+      "effort_high": 21,
+      "dependencies": [
+        "W09-BE.C"
+      ],
+      "scope": "Dashboard/chart/table/drilldown cùng filter; FULL/PARTIAL và export state.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 164,
+      "low_end": 177,
+      "high_start": 286,
+      "high_end": 307
+    },
+    {
+      "id": "W09-QA.D",
+      "package": "W09",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 4,
+      "effort_high": 6,
+      "dependencies": [
+        "W09-BE.C"
+      ],
+      "scope": "Đối soát ledger với reports và file thật; không zero-fill dữ liệu legacy thiếu cost.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 165,
+      "low_end": 169,
+      "high_start": 288,
+      "high_end": 294
+    },
+    {
+      "id": "W09-QA.T",
+      "package": "W09",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 6,
+      "effort_high": 10,
+      "dependencies": [
+        "W09-BE.I",
+        "W09-FE",
+        "W09-QA.D",
+        "W05-QA.R",
+        "W06-QA.R",
+        "W07-QA.R",
+        "W08-QA.R"
+      ],
+      "scope": "Đối soát ledger với reports và file thật; không zero-fill dữ liệu legacy thiếu cost.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 192,
+      "low_end": 198,
+      "high_start": 334,
+      "high_end": 344
+    },
+    {
+      "id": "W09-BE.F",
+      "package": "W09",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 2,
+      "effort_high": 5,
+      "dependencies": [
+        "W09-QA.T"
+      ],
+      "scope": "Report summary/watermark, 11 report, custom allowlist, Excel/PDF/CSV và schedule definitions.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 198,
+      "low_end": 200,
+      "high_start": 344,
+      "high_end": 349
+    },
+    {
+      "id": "W09-FE.F",
+      "package": "W09",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 2,
+      "effort_high": 5,
+      "dependencies": [
+        "W09-QA.T"
+      ],
+      "scope": "Dashboard/chart/table/drilldown cùng filter; FULL/PARTIAL và export state.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 199,
+      "low_end": 201,
+      "high_start": 346,
+      "high_end": 351
+    },
+    {
+      "id": "W09-QA.R",
+      "package": "W09",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 1,
+      "effort_high": 4,
+      "dependencies": [
+        "W09-BE.F",
+        "W09-FE.F"
+      ],
+      "scope": "Đối soát ledger với reports và file thật; không zero-fill dữ liệu legacy thiếu cost.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 201,
+      "low_end": 202,
+      "high_start": 351,
+      "high_end": 355
+    },
+    {
+      "id": "W10-BE.C",
+      "package": "W10",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 1,
+      "effort_high": 2,
+      "dependencies": [
+        "W03-BE.I",
+        "W04-BE.I",
+        "W06-BE.I",
+        "W09-BE.I"
+      ],
+      "scope": "XLSX ≤5MiB/1000 dòng; preview rồi atomic CREATE_ONLY, idempotent job.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 192,
+      "low_end": 193,
+      "high_start": 334,
+      "high_end": 336
+    },
+    {
+      "id": "W10-BE.I",
+      "package": "W10",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 6,
+      "effort_high": 9,
+      "dependencies": [
+        "W10-BE.C",
+        "W03-QA.R",
+        "W04-QA.R",
+        "W06-QA.R",
+        "W09-QA.R"
+      ],
+      "scope": "XLSX ≤5MiB/1000 dòng; preview rồi atomic CREATE_ONLY, idempotent job.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 202,
+      "low_end": 208,
+      "high_start": 355,
+      "high_end": 364
+    },
+    {
+      "id": "W10-FE",
+      "package": "W10",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 6,
+      "effort_high": 10,
+      "dependencies": [
+        "W10-BE.C"
+      ],
+      "scope": "Wizard upload/preview row errors/confirm và template version.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 193,
+      "low_end": 199,
+      "high_start": 336,
+      "high_end": 346
+    },
+    {
+      "id": "W10-QA.D",
+      "package": "W10",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 3,
+      "effort_high": 4,
+      "dependencies": [
+        "W10-BE.C"
+      ],
+      "scope": "Một dòng lỗi không ghi gì; retry không trùng; import phiếu chỉ tạo DRAFT.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 198,
+      "low_end": 201,
+      "high_start": 344,
+      "high_end": 348
+    },
+    {
+      "id": "W10-QA.T",
+      "package": "W10",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 4,
+      "effort_high": 7,
+      "dependencies": [
+        "W10-BE.I",
+        "W10-FE",
+        "W10-QA.D",
+        "W03-QA.R",
+        "W04-QA.R",
+        "W06-QA.R",
+        "W09-QA.R"
+      ],
+      "scope": "Một dòng lỗi không ghi gì; retry không trùng; import phiếu chỉ tạo DRAFT.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 208,
+      "low_end": 212,
+      "high_start": 364,
+      "high_end": 371
+    },
+    {
+      "id": "W10-BE.F",
+      "package": "W10",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 1,
+      "effort_high": 2,
+      "dependencies": [
+        "W10-QA.T"
+      ],
+      "scope": "XLSX ≤5MiB/1000 dòng; preview rồi atomic CREATE_ONLY, idempotent job.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 212,
+      "low_end": 213,
+      "high_start": 371,
+      "high_end": 373
+    },
+    {
+      "id": "W10-FE.F",
+      "package": "W10",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 1,
+      "effort_high": 2,
+      "dependencies": [
+        "W10-QA.T"
+      ],
+      "scope": "Wizard upload/preview row errors/confirm và template version.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 216,
+      "low_end": 217,
+      "high_start": 378,
+      "high_end": 380
+    },
+    {
+      "id": "W10-QA.R",
+      "package": "W10",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W10-BE.F",
+        "W10-FE.F"
+      ],
+      "scope": "Một dòng lỗi không ghi gì; retry không trùng; import phiếu chỉ tạo DRAFT.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 217,
+      "low_end": 218,
+      "high_start": 380,
+      "high_end": 383
+    },
+    {
+      "id": "W11-BE.C",
+      "package": "W11",
+      "role": "BE",
+      "stage": "BE.C",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W02-BE.I",
+        "W03-BE.I",
+        "W04-BE.I",
+        "W05-BE.I",
+        "W06-BE.I",
+        "W07-BE.I",
+        "W08-BE.I",
+        "W09-BE.I",
+        "W10-BE.I"
+      ],
+      "scope": "Sửa NFR, archive/restore test, runbooks và release checklist.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 208,
+      "low_end": 209,
+      "high_start": 364,
+      "high_end": 367
+    },
+    {
+      "id": "W11-BE.I",
+      "package": "W11",
+      "role": "BE",
+      "stage": "BE.I",
+      "effort_low": 8,
+      "effort_high": 12,
+      "dependencies": [
+        "W11-BE.C",
+        "W02-QA.R",
+        "W03-QA.R",
+        "W04-QA.R",
+        "W05-QA.R",
+        "W06-QA.R",
+        "W07-QA.R",
+        "W08-QA.R",
+        "W09-QA.R",
+        "W10-QA.R"
+      ],
+      "scope": "Sửa NFR, archive/restore test, runbooks và release checklist.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 218,
+      "low_end": 226,
+      "high_start": 383,
+      "high_end": 395
+    },
+    {
+      "id": "W11-FE",
+      "package": "W11",
+      "role": "FE",
+      "stage": "FE",
+      "effort_low": 7,
+      "effort_high": 11,
+      "dependencies": [
+        "W11-BE.C"
+      ],
+      "scope": "Responsive, accessibility, dark/light, vi/en và UI performance.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 209,
+      "low_end": 216,
+      "high_start": 367,
+      "high_end": 378
+    },
+    {
+      "id": "W11-QA.D",
+      "package": "W11",
+      "role": "QA",
+      "stage": "QA.D",
+      "effort_low": 5,
+      "effort_high": 8,
+      "dependencies": [
+        "W11-BE.C"
+      ],
+      "scope": "Chạy NFR và hồi quy; uptime/TLS/vận hành thật giữ gate riêng, chưa công bố PASS từ local.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 212,
+      "low_end": 217,
+      "high_start": 371,
+      "high_end": 379
+    },
+    {
+      "id": "W11-QA.T",
+      "package": "W11",
+      "role": "QA",
+      "stage": "QA.T",
+      "effort_low": 10,
+      "effort_high": 16,
+      "dependencies": [
+        "W11-BE.I",
+        "W11-FE",
+        "W11-QA.D",
+        "W02-QA.R",
+        "W03-QA.R",
+        "W04-QA.R",
+        "W05-QA.R",
+        "W06-QA.R",
+        "W07-QA.R",
+        "W08-QA.R",
+        "W09-QA.R",
+        "W10-QA.R"
+      ],
+      "scope": "Chạy NFR và hồi quy; uptime/TLS/vận hành thật giữ gate riêng, chưa công bố PASS từ local.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": false,
+      "low_start": 226,
+      "low_end": 236,
+      "high_start": 395,
+      "high_end": 411
+    },
+    {
+      "id": "W11-BE.F",
+      "package": "W11",
+      "role": "BE",
+      "stage": "BE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W11-QA.T"
+      ],
+      "scope": "Sửa NFR, archive/restore test, runbooks và release checklist.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 236,
+      "low_end": 237,
+      "high_start": 411,
+      "high_end": 414
+    },
+    {
+      "id": "W11-FE.F",
+      "package": "W11",
+      "role": "FE",
+      "stage": "FE.F",
+      "effort_low": 1,
+      "effort_high": 3,
+      "dependencies": [
+        "W11-QA.T"
+      ],
+      "scope": "Responsive, accessibility, dark/light, vi/en và UI performance.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 236,
+      "low_end": 237,
+      "high_start": 411,
+      "high_end": 414
+    },
+    {
+      "id": "W11-QA.R",
+      "package": "W11",
+      "role": "QA",
+      "stage": "QA.R",
+      "effort_low": 2,
+      "effort_high": 5,
+      "dependencies": [
+        "W11-BE.F",
+        "W11-FE.F"
+      ],
+      "scope": "Chạy NFR và hồi quy; uptime/TLS/vận hành thật giữ gate riêng, chưa công bố PASS từ local.",
+      "readiness": "DESIGN_READY; execution dependencies apply",
+      "estimate_validity": "APPROVED_PLANNING_R2",
+      "reserve": true,
+      "low_start": 237,
+      "low_end": 239,
+      "high_start": 414,
+      "high_end": 419
+    }
+  ],
+  "totals": {
+    "BE": {
+      "low": 165,
+      "high": 285
+    },
+    "FE": {
+      "low": 125,
+      "high": 216
+    },
+    "QA": {
+      "low": 118,
+      "high": 203
+    }
+  },
+  "duration_days": {
+    "low": 239,
+    "high": 419
+  },
+  "risks": [
+    "One BE is the bottleneck; all three roles assumed full-time.",
+    "Unknown defect density, legacy reconciliation and existing WIP acceptance can change estimates.",
+    "No actual POS/SMS work estimated. Operational external gates do not disappear."
+  ],
+  "reestimate_trigger": "After W01 and W02 measure actual effort and defects; preserve baseline and approve a new revision if scope/capacity changes."
+}

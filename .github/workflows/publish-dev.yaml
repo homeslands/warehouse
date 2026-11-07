@@ -56,7 +56,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: ./app/warehouse-api
-          file: ./.build/warehouse-api/Dockerfile
+          file: ./.github/docker/warehouse-api/Dockerfile
           tags: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-api:dev
           labels: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-api
           push: true
@@ -65,7 +65,7 @@ jobs:
         uses: docker/build-push-action@v4
         with:
           context: ./app/warehouse-ui
-          file: ./.build/warehouse-ui/Dockerfile
+          file: ./.github/docker/warehouse-ui/Dockerfile
           tags: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-ui:dev
           labels: ${{ env.REGISTRY }}/${{ env.REPOSITORY_OWNER }}/warehouse-ui
           push: true

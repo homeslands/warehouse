@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 export const ROLE_NOT_FOUND = 'ROLE_NOT_FOUND';
 export const ROLE_NAME_ALREADY_EXISTS = 'ROLE_NAME_ALREADY_EXISTS';

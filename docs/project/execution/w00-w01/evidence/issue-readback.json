@@ -1,0 +1,109 @@
+{
+  "at": "2026-11-05T10:19:28+07:00",
+  "actor": "Mekong-HCM",
+  "repository": "homeslands/warehouse",
+  "issues": [
+    {
+      "task": "W00",
+      "number": 156,
+      "url": "https://github.com/homeslands/warehouse/issues/156",
+      "body_sha256": "624805b55a6473073f8b058dfc7c8b696d4a96bd79afc7a7f6935c2d17a4b3a6",
+      "state": "open",
+      "parent": null,
+      "assignees": []
+    },
+    {
+      "task": "W01",
+      "number": 157,
+      "url": "https://github.com/homeslands/warehouse/issues/157",
+      "body_sha256": "98e6230014b7556f8508f0208cdfaaa40874160f2a94ba2e5bcc941f694c7ab2",
+      "state": "open",
+      "parent": null,
+      "assignees": []
+    },
+    {
+      "task": "W00-BE",
+      "number": 158,
+      "url": "https://github.com/homeslands/warehouse/issues/158",
+      "body_sha256": "a5e4ab89d3f4e24e2142bfaecc15fe2e73e309a67ec030be281e4ceab4ee4b35",
+      "state": "open",
+      "parent": "W00",
+      "assignees": []
+    },
+    {
+      "task": "W00-FE",
+      "number": 159,
+      "url": "https://github.com/homeslands/warehouse/issues/159",
+      "body_sha256": "0adc94e915ab78a15b17302904f85b8aac6ff7c747fc57d1bf24d336e96d830e",
+      "state": "open",
+      "parent": "W00",
+      "assignees": []
+    },
+    {
+      "task": "W00-QA",
+      "number": 160,
+      "url": "https://github.com/homeslands/warehouse/issues/160",
+      "body_sha256": "e38c3a39d9cabc7b30b86f54f5ce230143d8f0246a18446387f023de9a4b1ab7",
+      "state": "open",
+      "parent": "W00",
+      "assignees": []
+    },
+    {
+      "task": "W01-BE-01",
+      "number": 161,
+      "url": "https://github.com/homeslands/warehouse/issues/161",
+      "body_sha256": "93fcd376526926f4c8bece9a59e3cf1932cd3f246392b464477b00e281758bcd",
+      "state": "open",
+      "parent": "W01",
+      "assignees": []
+    },
+    {
+      "task": "W01-BE-02",
+      "number": 162,
+      "url": "https://github.com/homeslands/warehouse/issues/162",
+      "body_sha256": "024528b9e98415d39afcfa7f3563307f418518b3537d80f74ecfc819c52033ff",
+      "state": "open",
+      "parent": "W01",
+      "assignees": []
+    },
+    {
+      "task": "W01-FE-01",
+      "number": 163,
+      "url": "https://github.com/homeslands/warehouse/issues/163",
+      "body_sha256": "22dc939cee293eaae4c3aa8f17305402d733edf6dcea434b71d4a47eed2eb396",
+      "state": "open",
+      "parent": "W01",
+      "assignees": []
+    },
+    {
+      "task": "W01-FE-02",
+      "number": 164,
+      "url": "https://github.com/homeslands/warehouse/issues/164",
+      "body_sha256": "6acb7b206662a7a41b5e43944f0b6774141d7b1b0e940b3c81d6a23e1211bb6e",
+      "state": "open",
+      "parent": "W01",
+      "assignees": []
+    },
+    {
+      "task": "W01-QA-01",
+      "number": 165,
+      "url": "https://github.com/homeslands/warehouse/issues/165",
+      "body_sha256": "7e59d48eb92f7a74b5580d845cd83e2d7cedb9a5c245f55515ef69e7199b4669",
+      "state": "open",
+      "parent": "W01",
+      "assignees": []
+    },
+    {
+      "task": "W01-QA-02",
+      "number": 166,
+      "url": "https://github.com/homeslands/warehouse/issues/166",
+      "body_sha256": "26dfbf231fc32a66e32951c7700971a85f39c6ad01ebc17015225e33d496b4a2",
+      "state": "open",
+      "parent": "W01",
+      "assignees": []
+    }
+  ],
+  "body_hashes_match": true,
+  "native_parent_links_verified": 9,
+  "application_code_changed": false
+}

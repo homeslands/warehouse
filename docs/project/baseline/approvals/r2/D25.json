@@ -1,0 +1,42 @@
+{
+  "id": "D25",
+  "namespace": "DECISION",
+  "title": "Thiết kế phiếu thu thiếu trong SDD",
+  "revision": "WH-DEC-20261105-R2",
+  "date": "2026-11-05",
+  "status": "APPROVED",
+  "approved_by": "Codex — Điều phối dự án, theo ủy quyền người dùng 05/11/2026",
+  "approval_basis": "authority.json",
+  "approval_scope": "Design decision; does not mean implementation, environment or acceptance is complete.",
+  "original_question": "Chốt entity/API cho phiếu thu; thống nhất tên WarehousePayment hay ExpenseForm; cập nhật SDD trước khi viết migration.",
+  "source_reference": "D17 §4.8.2 (T160–T186) ↔ D24 chỉ có tên RevenueForm/RevenueItem (P22–P23) và P235 ExportForm → revenueForm, không có bảng/API (T443 chỉ có /payments); D24 P25 WarehousePayment ↔ P22/P321 ExpenseForm",
+  "source_inventory_sha256": "35cf66deb9208c64564abb4716d6366637cae208de4781c06826ddffb4ce87f4",
+  "implementation_owner_role": "BA + Tech Lead",
+  "affected_packages": [
+    "W07",
+    "W09"
+  ],
+  "answer": "ExpenseForm/ExpenseItem cho chi, RevenueForm/RevenueItem cho thu; không tái dùng Transaction chung làm chứng từ tài chính.",
+  "rules": [
+    "D24 tên RevenueForm/RevenueItem trở thành entity chuẩn của thu; UI gọi Phiếu thu. WarehousePayment là tên grouping/module trong tài liệu, không tạo bảng thứ ba ghi tiền lần nữa.",
+    "Header gồm uuid/code/warehouse/type/status, ngày nghiệp vụ, currency/net/vatRate/vatAmount/total, partner, creator/approver/approvedAt, reason/note, version/timestamps/soft delete. Item là phân bổ tiền/chi tiết, không tự ghi tồn.",
+    "Source links dùng bảng ExpenseSource/RevenueSource có FKtyped import_form_id hoặc export_form_id và constraint đúng loại; attachments theoD06. Chứng từ thu Hoàn/Bồi liên kết nhập, Thanh lý liên kết xuất, Phế liệu/Khác có thể không source.",
+    "Hoàn tiền nhiều đợt dùng RevenueRefundGroup(totalExpected,partner,source) và mỗi đợt là một RevenueForm riêng có groupId/installmentNo/plannedCount/amount/cumulative/remaining, unique(groupId,installmentNo). Số tiền trên phiếu là tiền thực thu của riêng đợt, không phải tổng mục tiêu của group; remaining=totalExpected−ΣRevenueForm CONFIRMED. Không suy ra chi mua hàng có thanh toán nhiều đợt vì SRS không yêu cầu.",
+    "API v1 /expenses,/revenues,/revenue-refund-groups và /revenue-refund-groups/{id}/installments; lifecycle submit/confirm/cancel theoD04. Ledger cash chỉ post từ từng RevenueForm confirmed, group không ghi tiền lần nữa; phải hoàn thiệnDDL/OpenAPI/constraints trước migration W07."
+  ],
+  "rationale": "Lấp thiếu schema/API phiếu thu từ SRS và giữ miền chi/thu tách biệt, tránh đếm Transaction nền như tài chính đã có.",
+  "change_control_id": "CR-D25-20261105-R2",
+  "supersession": "Tại các nguồn/mô tả mâu thuẫn ghi ở source_reference, dùng rules của bản này; phần không được nhắc vẫn giữ nguyên. Không sửa file gốc.",
+  "acceptance_examples": [
+    "Khoản thu2đợt40+60cho tổng100đối soát remaining60rồi0, retrykhông thành140.",
+    "Không thể liên kết thu thanh lý vàoImportForm.",
+    "Transaction hiện có không tự xuất hiện trong tổng thu/chi nếu không có chứng từ hợp lệ."
+  ],
+  "external_conditions": [],
+  "required_handoff": {
+    "BE": "Contract/DDL/permission/state và test theo quy tắc đã chốt trước gói liên quan.",
+    "FE": "Screen/field/action/error state và API binding theo contract, không tự đặt rule khác.",
+    "Tester": "Phân rã acceptance examples thành input/expected/case, kết quả và evidence đúng SHA."
+  },
+  "previous_record_sha256": "e0ec4d91c43c97d1499238f35a14c3f8486f5825601aefba16b23398aaeb60f5"
+}

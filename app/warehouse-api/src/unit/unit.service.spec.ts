@@ -225,5 +225,17 @@ describe('UnitService', () => {
 
       expect(unitRepository.findAndCount.mock.calls[0][0].where).toEqual({});
     });
+
+    it('tìm name dạng chứa chuỗi, escape ký tự đại diện của LIKE', async () => {
+      unitRepository.findAndCount.mockResolvedValue([[], 0]);
+
+      await service.findAll({ page: 1, size: 10, name: 'Kilo' });
+      await service.findAll({ page: 1, size: 10, name: String.raw`a%_\b` });
+
+      const [[normal], [special]] = unitRepository.findAndCount.mock.calls;
+      expect(normal.where.name.type).toBe('like');
+      expect(normal.where.name.value).toBe('%Kilo%');
+      expect(special.where.name.value).toBe(String.raw`%a\%\_\\b%`);
+    });
   });
 });

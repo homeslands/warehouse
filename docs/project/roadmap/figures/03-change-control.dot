@@ -1,0 +1,14 @@
+digraph G {graph [rankdir=LR, bgcolor="white",pad="0.2",nodesep="0.3",ranksep="0.45",fontname="DejaVu Sans",dpi=160]; node [shape=box,style="rounded,filled",fillcolor="#e8f2f1",color="#b5cecc",fontname="DejaVu Sans",fontsize=11,margin="0.13,0.13"]; edge [color="#6d8992",arrowsize=0.7,fontname="DejaVu Sans",fontsize=9]; 
+ input[label="Source / thiết kế đổi"];
+ stale[label="Baseline STALE
+không tự kế thừa PASS",fillcolor="#fee2e2"];
+ impact[label="BA/TL đánh giá ảnh hưởng
+requirement → task → test → lịch"];
+ approve[label="Owner duyệt CR/ADR
+QA chốt expected result",fillcolor="#ffedc7"];
+ update[label="Cập nhật hash + estimate
+retest phần bị ảnh hưởng"];
+ close[label="Review độc lập + ký lại
+phát hành revision kế hoạch"];
+ input->stale->impact->approve->update->close;
+ }

@@ -1,0 +1,200 @@
+<!doctype html><html lang="vi"><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1"><title>Warehouse issue taxonomy R1.1</title><style>body{font:16px/1.65 system-ui,sans-serif;color:#234057;background:#edf3f7;margin:0}main{max-width:1100px;margin:auto;padding:45px;background:white}h1,h2{color:#153e60;line-height:1.3}h1{font-size:36px}h2{margin-top:45px}table{width:100%;table-layout:fixed;border-collapse:collapse;font-size:13px}td,th{padding:12px;text-align:left;vertical-align:top;border-bottom:1px solid #d8e4ed;overflow-wrap:anywhere}th{background:#173f5e;color:white}tr:nth-child(even){background:#eff5f8}a{color:#177ba2}code{font-size:.9em}@media(max-width:700px){main{padding:20px}h1{font-size:27px}table{font-size:11px}td,th{padding:7px}}</style><main><aside style="background:#fff2d6;color:#604a1b;padding:12px 18px;border:1px solid #e3ce9e;font:12px/1.5 sans-serif;break-inside:avoid">Bản chia sẻ PUB-R1 · 05/11/2026. Nội dung kế hoạch/baseline là snapshot theo revision gốc; xem TEAM-HANDOFF để biết phân công mới. Link đã chuyển cho repo; SHA nguồn và SHA bản xuất ở PUBLICATION-MANIFEST.json. Phát hành Git không tự đóng gate/code/test. <a href="../../TEAM-HANDOFF.md">TEAM-HANDOFF</a></aside><h1>WH-ISSUE-TAXONOMY-20261105-R1.1 - Phân loại và theo dõi issue</h1>
+<p><strong>DRAFT_FOR_REVIEW · 05/11/2026 · Asia/Bangkok (UTC+7)</strong></p>
+<p>Người lập: Codex điều phối. Phạm vi: bổ sung và review giải pháp nhãn/metadata cho repository homeslands/warehouse. Chưa tạo/sửa nhãn, milestone, assignee, Projects hay trạng thái issue trên GitHub. Không đổi scope hoặc nguồn thiết kế R2/W00-W01-R1.</p>
+<h2>1. Rà lại hiện trạng</h2>
+<p>Snapshot21issue:11issue W00/W01 #156–166 chưa có label;10issue khác có bug/enhancement nhưng chưa đủ phân loại. Cả21issue chưa có assignee/milestone trong snapshot. Repo hiện có9label chuẩn GitHub. Thiếu không chỉ nhãn mà còn ownership người nhận, milestone, dependency và evidence sau merge.</p>
+<p>Các thiếu sót của đề xuất trước: chưa có priority/severity/area/risk/target; type quá thô; chưa phân biệt nhãn chờ với trạng thái; chưa quy định điều kiện gỡ gate, xử lý legacy label, PR liên quan và nguồn bằng chứng. Không suy từ CLOSED hoặc PR merged rằng QA/deploy đã đạt.</p>
+<h2>2. Bộ nhãn đầy đủ, tạo theo nhu cầu</h2>
+<p>Danh mục43nhãn đề xuất;28nhãn xuất hiện trong mapping hiện tại, còn lại chỉ tạo khi có issue cần. Không tạo W02–W11 trước khi phân rã/giao các gói đó.</p>
+<table>
+<thead>
+<tr>
+<th>Nhóm</th>
+<th>Ví dụ / tập giá trị</th>
+<th>Quy tắc</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>WBS</td>
+<td>wbs:W00 / wbs:W01</td>
+<td>Một gói chính đã đối chiếu plan. Task liên gói dùng linked issue; không đoán WBS từ BE/QA hoặc PR.</td>
+</tr>
+<tr>
+<td>Vai trò</td>
+<td>role:BE / FE / QA / COORD</td>
+<td>Một vai trò chịu trách nhiệm chính. Assignee là người thật; role không thay assignee.</td>
+</tr>
+<tr>
+<td>Loại</td>
+<td>type:epic / feature / bug / refactor / test / docs / chore</td>
+<td>Một loại chính. Parent package=epic; test design/harness/regression=test.</td>
+</tr>
+<tr>
+<td>Ưu tiên</td>
+<td>priority:P0 / P1 / P2 / P3</td>
+<td>Một mức đã triage; P0 có sự cố/evidence, P1 gate đường găng, P2 kế hoạch thường, P3 có thể hoãn.</td>
+</tr>
+<tr>
+<td>Mức độ lỗi</td>
+<td>sev:S1 / S2 / S3 / S4</td>
+<td>Chỉ type:bug; mô tả impact thực tế, không lấy độ gấp thay severity. Thiếu căn cứ để pending.</td>
+</tr>
+<tr>
+<td>Phạm vi</td>
+<td>area:api / ui / auth / database / storage / quality / delivery / docs</td>
+<td>Thường1–2area thực sự có acceptance; không gắn mọi module có thể bị ảnh hưởng.</td>
+</tr>
+<tr>
+<td>Rủi ro</td>
+<td>risk:security / data / breaking-change</td>
+<td>Tùy chọn theo impact; không phải xác nhận lỗ hổng hoặc test đã PASS.</td>
+</tr>
+<tr>
+<td>Target cần kiểm</td>
+<td>target:local / sandbox / mekong</td>
+<td>Là môi trường dự định nghiệm thu; không chứng minh đã deploy/test. Không suy sandbox=Mekong.</td>
+</tr>
+<tr>
+<td>Gate</td>
+<td>gate:needs-spec / needs-review / needs-test-env / needs-qa / needs-deploy / needs-handoff</td>
+<td>Chỉ dùng khi đang có phần còn thiếu thật; cần owner/impact/evidence/unlock.</td>
+</tr>
+<tr>
+<td>Điều khiển</td>
+<td>blocked / meta:needs-triage</td>
+<td>blocked là không thể tiếp tục scope; meta:needs-triage chỉ thiếu phân loại, không reopen code.</td>
+</tr>
+</tbody>
+</table>
+<p>Nhãn thường5–8/issue, tăng khi có risk/gate thật; không gắn cả danh mục. Giữ duy nhất một nhãn wbs/role/type/priority/severity trong mỗi nhóm (target có thể nhiều nếu acceptance yêu cầu). Ngoại lệ thiếu wbs/priority/severity được đánh dấu meta:needs-triage với owner xử lý; không giả định P2 hoặc S3 cho mọi bug.</p>
+<h2>3. Priority và severity là hai quyết định khác nhau</h2>
+<p>P0: active incident có evidence, người điều phối ưu tiên xử lý ngay. P1: chặn milestone/gate gần nhất. P2: công việc đã lập kế hoạch nhưng chưa thuộc P0/P1. P3: cải tiến hoãn được, không bỏ yêu cầu bắt buộc của thiết kế.</p>
+<p>S1: impact nghiêm trọng lên dữ liệu/bảo mật/vận hành; S2: chức năng chính sai/không dùng được, không có workaround khả thi; S3: impact giới hạn hoặc có workaround; S4: trình bày nhỏ. QA xác minh impact, điều phối chốt priority; không tự suy severity từ từ khóa security hoặc tên issue.</p>
+<p>Mapping W01 đề xuất P1 vì là gate mở W02. W00 đề xuất P2 khi chỉ còn bàn giao; nếu receipt thực tế đang chặn team, nâng P1 kèm lý do. Priority này là đề xuất cần đối chiếu khi nhận việc, không thay ngày cam kết hay status.</p>
+<h2>4. Trạng thái, milestone và người nhận việc</h2>
+<ul>
+<li>Status duy nhất trên Projects: Triage → Ready → In progress → Review → QA → Done; Blocked là trạng thái tạm kèm blockers. Không tạo thêm bộ label status:* để phải đồng bộ hai nơi.</li>
+<li>Nếu chưa có Projects/quyền: ghi cùng trường Status trong issue body theo dõi thủ công; label blocked/gate là bộ lọc, không tạo board giả. Khi có board thì chuyển nguồn status sang board, không để hai nguồn song song.</li>
+<li>MilestoneW00/W01 phục vụ rollup; wbs label phục vụ filter. Chỉ map #156/#158–160 vàoW00, #157/#161–166 vàoW01 từ plan đã duyệt. #167–174/#179/#180 chờ điều phối map nguồn/CR; không tự gán W01 vì gần thời điểm.</li>
+<li>Assignee là người đã nhận scope. BE01/FE01/QA01 chỉ là vị trí. Cả21issue hiện chưa có assignee nên không được báo đã giao người chỉ bằng role label.</li>
+<li>Parent epic có native sub-issue links; dependencies dùng liên kết blocked-by/blocking nếu API/UI hỗ trợ, nếu không có bảng depends-on trong body. Không tạo chu trình; ghi direct dependency, tránh ghi transitive trùng như điều kiện độc lập.</li>
+<li>%milestone/closed count chỉ là tỷ lệ issue closed, không phải %code/effort hoặc nghiệm thu toàn gói. Done theo DoD riêng của issue; epicDone cần child acceptance + gate/owner thật.</li>
+</ul>
+<h3>Crosswalk với tracker W00/W01 hiện có</h3>
+<p>Projects/body Status là vòng đời xử lý issue; progress-state.json là trạng thái task/microtask và evidence delivery theo tracking-procedure đã duyệt. Hai khái niệm không thay lẫn nhau. Issue owner cập nhật workflow khi bàn giao; BE/FE/QA ghi actual/evidence vào tracker tương ứng; điều phối đối soát hai nơi tại checkpoint đầu/cuối ngày và trước đổi gate/milestone.</p>
+<ul>
+<li>NOT_STARTED ở tracker không tự chứng minh Ready; chỉ Ready khi dependency/quyền/source đã readback, nếu chưa thì Triage.</li>
+<li>DOCUMENTATION_COMPLETE_RECEIPT_PENDING giữ nguyên docs COMPLETE; workflow có thể Review/Handoff pending, không reset về thiết kế chưa làm.</li>
+<li>IN_PROGRESS phải có người nhận/actual_start; READY_FOR_REVIEW/READY_FOR_QA chỉ có sau artifact/run manifest tương ứng, không đổi giá trị tracker âm thầm nếu enum hiện hữu khác.</li>
+<li>Task COMPLETE không tự thành package ACCEPTED. Done chỉ khi DoD chính issue đủ; milestone/epic acceptance cần owner/gate riêng. QA/deploy tách issue thì liên kết rõ, không buộc mọi issue docs/code phải đợi deploy.</li>
+<li>Nếu lệch workflow/tracker/issueClosed: ghi reconciliation record với issue/task, before/after, evidence SHA, người chốt và thời điểm. Giữ nguyên tiến độ chưa được kiểm chứng; không dùng label thay nguồn evidence. Status field/body fallback đều là đề xuất, chưa được triển khai.</li>
+</ul>
+<h2>5. Gate có điều kiện mở và điều kiện bỏ</h2>
+<p>Ba gate receipt W00 đã có record dự thảo trong gate-register.json, liên kết microtaskM05 đúng plan. Owner/receiver thật chưa có nên mapping ghi unresolved và gate_application=HOLD; chỉ được áp label gate sau khi preflight bổ sung owner thật và readback receipt, không áp từ row nhãn đơn thuần. set_at/cleared_at=null vì chưa áp/gỡ.</p>
+<p>Mỗi gate có record: gate_id, missing_item, owner, blocker_issue/artifact, impact, target, evidence, unlock_condition, set_at, cleared_at. Có gate chờ không mặc nhiên BLOCKED nếu còn microtask thực hiện được.</p>
+<table>
+<thead>
+<tr>
+<th>Nhãn</th>
+<th>Khi gắn</th>
+<th>Chỉ gỡ khi</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>gate:needs-spec</td>
+<td>Thiếu quyết định/contract cần cho bước tiếp</td>
+<td>Có quyết định đúng thẩm quyền, version/source và task được cập nhật.</td>
+</tr>
+<tr>
+<td>gate:needs-review</td>
+<td>Có diff/artifact đã bàn giao đang chờ review</td>
+<td>Reviewer khác người viết có kết luận đúng SHA/diff; findings cần sửa đã được giải quyết.</td>
+</tr>
+<tr>
+<td>gate:needs-test-env</td>
+<td>Thiếu target/fixture/quyền test đã nêu</td>
+<td>Probe/target grant đúng scope và người test tiếp nhận; không chỉ container đang chạy.</td>
+</tr>
+<tr>
+<td>gate:needs-qa</td>
+<td>Code/harness được bàn giao, QA chưa kết luận</td>
+<td>Có test run đúng scope/SHA/digest, expected/actual, defect/retest và acceptance.</td>
+</tr>
+<tr>
+<td>gate:needs-deploy</td>
+<td>Issue có DoD cần runtime server nhưng chưa deploy đúng version</td>
+<td>Có deployment identity/service digest, readiness và smoke; publish image không đủ.</td>
+</tr>
+<tr>
+<td>gate:needs-handoff</td>
+<td>Receipt hồ sơ/người nhận còn thiếu</td>
+<td>Người nhận xác nhận đúng baseline, scope và quyền; tài liệu tồn tại chưa đủ.</td>
+</tr>
+<tr>
+<td>blocked</td>
+<td>Không còn việc scope có thể tiếp tục vì dependency/quyền/decision</td>
+<td>Unlock đạt, owner xác nhận; chờ review/test không tự động là blocked.</td>
+</tr>
+</tbody>
+</table>
+<p>W01 hiện theo plan là local API/DB/browser; <strong>không tự thêm needs-deploy sandbox/Mekong làm gate W01</strong>. Gate E02a đã có probe test riêng ở snapshot cũ nhưng cần readback trước áp needs-test-env; không mặc định mọi QA đều thiếu DB.</p>
+<h2>6. Code, publish, deploy và QA phải truy vết độc lập</h2>
+<p>PR liên kết issue bằng related reference hoặc closing keyword chỉ khi phạm vi đáp ứng đúng DoD; reviewer kiểm trước merge để tránh đóng sớm. Không reopen toàn bộ issue đã đóng chỉ vì server chưa update nếu QA/deploy là issue nghiệm thu riêng.</p>
+<p>Ví dụ: #168 đã CLOSED nhưng còn checklist QA migration047 trong body và có #173 riêng. Cần đối soát DoD/closing reference/QA record, không tự gắn qa-pass, không tự reopen hoặc coi code chưa viết. #169 vẫn OPEN dù có PR178 đã merge: cần kiểm phạm vi còn lại, không tự đổi Done từ merge.</p>
+<p>Hồ sơ release phải có source SHA, linked PR/issues, API/UI immutable digests, workflow/runURL, target, deployment identity, schema/migration version, QA run và acceptance. Không dùng các label deployed/verified/PASS làm bằng chứng thay record. Một issue có target:sandbox chỉ mô tả nơi cần kiểm, không xác nhận sandbox đã chạy đúng commit.</p>
+<h2>7. Ánh xạ và tương thích label cũ</h2>
+<p>Bảng issue-label-map.csv có toàn bộ21issue: nhãn hiện có, nhãn đề xuất, milestone/dependencies, phần chưa triage và nguồn. Không đổi state/assignee khi backfill.</p>
+<table>
+<thead>
+<tr>
+<th>Issue</th>
+<th>Ví dụ nhãn đề xuất</th>
+<th>Điểm cần giữ</th>
+</tr>
+</thead>
+<tbody>
+<tr>
+<td>#158</td>
+<td>wbs:W00 role:BE type:docs priority:P2 area:api area:database gate:needs-handoff</td>
+<td>Hồ sơ đã có, receipt chưa được giả là hoàn tất.</td>
+</tr>
+<tr>
+<td>#162</td>
+<td>wbs:W01 role:BE type:test priority:P1 area:api area:database risk:data target:local</td>
+<td>Depends-on#161, không tự gắn blocked/needs-test-env từ suy đoán.</td>
+</tr>
+<tr>
+<td>#173</td>
+<td>role:QA type:test area:auth area:database risk:security risk:data meta:needs-triage</td>
+<td>Hiện enhancement chưa phản ánh QA; WBS/priority/target còn cần triage.</td>
+</tr>
+<tr>
+<td>#179</td>
+<td>role:BE type:bug area:api risk:breaking-change meta:needs-triage</td>
+<td>Có hành vi400/422 không nhất quán; severity/priority chưa chốt.</td>
+</tr>
+<tr>
+<td>#180</td>
+<td>role:BE type:bug area:storage risk:data meta:needs-triage</td>
+<td>Giữ issue open; phân loại không thay nghiệm thu sửa S3 key.</td>
+</tr>
+</tbody>
+</table>
+<p>Dùng namespace type:* nhất quán. Mapping chuyển bug→type:bug, enhancement→type phù hợp từng issue (feature/refactor/test/bug/chore), documentation→type:docs; <strong>không đổi enhancement hàng loạt thành feature</strong>. Chỉ bỏ label cũ nằm trong allowlist khi nhãn mới đã readback và được duyệt áp dụng. Không rename/delete label toàn repo; giữ good first issue/help wanted/question/duplicate/invalid/wontfix vì khác mục đích. Không gắn type:bug và type:feature đồng thời để né triage.</p>
+<h2>8. Cách áp dụng có kiểm chứng</h2>
+<ol>
+<li>Review policy + mapping21issue + gate-register; metadata thiếu thì HOLD đúng row/field, không áp gate từ mapping chưa đủ owner/evidence. Đóng metadata cần input và ghi người chốt; không cần chặn phân loại role/type đã đủ căn cứ ở issue khác. Snapshot nguồn là thời điểm khảo sát, không phải khóa repo.</li>
+<li>Preflight: kiểm quyền label/issue/milestone; đọc lại updatedAt/currentlabels, so snapshot. Nếu drift, giữ thay đổi người khác và rebase mapping issue đó.</li>
+<li>Tạo các nhãn đang dùng, mô tả/color theo label-catalog.json. Milestone chỉ tạo/reuse sau readback title/id; không tự đặt due date.</li>
+<li>Add nhãn mới từng issue, giữ label không sở hữu. Readback thành công mới remove đúng bug/enhancement/documentation trong mapping; ghi before/after/error và tiếp tục an toàn.</li>
+<li>Không tự gán assignee hoặc state. Gate/milestone/priority còn pending giữ unresolved; không auto-run CI/deploy từ việc gắn nhãn.</li>
+<li>Hậu kiểm: cardinality, WBS↔milestone, dependency không vòng, priority/severity đủ source, gate record đủ, labels bảo toàn, scope không đổi. Không tuyên bố atomic apply nhiềuissue; có journal perissue/idempotent resume.</li>
+<li>Rollback chỉ các nhãn task đã thêm và restore label cũ task đã bỏ khi trạng thái chưa bị người khác thay; nếu drift thì HOLD/reconcile, không replace toàn bộ label list.</li>
+</ol>
+<p><strong>Chưa áp dụng lên GitHub.</strong> Yêu cầu hiện tại là bổ sung giải pháp và review. Các file local giữ ngoài Git; không CI/CD/deploy, không sửa code hay long-term memory. Review độc lập ghi file riêng với hash policy/mapping; không tự gán review:pass trên repo.</p>
+<h2>9. Validation và quản lý thay đổi</h2>
+<p>Tiêu chí review: đủ loại công việc BE/FE/QA; không nhầm target với chứng cứ; không tạo gate ngoài W01 local; không nhầm priority/severity; có migration label cũ, dependency/ownership và rollback giữ WIP; mọi mapping có source/unknown rõ. R1.1 bổ sung sau review độc lập: sửa đủ dependencies#173/#174, thêm gate records/owner pending và crosswalk tracker. R1 cũ được lưu archive/R1 cùng manifest. Đây là policy vận hành issue, không thay acceptance R2 hay là chứng nhận ISO.</p>
+<p>Nguồn: evidence/issues.json, evidence/labels.json; plan W00/W01-R1 + tracking-procedure.md; bằng chứng deployment trace ở ../pr-deploy-check-20261105/.</p>
+</main></html>
