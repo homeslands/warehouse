@@ -1,0 +1,4425 @@
+syntax = "proto3";
+package warehouse.storage.v1;
+import "google/protobuf/struct.proto";
+import "google/protobuf/field_mask.proto";
+
+// Target design contract only. No service is claimed to be running.
+// Gateway and Storage authenticate each other with mTLS. Caller JWT is sent in
+// authorization metadata; Storage independently checks session, authority and scope.
+// No userId/role/scope supplied in message fields is trusted as identity.
+// Decimal money/quantity use strings. Required/enums/date/cross-field rules follow
+// OpenAPI + business-rules.md and MUST be validated by Storage, not only Gateway.
+message CommandContext {
+  string trace_id = 1;
+  string idempotency_key = 2;
+  optional int64 expected_version = 3;
+}
+message ResponseMeta { string trace_id = 1; string timestamp = 2; }
+message FileUploadHeader {
+  CommandContext context = 1; string original_name = 2; string purpose = 3;
+  string warehouse_id = 4; string claimed_mime_type = 5;
+}
+message FileUploadChunk {
+  oneof part { FileUploadHeader header = 1; bytes chunk = 2; }
+}
+message UploadFileResponse { ResponseMeta meta = 1; FileMetadata result = 2; }
+// Header must be first and unique; chunks <=64KiB; count bytes and enforce purpose
+// limit before storing/attaching. Cancellation/error removes only uncommitted temp object.
+message FieldError {
+  optional string field = 1 [json_name = "field"];
+  optional string error_key = 2 [json_name = "errorKey"];
+  optional string message = 3 [json_name = "message"];
+}
+
+message Error {
+  optional int64 status_code = 1 [json_name = "statusCode"];
+  optional int64 code = 2 [json_name = "code"];
+  optional string error_key = 3 [json_name = "errorKey"];
+  optional string message = 4 [json_name = "message"];
+  optional string trace_id = 5 [json_name = "traceId"];
+  optional string timestamp = 6 [json_name = "timestamp"];
+  repeated FieldError errors = 7 [json_name = "errors"];
+}
+
+message VersionCommand {
+  optional int64 version = 1 [json_name = "version"];
+  optional string reason = 2 [json_name = "reason"];
+}
+
+message ActionResult {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  optional string status = 3 [json_name = "status"];
+  optional string trace_id = 4 [json_name = "traceId"];
+}
+
+message Page {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+}
+
+message Role {
+  enum FamilyEnum {
+    FAMILY_UNSPECIFIED = 0;
+    FAMILY_ADMIN = 1;
+    FAMILY_MANAGER = 2;
+    FAMILY_SUPERVISOR = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string name = 2 [json_name = "name"];
+  optional FamilyEnum family = 3 [json_name = "family"];
+  optional int64 level = 4 [json_name = "level"];
+  optional bool built_in = 5 [json_name = "builtIn"];
+  repeated string authority_codes = 6 [json_name = "authorityCodes"];
+  optional int64 version = 7 [json_name = "version"];
+  optional string description = 8 [json_name = "description"];
+  repeated SearchHighlight highlights = 9 [json_name = "highlights"];
+}
+
+message SearchHighlight {
+  optional string field = 1 [json_name = "field"];
+  optional int64 start = 2 [json_name = "start"];
+  optional int64 end = 3 [json_name = "end"];
+  optional string normalized_text = 4 [json_name = "normalizedText"];
+}
+
+message RoleWrite {
+  enum FamilyEnum {
+    FAMILY_UNSPECIFIED = 0;
+    FAMILY_MANAGER = 1;
+    FAMILY_SUPERVISOR = 2;
+  }
+  optional string name = 1 [json_name = "name"];
+  optional FamilyEnum family = 2 [json_name = "family"];
+  optional int64 level = 3 [json_name = "level"];
+  repeated string authority_codes = 4 [json_name = "authorityCodes"];
+  optional string description = 5 [json_name = "description"];
+}
+
+message User {
+  optional string id = 1 [json_name = "id"];
+  optional string phone_number = 2 [json_name = "phoneNumber"];
+  optional string display_name = 3 [json_name = "displayName"];
+  optional string email = 4 [json_name = "email"];
+  optional bool is_active = 5 [json_name = "isActive"];
+  Role role = 6 [json_name = "role"];
+  repeated string warehouse_ids = 7 [json_name = "warehouseIds"];
+  optional int64 version = 8 [json_name = "version"];
+  optional string dob = 9 [json_name = "dob"];
+  optional string address = 10 [json_name = "address"];
+  optional string avatar_file_id = 11 [json_name = "avatarFileId"];
+  repeated SearchHighlight highlights = 12 [json_name = "highlights"];
+}
+
+message UserCreate {
+  optional string phone_number = 1 [json_name = "phoneNumber"];
+  optional string display_name = 2 [json_name = "displayName"];
+  optional string email = 3 [json_name = "email"];
+  optional string password = 4 [json_name = "password"];
+  optional string role_id = 5 [json_name = "roleId"];
+  repeated string warehouse_ids = 6 [json_name = "warehouseIds"];
+  optional string dob = 7 [json_name = "dob"];
+  optional string address = 8 [json_name = "address"];
+}
+
+message UserPatch {
+  optional int64 version = 1 [json_name = "version"];
+  optional string display_name = 2 [json_name = "displayName"];
+  optional string email = 3 [json_name = "email"];
+  optional bool is_active = 4 [json_name = "isActive"];
+}
+
+message ProfilePatch {
+  optional int64 version = 1 [json_name = "version"];
+  optional string display_name = 2 [json_name = "displayName"];
+  optional string email = 3 [json_name = "email"];
+  optional string dob = 4 [json_name = "dob"];
+  optional string avatar_file_id = 5 [json_name = "avatarFileId"];
+  optional string address = 6 [json_name = "address"];
+}
+
+message Login {
+  optional string phone_number = 1 [json_name = "phoneNumber"];
+  optional string password = 2 [json_name = "password"];
+}
+
+message LoginResult {
+  optional string access_token = 1 [json_name = "accessToken"];
+  google.protobuf.Struct expires_in = 2 [json_name = "expiresIn"];
+  User user = 3 [json_name = "user"];
+  optional string session_id = 4 [json_name = "sessionId"];
+  optional string csrf_token = 5 [json_name = "csrfToken"];
+}
+
+message PasswordChange {
+  optional string current_password = 1 [json_name = "currentPassword"];
+  optional string new_password = 2 [json_name = "newPassword"];
+}
+
+message Session {
+  optional string id = 1 [json_name = "id"];
+  optional bool is_current = 2 [json_name = "isCurrent"];
+  optional string created_at = 3 [json_name = "createdAt"];
+  optional string last_interactive_at = 4 [json_name = "lastInteractiveAt"];
+  optional string idle_expires_at = 5 [json_name = "idleExpiresAt"];
+  optional string expires_at = 6 [json_name = "expiresAt"];
+  optional string ip_masked = 7 [json_name = "ipMasked"];
+  optional string user_agent = 8 [json_name = "userAgent"];
+}
+
+message Authority {
+  optional string code = 1 [json_name = "code"];
+  optional string name = 2 [json_name = "name"];
+  optional string group_id = 3 [json_name = "groupId"];
+  optional bool fixed_invariant = 4 [json_name = "fixedInvariant"];
+}
+
+message Warehouse {
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string name = 6 [json_name = "name"];
+  optional string store_id = 7 [json_name = "storeId"];
+  repeated string manager_ids = 8 [json_name = "managerIds"];
+  repeated string member_ids = 9 [json_name = "memberIds"];
+  optional bool is_active = 10 [json_name = "isActive"];
+  repeated SearchHighlight highlights = 11 [json_name = "highlights"];
+}
+
+message WarehouseWrite {
+  optional string name = 1 [json_name = "name"];
+  optional string store_id = 2 [json_name = "storeId"];
+  repeated string manager_ids = 3 [json_name = "managerIds"];
+  repeated string member_ids = 4 [json_name = "memberIds"];
+  optional bool is_active = 5 [json_name = "isActive"];
+}
+
+message NamedMaster {
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string name = 6 [json_name = "name"];
+  optional string description = 7 [json_name = "description"];
+  optional bool is_active = 8 [json_name = "isActive"];
+  repeated SearchHighlight highlights = 9 [json_name = "highlights"];
+}
+
+message NamedMasterWrite {
+  optional string name = 1 [json_name = "name"];
+  optional string description = 2 [json_name = "description"];
+  optional bool is_active = 3 [json_name = "isActive"];
+}
+
+message PaymentTerm {
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional string label = 3 [json_name = "label"];
+  optional int64 due_days = 4 [json_name = "dueDays"];
+  optional bool active = 5 [json_name = "active"];
+  optional int64 version = 6 [json_name = "version"];
+}
+
+message Supplier {
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string name = 6 [json_name = "name"];
+  optional string phone_number = 7 [json_name = "phoneNumber"];
+  optional string email = 8 [json_name = "email"];
+  optional string address = 9 [json_name = "address"];
+  optional string tax_code = 10 [json_name = "taxCode"];
+  optional string payment_term_id = 11 [json_name = "paymentTermId"];
+  repeated string material_ids = 12 [json_name = "materialIds"];
+  optional string note = 13 [json_name = "note"];
+  optional bool is_active = 14 [json_name = "isActive"];
+  optional string contact_person = 15 [json_name = "contactPerson"];
+  optional string website = 16 [json_name = "website"];
+  repeated SearchHighlight highlights = 17 [json_name = "highlights"];
+}
+
+message SupplierWrite {
+  optional string name = 1 [json_name = "name"];
+  optional string phone_number = 2 [json_name = "phoneNumber"];
+  optional string email = 3 [json_name = "email"];
+  optional string address = 4 [json_name = "address"];
+  optional string tax_code = 5 [json_name = "taxCode"];
+  optional string payment_term_id = 6 [json_name = "paymentTermId"];
+  repeated string material_ids = 7 [json_name = "materialIds"];
+  optional string note = 8 [json_name = "note"];
+  optional bool is_active = 9 [json_name = "isActive"];
+  optional string contact_person = 10 [json_name = "contactPerson"];
+  optional string website = 11 [json_name = "website"];
+}
+
+message Material {
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string name = 6 [json_name = "name"];
+  optional string type_id = 7 [json_name = "typeId"];
+  optional string base_unit_id = 8 [json_name = "baseUnitId"];
+  optional bool is_expiry = 9 [json_name = "isExpiry"];
+  optional string minimum_quantity = 10 [json_name = "minimumQuantity"];
+  optional string maximum_quantity = 11 [json_name = "maximumQuantity"];
+  repeated string supplier_ids = 12 [json_name = "supplierIds"];
+  optional string description = 13 [json_name = "description"];
+  optional bool is_active = 14 [json_name = "isActive"];
+  optional string primary_supplier_id = 15 [json_name = "primarySupplierId"];
+  repeated MaterialPositionAssignment positions = 16 [json_name = "positions"];
+  repeated string attachment_ids = 17 [json_name = "attachmentIds"];
+  repeated SearchHighlight highlights = 18 [json_name = "highlights"];
+}
+
+message MaterialPositionAssignment {
+  optional string position_id = 1 [json_name = "positionId"];
+  optional string location_note = 2 [json_name = "locationNote"];
+}
+
+message MaterialWrite {
+  optional string name = 1 [json_name = "name"];
+  optional string type_id = 2 [json_name = "typeId"];
+  optional string base_unit_id = 3 [json_name = "baseUnitId"];
+  optional bool is_expiry = 4 [json_name = "isExpiry"];
+  optional string minimum_quantity = 5 [json_name = "minimumQuantity"];
+  optional string maximum_quantity = 6 [json_name = "maximumQuantity"];
+  repeated string supplier_ids = 7 [json_name = "supplierIds"];
+  optional string description = 8 [json_name = "description"];
+  optional bool is_active = 9 [json_name = "isActive"];
+  optional string primary_supplier_id = 10 [json_name = "primarySupplierId"];
+  repeated MaterialPositionAssignment positions = 11 [json_name = "positions"];
+  repeated string attachment_ids = 12 [json_name = "attachmentIds"];
+}
+
+message Conversion {
+  optional string unit_id = 1 [json_name = "unitId"];
+  optional string base_unit_id = 2 [json_name = "baseUnitId"];
+  optional string factor = 3 [json_name = "factor"];
+  optional int64 version = 4 [json_name = "version"];
+  optional bool is_base = 5 [json_name = "isBase"];
+  optional string symbol = 6 [json_name = "symbol"];
+}
+
+message Position {
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional string name = 7 [json_name = "name"];
+  optional bool is_active = 8 [json_name = "isActive"];
+  optional string location = 9 [json_name = "location"];
+}
+
+message FileMetadata {
+  enum PurposeEnum {
+    PURPOSE_UNSPECIFIED = 0;
+    PURPOSE_GENERIC = 1;
+    PURPOSE_FINANCIAL_ATTACHMENT = 2;
+    PURPOSE_EXCEL_IMPORT = 3;
+  }
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_UNATTACHED = 1;
+    STATUS_ATTACHED = 2;
+    STATUS_REJECTED = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional PurposeEnum purpose = 2 [json_name = "purpose"];
+  optional string original_name = 3 [json_name = "originalName"];
+  optional string detected_mime_type = 4 [json_name = "detectedMimeType"];
+  optional string extension = 5 [json_name = "extension"];
+  optional int64 size_bytes = 6 [json_name = "sizeBytes"];
+  optional string sha256 = 7 [json_name = "sha256"];
+  optional string warehouse_id = 8 [json_name = "warehouseId"];
+  optional string owner_id = 9 [json_name = "ownerId"];
+  optional string created_at = 10 [json_name = "createdAt"];
+  optional StatusEnum status = 11 [json_name = "status"];
+}
+
+message FileAccess {
+  optional string url = 1 [json_name = "url"];
+  optional string expires_at = 2 [json_name = "expiresAt"];
+  optional string download_name = 3 [json_name = "downloadName"];
+  google.protobuf.Struct content_disposition = 4 [json_name = "contentDisposition"];
+}
+
+message AuditEvent {
+  enum ActorTypeEnum {
+    ACTOR_TYPE_UNSPECIFIED = 0;
+    ACTOR_TYPE_USER = 1;
+    ACTOR_TYPE_SYSTEM = 2;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string actor_id = 2 [json_name = "actorId"];
+  optional string warehouse_id = 3 [json_name = "warehouseId"];
+  optional string action = 4 [json_name = "action"];
+  optional string entity_type = 5 [json_name = "entityType"];
+  optional string entity_id = 6 [json_name = "entityId"];
+  optional int64 entity_version = 7 [json_name = "entityVersion"];
+  google.protobuf.Struct before = 8 [json_name = "before"];
+  google.protobuf.Struct after = 9 [json_name = "after"];
+  optional string trace_id = 10 [json_name = "traceId"];
+  optional string ip_masked = 11 [json_name = "ipMasked"];
+  optional string user_agent = 12 [json_name = "userAgent"];
+  optional string created_at = 13 [json_name = "createdAt"];
+  optional ActorTypeEnum actor_type = 14 [json_name = "actorType"];
+  optional string actor_name = 15 [json_name = "actorName"];
+  optional string service_identity = 16 [json_name = "serviceIdentity"];
+  repeated string changed_fields = 17 [json_name = "changedFields"];
+}
+
+message BackupRequest {
+  google.protobuf.Struct target_ref = 1 [json_name = "targetRef"];
+  optional string reason = 2 [json_name = "reason"];
+}
+
+message RestoreRequest {
+  optional string backup_id = 1 [json_name = "backupId"];
+  google.protobuf.Struct target_ref = 2 [json_name = "targetRef"];
+  optional string reason = 3 [json_name = "reason"];
+  optional string confirmation_code = 4 [json_name = "confirmationCode"];
+}
+
+message Job {
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_QUEUED = 1;
+    STATUS_RUNNING = 2;
+    STATUS_SUCCEEDED = 3;
+    STATUS_FAILED = 4;
+    STATUS_CANCELLED = 5;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string kind = 2 [json_name = "kind"];
+  optional StatusEnum status = 3 [json_name = "status"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string finished_at = 5 [json_name = "finishedAt"];
+  optional string error_key = 6 [json_name = "errorKey"];
+  optional string result_file_id = 7 [json_name = "resultFileId"];
+  optional int64 progress = 8 [json_name = "progress"];
+}
+
+message Inventory {
+  enum ThresholdSourceEnum {
+    THRESHOLD_SOURCE_UNSPECIFIED = 0;
+    THRESHOLD_SOURCE_MATERIAL = 1;
+    THRESHOLD_SOURCE_WAREHOUSE_OVERRIDE = 2;
+  }
+  enum ValuationStatusEnum {
+    VALUATION_STATUS_UNSPECIFIED = 0;
+    VALUATION_STATUS_READY = 1;
+    VALUATION_STATUS_PENDING_RECONCILIATION = 2;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string base_unit_id = 3 [json_name = "baseUnitId"];
+  optional string quantity = 4 [json_name = "quantity"];
+  optional string available_quantity = 5 [json_name = "availableQuantity"];
+  optional string average_cost = 6 [json_name = "averageCost"];
+  optional string stock_value = 7 [json_name = "stockValue"];
+  optional bool is_below_or_at_min = 8 [json_name = "isBelowOrAtMin"];
+  optional bool is_above_or_at_max = 9 [json_name = "isAboveOrAtMax"];
+  optional int64 version = 10 [json_name = "version"];
+  optional string effective_minimum_quantity = 11 [json_name = "effectiveMinimumQuantity"];
+  optional string effective_maximum_quantity = 12 [json_name = "effectiveMaximumQuantity"];
+  optional ThresholdSourceEnum threshold_source = 13 [json_name = "thresholdSource"];
+  optional ValuationStatusEnum valuation_status = 14 [json_name = "valuationStatus"];
+}
+
+message Batch {
+  enum ProvenanceStatusEnum {
+    PROVENANCE_STATUS_UNSPECIFIED = 0;
+    PROVENANCE_STATUS_VERIFIED = 1;
+    PROVENANCE_STATUS_LEGACY_UNVERIFIED = 2;
+  }
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_ACTIVE = 1;
+    STATUS_EXPIRED = 2;
+    STATUS_DEPLETED = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional string material_id = 7 [json_name = "materialId"];
+  optional string import_form_id = 8 [json_name = "importFormId"];
+  optional string import_item_id = 9 [json_name = "importItemId"];
+  optional string supplier_id = 10 [json_name = "supplierId"];
+  optional string supplier_lot_code = 11 [json_name = "supplierLotCode"];
+  optional string manufactured_on = 12 [json_name = "manufacturedOn"];
+  optional string expires_on = 13 [json_name = "expiresOn"];
+  optional string quantity = 14 [json_name = "quantity"];
+  optional string unit_cost = 15 [json_name = "unitCost"];
+  optional string parent_batch_id = 16 [json_name = "parentBatchId"];
+  optional ProvenanceStatusEnum provenance_status = 17 [json_name = "provenanceStatus"];
+  optional StatusEnum status = 18 [json_name = "status"];
+  optional string position_id = 19 [json_name = "positionId"];
+  optional string receipt_unit_cost = 20 [json_name = "receiptUnitCost"];
+  optional string valuation_unit_cost = 21 [json_name = "valuationUnitCost"];
+}
+
+message ImportItemWrite {
+  optional string material_id = 1 [json_name = "materialId"];
+  optional string unit_id = 2 [json_name = "unitId"];
+  optional string quantity = 3 [json_name = "quantity"];
+  optional string unit_price = 4 [json_name = "unitPrice"];
+  optional string manufactured_on = 5 [json_name = "manufacturedOn"];
+  optional string expires_on = 6 [json_name = "expiresOn"];
+  optional string supplier_lot_code = 7 [json_name = "supplierLotCode"];
+  optional string position_id = 8 [json_name = "positionId"];
+  optional string note = 9 [json_name = "note"];
+}
+
+message ExportItemWrite {
+  optional string material_id = 1 [json_name = "materialId"];
+  optional string unit_id = 2 [json_name = "unitId"];
+  optional string quantity = 3 [json_name = "quantity"];
+  optional string note = 4 [json_name = "note"];
+}
+
+message ImportDraft {
+  optional string supplier_id = 1 [json_name = "supplierId"];
+  optional string business_date = 2 [json_name = "businessDate"];
+  optional string po_number = 3 [json_name = "poNumber"];
+  optional string invoice_number = 4 [json_name = "invoiceNumber"];
+  optional string note = 5 [json_name = "note"];
+  repeated string attachment_ids = 6 [json_name = "attachmentIds"];
+  repeated ImportItemWrite items = 7 [json_name = "items"];
+  optional string requester_id = 8 [json_name = "requesterId"];
+  optional double vat_rate = 9 [json_name = "vatRate"];
+}
+
+message ExportDraft {
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_PRODUCTION = 1;
+    TYPE_SALE = 2;
+    TYPE_DISPOSAL = 3;
+    TYPE_TRANSFER = 4;
+    TYPE_LIQUIDATION = 5;
+    TYPE_OTHER = 6;
+  }
+  optional TypeEnum type = 1 [json_name = "type"];
+  optional string business_date = 2 [json_name = "businessDate"];
+  optional string destination_warehouse_id = 3 [json_name = "destinationWarehouseId"];
+  optional string reason = 4 [json_name = "reason"];
+  repeated string attachment_ids = 5 [json_name = "attachmentIds"];
+  repeated ExportItemWrite items = 6 [json_name = "items"];
+  optional string note = 7 [json_name = "note"];
+  optional string requester_id = 8 [json_name = "requesterId"];
+  optional string po_number = 9 [json_name = "poNumber"];
+  optional string receiver_id = 10 [json_name = "receiverId"];
+}
+
+message Form {
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional string creator_id = 7 [json_name = "creatorId"];
+  optional string approver_id = 8 [json_name = "approverId"];
+  optional StatusEnum status = 9 [json_name = "status"];
+  optional string business_date = 10 [json_name = "businessDate"];
+  optional string type = 11 [json_name = "type"];
+  repeated google.protobuf.Struct items = 12 [json_name = "items"];
+  repeated string attachment_ids = 13 [json_name = "attachmentIds"];
+  optional string note = 14 [json_name = "note"];
+  optional string posted_at = 15 [json_name = "postedAt"];
+}
+
+message StocktakeDraft {
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_PERIODIC = 1;
+    TYPE_AD_HOC = 2;
+  }
+  enum ScopeEnum {
+    SCOPE_UNSPECIFIED = 0;
+    SCOPE_FULL = 1;
+    SCOPE_PARTIAL = 2;
+  }
+  optional TypeEnum type = 1 [json_name = "type"];
+  optional ScopeEnum scope = 2 [json_name = "scope"];
+  repeated string material_ids = 3 [json_name = "materialIds"];
+  repeated string assigned_user_ids = 4 [json_name = "assignedUserIds"];
+  optional string business_date = 5 [json_name = "businessDate"];
+  optional string note = 6 [json_name = "note"];
+}
+
+message StocktakeCount {
+  enum ReasonCodeEnum {
+    REASON_CODE_UNSPECIFIED = 0;
+    REASON_CODE_USAGE_LOSS = 1;
+    REASON_CODE_ENTRY_ERROR = 2;
+    REASON_CODE_UNRECORDED_DAMAGE = 3;
+    REASON_CODE_NATURAL_LOSS = 4;
+    REASON_CODE_COUNT_ERROR = 5;
+    REASON_CODE_UNIT_MISMATCH = 6;
+    REASON_CODE_OTHER = 7;
+  }
+  optional int64 version = 1 [json_name = "version"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string batch_id = 3 [json_name = "batchId"];
+  optional string actual_quantity = 4 [json_name = "actualQuantity"];
+  optional ReasonCodeEnum reason_code = 5 [json_name = "reasonCode"];
+  optional string explanation = 6 [json_name = "explanation"];
+  repeated string photo_ids = 7 [json_name = "photoIds"];
+}
+
+message Stocktake {
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_IN_PROGRESS = 2;
+    STATUS_SUBMITTED = 3;
+    STATUS_COMPLETED = 4;
+    STATUS_CANCELLED = 5;
+  }
+  enum ScopeEnum {
+    SCOPE_UNSPECIFIED = 0;
+    SCOPE_FULL = 1;
+    SCOPE_PARTIAL = 2;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional StatusEnum status = 7 [json_name = "status"];
+  optional ScopeEnum scope = 8 [json_name = "scope"];
+  repeated string assigned_user_ids = 9 [json_name = "assignedUserIds"];
+  repeated string acknowledged_user_ids = 10 [json_name = "acknowledgedUserIds"];
+  repeated string locked_material_ids = 11 [json_name = "lockedMaterialIds"];
+  repeated StocktakeLine counts = 12 [json_name = "counts"];
+  optional string total_difference_value = 13 [json_name = "totalDifferenceValue"];
+}
+
+message StocktakeLine {
+  enum ReasonCodeEnum {
+    REASON_CODE_UNSPECIFIED = 0;
+    REASON_CODE_USAGE_LOSS = 1;
+    REASON_CODE_ENTRY_ERROR = 2;
+    REASON_CODE_UNRECORDED_DAMAGE = 3;
+    REASON_CODE_NATURAL_LOSS = 4;
+    REASON_CODE_COUNT_ERROR = 5;
+    REASON_CODE_UNIT_MISMATCH = 6;
+    REASON_CODE_OTHER = 7;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string batch_id = 3 [json_name = "batchId"];
+  optional string base_unit_id = 4 [json_name = "baseUnitId"];
+  optional string system_quantity = 5 [json_name = "systemQuantity"];
+  optional string actual_quantity = 6 [json_name = "actualQuantity"];
+  optional string delta_quantity = 7 [json_name = "deltaQuantity"];
+  optional string difference_percent = 8 [json_name = "differencePercent"];
+  optional ReasonCodeEnum reason_code = 9 [json_name = "reasonCode"];
+  optional string explanation = 10 [json_name = "explanation"];
+  repeated string photo_ids = 11 [json_name = "photoIds"];
+  optional string last_counted_by = 12 [json_name = "lastCountedBy"];
+  optional string updated_at = 13 [json_name = "updatedAt"];
+}
+
+message Product {
+  enum SyncStatusEnum {
+    SYNC_STATUS_UNSPECIFIED = 0;
+    SYNC_STATUS_NOT_CONFIGURED = 1;
+    SYNC_STATUS_SYNCED = 2;
+    SYNC_STATUS_FAILED = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string name = 6 [json_name = "name"];
+  optional string source_id = 7 [json_name = "sourceId"];
+  optional string source_vendor = 8 [json_name = "sourceVendor"];
+  optional bool is_active = 9 [json_name = "isActive"];
+  optional SyncStatusEnum sync_status = 10 [json_name = "syncStatus"];
+  repeated string variant_ids = 11 [json_name = "variantIds"];
+  optional string description = 12 [json_name = "description"];
+  repeated SearchHighlight highlights = 13 [json_name = "highlights"];
+}
+
+message Variant {
+  enum PriceModeEnum {
+    PRICE_MODE_UNSPECIFIED = 0;
+    PRICE_MODE_SYNC = 1;
+    PRICE_MODE_MANUAL = 2;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string product_id = 6 [json_name = "productId"];
+  optional string name = 7 [json_name = "name"];
+  optional PriceModeEnum price_mode = 8 [json_name = "priceMode"];
+  optional string source_selling_price = 9 [json_name = "sourceSellingPrice"];
+  optional string local_selling_price = 10 [json_name = "localSellingPrice"];
+  google.protobuf.Struct currency = 11 [json_name = "currency"];
+  optional bool is_active = 12 [json_name = "isActive"];
+  optional string source_id = 13 [json_name = "sourceId"];
+  repeated SearchHighlight highlights = 14 [json_name = "highlights"];
+}
+
+message RecipeItem {
+  optional string material_id = 1 [json_name = "materialId"];
+  optional string unit_id = 2 [json_name = "unitId"];
+  optional string quantity = 3 [json_name = "quantity"];
+  optional string note = 4 [json_name = "note"];
+}
+
+message RecipeWrite {
+  optional int64 version = 1 [json_name = "version"];
+  repeated RecipeItem items = 2 [json_name = "items"];
+  optional string manual_cost = 3 [json_name = "manualCost"];
+  optional string reason = 4 [json_name = "reason"];
+}
+
+message Recipe {
+  enum EffectiveCostSourceEnum {
+    EFFECTIVE_COST_SOURCE_UNSPECIFIED = 0;
+    EFFECTIVE_COST_SOURCE_MANUAL = 1;
+    EFFECTIVE_COST_SOURCE_ESTIMATED = 2;
+    EFFECTIVE_COST_SOURCE_MISSING_DATA = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string variant_id = 6 [json_name = "variantId"];
+  optional string warehouse_id = 7 [json_name = "warehouseId"];
+  repeated RecipeLine items = 8 [json_name = "items"];
+  optional string manual_cost = 9 [json_name = "manualCost"];
+  optional string estimated_cost = 10 [json_name = "estimatedCost"];
+  optional string effective_cost = 11 [json_name = "effectiveCost"];
+  optional EffectiveCostSourceEnum effective_cost_source = 12 [json_name = "effectiveCostSource"];
+  optional string selling_price = 13 [json_name = "sellingPrice"];
+  optional string cost_ratio = 14 [json_name = "costRatio"];
+  optional bool is_cost_ratio_over40_percent = 15 [json_name = "isCostRatioOver40Percent"];
+  optional bool archived = 16 [json_name = "archived"];
+}
+
+message RecipeLine {
+  optional string id = 1 [json_name = "id"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string unit_id = 3 [json_name = "unitId"];
+  optional string quantity = 4 [json_name = "quantity"];
+  optional string note = 5 [json_name = "note"];
+  optional string base_quantity = 6 [json_name = "baseQuantity"];
+  optional string conversion_factor_snapshot = 7 [json_name = "conversionFactorSnapshot"];
+}
+
+message SourceAllocation {
+  optional string import_form_id = 1 [json_name = "importFormId"];
+  optional string export_form_id = 2 [json_name = "exportFormId"];
+  optional string net_amount = 3 [json_name = "netAmount"];
+}
+
+message ExpenseDraft {
+  enum PaymentMethodEnum {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_BANK_TRANSFER = 2;
+    PAYMENT_METHOD_CREDIT_CARD = 3;
+  }
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_PURCHASE = 1;
+    TYPE_TRANSPORT = 2;
+    TYPE_HANDLING = 3;
+    TYPE_STORAGE = 4;
+    TYPE_OTHER_EXPENSE = 5;
+  }
+  optional string business_date = 1 [json_name = "businessDate"];
+  optional string partner_id = 2 [json_name = "partnerId"];
+  optional string net_amount = 3 [json_name = "netAmount"];
+  optional double vat_rate = 4 [json_name = "vatRate"];
+  optional PaymentMethodEnum payment_method = 5 [json_name = "paymentMethod"];
+  optional string reason = 6 [json_name = "reason"];
+  repeated string attachment_ids = 7 [json_name = "attachmentIds"];
+  repeated SourceAllocation sources = 8 [json_name = "sources"];
+  optional string note = 9 [json_name = "note"];
+  optional TypeEnum type = 10 [json_name = "type"];
+  optional string payment_term_id = 11 [json_name = "paymentTermId"];
+  optional string bank_reference = 12 [json_name = "bankReference"];
+  optional string requester_id = 13 [json_name = "requesterId"];
+  optional string payer_id = 14 [json_name = "payerId"];
+  optional bool invoice_status = 15 [json_name = "invoiceStatus"];
+}
+
+message RevenueDraft {
+  enum PaymentMethodEnum {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_BANK_TRANSFER = 2;
+    PAYMENT_METHOD_E_WALLET = 3;
+  }
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_SUPPLIER_REFUND = 1;
+    TYPE_SUPPLIER_COMPENSATION = 2;
+    TYPE_LIQUIDATION = 3;
+    TYPE_SCRAP_PACKAGING = 4;
+    TYPE_OTHER_REVENUE = 5;
+  }
+  optional string business_date = 1 [json_name = "businessDate"];
+  optional string partner_id = 2 [json_name = "partnerId"];
+  optional string net_amount = 3 [json_name = "netAmount"];
+  optional double vat_rate = 4 [json_name = "vatRate"];
+  optional PaymentMethodEnum payment_method = 5 [json_name = "paymentMethod"];
+  optional string reason = 6 [json_name = "reason"];
+  repeated string attachment_ids = 7 [json_name = "attachmentIds"];
+  repeated SourceAllocation sources = 8 [json_name = "sources"];
+  optional string note = 9 [json_name = "note"];
+  optional TypeEnum type = 10 [json_name = "type"];
+  optional string bank_reference = 11 [json_name = "bankReference"];
+  optional string refund_group_id = 12 [json_name = "refundGroupId"];
+  optional int64 installment_no = 13 [json_name = "installmentNo"];
+  optional int64 planned_installments = 14 [json_name = "plannedInstallments"];
+  optional string requester_id = 15 [json_name = "requesterId"];
+}
+
+message FinanceForm {
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional StatusEnum status = 7 [json_name = "status"];
+  optional string creator_id = 8 [json_name = "creatorId"];
+  optional string approver_id = 9 [json_name = "approverId"];
+  optional string business_date = 10 [json_name = "businessDate"];
+  optional string type = 11 [json_name = "type"];
+  optional string net_amount = 12 [json_name = "netAmount"];
+  optional string vat_amount = 13 [json_name = "vatAmount"];
+  optional string total_amount = 14 [json_name = "totalAmount"];
+  google.protobuf.Struct currency = 15 [json_name = "currency"];
+  optional string due_date = 16 [json_name = "dueDate"];
+  repeated SourceAllocation sources = 17 [json_name = "sources"];
+  repeated string attachment_ids = 18 [json_name = "attachmentIds"];
+  optional string requester_id = 19 [json_name = "requesterId"];
+  optional string payer_id = 20 [json_name = "payerId"];
+  optional bool invoice_status = 21 [json_name = "invoiceStatus"];
+  optional string payment_method = 22 [json_name = "paymentMethod"];
+  optional string payment_term_id = 23 [json_name = "paymentTermId"];
+  optional string bank_reference = 24 [json_name = "bankReference"];
+  optional string reason = 25 [json_name = "reason"];
+  repeated FinanceLine items = 26 [json_name = "items"];
+  optional string obligation_amount = 27 [json_name = "obligationAmount"];
+  optional string paid_amount = 28 [json_name = "paidAmount"];
+  optional string remaining_debt = 29 [json_name = "remainingDebt"];
+  optional string settlement_id = 30 [json_name = "settlementId"];
+}
+
+message FinanceLine {
+  optional string id = 1 [json_name = "id"];
+  optional string source_import_item_id = 2 [json_name = "sourceImportItemId"];
+  optional string quantity = 3 [json_name = "quantity"];
+  optional string unit_price = 4 [json_name = "unitPrice"];
+  optional string net_amount = 5 [json_name = "netAmount"];
+  optional string note = 6 [json_name = "note"];
+}
+
+message RefundGroup {
+  optional string id = 1 [json_name = "id"];
+  optional string warehouse_id = 2 [json_name = "warehouseId"];
+  optional string partner_id = 3 [json_name = "partnerId"];
+  optional string source_import_id = 4 [json_name = "sourceImportId"];
+  optional string total_expected = 5 [json_name = "totalExpected"];
+  optional string confirmed_received = 6 [json_name = "confirmedReceived"];
+  optional string remaining = 7 [json_name = "remaining"];
+  optional int64 planned_installments = 8 [json_name = "plannedInstallments"];
+  optional int64 version = 9 [json_name = "version"];
+}
+
+message Alert {
+  enum LevelEnum {
+    LEVEL_UNSPECIFIED = 0;
+    LEVEL_INFO = 1;
+    LEVEL_WARNING = 2;
+    LEVEL_CRITICAL = 3;
+  }
+  enum DeliveryStatusEnum {
+    DELIVERY_STATUS_UNSPECIFIED = 0;
+    DELIVERY_STATUS_QUEUED = 1;
+    DELIVERY_STATUS_DELIVERED = 2;
+    DELIVERY_STATUS_FAILED = 3;
+    DELIVERY_STATUS_DEAD_LETTER = 4;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional string kind = 7 [json_name = "kind"];
+  optional LevelEnum level = 8 [json_name = "level"];
+  optional string entity_id = 9 [json_name = "entityId"];
+  optional string entity_type = 10 [json_name = "entityType"];
+  optional string message = 11 [json_name = "message"];
+  optional bool read = 12 [json_name = "read"];
+  optional DeliveryStatusEnum delivery_status = 13 [json_name = "deliveryStatus"];
+}
+
+message ReportColumn {
+  enum ValueTypeEnum {
+    VALUE_TYPE_UNSPECIFIED = 0;
+    VALUE_TYPE_TEXT = 1;
+    VALUE_TYPE_DECIMAL = 2;
+    VALUE_TYPE_MONEY = 3;
+    VALUE_TYPE_DATE = 4;
+    VALUE_TYPE_DATETIME = 5;
+    VALUE_TYPE_INTEGER = 6;
+  }
+  optional string key = 1 [json_name = "key"];
+  optional string label = 2 [json_name = "label"];
+  optional ValueTypeEnum value_type = 3 [json_name = "valueType"];
+}
+
+message Report {
+  enum DataCompletenessEnum {
+    DATA_COMPLETENESS_UNSPECIFIED = 0;
+    DATA_COMPLETENESS_FULL = 1;
+    DATA_COMPLETENESS_PARTIAL = 2;
+  }
+  optional string as_of = 1 [json_name = "asOf"];
+  optional string watermark = 2 [json_name = "watermark"];
+  optional string warehouse_id = 3 [json_name = "warehouseId"];
+  optional string period_from = 4 [json_name = "periodFrom"];
+  optional string period_to = 5 [json_name = "periodTo"];
+  repeated ReportColumn columns = 6 [json_name = "columns"];
+  repeated google.protobuf.Struct rows = 7 [json_name = "rows"];
+  google.protobuf.Struct totals = 8 [json_name = "totals"];
+  optional DataCompletenessEnum data_completeness = 9 [json_name = "dataCompleteness"];
+  repeated string missing_data_refs = 10 [json_name = "missingDataRefs"];
+}
+
+message CustomReport {
+  enum DimensionsItemEnum {
+    DIMENSIONS_UNSPECIFIED = 0;
+    DIMENSIONS_DATE = 1;
+    DIMENSIONS_WAREHOUSE = 2;
+    DIMENSIONS_MATERIAL = 3;
+    DIMENSIONS_SUPPLIER = 4;
+    DIMENSIONS_FORM_TYPE = 5;
+  }
+  enum MeasuresItemEnum {
+    MEASURES_UNSPECIFIED = 0;
+    MEASURES_IN_QTY = 1;
+    MEASURES_OUT_QTY = 2;
+    MEASURES_CLOSING_QTY = 3;
+    MEASURES_STOCK_VALUE = 4;
+    MEASURES_EXPENSE_TOTAL = 5;
+    MEASURES_REVENUE_TOTAL = 6;
+    MEASURES_DEBT_TOTAL = 7;
+  }
+  optional string name = 1 [json_name = "name"];
+  repeated DimensionsItemEnum dimensions = 2 [json_name = "dimensions"];
+  repeated MeasuresItemEnum measures = 3 [json_name = "measures"];
+  optional string from_date = 4 [json_name = "fromDate"];
+  optional string to_date = 5 [json_name = "toDate"];
+}
+
+message ReportSchedule {
+  enum FrequencyEnum {
+    FREQUENCY_UNSPECIFIED = 0;
+    FREQUENCY_DAILY = 1;
+    FREQUENCY_WEEKLY = 2;
+  }
+  optional bool enabled = 1 [json_name = "enabled"];
+  optional FrequencyEnum frequency = 2 [json_name = "frequency"];
+  google.protobuf.Struct local_time = 3 [json_name = "localTime"];
+  google.protobuf.Struct timezone = 4 [json_name = "timezone"];
+  repeated string recipient_user_ids = 5 [json_name = "recipientUserIds"];
+  optional string report_id = 6 [json_name = "reportId"];
+}
+
+message ExcelJobCreate {
+  enum TargetEnum {
+    TARGET_UNSPECIFIED = 0;
+    TARGET_MATERIALS = 1;
+    TARGET_IMPORT_FORMS = 2;
+  }
+  optional string file_id = 1 [json_name = "fileId"];
+  google.protobuf.Struct template_version = 2 [json_name = "templateVersion"];
+  optional TargetEnum target = 3 [json_name = "target"];
+  google.protobuf.Struct mode = 4 [json_name = "mode"];
+}
+
+message ExcelRowError {
+  optional int64 row = 1 [json_name = "row"];
+  optional string column = 2 [json_name = "column"];
+  optional string error_key = 3 [json_name = "errorKey"];
+  optional string message = 4 [json_name = "message"];
+}
+
+message ExcelPreview {
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_VALIDATING = 1;
+    STATUS_INVALID = 2;
+    STATUS_READY = 3;
+    STATUS_APPLIED = 4;
+    STATUS_FAILED = 5;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  optional StatusEnum status = 3 [json_name = "status"];
+  optional int64 row_count = 4 [json_name = "rowCount"];
+  repeated ExcelRowError errors = 5 [json_name = "errors"];
+  optional string error_file_id = 6 [json_name = "errorFileId"];
+}
+
+message ImportLine {
+  optional string id = 1 [json_name = "id"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string unit_id = 3 [json_name = "unitId"];
+  optional string quantity = 4 [json_name = "quantity"];
+  optional string unit_price = 5 [json_name = "unitPrice"];
+  optional string manufactured_on = 6 [json_name = "manufacturedOn"];
+  optional string expires_on = 7 [json_name = "expiresOn"];
+  optional string supplier_lot_code = 8 [json_name = "supplierLotCode"];
+  optional string position_id = 9 [json_name = "positionId"];
+  optional string note = 10 [json_name = "note"];
+  optional string base_quantity = 11 [json_name = "baseQuantity"];
+  optional string net_amount = 12 [json_name = "netAmount"];
+  optional string batch_id = 13 [json_name = "batchId"];
+}
+
+message ExportAllocation {
+  optional string batch_id = 1 [json_name = "batchId"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string quantity = 3 [json_name = "quantity"];
+  optional string unit_cost = 4 [json_name = "unitCost"];
+  optional string value = 5 [json_name = "value"];
+}
+
+message ExportLine {
+  optional string id = 1 [json_name = "id"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string unit_id = 3 [json_name = "unitId"];
+  optional string quantity = 4 [json_name = "quantity"];
+  optional string note = 5 [json_name = "note"];
+  optional string base_quantity = 6 [json_name = "baseQuantity"];
+  repeated ExportAllocation allocations = 7 [json_name = "allocations"];
+}
+
+message ImportForm {
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  enum OriginTypeEnum {
+    ORIGIN_TYPE_UNSPECIFIED = 0;
+    ORIGIN_TYPE_PURCHASE = 1;
+    ORIGIN_TYPE_TRANSFER_IN = 2;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional string creator_id = 7 [json_name = "creatorId"];
+  optional string approver_id = 8 [json_name = "approverId"];
+  optional StatusEnum status = 9 [json_name = "status"];
+  optional string business_date = 10 [json_name = "businessDate"];
+  optional string type = 11 [json_name = "type"];
+  repeated ImportLine items = 12 [json_name = "items"];
+  repeated string attachment_ids = 13 [json_name = "attachmentIds"];
+  optional string note = 14 [json_name = "note"];
+  optional string posted_at = 15 [json_name = "postedAt"];
+  optional string supplier_id = 16 [json_name = "supplierId"];
+  optional string po_number = 17 [json_name = "poNumber"];
+  optional string invoice_number = 18 [json_name = "invoiceNumber"];
+  optional double vat_rate = 19 [json_name = "vatRate"];
+  optional string net_amount = 20 [json_name = "netAmount"];
+  optional string vat_amount = 21 [json_name = "vatAmount"];
+  optional string total_amount = 22 [json_name = "totalAmount"];
+  optional OriginTypeEnum origin_type = 23 [json_name = "originType"];
+  optional string linked_transfer_export_id = 24 [json_name = "linkedTransferExportId"];
+  optional string requester_id = 25 [json_name = "requesterId"];
+  optional string expense_id = 26 [json_name = "expenseId"];
+}
+
+message ExportForm {
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_PRODUCTION = 1;
+    TYPE_SALE = 2;
+    TYPE_DISPOSAL = 3;
+    TYPE_TRANSFER = 4;
+    TYPE_LIQUIDATION = 5;
+    TYPE_OTHER = 6;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string warehouse_id = 6 [json_name = "warehouseId"];
+  optional string creator_id = 7 [json_name = "creatorId"];
+  optional string approver_id = 8 [json_name = "approverId"];
+  optional StatusEnum status = 9 [json_name = "status"];
+  optional string business_date = 10 [json_name = "businessDate"];
+  optional TypeEnum type = 11 [json_name = "type"];
+  repeated ExportLine items = 12 [json_name = "items"];
+  repeated string attachment_ids = 13 [json_name = "attachmentIds"];
+  optional string note = 14 [json_name = "note"];
+  optional string posted_at = 15 [json_name = "postedAt"];
+  optional string destination_warehouse_id = 16 [json_name = "destinationWarehouseId"];
+  optional string reason = 17 [json_name = "reason"];
+  optional string requester_id = 18 [json_name = "requesterId"];
+  optional string po_number = 19 [json_name = "poNumber"];
+  optional string receiver_id = 20 [json_name = "receiverId"];
+}
+
+message PaymentTermWrite {
+  optional string code = 1 [json_name = "code"];
+  optional string label = 2 [json_name = "label"];
+  optional int64 due_days = 3 [json_name = "dueDays"];
+  optional bool active = 4 [json_name = "active"];
+}
+
+message RefundGroupWrite {
+  optional string partner_id = 1 [json_name = "partnerId"];
+  optional string source_import_id = 2 [json_name = "sourceImportId"];
+  optional string total_expected = 3 [json_name = "totalExpected"];
+  optional int64 planned_installments = 4 [json_name = "plannedInstallments"];
+}
+
+message Unit {
+  enum DimensionEnum {
+    DIMENSION_UNSPECIFIED = 0;
+    DIMENSION_MASS = 1;
+    DIMENSION_VOLUME = 2;
+    DIMENSION_COUNT = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string code = 2 [json_name = "code"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string created_at = 4 [json_name = "createdAt"];
+  optional string updated_at = 5 [json_name = "updatedAt"];
+  optional string name = 6 [json_name = "name"];
+  optional string symbol = 7 [json_name = "symbol"];
+  optional DimensionEnum dimension = 8 [json_name = "dimension"];
+  optional bool is_active = 9 [json_name = "isActive"];
+  repeated SearchHighlight highlights = 10 [json_name = "highlights"];
+}
+
+message UnitWrite {
+  enum DimensionEnum {
+    DIMENSION_UNSPECIFIED = 0;
+    DIMENSION_MASS = 1;
+    DIMENSION_VOLUME = 2;
+    DIMENSION_COUNT = 3;
+  }
+  optional string name = 1 [json_name = "name"];
+  optional string symbol = 2 [json_name = "symbol"];
+  optional DimensionEnum dimension = 3 [json_name = "dimension"];
+  optional bool is_active = 4 [json_name = "isActive"];
+}
+
+message RolePatch {
+  optional int64 version = 1 [json_name = "version"];
+  optional string name = 2 [json_name = "name"];
+  optional string description = 3 [json_name = "description"];
+}
+
+message InventoryHistory {
+  enum SourceTypeEnum {
+    SOURCE_TYPE_UNSPECIFIED = 0;
+    SOURCE_TYPE_IMPORT = 1;
+    SOURCE_TYPE_EXPORT = 2;
+    SOURCE_TYPE_TRANSFER = 3;
+    SOURCE_TYPE_STOCKTAKE = 4;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string warehouse_id = 2 [json_name = "warehouseId"];
+  optional string material_id = 3 [json_name = "materialId"];
+  optional string source_form_id = 4 [json_name = "sourceFormId"];
+  optional string source_form_code = 5 [json_name = "sourceFormCode"];
+  optional SourceTypeEnum source_type = 6 [json_name = "sourceType"];
+  optional string quantity_before = 7 [json_name = "quantityBefore"];
+  optional string delta_quantity = 8 [json_name = "deltaQuantity"];
+  optional string quantity_after = 9 [json_name = "quantityAfter"];
+  optional string value_before = 10 [json_name = "valueBefore"];
+  optional string delta_value = 11 [json_name = "deltaValue"];
+  optional string value_after = 12 [json_name = "valueAfter"];
+  optional string actor_id = 13 [json_name = "actorId"];
+  optional string occurred_at = 14 [json_name = "occurredAt"];
+  repeated ExportAllocation allocations = 15 [json_name = "allocations"];
+}
+
+message BatchTrace {
+  enum ProvenanceStatusEnum {
+    PROVENANCE_STATUS_UNSPECIFIED = 0;
+    PROVENANCE_STATUS_VERIFIED = 1;
+    PROVENANCE_STATUS_LEGACY_UNVERIFIED = 2;
+  }
+  Batch batch = 1 [json_name = "batch"];
+  optional string source_import_id = 2 [json_name = "sourceImportId"];
+  optional string source_import_item_id = 3 [json_name = "sourceImportItemId"];
+  optional string supplier_id = 4 [json_name = "supplierId"];
+  repeated BatchTraceExportLinksItem export_links = 5 [json_name = "exportLinks"];
+  repeated BatchTraceTransferLinksItem transfer_links = 6 [json_name = "transferLinks"];
+  repeated BatchTraceAdjustmentLinksItem adjustment_links = 7 [json_name = "adjustmentLinks"];
+  optional ProvenanceStatusEnum provenance_status = 8 [json_name = "provenanceStatus"];
+}
+
+message BatchTraceExportLinksItem {
+  optional string export_form_id = 1 [json_name = "exportFormId"];
+  optional string quantity = 2 [json_name = "quantity"];
+}
+
+message BatchTraceTransferLinksItem {
+  optional string source_batch_id = 1 [json_name = "sourceBatchId"];
+  optional string destination_batch_id = 2 [json_name = "destinationBatchId"];
+  optional string quantity = 3 [json_name = "quantity"];
+}
+
+message BatchTraceAdjustmentLinksItem {
+  optional string stocktake_id = 1 [json_name = "stocktakeId"];
+  optional string delta = 2 [json_name = "delta"];
+}
+
+message PositionWrite {
+  optional string name = 1 [json_name = "name"];
+  optional string location = 2 [json_name = "location"];
+  optional bool is_active = 3 [json_name = "isActive"];
+}
+
+message TechnicalLog {
+  enum LevelEnum {
+    LEVEL_UNSPECIFIED = 0;
+    LEVEL_INFO = 1;
+    LEVEL_WARN = 2;
+    LEVEL_ERROR = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional LevelEnum level = 2 [json_name = "level"];
+  optional string message = 3 [json_name = "message"];
+  optional string timestamp = 4 [json_name = "timestamp"];
+  optional string trace_id = 5 [json_name = "traceId"];
+  google.protobuf.Struct context = 6 [json_name = "context"];
+}
+
+message ExpenseSettlement {
+  enum PaymentMethodEnum {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_BANK_TRANSFER = 2;
+    PAYMENT_METHOD_CREDIT_CARD = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string expense_id = 2 [json_name = "expenseId"];
+  optional string paid_on = 3 [json_name = "paidOn"];
+  optional string amount = 4 [json_name = "amount"];
+  optional string payer_id = 5 [json_name = "payerId"];
+  optional PaymentMethodEnum payment_method = 6 [json_name = "paymentMethod"];
+  optional string bank_reference = 7 [json_name = "bankReference"];
+  repeated string attachment_ids = 8 [json_name = "attachmentIds"];
+  optional string confirmed_by = 9 [json_name = "confirmedBy"];
+  optional string confirmed_at = 10 [json_name = "confirmedAt"];
+}
+
+message ExpenseSettlementWrite {
+  enum PaymentMethodEnum {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_BANK_TRANSFER = 2;
+    PAYMENT_METHOD_CREDIT_CARD = 3;
+  }
+  optional int64 version = 1 [json_name = "version"];
+  optional string paid_on = 2 [json_name = "paidOn"];
+  optional string payer_id = 3 [json_name = "payerId"];
+  optional PaymentMethodEnum payment_method = 4 [json_name = "paymentMethod"];
+  optional string bank_reference = 5 [json_name = "bankReference"];
+  repeated string attachment_ids = 6 [json_name = "attachmentIds"];
+  optional string reason = 7 [json_name = "reason"];
+}
+
+message ExpenseManualDraft {
+  enum PaymentMethodEnum {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_BANK_TRANSFER = 2;
+    PAYMENT_METHOD_CREDIT_CARD = 3;
+  }
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_TRANSPORT = 1;
+    TYPE_HANDLING = 2;
+    TYPE_STORAGE = 3;
+    TYPE_OTHER_EXPENSE = 4;
+  }
+  optional string business_date = 1 [json_name = "businessDate"];
+  optional string partner_id = 2 [json_name = "partnerId"];
+  optional string net_amount = 3 [json_name = "netAmount"];
+  optional double vat_rate = 4 [json_name = "vatRate"];
+  optional PaymentMethodEnum payment_method = 5 [json_name = "paymentMethod"];
+  optional string reason = 6 [json_name = "reason"];
+  repeated string attachment_ids = 7 [json_name = "attachmentIds"];
+  repeated SourceAllocation sources = 8 [json_name = "sources"];
+  optional string note = 9 [json_name = "note"];
+  optional TypeEnum type = 10 [json_name = "type"];
+  optional string payment_term_id = 11 [json_name = "paymentTermId"];
+  optional string bank_reference = 12 [json_name = "bankReference"];
+  optional string requester_id = 13 [json_name = "requesterId"];
+  optional string payer_id = 14 [json_name = "payerId"];
+  optional bool invoice_status = 15 [json_name = "invoiceStatus"];
+}
+
+message SupplierTransaction {
+  enum DocumentTypeEnum {
+    DOCUMENT_TYPE_UNSPECIFIED = 0;
+    DOCUMENT_TYPE_IMPORT = 1;
+    DOCUMENT_TYPE_EXPENSE = 2;
+    DOCUMENT_TYPE_REVENUE = 3;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional string warehouse_id = 2 [json_name = "warehouseId"];
+  optional string document_id = 3 [json_name = "documentId"];
+  optional string document_code = 4 [json_name = "documentCode"];
+  optional DocumentTypeEnum document_type = 5 [json_name = "documentType"];
+  optional string business_date = 6 [json_name = "businessDate"];
+  optional string amount = 7 [json_name = "amount"];
+  optional string cash_delta = 8 [json_name = "cashDelta"];
+  optional string debt_delta = 9 [json_name = "debtDelta"];
+  optional string posting_key = 10 [json_name = "postingKey"];
+}
+
+message LoginRequest {
+  Login data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message LoginResponse {
+  LoginResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message RefreshRequest {
+  string refresh_cookie_token = 100; // Internal transport only; never logged or returned to browser JSON.
+  CommandContext context = 101;
+}
+
+message RefreshResponse {
+  LoginResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message LogoutRequest {
+  CommandContext context = 101;
+}
+
+message LogoutResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message LogoutallRequest {
+  CommandContext context = 101;
+}
+
+message LogoutallResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message LockRequest {
+  CommandContext context = 101;
+}
+
+message LockResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ChangeOwnPasswordRequest {
+  PasswordChange data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ChangeOwnPasswordResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetProfileRequest {
+  CommandContext context = 101;
+}
+
+message GetProfileResponse {
+  User result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateProfileRequest {
+  ProfilePatch data = 1 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateProfileResponse {
+  User result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message RecordInteractiveActivityRequest {
+  CommandContext context = 101;
+}
+
+message RecordInteractiveActivityResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListOwnSessionsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListOwnSessionsResponse {
+  ListOwnSessionsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListOwnSessionsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Session items = 7 [json_name = "items"];
+}
+
+message RevokeOwnSessionRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message RevokeOwnSessionResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListUsersRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListUsersResponse {
+  ListUsersResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListUsersResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated User items = 7 [json_name = "items"];
+}
+
+message CreateUserRequest {
+  UserCreate data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateUserResponse {
+  User result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetUserRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetUserResponse {
+  User result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateUserRequest {
+  optional string id = 1 [json_name = "id"];
+  UserPatch data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateUserResponse {
+  User result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteUserRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteUserResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ChangeUserRoleRequest {
+  optional string id = 1 [json_name = "id"];
+  ChangeUserRoleRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message ChangeUserRoleRequestData {
+  optional int64 version = 1 [json_name = "version"];
+  optional string role_id = 2 [json_name = "roleId"];
+}
+
+message ChangeUserRoleResponse {
+  User result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ResetUserPasswordRequest {
+  optional string id = 1 [json_name = "id"];
+  ResetUserPasswordRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ResetUserPasswordRequestData {
+  optional string new_password = 1 [json_name = "newPassword"];
+  optional int64 version = 2 [json_name = "version"];
+}
+
+message ResetUserPasswordResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListRolesRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListRolesResponse {
+  ListRolesResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListRolesResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Role items = 7 [json_name = "items"];
+}
+
+message CreateRoleRequest {
+  RoleWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateRoleResponse {
+  Role result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetRoleRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetRoleResponse {
+  Role result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateRoleRequest {
+  optional string id = 1 [json_name = "id"];
+  RolePatch data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateRoleResponse {
+  Role result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteRoleRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteRoleResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListAuthoritiesRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListAuthoritiesResponse {
+  ListAuthoritiesResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListAuthoritiesResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Authority items = 7 [json_name = "items"];
+}
+
+message ListAuthorityGroupsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListAuthorityGroupsResponse {
+  ListAuthorityGroupsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListAuthorityGroupsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated NamedMaster items = 7 [json_name = "items"];
+}
+
+message UpdateAuthorityMetadataRequest {
+  optional string id = 1 [json_name = "id"];
+  UpdateAuthorityMetadataRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateAuthorityMetadataRequestData {
+  optional int64 version = 1 [json_name = "version"];
+  optional string name = 2 [json_name = "name"];
+  optional string group_id = 3 [json_name = "groupId"];
+}
+
+message UpdateAuthorityMetadataResponse {
+  Authority result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message PutRoleAuthorityRequest {
+  optional string id = 1 [json_name = "id"];
+  optional string authority_code = 2 [json_name = "authorityCode"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message PutRoleAuthorityResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteRoleAuthorityRequest {
+  optional string id = 1 [json_name = "id"];
+  optional string authority_code = 2 [json_name = "authorityCode"];
+  optional int64 version = 3 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteRoleAuthorityResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetFileMetadataRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetFileMetadataResponse {
+  FileMetadata result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetFileAccessRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetFileAccessResponse {
+  FileAccess result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListAuditEventsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  optional string from_time = 6 [json_name = "fromTime"];
+  optional string to_time = 7 [json_name = "toTime"];
+  optional string trace_id = 8 [json_name = "traceId"];
+  optional string warehouse_id = 9 [json_name = "warehouseId"];
+  optional string actor_id = 10 [json_name = "actorId"];
+  optional string entity_id = 11 [json_name = "entityId"];
+  optional string entity_type = 12 [json_name = "entityType"];
+  optional string action = 13 [json_name = "action"];
+  CommandContext context = 101;
+}
+
+message ListAuditEventsResponse {
+  ListAuditEventsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListAuditEventsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated AuditEvent items = 7 [json_name = "items"];
+}
+
+message ListTechnicalLogsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum LevelEnum {
+    LEVEL_UNSPECIFIED = 0;
+    LEVEL_INFO = 1;
+    LEVEL_WARN = 2;
+    LEVEL_ERROR = 3;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  optional string from_time = 6 [json_name = "fromTime"];
+  optional string to_time = 7 [json_name = "toTime"];
+  optional string trace_id = 8 [json_name = "traceId"];
+  optional LevelEnum level = 9 [json_name = "level"];
+  CommandContext context = 101;
+}
+
+message ListTechnicalLogsResponse {
+  ListTechnicalLogsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListTechnicalLogsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated TechnicalLog items = 7 [json_name = "items"];
+}
+
+message ListBackupRequestsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListBackupRequestsResponse {
+  ListBackupRequestsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListBackupRequestsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Job items = 7 [json_name = "items"];
+}
+
+message CreateBackupRequestRequest {
+  BackupRequest data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateBackupRequestResponse {
+  Job result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CreateRestoreRequestRequest {
+  RestoreRequest data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateRestoreRequestResponse {
+  Job result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetJobRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetJobResponse {
+  Job result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListWarehousesWarehousesRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListWarehousesWarehousesResponse {
+  ListWarehousesWarehousesResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListWarehousesWarehousesResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Warehouse items = 7 [json_name = "items"];
+}
+
+message CreateWarehouseWarehousesRequest {
+  WarehouseWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateWarehouseWarehousesResponse {
+  Warehouse result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetWarehouseWarehousesRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetWarehouseWarehousesResponse {
+  Warehouse result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateWarehouseWarehousesRequest {
+  optional string id = 1 [json_name = "id"];
+  UpdateWarehouseWarehousesRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateWarehouseWarehousesRequestData {
+  optional string name = 1 [json_name = "name"];
+  optional string store_id = 2 [json_name = "storeId"];
+  repeated string manager_ids = 3 [json_name = "managerIds"];
+  repeated string member_ids = 4 [json_name = "memberIds"];
+  optional bool is_active = 5 [json_name = "isActive"];
+  optional int64 version = 6 [json_name = "version"];
+}
+
+message UpdateWarehouseWarehousesResponse {
+  Warehouse result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteWarehouseWarehousesRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteWarehouseWarehousesResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListNamedMastersStoresRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListNamedMastersStoresResponse {
+  ListNamedMastersStoresResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListNamedMastersStoresResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated NamedMaster items = 7 [json_name = "items"];
+}
+
+message CreateNamedMasterStoresRequest {
+  NamedMasterWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateNamedMasterStoresResponse {
+  NamedMaster result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetNamedMasterStoresRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetNamedMasterStoresResponse {
+  NamedMaster result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateNamedMasterStoresRequest {
+  optional string id = 1 [json_name = "id"];
+  UpdateNamedMasterStoresRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateNamedMasterStoresRequestData {
+  optional string name = 1 [json_name = "name"];
+  optional string description = 2 [json_name = "description"];
+  optional bool is_active = 3 [json_name = "isActive"];
+  optional int64 version = 4 [json_name = "version"];
+}
+
+message UpdateNamedMasterStoresResponse {
+  NamedMaster result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteNamedMasterStoresRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteNamedMasterStoresResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListMaterialsMaterialsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListMaterialsMaterialsResponse {
+  ListMaterialsMaterialsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListMaterialsMaterialsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Material items = 7 [json_name = "items"];
+}
+
+message CreateMaterialMaterialsRequest {
+  MaterialWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateMaterialMaterialsResponse {
+  Material result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetMaterialMaterialsRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetMaterialMaterialsResponse {
+  Material result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateMaterialMaterialsRequest {
+  optional string id = 1 [json_name = "id"];
+  UpdateMaterialMaterialsRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateMaterialMaterialsRequestData {
+  optional string name = 1 [json_name = "name"];
+  optional string type_id = 2 [json_name = "typeId"];
+  optional string base_unit_id = 3 [json_name = "baseUnitId"];
+  optional bool is_expiry = 4 [json_name = "isExpiry"];
+  optional string minimum_quantity = 5 [json_name = "minimumQuantity"];
+  optional string maximum_quantity = 6 [json_name = "maximumQuantity"];
+  repeated string supplier_ids = 7 [json_name = "supplierIds"];
+  optional string description = 8 [json_name = "description"];
+  optional bool is_active = 9 [json_name = "isActive"];
+  optional string primary_supplier_id = 10 [json_name = "primarySupplierId"];
+  repeated MaterialPositionAssignment positions = 11 [json_name = "positions"];
+  repeated string attachment_ids = 12 [json_name = "attachmentIds"];
+  optional int64 version = 13 [json_name = "version"];
+}
+
+message UpdateMaterialMaterialsResponse {
+  Material result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteMaterialMaterialsRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteMaterialMaterialsResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListNamedMastersMaterialTypesRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListNamedMastersMaterialTypesResponse {
+  ListNamedMastersMaterialTypesResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListNamedMastersMaterialTypesResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated NamedMaster items = 7 [json_name = "items"];
+}
+
+message CreateNamedMasterMaterialTypesRequest {
+  NamedMasterWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateNamedMasterMaterialTypesResponse {
+  NamedMaster result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetNamedMasterMaterialTypesRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetNamedMasterMaterialTypesResponse {
+  NamedMaster result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateNamedMasterMaterialTypesRequest {
+  optional string id = 1 [json_name = "id"];
+  UpdateNamedMasterMaterialTypesRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateNamedMasterMaterialTypesRequestData {
+  optional string name = 1 [json_name = "name"];
+  optional string description = 2 [json_name = "description"];
+  optional bool is_active = 3 [json_name = "isActive"];
+  optional int64 version = 4 [json_name = "version"];
+}
+
+message UpdateNamedMasterMaterialTypesResponse {
+  NamedMaster result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteNamedMasterMaterialTypesRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteNamedMasterMaterialTypesResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListUnitsUnitsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListUnitsUnitsResponse {
+  ListUnitsUnitsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListUnitsUnitsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Unit items = 7 [json_name = "items"];
+}
+
+message CreateUnitUnitsRequest {
+  UnitWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateUnitUnitsResponse {
+  Unit result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetUnitUnitsRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetUnitUnitsResponse {
+  Unit result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateUnitUnitsRequest {
+  optional string id = 1 [json_name = "id"];
+  UpdateUnitUnitsRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateUnitUnitsRequestData {
+  enum DimensionEnum {
+    DIMENSION_UNSPECIFIED = 0;
+    DIMENSION_MASS = 1;
+    DIMENSION_VOLUME = 2;
+    DIMENSION_COUNT = 3;
+  }
+  optional string name = 1 [json_name = "name"];
+  optional string symbol = 2 [json_name = "symbol"];
+  optional DimensionEnum dimension = 3 [json_name = "dimension"];
+  optional bool is_active = 4 [json_name = "isActive"];
+  optional int64 version = 5 [json_name = "version"];
+}
+
+message UpdateUnitUnitsResponse {
+  Unit result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteUnitUnitsRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteUnitUnitsResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListSuppliersSuppliersRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListSuppliersSuppliersResponse {
+  ListSuppliersSuppliersResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListSuppliersSuppliersResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Supplier items = 7 [json_name = "items"];
+}
+
+message CreateSupplierSuppliersRequest {
+  SupplierWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateSupplierSuppliersResponse {
+  Supplier result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetSupplierSuppliersRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetSupplierSuppliersResponse {
+  Supplier result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateSupplierSuppliersRequest {
+  optional string id = 1 [json_name = "id"];
+  UpdateSupplierSuppliersRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateSupplierSuppliersRequestData {
+  optional string name = 1 [json_name = "name"];
+  optional string phone_number = 2 [json_name = "phoneNumber"];
+  optional string email = 3 [json_name = "email"];
+  optional string address = 4 [json_name = "address"];
+  optional string tax_code = 5 [json_name = "taxCode"];
+  optional string payment_term_id = 6 [json_name = "paymentTermId"];
+  repeated string material_ids = 7 [json_name = "materialIds"];
+  optional string note = 8 [json_name = "note"];
+  optional bool is_active = 9 [json_name = "isActive"];
+  optional string contact_person = 10 [json_name = "contactPerson"];
+  optional string website = 11 [json_name = "website"];
+  optional int64 version = 12 [json_name = "version"];
+}
+
+message UpdateSupplierSuppliersResponse {
+  Supplier result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeleteSupplierSuppliersRequest {
+  optional string id = 1 [json_name = "id"];
+  optional int64 version = 2 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeleteSupplierSuppliersResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListPositionsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListPositionsResponse {
+  ListPositionsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListPositionsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Position items = 7 [json_name = "items"];
+}
+
+message CreatePositionRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  PositionWrite data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreatePositionResponse {
+  Position result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdatePositionRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  UpdatePositionRequestData data = 3 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdatePositionRequestData {
+  optional int64 version = 1 [json_name = "version"];
+  optional string name = 2 [json_name = "name"];
+  optional string location = 3 [json_name = "location"];
+  optional bool is_active = 4 [json_name = "isActive"];
+}
+
+message UpdatePositionResponse {
+  Position result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message DeletePositionRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  optional int64 version = 3 [json_name = "version"];
+  CommandContext context = 101;
+}
+
+message DeletePositionResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SetConversionRequest {
+  optional string id = 1 [json_name = "id"];
+  Conversion data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message SetConversionResponse {
+  Conversion result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListEligibleCountersRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListEligibleCountersResponse {
+  repeated ListEligibleCountersResponseResultItem result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListEligibleCountersResponseResultItem {
+  optional string id = 1 [json_name = "id"];
+  optional string display_name = 2 [json_name = "displayName"];
+}
+
+message ListPaymentTermsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListPaymentTermsResponse {
+  ListPaymentTermsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListPaymentTermsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated PaymentTerm items = 7 [json_name = "items"];
+}
+
+message CreatePaymentTermRequest {
+  PaymentTermWrite data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreatePaymentTermResponse {
+  PaymentTerm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListInventoryRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string material_id = 7 [json_name = "materialId"];
+  optional string type_id = 8 [json_name = "typeId"];
+  optional string supplier_id = 9 [json_name = "supplierId"];
+  optional string position_id = 10 [json_name = "positionId"];
+  optional bool include_zero_quantity = 11 [json_name = "includeZeroQuantity"];
+  CommandContext context = 101;
+}
+
+message ListInventoryResponse {
+  ListInventoryResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListInventoryResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Inventory items = 7 [json_name = "items"];
+}
+
+message SetInventoryThresholdsRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  SetInventoryThresholdsRequestData data = 3 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message SetInventoryThresholdsRequestData {
+  optional int64 version = 1 [json_name = "version"];
+  optional string minimum_quantity = 2 [json_name = "minimumQuantity"];
+  optional string maximum_quantity = 3 [json_name = "maximumQuantity"];
+}
+
+message SetInventoryThresholdsResponse {
+  Inventory result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListBatchesRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string material_id = 7 [json_name = "materialId"];
+  optional string expires_before = 8 [json_name = "expiresBefore"];
+  optional bool include_depleted = 9 [json_name = "includeDepleted"];
+  CommandContext context = 101;
+}
+
+message ListBatchesResponse {
+  ListBatchesResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListBatchesResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Batch items = 7 [json_name = "items"];
+}
+
+message ListInventoryHistoryRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListInventoryHistoryResponse {
+  ListInventoryHistoryResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListInventoryHistoryResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated InventoryHistory items = 7 [json_name = "items"];
+}
+
+message ListImportFormsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string business_date_from = 7 [json_name = "businessDateFrom"];
+  optional string business_date_to = 8 [json_name = "businessDateTo"];
+  optional string created_from = 9 [json_name = "createdFrom"];
+  optional string created_to = 10 [json_name = "createdTo"];
+  optional string creator_id = 11 [json_name = "creatorId"];
+  optional string requester_id = 12 [json_name = "requesterId"];
+  optional string approver_id = 13 [json_name = "approverId"];
+  optional string material_id = 14 [json_name = "materialId"];
+  optional StatusEnum status = 15 [json_name = "status"];
+  optional string type = 16 [json_name = "type"];
+  optional string supplier_id = 17 [json_name = "supplierId"];
+  CommandContext context = 101;
+}
+
+message ListImportFormsResponse {
+  ListImportFormsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListImportFormsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated ImportForm items = 7 [json_name = "items"];
+}
+
+message CreateImportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ImportDraft data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateImportFormResponse {
+  ImportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetImportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetImportFormResponse {
+  ImportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateImportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  UpdateImportFormRequestData data = 3 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateImportFormRequestData {
+  optional string supplier_id = 1 [json_name = "supplierId"];
+  optional string business_date = 2 [json_name = "businessDate"];
+  optional string po_number = 3 [json_name = "poNumber"];
+  optional string invoice_number = 4 [json_name = "invoiceNumber"];
+  optional string note = 5 [json_name = "note"];
+  repeated string attachment_ids = 6 [json_name = "attachmentIds"];
+  repeated ImportItemWrite items = 7 [json_name = "items"];
+  optional string requester_id = 8 [json_name = "requesterId"];
+  optional double vat_rate = 9 [json_name = "vatRate"];
+  optional int64 version = 10 [json_name = "version"];
+}
+
+message UpdateImportFormResponse {
+  ImportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SubmitImportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message SubmitImportFormResponse {
+  ImportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReturnImportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ReturnImportFormResponse {
+  ImportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ConfirmImportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ConfirmImportFormResponse {
+  ImportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CancelImportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CancelImportFormResponse {
+  ImportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListExportFormsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string business_date_from = 7 [json_name = "businessDateFrom"];
+  optional string business_date_to = 8 [json_name = "businessDateTo"];
+  optional string created_from = 9 [json_name = "createdFrom"];
+  optional string created_to = 10 [json_name = "createdTo"];
+  optional string creator_id = 11 [json_name = "creatorId"];
+  optional string requester_id = 12 [json_name = "requesterId"];
+  optional string approver_id = 13 [json_name = "approverId"];
+  optional string material_id = 14 [json_name = "materialId"];
+  optional StatusEnum status = 15 [json_name = "status"];
+  optional string type = 16 [json_name = "type"];
+  CommandContext context = 101;
+}
+
+message ListExportFormsResponse {
+  ListExportFormsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListExportFormsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated ExportForm items = 7 [json_name = "items"];
+}
+
+message CreateExportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ExportDraft data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateExportFormResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetExportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetExportFormResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateExportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  UpdateExportFormRequestData data = 3 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateExportFormRequestData {
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_PRODUCTION = 1;
+    TYPE_SALE = 2;
+    TYPE_DISPOSAL = 3;
+    TYPE_TRANSFER = 4;
+    TYPE_LIQUIDATION = 5;
+    TYPE_OTHER = 6;
+  }
+  optional TypeEnum type = 1 [json_name = "type"];
+  optional string business_date = 2 [json_name = "businessDate"];
+  optional string destination_warehouse_id = 3 [json_name = "destinationWarehouseId"];
+  optional string reason = 4 [json_name = "reason"];
+  repeated string attachment_ids = 5 [json_name = "attachmentIds"];
+  repeated ExportItemWrite items = 6 [json_name = "items"];
+  optional string note = 7 [json_name = "note"];
+  optional string requester_id = 8 [json_name = "requesterId"];
+  optional string po_number = 9 [json_name = "poNumber"];
+  optional string receiver_id = 10 [json_name = "receiverId"];
+  optional int64 version = 11 [json_name = "version"];
+}
+
+message UpdateExportFormResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SubmitExportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message SubmitExportFormResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReturnExportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ReturnExportFormResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ConfirmExportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ConfirmExportFormResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CancelExportFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CancelExportFormResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message PreviewFefoExportRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ExportDraft data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message PreviewFefoExportResponse {
+  PreviewFefoExportResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message PreviewFefoExportResponseResult {
+  repeated PreviewFefoExportResponseResultAllocationsItem allocations = 1 [json_name = "allocations"];
+  repeated string warnings = 2 [json_name = "warnings"];
+}
+
+message PreviewFefoExportResponseResultAllocationsItem {
+  optional string batch_id = 1 [json_name = "batchId"];
+  optional string material_id = 2 [json_name = "materialId"];
+  optional string quantity = 3 [json_name = "quantity"];
+}
+
+message GetBatchTraceRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetBatchTraceResponse {
+  BatchTrace result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListStocktakesRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_IN_PROGRESS = 2;
+    STATUS_SUBMITTED = 3;
+    STATUS_COMPLETED = 4;
+    STATUS_CANCELLED = 5;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string business_date_from = 7 [json_name = "businessDateFrom"];
+  optional string business_date_to = 8 [json_name = "businessDateTo"];
+  optional string created_from = 9 [json_name = "createdFrom"];
+  optional string created_to = 10 [json_name = "createdTo"];
+  optional string creator_id = 11 [json_name = "creatorId"];
+  optional string requester_id = 12 [json_name = "requesterId"];
+  optional string approver_id = 13 [json_name = "approverId"];
+  optional string material_id = 14 [json_name = "materialId"];
+  optional StatusEnum status = 15 [json_name = "status"];
+  optional string type = 16 [json_name = "type"];
+  CommandContext context = 101;
+}
+
+message ListStocktakesResponse {
+  ListStocktakesResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListStocktakesResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Stocktake items = 7 [json_name = "items"];
+}
+
+message CreateStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  StocktakeDraft data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message StartStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message StartStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message AcknowledgementsStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message AcknowledgementsStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CountsStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  StocktakeCount data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CountsStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SubmitStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message SubmitStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ConfirmStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ConfirmStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CancelStocktakeRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CancelStocktakeResponse {
+  Stocktake result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListProductsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum SyncStatusEnum {
+    SYNC_STATUS_UNSPECIFIED = 0;
+    SYNC_STATUS_NOT_CONFIGURED = 1;
+    SYNC_STATUS_SYNCED = 2;
+    SYNC_STATUS_FAILED = 3;
+  }
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional string q = 3 [json_name = "q"];
+  optional SortByEnum sort_by = 4 [json_name = "sortBy"];
+  optional SortEnum sort = 5 [json_name = "sort"];
+  optional bool is_active = 6 [json_name = "isActive"];
+  optional SyncStatusEnum sync_status = 7 [json_name = "syncStatus"];
+  CommandContext context = 101;
+}
+
+message ListProductsResponse {
+  ListProductsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListProductsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Product items = 7 [json_name = "items"];
+}
+
+message GetProductRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetProductResponse {
+  Product result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message RequestProductSyncRequest {
+  CommandContext context = 101;
+}
+
+message RequestProductSyncResponse {
+  Job result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetVariantRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetVariantResponse {
+  Variant result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SetVariantPricingRequest {
+  optional string id = 1 [json_name = "id"];
+  SetVariantPricingRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message SetVariantPricingRequestData {
+  enum PriceModeEnum {
+    PRICE_MODE_UNSPECIFIED = 0;
+    PRICE_MODE_SYNC = 1;
+    PRICE_MODE_MANUAL = 2;
+  }
+  optional int64 version = 1 [json_name = "version"];
+  optional PriceModeEnum price_mode = 2 [json_name = "priceMode"];
+  optional string local_selling_price = 3 [json_name = "localSellingPrice"];
+  optional string reason = 4 [json_name = "reason"];
+}
+
+message SetVariantPricingResponse {
+  Variant result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetRecipeRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetRecipeResponse {
+  Recipe result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReplaceRecipeRequest {
+  optional string id = 1 [json_name = "id"];
+  RecipeWrite data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message ReplaceRecipeResponse {
+  Recipe result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CopyRecipeRequest {
+  optional string id = 1 [json_name = "id"];
+  CopyRecipeRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CopyRecipeRequestData {
+  optional string source_variant_id = 1 [json_name = "sourceVariantId"];
+  repeated string material_ids = 2 [json_name = "materialIds"];
+  optional int64 version = 3 [json_name = "version"];
+  optional string reason = 4 [json_name = "reason"];
+}
+
+message CopyRecipeResponse {
+  Recipe result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ArchiveRecipeRequest {
+  optional string id = 1 [json_name = "id"];
+  VersionCommand data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ArchiveRecipeResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListRecipeHistoryRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  CommandContext context = 101;
+}
+
+message ListRecipeHistoryResponse {
+  ListRecipeHistoryResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListRecipeHistoryResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated AuditEvent items = 7 [json_name = "items"];
+}
+
+message PosInventoryRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  CommandContext context = 101;
+}
+
+message PosInventoryResponse {
+  PosInventoryResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message PosInventoryResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Inventory items = 7 [json_name = "items"];
+}
+
+message PosRecipeRequest {
+  optional string id = 1 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message PosRecipeResponse {
+  Recipe result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message PosExportRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ExportDraft data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message PosExportResponse {
+  ExportForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListExpenseFormsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string business_date_from = 7 [json_name = "businessDateFrom"];
+  optional string business_date_to = 8 [json_name = "businessDateTo"];
+  optional string created_from = 9 [json_name = "createdFrom"];
+  optional string created_to = 10 [json_name = "createdTo"];
+  optional string creator_id = 11 [json_name = "creatorId"];
+  optional string requester_id = 12 [json_name = "requesterId"];
+  optional string approver_id = 13 [json_name = "approverId"];
+  optional string material_id = 14 [json_name = "materialId"];
+  optional StatusEnum status = 15 [json_name = "status"];
+  optional string type = 16 [json_name = "type"];
+  optional string supplier_id = 17 [json_name = "supplierId"];
+  CommandContext context = 101;
+}
+
+message ListExpenseFormsResponse {
+  ListExpenseFormsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListExpenseFormsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated FinanceForm items = 7 [json_name = "items"];
+}
+
+message CreateExpenseFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ExpenseManualDraft data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateExpenseFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetExpenseFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetExpenseFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateExpenseFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  UpdateExpenseFormRequestData data = 3 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateExpenseFormRequestData {
+  enum PaymentMethodEnum {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_BANK_TRANSFER = 2;
+    PAYMENT_METHOD_CREDIT_CARD = 3;
+  }
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_PURCHASE = 1;
+    TYPE_TRANSPORT = 2;
+    TYPE_HANDLING = 3;
+    TYPE_STORAGE = 4;
+    TYPE_OTHER_EXPENSE = 5;
+  }
+  optional string business_date = 1 [json_name = "businessDate"];
+  optional string partner_id = 2 [json_name = "partnerId"];
+  optional string net_amount = 3 [json_name = "netAmount"];
+  optional double vat_rate = 4 [json_name = "vatRate"];
+  optional PaymentMethodEnum payment_method = 5 [json_name = "paymentMethod"];
+  optional string reason = 6 [json_name = "reason"];
+  repeated string attachment_ids = 7 [json_name = "attachmentIds"];
+  repeated SourceAllocation sources = 8 [json_name = "sources"];
+  optional string note = 9 [json_name = "note"];
+  optional TypeEnum type = 10 [json_name = "type"];
+  optional string payment_term_id = 11 [json_name = "paymentTermId"];
+  optional string bank_reference = 12 [json_name = "bankReference"];
+  optional string requester_id = 13 [json_name = "requesterId"];
+  optional string payer_id = 14 [json_name = "payerId"];
+  optional bool invoice_status = 15 [json_name = "invoiceStatus"];
+  optional int64 version = 16 [json_name = "version"];
+}
+
+message UpdateExpenseFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SubmitExpenseFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message SubmitExpenseFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReturnExpenseFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ReturnExpenseFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ConfirmExpenseFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ConfirmExpenseFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CancelExpenseFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CancelExpenseFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListRevenueFormsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum StatusEnum {
+    STATUS_UNSPECIFIED = 0;
+    STATUS_DRAFT = 1;
+    STATUS_SUBMITTED = 2;
+    STATUS_CONFIRMED = 3;
+    STATUS_CANCELLED = 4;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string business_date_from = 7 [json_name = "businessDateFrom"];
+  optional string business_date_to = 8 [json_name = "businessDateTo"];
+  optional string created_from = 9 [json_name = "createdFrom"];
+  optional string created_to = 10 [json_name = "createdTo"];
+  optional string creator_id = 11 [json_name = "creatorId"];
+  optional string requester_id = 12 [json_name = "requesterId"];
+  optional string approver_id = 13 [json_name = "approverId"];
+  optional string material_id = 14 [json_name = "materialId"];
+  optional StatusEnum status = 15 [json_name = "status"];
+  optional string type = 16 [json_name = "type"];
+  optional string supplier_id = 17 [json_name = "supplierId"];
+  CommandContext context = 101;
+}
+
+message ListRevenueFormsResponse {
+  ListRevenueFormsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListRevenueFormsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated FinanceForm items = 7 [json_name = "items"];
+}
+
+message CreateRevenueFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  RevenueDraft data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateRevenueFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetRevenueFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetRevenueFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message UpdateRevenueFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  UpdateRevenueFormRequestData data = 3 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message UpdateRevenueFormRequestData {
+  enum PaymentMethodEnum {
+    PAYMENT_METHOD_UNSPECIFIED = 0;
+    PAYMENT_METHOD_CASH = 1;
+    PAYMENT_METHOD_BANK_TRANSFER = 2;
+    PAYMENT_METHOD_E_WALLET = 3;
+  }
+  enum TypeEnum {
+    TYPE_UNSPECIFIED = 0;
+    TYPE_SUPPLIER_REFUND = 1;
+    TYPE_SUPPLIER_COMPENSATION = 2;
+    TYPE_LIQUIDATION = 3;
+    TYPE_SCRAP_PACKAGING = 4;
+    TYPE_OTHER_REVENUE = 5;
+  }
+  optional string business_date = 1 [json_name = "businessDate"];
+  optional string partner_id = 2 [json_name = "partnerId"];
+  optional string net_amount = 3 [json_name = "netAmount"];
+  optional double vat_rate = 4 [json_name = "vatRate"];
+  optional PaymentMethodEnum payment_method = 5 [json_name = "paymentMethod"];
+  optional string reason = 6 [json_name = "reason"];
+  repeated string attachment_ids = 7 [json_name = "attachmentIds"];
+  repeated SourceAllocation sources = 8 [json_name = "sources"];
+  optional string note = 9 [json_name = "note"];
+  optional TypeEnum type = 10 [json_name = "type"];
+  optional string bank_reference = 11 [json_name = "bankReference"];
+  optional string refund_group_id = 12 [json_name = "refundGroupId"];
+  optional int64 installment_no = 13 [json_name = "installmentNo"];
+  optional int64 planned_installments = 14 [json_name = "plannedInstallments"];
+  optional string requester_id = 15 [json_name = "requesterId"];
+  optional int64 version = 16 [json_name = "version"];
+}
+
+message UpdateRevenueFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SubmitRevenueFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message SubmitRevenueFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReturnRevenueFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ReturnRevenueFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ConfirmRevenueFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ConfirmRevenueFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CancelRevenueFormRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CancelRevenueFormResponse {
+  FinanceForm result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SettleExpenseRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  ExpenseSettlementWrite data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message SettleExpenseResponse {
+  ExpenseSettlement result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message CreateRefundGroupRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  RefundGroupWrite data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message CreateRefundGroupResponse {
+  RefundGroup result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetRefundGroupRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetRefundGroupResponse {
+  RefundGroup result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListSupplierTransactionsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  optional string id = 1 [json_name = "id"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional string from_date = 7 [json_name = "fromDate"];
+  optional string to_date = 8 [json_name = "toDate"];
+  optional string warehouse_id = 9 [json_name = "warehouseId"];
+  optional string material_id = 10 [json_name = "materialId"];
+  CommandContext context = 101;
+}
+
+message ListSupplierTransactionsResponse {
+  ListSupplierTransactionsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListSupplierTransactionsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated SupplierTransaction items = 7 [json_name = "items"];
+}
+
+message ListAlertsRequest {
+  enum SortByEnum {
+    SORT_BY_UNSPECIFIED = 0;
+    SORT_BY_CREATEDAT = 1;
+    SORT_BY_CODE = 2;
+    SORT_BY_NAME = 3;
+  }
+  enum SortEnum {
+    SORT_UNSPECIFIED = 0;
+    SORT_ASC = 1;
+    SORT_DESC = 2;
+  }
+  enum LevelEnum {
+    LEVEL_UNSPECIFIED = 0;
+    LEVEL_INFO = 1;
+    LEVEL_WARNING = 2;
+    LEVEL_CRITICAL = 3;
+  }
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional int64 page = 2 [json_name = "page"];
+  optional int64 page_size = 3 [json_name = "pageSize"];
+  optional string q = 4 [json_name = "q"];
+  optional SortByEnum sort_by = 5 [json_name = "sortBy"];
+  optional SortEnum sort = 6 [json_name = "sort"];
+  optional LevelEnum level = 7 [json_name = "level"];
+  optional bool read = 8 [json_name = "read"];
+  optional string kind = 9 [json_name = "kind"];
+  CommandContext context = 101;
+}
+
+message ListAlertsResponse {
+  ListAlertsResponseResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ListAlertsResponseResult {
+  optional int64 page = 1 [json_name = "page"];
+  optional int64 page_size = 2 [json_name = "pageSize"];
+  optional int64 total = 3 [json_name = "total"];
+  optional int64 total_pages = 4 [json_name = "totalPages"];
+  optional bool has_next = 5 [json_name = "hasNext"];
+  optional bool has_previous = 6 [json_name = "hasPrevious"];
+  repeated Alert items = 7 [json_name = "items"];
+}
+
+message MarkAlertReadRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message MarkAlertReadResponse {
+  Alert result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SetAlertSettingsRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  SetAlertSettingsRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message SetAlertSettingsRequestData {
+  optional int64 version = 1 [json_name = "version"];
+  repeated string enabled_kinds = 2 [json_name = "enabledKinds"];
+  repeated string recipient_user_ids = 3 [json_name = "recipientUserIds"];
+}
+
+message SetAlertSettingsResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportDashboardRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportDashboardResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportInventoryMovementRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportInventoryMovementResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportStockValueRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportStockValueResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportImportsRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportImportsResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportExportsRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportExportsResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportStocktakesRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportStocktakesResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportSupplierPerformanceRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportSupplierPerformanceResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportExpiryRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportExpiryResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportExpenseRevenueRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportExpenseRevenueResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportDebtRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportDebtResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ReportWastageRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string from_date = 2 [json_name = "fromDate"];
+  optional string to_date = 3 [json_name = "toDate"];
+  CommandContext context = 101;
+}
+
+message ReportWastageResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message RunCustomReportRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  CustomReport data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message RunCustomReportResponse {
+  Report result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ExportReportRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ExportReportRequestData data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ExportReportRequestData {
+  enum ReportKindEnum {
+    REPORT_KIND_UNSPECIFIED = 0;
+    REPORT_KIND_DASHBOARD = 1;
+    REPORT_KIND_INVENTORY_MOVEMENT = 2;
+    REPORT_KIND_STOCK_VALUE = 3;
+    REPORT_KIND_IMPORTS = 4;
+    REPORT_KIND_EXPORTS = 5;
+    REPORT_KIND_STOCKTAKES = 6;
+    REPORT_KIND_SUPPLIER_PERFORMANCE = 7;
+    REPORT_KIND_EXPIRY = 8;
+    REPORT_KIND_EXPENSE_REVENUE = 9;
+    REPORT_KIND_DEBT = 10;
+    REPORT_KIND_WASTAGE = 11;
+    REPORT_KIND_CUSTOM = 12;
+  }
+  enum FormatEnum {
+    FORMAT_UNSPECIFIED = 0;
+    FORMAT_XLSX = 1;
+    FORMAT_PDF = 2;
+    FORMAT_CSV = 3;
+  }
+  optional ReportKindEnum report_kind = 1 [json_name = "reportKind"];
+  optional FormatEnum format = 2 [json_name = "format"];
+  optional string from_date = 3 [json_name = "fromDate"];
+  optional string to_date = 4 [json_name = "toDate"];
+  CustomReport custom_definition = 5 [json_name = "customDefinition"];
+}
+
+message ExportReportResponse {
+  Job result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message SetReportScheduleRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ReportSchedule data = 2 [json_name = "data"];
+  CommandContext context = 101;
+  google.protobuf.FieldMask update_mask = 102;
+  repeated string clear_fields = 103; // Explicit JSON null; omitted field is not a clear.
+}
+
+message SetReportScheduleResponse {
+  ActionResult result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetExcelTemplateRequest {
+  optional string template_id = 1 [json_name = "templateId"];
+  CommandContext context = 101;
+}
+
+message GetExcelTemplateResponse {
+  FileAccess result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message PreviewExcelImportRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  ExcelJobCreate data = 2 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message PreviewExcelImportResponse {
+  ExcelPreview result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message GetExcelImportPreviewRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  CommandContext context = 101;
+}
+
+message GetExcelImportPreviewResponse {
+  ExcelPreview result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message ConfirmExcelImportRequest {
+  optional string warehouse_id = 1 [json_name = "warehouseId"];
+  optional string id = 2 [json_name = "id"];
+  VersionCommand data = 3 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message ConfirmExcelImportResponse {
+  Job result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+message RequestArchiveRequest {
+  RequestArchiveRequestData data = 1 [json_name = "data"];
+  CommandContext context = 101;
+}
+
+message RequestArchiveRequestData {
+  optional string before_date = 1 [json_name = "beforeDate"];
+  optional string reason = 2 [json_name = "reason"];
+  optional string target_ref = 3 [json_name = "targetRef"];
+}
+
+message RequestArchiveResponse {
+  Job result = 1 [json_name = "result"];
+  ResponseMeta meta = 100;
+}
+
+service WarehouseStorage {
+  rpc UploadFile(stream FileUploadChunk) returns (UploadFileResponse);
+  rpc Login(LoginRequest) returns (LoginResponse); // POST /auth/login
+  rpc Refresh(RefreshRequest) returns (RefreshResponse); // POST /auth/refresh
+  rpc Logout(LogoutRequest) returns (LogoutResponse); // POST /auth/logout
+  rpc Logoutall(LogoutallRequest) returns (LogoutallResponse); // POST /auth/logout-all
+  rpc Lock(LockRequest) returns (LockResponse); // POST /auth/lock
+  rpc ChangeOwnPassword(ChangeOwnPasswordRequest) returns (ChangeOwnPasswordResponse); // POST /auth/change-password
+  rpc GetProfile(GetProfileRequest) returns (GetProfileResponse); // GET /auth/me
+  rpc UpdateProfile(UpdateProfileRequest) returns (UpdateProfileResponse); // PATCH /auth/me
+  rpc RecordInteractiveActivity(RecordInteractiveActivityRequest) returns (RecordInteractiveActivityResponse); // POST /auth/activity
+  rpc ListOwnSessions(ListOwnSessionsRequest) returns (ListOwnSessionsResponse); // GET /sessions
+  rpc RevokeOwnSession(RevokeOwnSessionRequest) returns (RevokeOwnSessionResponse); // DELETE /sessions/{id}
+  rpc ListUsers(ListUsersRequest) returns (ListUsersResponse); // GET /users
+  rpc CreateUser(CreateUserRequest) returns (CreateUserResponse); // POST /users
+  rpc GetUser(GetUserRequest) returns (GetUserResponse); // GET /users/{id}
+  rpc UpdateUser(UpdateUserRequest) returns (UpdateUserResponse); // PATCH /users/{id}
+  rpc DeleteUser(DeleteUserRequest) returns (DeleteUserResponse); // DELETE /users/{id}
+  rpc ChangeUserRole(ChangeUserRoleRequest) returns (ChangeUserRoleResponse); // PUT /users/{id}/role
+  rpc ResetUserPassword(ResetUserPasswordRequest) returns (ResetUserPasswordResponse); // POST /users/{id}/password
+  rpc ListRoles(ListRolesRequest) returns (ListRolesResponse); // GET /roles
+  rpc CreateRole(CreateRoleRequest) returns (CreateRoleResponse); // POST /roles
+  rpc GetRole(GetRoleRequest) returns (GetRoleResponse); // GET /roles/{id}
+  rpc UpdateRole(UpdateRoleRequest) returns (UpdateRoleResponse); // PATCH /roles/{id}
+  rpc DeleteRole(DeleteRoleRequest) returns (DeleteRoleResponse); // DELETE /roles/{id}
+  rpc ListAuthorities(ListAuthoritiesRequest) returns (ListAuthoritiesResponse); // GET /authorities
+  rpc ListAuthorityGroups(ListAuthorityGroupsRequest) returns (ListAuthorityGroupsResponse); // GET /authority-groups
+  rpc UpdateAuthorityMetadata(UpdateAuthorityMetadataRequest) returns (UpdateAuthorityMetadataResponse); // PATCH /authorities/{id}
+  rpc PutRoleAuthority(PutRoleAuthorityRequest) returns (PutRoleAuthorityResponse); // PUT /roles/{id}/authorities/{authorityCode}
+  rpc DeleteRoleAuthority(DeleteRoleAuthorityRequest) returns (DeleteRoleAuthorityResponse); // DELETE /roles/{id}/authorities/{authorityCode}
+  rpc GetFileMetadata(GetFileMetadataRequest) returns (GetFileMetadataResponse); // GET /files/{id}
+  rpc GetFileAccess(GetFileAccessRequest) returns (GetFileAccessResponse); // POST /files/{id}/access
+  rpc ListAuditEvents(ListAuditEventsRequest) returns (ListAuditEventsResponse); // GET /audit-events
+  rpc ListTechnicalLogs(ListTechnicalLogsRequest) returns (ListTechnicalLogsResponse); // GET /technical-logs
+  rpc ListBackupRequests(ListBackupRequestsRequest) returns (ListBackupRequestsResponse); // GET /backup-requests
+  rpc CreateBackupRequest(CreateBackupRequestRequest) returns (CreateBackupRequestResponse); // POST /backup-requests
+  rpc CreateRestoreRequest(CreateRestoreRequestRequest) returns (CreateRestoreRequestResponse); // POST /restore-requests
+  rpc GetJob(GetJobRequest) returns (GetJobResponse); // GET /jobs/{id}
+  rpc ListWarehousesWarehouses(ListWarehousesWarehousesRequest) returns (ListWarehousesWarehousesResponse); // GET /warehouses
+  rpc CreateWarehouseWarehouses(CreateWarehouseWarehousesRequest) returns (CreateWarehouseWarehousesResponse); // POST /warehouses
+  rpc GetWarehouseWarehouses(GetWarehouseWarehousesRequest) returns (GetWarehouseWarehousesResponse); // GET /warehouses/{id}
+  rpc UpdateWarehouseWarehouses(UpdateWarehouseWarehousesRequest) returns (UpdateWarehouseWarehousesResponse); // PATCH /warehouses/{id}
+  rpc DeleteWarehouseWarehouses(DeleteWarehouseWarehousesRequest) returns (DeleteWarehouseWarehousesResponse); // DELETE /warehouses/{id}
+  rpc ListNamedMastersStores(ListNamedMastersStoresRequest) returns (ListNamedMastersStoresResponse); // GET /stores
+  rpc CreateNamedMasterStores(CreateNamedMasterStoresRequest) returns (CreateNamedMasterStoresResponse); // POST /stores
+  rpc GetNamedMasterStores(GetNamedMasterStoresRequest) returns (GetNamedMasterStoresResponse); // GET /stores/{id}
+  rpc UpdateNamedMasterStores(UpdateNamedMasterStoresRequest) returns (UpdateNamedMasterStoresResponse); // PATCH /stores/{id}
+  rpc DeleteNamedMasterStores(DeleteNamedMasterStoresRequest) returns (DeleteNamedMasterStoresResponse); // DELETE /stores/{id}
+  rpc ListMaterialsMaterials(ListMaterialsMaterialsRequest) returns (ListMaterialsMaterialsResponse); // GET /materials
+  rpc CreateMaterialMaterials(CreateMaterialMaterialsRequest) returns (CreateMaterialMaterialsResponse); // POST /materials
+  rpc GetMaterialMaterials(GetMaterialMaterialsRequest) returns (GetMaterialMaterialsResponse); // GET /materials/{id}
+  rpc UpdateMaterialMaterials(UpdateMaterialMaterialsRequest) returns (UpdateMaterialMaterialsResponse); // PATCH /materials/{id}
+  rpc DeleteMaterialMaterials(DeleteMaterialMaterialsRequest) returns (DeleteMaterialMaterialsResponse); // DELETE /materials/{id}
+  rpc ListNamedMastersMaterialTypes(ListNamedMastersMaterialTypesRequest) returns (ListNamedMastersMaterialTypesResponse); // GET /material-types
+  rpc CreateNamedMasterMaterialTypes(CreateNamedMasterMaterialTypesRequest) returns (CreateNamedMasterMaterialTypesResponse); // POST /material-types
+  rpc GetNamedMasterMaterialTypes(GetNamedMasterMaterialTypesRequest) returns (GetNamedMasterMaterialTypesResponse); // GET /material-types/{id}
+  rpc UpdateNamedMasterMaterialTypes(UpdateNamedMasterMaterialTypesRequest) returns (UpdateNamedMasterMaterialTypesResponse); // PATCH /material-types/{id}
+  rpc DeleteNamedMasterMaterialTypes(DeleteNamedMasterMaterialTypesRequest) returns (DeleteNamedMasterMaterialTypesResponse); // DELETE /material-types/{id}
+  rpc ListUnitsUnits(ListUnitsUnitsRequest) returns (ListUnitsUnitsResponse); // GET /units
+  rpc CreateUnitUnits(CreateUnitUnitsRequest) returns (CreateUnitUnitsResponse); // POST /units
+  rpc GetUnitUnits(GetUnitUnitsRequest) returns (GetUnitUnitsResponse); // GET /units/{id}
+  rpc UpdateUnitUnits(UpdateUnitUnitsRequest) returns (UpdateUnitUnitsResponse); // PATCH /units/{id}
+  rpc DeleteUnitUnits(DeleteUnitUnitsRequest) returns (DeleteUnitUnitsResponse); // DELETE /units/{id}
+  rpc ListSuppliersSuppliers(ListSuppliersSuppliersRequest) returns (ListSuppliersSuppliersResponse); // GET /suppliers
+  rpc CreateSupplierSuppliers(CreateSupplierSuppliersRequest) returns (CreateSupplierSuppliersResponse); // POST /suppliers
+  rpc GetSupplierSuppliers(GetSupplierSuppliersRequest) returns (GetSupplierSuppliersResponse); // GET /suppliers/{id}
+  rpc UpdateSupplierSuppliers(UpdateSupplierSuppliersRequest) returns (UpdateSupplierSuppliersResponse); // PATCH /suppliers/{id}
+  rpc DeleteSupplierSuppliers(DeleteSupplierSuppliersRequest) returns (DeleteSupplierSuppliersResponse); // DELETE /suppliers/{id}
+  rpc ListPositions(ListPositionsRequest) returns (ListPositionsResponse); // GET /warehouses/{warehouseId}/positions
+  rpc CreatePosition(CreatePositionRequest) returns (CreatePositionResponse); // POST /warehouses/{warehouseId}/positions
+  rpc UpdatePosition(UpdatePositionRequest) returns (UpdatePositionResponse); // PATCH /warehouses/{warehouseId}/positions/{id}
+  rpc DeletePosition(DeletePositionRequest) returns (DeletePositionResponse); // DELETE /warehouses/{warehouseId}/positions/{id}
+  rpc SetConversion(SetConversionRequest) returns (SetConversionResponse); // PUT /materials/{id}/conversion-units
+  rpc ListEligibleCounters(ListEligibleCountersRequest) returns (ListEligibleCountersResponse); // GET /warehouses/{warehouseId}/eligible-count-users
+  rpc ListPaymentTerms(ListPaymentTermsRequest) returns (ListPaymentTermsResponse); // GET /payment-terms
+  rpc CreatePaymentTerm(CreatePaymentTermRequest) returns (CreatePaymentTermResponse); // POST /payment-terms
+  rpc ListInventory(ListInventoryRequest) returns (ListInventoryResponse); // GET /warehouses/{warehouseId}/inventory
+  rpc SetInventoryThresholds(SetInventoryThresholdsRequest) returns (SetInventoryThresholdsResponse); // PATCH /warehouses/{warehouseId}/inventory/{id}/thresholds
+  rpc ListBatches(ListBatchesRequest) returns (ListBatchesResponse); // GET /warehouses/{warehouseId}/batches
+  rpc ListInventoryHistory(ListInventoryHistoryRequest) returns (ListInventoryHistoryResponse); // GET /warehouses/{warehouseId}/inventory-history
+  rpc ListImportForms(ListImportFormsRequest) returns (ListImportFormsResponse); // GET /warehouses/{warehouseId}/import-forms
+  rpc CreateImportForm(CreateImportFormRequest) returns (CreateImportFormResponse); // POST /warehouses/{warehouseId}/import-forms
+  rpc GetImportForm(GetImportFormRequest) returns (GetImportFormResponse); // GET /warehouses/{warehouseId}/import-forms/{id}
+  rpc UpdateImportForm(UpdateImportFormRequest) returns (UpdateImportFormResponse); // PATCH /warehouses/{warehouseId}/import-forms/{id}
+  rpc SubmitImportForm(SubmitImportFormRequest) returns (SubmitImportFormResponse); // POST /warehouses/{warehouseId}/import-forms/{id}/submit
+  rpc ReturnImportForm(ReturnImportFormRequest) returns (ReturnImportFormResponse); // POST /warehouses/{warehouseId}/import-forms/{id}/return
+  rpc ConfirmImportForm(ConfirmImportFormRequest) returns (ConfirmImportFormResponse); // POST /warehouses/{warehouseId}/import-forms/{id}/confirm
+  rpc CancelImportForm(CancelImportFormRequest) returns (CancelImportFormResponse); // POST /warehouses/{warehouseId}/import-forms/{id}/cancel
+  rpc ListExportForms(ListExportFormsRequest) returns (ListExportFormsResponse); // GET /warehouses/{warehouseId}/export-forms
+  rpc CreateExportForm(CreateExportFormRequest) returns (CreateExportFormResponse); // POST /warehouses/{warehouseId}/export-forms
+  rpc GetExportForm(GetExportFormRequest) returns (GetExportFormResponse); // GET /warehouses/{warehouseId}/export-forms/{id}
+  rpc UpdateExportForm(UpdateExportFormRequest) returns (UpdateExportFormResponse); // PATCH /warehouses/{warehouseId}/export-forms/{id}
+  rpc SubmitExportForm(SubmitExportFormRequest) returns (SubmitExportFormResponse); // POST /warehouses/{warehouseId}/export-forms/{id}/submit
+  rpc ReturnExportForm(ReturnExportFormRequest) returns (ReturnExportFormResponse); // POST /warehouses/{warehouseId}/export-forms/{id}/return
+  rpc ConfirmExportForm(ConfirmExportFormRequest) returns (ConfirmExportFormResponse); // POST /warehouses/{warehouseId}/export-forms/{id}/confirm
+  rpc CancelExportForm(CancelExportFormRequest) returns (CancelExportFormResponse); // POST /warehouses/{warehouseId}/export-forms/{id}/cancel
+  rpc PreviewFefoExport(PreviewFefoExportRequest) returns (PreviewFefoExportResponse); // POST /warehouses/{warehouseId}/export-preview
+  rpc GetBatchTrace(GetBatchTraceRequest) returns (GetBatchTraceResponse); // GET /batches/{id}/trace
+  rpc ListStocktakes(ListStocktakesRequest) returns (ListStocktakesResponse); // GET /warehouses/{warehouseId}/stocktakes
+  rpc CreateStocktake(CreateStocktakeRequest) returns (CreateStocktakeResponse); // POST /warehouses/{warehouseId}/stocktakes
+  rpc GetStocktake(GetStocktakeRequest) returns (GetStocktakeResponse); // GET /warehouses/{warehouseId}/stocktakes/{id}
+  rpc StartStocktake(StartStocktakeRequest) returns (StartStocktakeResponse); // POST /warehouses/{warehouseId}/stocktakes/{id}/start
+  rpc AcknowledgementsStocktake(AcknowledgementsStocktakeRequest) returns (AcknowledgementsStocktakeResponse); // POST /warehouses/{warehouseId}/stocktakes/{id}/acknowledgements
+  rpc CountsStocktake(CountsStocktakeRequest) returns (CountsStocktakeResponse); // POST /warehouses/{warehouseId}/stocktakes/{id}/counts
+  rpc SubmitStocktake(SubmitStocktakeRequest) returns (SubmitStocktakeResponse); // POST /warehouses/{warehouseId}/stocktakes/{id}/submit
+  rpc ConfirmStocktake(ConfirmStocktakeRequest) returns (ConfirmStocktakeResponse); // POST /warehouses/{warehouseId}/stocktakes/{id}/confirm
+  rpc CancelStocktake(CancelStocktakeRequest) returns (CancelStocktakeResponse); // POST /warehouses/{warehouseId}/stocktakes/{id}/cancel
+  rpc ListProducts(ListProductsRequest) returns (ListProductsResponse); // GET /products
+  rpc GetProduct(GetProductRequest) returns (GetProductResponse); // GET /products/{id}
+  rpc RequestProductSync(RequestProductSyncRequest) returns (RequestProductSyncResponse); // POST /products/sync
+  rpc GetVariant(GetVariantRequest) returns (GetVariantResponse); // GET /variants/{id}
+  rpc SetVariantPricing(SetVariantPricingRequest) returns (SetVariantPricingResponse); // PATCH /variants/{id}/pricing
+  rpc GetRecipe(GetRecipeRequest) returns (GetRecipeResponse); // GET /variants/{id}/recipe
+  rpc ReplaceRecipe(ReplaceRecipeRequest) returns (ReplaceRecipeResponse); // PUT /variants/{id}/recipe
+  rpc CopyRecipe(CopyRecipeRequest) returns (CopyRecipeResponse); // POST /variants/{id}/recipe/copy
+  rpc ArchiveRecipe(ArchiveRecipeRequest) returns (ArchiveRecipeResponse); // POST /variants/{id}/recipe/archive
+  rpc ListRecipeHistory(ListRecipeHistoryRequest) returns (ListRecipeHistoryResponse); // GET /variants/{id}/recipe/history
+  rpc PosInventory(PosInventoryRequest) returns (PosInventoryResponse); // GET /pos/warehouses/{warehouseId}/inventory
+  rpc PosRecipe(PosRecipeRequest) returns (PosRecipeResponse); // GET /pos/variants/{id}/recipe
+  rpc PosExport(PosExportRequest) returns (PosExportResponse); // POST /pos/warehouses/{warehouseId}/export-forms
+  rpc ListExpenseForms(ListExpenseFormsRequest) returns (ListExpenseFormsResponse); // GET /warehouses/{warehouseId}/expenses
+  rpc CreateExpenseForm(CreateExpenseFormRequest) returns (CreateExpenseFormResponse); // POST /warehouses/{warehouseId}/expenses
+  rpc GetExpenseForm(GetExpenseFormRequest) returns (GetExpenseFormResponse); // GET /warehouses/{warehouseId}/expenses/{id}
+  rpc UpdateExpenseForm(UpdateExpenseFormRequest) returns (UpdateExpenseFormResponse); // PATCH /warehouses/{warehouseId}/expenses/{id}
+  rpc SubmitExpenseForm(SubmitExpenseFormRequest) returns (SubmitExpenseFormResponse); // POST /warehouses/{warehouseId}/expenses/{id}/submit
+  rpc ReturnExpenseForm(ReturnExpenseFormRequest) returns (ReturnExpenseFormResponse); // POST /warehouses/{warehouseId}/expenses/{id}/return
+  rpc ConfirmExpenseForm(ConfirmExpenseFormRequest) returns (ConfirmExpenseFormResponse); // POST /warehouses/{warehouseId}/expenses/{id}/confirm
+  rpc CancelExpenseForm(CancelExpenseFormRequest) returns (CancelExpenseFormResponse); // POST /warehouses/{warehouseId}/expenses/{id}/cancel
+  rpc ListRevenueForms(ListRevenueFormsRequest) returns (ListRevenueFormsResponse); // GET /warehouses/{warehouseId}/revenues
+  rpc CreateRevenueForm(CreateRevenueFormRequest) returns (CreateRevenueFormResponse); // POST /warehouses/{warehouseId}/revenues
+  rpc GetRevenueForm(GetRevenueFormRequest) returns (GetRevenueFormResponse); // GET /warehouses/{warehouseId}/revenues/{id}
+  rpc UpdateRevenueForm(UpdateRevenueFormRequest) returns (UpdateRevenueFormResponse); // PATCH /warehouses/{warehouseId}/revenues/{id}
+  rpc SubmitRevenueForm(SubmitRevenueFormRequest) returns (SubmitRevenueFormResponse); // POST /warehouses/{warehouseId}/revenues/{id}/submit
+  rpc ReturnRevenueForm(ReturnRevenueFormRequest) returns (ReturnRevenueFormResponse); // POST /warehouses/{warehouseId}/revenues/{id}/return
+  rpc ConfirmRevenueForm(ConfirmRevenueFormRequest) returns (ConfirmRevenueFormResponse); // POST /warehouses/{warehouseId}/revenues/{id}/confirm
+  rpc CancelRevenueForm(CancelRevenueFormRequest) returns (CancelRevenueFormResponse); // POST /warehouses/{warehouseId}/revenues/{id}/cancel
+  rpc SettleExpense(SettleExpenseRequest) returns (SettleExpenseResponse); // POST /warehouses/{warehouseId}/expenses/{id}/settlement
+  rpc CreateRefundGroup(CreateRefundGroupRequest) returns (CreateRefundGroupResponse); // POST /warehouses/{warehouseId}/refund-groups
+  rpc GetRefundGroup(GetRefundGroupRequest) returns (GetRefundGroupResponse); // GET /warehouses/{warehouseId}/refund-groups/{id}
+  rpc ListSupplierTransactions(ListSupplierTransactionsRequest) returns (ListSupplierTransactionsResponse); // GET /suppliers/{id}/transactions
+  rpc ListAlerts(ListAlertsRequest) returns (ListAlertsResponse); // GET /warehouses/{warehouseId}/alerts
+  rpc MarkAlertRead(MarkAlertReadRequest) returns (MarkAlertReadResponse); // POST /warehouses/{warehouseId}/alerts/{id}/read
+  rpc SetAlertSettings(SetAlertSettingsRequest) returns (SetAlertSettingsResponse); // PUT /warehouses/{warehouseId}/alert-settings
+  rpc ReportDashboard(ReportDashboardRequest) returns (ReportDashboardResponse); // GET /warehouses/{warehouseId}/reports/dashboard
+  rpc ReportInventoryMovement(ReportInventoryMovementRequest) returns (ReportInventoryMovementResponse); // GET /warehouses/{warehouseId}/reports/inventory-movement
+  rpc ReportStockValue(ReportStockValueRequest) returns (ReportStockValueResponse); // GET /warehouses/{warehouseId}/reports/stock-value
+  rpc ReportImports(ReportImportsRequest) returns (ReportImportsResponse); // GET /warehouses/{warehouseId}/reports/imports
+  rpc ReportExports(ReportExportsRequest) returns (ReportExportsResponse); // GET /warehouses/{warehouseId}/reports/exports
+  rpc ReportStocktakes(ReportStocktakesRequest) returns (ReportStocktakesResponse); // GET /warehouses/{warehouseId}/reports/stocktakes
+  rpc ReportSupplierPerformance(ReportSupplierPerformanceRequest) returns (ReportSupplierPerformanceResponse); // GET /warehouses/{warehouseId}/reports/supplier-performance
+  rpc ReportExpiry(ReportExpiryRequest) returns (ReportExpiryResponse); // GET /warehouses/{warehouseId}/reports/expiry
+  rpc ReportExpenseRevenue(ReportExpenseRevenueRequest) returns (ReportExpenseRevenueResponse); // GET /warehouses/{warehouseId}/reports/expense-revenue
+  rpc ReportDebt(ReportDebtRequest) returns (ReportDebtResponse); // GET /warehouses/{warehouseId}/reports/debt
+  rpc ReportWastage(ReportWastageRequest) returns (ReportWastageResponse); // GET /warehouses/{warehouseId}/reports/wastage
+  rpc RunCustomReport(RunCustomReportRequest) returns (RunCustomReportResponse); // POST /warehouses/{warehouseId}/reports/custom
+  rpc ExportReport(ExportReportRequest) returns (ExportReportResponse); // POST /warehouses/{warehouseId}/report-exports
+  rpc SetReportSchedule(SetReportScheduleRequest) returns (SetReportScheduleResponse); // PUT /warehouses/{warehouseId}/report-schedules
+  rpc GetExcelTemplate(GetExcelTemplateRequest) returns (GetExcelTemplateResponse); // GET /excel-templates/{templateId}
+  rpc PreviewExcelImport(PreviewExcelImportRequest) returns (PreviewExcelImportResponse); // POST /warehouses/{warehouseId}/excel-imports
+  rpc GetExcelImportPreview(GetExcelImportPreviewRequest) returns (GetExcelImportPreviewResponse); // GET /warehouses/{warehouseId}/excel-imports/{id}
+  rpc ConfirmExcelImport(ConfirmExcelImportRequest) returns (ConfirmExcelImportResponse); // POST /warehouses/{warehouseId}/excel-imports/{id}/confirm
+  rpc RequestArchive(RequestArchiveRequest) returns (RequestArchiveResponse); // POST /archives/requests
+}
