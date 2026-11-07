@@ -272,15 +272,3 @@ describe('ERROR_CODE_KEYS — 422 query chung + version (#172)', () => {
     }
   })
 })
-
-describe('ERROR_CODE_KEYS — POST /file/upload (#171)', () => {
-  it.each([
-    [121000, 'fileNotFound'],
-    [121001, 'fileSizeExceedsLimitAllowed'],
-    [121012, 'fileTypeNotAllowed'],
-  ] as const)('mã %i → khoá %s, có bản dịch vi và en', (code, key) => {
-    expect(ERROR_CODE_KEYS[code]).toBe(key)
-    expect(viErrors[key]).toBeTruthy()
-    expect(enErrors[key]).toBeTruthy()
-  })
-})

@@ -77,8 +77,6 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   121009: 'errorWhenUploadFile',
   121010: 'mustExcelFile',
   121011: 'excelFileWrongHeader',
-  // warehouse-api src/file/file.validation.ts — `POST /file/upload` sai loại / đuôi≠mimetype (#168, #184).
-  121012: 'fileTypeNotAllowed',
   155501: 'notificationNotFound',
   155502: 'senderNotFound',
   155503: 'receiverNotFound',

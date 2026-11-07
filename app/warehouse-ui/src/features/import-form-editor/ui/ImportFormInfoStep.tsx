@@ -23,8 +23,6 @@ type ImportFormInfoStepProps = {
   canPickSupplier: boolean
   supplierOptions: ComboboxOption[]
   onUploadingChange: (uploading: boolean) => void
-  /** Có FILE_CREATE: được tải chứng từ đính kèm lên (`POST /file/upload`). */
-  canUploadFile: boolean
 }
 
 /**
@@ -36,7 +34,6 @@ export function ImportFormInfoStep({
   canPickSupplier,
   supplierOptions,
   onUploadingChange,
-  canUploadFile,
 }: ImportFormInfoStepProps) {
   const { t } = useTranslation(['importForms'])
   const [changedLines, setChangedLines] = useState<number | null>(null)
@@ -116,11 +113,7 @@ export function ImportFormInfoStep({
           )}
         />
         <div className="sm:col-span-2">
-          <ImportFormFileField
-            form={form}
-            onUploadingChange={onUploadingChange}
-            canUpload={canUploadFile}
-          />
+          <ImportFormFileField form={form} onUploadingChange={onUploadingChange} />
         </div>
         <FormField
           control={form.control}
