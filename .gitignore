@@ -45,6 +45,9 @@ logs/
 .codex/
 CLAUDE.md
 setup.md
+# Tài liệu của team FE, giữ trong Git (khôi phục sau #155).
+!/app/warehouse-ui/CLAUDE.md
+!/app/warehouse-ui/setup.md
 .idea/
 .vscode/
 .DS_Store
