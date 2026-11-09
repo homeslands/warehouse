@@ -1,0 +1,19 @@
+{
+  "infoSection": "Thông tin đăng nhập",
+  "loginName": "Tên đăng nhập",
+  "inactive": "Ngừng hoạt động",
+  "profileSection": "Hồ sơ",
+  "fullName": "Họ và tên",
+  "securitySection": "Bảo mật",
+  "changePassword": "Đổi mật khẩu",
+  "logoutSection": "Đăng xuất",
+  "logoutTitle": "Đăng xuất?",
+  "logoutConfirm": "Bạn sẽ phải đăng nhập lại trên thiết bị này. Các thiết bị khác không bị ảnh hưởng.",
+  "logout": "Đăng xuất",
+  "logoutAll": "Đăng xuất mọi thiết bị",
+  "settingsSection": "Cài đặt",
+  "changePasswordConfirm": "Các thiết bị khác sẽ bị đăng xuất sau khi đổi mật khẩu.",
+  "noName": "Chưa đặt họ tên",
+  "workSection": "Làm việc",
+  "warehouseRow": "Kho"
+}

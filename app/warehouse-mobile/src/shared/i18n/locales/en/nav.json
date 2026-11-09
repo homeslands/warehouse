@@ -1,0 +1,12 @@
+{
+  "account": "Account",
+  "import": "Import",
+  "export": "Export",
+  "stock": "Stock",
+  "tab": {
+    "import": "Import",
+    "export": "Export",
+    "stock": "Stock",
+    "account": "Account"
+  }
+}
