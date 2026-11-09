@@ -1,0 +1,19 @@
+{
+  "infoSection": "Sign-in details",
+  "loginName": "Username",
+  "inactive": "Inactive",
+  "profileSection": "Profile",
+  "fullName": "Full name",
+  "securitySection": "Security",
+  "changePassword": "Change password",
+  "logoutSection": "Sign out",
+  "logoutTitle": "Sign out?",
+  "logoutConfirm": "You will need to sign in again on this device. Other devices are not affected.",
+  "logout": "Sign out",
+  "logoutAll": "Sign out of all devices",
+  "settingsSection": "Settings",
+  "changePasswordConfirm": "Other devices will be signed out after the password is changed.",
+  "noName": "No name set",
+  "workSection": "Work",
+  "warehouseRow": "Warehouse"
+}

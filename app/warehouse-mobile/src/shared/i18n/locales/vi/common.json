@@ -1,0 +1,104 @@
+{
+  "appName": "Kho",
+  "logout": "Đăng xuất",
+  "loading": "Đang tải...",
+  "cancel": "Huỷ",
+  "save": "Lưu",
+  "saving": "Đang lưu...",
+  "language": "Ngôn ngữ",
+  "languageVi": "Tiếng Việt",
+  "languageEn": "English",
+  "retry": "Thử lại",
+  "empty": "Chưa có dữ liệu.",
+  "notSet": "Chưa có",
+  "unnamedUser": "Người dùng",
+  "roles": {
+    "SUPER_ADMIN": "Quản trị cấp cao",
+    "ADMIN": "Quản trị viên",
+    "MANAGER": "Quản lý",
+    "SUPERVISOR": "Giám sát"
+  },
+  "comingSoon": "Sắp có",
+  "offline": "Không kết nối được máy chủ",
+  "offlineDescription": "Kiểm tra mạng hoặc thử lại sau ít phút.",
+  "passwordHint": "Tối thiểu {{count}} ký tự",
+  "sandbox": "Sandbox",
+  "version": "Phiên bản {{version}}",
+  "done": "Xong",
+  "appLanguage": "Ngôn ngữ ứng dụng",
+  "languageViAlt": "Vietnamese",
+  "languageEnAlt": "Tiếng Anh",
+  "close": "Đóng",
+  "clearSearch": "Xoá tìm kiếm",
+  "compose": {
+    "required": "Bắt buộc",
+    "optional": "Tuỳ chọn",
+    "pick": {
+      "exists": "đã có",
+      "selectAll": "Chọn tất cả",
+      "deselectAll": "Bỏ chọn tất cả",
+      "selected": "Đã chọn {{count}}"
+    },
+    "unit": {
+      "a11y": "Đơn vị {{unit}}, chạm để đổi",
+      "current": "{{unit}} (đang chọn)",
+      "rate": "1 {{unit}} = {{rate}} {{base}}",
+      "total": "{{qty}} {{unit}} = {{value}} {{base}}"
+    },
+    "step": {
+      "a11y": "Bước {{n}} trên {{total}}, {{label}}, {{state}}",
+      "state": {
+        "current": "đang ở đây",
+        "done": "đã xong",
+        "todo": "chưa tới"
+      }
+    },
+    "qty": {
+      "placeholder": "0",
+      "increase": "Tăng",
+      "decrease": "Giảm",
+      "a11y": "Số lượng {{name}}"
+    },
+    "price": {
+      "suffix": "đ / {{unit}}",
+      "missing": "Nhập đơn giá"
+    },
+    "delete": "Xoá",
+    "discard": {
+      "title": "Bỏ thay đổi?",
+      "message": "Những gì vừa nhập cho dòng này sẽ không được lưu.",
+      "confirm": "Bỏ thay đổi",
+      "keep": "Tiếp tục sửa"
+    },
+    "wizard": {
+      "subtitle": "Bước {{n}}/3 · {{step}}"
+    },
+    "group": {
+      "quantity": "Số lượng",
+      "price": "Giá",
+      "details": "Chi tiết"
+    }
+  },
+  "attachment": {
+    "title": "Chứng từ đính kèm",
+    "add": "Thêm",
+    "camera": "Chụp ảnh",
+    "library": "Chọn từ thư viện ảnh",
+    "document": "Chọn tệp (PDF, Excel, Word)",
+    "view": "Xem chứng từ",
+    "remove": "Gỡ chứng từ",
+    "replace": "Thay chứng từ",
+    "removeTitle": "Gỡ chứng từ khỏi phiếu?",
+    "removeConfirm": "Gỡ",
+    "removeKeep": "Không gỡ",
+    "uploading": "Đang tải lên…",
+    "uploadingA11y": "{{label}}, đang tải lên",
+    "waitUpload": "Đang tải chứng từ lên, đợi xong rồi lưu.",
+    "tooLarge": "Tệp lớn hơn 10 MB.",
+    "badType": "Loại tệp này không đính kèm được. Chọn ảnh, PDF, Excel hoặc Word.",
+    "uploadFailed": "Tải chứng từ lên không được. Thử lại.",
+    "openFailed": "Không mở được chứng từ.",
+    "cameraDenied": "Chưa cho phép dùng camera.",
+    "openSettings": "Mở Cài đặt"
+  }
+}
