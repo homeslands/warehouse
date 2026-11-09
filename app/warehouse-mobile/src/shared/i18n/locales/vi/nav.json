@@ -1,0 +1,12 @@
+{
+  "account": "Tài khoản",
+  "import": "Nhập kho",
+  "export": "Xuất kho",
+  "stock": "Tồn kho",
+  "tab": {
+    "import": "Nhập",
+    "export": "Xuất",
+    "stock": "Tồn kho",
+    "account": "Tài khoản"
+  }
+}

@@ -1,17 +1,18 @@
 # warehouse (monorepo)
 
-Không dùng nx/turborepo/lerna/pnpm-workspace — đây chỉ là 1 thư mục `app/` chứa 2 project độc lập, mỗi cái có `package.json`/lockfile riêng, chạy/build/test riêng biệt.
+Không dùng nx/turborepo/lerna/pnpm-workspace — đây chỉ là 1 thư mục `app/` chứa 3 project độc lập, mỗi cái có `package.json`/lockfile riêng, chạy/build/test riêng biệt.
 
 ```
 app/
 ├── warehouse-api/   # NestJS 10 + TypeORM/MySQL — backend, xem app/warehouse-api/CLAUDE.md
-└── warehouse-ui/    # React 19 + Vite 8 + TypeScript, Feature-Sliced Design — xem app/warehouse-ui/CLAUDE.md
+├── warehouse-ui/    # React 19 + Vite 8 + TypeScript, Feature-Sliced Design — xem app/warehouse-ui/CLAUDE.md
+└── warehouse-mobile/ # React Native + Expo — xem app/warehouse-mobile/CLAUDE.md
 ```
 
 ## Quy tắc chung khi làm việc trong repo này
 
-- Luôn thao tác trong đúng thư mục app (`app/warehouse-api` hoặc `app/warehouse-ui`) — không chạy lệnh npm ở root, root không có `package.json`.
-- 2 app không share code, không share `node_modules`, không có pipeline CI/CD hay Docker compose chung — mỗi app tự chứa toàn bộ setup của nó (xem `setup.md`/`CLAUDE.md` trong từng thư mục).
+- Luôn thao tác trong đúng thư mục app (`app/warehouse-api`, `app/warehouse-ui` hoặc `app/warehouse-mobile`) — không chạy lệnh npm ở root, root không có `package.json`.
+- 3 app không share code, không share `node_modules`, không có pipeline CI/CD hay Docker compose chung — mỗi app tự chứa toàn bộ setup của nó (xem `setup.md`/`CLAUDE.md` trong từng thư mục).
 - Khi task chỉ liên quan tới 1 app, ưu tiên đọc/sửa file trong đúng thư mục đó để tránh nạp nhầm ngữ cảnh của app kia.
 
 ## Thao tác nhạy cảm — luôn hỏi trước khi chạy

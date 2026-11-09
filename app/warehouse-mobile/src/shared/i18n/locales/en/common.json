@@ -1,0 +1,104 @@
+{
+  "appName": "Kho",
+  "logout": "Sign out",
+  "loading": "Loading...",
+  "cancel": "Cancel",
+  "save": "Save",
+  "saving": "Saving...",
+  "language": "Language",
+  "languageVi": "Tiếng Việt",
+  "languageEn": "English",
+  "retry": "Try again",
+  "empty": "No data yet.",
+  "notSet": "Not set",
+  "unnamedUser": "User",
+  "roles": {
+    "SUPER_ADMIN": "Super admin",
+    "ADMIN": "Administrator",
+    "MANAGER": "Manager",
+    "SUPERVISOR": "Supervisor"
+  },
+  "comingSoon": "Coming soon",
+  "offline": "Can't reach the server",
+  "offlineDescription": "Check your connection or try again in a few minutes.",
+  "passwordHint": "At least {{count}} characters",
+  "sandbox": "Sandbox",
+  "version": "Version {{version}}",
+  "done": "Done",
+  "appLanguage": "App language",
+  "languageViAlt": "Vietnamese",
+  "languageEnAlt": "Tiếng Anh",
+  "close": "Close",
+  "clearSearch": "Clear search",
+  "compose": {
+    "required": "Required",
+    "optional": "Optional",
+    "pick": {
+      "exists": "on form",
+      "selectAll": "Select all",
+      "deselectAll": "Deselect all",
+      "selected": "{{count}} selected"
+    },
+    "unit": {
+      "a11y": "Unit {{unit}}, tap to change",
+      "current": "{{unit}} (current)",
+      "rate": "1 {{unit}} = {{rate}} {{base}}",
+      "total": "{{qty}} {{unit}} = {{value}} {{base}}"
+    },
+    "step": {
+      "a11y": "Step {{n}} of {{total}}, {{label}}, {{state}}",
+      "state": {
+        "current": "current",
+        "done": "done",
+        "todo": "not yet"
+      }
+    },
+    "qty": {
+      "placeholder": "0",
+      "increase": "Increase",
+      "decrease": "Decrease",
+      "a11y": "Quantity {{name}}"
+    },
+    "price": {
+      "suffix": "đ / {{unit}}",
+      "missing": "Enter unit price"
+    },
+    "delete": "Delete",
+    "discard": {
+      "title": "Discard changes?",
+      "message": "What you just entered for this line won't be saved.",
+      "confirm": "Discard changes",
+      "keep": "Keep editing"
+    },
+    "wizard": {
+      "subtitle": "Step {{n}} of 3 · {{step}}"
+    },
+    "group": {
+      "quantity": "Quantity",
+      "price": "Price",
+      "details": "Details"
+    }
+  },
+  "attachment": {
+    "title": "Attached document",
+    "add": "Add",
+    "camera": "Take photo",
+    "library": "Choose from photo library",
+    "document": "Choose file (PDF, Excel, Word)",
+    "view": "View attachment",
+    "remove": "Remove attachment",
+    "replace": "Replace attachment",
+    "removeTitle": "Remove the attachment from this form?",
+    "removeConfirm": "Remove",
+    "removeKeep": "Keep",
+    "uploading": "Uploading…",
+    "uploadingA11y": "{{label}}, uploading",
+    "waitUpload": "The attachment is still uploading. Save once it finishes.",
+    "tooLarge": "The file is larger than 10 MB.",
+    "badType": "This file type can't be attached. Choose a photo, PDF, Excel or Word file.",
+    "uploadFailed": "Couldn't upload the attachment. Try again.",
+    "openFailed": "Couldn't open the attachment.",
+    "cameraDenied": "Camera access isn't allowed.",
+    "openSettings": "Open Settings"
+  }
+}
