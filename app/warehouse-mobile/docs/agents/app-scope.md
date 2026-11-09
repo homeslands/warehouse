@@ -1,0 +1,5 @@
+# Phạm vi và hiện trạng tính năng
+
+Đọc khi: cần biết app hiện có những tính năng/tab nào (mô tả đầy đủ hiện trạng).
+
+App di động React Native + Expo (SDK 58: `expo ~58.0.22`, React Native 0.88, React 19.3, TypeScript ~6.0), điều hướng bằng Expo Router. Dùng chung `warehouse-api` với web, không sửa backend. Hiện có: đăng nhập → chọn kho → 4 tab (Xuất: danh sách phiếu xuất theo trạng thái + tìm mã/HĐ/PO + lọc thời gian / người / loại — xem mục "Tab Xuất"; Nhập: "Nhận hàng" — danh sách phiếu nhập theo trạng thái + tìm theo mã/số HĐ/PO + lọc thời gian tạo / người lập / người xác nhận, mở phiếu ra màn XEM phiếu (chỉ xem), phiếu Nháp có nút "Kiểm hàng" mở checklist kiểm hàng (đánh dấu khớp, sửa số/hạn/ghi chú từng dòng, thêm dòng), Lưu / Xác nhận nhập kho, soạn phiếu theo luồng 3 bước (tạo phiếu nhập mới bắt đầu ở bước 1 Thông tin; sửa phiếu Nháp mở thẳng bước 2 Vật tư — danh sách dòng chỉ đọc, chạm dòng mở sheet sửa dòng), quét mã để nhảy tới / thêm dòng — xem mục "Tab Nhập"; Tồn kho: danh sách tồn, chi tiết vật tư theo lô + lịch sử biến động, quét mã mở vật tư; Tài khoản đã xong).
