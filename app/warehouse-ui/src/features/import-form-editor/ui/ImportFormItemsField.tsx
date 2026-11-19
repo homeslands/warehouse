@@ -32,6 +32,7 @@ import {
 } from '../model/import-form-editor.schema'
 import { addPickedLines, isBlankLine } from '../model/add-picked-lines'
 import { splitBySupplier } from '../model/material-groups'
+import { overMaxByLine } from '../model/review'
 import { ImportFormMaterialPicker } from './ImportFormMaterialPicker'
 import { useDebouncedValue } from './useDebouncedValue'
 import { IconTooltip } from '@/shared/ui/IconTooltip'
@@ -306,6 +307,7 @@ export function ImportFormItemsField({
     )
   }
   const full = fields.length >= IMPORT_FORM_ITEMS_MAX
+  const overMax = overMaxByLine(items, bySlug)
   const rootError =
     form.formState.errors.items?.root?.message ?? form.formState.errors.items?.message
 
@@ -356,6 +358,7 @@ export function ImportFormItemsField({
       </div>
 
       {fields.map((field, index) => {
+        const lineOverMax = overMax.get(index)
         const row = items[index] ?? EMPTY_ITEM
         const material = bySlug.get(row.materialSlug)
         const base = material ? baseUnitOf(material) : undefined
@@ -690,6 +693,15 @@ export function ImportFormItemsField({
                 </Button>
               </IconTooltip>
             </div>
+
+            {lineOverMax && (
+              <p className="text-warning text-xs tabular-nums @4xl:col-start-2 @4xl:col-end-8">
+                {t('importForms:lineOverMax', {
+                  after: `${formatQuantity(lineOverMax.after)} ${lineOverMax.baseUnitCode}`.trim(),
+                  max: `${formatQuantity(lineOverMax.max)} ${lineOverMax.baseUnitCode}`.trim(),
+                })}
+              </p>
+            )}
 
             {noteOpen && (
               <FormField

@@ -162,6 +162,7 @@
   "warnZeroPrice": "{{line}} — unit price is 0",
   "warnNonBaseUnit": "{{line}} — {{quantity}} {{unit}} = {{baseQuantity}} {{baseUnit}}",
   "warnOverMax": "{{line}} — stock after receipt {{after}} {{unit}} > max {{max}} {{unit}}",
+  "lineOverMax": "Stock after receipt {{after}} > max {{max}}",
   "infoNewSupplier_one": "{{supplier}} will be added as a supplier of {{count}} material not bought from them before.",
   "infoNewSupplier_other": "{{supplier}} will be added as a supplier of {{count}} materials not bought from them before.",
   "fixLine": "fix",

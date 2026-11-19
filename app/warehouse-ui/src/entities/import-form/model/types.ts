@@ -119,6 +119,6 @@ export type AvailableMaterial = {
   quantity: number
   suppliers: AvailableSupplier[]
   units: AvailableUnit[]
-  /** BE chưa trả — khai tuỳ chọn để cảnh báo "tồn vượt max" tự bật khi có (spec §6). */
+  /** Ngưỡng tồn tối đa hiệu lực của kho (đơn vị gốc); không có mặt khi chưa đặt ngưỡng tối đa (`0`). */
   effectiveMaximumInventory?: number
 }
