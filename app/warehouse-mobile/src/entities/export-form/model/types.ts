@@ -9,6 +9,15 @@ export const EXPORT_FORM_TYPES = ['PRODUCTION', 'SALE', 'TRANSFER', 'DISPOSAL', 
 export type ExportFormType = (typeof EXPORT_FORM_TYPES)[number]
 
 /**
+ * Loại phiếu có đơn giá: CHỈ phiếu Bán (`SALE`) — như web (`buildExportFormSchema({ sale })`): loại khác ẩn
+ * ô giá, không bắt nhập, gửi `unitPrice: 0`, không hiện thành tiền / tổng (chốt 2026-11-18). Vật tư / tồn /
+ * lô không có giá để tự điền.
+ */
+export function exportHasPrice(type: ExportFormType | null | undefined): boolean {
+  return type === 'SALE'
+}
+
+/**
  * `ExportFormItemResponseDto`. Mã / tên vật tư và đơn vị là snapshot lúc ghi dòng.
  * `baseQuantity = quantity × conversionRate`, `amount = quantity × unitPrice` — server tính.
  * Dòng có thể được tách theo lô khi gửi duyệt (server giữ chỗ theo hạn gần nhất trước).

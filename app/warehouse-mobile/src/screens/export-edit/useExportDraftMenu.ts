@@ -13,7 +13,8 @@ import type { ExportWizardDraft } from './useExportWizardDraft'
  * - **Lưu nháp** (luôn có khi bản nháp sẵn sàng; `disabled` trừ khi server chắc chắn nhận — đầu phiếu đủ,
  *   `canSave`, phiếu mới hoặc đã đổi gì — và không đang ghi) → `save` (màn truyền `useExportActions.save`,
  *   hỏi lại).
- * - **Bỏ thay đổi trên máy** (phiếu có: bỏ bản nháp + nạp lại) / **Bỏ phiếu mới** (bỏ + `nav.finishToList`)
+ * - **Bỏ thay đổi trên máy** (phiếu có: `discardEdits` — dựng lại từ phiếu, giữ serial đã lưu) / **Bỏ phiếu
+ *   mới** (bỏ + `nav.finishToList`)
  *   — đỏ, chỉ khi có gì để bỏ (`dirty`) và không đang ghi (store từ chối bỏ giữa lúc ghi mà không báo).
  * - **Xoá nháp** — đỏ, phiếu đã có + `canDelete`, không đang ghi → `remove` (tự hỏi lại).
  * "Đang ghi" = `writing` của màn (`busy` của `useExportActions` — còn giữ cả lúc rời luồng sau khi ghi
@@ -63,11 +64,14 @@ export function useExportDraftMenu({
     if (!ok) return
     const store = useExportDraft.getState()
     if (store.saving || store.ctx?.formSlug !== formSlug) return
-    await store.discard()
-    if (isNew) latest.current.nav.finishToList()
-    else if (form && ctx) await store.load(ctx, form)
+    // Phiếu mới: bỏ hẳn. Phiếu đã có: dựng lại từ phiếu server nhưng giữ serial đã lưu (chặn quét trùng).
+    if (isNew) {
+      await store.discard()
+      latest.current.nav.finishToList()
+    } else if (form) await store.discardEdits(form)
+    else await store.discard()
     if (mounted.current) latest.current.onDiscarded?.()
-  }, [t, isNew, formSlug, form, ctx])
+  }, [t, isNew, formSlug, form])
 
   // "Lưu nháp" bật khi server chắc chắn nhận (spec form-wizard §3.1, giữ nguyên).
   const saveEnabled =

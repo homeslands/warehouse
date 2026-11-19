@@ -33,6 +33,8 @@ export type PickItem = {
   subtitle?: string | null
   state: 'pickable' | 'exists' | 'locked'
   lockedLabel?: string
+  /** Màu của `lockedLabel`: mặc định xám; `destructive` = chữ đỏ (vd kho "Đã tắt"). */
+  lockedTone?: 'muted' | 'destructive'
   /** Nhãn đọc cho trình đọc màn hình, đã dịch; không có thì ghép `tên, mã, chi tiết, nhãn`. */
   accessibilityLabel?: string
 }
@@ -41,7 +43,10 @@ export type MaterialPickListProps = {
   items: readonly PickItem[]
   checked: ReadonlySet<string>
   onToggle: (id: string) => void
-  /** Số dòng còn tick thêm được; ≤ 0 thì dòng chưa tick bị khoá và hiện `capacityLabel`. */
+  /**
+   * Số dòng còn tick thêm được; ≤ 0 thì dòng chưa tick bị khoá và hiện `capacityLabel` (chuỗi rỗng = không
+   * vẽ câu báo, vd danh sách thứ hai dưới một danh sách đã báo).
+   */
   capacityLeft: number
   capacityLabel: string
   /**
@@ -79,54 +84,19 @@ export function MaterialPickList({
   const { colors } = useTheme()
   const reduced = useReducedMotion()
   const full = capacityLeft <= 0
-  const plan = onSelectMany ? planSelectAll(items, checked, capacityLeft) : null
   return (
     <View testID={testID} style={{ gap: 12 }}>
       {header}
-      {onSelectMany && plan ? (
-        <View
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            justifyContent: 'space-between',
-            paddingHorizontal: 4,
-          }}
-        >
-          <Text numeric muted size={13}>
-            {t('common:compose.pick.selected', { count: selectedCount ?? checked.size })}
-          </Text>
-          <Pressable
-            testID="pick-select-all"
-            accessibilityRole="button"
-            accessibilityLabel={t(
-              plan.mode === 'add'
-                ? 'common:compose.pick.selectAll'
-                : 'common:compose.pick.deselectAll',
-            )}
-            hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
-            onPress={() => {
-              onSelectMany(plan.ids, plan.mode === 'add')
-              haptics.selection()
-            }}
-            style={({ pressed }) => ({
-              minHeight: 44,
-              minWidth: 44,
-              justifyContent: 'center',
-              alignItems: 'flex-end',
-              opacity: pressed ? 0.5 : 1,
-            })}
-          >
-            <Text size={15} style={{ color: colors.accent }}>
-              {t(
-                plan.mode === 'add'
-                  ? 'common:compose.pick.selectAll'
-                  : 'common:compose.pick.deselectAll',
-              )}
-            </Text>
-          </Pressable>
-        </View>
+      {onSelectMany ? (
+        <PickSelectAllBar
+          items={items}
+          checked={checked}
+          capacityLeft={capacityLeft}
+          onSelectMany={onSelectMany}
+          selectedCount={selectedCount}
+        />
       ) : null}
-      {full ? (
+      {full && capacityLabel ? (
         <Text size={13} accessibilityRole="alert" style={{ color: colors.destructive }}>
           {capacityLabel}
         </Text>
@@ -144,6 +114,7 @@ export function MaterialPickList({
                 : m.state === 'locked'
                   ? (m.lockedLabel ?? null)
                   : null
+            const destructiveHint = m.state === 'locked' && m.lockedTone === 'destructive'
             return (
               <Pressable
                 key={m.id}
@@ -191,7 +162,11 @@ export function MaterialPickList({
                     {hint ? (
                       <>
                         {' · '}
-                        <Text muted size={13}>
+                        <Text
+                          muted={!destructiveHint}
+                          size={13}
+                          style={destructiveHint ? { color: colors.destructiveText } : undefined}
+                        >
                           {hint}
                         </Text>
                       </>
@@ -269,5 +244,69 @@ function CheckCircle({ checked, locked }: { checked: boolean; locked: boolean })
         <Check size={15} strokeWidth={3} color={colors.accentForeground} aria-hidden />
       ) : null}
     </Animated.View>
+  )
+}
+
+export type PickSelectAllBarProps = Pick<
+  MaterialPickListProps,
+  'items' | 'checked' | 'capacityLeft' | 'selectedCount'
+> & { onSelectMany: (ids: string[], select: boolean) => void }
+
+/**
+ * Hàng "Đã chọn n · Chọn tất cả / Bỏ chọn tất cả" của bộ chọn nhiều. `MaterialPickList` tự vẽ khi có
+ * `onSelectMany`; màn muốn ghim hàng này trên vùng cuộn (`SheetScaffold top`) thì vẽ riêng và KHÔNG truyền
+ * `onSelectMany` cho danh sách.
+ */
+export function PickSelectAllBar({
+  items,
+  checked,
+  capacityLeft,
+  onSelectMany,
+  selectedCount,
+}: PickSelectAllBarProps) {
+  const { t } = useTranslation()
+  const { colors } = useTheme()
+  const plan = planSelectAll(items, checked, capacityLeft)
+  if (!plan) return null
+  return (
+    <View
+      style={{
+        flexDirection: 'row',
+        alignItems: 'center',
+        justifyContent: 'space-between',
+        paddingHorizontal: 4,
+      }}
+    >
+      <Text numeric muted size={13}>
+        {t('common:compose.pick.selected', { count: selectedCount ?? checked.size })}
+      </Text>
+      <Pressable
+        testID="pick-select-all"
+        accessibilityRole="button"
+        accessibilityLabel={t(
+          plan.mode === 'add' ? 'common:compose.pick.selectAll' : 'common:compose.pick.deselectAll',
+        )}
+        hitSlop={{ top: 8, bottom: 8, left: 12, right: 12 }}
+        onPress={() => {
+          onSelectMany(plan.ids, plan.mode === 'add')
+          haptics.selection()
+        }}
+        style={({ pressed }) => ({
+          minHeight: 44,
+          minWidth: 44,
+          justifyContent: 'center',
+          alignItems: 'flex-end',
+          opacity: pressed ? 0.5 : 1,
+        })}
+      >
+        <Text size={15} style={{ color: colors.accent }}>
+          {t(
+            plan.mode === 'add'
+              ? 'common:compose.pick.selectAll'
+              : 'common:compose.pick.deselectAll',
+          )}
+        </Text>
+      </Pressable>
+    </View>
   )
 }

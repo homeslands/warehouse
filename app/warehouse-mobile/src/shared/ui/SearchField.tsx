@@ -1,6 +1,6 @@
 import { SymbolView } from 'expo-symbols'
 import { Search, XCircle } from './icons'
-import { Platform, Pressable, TextInput, View } from 'react-native'
+import { Platform, Pressable, StyleSheet, TextInput, View } from 'react-native'
 
 import { fontStyle } from '../theme/fonts'
 import { useTheme } from '../theme/useTheme'
@@ -17,6 +17,13 @@ export type SearchFieldProps = {
    */
   clearLabel?: string
   onFocus?: () => void
+  /** Nền thẻ + viền mảnh: tách khỏi nền sheet (vd ô tìm ghim trên đầu danh sách chọn). */
+  raised?: boolean
+  /** Ô vừa tìm vừa nhập giá trị (vd tên người nhận): giới hạn ký tự, viết hoa, phím Enter. */
+  maxLength?: number
+  autoCapitalize?: 'none' | 'sentences' | 'words'
+  returnKeyType?: 'search' | 'done'
+  onSubmitEditing?: () => void
 }
 
 const CLEAR_SIZE = 28
@@ -30,6 +37,11 @@ export function SearchField({
   shape = 'rounded',
   clearLabel,
   onFocus,
+  raised = false,
+  maxLength,
+  autoCapitalize = 'none',
+  returnKeyType = 'search',
+  onSubmitEditing,
 }: SearchFieldProps) {
   const { colors, radius } = useTheme()
   const pill = shape === 'pill'
@@ -42,7 +54,8 @@ export function SearchField({
         minHeight: pill ? 40 : 38,
         paddingHorizontal: pill ? 14 : 10,
         borderRadius: pill ? 999 : radius.lg,
-        backgroundColor: pill ? colors.cell : colors.fill,
+        backgroundColor: raised ? colors.card : pill ? colors.cell : colors.fill,
+        ...(raised ? { borderWidth: StyleSheet.hairlineWidth, borderColor: colors.border } : null),
       }}
     >
       {Platform.OS === 'ios' ? (
@@ -58,10 +71,12 @@ export function SearchField({
         value={value}
         onChangeText={onChangeText}
         onFocus={onFocus}
-        autoCapitalize="none"
+        autoCapitalize={autoCapitalize}
         autoCorrect={false}
         clearButtonMode={clearLabel ? 'never' : 'while-editing'}
-        returnKeyType="search"
+        returnKeyType={returnKeyType}
+        maxLength={maxLength}
+        onSubmitEditing={onSubmitEditing}
         style={{
           flex: 1,
           minHeight: pill ? 40 : 38,

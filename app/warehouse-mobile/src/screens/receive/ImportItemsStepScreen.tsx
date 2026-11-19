@@ -3,14 +3,20 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlatList, Pressable, RefreshControl, View, type FlatListInstance } from 'react-native'
 
+import { materialAbilities } from '@/entities/material'
+import { useAuthStore } from '@/entities/session'
+import { canCreateInWarehouse } from '@/features/warehouse-assign'
 import {
   importLineSummary,
   linesTotal,
   MAX_ITEMS,
+  supplierNameLookup,
   useReceiveDraft,
   type LocalLine,
+  useScanNotice,
 } from '@/features/receive-checklist'
 import { WarehouseTransition } from '@/features/warehouse-picker'
+import { BUSINESS_CODE_REGEX } from '@/shared/lib/code'
 import { formatMoney } from '@/shared/lib/format'
 import { haptics } from '@/shared/lib/haptics'
 import { lineGaps, missingForStep, type MissingTarget } from '@/shared/lib/missing'
@@ -35,9 +41,9 @@ import {
 import { ImportStepLoadState, ImportStepNotices } from './ImportStepParts'
 import { useImportWizardLabels } from './useImportWizardLabels'
 import { importMissingLabel } from './import-missing'
-import { useScanNotice } from './scan-notice.store'
 import { useImportDraftMenu } from './useImportDraftMenu'
 import { useImportStepNotices } from './useImportStepNotices'
+import { useScanAssign } from './useScanAssign'
 import { useImportWizardDraft } from './useImportWizardDraft'
 import { importWizardLeave, useReceiveActions } from './useReceiveActions'
 
@@ -101,11 +107,39 @@ export function ImportItemsStepScreen() {
         ? t('importForms:compose.scanFull', { code: scan.code, max: MAX_ITEMS })
         : scan.reason === 'noUnit'
           ? t('importForms:compose.scanNoUnit', { code: scan.code })
-          : t('importForms:compose.scanNotFound', { code: scan.code })
+          : scan.reason === 'notInWarehouse'
+            ? null
+            : t('importForms:compose.scanNotFound', { code: scan.code })
     : null
   const dismissScan = useCallback(() => useScanNotice.getState().clear(), [])
   // Thông báo mức phiếu (store dùng chung) TRƯỚC, rồi của màn: mã quét không khớp.
-  const notices = useImportStepNotices(formSlug, { message: scanNotice, dismiss: dismissScan })
+  // Quét không ra vật tư nào trong kho: người đủ quyền tạo được vật tư mới ngay (mã quét phải hợp lệ).
+  const user = useAuthStore((s) => s.user)
+  const createCode =
+    scan?.reason === 'notFound' &&
+    scan.canCreate === true &&
+    canCreateInWarehouse(user) &&
+    materialAbilities(user).read &&
+    BUSINESS_CODE_REGEX.test(scan.code)
+      ? scan.code
+      : null
+  const scanAction = createCode
+    ? {
+        label: t('importForms:scan.createMaterial', { code: createCode }),
+        onPress: () =>
+          router.push({
+            pathname: '/material-form',
+            params: { code: createCode, importForm: formSlug },
+          }),
+      }
+    : undefined
+  // Có trong danh mục nhưng chưa gắn vào kho: câu + nút "Gắn vào kho và thêm vào phiếu".
+  const assign = useScanAssign(formSlug, scan, wizard.suppliers)
+  const notices = useImportStepNotices(formSlug, {
+    message: scanNotice ?? assign.message,
+    dismiss: dismissScan,
+    action: scanAction ?? assign.action,
+  })
   // Rời màn thì bỏ thông báo quét (không để nó hiện lại ở phiếu khác).
   useEffect(() => () => useScanNotice.getState().clear(), [])
 
@@ -262,7 +296,15 @@ export function ImportItemsStepScreen() {
 
   // FlatList chỉ vẽ lại dòng khi `data`/`extraData` đổi: khoá khi ghi, ngày phiếu, quyền thêm phải qua đây.
   const formDate = draft?.header.date ?? ''
-  const rowState = useMemo(() => ({ writing, formDate }), [writing, formDate])
+  // Nhãn "Mới với …" theo bên bán CỦA DÒNG (đúng thứ được gửi); tên tra theo slug.
+  const supplierNameOf = useMemo(
+    () => supplierNameLookup({ suppliers: wizard.suppliers, lines: draft?.lines }),
+    [wizard.suppliers, draft?.lines],
+  )
+  const rowState = useMemo(
+    () => ({ writing, formDate, supplierNameOf }),
+    [writing, formDate, supplierNameOf],
+  )
 
   const listHeader = (
     <View style={{ gap: 12 }}>
@@ -323,7 +365,12 @@ export function ImportItemsStepScreen() {
         keyExtractor={(l) => l.key}
         extraData={rowState}
         renderItem={({ item }) => {
-          const summary = importLineSummary(item, { formDate: rowState.formDate, t, locale })
+          const summary = importLineSummary(item, {
+            formDate: rowState.formDate,
+            t,
+            locale,
+            supplierNameOf: rowState.supplierNameOf,
+          })
           return (
             <SwipeToDelete
               label={t('common:compose.delete')}

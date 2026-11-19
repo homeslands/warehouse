@@ -7,6 +7,7 @@ import {
   confirmExportForm,
   exportFormErrorMessage,
   exportFormKeys,
+  exportHasPrice,
   isStaleExportFormError,
   type ExportForm,
 } from '@/entities/export-form'
@@ -59,10 +60,13 @@ export function useExportDecision(warehouseSlug: string | undefined, form: Expor
         kind === 'confirm'
           ? {
               title: t('decision.confirmTitle', { code: form.code }),
-              message: t('decision.confirmMessage', {
-                lines,
-                total: formatMoney(form.totalAmount, locale),
-              }),
+              // Phiếu không phải Bán không có đơn giá → không nói "tổng".
+              message: exportHasPrice(form.type)
+                ? t('decision.confirmMessage', {
+                    lines,
+                    total: formatMoney(form.totalAmount, locale),
+                  })
+                : t('decision.confirmMessageNoTotal', { lines }),
               confirmLabel: t('decision.confirmLabel'),
               cancelLabel: t('decision.review'),
             }

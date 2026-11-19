@@ -2,8 +2,8 @@
 import { ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen, userEvent } from '@testing-library/react-native'
-import { Platform, ScrollView, TextInput, type ScrollViewInstance } from 'react-native'
+import { act, fireEvent, render, screen } from '@testing-library/react-native'
+import { ScrollView, TextInput, type ScrollViewInstance } from 'react-native'
 
 import { item as stockItem } from '@/entities/inventory/model/fixtures'
 import { useAuthStore } from '@/entities/session'
@@ -126,13 +126,23 @@ async function show() {
 }
 
 const qtyField = () => screen.getByTestId('export-line-sheet-qty')
+/** "Bớt 1" — cách duy nhất sửa số lượng trong sheet (spec export-scan-only §7). */
+const dec = () => fireEvent.press(button('Bớt 1'))
+const serialDrop = (serial: string) => button(`Bỏ serial ${serial}`)
+/** Dòng 1 (ĐV hộp ×1): 3 serial quét (A1 B2 C3), số lượng 3. */
+function seedScanned(over: Partial<ExportLine> = {}) {
+  useExportDraft.setState({
+    draft: makeDraft([
+      makeLine(1, { unitSlug: 'u-1', quantity: 3, serials: ['A1', 'B2', 'C3'], ...over }),
+    ]),
+  })
+}
 const priceField = () => screen.getByLabelText('Đơn giá')
 const noteField = () => screen.getByLabelText('Ghi chú')
 const amount = () =>
   screen.getByLabelText(/^Thành tiền, /).props.accessibilityLabel.replace('Thành tiền, ', '')
 const button = (name: string | RegExp) => screen.getByRole('button', { name })
 const lotRow = () => button(/^Lô, /)
-const unitChip = (unit = 'hộp') => button(`Đơn vị ${unit}, chạm để đổi`)
 /** Vuốt xuống / back Android: bị chặn → hỏi (hàm của guard), không → đóng ngay. */
 async function swipeDown() {
   await act(async () => {
@@ -174,34 +184,45 @@ afterEach(() => {
 })
 
 describe('ExportLineSheetScreen', () => {
-  it('tiêu đề = tên vật tư; điền sẵn từ dòng: số, giá ngăn nghìn, đơn vị, lô "Tự động", thành tiền', async () => {
+  it('bản nháp thuộc kho khác kho đang chọn → đóng sheet, không hiện gì', async () => {
+    useExportDraft.setState({ ctx: { userSlug: 'u', warehouseSlug: 'wh-b', formSlug: 'px-1' } })
+    await show()
+    expect(mockBack).toHaveBeenCalledTimes(1)
+    expect(screen.queryByLabelText('Đơn giá')).toBeNull()
+  })
+
+  it('tiêu đề = tên vật tư; điền sẵn từ dòng: số chỉ đọc, giá ngăn nghìn, lô "Tự động", thành tiền', async () => {
     await show()
     expect(sheetHeader().title).toBe('Vật tư 1')
-    expect(qtyField().props.value).toBe('10')
-    expect(qtyField().props.keyboardType).toBe('decimal-pad')
+    expect(qtyField()).toHaveTextContent('10')
+    expect(qtyField().props.editable).toBeUndefined()
+    expect(screen.getByText('hộp')).toBeOnTheScreen()
     expect(priceField().props.value).toBe('1.000')
     expect(screen.getByText('đ / hộp')).toBeOnTheScreen()
-    expect(unitChip()).toBeOnTheScreen()
     expect(lotRow().props.accessibilityLabel).toBe('Lô, Tự động (HSD sớm nhất)')
     expect(amount()).toBe('10.000 đ')
-    // Stepper cỡ to của sheet.
-    expect(button('Tăng')).toHaveStyle({ width: 47, height: 32 })
-    expect(qtyField()).toHaveStyle({ fontSize: 17, minWidth: 64 })
+    // Không còn chip đơn vị / stepper.
+    expect(screen.queryByRole('button', { name: /^Đơn vị / })).toBeNull()
+    expect(screen.queryByRole('button', { name: 'Tăng' })).toBeNull()
+    // Vùng chạm "Bớt 1" ≥ 44pt.
+    expect(button('Bớt 1')).toHaveStyle({ minWidth: 44, minHeight: 44 })
     // Danh sách lô chỉ bung khi chạm dòng Lô.
     expect(screen.queryByRole('button', { name: 'Tự động (HSD sớm nhất)' })).toBeNull()
   })
 
-  it('dòng vừa thêm (số lượng 0, chưa có giá) → ô số / giá trống, thành tiền "—"', async () => {
+  it('dòng số lượng 0, chưa có giá → số "0", Bớt 1 tắt, không có khối serial, thành tiền "—"', async () => {
     seedNew()
     await show()
-    expect(qtyField().props.value).toBe('')
-    expect(qtyField().props.placeholder).toBe('0')
+    expect(qtyField()).toHaveTextContent('0')
+    expect(button('Bớt 1')).toBeDisabled()
+    expect(screen.queryByTestId('export-line-serials')).toBeNull()
     expect(priceField().props.value).toBe('')
     expect(priceField().props.placeholder).toBe('Nhập đơn giá')
     expect(amount()).toBe('—')
   })
 
-  it('gõ không ghi gì; ✓ ghi số, giá, ghi chú bằng MỘT lần updateLine rồi đóng', async () => {
+  it('sửa không ghi gì; ✓ ghi số, serial, giá, ghi chú bằng MỘT lần updateLine rồi đóng', async () => {
+    seedScanned()
     await show()
     // Đếm lần ghi (zustand chép hàm sang mỗi state mới → bọc qua setState rồi trả lại, không spyOn).
     const original = store().updateLine
@@ -213,12 +234,13 @@ describe('ExportLineSheetScreen', () => {
       },
     })
     try {
-      await fireEvent.changeText(qtyField(), '7,5')
+      await dec()
       await fireEvent.changeText(priceField(), '1250,5')
       await fireEvent.changeText(noteField(), 'Giao gấp')
       expect(lines()[0]).toEqual(
-        expect.objectContaining({ quantity: 10, unitPrice: 1000, note: null }),
+        expect.objectContaining({ quantity: 3, unitPrice: 1000, note: null }),
       )
+      expect(lines()[0]!.serials).toEqual(['A1', 'B2', 'C3'])
       await pressSheetDone()
       expect(writes).toBe(1)
     } finally {
@@ -226,51 +248,127 @@ describe('ExportLineSheetScreen', () => {
     }
     expect(lines()).toHaveLength(1)
     expect(lines()[0]).toEqual(
-      expect.objectContaining({ quantity: 7.5, unitPrice: 1250.5, note: 'Giao gấp' }),
+      expect.objectContaining({ quantity: 2, unitPrice: 1250.5, note: 'Giao gấp' }),
     )
+    expect(lines()[0]!.serials).toEqual(['A1', 'B2'])
     expect(mockBack).toHaveBeenCalledTimes(1)
     expect(confirmAction).not.toHaveBeenCalled()
   })
 
-  it('✓ with quantity only saves quantity and leaves unitPrice null', async () => {
-    seedNew()
+  it('✓ khi giá trống vẫn lưu: giá = null, số lượng giữ nguyên', async () => {
     await show()
-    await fireEvent.changeText(qtyField(), '12')
-    await pressSheetDone()
-    expect(lines()[0]).toEqual(expect.objectContaining({ quantity: 12, unitPrice: null }))
-    expect(screen.queryByText(/Cần nhập đơn giá/)).toBeNull()
-    expect(mockBack).toHaveBeenCalledTimes(1)
-  })
-
-  it('✓ khi còn thiếu vẫn lưu: số trống = 0 (chưa nhập), giá trống = null', async () => {
-    await show()
-    await fireEvent.changeText(qtyField(), '')
     await fireEvent.changeText(priceField(), '')
     await pressSheetDone()
-    expect(lines()[0]).toEqual(expect.objectContaining({ quantity: 0, unitPrice: null }))
+    expect(lines()[0]).toEqual(expect.objectContaining({ quantity: 10, unitPrice: null }))
     expect(mockBack).toHaveBeenCalledTimes(1)
   })
 
-  it.each([
-    ['abc', 'Số lượng không hợp lệ — chỉ gồm chữ số, tối đa 6 chữ số thập phân'],
-    ['1,1234567', 'Số lượng không hợp lệ — chỉ gồm chữ số, tối đa 6 chữ số thập phân'],
-    ['1000000000000', 'Số lượng quá lớn'],
-  ])('số lượng "%s" → lỗi tại ô, không ghi, không đóng', async (text, message) => {
-    await show()
-    await fireEvent.changeText(qtyField(), text)
-    // Lỗi chỉ hiện sau ✓.
-    expect(screen.queryByText(message)).toBeNull()
-    await pressSheetDone()
-    expect(screen.getByText(message)).toBeOnTheScreen()
-    expect(lines()[0]!.quantity).toBe(10)
-    expect(mockBack).not.toHaveBeenCalled()
-  })
+  describe('số lượng + serial (chỉ Bớt 1 / ✕)', () => {
+    it('Bớt 1 bỏ serial CUỐI và quantity − 1; khối serial theo thứ tự quét', async () => {
+      seedScanned()
+      await show()
+      expect(screen.getByText('A1')).toBeOnTheScreen()
+      expect(screen.getByText('B2')).toBeOnTheScreen()
+      expect(screen.getByText('C3')).toBeOnTheScreen()
+      expect(screen.queryByTestId('export-line-unscanned')).toBeNull()
+      await dec()
+      expect(qtyField()).toHaveTextContent('2')
+      expect(screen.queryByText('C3')).toBeNull()
+      expect(screen.getByText('B2')).toBeOnTheScreen()
+      // Chưa ✓ → bản nháp chưa đổi.
+      expect(lines()[0]!.quantity).toBe(3)
+      await pressSheetDone()
+      expect(lines()[0]).toEqual(expect.objectContaining({ quantity: 2 }))
+      expect(lines()[0]!.serials).toEqual(['A1', 'B2'])
+    })
 
-  it('số lượng 6 chữ số lẻ được nhận', async () => {
-    await show()
-    await fireEvent.changeText(qtyField(), '0,000001')
-    await pressSheetDone()
-    expect(lines()[0]!.quantity).toBe(0.000001)
+    it('✕ cạnh serial bỏ đúng serial đó (giữa danh sách) và quantity − 1', async () => {
+      seedScanned()
+      await show()
+      await fireEvent.press(serialDrop('B2'))
+      expect(qtyField()).toHaveTextContent('2')
+      expect(screen.queryByText('B2')).toBeNull()
+      await pressSheetDone()
+      expect(lines()[0]!.quantity).toBe(2)
+      // Phải là A1, C3 — không phải cắt 2 serial đầu.
+      expect(lines()[0]!.serials).toEqual(['A1', 'C3'])
+    })
+
+    it('phần không có serial: "k chưa có serial"; Bớt 1 khi hết serial chỉ trừ số lượng', async () => {
+      seedScanned({ quantity: 5 })
+      await show()
+      expect(screen.getByText('2 chưa có serial')).toBeOnTheScreen()
+      await dec()
+      await dec()
+      await dec()
+      // 5 → 2 và đã bỏ cả 3 serial.
+      expect(qtyField()).toHaveTextContent('2')
+      expect(screen.queryByText('A1')).toBeNull()
+      expect(screen.getByText('2 chưa có serial')).toBeOnTheScreen()
+    })
+
+    it('dòng không có serial nào: chỉ dòng xám "k chưa có serial" (theo đơn vị gốc)', async () => {
+      seed()
+      await show()
+      expect(screen.getByTestId('export-line-unscanned')).toHaveTextContent('10 chưa có serial')
+      await dec()
+      expect(screen.getByTestId('export-line-unscanned')).toHaveTextContent('9 chưa có serial')
+      await pressSheetDone()
+      expect(lines()[0]).toEqual(expect.objectContaining({ quantity: 9 }))
+      expect(lines()[0]!.serials ?? []).toEqual([])
+    })
+
+    it('đơn vị thùng ×12: phần chưa có serial tính theo đơn vị gốc', async () => {
+      seedScanned({ unitSlug: 'u-thung', unitName: 'thùng', conversionRate: 12, quantity: 1 })
+      mockParams.key = 'm-1|u-thung|'
+      await show()
+      expect(screen.getByText('thùng')).toBeOnTheScreen()
+      expect(screen.getByText('9 chưa có serial')).toBeOnTheScreen()
+    })
+
+    it('về 0 bị chặn: Bớt 1 và ✕ tắt khi quantity − 1 ≤ 0; muốn xoá dùng "Xoá khỏi phiếu"', async () => {
+      seedScanned({ quantity: 1, serials: ['A1'] })
+      await show()
+      expect(button('Bớt 1')).toBeDisabled()
+      expect(serialDrop('A1')).toBeDisabled()
+      await fireEvent.press(button('Bớt 1'))
+      await fireEvent.press(serialDrop('A1'))
+      expect(qtyField()).toHaveTextContent('1')
+      expect(screen.getByText('A1')).toBeOnTheScreen()
+      expect(confirmAction).not.toHaveBeenCalled()
+    })
+
+    it('số lẻ: 1,5 → Bớt 1 tắt (0,5 > 0 vẫn cho; 0,5 − 1 < 0 thì tắt)', async () => {
+      seedScanned({ quantity: 1.5, serials: [] })
+      await show()
+      expect(qtyField()).toHaveTextContent('1,5')
+      await dec()
+      expect(qtyField()).toHaveTextContent('0,5')
+      expect(button('Bớt 1')).toBeDisabled()
+    })
+
+    it('đổi số lượng / serial = đã sửa (hỏi "Bỏ thay đổi?"); thành tiền theo số lượng cục bộ', async () => {
+      seedScanned()
+      await show()
+      expect(mockGuard.prevent).toBe(false)
+      expect(amount()).toBe('3.000 đ')
+      await fireEvent.press(serialDrop('A1'))
+      expect(mockGuard.prevent).toBe(true)
+      expect(amount()).toBe('2.000 đ')
+      await pressSheetCancel()
+      expect(confirmTitles()).toEqual([DISCARD])
+      expect(lines()[0]!.serials).toEqual(['A1', 'B2', 'C3'])
+    })
+
+    it('đang lưu → ✕ và Bớt 1 tắt', async () => {
+      seedScanned()
+      useExportDraft.setState({ saving: true })
+      await show()
+      expect(button('Bớt 1')).toBeDisabled()
+      expect(serialDrop('A1')).toBeDisabled()
+      await fireEvent.press(serialDrop('A1'))
+      expect(qtyField()).toHaveTextContent('3')
+    })
   })
 
   it('✓ with 3 decimals in price shows error and stays', async () => {
@@ -306,171 +404,17 @@ describe('ExportLineSheetScreen', () => {
     expect(priceField().props.value).toBe('1.250.000')
     expect(amount()).toBe('12.500.000 đ')
     // Thành tiền theo chữ đang gõ ở ô số lượng.
-    await fireEvent.changeText(qtyField(), '2')
-    expect(amount()).toBe('2.500.000 đ')
+    await dec()
+    expect(amount()).toBe('11.250.000 đ')
     // Dấu nhóm "." gõ theo thói quen không mở phần lẻ.
     await fireEvent.changeText(priceField(), '1.250')
     expect(priceField().props.value).toBe('1.250')
-    expect(amount()).toBe('2.500 đ')
+    expect(amount()).toBe('11.250 đ')
     // Thiếu giá / số → "—".
     await fireEvent.changeText(priceField(), '')
     expect(amount()).toBe('—')
     await pressSheetDone()
-    expect(lines()[0]).toEqual(expect.objectContaining({ quantity: 2, unitPrice: null }))
-  })
-
-  describe('stepper', () => {
-    afterEach(() => jest.useRealTimers())
-
-    it('stepper large +/− and long press', async () => {
-      await show()
-      jest.useFakeTimers()
-      const user = userEvent.setup({ advanceTimers: jest.advanceTimersByTime })
-      await user.press(button('Tăng'))
-      expect(qtyField().props.value).toBe('11')
-      await user.press(button('Giảm'))
-      await user.press(button('Giảm'))
-      expect(qtyField().props.value).toBe('9')
-      // Giữ ≥ 400ms → lặp tới khi nhả.
-      await user.longPress(button('Tăng'), { duration: 1000 })
-      const held = Number(qtyField().props.value)
-      expect(held).toBeGreaterThanOrEqual(14)
-      await act(async () => void jest.advanceTimersByTime(2000))
-      expect(qtyField().props.value).toBe(String(held))
-      // Chỉ trong sheet: chưa ✓ thì bản nháp chưa đổi.
-      expect(lines()[0]!.quantity).toBe(10)
-      jest.useRealTimers()
-      await pressSheetDone()
-      expect(lines()[0]!.quantity).toBe(held)
-    })
-
-    it('ô số chữ sai: + bắt đầu lại từ 0; dòng chưa nhập: + → 1', async () => {
-      seedNew()
-      await show()
-      await fireEvent.press(button('Tăng'))
-      expect(qtyField().props.value).toBe('1')
-      await fireEvent.changeText(qtyField(), 'abc')
-      await fireEvent.press(button('Tăng'))
-      expect(qtyField().props.value).toBe('1')
-    })
-
-    it('ô số chữ sai: − bắt đầu lại từ 0, KHÔNG hỏi xoá dòng (như sheet phiếu nhập)', async () => {
-      await show()
-      await fireEvent.changeText(qtyField(), 'abc')
-      await fireEvent.press(button('Giảm'))
-      expect(confirmAction).not.toHaveBeenCalled()
-      // 0 − 1 → 0 = ô trống ("chưa nhập").
-      expect(qtyField().props.value).toBe('')
-      expect(lines()).toHaveLength(1)
-      expect(mockBack).not.toHaveBeenCalled()
-    })
-
-    it('− ở số ≤ 1 hỏi xoá dòng: không → giữ; đồng ý → bỏ dòng và đóng', async () => {
-      seed([makeLine(2)])
-      await show()
-      await fireEvent.changeText(qtyField(), '1')
-      jest.mocked(confirmAction).mockResolvedValueOnce(false)
-      await fireEvent.press(button('Giảm'))
-      expect(confirmTitles()).toEqual(['Xoá Vật tư 1 khỏi phiếu?'])
-      expect(lines()).toHaveLength(2)
-      expect(qtyField().props.value).toBe('1')
-      expect(mockBack).not.toHaveBeenCalled()
-      await fireEvent.press(button('Giảm'))
-      await act(async () => undefined)
-      expect(lines().map((l) => l.key)).toEqual(['m-2|u-2|'])
-      expect(mockBack).toHaveBeenCalledTimes(1)
-      // Đã sửa số rồi xoá: không hỏi "Bỏ thay đổi?".
-      expect(confirmTitles()).not.toContain(DISCARD)
-    })
-  })
-
-  it('đổi đơn vị qua chip "<đv> ▾" (action sheet gốc) = updateLine tại chỗ khi ✓: giữ vị trí và base', async () => {
-    seed([makeLine(2)])
-    await show()
-    jest.mocked(chooseAction).mockResolvedValueOnce(1)
-    await fireEvent.press(unitChip())
-    expect(jest.mocked(chooseAction).mock.calls[0]![0]).toEqual(
-      expect.objectContaining({
-        title: 'Vật tư 1',
-        actions: [{ label: 'hộp (đang chọn)' }, { label: 'thùng (12 hộp)' }],
-      }),
-    )
-    expect(unitChip('thùng')).toBeOnTheScreen()
-    expect(screen.getByText('đ / thùng')).toBeOnTheScreen()
-    // Chưa ✓ → chưa ghi.
-    expect(lines()[0]!.unitSlug).toBe('u-1')
-    await fireEvent.changeText(qtyField(), '2')
-    await pressSheetDone()
-    expect(lines().map((l) => l.key)).toEqual(['m-1|u-thung|', 'm-2|u-2|'])
-    expect(lines()[0]).toEqual(
-      expect.objectContaining({
-        unitSlug: 'u-thung',
-        unitName: 'thùng',
-        conversionRate: 12,
-        quantity: 2,
-        base: { unitSlug: 'u-1', quantity: 10, unitPrice: 1000, batchSlug: null, note: null },
-      }),
-    )
-    // Khoá dòng đổi → dòng "biến mất" theo key cũ: vẫn chỉ đóng MỘT lần.
-    expect(mockBack).toHaveBeenCalledTimes(1)
-  })
-
-  it('chú thích tỉ lệ dưới nhóm Số lượng: chỉ khi đơn vị không phải gốc', async () => {
-    seed([makeLine(2)])
-    await show()
-    expect(screen.queryByText(/^1 .* = /)).toBeNull()
-    jest.mocked(chooseAction).mockResolvedValueOnce(1)
-    await fireEvent.press(unitChip())
-    await fireEvent.changeText(qtyField(), '2')
-    expect(screen.getByText('1 thùng = 12 hộp · 2 thùng = 24 hộp')).toBeOnTheScreen()
-    await fireEvent.changeText(qtyField(), '')
-    expect(screen.getByText('1 thùng = 12 hộp')).toBeOnTheScreen()
-    jest.mocked(chooseAction).mockResolvedValueOnce(0)
-    await fireEvent.press(unitChip('thùng'))
-    expect(screen.queryByText(/^1 .* = /)).toBeNull()
-  })
-
-  it('unit change to a duplicate key shows error and stays', async () => {
-    seed([makeLine(1, { unitSlug: 'u-thung', quantity: 3 })])
-    await show()
-    jest.mocked(chooseAction).mockResolvedValueOnce(1)
-    await fireEvent.press(unitChip())
-    await pressSheetDone()
-    expect(screen.getByText(/Đã có dòng cùng vật tư, đơn vị và lô này/)).toBeOnTheScreen()
-    expect(lines().map((l) => [l.key, l.quantity])).toEqual([
-      ['m-1|u-1|', 10],
-      ['m-1|u-thung|', 3],
-    ])
-    expect(mockBack).not.toHaveBeenCalled()
-    // Chọn lại đơn vị cũ → hết lỗi, ✓ đóng.
-    jest.mocked(chooseAction).mockResolvedValueOnce(0)
-    await fireEvent.press(unitChip('thùng'))
-    expect(screen.queryByText(/Đã có dòng cùng vật tư/)).toBeNull()
-    await pressSheetDone()
-    expect(mockBack).toHaveBeenCalledTimes(1)
-  })
-
-  it('Android, hơn 3 đơn vị: chip mở danh sách đơn vị ngay trong sheet', async () => {
-    const LOC = { ...THUNG, unitSlug: 'u-loc', unitCode: 'L', unitName: 'lốc', conversionRate: 6 }
-    const KG = { ...THUNG, unitSlug: 'u-kg', unitCode: 'K', unitName: 'kg', conversionRate: 2 }
-    resetFakeApi()
-    server([HOP, THUNG, LOC, KG])
-    await show()
-    const os = Platform.OS
-    Object.defineProperty(Platform, 'OS', { value: 'android', configurable: true })
-    try {
-      await fireEvent.press(unitChip())
-    } finally {
-      Object.defineProperty(Platform, 'OS', { value: os, configurable: true })
-    }
-    expect(chooseAction).not.toHaveBeenCalled()
-    expect(button('hộp')).toBeSelected()
-    await fireEvent.press(button('lốc'))
-    expect(unitChip('lốc')).toBeOnTheScreen()
-    // Chọn xong thì danh sách thu lại.
-    expect(screen.queryByRole('button', { name: 'kg' })).toBeNull()
-    await pressSheetDone()
-    expect(lines()[0]).toEqual(expect.objectContaining({ key: 'm-1|u-loc|', conversionRate: 6 }))
+    expect(lines()[0]).toEqual(expect.objectContaining({ quantity: 9, unitPrice: null }))
   })
 
   it('dòng Lô bung BatchPicker; chọn lô → dòng hiện nhãn lô, ✓ ghi lô + HSD (khoá đổi theo lô)', async () => {
@@ -525,7 +469,7 @@ describe('ExportLineSheetScreen', () => {
       }),
     ])
     await show()
-    await fireEvent.changeText(qtyField(), '99')
+    await dec()
     await fireEvent.press(lotRow())
     await fireEvent.press(button(/^HSD 12\/03\/2027/))
     await pressSheetDone()
@@ -543,13 +487,13 @@ describe('ExportLineSheetScreen', () => {
     await fireEvent.press(button(/^HSD 01\/06\/2027/))
     expect(screen.queryByText(/Đã có dòng cùng vật tư/)).toBeNull()
     await pressSheetDone()
-    expect(lines()[0]).toEqual(expect.objectContaining({ key: 'm-1|u-1|b-2', quantity: 99 }))
+    expect(lines()[0]).toEqual(expect.objectContaining({ key: 'm-1|u-1|b-2', quantity: 9 }))
     expect(mockBack).toHaveBeenCalledTimes(1)
   })
 
   it('swipe/close with edits asks Bỏ thay đổi?; discard does not write', async () => {
     await show()
-    await fireEvent.changeText(qtyField(), '99')
+    await dec()
     await fireEvent.changeText(priceField(), '5000')
     expect(mockGuard.prevent).toBe(true)
 
@@ -565,7 +509,7 @@ describe('ExportLineSheetScreen', () => {
       }),
     )
     expect(mockBack).not.toHaveBeenCalled()
-    expect(qtyField().props.value).toBe('99')
+    expect(qtyField()).toHaveTextContent('9')
 
     // Vuốt xuống → hỏi; "Tiếp tục sửa" → ở lại.
     jest.mocked(confirmAction).mockResolvedValueOnce(false)
@@ -597,11 +541,11 @@ describe('ExportLineSheetScreen', () => {
     expect(confirmAction).not.toHaveBeenCalled()
   })
 
-  it('gõ rồi trả về đúng giá trị cũ / mở rồi đóng danh sách lô → coi như chưa sửa', async () => {
+  it('mở rồi đóng danh sách lô / gõ rồi trả về đúng giá cũ → coi như chưa sửa', async () => {
     await show()
-    await fireEvent.changeText(qtyField(), '12')
+    await fireEvent.changeText(priceField(), '1.200')
     expect(mockGuard.prevent).toBe(true)
-    await fireEvent.changeText(qtyField(), '10')
+    await fireEvent.changeText(priceField(), '1.000')
     await fireEvent.press(lotRow())
     await fireEvent.press(lotRow())
     expect(mockGuard.prevent).toBe(false)
@@ -620,7 +564,7 @@ describe('ExportLineSheetScreen', () => {
 
   it('✓ after edits does not ask (guard off before closing)', async () => {
     await show()
-    await fireEvent.changeText(qtyField(), '12')
+    await dec()
     expect(mockGuard.prevent).toBe(true)
     await pressSheetDone()
     expect(mockGuard.prevent).toBe(false)
@@ -652,7 +596,7 @@ describe('ExportLineSheetScreen', () => {
     seed([makeLine(2, { base: null })])
     mockParams.key = 'm-2|u-2|'
     await show()
-    await fireEvent.changeText(qtyField(), '4')
+    await dec()
     await fireEvent.press(button('Xoá khỏi phiếu'))
     expect(confirmAction).not.toHaveBeenCalled()
     expect(lines().map((l) => l.key)).toEqual(['m-1|u-1|'])
@@ -664,19 +608,16 @@ describe('ExportLineSheetScreen', () => {
     await show()
     expect(sheetHeader().done).toBeUndefined()
     expect(screen.getByText('Đang lưu phiếu — chờ lưu xong rồi sửa tiếp.')).toBeOnTheScreen()
-    expect(button('Tăng')).toBeDisabled()
-    expect(button('Giảm')).toBeDisabled()
-    expect(qtyField().props.editable).toBe(false)
+    expect(button('Bớt 1')).toBeDisabled()
     expect(priceField().props.editable).toBe(false)
     expect(noteField().props.editable).toBe(false)
     expect(button('Xoá khỏi phiếu')).toBeDisabled()
-    // Chip đơn vị chỉ còn là chữ; dòng Lô báo khoá (trình đọc màn hình) và không bung.
-    expect(screen.queryByRole('button', { name: /^Đơn vị / })).toBeNull()
+    // Dòng Lô báo khoá (trình đọc màn hình) và không bung.
     expect(lotRow()).toBeDisabled()
     await fireEvent.press(lotRow())
     expect(screen.queryByRole('button', { name: 'Tự động (HSD sớm nhất)' })).toBeNull()
-    await fireEvent.press(button('Tăng'))
-    expect(qtyField().props.value).toBe('10')
+    await fireEvent.press(button('Bớt 1'))
+    expect(qtyField()).toHaveTextContent('10')
     // ✕ vẫn đóng.
     await pressSheetCancel()
     expect(mockBack).toHaveBeenCalledTimes(1)
@@ -684,7 +625,7 @@ describe('ExportLineSheetScreen', () => {
 
   it('đã sửa rồi phiếu bắt đầu lưu (chỉ đọc) → tắt chặn: ✕ đóng ngay, không hỏi', async () => {
     await show()
-    await fireEvent.changeText(qtyField(), '99')
+    await dec()
     expect(mockGuard.prevent).toBe(true)
     await act(async () => useExportDraft.setState({ saving: true }))
     expect(mockGuard.prevent).toBe(false)
@@ -754,28 +695,18 @@ describe('ExportLineSheetScreen', () => {
     focus.mockRestore()
   })
 
-  it('?focus=quantity (dòng vừa thêm / vừa quét) → focus ô số, không cuộn; đang lưu → không focus', async () => {
+  it('?focus=quantity không còn hỗ trợ → không focus ô nào, không cuộn', async () => {
     mockParams.focus = 'quantity'
     const scrollTo = jest.spyOn(ScrollView.prototype as unknown as ScrollViewInstance, 'scrollTo')
     const focus = jest.spyOn(TextInput.prototype as unknown as { focus: () => void }, 'focus')
     scrollTo.mockClear()
     focus.mockClear()
-    const view = await show()
-    const target = () =>
-      focus.mock.contexts.map(
-        (c) => (c as { props: { accessibilityLabel?: string } }).props.accessibilityLabel,
-      )
-    expect(target()).toEqual(['Số lượng Vật tư 1'])
-    expect(lotRow()).toHaveProp('accessibilityState', { disabled: false, expanded: false })
+    await show()
     await fireEvent(screen.getByTestId('export-line-details'), 'layout', {
       nativeEvent: { layout: { x: 0, y: 420, width: 390, height: 200 } },
     })
-    expect(scrollTo).not.toHaveBeenCalled()
-    await view.unmount()
-    focus.mockClear()
-    useExportDraft.setState({ saving: true })
-    await show()
     expect(focus).not.toHaveBeenCalled()
+    expect(scrollTo).not.toHaveBeenCalled()
     focus.mockRestore()
   })
 
@@ -787,5 +718,17 @@ describe('ExportLineSheetScreen', () => {
       nativeEvent: { layout: { x: 0, y: 420, width: 390, height: 200 } },
     })
     expect(scrollTo).not.toHaveBeenCalled()
+  })
+
+  it('phiếu không phải Bán: không có khối Đơn giá / Thành tiền; ✓ giữ nguyên giá cũ của dòng', async () => {
+    seed()
+    const d = store().draft!
+    useExportDraft.setState({ draft: { ...d, header: { ...d.header, type: 'PRODUCTION' } } })
+    await show()
+    expect(screen.queryByTestId('export-line-sheet-price')).toBeNull()
+    expect(screen.queryByTestId('export-line-sheet-amount')).toBeNull()
+    await fireEvent.changeText(noteField(), 'Giao gấp')
+    await pressSheetDone()
+    expect(lines()[0]).toEqual(expect.objectContaining({ unitPrice: 1000, note: 'Giao gấp' }))
   })
 })

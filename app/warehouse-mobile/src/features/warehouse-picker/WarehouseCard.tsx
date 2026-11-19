@@ -13,7 +13,10 @@ export type WarehouseCardProps = {
   allWarehouses?: boolean
 }
 
-/** Một kho trong sheet đổi kho: `ChoiceCard` với icon kho, mã (code) + chip vai trò (+ "Đã tắt"). */
+/**
+ * Một kho trong sheet đổi kho: `ChoiceCard` (đang chọn: viền + radio, KHÔNG nền) với icon kho, chấm trạng
+ * thái (xanh hoạt động / đỏ đã tắt) + mã (code) + chip vai trò.
+ */
 export function WarehouseCard({
   warehouse,
   selected,
@@ -28,9 +31,16 @@ export function WarehouseCard({
       accessibilityLabel={accessibilityLabel}
       leading={{ icon: Warehouse }}
       selected={selected}
+      // Thẻ đang chọn chỉ viền + radio, không tô nền (bảng đổi kho).
       onPress={onPress}
       subtitle={
-        <WarehouseSubtitle warehouse={warehouse} role={role} inactive={inactive} rolePill />
+        <WarehouseSubtitle
+          warehouse={warehouse}
+          role={role}
+          inactive={inactive}
+          rolePill
+          statusDot
+        />
       }
     />
   )

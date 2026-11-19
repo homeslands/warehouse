@@ -15,6 +15,7 @@ import {
   draftStorageKey,
   stopDraftPersistence,
   useReceiveDraft,
+  useScanNotice,
 } from '@/features/receive-checklist'
 import { makeForm, makeItem } from '@/features/receive-checklist/model/fixtures'
 import { changeLanguage, initI18n } from '@/shared/i18n'
@@ -23,7 +24,6 @@ import { lightColors } from '@/shared/theme/tokens'
 
 import { ReceiveScreen } from './ReceiveScreen'
 import { AndroidReceiveHeaderRight } from './receive-header'
-import { useScanNotice } from './scan-notice.store'
 
 const fontOf = (el: { props: { style?: unknown } }) =>
   StyleSheet.flatten(el.props.style as never)?.fontFamily

@@ -82,3 +82,13 @@ describe('exportMissingLabel', () => {
     expect(label('lines', 1)).toBe('Chưa có vật tư')
   })
 })
+
+describe('exportMissing — đơn giá chỉ ở phiếu Bán', () => {
+  it('phiếu không phải Bán: dòng chưa có giá KHÔNG thiếu', () => {
+    const d = makeDraft([makeLine(1, { unitPrice: null })])
+    d.header = { ...d.header, type: 'PRODUCTION' }
+    expect(exportMissing(d, t).some((m) => m.group === 'price')).toBe(false)
+    d.header = { ...d.header, type: 'SALE' }
+    expect(exportMissing(d, t).some((m) => m.group === 'price')).toBe(true)
+  })
+})

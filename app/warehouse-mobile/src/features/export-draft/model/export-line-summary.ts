@@ -28,6 +28,11 @@ export type ExportLineSummaryContext = {
   baseUnitName: string | null
   /** Dòng trùng dòng khác (mục `duplicate` của `exportMissing`). */
   duplicate?: boolean
+  /**
+   * Phiếu có đơn giá (`exportHasPrice`, chỉ phiếu Bán). `false`: dòng 2 chỉ "12 bình", không thành tiền,
+   * không bao giờ thiếu giá. Mặc định `true`.
+   */
+  priced?: boolean
   t: TFunction
   locale: FormatLocale
 }
@@ -43,15 +48,18 @@ export type ExportLineSummaryContext = {
  *   dòng (`noteExcerpt`, xám).
  */
 export function exportLineSummary(line: ExportLine, ctx: ExportLineSummaryContext): LineSummary {
-  const { t, locale, available, shortage, baseUnitName } = ctx
+  const { t, locale, available, shortage, baseUnitName, priced = true } = ctx
   const qty = (n: number) => formatQuantity(n, locale, 6)
   const unit = line.unitName
   const qtyMissing = !Number.isFinite(line.quantity) || round6(line.quantity) <= 0
   const priceMissing =
-    line.unitPrice === null || !Number.isFinite(line.unitPrice) || line.unitPrice < 0
+    priced && (line.unitPrice === null || !Number.isFinite(line.unitPrice) || line.unitPrice < 0)
 
-  const line2 =
-    qtyMissing && priceMissing
+  const line2 = !priced
+    ? qtyMissing
+      ? t('exportForms:wizard.row.missingQty')
+      : t('exportForms:wizard.row.qtyOnly', { qty: qty(line.quantity), unit })
+    : qtyMissing && priceMissing
       ? t('exportForms:wizard.row.missingBoth')
       : qtyMissing
         ? t('exportForms:wizard.row.missingQty')
@@ -63,7 +71,7 @@ export function exportLineSummary(line: ExportLine, ctx: ExportLineSummaryContex
               price: formatMoney(line.unitPrice!, locale),
             })
   const amount =
-    qtyMissing || priceMissing
+    !priced || qtyMissing || priceMissing
       ? null
       : formatMoney(lineAmount(line.quantity, line.unitPrice), locale)
 
@@ -109,8 +117,9 @@ export function exportLineSummary(line: ExportLine, ctx: ExportLineSummaryContex
     line2,
     line2Tone: qtyMissing || priceMissing ? 'warning' : 'normal',
     line3,
-    amount: amount ?? '—',
-    amountTone: amount === null ? 'warning' : 'normal',
+    // Không có giá: cột thành tiền để trống (không phải "—" cam).
+    amount: !priced ? '' : (amount ?? '—'),
+    amountTone: priced && amount === null ? 'warning' : 'normal',
     missing: qtyMissing || priceMissing || !!ctx.duplicate,
     a11y: lineSummaryA11y(line.materialName, line2, amount, line3),
   }

@@ -13,7 +13,9 @@ import { Platform, StyleSheet } from 'react-native'
 import type { ExportForm } from '@/entities/export-form'
 import { useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
+import { initialChipFilters } from '@/features/list-filters'
 import { changeLanguage, initI18n } from '@/shared/i18n'
+import { lightColors } from '@/shared/theme/tokens'
 
 import { ExportListScreen } from './ExportListScreen'
 import { resetExportListOnWarehouseChange, useExportListFilter } from './export-list.store'
@@ -21,10 +23,16 @@ import { resetExportListOnWarehouseChange, useExportListFilter } from './export-
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
 const mockHeader: { options: NativeStackNavigationOptions } = { options: {} }
+const mockSetParams = jest.fn()
+/** Param của route (`preset` từ tab Tổng quan). */
+const mockParams: { current: Record<string, string | undefined> } = { current: {} }
 const mockRouter = { push: mockPush, navigate: mockNavigate }
+const mockNavigation = { setParams: mockSetParams }
 jest.mock('expo-router', () => ({
   // Ổn định như router thật (`useRouterActions` memo): đổi định danh mỗi render sẽ làm hỏng memo header.
   useRouter: () => mockRouter,
+  useNavigation: () => mockNavigation,
+  useLocalSearchParams: () => mockParams.current,
   Stack: {
     Screen: ({ options }: { options: NativeStackNavigationOptions }) => {
       mockHeader.options = options
@@ -49,7 +57,8 @@ const form = (over: Partial<ExportForm> = {}): ExportForm => ({
   updatedAt: '2026-11-01T00:00:00.000Z',
   version: 1,
   code: 'PX-20261101-0900',
-  type: 'PRODUCTION',
+  // Phiếu Bán: loại duy nhất có đơn giá / tổng tiền (`exportHasPrice`).
+  type: 'SALE',
   status: 'PENDING',
   purchaseOrder: 'PO-77',
   invoiceCode: null,
@@ -141,6 +150,7 @@ beforeEach(() => {
   mockHeader.options = {}
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
   useExportListFilter.getState().reset()
+  mockParams.current = {}
   useWarehouseStore.setState({ current: WH_A, resolved: true, resolution: 'selected' })
   signIn([READ, 'EXPORT_FORM_CREATE', 'EXPORT_FORM_CONFIRM'])
 })
@@ -148,13 +158,36 @@ beforeEach(() => {
 afterEach(() => client.clear())
 
 describe('ExportListScreen — danh sách', () => {
-  it('dòng: mã (code), "Loại · Người nhận · Người lập", tổng tiền, giờ HH:mm', async () => {
+  it('dòng: ô icon theo loại; [mã | tổng] / [giờ · dd/MM | trạng thái] / [Loại · người nhận · người lập]', async () => {
     listRoute()
     await show()
     expect(screen.getByText('PX-20261101-0900')).toBeOnTheScreen()
-    expect(screen.getByText('Sản xuất · Tổ hàn A · Tuấn')).toBeOnTheScreen()
+    expect(screen.getByText(/^09:05 · \d{2}\/\d{2}$/)).toBeOnTheScreen()
+    expect(screen.getByText('Bán · Tổ hàn A · Tuấn')).toBeOnTheScreen()
     expect(norm(screen.getByText(/46\.176\.000/).props.children as string)).toBe('46.176.000 đ')
-    expect(screen.getByText('09:05')).toBeOnTheScreen()
+    // Đang lọc một trạng thái (Chờ duyệt) → không lặp chữ trạng thái trên từng dòng.
+    expect(screen.queryByTestId('export-status-PENDING')).toBeNull()
+    expect(screen.getByTestId('export-tile-SALE')).toBeOnTheScreen()
+  })
+
+  it('ô icon theo loại: mỗi loại một HÌNH, cùng nền trung tính (màu chỉ dành cho trạng thái)', async () => {
+    const types = ['SALE', 'PRODUCTION', 'TRANSFER', 'DISPOSAL', 'OTHER'] as const
+    listRoute(() => paged(types.map((type) => form({ slug: type, code: type, type }))))
+    await show()
+    for (const type of types)
+      expect(screen.getByTestId(`export-tile-${type}`)).toHaveStyle({
+        backgroundColor: lightColors.fill,
+      })
+  })
+
+  it('phiếu không phải Bán: không hiện / không đọc tổng tiền, vẫn có giờ', async () => {
+    listRoute(() => paged([form({ type: 'PRODUCTION', totalAmount: 0 })]))
+    await show()
+    expect(screen.queryByText(/\d\s?đ$/)).toBeNull()
+    expect(screen.getByText(/^09:05 · \d{2}\/\d{2}$/)).toBeOnTheScreen()
+    const label = screen.getByRole('button', { name: /PX-20261101-0900/ }).props
+      .accessibilityLabel as string
+    expect(label).not.toMatch(/đ/)
   })
 
   it('ô trạng thái: Tất cả · Nháp · Chờ duyệt · Đã xuất · Đã huỷ', async () => {
@@ -202,7 +235,7 @@ describe('ExportListScreen — danh sách', () => {
     }
   })
 
-  it('ô trạng thái của dòng theo trạng thái: DRAFT / PENDING / CONFIRMED / CANCELLED', async () => {
+  it('"Tất cả": trạng thái tô màu ở cột phải theo trạng thái; mã font hệ thống cắt giữa', async () => {
     listRoute(() =>
       paged(
         (['DRAFT', 'PENDING', 'CONFIRMED', 'CANCELLED'] as const).map((status) =>
@@ -211,8 +244,19 @@ describe('ExportListScreen — danh sách', () => {
       ),
     )
     await show()
-    for (const st of ['DRAFT', 'PENDING', 'CONFIRMED', 'CANCELLED'])
-      expect(screen.getByTestId(`export-tile-${st}`)).toBeOnTheScreen()
+    await act(async () => fireEvent.press(screen.getByRole('tab', { name: 'Tất cả' })))
+    await settled()
+    const tones = {
+      DRAFT: lightColors.statusWarning,
+      PENDING: lightColors.statusAccent,
+      CONFIRMED: lightColors.statusSuccess,
+      CANCELLED: lightColors.statusNeutral,
+    }
+    for (const [st, color] of Object.entries(tones))
+      expect(screen.getByTestId(`export-status-${st}`)).toHaveStyle({ color, fontStyle: 'italic' })
+    // Mã phiếu: font hệ thống (không đơn cách), cắt GIỮA khi dài.
+    expect(screen.getByText('DRAFT')).not.toHaveStyle({ fontFamily: 'ui-monospace' })
+    expect(screen.getByText('DRAFT').props.ellipsizeMode).toBe('middle')
   })
 
   it('nhãn truy cập của dòng: mã, trạng thái, loại, người nhận, người lập, tổng, giờ', async () => {
@@ -224,7 +268,7 @@ describe('ExportListScreen — danh sách', () => {
     for (const part of [
       'PX-20261101-0900',
       'Chờ duyệt',
-      'Sản xuất',
+      'Bán',
       'Tổ hàn A',
       'Tuấn',
       '46.176.000 đ',
@@ -233,23 +277,25 @@ describe('ExportListScreen — danh sách', () => {
       expect(label).toContain(part)
   })
 
-  it('nhóm theo ngày tạo: Hôm nay / Hôm qua', async () => {
+  it('nhóm theo THÁNG tạo: "Tháng 11/2026", "Tháng 10/2026"', async () => {
     listRoute(() =>
       paged([
-        form({ slug: 'a', code: 'A', createdAt: localAt(0, 10, 0) }),
-        form({ slug: 'b', code: 'B', createdAt: localAt(0, 8, 0) }),
-        form({ slug: 'c', code: 'C', createdAt: localAt(1, 17, 30) }),
+        form({ slug: 'a', code: 'A', createdAt: new Date(2026, 10, 5, 10, 0).toISOString() }),
+        form({ slug: 'b', code: 'B', createdAt: new Date(2026, 10, 1, 8, 0).toISOString() }),
+        form({ slug: 'c', code: 'C', createdAt: new Date(2026, 9, 31, 17, 30).toISOString() }),
       ]),
     )
     await show()
     expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual([
-      'Hôm nay',
-      'Hôm qua',
+      'Tháng 11/2026',
+      'Tháng 10/2026',
     ])
+    expect(screen.getByText('2 phiếu')).toBeOnTheScreen()
+    expect(screen.getByText('1 phiếu')).toBeOnTheScreen()
     expect(screen.getAllByTestId('export-row')).toHaveLength(3)
   })
 
-  it('worst case: mã 32 ký tự, người nhận 255 ký tự, tổng ≥ 1e12 → mọi chữ một dòng, cột phải giữ độ rộng', async () => {
+  it('worst case: mã 32 ký tự, người nhận 255 ký tự, tổng ≥ 1e12 → mọi chữ một dòng, cột phải có giới hạn rộng', async () => {
     listRoute(() =>
       paged([form({ code: 'P'.repeat(32), receiver: 'R'.repeat(255), totalAmount: 3.5e12 })]),
     )
@@ -260,7 +306,7 @@ describe('ExportListScreen — danh sách', () => {
     expect(total.props.numberOfLines).toBe(1)
     expect(total.props.adjustsFontSizeToFit).toBe(true)
     expect(StyleSheet.flatten(screen.getByTestId('export-row-end').props.style)).toMatchObject({
-      width: expect.any(Number),
+      maxWidth: '55%',
     })
   })
 
@@ -340,15 +386,24 @@ describe('ExportListScreen — header & nút "+" tạo phiếu', () => {
   afterEach(() => {
     Platform.OS = original
   })
-  const fab = () => screen.getByRole('button', { name: 'Tạo phiếu xuất' })
+  const addItem = () =>
+    rightItems().find(
+      (i): i is NativeStackHeaderItemButton => i.type === 'button' && i.label === 'Tạo phiếu xuất',
+    )
 
-  it('iOS: KHÔNG dùng ô tìm native (nháy khi đổi tab, iOS 26); bên phải [Lọc, khoảng, kho]', async () => {
+  it('iOS: KHÔNG dùng ô tìm native; bên phải [Lọc, +, khoảng, kho] — "+" là nút gốc SF `plus`', async () => {
     Platform.OS = 'ios'
     listRoute()
     await show()
     expect(mockHeader.options.headerSearchBarOptions).toBeUndefined()
     expect(screen.getByLabelText(SEARCH_LABEL)).toBeOnTheScreen()
-    expect(rightItems().map((i) => i.type)).toEqual(['button', 'spacing', 'custom'])
+    expect(rightItems().map((i) => i.type)).toEqual(['button', 'button', 'spacing', 'custom'])
+    expect(addItem()).toMatchObject({
+      label: 'Tạo phiếu xuất',
+      accessibilityLabel: 'Tạo phiếu xuất',
+      icon: { type: 'sfSymbol', name: 'plus' },
+    })
+    expect(mockHeader.options.headerRight).toBeUndefined()
   })
 
   it('iOS: render lại vì state khác (trạng thái, chữ tìm) KHÔNG dựng lại options của header', async () => {
@@ -393,23 +448,36 @@ describe('ExportListScreen — header & nút "+" tạo phiếu', () => {
     },
   )
 
-  it('list + always opens modal /export-form/new/info bằng navigate (có hay chưa có bản nháp phiếu mới)', async () => {
+  it('"+" luôn mở modal /export-form/new/info bằng navigate (bước 1 tự mở lại bản nháp phiếu mới)', async () => {
+    Platform.OS = 'ios'
     listRoute()
     await show()
-    await act(async () => fireEvent.press(fab()))
+    await act(async () => addItem()!.onPress())
     await settled()
+    // `navigate` (không `push`): bấm "+" hai lần liền vẫn chỉ một modal (xem routing.test).
     expect(mockNavigate).toHaveBeenCalledWith('/export-form/new/info')
-    await AsyncStorage.setItem('warehouse.exportDraft.u-1.wh-a.new', JSON.stringify({ any: 1 }))
-    await act(async () => fireEvent.press(fab()))
-    await settled()
-    expect(mockNavigate).toHaveBeenCalledTimes(2)
+    expect(mockPush).not.toHaveBeenCalled()
+  })
+
+  it('Android: nút "+" phẳng 44pt sau nút Lọc trên header → mở modal', async () => {
+    Platform.OS = 'android'
+    listRoute()
+    await show()
+    const header = await render(
+      mockHeader.options.headerRight!({ canGoBack: false } as never) as never,
+    )
+    const add = header.getByRole('button', { name: 'Tạo phiếu xuất' })
+    expect(StyleSheet.flatten(add.props.style)).toMatchObject({ width: 44, height: 44 })
+    await fireEvent.press(add)
     expect(mockNavigate).toHaveBeenLastCalledWith('/export-form/new/info')
   })
 
-  it('không có EXPORT_FORM_CREATE → không có nút "+"', async () => {
+  it('không có quyền tạo → không có nút "+" (cả iOS lẫn Android), không còn nút nổi', async () => {
+    Platform.OS = 'ios'
     signIn([READ])
     listRoute()
     await show()
+    expect(addItem()).toBeUndefined()
     expect(screen.queryByRole('button', { name: 'Tạo phiếu xuất' })).toBeNull()
   })
 })
@@ -521,5 +589,43 @@ describe('ExportListScreen — đổi kho', () => {
     useExportListFilter.getState().setStatus('CONFIRMED')
     useExportListFilter.getState().reset()
     expect(useExportListFilter.getState().status).toBeNull()
+  })
+})
+
+describe('ExportListScreen — preset từ tab Tổng quan', () => {
+  it('preset=PENDING trên bộ lọc bẩn (tìm, chip, Loại Bán, Tất cả) → chỉ còn Chờ duyệt, xoá param', async () => {
+    listRoute()
+    useExportListFilter.setState({ query: 'abc', time: 'last7', type: 'SALE', status: 'ALL' })
+    mockParams.current = { preset: 'PENDING' }
+    await show()
+    const s = useExportListFilter.getState()
+    expect(s.query).toBe('')
+    expect({ time: s.time, requester: s.requester, approver: s.approver }).toEqual(
+      initialChipFilters,
+    )
+    expect(s.type).toBeNull()
+    expect(s.status).toBe('PENDING')
+    expect(mockSetParams).toHaveBeenCalledWith({ preset: undefined })
+    const last = seen.at(-1)
+    expect(last).toMatchObject({ status: 'PENDING' })
+    expect(last).not.toHaveProperty('type')
+    expect(last).not.toHaveProperty('code')
+  })
+
+  it('preset=DRAFT với người duyệt (mặc định Chờ duyệt) → Nháp', async () => {
+    listRoute()
+    mockParams.current = { preset: 'DRAFT' }
+    await show()
+    expect(useExportListFilter.getState().status).toBe('DRAFT')
+    expect(seen.at(-1)).toMatchObject({ status: 'DRAFT' })
+  })
+
+  it('preset lạ → bộ lọc giữ nguyên, vẫn xoá param', async () => {
+    listRoute()
+    useExportListFilter.setState({ type: 'SALE', status: 'ALL' })
+    mockParams.current = { preset: 'CONFIRMED' }
+    await show()
+    expect(useExportListFilter.getState()).toMatchObject({ type: 'SALE', status: 'ALL' })
+    expect(mockSetParams).toHaveBeenCalledWith({ preset: undefined })
   })
 })

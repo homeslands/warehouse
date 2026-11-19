@@ -67,7 +67,7 @@ function BatchRow({
         alignItems: 'center',
         gap: 12,
         minHeight: 58,
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingVertical: 10,
       }}
     >
@@ -110,7 +110,7 @@ export function BatchList({ batches, failed, retrying, onRetry, locale, today }:
   if (!batches) return <TabMessage loading loadingLabel={t('loading')} />
   if (batches.length === 0) return <TabMessage text={t('batchesEmpty')} />
   return (
-    <ListGroup large inset={16}>
+    <ListGroup variant="card" inset={20}>
       {batches.map((b) => (
         <BatchRow key={b.slug} batch={b} locale={locale} today={today} />
       ))}

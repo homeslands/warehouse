@@ -6,9 +6,16 @@ describe('SHEET_ROUTES', () => {
       expect.arrayContaining([
         '/export-filter',
         '/export-line',
-        '/export-add-line',
+        '/export-type',
+        '/export-receiver',
         '/scan-export-line',
       ]),
+    )
+  })
+
+  it('màn quét toàn màn cũng rời khi đổi phiên / kho', () => {
+    expect(SHEET_ROUTES).toEqual(
+      expect.arrayContaining(['/scan-material', '/scan-line', '/scan-export-line']),
     )
   })
 

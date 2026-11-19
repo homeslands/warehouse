@@ -1,5 +1,5 @@
 {
-  "appName": "Kho",
+  "appName": "Soko",
   "logout": "Sign out",
   "loading": "Loading...",
   "cancel": "Cancel",
@@ -9,6 +9,7 @@
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
   "retry": "Try again",
+  "seeAll": "See all",
   "empty": "No data yet.",
   "notSet": "Not set",
   "unnamedUser": "User",

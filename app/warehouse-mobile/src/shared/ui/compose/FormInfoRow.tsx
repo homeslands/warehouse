@@ -49,10 +49,14 @@ type InputProps = {
   onFocus?: () => void
   onBlur?: () => void
   inputRef?: Ref<TextInputInstance>
+  /** Nút/biểu tượng đặt bên phải ô nhập (vd nút quét mã). Tự mang nhãn a11y. */
+  trailing?: ReactNode
 }
 type PickerProps = {
   kind: 'picker'
   value: string | null
+  /** Chữ khi trống (mặc định "Bắt buộc"/"Tuỳ chọn"), vd "Chọn". */
+  placeholder?: string
   onPress: () => void
   chevron?: 'down' | 'right'
   /** Giá trị chữ accent (nút chọn kiểu iOS: "Sản xuất ⌄"). */
@@ -222,6 +226,7 @@ function PickerRow({
   label,
   required,
   value,
+  placeholder,
   onPress,
   chevron = 'right',
   accentValue,
@@ -255,7 +260,13 @@ function PickerRow({
           ]}
         >
           {labelCell}
-          <ValueText {...state} value={value} numberOfLines={1} accent={accentValue && !disabled} />
+          <ValueText
+            {...state}
+            emptyText={placeholder ?? state.emptyText}
+            value={value}
+            numberOfLines={1}
+            accent={accentValue && !disabled}
+          />
           {disabled ? null : <Chevron size={16} color={colors.chevron} aria-hidden />}
         </Pressable>
       )}
@@ -312,6 +323,7 @@ function InputRow({
   onFocus,
   onBlur,
   inputRef,
+  trailing,
   testID,
   ...frame
 }: CommonProps & InputProps) {
@@ -338,6 +350,7 @@ function InputRow({
             onFocus={onFocus}
             onBlur={onBlur}
           />
+          {trailing}
         </View>
       )}
     </RowFrame>

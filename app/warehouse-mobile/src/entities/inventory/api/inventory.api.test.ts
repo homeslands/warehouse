@@ -1,9 +1,15 @@
-import { failure, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
+import { callsTo, failure, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import { item } from '../model/fixtures'
+import { inventoryKeys } from './query-keys'
 import {
+  assignMaterialToWarehouse,
+  createMaterialInWarehouse,
   fetchAllInventory,
+  fetchBatchCount,
+  fetchExpiringBatches,
   fetchInventoryHistory,
   fetchMaterialBatches,
+  removeMaterialFromWarehouse,
   updateInventoryThresholds,
 } from './inventory.api'
 
@@ -138,5 +144,94 @@ describe('updateInventoryThresholds', () => {
     const res = await updateInventoryThresholds('wh1', 'm1', { maximumInventory: null })
     expect(body).toEqual({ maximumInventory: null })
     expect(res.slug).toBe('r')
+  })
+})
+
+describe('assign / remove material', () => {
+  it('PUT /warehouses/:w/materials với body đúng', async () => {
+    route('put', '/warehouses/kho-a/materials', () => ok(item({ slug: 'r' })))
+    const res = await assignMaterialToWarehouse('kho-a', {
+      materialSlug: 'm1',
+      minimumInventory: 2,
+    })
+    const [call] = callsTo('put', '/warehouses/kho-a/materials')
+    expect(call.body).toBe('{"materialSlug":"m1","minimumInventory":2}')
+    expect(res.slug).toBe('r')
+  })
+  it('DELETE /warehouses/:w/materials/:m', async () => {
+    route('delete', '/warehouses/kho-a/materials/m1', () => ok(null))
+    await removeMaterialFromWarehouse('kho-a', 'm1')
+    expect(callsTo('delete', '/warehouses/kho-a/materials/m1')).toHaveLength(1)
+  })
+})
+
+describe('createMaterialInWarehouse', () => {
+  it('POST /warehouses/:w/materials với { material, supplierSlug }, không có quantity', async () => {
+    route('post', '/warehouses/kho-a/materials', () => ok(item({ slug: 'new' })))
+    const material = { code: 'SP01', name: 'Gạo', typeSlug: 'tp', baseUnitSlug: 'kg' }
+    const res = await createMaterialInWarehouse('kho-a', { material, supplierSlug: 's1' })
+    const [call] = callsTo('post', '/warehouses/kho-a/materials')
+    expect(JSON.parse(call.body as string)).toEqual({ material, supplierSlug: 's1' })
+    expect(call.body).not.toContain('quantity')
+    expect(res.slug).toBe('new')
+  })
+  it('không có bên bán → body chỉ { material }', async () => {
+    route('post', '/warehouses/kho-a/materials', () => ok(item()))
+    const material = { code: 'SP01', name: 'Gạo', typeSlug: 'tp', baseUnitSlug: 'kg' }
+    await createMaterialInWarehouse('kho-a', { material })
+    const [call] = callsTo('post', '/warehouses/kho-a/materials')
+    expect(JSON.parse(call.body as string)).toEqual({ material })
+  })
+})
+
+describe('fetchBatchCount / fetchExpiringBatches', () => {
+  const BATCHES = '/warehouses/wh-1/material-batches'
+  const pg = (total: number) =>
+    ok({ items: [], total, page: 1, pageSize: 1, totalPages: total, hasNext: false })
+
+  it('fetchBatchCount gửi status=1,size=1,expiryBefore và trả total', async () => {
+    const got: Params[] = []
+    route('get', BATCHES, (c) => {
+      got.push(c.params as Params)
+      return pg(9)
+    })
+    expect(await fetchBatchCount('wh-1', '2026-11-11')).toBe(9)
+    expect(got[0]).toMatchObject({ status: 1, size: 1, expiryBefore: '2026-11-11' })
+  })
+
+  it('fetchExpiringBatches sắp theo expiryDate ASC, size 50, đúng trang', async () => {
+    const got: Params[] = []
+    route('get', BATCHES, (c) => {
+      got.push(c.params as Params)
+      return pg(0)
+    })
+    await fetchExpiringBatches('wh-1', '2027-01-11', 2)
+    expect(got[0]).toMatchObject({
+      status: 1,
+      sortBy: 'expiryDate',
+      sort: 'ASC',
+      size: 50,
+      page: 2,
+      expiryBefore: '2027-01-11',
+    })
+  })
+
+  it('inventoryKeys.expiry khác theo kho và ngày, nằm dưới kho', () => {
+    expect(inventoryKeys.expiryCount('a', '2026-11-11')).toEqual([
+      'inventory',
+      'a',
+      'expiry',
+      'count',
+      '2026-11-11',
+    ])
+    expect(inventoryKeys.expiring('a', '2026-11-11')).toEqual([
+      'inventory',
+      'a',
+      'expiry',
+      'list',
+      '2026-11-11',
+    ])
+    expect(inventoryKeys.expiring('a', 'x')).not.toEqual(inventoryKeys.expiring('b', 'x'))
+    expect(inventoryKeys.expiryCount('a', 'x').slice(0, 2)).toEqual(inventoryKeys.warehouse('a'))
   })
 })

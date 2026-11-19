@@ -1,4 +1,4 @@
-import { getPaginated, patchData } from '@/shared/api/http'
+import { deleteData, getPaginated, patchData, postData, putData } from '@/shared/api/http'
 import type { Paginated } from '@/shared/api/types'
 import type { InventoryHistory, InventoryItem, MaterialBatch } from '../model/types'
 import { TOO_MANY_PAGES } from './inventory-error'
@@ -48,6 +48,37 @@ export async function fetchMaterialBatches(
   ]
 }
 
+/** Số lô CÒN HÀNG có hạn dùng trước `expiryBefore` (YYYY-MM-DD): xin 1 phần tử, đọc `total`. */
+export const fetchBatchCount = async (
+  warehouseSlug: string,
+  expiryBefore: string,
+): Promise<number> =>
+  (
+    await getPaginated<MaterialBatch>(`/warehouses/${warehouseSlug}/material-batches`, {
+      page: 1,
+      size: 1,
+      status: 1,
+      expiryBefore,
+    })
+  ).total
+
+export const EXPIRING_PAGE_SIZE = 50
+
+/** Một trang lô còn hàng có hạn dùng trước `expiryBefore`, hạn gần nhất trước. */
+export const fetchExpiringBatches = (
+  warehouseSlug: string,
+  expiryBefore: string,
+  page: number,
+): Promise<Paginated<MaterialBatch>> =>
+  getPaginated<MaterialBatch>(`/warehouses/${warehouseSlug}/material-batches`, {
+    page,
+    size: EXPIRING_PAGE_SIZE,
+    status: 1,
+    expiryBefore,
+    sortBy: 'expiryDate',
+    sort: 'ASC',
+  })
+
 export const fetchInventoryHistory = (
   warehouseSlug: string,
   materialSlug: string,
@@ -67,3 +98,42 @@ export const updateInventoryThresholds = (
   body: ThresholdPatch,
 ): Promise<InventoryItem> =>
   patchData<InventoryItem>(`/warehouses/${warehouseSlug}/materials/${materialSlug}`, body)
+
+/** Gắn vật tư vào kho. Ô ngưỡng vắng = dùng mặc định của vật tư; không gửi `quantity`. */
+export type AssignBody = {
+  materialSlug: string
+  minimumInventory?: number
+  maximumInventory?: number
+}
+
+export const assignMaterialToWarehouse = (
+  warehouseSlug: string,
+  body: AssignBody,
+): Promise<InventoryItem> => putData<InventoryItem>(`/warehouses/${warehouseSlug}/materials`, body)
+
+export const removeMaterialFromWarehouse = (
+  warehouseSlug: string,
+  materialSlug: string,
+): Promise<void> => deleteData<void>(`/warehouses/${warehouseSlug}/materials/${materialSlug}`)
+
+/**
+ * `POST /warehouses/:w/materials` — tạo vật tư MỚI, gắn luôn vào kho và (nếu có) bên bán, cùng một
+ * transaction. `material` đủ field của `POST /materials` (ngưỡng trong đó là mặc định của vật tư); không
+ * gửi `quantity` hay ngưỡng riêng của kho.
+ */
+export type CreateInWarehouseBody = {
+  material: {
+    code: string
+    name: string
+    typeSlug: string
+    baseUnitSlug: string
+    minimumInventory?: number
+    maximumInventory?: number
+  }
+  supplierSlug?: string
+}
+
+export const createMaterialInWarehouse = (
+  warehouseSlug: string,
+  body: CreateInWarehouseBody,
+): Promise<InventoryItem> => postData<InventoryItem>(`/warehouses/${warehouseSlug}/materials`, body)

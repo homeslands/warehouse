@@ -17,3 +17,13 @@ afterEach(() => {
   // eslint-disable-next-line @typescript-eslint/no-require-imports
   require('@/features/receive-checklist/model/flags').__setChecklistEnabled(true)
 })
+
+// Camera quét: "giữ yên mới nhận" (`scanTiming.dwellMs` 350 ms) tắt trong test — một sự kiện quét là nhận
+// (test màn hình bắn một lần). Test riêng của luật giữ yên (`BarcodeCamera.test`) tự đặt giá trị thật.
+beforeEach(() => {
+  // eslint-disable-next-line @typescript-eslint/no-require-imports
+  const { scanTiming, DEFAULT_SCAN_TIMING } = require('@/features/scan-material/scan-timing')
+  scanTiming.dwellMs = 0
+  scanTiming.gapMs = DEFAULT_SCAN_TIMING.gapMs
+  scanTiming.repeatHintMs = 0
+})

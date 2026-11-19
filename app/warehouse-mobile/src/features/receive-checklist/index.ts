@@ -24,12 +24,24 @@ export {
   type Progress,
   type StatusOptions,
 } from './model/checklist'
+export { addImportLines } from './model/add-import-lines'
+export { baseUnitOf } from './model/import-units'
+export { toAvailableMaterial } from './model/to-available-material'
+export {
+  resetScanNoticeOnWarehouseChange,
+  useScanNotice,
+  type ScanNotice,
+  type ScanNoticeMaterial,
+  type ScanNoticeReason,
+} from './model/scan-notice.store'
 export { RECEIVE_CHECKLIST_ENABLED } from './model/flags'
 export { linesTotal } from './model/total'
 export { buildSummary, type Summary, type SummaryChange } from './model/summary'
 export { mergeAfterConflict, type ImportMergeResult } from './model/merge'
 export { deriveHeaderSupplier } from './model/supplier'
+export { formSupplierSlug, supplierNameLookup, willAttachToSupplier } from './model/form-supplier'
 export {
+  fixedSupplierFor,
   lineSupplier,
   newDraft,
   newLocalLine,

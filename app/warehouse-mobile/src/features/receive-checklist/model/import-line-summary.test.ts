@@ -125,3 +125,44 @@ describe('importItemAsLine', () => {
     expect(s.line3.map((x) => x.text)).toContain('giao sáng')
   })
 })
+
+describe('importLineSummary new to supplier (theo bên bán CỦA DÒNG)', () => {
+  const names: Record<string, string> = { mp: 'Minh Phát', ht: 'Hà Tiên' }
+  const withNames = { ...ctx, supplierNameOf: (slug: string) => names[slug] ?? null }
+  it('shows "Mới với <tên NCC của dòng>" after the code for a line the save will attach', () => {
+    const s = importLineSummary(
+      makeLine(1, { supplierSlug: 'mp', materialSupplierSlugs: ['other'] }),
+      withNames,
+    )
+    expect(s.line3[1]).toEqual({ text: 'Mới với Minh Phát', tone: 'muted' })
+  })
+  it('each line names its own supplier, whatever the form header says', () => {
+    const a = importLineSummary(
+      makeLine(1, { supplierSlug: 'ht', materialSupplierSlugs: [] }),
+      withNames,
+    )
+    expect(a.line3.map((x) => x.text)).toContain('Mới với Hà Tiên')
+  })
+  it('falls back to the line snapshot name, then to the no-name wording', () => {
+    const snap = importLineSummary(
+      makeLine(1, { supplierSlug: 'x', supplierName: 'Tên dòng', materialSupplierSlugs: [] }),
+      ctx,
+    )
+    expect(snap.line3.map((x) => x.text)).toContain('Mới với Tên dòng')
+    const s = importLineSummary(makeLine(1, { supplierSlug: 'x', materialSupplierSlugs: [] }), ctx)
+    expect(s.line3.map((x) => x.text)).toContain('Mới với bên bán')
+  })
+  it('no label when the line carries no supplier or the material already has it', () => {
+    const none = importLineSummary(makeLine(1, { materialSupplierSlugs: [] }), withNames)
+    expect(none.line3.map((x) => x.text).join()).not.toContain('Mới với')
+    const has = importLineSummary(
+      makeLine(1, { supplierSlug: 'mp', materialSupplierSlugs: ['mp'] }),
+      withNames,
+    )
+    expect(has.line3.map((x) => x.text).join()).not.toContain('Mới với')
+  })
+  it('server lines (no materialSupplierSlugs) do not show it', () => {
+    const s = importLineSummary(makeLine(1, { supplierSlug: 'mp' }), withNames)
+    expect(s.line3.map((x) => x.text).join()).not.toContain('Mới với')
+  })
+})

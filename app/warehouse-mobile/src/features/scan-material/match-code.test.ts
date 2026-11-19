@@ -40,3 +40,23 @@ describe('matchCode với dòng phiếu', () => {
     expect(matchCode('VT-Z', lines)).toEqual({ kind: 'none', text: 'VT-Z' })
   })
 })
+
+describe('matchCode với nhãn <MÃ>*<SERIAL>', () => {
+  it('so bằng phần Mã, giữ none.text là chuỗi gốc đã trim', () => {
+    expect(matchCode(' vt-xm-040*S1 ', [SON, XM])).toEqual({ kind: 'found', item: XM })
+    expect(matchCode(' VT-ZZ*S1 ', [SON, XM])).toEqual({ kind: 'none', text: 'VT-ZZ*S1' })
+  })
+})
+
+describe('matchCode: nguyên chuỗi khớp trước, rồi mới tới phần Mã của nhãn', () => {
+  const STAR = item({ slug: 'i-star', materialCode: 'VT*01', materialSlug: 'star' })
+  const VT = item({ slug: 'i-vt', materialCode: 'VT', materialSlug: 'vt' })
+
+  it('mã vật tư có * khớp nguyên chuỗi (trim, không phân biệt hoa thường)', () => {
+    expect(matchCode(' vt*01 ', [VT, STAR])).toEqual({ kind: 'found', item: STAR })
+  })
+
+  it('nguyên chuỗi không khớp → so phần Mã', () => {
+    expect(matchCode('VT*02', [VT, STAR])).toEqual({ kind: 'found', item: VT })
+  })
+})

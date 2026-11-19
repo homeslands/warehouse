@@ -24,8 +24,14 @@ const mockPush = jest.fn()
 const mockNavigate = jest.fn()
 /** Options mà màn khai cho header native qua `<Stack.Screen options>` (lần render gần nhất). */
 const mockHeader: { options: NativeStackNavigationOptions } = { options: {} }
+const mockSetParams = jest.fn()
+const mockNavigation = { setParams: mockSetParams }
+/** Param của route (`preset` từ tab Tổng quan). */
+const mockParams: { current: Record<string, string | undefined> } = { current: {} }
 jest.mock('expo-router', () => ({
   useRouter: () => ({ push: mockPush, navigate: mockNavigate }),
+  useNavigation: () => mockNavigation,
+  useLocalSearchParams: () => mockParams.current,
   Stack: {
     Screen: ({ options }: { options: NativeStackNavigationOptions }) => {
       mockHeader.options = options
@@ -212,6 +218,7 @@ beforeEach(() => {
   mockEmptyTitles.length = 0
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
   useStockFilter.getState().reset()
+  mockParams.current = {}
   useWarehouseStore.setState({ current: WH_A, resolved: true, resolution: 'selected' })
 })
 
@@ -222,53 +229,88 @@ afterEach(() => {
 })
 
 describe('StockListScreen — danh sách', () => {
-  it('5 vật tư của mockup: dòng phụ "mã · loại · giữ n", số tồn + đơn vị, viên nhãn mức tồn', async () => {
+  it('5 vật tư của mockup: [tên | "168 bao"] / [mã · loại | giữ n], không viên nhãn', async () => {
     route('get', '/warehouses/wh-a/materials', () => page(MOCKUP))
     await show()
     for (const name of NAMES) expect(screen.getByText(name)).toBeOnTheScreen()
 
     const xm = within(row(/^Xi măng Hà Tiên PCB40/))
-    expect(xm.getByText('VT-XM-040 · Xi măng · giữ 30')).toBeOnTheScreen()
-    expect(xm.getByText('168')).toBeOnTheScreen()
-    expect(xm.getByText('bao')).toBeOnTheScreen()
-    expect(xm.getByText('Thiếu')).toBeOnTheScreen()
-    expect(within(row(/^Sơn Dulux/)).getByText('Hết')).toBeOnTheScreen()
-    expect(within(row(/^Bu lông/)).getByText('Vượt')).toBeOnTheScreen()
+    expect(xm.getByText('VT-XM-040 · Xi măng')).toBeOnTheScreen()
+    // Số tồn + đơn vị cùng một hàng ("168 bao"), đơn vị nhỏ xám.
+    expect(xm.getByTestId('stock-row-quantity')).toHaveTextContent('168 bao')
+    expect(xm.getByTestId('stock-row-unit')).toHaveStyle({
+      fontSize: 14,
+      color: lightColors.mutedForeground,
+    })
+    // Mức tồn đọc qua màu số tồn + nhãn a11y, không còn viên "Hết / Thiếu / Vượt".
+    for (const r of screen.getAllByTestId('stock-row'))
+      expect(within(r).queryByText(/^(Hết|Thiếu|Vượt)$/)).toBeNull()
     const tt = within(row(/^Thép tấm/))
-    expect(tt.getByText('VT-TT-003 · Thép · giữ 8')).toBeOnTheScreen()
+    expect(tt.getByText('VT-TT-003 · Thép')).toBeOnTheScreen()
+    expect(tt.getByText('giữ 8')).toBeOnTheScreen()
     const qh = within(row(/^Que hàn/))
     expect(qh.getByText('VT-QH-032 · Vật tư hàn')).toBeOnTheScreen()
-    // Số lẻ theo locale vi; dòng bình thường không có viên nhãn.
-    expect(qh.getByText('126,5')).toBeOnTheScreen()
-    expect(qh.queryByText(/^(Hết|Thiếu|Vượt)$/)).toBeNull()
+    // Số lẻ theo locale vi.
+    expect(qh.getByTestId('stock-row-quantity')).toHaveTextContent('126,5 kg')
     // Nhãn đọc màn hình ghi đủ chữ mức tồn.
     expect(row(/^Xi măng Hà Tiên PCB40/).props.accessibilityLabel).toContain('Dưới tối thiểu')
   })
 
-  it('mã vật tư trên dòng phụ dùng font code (đơn cách hệ thống)', async () => {
+  it('dòng phụ (cả mã vật tư) dùng font hệ thống — không đơn cách trên dòng danh sách', async () => {
     route('get', '/warehouses/wh-a/materials', () => page(MOCKUP))
     await show()
-    expect(within(row(/^Xi măng Hà Tiên PCB40/)).getByText('VT-XM-040')).toHaveStyle({
+    expect(within(row(/^Xi măng Hà Tiên PCB40/)).getByText('VT-XM-040 · Xi măng')).not.toHaveStyle({
       fontFamily: 'ui-monospace',
     })
   })
 
-  it('chữ đỏ "Hết" (viên nhãn + tổng quan) dùng destructiveText — đủ tương phản AA trên nền nhạt', async () => {
+  it('khuôn dòng phiếu: ô "hộp" trung tính; số tồn ĐEN; mức tồn chữ nghiêng màu ở hàng 2 (điểm màu duy nhất)', async () => {
     route('get', '/warehouses/wh-a/materials', () => page(MOCKUP))
     await show()
-    expect(within(row(/^Sơn Dulux/)).getByText('Hết')).toHaveStyle({
-      color: lightColors.destructiveText,
+    const r = (name: RegExp) => within(row(name))
+    expect(r(/^Sơn Dulux/).getByTestId('stock-tile')).toHaveStyle({
+      backgroundColor: lightColors.fill,
     })
-    expect(within(screen.getByTestId('stock-overview')).getByText('1 hết')).toHaveStyle({
+    for (const name of [/^Sơn Dulux/, /^Xi măng Hà Tiên PCB40/, /^Bu lông/, /^Que hàn/])
+      expect(r(name).getByTestId('stock-row-quantity')).toHaveStyle({
+        color: lightColors.foreground,
+      })
+    const lvl = (name: RegExp) => r(name).queryByTestId('stock-row-level')
+    expect(lvl(/^Sơn Dulux/)).toHaveTextContent('Hết hàng')
+    expect(lvl(/^Sơn Dulux/)).toHaveStyle({
       color: lightColors.destructiveText,
+      fontStyle: 'italic',
     })
+    expect(lvl(/^Xi măng Hà Tiên PCB40/)).toHaveTextContent('Thiếu 32')
+    expect(lvl(/^Xi măng Hà Tiên PCB40/)).toHaveStyle({ color: lightColors.statusWarning })
+    expect(lvl(/^Bu lông/)).toHaveTextContent('Dư 36')
+    expect(lvl(/^Bu lông/)).toHaveStyle({ color: lightColors.statusAccent })
+    expect(lvl(/^Que hàn/)).toBeNull()
+    expect(row(/^Sơn Dulux/).props.accessibilityLabel).toContain('Hết hàng')
+    expect(row(/^Bu lông/).props.accessibilityLabel).toContain('Vượt tối đa')
   })
 
-  it('hai nhóm: "Cần chú ý · 3" (hết → dưới min → vượt max) rồi "Bình thường · 2" (theo tên)', async () => {
+  it('hàng 3: ngưỡng bằng chữ "Tối thiểu · Tối đa" cho MỌI dòng (không thước) + "giữ n" bên phải', async () => {
+    route('get', '/warehouses/wh-a/materials', () => page(MOCKUP))
+    await show()
+    const xm = within(row(/^Xi măng Hà Tiên PCB40/))
+    expect(xm.getByTestId('stock-row-range')).toHaveTextContent('Tối thiểu 200 · Tối đa 800')
+    expect(xm.getByText('giữ 30')).toBeOnTheScreen()
+    expect(within(row(/^Que hàn/)).getByTestId('stock-row-range')).toHaveTextContent(
+      'Tối thiểu 20 · Tối đa 300',
+    )
+    expect(screen.queryByTestId('stock-level-scale', { includeHiddenElements: true })).toBeNull()
+    expect(row(/^Xi măng Hà Tiên PCB40/).props.accessibilityLabel).toContain('Thiếu 32')
+  })
+
+  it('hai nhóm: "Cần chú ý" (1 hết · 1 thiếu · 1 vượt; hết → dưới min → vượt max) rồi "Bình thường" · 2 (theo tên)', async () => {
     route('get', '/warehouses/wh-a/materials', () => page(MOCKUP))
     await show()
     const headers = screen.getAllByRole('header').map((h) => h.props.children)
-    expect(headers).toEqual(['Cần chú ý · 3', 'Bình thường · 2'])
+    expect(headers).toEqual(['Cần chú ý', 'Bình thường'])
+    // Dòng phụ: "Cần chú ý" nói rõ từng mức; "Bình thường" đếm số vật tư.
+    expect(screen.getByText('1 hết · 1 thiếu · 1 vượt')).toBeOnTheScreen()
+    expect(screen.getByText('2 vật tư')).toBeOnTheScreen()
     const order = screen
       .getAllByTestId('stock-row')
       .map((r) => (r.props.accessibilityLabel as string).split(',')[0])
@@ -281,16 +323,19 @@ describe('StockListScreen — danh sách', () => {
     ])
   })
 
-  it('thanh tổng quan đếm cả kho: "5 vật tư" + "1 hết · 1 dưới · 1 vượt"; tìm kiếm không đổi số, chỉ đổi số nhóm', async () => {
+  it('chip mức tồn đếm cả kho: Tất cả 5 · Thiếu 2 (hết + dưới) · Vượt 1; tìm kiếm không đổi số', async () => {
     route('get', '/warehouses/wh-a/materials', () => page(MOCKUP))
     await show()
-    const overview = within(screen.getByTestId('stock-overview'))
-    expect(overview.getByText('5 vật tư')).toBeOnTheScreen()
-    expect(overview.getByText('1 hết · 1 dưới · 1 vượt')).toBeOnTheScreen()
+    const chip = (id: string) => screen.getByTestId(`stock-chip-${id}`)
+    expect(chip('all').props.accessibilityLabel).toBe('Tất cả, 5')
+    expect(chip('low').props.accessibilityLabel).toBe('Thiếu, 2')
+    expect(chip('high').props.accessibilityLabel).toBe('Vượt, 1')
+    expect(chip('all').props.accessibilityState).toMatchObject({ selected: true })
 
     await typeSearch('xi mang')
-    expect(within(screen.getByTestId('stock-overview')).getByText('5 vật tư')).toBeOnTheScreen()
-    expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual(['Cần chú ý · 1'])
+    expect(chip('all').props.accessibilityLabel).toBe('Tất cả, 5')
+    expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual(['Cần chú ý'])
+    expect(screen.getByText('1 thiếu')).toBeOnTheScreen()
   })
 
   it('kho không có vật tư cần chú ý → chỉ nhóm "Bình thường", tổng quan ghi "Không có cảnh báo"', async () => {
@@ -298,10 +343,28 @@ describe('StockListScreen — danh sách', () => {
       page(MOCKUP.filter((i) => !i.isBelowMinimum && !i.isAboveMaximum && i.quantity > 0)),
     )
     await show()
-    expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual(['Bình thường · 2'])
+    expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual(['Bình thường'])
+    // Không có cảnh báo → chỉ chip "Tất cả" + chữ "Không có cảnh báo".
+    expect(screen.getByText('Không có cảnh báo')).toBeOnTheScreen()
+    expect(screen.queryByTestId('stock-chip-low')).toBeNull()
+    expect(screen.queryByTestId('stock-chip-high')).toBeNull()
+  })
+
+  it('chạm chip "Thiếu" → lọc hết + dưới tối thiểu (store level=low); "Tất cả" → bỏ lọc', async () => {
+    route('get', '/warehouses/wh-a/materials', () => page(MOCKUP))
+    await show()
+    await act(async () => fireEvent.press(screen.getByTestId('stock-chip-low')))
+    expect(useStockFilter.getState().level).toBe('low')
     expect(
-      within(screen.getByTestId('stock-overview')).getByText('Không có cảnh báo'),
-    ).toBeOnTheScreen()
+      screen
+        .getAllByTestId('stock-row')
+        .map((r) => (r.props.accessibilityLabel as string).split(',')[0]),
+    ).toEqual(['Sơn Dulux chống thấm 18L', 'Xi măng Hà Tiên PCB40'])
+    expect(screen.getByTestId('stock-chip-low').props.accessibilityState).toMatchObject({
+      selected: true,
+    })
+    await act(async () => fireEvent.press(screen.getByTestId('stock-chip-all')))
+    expect(useStockFilter.getState().level).toBeUndefined()
   })
 
   it('chạm dòng → push chi tiết với đúng materialSlug', async () => {
@@ -669,3 +732,44 @@ describe.each(['ios', 'android'] as const)(
     })
   },
 )
+
+describe('StockListScreen — preset từ tab Tổng quan', () => {
+  beforeEach(() => route('get', '/warehouses/wh-a/materials', () => page(MOCKUP)))
+
+  it('preset=high trên bộ lọc bẩn → sạch tìm kiếm + loại, mức "Vượt tối đa", xoá param', async () => {
+    useStockFilter.setState({ query: 'x', typeSlug: 't' })
+    mockParams.current = { preset: 'high' }
+    await show()
+    expect(useStockFilter.getState()).toMatchObject({
+      query: '',
+      typeSlug: undefined,
+      level: 'high',
+    })
+    expect(mockSetParams).toHaveBeenCalledWith({ preset: undefined })
+  })
+
+  it('preset=low → mức "Dưới tối thiểu"', async () => {
+    mockParams.current = { preset: 'low' }
+    await show()
+    expect(useStockFilter.getState().level).toBe('low')
+  })
+
+  it('preset=all → mọi bộ lọc về mặc định', async () => {
+    useStockFilter.setState({ query: 'x', typeSlug: 't', level: 'low' })
+    mockParams.current = { preset: 'all' }
+    await show()
+    expect(useStockFilter.getState()).toMatchObject({
+      query: '',
+      typeSlug: undefined,
+      level: undefined,
+    })
+  })
+
+  it('preset lạ → bộ lọc giữ nguyên, vẫn xoá param', async () => {
+    useStockFilter.setState({ query: 'x', level: 'low' })
+    mockParams.current = { preset: 'zzz' }
+    await show()
+    expect(useStockFilter.getState()).toMatchObject({ query: 'x', level: 'low' })
+    expect(mockSetParams).toHaveBeenCalledWith({ preset: undefined })
+  })
+})

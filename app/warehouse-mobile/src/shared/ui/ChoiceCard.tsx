@@ -36,7 +36,8 @@ const TILE = 32
 
 /**
  * Thẻ chọn một-trong-nhiều trong sheet (kiểu iOS 26/27): bo 20, ô đầu thẻ, tiêu đề + dòng phụ, vòng
- * chọn bên phải. Chưa chọn: không nền (trên nền kính của sheet). Đang chọn: nền thẻ + viền 2pt primary, ô đầu thẻ đặc, radio đặc có dấu tích. Viền
+ * chọn bên phải. Chưa chọn VÀ đang chọn đều KHÔNG nền (nằm thẳng trên nền kính của sheet — mọi sheet nhiều
+ * lựa chọn giống sheet đổi kho, chốt 2026-11-19); đang chọn: viền 2pt primary, ô đầu thẻ đặc, radio đặc có dấu tích. Viền
  * 2pt luôn có (trong suốt khi chưa chọn) nên chọn/bỏ chọn không làm xê dịch.
  *
  * Chuyển động (~220ms, ease-out): màu nội suy theo `progress`; dấu tích nảy 0.6 → 1.08 → 1 CHỈ khi
@@ -80,11 +81,8 @@ export function ChoiceCard({
 
   const { card, cellPressed, primary, border, radioRing } = colors
   const cardStyle = useAnimatedStyle(() => ({
-    backgroundColor: interpolateColor(
-      progress.value,
-      [0, 1],
-      [interpolateColor(pressed.value, [0, 1], [TRANSPARENT, cellPressed]), card],
-    ),
+    // Không nền ở cả hai trạng thái; chỉ đang nhấn mới hiện `cellPressed`.
+    backgroundColor: interpolateColor(pressed.value, [0, 1], [TRANSPARENT, cellPressed]),
     borderColor: interpolateColor(progress.value, [0, 1], ['transparent', primary]),
     transform: [{ scale: reduced ? 1 : 1 - 0.02 * pressed.value }],
   }))

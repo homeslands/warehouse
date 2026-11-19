@@ -1,12 +1,17 @@
 import { useLocalSearchParams } from 'expo-router'
-import { useEffect, useMemo, useRef, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { View, type ScrollViewInstance, type TextInputInstance } from 'react-native'
+import { Pressable, View, type ScrollViewInstance, type TextInputInstance } from 'react-native'
 
 import { formatLotLabel } from '@/entities/export-form'
-import { useInventory, useMaterialBatches, type MaterialBatch } from '@/entities/inventory'
+import { useMaterialBatches, type MaterialBatch } from '@/entities/inventory'
 import { useWarehouseStore } from '@/entities/warehouse'
-import { useExportDraft, type ExportLine } from '@/features/export-draft'
+import {
+  exportHasPrice,
+  lineSerials,
+  useExportDraft,
+  type ExportLine,
+} from '@/features/export-draft'
 import { formatMoney, formatQuantity, type FormatLocale } from '@/shared/lib/format'
 import { haptics } from '@/shared/lib/haptics'
 import { useRevealInput } from '@/shared/lib/keyboard'
@@ -14,35 +19,18 @@ import { lineAmount } from '@/shared/lib/line-amount'
 import { formatMoneyInput } from '@/shared/lib/money-input'
 import { confirmAction } from '@/shared/lib/native-confirm'
 import { round6 } from '@/shared/lib/round'
-import { baseOfUnits, unitConversionNote, unitOptionHint } from '@/shared/lib/unit-conversion'
 import { useCloseSheet } from '@/shared/lib/useCloseSheet'
 import { useDiscardGuard } from '@/shared/lib/useDiscardGuard'
 import { useTheme } from '@/shared/theme/useTheme'
-import { ChoiceCard, SheetScaffold, Text } from '@/shared/ui'
-import {
-  ActionRow,
-  FormGroup,
-  FormInfoRow,
-  KeyboardDoneBar,
-  MoneyField,
-  QuantityStepper,
-  UnitChip,
-} from '@/shared/ui/compose'
+import { SheetScaffold, Text } from '@/shared/ui'
+import { ActionRow, FormGroup, FormInfoRow, KeyboardDoneBar, MoneyField } from '@/shared/ui/compose'
 
 import { BatchPicker } from './BatchPicker'
-import {
-  NOTE_MAX_LENGTH,
-  priceToText,
-  quantityToText,
-  readPrice,
-  readQuantity,
-  unitsOf,
-} from './line-fields'
+import { NOTE_MAX_LENGTH, priceToText, readPrice } from './line-fields'
 
 /** Khoảng chừa phía trên khối được cuộn tới (`?focus=`). */
 const FOCUS_TOP_GAP = 12
 /** `nativeID` thanh "Xong" trên bàn phím số iOS của sheet (khác thanh của bước 2 nằm bên dưới). */
-const QTY_BAR = 'export-line-sheet-qty'
 const PRICE_BAR = 'export-line-sheet-price'
 /**
  * Ô đơn giá ngăn nghìn khi gõ nhưng KHÔNG cắt số lẻ thừa: ✓ báo "tối đa 2 chữ số thập phân" thay vì âm
@@ -51,7 +39,7 @@ const PRICE_BAR = 'export-line-sheet-price'
 const PRICE_TYPING_DECIMALS = Number.POSITIVE_INFINITY
 
 /**
- * Route `/export-line?key=&focus=lot|note|quantity` — sheet SỬA một dòng của phiếu xuất đang lập (spec wizard-apple
+ * Route `/export-line?key=&focus=lot|note` — sheet SỬA một dòng của phiếu xuất đang lập (spec wizard-apple
  * §7, mockup `apple-rows-v3` A màn 2); dòng lấy từ bản nháp theo param `key`. Đóng đúng MỘT lần: ghi xong
  * đổi khoá dòng (đổi lô / đơn vị) hay xoá dòng làm `line` biến mất ngay, khi đó hiệu ứng "dòng không còn"
  * không được `back()` thêm một màn nữa.
@@ -60,7 +48,13 @@ export function ExportLineSheetScreen() {
   const { key, focus } = useLocalSearchParams<{ key?: string; focus?: string }>()
   const closeSheet = useCloseSheet()
   const draft = useExportDraft((s) => s.draft)
-  const line = draft?.lines.find((l) => l.key === key)
+  const draftWarehouse = useExportDraft((s) => s.ctx?.warehouseSlug)
+  const warehouseSlug = useWarehouseStore((s) => s.current?.slug)
+  // Bản nháp của kho khác kho đang chọn (đổi kho trong lúc mở) → coi như không còn dòng.
+  const line =
+    draftWarehouse && draftWarehouse === warehouseSlug
+      ? draft?.lines.find((l) => l.key === key)
+      : undefined
 
   const closed = useRef(false)
   const close = () => {
@@ -69,7 +63,7 @@ export function ExportLineSheetScreen() {
     closeSheet()
   }
 
-  // Không còn dòng (bản nháp biến mất sau khi phiên đổi, key lạ) → không có gì để sửa.
+  // Không còn dòng (bản nháp biến mất sau khi phiên đổi, key lạ, khác kho) → không có gì để sửa.
   const missing = !line
   useEffect(() => {
     if (missing) close()
@@ -83,15 +77,15 @@ export function ExportLineSheetScreen() {
       key={line.key}
       line={line}
       close={close}
-      focus={focus === 'lot' || focus === 'note' || focus === 'quantity' ? focus : null}
+      focus={focus === 'lot' || focus === 'note' ? focus : null}
     />
   )
 }
 
 type Lot = { slug: string | null; expiry: string | null; entry: string | null }
 
-/** Chữ khác lúc mở mà không phải cùng giá trị (vd gõ "12" rồi trả về "10") → đã sửa. */
-const changedNumber = (
+/** Chữ ô đơn giá khác lúc mở mà không phải cùng giá trị (vd gõ "12" rồi trả về "10") → đã sửa. */
+const changedPrice = (
   read: { value: number | null } | { error: string },
   text: string,
   openedText: string,
@@ -103,11 +97,15 @@ const changedNumber = (
   return v === null || openedValue === null ? v !== openedValue : round6(v) !== round6(openedValue)
 }
 
+const sameList = (a: string[], b: string[]) =>
+  a.length === b.length && a.every((x, i) => x === b[i])
+
 /**
- * Thân sheet: thẻ "Số lượng" [nhãn + chip "<đv> ▾"][stepper to]; khối [Đơn giá `MoneyField`][Thành tiền theo
+ * Thân sheet: thẻ "Số lượng" [số chỉ đọc + "Bớt 1"] + danh sách serial của dòng (✕ bỏ đúng serial, −1; phần
+ * chưa có serial hiện "k chưa có serial"; spec export-scan-only §7); khối [Đơn giá `MoneyField`][Thành tiền theo
  * chữ đang gõ]; khối [Lô → bung `BatchPicker`][Ghi chú][Xoá khỏi phiếu]. Mọi ô là state CỤC BỘ (gõ không
  * ghi gì); ✓ chỉ chặn chữ SAI rồi ghi MỘT lần `updateLine` (số trống = 0, giá trống = `null`) và đóng; đổi
- * đơn vị / lô trùng dòng khác → lỗi tại ô, không đóng. Đã sửa mà rời (✕, vuốt xuống, back Android) → hỏi
+ * lô trùng dòng khác → lỗi tại ô, không đóng. Đã sửa mà rời (✕, vuốt xuống, back Android) → hỏi
  * "Bỏ thay đổi?" (`useDiscardGuard`). Đang `saving` → chỉ đọc.
  */
 function LineSheet({
@@ -117,56 +115,30 @@ function LineSheet({
 }: {
   line: ExportLine
   close: () => void
-  /** `quantity` = dòng vừa thêm / vừa quét (bước 2 tự mở sheet): focus ô số, không cuộn. */
-  focus: 'lot' | 'note' | 'quantity' | null
+  focus: 'lot' | 'note' | null
 }) {
   const { t, i18n } = useTranslation(['exportForms', 'common'])
   const { colors } = useTheme()
   const locale: FormatLocale = i18n.language === 'en' ? 'en' : 'vi'
-  const decimalSep = locale === 'vi' ? ',' : '.'
   const warehouseSlug = useWarehouseStore((s) => s.current?.slug)
   // Đang Lưu / Gửi duyệt: kết quả sẽ thay bản nháp → sheet chỉ đọc, không ghi gì (store cũng chặn).
   const saving = useExportDraft((s) => s.saving)
+  // Chỉ phiếu Bán có đơn giá (như web): loại khác ẩn khối giá, giữ nguyên giá cũ của dòng khi lưu.
+  const priced = exportHasPrice(useExportDraft((s) => s.draft?.header.type))
   const reveal = useRevealInput()
 
-  const inventory = useInventory(warehouseSlug)
-  const stock = inventory.data?.find((i) => i.materialSlug === line.materialSlug)
-  // Chưa có tồn (đang tải / lỗi): chỉ còn đơn vị hiện tại, không đổi đơn vị được.
-  const units = useMemo(() => {
-    const all = stock ? unitsOf(stock) : []
-    return all.some((u) => u.unitSlug === line.unitSlug)
-      ? all
-      : [
-          {
-            unitSlug: line.unitSlug,
-            unitCode: line.unitName,
-            unitName: line.unitName,
-            conversionRate: line.conversionRate,
-            isBaseUnit: line.conversionRate === 1,
-          },
-          ...all,
-        ]
-  }, [stock, line.unitSlug, line.unitName, line.conversionRate])
-  const chipUnits = useMemo(() => {
-    const base = baseOfUnits(units)
-    return units.map((u) => ({
-      slug: u.unitSlug,
-      name: u.unitName,
-      hint: unitOptionHint(u, base, locale),
-    }))
-  }, [units, locale])
   // Cùng query với `BatchPicker` (cache chung): ngày nhập cho nhãn lô của dòng khi chưa bung danh sách.
   const batches = useMaterialBatches(warehouseSlug, line.materialSlug)
 
   // Dòng lúc mở sheet: so để biết đã sửa chưa.
   const [opened] = useState(() => ({
     line,
-    qtyText: quantityToText(line.quantity, decimalSep),
+    serials: lineSerials(line),
     priceText: priceToText(line.unitPrice, locale),
   }))
-  const [qtyText, setQtyText] = useState(opened.qtyText)
+  const [qty, setQty] = useState(line.quantity)
+  const [serials, setSerials] = useState(opened.serials)
   const [priceText, setPriceText] = useState(opened.priceText)
-  const [unitSlug, setUnitSlug] = useState(line.unitSlug)
   const [lot, setLot] = useState<Lot>({
     slug: line.batchSlug,
     expiry: line.batchExpiryDate,
@@ -174,41 +146,32 @@ function LineSheet({
   })
   const [note, setNote] = useState(line.note ?? '')
   const [submitted, setSubmitted] = useState(false)
-  const [duplicate, setDuplicate] = useState<'unit' | 'lot' | null>(null)
+  const [duplicate, setDuplicate] = useState<'lot' | null>(null)
   const [lotOpen, setLotOpen] = useState(focus === 'lot')
-  // Android hơn 3 đơn vị: Alert của chip không đủ nút → bung danh sách đơn vị ngay trong sheet.
-  const [unitListOpen, setUnitListOpen] = useState(false)
   // ✓ ghi xong / xoá dòng: sheet đang rời — không hỏi "Bỏ thay đổi?".
   const [leaving, setLeaving] = useState(false)
 
-  const qty = readQuantity(qtyText)
   const price = readPrice(priceText, locale)
-  const qtyValue = 'value' in qty ? qty.value : 0
   const noteValue = note.trim() === '' ? null : note
   const dirty =
     !leaving &&
-    (changedNumber(qty, qtyText, opened.qtyText, opened.line.quantity) ||
-      changedNumber(price, priceText, opened.priceText, opened.line.unitPrice) ||
-      unitSlug !== opened.line.unitSlug ||
+    (round6(qty) !== round6(opened.line.quantity) ||
+      !sameList(serials, opened.serials) ||
+      changedPrice(price, priceText, opened.priceText, opened.line.unitPrice) ||
       lot.slug !== opened.line.batchSlug ||
       noteValue !== (opened.line.note?.trim() ? opened.line.note : null))
   // Chỉ đọc (đang lưu): không chặn rời — như sheet phiếu nhập.
   const { confirmLeave } = useDiscardGuard({ dirty, enabled: !saving })
 
-  const unit = units.find((u) => u.unitSlug === unitSlug)
-  const unitName = unit?.unitName ?? line.unitName
-  const conversionNote = unitConversionNote({
-    units,
-    unitSlug,
-    quantity: qtyValue,
-    locale,
-    t: (k, o) => t(k, o),
-  })
-  const qtyError = submitted && 'error' in qty ? t(`exportForms:line.${qty.error}`) : null
+  const unitName = line.unitName
+  // Bớt / bỏ serial chỉ khi còn > 0 sau khi trừ 1 (về 0 → "Xoá khỏi phiếu").
+  const canDec = !saving && round6(qty - 1) > 0
+  // Phần số lượng chưa có serial (dòng cũ / nhãn chỉ Mã), theo đơn vị gốc.
+  const unscanned = Math.max(0, Math.floor(round6(qty * line.conversionRate)) - serials.length)
   const priceError = submitted && 'error' in price ? t(`exportForms:line.${price.error}`) : null
   const amount =
-    qtyValue > 0 && 'value' in price && price.value !== null
-      ? formatMoney(lineAmount(qtyValue, price.value), locale)
+    qty > 0 && 'value' in price && price.value !== null
+      ? formatMoney(lineAmount(qty, price.value), locale)
       : '—'
   const lotLabel =
     lot.slug === null
@@ -225,7 +188,6 @@ function LineSheet({
   // `?focus=`: cuộn tới khối Lô / ô ghi chú (một lần; vị trí = khối + ô trong khối, đo bằng onLayout).
   const scrollRef = useRef<ScrollViewInstance>(null)
   const noteInput = useRef<TextInputInstance | null>(null)
-  const qtyInput = useRef<TextInputInstance | null>(null)
   const priceInput = useRef<TextInputInstance | null>(null)
   const layout = useRef<{ details?: number; note?: number }>({})
   const scrolled = useRef(false)
@@ -241,25 +203,23 @@ function LineSheet({
   useEffect(() => {
     if (focus === 'note') noteInput.current?.focus()
     // Đang lưu: chỉ đọc — không bật bàn phím.
-    else if (focus === 'quantity' && !saving) qtyInput.current?.focus()
     // Chỉ khi mở sheet.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
 
-  const step = (delta: 1 | -1) => {
-    if (saving) return
-    setQtyText((prev) => {
-      const r = readQuantity(prev)
-      const base = 'value' in r ? r.value : 0
-      return quantityToText(round6(Math.max(0, base + delta)), decimalSep)
-    })
-  }
-  const pickUnit = (slug: string) => {
-    setUnitListOpen(false)
-    if (saving || slug === unitSlug) return
+  /** "Bớt 1": bỏ serial CUỐI (nếu có) và `quantity − 1`. */
+  const dropLast = () => {
+    if (!canDec) return
     haptics.selection()
-    setUnitSlug(slug)
-    setDuplicate(null)
+    setQty((q) => round6(q - 1))
+    setSerials((prev) => prev.slice(0, -1))
+  }
+  /** ✕ cạnh serial: bỏ đúng serial đó và `quantity − 1`. */
+  const dropSerial = (serial: string) => {
+    if (!canDec) return
+    haptics.selection()
+    setQty((q) => round6(q - 1))
+    setSerials((prev) => prev.filter((x) => x !== serial))
   }
   const pickLot = (batch: MaterialBatch | null) => {
     if (saving) return
@@ -276,18 +236,16 @@ function LineSheet({
     const store = useExportDraft.getState()
     if (store.saving) return
     setSubmitted(true)
-    if ('error' in qty || 'error' in price || !unit) {
+    if (priced && 'error' in price) {
       haptics.error()
       return
     }
-    // Đổi đơn vị cũng là `updateLine` tại chỗ (giữ vị trí + `base`); đổi đơn vị / lô mà trùng dòng khác
-    // thì store từ chối và không ghi gì.
+    // `serials` truyền tường minh (đã bỏ đúng serial): đừng dựa vào cắt tự động của `updateLine`. Đổi lô mà
+    // trùng dòng khác thì store từ chối và không ghi gì.
     const result = store.updateLine(line.key, {
-      quantity: qty.value,
-      unitPrice: price.value,
-      unitSlug: unit.unitSlug,
-      unitName: unit.unitName,
-      conversionRate: unit.conversionRate,
+      quantity: qty,
+      serials,
+      unitPrice: priced && 'value' in price ? price.value : line.unitPrice,
       batchSlug: lot.slug,
       batchExpiryDate: lot.expiry,
       note: noteValue,
@@ -298,7 +256,7 @@ function LineSheet({
       close()
       return
     }
-    if (result.reason === 'duplicate') setDuplicate(lot.slug === line.batchSlug ? 'unit' : 'lot')
+    if (result.reason === 'duplicate') setDuplicate('lot')
     haptics.error()
   }
 
@@ -327,18 +285,6 @@ function LineSheet({
     }
     removeNow()
   }
-  /** "−" ở số ≤ 1 (spec §7: − về 0 → hỏi xoá dòng) — luôn hỏi, kể cả dòng mới thêm trên máy. */
-  const requestRemove = async () => {
-    if (useExportDraft.getState().saving) return
-    const ok = await confirmAction({
-      title: t('exportForms:wizard.removeTitle', { name: line.materialName }),
-      confirmLabel: t('common:compose.delete'),
-      cancelLabel: t('common:cancel'),
-      destructive: true,
-    })
-    if (ok) removeNow()
-  }
-
   const duplicateText = t('exportForms:line.duplicate')
 
   return (
@@ -354,103 +300,144 @@ function LineSheet({
       grouped
     >
       <View style={{ gap: 12 }}>
-        <FormGroup
-          title={t('common:compose.group.quantity')}
-          footer={conversionNote ?? undefined}
-          footerNumeric
-          errors={[qtyError, duplicate === 'unit' ? duplicateText : null]}
-        >
-          <FormInfoRow kind="custom" first label={t('exportForms:line.unit')}>
-            <UnitChip
-              variant="value"
-              title={line.materialName}
-              current={{ slug: unitSlug, name: unitName }}
-              units={chipUnits}
-              disabled={saving}
-              onPick={pickUnit}
-              onAndroidOverflow={() => setUnitListOpen(true)}
-            />
-          </FormInfoRow>
-          <FormInfoRow kind="custom" label={t('exportForms:line.quantity')}>
-            <QuantityStepper
-              variant="ios"
-              testID="export-line-sheet-qty"
-              inputRef={qtyInput}
-              text={qtyText}
-              onChangeText={(s) => {
-                if (!saving) setQtyText(s)
+        <FormGroup title={t('common:compose.group.quantity')}>
+          <FormInfoRow kind="custom" first label={t('exportForms:line.quantity')}>
+            <View
+              style={{
+                flex: 1,
+                flexDirection: 'row',
+                alignItems: 'center',
+                justifyContent: 'flex-end',
+                gap: 8,
               }}
-              onFocus={() => {
-                if (reveal && qtyInput.current) reveal(qtyInput.current)
-              }}
-              onStep={step}
-              onRequestRemove={() => void requestRemove()}
-              // Chữ không đọc được: "−" bắt đầu lại từ 0 như "+" — không hỏi xoá dòng.
-              value={'value' in qty ? qty.value : Number.POSITIVE_INFINITY}
-              missing={qtyValue <= 0 && !qtyError}
-              disabled={saving}
-              unitLabel={unitName}
-              accessibilityLabel={t('common:compose.qty.a11y', { name: line.materialName })}
-              inputAccessoryViewID={QTY_BAR}
-            />
-          </FormInfoRow>
-        </FormGroup>
-
-        {unitListOpen ? (
-          <View testID="export-line-units" style={{ gap: 8 }}>
-            <Text weight="semibold" size={12.5} style={{ marginLeft: 2, color: colors.fieldLabel }}>
-              {t('exportForms:line.unit')}
-            </Text>
-            {units.map((u) => (
-              <ChoiceCard
-                key={u.unitSlug}
-                title={u.unitName}
-                subtitle={
-                  u.isBaseUnit
-                    ? t('exportForms:addLine.baseUnit')
-                    : t('exportForms:addLine.rate', {
-                        unit: u.unitName,
-                        rate: formatQuantity(u.conversionRate, locale, 6),
-                        base: stock?.baseUnit?.name ?? '',
-                      })
-                }
-                selected={u.unitSlug === unitSlug}
-                onPress={() => pickUnit(u.unitSlug)}
-              />
-            ))}
-          </View>
-        ) : null}
-
-        <FormGroup title={t('common:compose.group.price')} errors={[priceError]}>
-          <FormInfoRow kind="custom" first label={t('exportForms:line.unitPrice')}>
-            <View style={{ flex: 1, minWidth: 0 }}>
-              <MoneyField
-                variant="plain"
-                testID="export-line-sheet-price"
-                inputRef={priceInput}
-                value={priceText}
-                onChangeText={(typed) => {
-                  if (!saving) setPriceText(formatMoneyInput(typed, locale, PRICE_TYPING_DECIMALS))
+            >
+              <Text numeric weight="semibold" size={22} testID="export-line-sheet-qty">
+                {formatQuantity(qty, locale, 6)}
+              </Text>
+              <Text size={15} style={{ color: colors.mutedForeground }}>
+                {unitName}
+              </Text>
+              <Pressable
+                testID="export-line-sheet-dec"
+                accessibilityRole="button"
+                accessibilityLabel={t('exportForms:line.dropOne')}
+                accessibilityState={{ disabled: !canDec }}
+                disabled={!canDec}
+                onPress={dropLast}
+                style={{
+                  minWidth: 44,
+                  minHeight: 44,
+                  paddingHorizontal: 8,
+                  alignItems: 'center',
+                  justifyContent: 'center',
                 }}
-                onFocus={() => {
-                  if (reveal && priceInput.current) reveal(priceInput.current)
-                }}
-                unitLabel={unitName}
-                state={priceText.trim() === '' ? 'missing' : 'normal'}
-                placeholder={t('common:compose.price.missing')}
-                accessibilityLabel={t('exportForms:line.unitPrice')}
-                inputAccessoryViewID={PRICE_BAR}
-                editable={!saving}
-              />
+              >
+                <Text
+                  weight="semibold"
+                  size={15}
+                  style={{ color: canDec ? colors.accent : colors.mutedForeground }}
+                >
+                  {t('exportForms:line.dropOne')}
+                </Text>
+              </Pressable>
             </View>
           </FormInfoRow>
-          <FormInfoRow
-            kind="readonly"
-            testID="export-line-sheet-amount"
-            label={t('exportForms:line.amount')}
-            value={amount}
-          />
         </FormGroup>
+
+        {serials.length > 0 || unscanned > 0 ? (
+          <FormGroup testID="export-line-serials" title={t('exportForms:line.serials')}>
+            {serials.map((serial, i) => (
+              <View
+                key={serial}
+                style={{
+                  minHeight: 44,
+                  flexDirection: 'row',
+                  alignItems: 'center',
+                  paddingLeft: 16,
+                  borderTopWidth: i === 0 ? 0 : 0.5,
+                  borderTopColor: colors.separator,
+                }}
+              >
+                <Text code size={15} style={{ flex: 1, minWidth: 0 }} numberOfLines={1}>
+                  {serial}
+                </Text>
+                <Pressable
+                  accessibilityRole="button"
+                  accessibilityLabel={t('exportForms:line.dropSerial', { serial })}
+                  accessibilityState={{ disabled: !canDec }}
+                  disabled={!canDec}
+                  onPress={() => dropSerial(serial)}
+                  style={{
+                    minWidth: 44,
+                    minHeight: 44,
+                    alignItems: 'center',
+                    justifyContent: 'center',
+                  }}
+                >
+                  <Text
+                    size={18}
+                    style={{ color: canDec ? colors.destructiveText : colors.mutedForeground }}
+                  >
+                    ✕
+                  </Text>
+                </Pressable>
+              </View>
+            ))}
+            {unscanned > 0 ? (
+              <View
+                style={{
+                  minHeight: 44,
+                  justifyContent: 'center',
+                  paddingHorizontal: 16,
+                  borderTopWidth: serials.length === 0 ? 0 : 0.5,
+                  borderTopColor: colors.separator,
+                }}
+              >
+                <Text
+                  testID="export-line-unscanned"
+                  size={14}
+                  style={{ color: colors.mutedForeground }}
+                >
+                  {t('exportForms:line.unscanned', { count: unscanned })}
+                </Text>
+              </View>
+            ) : null}
+          </FormGroup>
+        ) : null}
+
+        {priced ? (
+          <FormGroup title={t('common:compose.group.price')} errors={[priceError]}>
+            <FormInfoRow kind="custom" first label={t('exportForms:line.unitPrice')}>
+              <View style={{ flex: 1, minWidth: 0 }}>
+                <MoneyField
+                  variant="plain"
+                  testID="export-line-sheet-price"
+                  inputRef={priceInput}
+                  value={priceText}
+                  onChangeText={(typed) => {
+                    if (!saving)
+                      setPriceText(formatMoneyInput(typed, locale, PRICE_TYPING_DECIMALS))
+                  }}
+                  onFocus={() => {
+                    if (reveal && priceInput.current) reveal(priceInput.current)
+                  }}
+                  unitLabel={unitName}
+                  state={priceText.trim() === '' ? 'missing' : 'normal'}
+                  placeholder={t('common:compose.price.missing')}
+                  accessibilityLabel={t('exportForms:line.unitPrice')}
+                  inputAccessoryViewID={PRICE_BAR}
+                  editable={!saving}
+                />
+              </View>
+            </FormInfoRow>
+            <FormInfoRow
+              kind="readonly"
+              testID="export-line-sheet-amount"
+              label={t('exportForms:line.amount')}
+              value={amount}
+            />
+          </FormGroup>
+        ) : null}
 
         <FormGroup
           testID="export-line-details"
@@ -509,10 +496,6 @@ function LineSheet({
           />
         </FormGroup>
       </View>
-      <KeyboardDoneBar
-        nativeID={QTY_BAR}
-        label={t('exportForms:wizard.qtyBar', { unit: unitName })}
-      />
       <KeyboardDoneBar
         nativeID={PRICE_BAR}
         label={t('exportForms:wizard.priceBar', { unit: unitName })}

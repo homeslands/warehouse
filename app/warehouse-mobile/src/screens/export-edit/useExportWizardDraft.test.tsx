@@ -187,9 +187,9 @@ describe('useExportWizardDraft — phiếu đã có', () => {
       ...saved,
       header: { ...saved.header, type: 'DISPOSAL', receiver: 'Bếp C' },
     })
-    route('get', FORM_URL, () => ok(form2({ version: 4, type: 'SALE' })))
+    route('get', FORM_URL, () => ok(form2({ version: 4, type: 'TRANSFER' })))
     await mount('px-1')
-    expect(store().draft?.header).toMatchObject({ type: 'SALE', receiver: 'Bếp C' })
+    expect(store().draft?.header).toMatchObject({ type: 'TRANSFER', receiver: 'Bếp C' })
     expect(notice()!.message).toMatch(
       /Đầu phiếu cũng đã bị đổi ở nơi khác — đã lấy theo bản mới: Loại\.$/,
     )

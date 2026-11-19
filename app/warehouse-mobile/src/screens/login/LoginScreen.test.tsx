@@ -28,7 +28,7 @@ afterEach(() => jest.restoreAllMocks())
 describe('LoginScreen', () => {
   it('biểu tượng + tên app + câu mô tả; hai ô có nhãn; chân màn có SANDBOX và phiên bản', async () => {
     await render(<LoginScreen />)
-    expect(screen.getByRole('header', { name: 'Kho' })).toBeOnTheScreen()
+    expect(screen.getByRole('header', { name: 'Soko' })).toBeOnTheScreen()
     expect(screen.getByText('Nhập · xuất · tồn kho tại chỗ')).toBeOnTheScreen()
     expect(screen.getByLabelText('Số điện thoại')).toBeOnTheScreen()
     expect(screen.getByLabelText('Mật khẩu')).toBeOnTheScreen()

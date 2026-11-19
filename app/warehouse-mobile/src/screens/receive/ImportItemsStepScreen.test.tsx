@@ -1,5 +1,5 @@
 // fake-api PHẢI được import trước mọi module kéo `@/shared/api/http` vào (xem fake-api.ts).
-import { ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
+import { callsTo, failure, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native'
@@ -16,6 +16,8 @@ import {
   stopDraftPersistence,
   useReceiveDraft,
   type ReceiveDraft,
+  useScanNotice,
+  willAttachToSupplier,
 } from '@/features/receive-checklist'
 import {
   makeDraft,
@@ -33,7 +35,6 @@ import { wizardMenuItem, wizardMenuLabels } from '@/shared/ui/testing/wizard-hea
 import { lightColors } from '@/shared/theme/tokens'
 
 import { ImportItemsStepScreen } from './ImportItemsStepScreen'
-import { useScanNotice } from './scan-notice.store'
 
 type MockRoute = { key: string; name: string; params?: { formSlug: string } }
 const mockStack: { routes: MockRoute[] } = { routes: [] }
@@ -365,6 +366,267 @@ describe('ImportItemsStepScreen — phiếu đã có', () => {
     await act(async () => useScanNotice.getState().show('pn-1', '42'))
     await view.unmount()
     expect(useScanNotice.getState().notice).toBeNull()
+  })
+
+  describe('quét không ra → "Tạo vật tư <mã>"', () => {
+    const CREATOR = [
+      ...EDITOR,
+      'MATERIAL_READ',
+      'MATERIAL_CREATE',
+      'MATERIAL_UPDATE',
+      'WAREHOUSE_UPDATE',
+      'UNIT_READ',
+    ]
+    it('thiếu MATERIAL_READ (route /material-form bị khoá) → không nút Tạo', async () => {
+      signIn(CREATOR.filter((c) => c !== 'MATERIAL_READ'))
+      await show()
+      await act(async () =>
+        useScanNotice.getState().show('pn-1', 'SP01', 'notFound', { canCreate: true }),
+      )
+      expect(screen.queryByRole('button', { name: /Tạo vật tư/ })).toBeNull()
+    })
+
+    it('đủ quyền + mã hợp lệ → có nút, bấm → push /material-form { code, importForm }', async () => {
+      signIn(CREATOR)
+      await show()
+      await act(async () =>
+        useScanNotice.getState().show('pn-1', 'SP01', 'notFound', { canCreate: true }),
+      )
+      await fireEvent.press(screen.getByRole('button', { name: 'Tạo vật tư SP01' }))
+      expect(mockPush).toHaveBeenLastCalledWith({
+        pathname: '/material-form',
+        params: { code: 'SP01', importForm: 'pn-1' },
+      })
+    })
+    it('thiếu một quyền → không nút, câu cũ giữ nguyên', async () => {
+      signIn(CREATOR.filter((p) => p !== 'UNIT_READ'))
+      await show()
+      await act(async () =>
+        useScanNotice.getState().show('pn-1', 'SP01', 'notFound', { canCreate: true }),
+      )
+      expect(screen.getByText('Không tìm thấy vật tư có mã “SP01” trong kho')).toBeOnTheScreen()
+      expect(screen.queryByRole('button', { name: /Tạo vật tư/ })).toBeNull()
+    })
+    it('mã không hợp lệ (URL) → không nút', async () => {
+      signIn(CREATOR)
+      await show()
+      await act(async () =>
+        useScanNotice
+          .getState()
+          .show('pn-1', 'https://x.vn/p?id=1', 'notFound', { canCreate: true }),
+      )
+      expect(screen.getByTestId('import-screen-notice')).toBeOnTheScreen()
+      expect(screen.queryByRole('button', { name: /Tạo vật tư/ })).toBeNull()
+    })
+    it('tra danh mục lỗi / thiếu quyền đọc (canCreate = false) → không nút Tạo', async () => {
+      signIn(CREATOR)
+      await show()
+      await act(async () =>
+        useScanNotice.getState().show('pn-1', 'SP01', 'notFound', { canCreate: false }),
+      )
+      expect(screen.getByText('Không tìm thấy vật tư có mã “SP01” trong kho')).toBeOnTheScreen()
+      expect(screen.queryByRole('button', { name: /Tạo vật tư/ })).toBeNull()
+    })
+    it('lý do khác (full / noUnit / notOnForm) → không nút', async () => {
+      signIn(CREATOR)
+      await show()
+      for (const reason of ['full', 'noUnit', 'notOnForm'] as const) {
+        await act(async () => useScanNotice.getState().show('pn-1', 'SP01', reason))
+        expect(screen.queryByRole('button', { name: /Tạo vật tư/ })).toBeNull()
+      }
+    })
+  })
+
+  describe('quét ra vật tư của danh mục chưa ở kho → "Gắn vào kho và thêm vào phiếu"', () => {
+    const ASSIGNER = [...EDITOR, 'MATERIAL_UPDATE', 'WAREHOUSE_UPDATE']
+    const PUT = '/warehouses/wh-a/materials'
+    const CAT = {
+      slug: 'm9',
+      code: 'VT9',
+      name: 'Dây điện',
+      suppliers: [] as { slug: string; code: string; name: string }[],
+    }
+    const inv = {
+      slug: 'i9',
+      warehouseSlug: 'wh-a',
+      materialSlug: 'm9',
+      materialCode: 'VT9',
+      materialName: 'Dây điện',
+      baseUnit: { slug: 'kg', code: 'KG', name: 'kg' },
+      units: [
+        { unitSlug: 'kg', unitCode: 'KG', unitName: 'kg', conversionRate: 1, isBaseUnit: true },
+      ],
+    }
+    const notice = (suppliers = CAT.suppliers) =>
+      act(async () =>
+        useScanNotice
+          .getState()
+          .show('pn-1', 'VT9', 'notInWarehouse', { material: { ...CAT, suppliers } }),
+      )
+    beforeEach(() => route('get', FORM_URL, () => ok(form2())))
+
+    it('có quyền: câu + nút; bấm → xác nhận, 1 PUT { materialSlug }, dòng mới mang NCC phiếu, focus, xoá thông báo', async () => {
+      signIn([...ASSIGNER, 'SUPPLIER_READ'])
+      route('get', '/suppliers', () =>
+        ok({ items: [], total: 0, page: 1, pageSize: 20, totalPages: 1, hasNext: false }),
+      )
+      route('put', PUT, () => ok(inv))
+      await show()
+      await notice()
+      expect(screen.getByText('VT9 · Dây điện chưa có trong kho Kho Tổng.')).toBeOnTheScreen()
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(confirmAction).toHaveBeenCalledWith(
+        expect.objectContaining({ title: 'Gắn VT9 vào kho Kho Tổng?' }),
+      )
+      expect(callsTo('put', PUT)).toHaveLength(1)
+      expect(callsTo('put', PUT)[0]!.body).toBe('{"materialSlug":"m9"}')
+      const added = store().draft!.lines.at(-1)!
+      expect(store().draft!.lines).toHaveLength(3)
+      expect(added).toMatchObject({ materialSlug: 'm9', supplierSlug: 's1' })
+      // Màn đang focus → yêu cầu `useLineFocus` được tiêu thụ ngay: sheet của dòng mới tự mở.
+      expect(mockNavigate).toHaveBeenCalledWith(sheetOf(added.key, true))
+      expect(useScanNotice.getState().notice).toBeNull()
+    })
+
+    it('huỷ xác nhận → không PUT', async () => {
+      signIn(ASSIGNER)
+      jest.mocked(confirmAction).mockResolvedValue(false)
+      await show()
+      await notice()
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(callsTo('put', PUT)).toHaveLength(0)
+    })
+
+    it('lỗi 100802 → câu "từng được gỡ khỏi kho", không nút, không thêm dòng', async () => {
+      signIn(ASSIGNER)
+      route('put', PUT, () => failure(400, 100802))
+      await show()
+      await notice()
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(
+        screen.getByText(
+          'Vật tư từng được gỡ khỏi kho này nên chưa gắn lại được — liên hệ quản trị hệ thống.',
+        ),
+      ).toBeOnTheScreen()
+      expect(screen.queryByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' })).toBeNull()
+      expect(store().draft!.lines).toHaveLength(2)
+    })
+
+    it('lỗi khác → câu lỗi trong thông báo, giữ nút để thử lại', async () => {
+      signIn(ASSIGNER)
+      route('put', PUT, () => failure(500))
+      await show()
+      await notice()
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(screen.getByText(/chưa có trong kho Kho Tổng\./)).toBeOnTheScreen()
+      expect(
+        screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }),
+      ).toBeOnTheScreen()
+      expect(store().draft!.lines).toHaveLength(2)
+      route('put', PUT, () => ok(inv))
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(store().draft!.lines).toHaveLength(3)
+    })
+
+    it('phiếu đã đủ 200 dòng → không PUT, báo đủ dòng', async () => {
+      signIn(ASSIGNER)
+      await show()
+      await notice()
+      await act(async () => {
+        useReceiveDraft.setState((s) => ({
+          draft: {
+            ...s.draft!,
+            lines: Array.from({ length: 200 }, (_, i) => makeLine(i + 1)),
+          },
+        }))
+      })
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(callsTo('put', PUT)).toHaveLength(0)
+      expect(useScanNotice.getState().notice?.reason).toBe('full')
+    })
+
+    it('NCC của vật tư là NCC thật của danh mục: dòng ghim NCC phiếu, materialSupplierSlugs = NCC danh mục', async () => {
+      signIn([...ASSIGNER, 'SUPPLIER_READ'])
+      route('put', PUT, () => ok(inv))
+      await show()
+      await notice([{ slug: 's2', code: 'S2', name: 'NCC 2' }])
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      const added = store().draft!.lines.at(-1)!
+      expect(added.supplierSlug).toBe('s1')
+      expect(added.materialSupplierSlugs).toEqual(['s2'])
+      expect(willAttachToSupplier(added)).toBe(true)
+    })
+
+    it('không có NCC phiếu chắc chắn + vật tư có một NCC → dòng theo NCC đó (lineSupplier)', async () => {
+      signIn(ASSIGNER)
+      route('put', PUT, () => ok(inv))
+      await show()
+      await notice([{ slug: 's3', code: 'S3', name: 'NCC 3' }])
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(store().draft!.lines.at(-1)!.supplierSlug).toBe('s3')
+    })
+
+    it('bấm 2 lần khi PUT đang chờ → một hộp xác nhận, một PUT', async () => {
+      signIn(ASSIGNER)
+      let release: () => void = () => {}
+      route('put', PUT, () => new Promise((r) => (release = () => r(ok(inv)))) as never)
+      await show()
+      await notice()
+      const press = () =>
+        fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await press()
+      await press()
+      await wait(20)
+      expect(confirmAction).toHaveBeenCalledTimes(1)
+      expect(callsTo('put', PUT)).toHaveLength(1)
+      await act(async () => release())
+      await settled()
+      expect(callsTo('put', PUT)).toHaveLength(1)
+    })
+
+    it('bản nháp đã đổi trước khi PUT → báo lỗi trong thông báo, không PUT', async () => {
+      signIn(ASSIGNER)
+      await show()
+      await notice()
+      await act(async () => useReceiveDraft.setState({ saving: true }))
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(callsTo('put', PUT)).toHaveLength(0)
+      expect(screen.getByText(/Phiếu đang lưu hoặc đã đổi/)).toBeOnTheScreen()
+    })
+
+    it('PUT xong mà bản nháp đã đổi → không thêm dòng, xoá thông báo', async () => {
+      signIn(ASSIGNER)
+      route('put', PUT, () => {
+        useReceiveDraft.setState({ saving: true })
+        return ok(inv)
+      })
+      await show()
+      await notice()
+      await fireEvent.press(screen.getByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' }))
+      await settled()
+      expect(store().draft!.lines).toHaveLength(2)
+      expect(useScanNotice.getState().notice).toBeNull()
+    })
+
+    it('thiếu quyền gắn kho → câu nhờ quản trị, không nút', async () => {
+      await show()
+      await notice()
+      expect(
+        screen.getByText(
+          'VT9 · Dây điện chưa có trong kho Kho Tổng. Nhờ quản trị gắn vật tư vào kho này ở Danh mục → Vật tư.',
+        ),
+      ).toBeOnTheScreen()
+      expect(screen.queryByRole('button', { name: 'Gắn vào kho và thêm vào phiếu' })).toBeNull()
+    })
   })
 
   it('thông báo mức phiếu (store) và thông báo của màn xếp chồng, testID riêng, store TRƯỚC', async () => {
