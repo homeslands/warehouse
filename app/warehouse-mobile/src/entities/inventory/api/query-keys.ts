@@ -7,6 +7,10 @@ export const inventoryKeys = {
     ['inventory', warehouseSlug, 'list', filters] as const,
   batches: (warehouseSlug: string, materialSlug: string) =>
     ['inventory', warehouseSlug, 'batches', materialSlug] as const,
+  expiryCount: (warehouseSlug: string, expiryBefore: string) =>
+    ['inventory', warehouseSlug, 'expiry', 'count', expiryBefore] as const,
+  expiring: (warehouseSlug: string, expiryBefore: string) =>
+    ['inventory', warehouseSlug, 'expiry', 'list', expiryBefore] as const,
   history: (warehouseSlug: string, materialSlug: string) =>
     ['inventory', warehouseSlug, 'history', materialSlug] as const,
 }

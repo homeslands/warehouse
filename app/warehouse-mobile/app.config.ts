@@ -2,12 +2,13 @@ import type { ConfigContext, ExpoConfig } from 'expo/config'
 
 type Variant = 'development' | 'preview' | 'production'
 
-const BASE_ID = 'com.homeslands.warehouse'
+// Chốt 2026-11-10 (công ty Mekong). KHÔNG đổi sau khi đã đẩy bản lên App Store Connect / Play.
+const BASE_ID = 'com.mekong.warehouse'
 
 const VARIANTS: Record<Variant, { name: string; id: string }> = {
-  development: { name: 'Kho (Dev)', id: `${BASE_ID}.dev` },
-  preview: { name: 'Kho (Preview)', id: `${BASE_ID}.preview` },
-  production: { name: 'Kho', id: BASE_ID },
+  development: { name: 'Soko (Dev)', id: `${BASE_ID}.dev` },
+  preview: { name: 'Soko (Preview)', id: `${BASE_ID}.preview` },
+  production: { name: 'Soko', id: BASE_ID },
 }
 
 function resolveVariant(): Variant {
@@ -27,11 +28,16 @@ export default ({ config }: ConfigContext): ExpoConfig => {
     orientation: 'portrait',
     icon: './assets/icon.png',
     userInterfaceStyle: 'automatic',
-    ios: { supportsTablet: false, bundleIdentifier: id },
+    ios: {
+      supportsTablet: false,
+      bundleIdentifier: id,
+      // App chỉ dùng HTTPS / mã hoá chuẩn của hệ điều hành → miễn khai báo xuất khẩu mã hoá mỗi bản build.
+      config: { usesNonExemptEncryption: false },
+    },
     android: {
       package: id,
       adaptiveIcon: {
-        backgroundColor: '#E6F4FE',
+        backgroundColor: '#FFFFFF',
         foregroundImage: './assets/android-icon-foreground.png',
         backgroundImage: './assets/android-icon-background.png',
         monochromeImage: './assets/android-icon-monochrome.png',
@@ -51,7 +57,8 @@ export default ({ config }: ConfigContext): ExpoConfig => {
           resizeMode: 'contain',
           backgroundColor: '#ffffff',
           // Nền tối khớp token `background` của theme tối.
-          dark: { image: './assets/splash-icon.png', backgroundColor: '#0a0a0a' },
+          // Logo chữ đen → bản chữ trắng cho nền tối.
+          dark: { image: './assets/splash-icon-dark.png', backgroundColor: '#0a0a0a' },
         },
       ],
       // Không dùng sinh trắc học: tắt quyền Face ID mà plugin thêm mặc định.

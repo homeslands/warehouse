@@ -1,5 +1,5 @@
 {
-  "appName": "Kho",
+  "appName": "Soko",
   "logout": "Đăng xuất",
   "loading": "Đang tải...",
   "cancel": "Huỷ",
@@ -9,6 +9,7 @@
   "languageVi": "Tiếng Việt",
   "languageEn": "English",
   "retry": "Thử lại",
+  "seeAll": "Xem tất cả",
   "empty": "Chưa có dữ liệu.",
   "notSet": "Chưa có",
   "unnamedUser": "Người dùng",

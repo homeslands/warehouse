@@ -1,9 +1,11 @@
 {
+  "overview": "Overview",
   "account": "Account",
   "import": "Import",
   "export": "Export",
   "stock": "Stock",
   "tab": {
+    "overview": "Overview",
     "import": "Import",
     "export": "Export",
     "stock": "Stock",

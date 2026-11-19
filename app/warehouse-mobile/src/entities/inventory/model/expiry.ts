@@ -22,3 +22,14 @@ export function expiryStatus(expiryDate: string | null, today: Date): ExpiryStat
   if (days < 0) return { kind: 'expired', days }
   return { kind: days <= EXPIRY_SOON_DAYS ? 'soon' : 'ok', days }
 }
+
+const two = (n: number) => String(n).padStart(2, '0')
+const iso = (d: Date) => `${d.getFullYear()}-${two(d.getMonth() + 1)}-${two(d.getDate())}`
+
+/** `expired` = hôm nay (`expiryBefore` → lô quá hạn); `soon` = hôm nay + (EXPIRY_SOON_DAYS + 1) ngày. */
+export function expiryCutoffs(now: Date): { expired: string; soon: string } {
+  return {
+    expired: iso(now),
+    soon: iso(new Date(now.getFullYear(), now.getMonth(), now.getDate() + EXPIRY_SOON_DAYS + 1)),
+  }
+}

@@ -1,4 +1,5 @@
 import { Stack } from 'expo-router'
+import type { ReactNode } from 'react'
 import { Platform } from 'react-native'
 
 import { canUseLiquidGlass } from '@/shared/lib/liquid-glass'
@@ -13,7 +14,7 @@ import { useTheme } from '@/shared/theme/useTheme'
  * iOS 26/27: KHÔNG đặt nền header/nội dung để hệ thống vẽ nền kính của sheet; iOS < 26: nền đặc
  * `sheetSolid`; Android: nền thẻ.
  */
-export function SheetStackLayout() {
+export function SheetStackLayout({ children }: { children?: ReactNode } = {}) {
   const { colors } = useTheme()
   const ios = Platform.OS === 'ios'
   // iOS < 26 không có nền kính: header + nội dung đặc `sheetSolid` (khớp `sheetScreenOptions`).
@@ -33,6 +34,8 @@ export function SheetStackLayout() {
           backgroundColor: glass ? 'transparent' : solid ? colors.sheetSolid : colors.card,
         },
       }}
-    />
+    >
+      {children}
+    </Stack>
   )
 }

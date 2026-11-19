@@ -1,9 +1,11 @@
 {
+  "overview": "Tổng quan",
   "account": "Tài khoản",
   "import": "Nhập kho",
   "export": "Xuất kho",
   "stock": "Tồn kho",
   "tab": {
+    "overview": "Tổng quan",
     "import": "Nhập",
     "export": "Xuất",
     "stock": "Tồn kho",

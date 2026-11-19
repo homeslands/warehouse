@@ -47,13 +47,13 @@ describe('destinationFor', () => {
 })
 
 describe('hrefFor', () => {
-  it('mỗi đích có route riêng; tabs → tab đầu tiên user được thấy', () => {
+  it('mỗi đích có route riêng; tabs → tab đầu tiên user được thấy (Tổng quan)', () => {
     expect(hrefFor('login', null)).toBe('/login')
     expect(hrefFor('select-warehouse', reader)).toBe('/select-warehouse')
     expect(hrefFor('noWarehouse', reader)).toBe('/no-access')
     expect(hrefFor('noAccess', nobody)).toBe('/no-access')
-    expect(hrefFor('tabs', reader)).toBe('/import')
-    expect(hrefFor('tabs', user(['MATERIAL_READ', 'WAREHOUSE_READ']))).toBe('/stock')
+    expect(hrefFor('tabs', reader)).toBe('/overview')
+    expect(hrefFor('tabs', user(['MATERIAL_READ', 'WAREHOUSE_READ']))).toBe('/overview')
   })
 
   it('splash / offline không phải route', () => {

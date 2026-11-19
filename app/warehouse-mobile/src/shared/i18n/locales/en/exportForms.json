@@ -13,6 +13,8 @@
     "OTHER": "Other"
   },
   "list": {
+    "groupCount_one": "{{count}} form",
+    "groupCount_other": "{{count}} forms",
     "searchPlaceholder": "Form code, invoice or PO",
     "createForm": "New export form",
     "loading": "Loading export forms",
@@ -24,8 +26,6 @@
     "refreshError": "Couldn't refresh the list",
     "emptyFiltered": "No forms match the filters",
     "emptyFilteredDescription": "Remove some time, person or type filters to see more forms.",
-    "today": "Today",
-    "yesterday": "Yesterday",
     "filter": {
       "ALL": "All",
       "DRAFT": "Draft",
@@ -42,6 +42,7 @@
     }
   },
   "view": {
+    "kind": "Export form",
     "info": "Details",
     "items": "Materials · {{n}}",
     "total": "Total",
@@ -63,6 +64,7 @@
   "decision": {
     "confirmTitle": "Confirm issue of {{code}}?",
     "confirmMessage": "Stock of {{lines}} material lines will be deducted, total {{total}}. This can't be undone.",
+    "confirmMessageNoTotal": "Stock of {{lines}} material lines will be deducted. This can't be undone.",
     "confirmLabel": "Confirm issue",
     "cancelTitle": "Cancel form {{code}}?",
     "cancelDraftMessage": "The form becomes Cancelled (kept for reference).",
@@ -159,6 +161,8 @@
       "review": "Review",
       "lines_one": "{{count}} line · total {{total}}",
       "lines_other": "{{count}} lines · total {{total}}",
+      "linesNoTotal_one": "{{count}} material line",
+      "linesNoTotal_other": "{{count}} material lines",
       "deleteTitle": "Delete draft {{code}}?",
       "deleteMessage": "The form is permanently deleted from the server.",
       "deleteLabel": "Delete draft",
@@ -185,10 +189,7 @@
       "duplicate": "Duplicate material, unit and lot.",
       "recovered": "Form {{code}} was created by the previous (interrupted) save — reopened it.",
       "dismiss": "Dismiss"
-    },
-    "scanNotFound": "No material with code “{{code}}” found in this warehouse",
-    "scanFull": "The form already has {{max}} lines — can't add material “{{code}}”",
-    "scanNoUnit": "Material “{{code}}” has no unit — can't add it to the form"
+    }
   },
   "lot": {
     "label": "Lot",
@@ -203,40 +204,27 @@
   },
   "line": {
     "quantity": "Quantity",
-    "unit": "Unit",
     "unitPrice": "Unit price",
     "amount": "Amount",
     "note": "Note",
-    "quantityUnreadable": "Invalid quantity — digits only, up to 6 decimal places",
-    "quantityTooLarge": "Quantity is too large",
     "unitPriceInvalid": "Unit price must be ≥ 0, up to 2 decimal places",
     "unitPriceTooLarge": "Unit price is too large",
     "duplicate": "A line with the same material, unit and lot already exists — pick another lot or merge the quantity into that line.",
     "remove": "Remove from form",
     "removeTitle": "Remove this line from the form?",
     "removeMessage": "{{name}} will be removed from the form (on this device only, until you Save).",
-    "savingNote": "Saving the form — wait until it finishes before editing."
+    "savingNote": "Saving the form — wait until it finishes before editing.",
+    "dropOne": "Remove 1",
+    "dropSerial": "Remove serial {{serial}}",
+    "serials": "Serials",
+    "unscanned": "{{count}} without serial"
   },
-  "addLine": {
-    "title": "Add material",
-    "search": "Search by code or name",
-    "loading": "Loading warehouse materials",
-    "loadError": "Could not load the warehouse materials",
-    "empty": "No matching material",
-    "baseUnit": "Base unit",
-    "rate": "1 {{unit}} = {{rate}} {{base}}",
-    "outOfStock": "Out of stock",
-    "materialA11y": "{{name}}, code {{code}}, {{stock}}",
-    "addCount_one": "Add {{count}} material",
-    "addCount_other": "Add {{count}} materials",
-    "already": "on form",
-    "noBaseUnit": "No unit",
-    "more": "Showing {{shown}}/{{total}} materials — type to narrow"
-  },
-  "receiverSuggest": {
-    "recent": "Recent",
-    "warehouses": "Warehouses",
-    "warehouseA11y": "{{name}}, warehouse {{code}}"
+  "receiverPicker": {
+    "placeholder": "Select",
+    "search": "Search or enter a receiver",
+    "useTyped": "Use “{{name}}”",
+    "noRecent": "No recent receivers — type a name above.",
+    "noWarehouses": "No other warehouse to transfer to — type a name above."
   },
   "compose": {
     "newTitle": "New export form",
@@ -261,18 +249,15 @@
     "next": "Continue",
     "stillMissing": "Still missing: {{fields}}",
     "saveDraft": "Save draft",
-    "add": "Add material",
     "scan": "Scan",
-    "empty": "No materials yet — add or scan a code",
+    "empty": "No materials yet — scan a label to add one",
     "summary_one": "{{count}} material",
     "summary_other": "{{count}} materials",
     "infoMissing": "Form details incomplete",
     "removeTitle": "Remove {{name}} from the form?",
     "short": "Not enough stock",
-    "qtyBar": "Quantity · {{unit}}",
     "priceBar": "Unit price · {{unit}}",
     "goToMissing": "Open the incomplete line",
-    "goToAdd": "Open the material picker",
     "submit": "Submit",
     "review": {
       "info": "Details",
@@ -297,9 +282,30 @@
       "qtyPrice": "{{qty}} {{unit}} × {{price}}",
       "missingQty": "No quantity yet",
       "qtyNoPrice": "{{qty}} {{unit}} · No unit price yet",
+      "qtyOnly": "{{qty}} {{unit}}",
       "missingBoth": "No quantity or unit price yet",
       "autoLot": "Automatic lot",
       "duplicate": "Duplicates another line (same material, unit and lot)"
-    }
+    },
+    "goToScan": "Open the scanner"
+  },
+  "scanSheet": {
+    "done": "Done",
+    "busy": "Saving the form — can’t scan right now",
+    "notFound": "No material with code “{{code}}” found in this warehouse",
+    "duplicateSerial": "Serial {{serial}} already scanned (on {{name}})",
+    "noUnit": "Material “{{name}}” has no unit",
+    "full": "The form already has {{max}} lines",
+    "overStock": "{{name}}: only {{available}} {{unit}} left",
+    "addedDetail": "+1 · Qty {{qty}} {{unit}}",
+    "listTitle": "Scanned · {{count}}",
+    "empty": "Nothing scanned yet",
+    "duplicateLabel": "Serial already scanned",
+    "notFoundShort": "Material not found in this warehouse",
+    "repeatCode": "Code is still in the frame — move it out, then scan again to add more",
+    "expand": "See all",
+    "collapse": "Collapse",
+    "expandA11y": "See all scanned items",
+    "collapseA11y": "Collapse scanned list"
   }
 }

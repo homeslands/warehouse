@@ -2,7 +2,7 @@ import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { renderHook, waitFor } from '@testing-library/react-native'
 import type { ReactNode } from 'react'
 import { callsTo, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
-import { useExportForm, useExportForms, useRecentReceivers } from './hooks'
+import { useExportConfirmedForms, useExportForm, useExportForms, useRecentReceivers } from './hooks'
 
 function setup() {
   const client = new QueryClient({
@@ -78,5 +78,52 @@ describe('useRecentReceivers', () => {
     await renderHook(() => useRecentReceivers('wh-1', false), { wrapper })
     await renderHook(() => useRecentReceivers(undefined, true), { wrapper })
     expect(callsTo('get', '/warehouses/wh-1/export-forms')).toHaveLength(0)
+  })
+})
+
+describe('useExportConfirmedForms', () => {
+  const r1 = { startDate: '2026-11-01', endDate: '2026-11-12' }
+  const r2 = { startDate: '2026-10-01', endDate: '2026-10-31' }
+
+  function gated() {
+    let release: () => void = () => {}
+    const gate = new Promise<void>((res) => (release = res))
+    return { gate, release: () => release() }
+  }
+
+  it('đổi range cùng kho → giữ dữ liệu cũ (placeholder); đổi kho → không', async () => {
+    const g = gated()
+    route('get', '/warehouses/wh-1/export-forms', async (c) => {
+      const p = c.params as Record<string, string>
+      if (p.startDate === r2.startDate) await g.gate
+      return list([
+        { slug: p.startDate, code: 'C', createdAt: '2026-11-03T10:00:00Z', totalAmount: 1 },
+      ])
+    })
+    route('get', '/warehouses/wh-2/export-forms', async () => {
+      await g.gate
+      return list([])
+    })
+    const { wrapper } = setup()
+    const { result, rerender } = await renderHook(
+      ({ wh, range }: { wh: string; range: typeof r1 }) => useExportConfirmedForms(wh, range, true),
+      { wrapper, initialProps: { wh: 'wh-1', range: r1 } },
+    )
+    await waitFor(() => expect(result.current.isSuccess).toBe(true))
+    expect(result.current.data?.forms[0].slug).toBe(r1.startDate)
+
+    await rerender({ wh: 'wh-1', range: r2 })
+    expect(result.current.isPlaceholderData).toBe(true)
+    expect(result.current.data?.forms[0].slug).toBe(r1.startDate)
+
+    await rerender({ wh: 'wh-2', range: r2 })
+    expect(result.current.data).toBeUndefined()
+    g.release()
+  })
+
+  it('enabled=false → không gọi API', async () => {
+    const { wrapper } = setup()
+    const off = await renderHook(() => useExportConfirmedForms('wh-1', r1, false), { wrapper })
+    expect(off.result.current.fetchStatus).toBe('idle')
   })
 })

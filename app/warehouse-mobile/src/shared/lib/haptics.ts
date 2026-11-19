@@ -9,5 +9,7 @@ export const haptics = {
   selection: () => void Haptics.selectionAsync().catch(ignore),
   success: () =>
     void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Success).catch(ignore),
+  warning: () =>
+    void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Warning).catch(ignore),
   error: () => void Haptics.notificationAsync(Haptics.NotificationFeedbackType.Error).catch(ignore),
 }

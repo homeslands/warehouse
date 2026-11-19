@@ -2,6 +2,7 @@ import { useTranslation } from 'react-i18next'
 import { View } from 'react-native'
 
 import type { UserWarehouse } from '@/entities/session'
+import { useTheme } from '@/shared/theme/useTheme'
 import { Badge, Text } from '@/shared/ui'
 
 /**
@@ -22,21 +23,42 @@ export function useWarehouseTags(warehouse: UserWarehouse, allWarehouses: boolea
   return { role, inactive, accessibilityLabel }
 }
 
-/** Dòng phụ: mã kho (code) + chip vai trò + viên "Đã tắt" (mờ). */
+/** Dòng phụ: [chấm trạng thái] mã kho (code) + chip vai trò (+ viên "Đã tắt" khi không dùng chấm). */
 export function WarehouseSubtitle({
   warehouse,
   role,
   inactive,
   rolePill,
+  statusDot = false,
 }: {
   warehouse: UserWarehouse
   role: string | null
   inactive: string | null
   /** Chip vai trò bo tròn hẳn (thẻ trong bảng đổi kho). */
   rolePill?: boolean
+  /**
+   * Trạng thái kho bằng chấm trước mã: xanh = đang hoạt động, đỏ = đã tắt (thay viên "Đã tắt"; bảng đổi
+   * kho và màn chọn kho sau đăng nhập). Chấm chỉ để nhìn — nhãn truy cập của dòng / thẻ đã có "Đã tắt".
+   */
+  statusDot?: boolean
 }) {
+  const { colors } = useTheme()
+  const active = warehouse.isActive !== false
   return (
     <View style={{ flexDirection: 'row', alignItems: 'center', gap: 6 }}>
+      {statusDot ? (
+        <View
+          testID={`warehouse-status-${warehouse.slug}`}
+          accessible={false}
+          importantForAccessibility="no"
+          style={{
+            width: 8,
+            height: 8,
+            borderRadius: 4,
+            backgroundColor: active ? colors.success : colors.destructive,
+          }}
+        />
+      ) : null}
       <Text code muted size={12} numberOfLines={1} style={{ flexShrink: 1 }}>
         {warehouse.code}
       </Text>
@@ -45,7 +67,7 @@ export function WarehouseSubtitle({
           {role}
         </Badge>
       ) : null}
-      {inactive ? (
+      {inactive && !statusDot ? (
         <Badge variant="neutral" pill testID={`warehouse-inactive-${warehouse.slug}`}>
           {inactive}
         </Badge>

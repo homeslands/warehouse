@@ -2,18 +2,18 @@
 import { callsTo, failure, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
-import { act, fireEvent, render, screen, within } from '@testing-library/react-native'
+import { act, fireEvent, render, screen } from '@testing-library/react-native'
 import type {
   NativeStackHeaderItem,
   NativeStackHeaderItemButton,
   NativeStackNavigationOptions,
 } from 'expo-router'
-import { isGlassEffectAPIAvailable, isLiquidGlassAvailable } from 'expo-glass-effect'
 import { Platform, StyleSheet } from 'react-native'
 
-import type { ImportForm } from '@/entities/import-form'
+import { importFormKeys, type ImportForm } from '@/entities/import-form'
 import { useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
+import { initialChipFilters } from '@/features/list-filters'
 import { changeLanguage, initI18n } from '@/shared/i18n'
 import { lightColors } from '@/shared/theme/tokens'
 
@@ -23,10 +23,16 @@ import { resetImportListOnWarehouseChange, useImportListFilter } from './import-
 const mockPush = jest.fn()
 const mockNavigate = jest.fn()
 const mockHeader: { options: NativeStackNavigationOptions } = { options: {} }
+const mockSetParams = jest.fn()
+/** Param của route (`preset` từ tab Tổng quan). */
+const mockParams: { current: Record<string, string | undefined> } = { current: {} }
 const mockRouter = { push: mockPush, navigate: mockNavigate }
+const mockNavigation = { setParams: mockSetParams }
 jest.mock('expo-router', () => ({
   // Ổn định như router thật (`useRouterActions` memo): đổi định danh mỗi render sẽ làm hỏng memo header.
   useRouter: () => mockRouter,
+  useNavigation: () => mockNavigation,
+  useLocalSearchParams: () => mockParams.current,
   Stack: {
     Screen: ({ options }: { options: NativeStackNavigationOptions }) => {
       mockHeader.options = options
@@ -142,6 +148,7 @@ beforeEach(() => {
   mockHeader.options = {}
   client = new QueryClient({ defaultOptions: { queries: { retry: false, gcTime: Infinity } } })
   useImportListFilter.getState().reset()
+  mockParams.current = {}
   useWarehouseStore.setState({ current: WH_A, resolved: true, resolution: 'selected' })
   signIn(['IMPORT_FORM_READ', 'IMPORT_FORM_CREATE'])
 })
@@ -151,17 +158,44 @@ afterEach(() => {
 })
 
 describe('ImportListScreen — danh sách', () => {
-  it('mặc định gọi status=DRAFT; dòng: mã, "HĐ · PO · người tạo", tổng tiền, giờ HH:mm', async () => {
+  it('mặc định gọi status=DRAFT; dòng: ô "hộp +" trung tính; [mã | tổng] / [giờ · dd/MM | trạng thái] / [HĐ · PO · người tạo]', async () => {
     listRoute()
     await show()
     expect(seen[0]).toMatchObject({ status: 'DRAFT', sort: 'DESC', page: 1 })
     expect(screen.getByText('PN-20261101-0900')).toBeOnTheScreen()
     expect(screen.getByText('HĐ HD-001 · PO PO-77 · Nguyễn Văn An')).toBeOnTheScreen()
     expect(norm(screen.getByText(/46\.176\.000/).props.children as string)).toBe('46.176.000 đ')
-    expect(screen.getByText('09:05')).toBeOnTheScreen()
+    expect(screen.getByText(/^09:05 · \d{2}\/\d{2}$/)).toBeOnTheScreen()
+    // Ô icon trung tính (màu chỉ dành cho trạng thái).
+    expect(screen.getByTestId('import-tile')).toHaveStyle({ backgroundColor: lightColors.fill })
+    // Đang lọc một trạng thái (Nháp) → không lặp chữ trạng thái trên từng dòng.
+    expect(screen.queryByTestId('import-status-DRAFT')).toBeNull()
+    // Thang chữ: mã 16 semibold, tiền 16 semibold đen; hàng 2 / 3 14 xám.
+    expect(screen.getByText('PN-20261101-0900')).toHaveStyle({ fontSize: 16, fontWeight: '600' })
+    expect(screen.getByText(/46\.176\.000/)).toHaveStyle({ fontSize: 16, fontWeight: '600' })
+    expect(screen.getByText(/46\.176\.000/)).not.toHaveStyle({ color: lightColors.mutedForeground })
+    expect(screen.getByText('HĐ HD-001 · PO PO-77 · Nguyễn Văn An')).toHaveStyle({
+      fontSize: 14,
+      color: lightColors.mutedForeground,
+    })
   })
 
-  it('không có PO → dòng phụ chỉ "HĐ … · người tạo"', async () => {
+  it('tiền 0 đ xám; phiếu huỷ: tiền xám gạch ngang', async () => {
+    listRoute(() =>
+      paged([
+        form({ slug: 'a', code: 'A', total: 0 }),
+        form({ slug: 'b', code: 'B', total: 86000, status: 'CANCELLED' }),
+      ]),
+    )
+    await show()
+    expect(screen.getByText(/^0\s?đ$/)).toHaveStyle({ color: lightColors.mutedForeground })
+    expect(screen.getByText(/86\.000/)).toHaveStyle({
+      color: lightColors.mutedForeground,
+      textDecorationLine: 'line-through',
+    })
+  })
+
+  it('không có PO → hàng 3 chỉ "HĐ … · người tạo"', async () => {
     listRoute(() => paged([form({ purchaseOrder: null })]))
     await show()
     expect(screen.getByText('HĐ HD-001 · Nguyễn Văn An')).toBeOnTheScreen()
@@ -203,7 +237,7 @@ describe('ImportListScreen — danh sách', () => {
     }
   })
 
-  it('ô tile theo trạng thái: DRAFT / CONFIRMED / CANCELLED', async () => {
+  it('"Tất cả": trạng thái tô màu ở cột phải — chữ nghiêng màu tươi (Nháp cam, Đã nhập xanh, Đã huỷ xám), không nền; mã font hệ thống cắt giữa', async () => {
     listRoute(() =>
       paged([
         form({ slug: 'a', code: 'A', status: 'DRAFT' }),
@@ -214,8 +248,15 @@ describe('ImportListScreen — danh sách', () => {
     await show()
     await act(async () => fireEvent.press(screen.getByRole('tab', { name: 'Tất cả' })))
     await settled()
-    for (const st of ['DRAFT', 'CONFIRMED', 'CANCELLED'])
-      expect(screen.getByTestId(`import-tile-${st}`)).toBeOnTheScreen()
+    const st = (s: string, color: string) =>
+      expect(screen.getByTestId(`import-status-${s}`)).toHaveStyle({ color, fontStyle: 'italic' })
+    st('DRAFT', lightColors.statusWarning)
+    st('CONFIRMED', lightColors.statusSuccess)
+    st('CANCELLED', lightColors.statusNeutral)
+    // Mã phiếu: font hệ thống (không đơn cách), cắt GIỮA khi dài.
+    const code = screen.getByText('A')
+    expect(code).not.toHaveStyle({ fontFamily: 'ui-monospace' })
+    expect(code.props.ellipsizeMode).toBe('middle')
   })
 
   it('nhãn truy cập của dòng: mã, trạng thái, HĐ, PO, người tạo, tổng, giờ', async () => {
@@ -235,23 +276,27 @@ describe('ImportListScreen — danh sách', () => {
       expect(label).toContain(part)
   })
 
-  it('nhóm theo ngày: Hôm nay / Hôm qua, mỗi ngày một tiêu đề', async () => {
+  it('nhóm theo THÁNG: "Tháng 11/2026", "Tháng 10/2026"; ngày nằm trong dòng', async () => {
     listRoute(() =>
       paged([
-        form({ slug: 'a', code: 'A', createdAt: localAt(0, 10, 0) }),
-        form({ slug: 'b', code: 'B', createdAt: localAt(0, 8, 0) }),
-        form({ slug: 'c', code: 'C', createdAt: localAt(1, 17, 30) }),
+        form({ slug: 'a', code: 'A', createdAt: new Date(2026, 10, 5, 10, 0).toISOString() }),
+        form({ slug: 'b', code: 'B', createdAt: new Date(2026, 10, 1, 8, 0).toISOString() }),
+        form({ slug: 'c', code: 'C', createdAt: new Date(2026, 9, 31, 17, 30).toISOString() }),
       ]),
     )
     await show()
     expect(screen.getAllByRole('header').map((h) => h.props.children)).toEqual([
-      'Hôm nay',
-      'Hôm qua',
+      'Tháng 11/2026',
+      'Tháng 10/2026',
     ])
+    expect(screen.getByText('17:30 · 31/10')).toBeOnTheScreen()
+    // Dòng phụ của tiêu đề: số phiếu ĐANG HIỆN trong tháng (không cộng tiền — danh sách tải theo trang).
+    expect(screen.getByText('2 phiếu')).toBeOnTheScreen()
+    expect(screen.getByText('1 phiếu')).toBeOnTheScreen()
     expect(screen.getAllByTestId('import-row')).toHaveLength(3)
   })
 
-  it('worst case: mã 32 ký tự, HĐ 64 ký tự, tổng ≥ 1e12 → mọi chữ một dòng, cột phải giữ độ rộng', async () => {
+  it('worst case: mã 32 ký tự, HĐ 64 ký tự, tổng ≥ 1e12 → mọi chữ một dòng, cột phải có giới hạn rộng', async () => {
     listRoute(() =>
       paged([
         form({
@@ -269,7 +314,7 @@ describe('ImportListScreen — danh sách', () => {
     expect(total.props.numberOfLines).toBe(1)
     expect(total.props.adjustsFontSizeToFit).toBe(true)
     const column = screen.getByTestId('import-row-end')
-    expect(StyleSheet.flatten(column.props.style)).toMatchObject({ width: expect.any(Number) })
+    expect(StyleSheet.flatten(column.props.style)).toMatchObject({ maxWidth: '55%' })
   })
 
   it('gõ "pn-26" (debounce 300ms) ở Mã phiếu → code=PN-26; đổi sang Số HĐ → invoiceCode=pn-26', async () => {
@@ -345,28 +390,41 @@ describe('ImportListScreen — danh sách', () => {
     expect(screen.getByText('Không làm mới được danh sách')).toBeOnTheScreen()
     expect(screen.getByText('PN-20261101-0900')).toBeOnTheScreen()
   })
+
+  it('kéo để tải lại cũng làm mới danh sách bên bán (NCC vừa tạo trên web)', async () => {
+    listRoute()
+    client.setQueryData(importFormKeys.suppliers(), [])
+    await show()
+    expect(client.getQueryState(importFormKeys.suppliers())?.isInvalidated).toBe(false)
+    const [pull] = screen.container.queryAll((n) => n.type === 'RCTRefreshControl')
+    await fireEvent(pull, 'refresh')
+    await settled()
+    expect(client.getQueryState(importFormKeys.suppliers())?.isInvalidated).toBe(true)
+  })
 })
 
-describe('ImportListScreen — header & nút nổi tạo phiếu', () => {
+describe('ImportListScreen — header & nút "+" tạo phiếu', () => {
   const original = Platform.OS
   afterEach(() => {
     Platform.OS = original
-    ;(isLiquidGlassAvailable as jest.Mock).mockReset()
-    ;(isLiquidGlassAvailable as jest.Mock).mockReturnValue(false)
-    ;(isGlassEffectAPIAvailable as jest.Mock).mockReset()
-    ;(isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(false)
   })
+  const addItem = () =>
+    rightItems().find(
+      (i): i is NativeStackHeaderItemButton => i.type === 'button' && i.label === 'Tạo phiếu nhập',
+    )
 
-  const fab = () => screen.getByRole('button', { name: 'Tạo phiếu nhập' })
-
-  it('iOS: KHÔNG dùng ô tìm native (nháy khi đổi tab, iOS 26); KHÔNG có nút "+" trên header', async () => {
+  it('iOS: KHÔNG dùng ô tìm native; bên phải [Lọc, +, khoảng, kho] — "+" là nút gốc SF `plus`', async () => {
     Platform.OS = 'ios'
     listRoute()
     await show()
     expect(mockHeader.options.headerSearchBarOptions).toBeUndefined()
     expect(screen.getByLabelText(SEARCH_LABEL)).toBeOnTheScreen()
-    // Bên phải chỉ có [Lọc, khoảng, kho] — không có "+" (tạo phiếu là nút nổi).
-    expect(rightItems().map((i) => i.type)).toEqual(['button', 'spacing', 'custom'])
+    expect(rightItems().map((i) => i.type)).toEqual(['button', 'button', 'spacing', 'custom'])
+    expect(addItem()).toMatchObject({
+      label: 'Tạo phiếu nhập',
+      accessibilityLabel: 'Tạo phiếu nhập',
+      icon: { type: 'sfSymbol', name: 'plus' },
+    })
     expect(mockHeader.options.headerRight).toBeUndefined()
   })
 
@@ -381,105 +439,37 @@ describe('ImportListScreen — header & nút nổi tạo phiếu', () => {
     expect(mockHeader.options).toBe(before)
   })
 
-  it('có IMPORT_FORM_CREATE: nút nổi "Tạo phiếu nhập" → luôn navigate modal /import-form/new/info (bước 1 tự mở lại bản nháp)', async () => {
+  it('"+" luôn mở modal /import-form/new/info bằng navigate (bước 1 tự mở lại bản nháp phiếu mới)', async () => {
+    Platform.OS = 'ios'
     listRoute()
     await show()
-    await act(async () => fireEvent.press(fab()))
+    await act(async () => addItem()!.onPress())
     await settled()
     // `navigate` (không `push`): bấm "+" hai lần liền vẫn chỉ một modal (xem routing.test).
     expect(mockNavigate).toHaveBeenCalledWith('/import-form/new/info')
     expect(mockPush).not.toHaveBeenCalled()
   })
 
-  it('không có IMPORT_FORM_CREATE → không có nút nổi', async () => {
+  it('Android: nút "+" phẳng 44pt sau nút Lọc trên header → mở modal', async () => {
+    Platform.OS = 'android'
+    listRoute()
+    await show()
+    const header = await render(
+      mockHeader.options.headerRight!({ canGoBack: false } as never) as never,
+    )
+    const add = header.getByRole('button', { name: 'Tạo phiếu nhập' })
+    expect(StyleSheet.flatten(add.props.style)).toMatchObject({ width: 44, height: 44 })
+    await fireEvent.press(add)
+    expect(mockNavigate).toHaveBeenLastCalledWith('/import-form/new/info')
+  })
+
+  it('không có quyền tạo → không có nút "+" (cả iOS lẫn Android), không còn nút nổi', async () => {
+    Platform.OS = 'ios'
     signIn(['IMPORT_FORM_READ'])
     listRoute()
     await show()
+    expect(addItem()).toBeUndefined()
     expect(screen.queryByRole('button', { name: 'Tạo phiếu nhập' })).toBeNull()
-  })
-
-  it('Liquid Glass có sẵn → dùng GlassView; không có → thẻ mờ thường (không GlassView)', async () => {
-    listRoute()
-    ;(isLiquidGlassAvailable as jest.Mock).mockReturnValue(true)
-    ;(isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(true)
-    await show()
-    expect(within(fab()).getByTestId('glass-view')).toBeOnTheScreen()
-    // Kính tô xanh dương hệ thống, icon trắng.
-    expect(within(fab()).getByTestId('glass-view').props.tintColor).toBe(lightColors.accent)
-    await screen.unmount()
-    ;(isLiquidGlassAvailable as jest.Mock).mockReturnValue(false)
-    await show()
-    expect(within(fab()).queryByTestId('glass-view')).toBeNull()
-    expect(within(fab()).getByTestId('fab-fallback')).toBeOnTheScreen()
-    // Dự phòng: nền xanh dương hệ thống đặc.
-    expect(within(fab()).getByTestId('fab-fallback')).toHaveStyle({
-      backgroundColor: lightColors.accent,
-    })
-  })
-
-  it('Liquid Glass có nhưng isGlassEffectAPIAvailable() false (iOS 26 lỗi) → dùng thẻ mờ', async () => {
-    listRoute()
-    ;(isLiquidGlassAvailable as jest.Mock).mockReturnValue(true)
-    ;(isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(false)
-    await show()
-    expect(within(fab()).queryByTestId('glass-view')).toBeNull()
-    expect(within(fab()).getByTestId('fab-fallback')).toBeOnTheScreen()
-  })
-
-  it('GlassView: khi nhấn KHÔNG có opacity < 1 hay scale trên GlassView và các view cha', async () => {
-    listRoute()
-    ;(isLiquidGlassAvailable as jest.Mock).mockReturnValue(true)
-    ;(isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(true)
-    await show()
-    await fireEvent(fab(), 'pressIn')
-    let node: typeof fab extends () => infer R ? R | null : never =
-      within(fab()).getByTestId('glass-view')
-    while (node && node.type !== 'RNCSafeAreaView') {
-      const style = StyleSheet.flatten(node.props.style) ?? {}
-      expect(style.opacity ?? 1).toBe(1)
-      expect(style.transform).toBeUndefined()
-      node = node.parent
-    }
-  })
-
-  it('Android: vùng chứa nút nổi KHÔNG đệm đáy theo safe area; danh sách chừa chỗ ≥ nút + khoảng hở', async () => {
-    Platform.OS = 'android'
-    listRoute()
-    await show()
-    const container = screen.getByTestId('fab-container')
-    expect(container.type).toBe('View')
-    const list = screen.getByTestId('import-list')
-    const pad = StyleSheet.flatten(list.props.contentContainerStyle).paddingBottom as number
-    expect(pad).toBeGreaterThanOrEqual(52 + 12)
-  })
-
-  it('iOS 26+ (kính): lề phải nút nổi 20pt = mép viên tab kính; không kính: 16pt = lề nội dung', async () => {
-    Platform.OS = 'ios'
-    listRoute()
-    ;(isLiquidGlassAvailable as jest.Mock).mockReturnValue(true)
-    ;(isGlassEffectAPIAvailable as jest.Mock).mockReturnValue(true)
-    await show()
-    expect(screen.getByTestId('fab-container')).toHaveStyle({ paddingRight: 20 })
-    await screen.unmount()
-    ;(isLiquidGlassAvailable as jest.Mock).mockReturnValue(false)
-    await show()
-    expect(screen.getByTestId('fab-container')).toHaveStyle({ paddingRight: 16 })
-  })
-
-  it('iOS: vùng chứa nút nổi là SafeAreaView cạnh đáy', async () => {
-    Platform.OS = 'ios'
-    listRoute()
-    await show()
-    expect(screen.getByTestId('fab-container').type).toBe('RNCSafeAreaView')
-  })
-
-  it('Android: nút nổi cũng có (icon lucide), mở modal /import-form/new/info', async () => {
-    Platform.OS = 'android'
-    listRoute()
-    await show()
-    await act(async () => fireEvent.press(fab()))
-    await settled()
-    expect(mockNavigate).toHaveBeenCalledWith('/import-form/new/info')
   })
 })
 
@@ -737,5 +727,32 @@ describe('ImportListScreen — nút "Lọc" trên header + dòng tóm tắt bộ
     await settled()
     expect(useImportListFilter.getState().time).toBeNull()
     expect(screen.getByText('Không tìm thấy phiếu')).toBeOnTheScreen()
+  })
+})
+
+describe('ImportListScreen — preset từ tab Tổng quan', () => {
+  it('preset=DRAFT trên bộ lọc bẩn → sạch tìm kiếm + chip, trạng thái Nháp, xoá param', async () => {
+    listRoute()
+    useImportListFilter.setState({ query: 'abc', time: 'last7', status: 'CONFIRMED' })
+    mockParams.current = { preset: 'DRAFT' }
+    await show()
+    const s = useImportListFilter.getState()
+    expect(s.query).toBe('')
+    expect({ time: s.time, requester: s.requester, approver: s.approver }).toEqual(
+      initialChipFilters,
+    )
+    expect(s.status).toBe('DRAFT')
+    expect(mockSetParams).toHaveBeenCalledWith({ preset: undefined })
+    expect(seen.at(-1)).toMatchObject({ status: 'DRAFT' })
+    expect(seen.at(-1)).not.toHaveProperty('code')
+  })
+
+  it('preset lạ → bộ lọc giữ nguyên, vẫn xoá param', async () => {
+    listRoute()
+    useImportListFilter.setState({ query: 'abc', status: 'CONFIRMED' })
+    mockParams.current = { preset: 'xyz' }
+    await show()
+    expect(useImportListFilter.getState()).toMatchObject({ query: 'abc', status: 'CONFIRMED' })
+    expect(mockSetParams).toHaveBeenCalledWith({ preset: undefined })
   })
 })

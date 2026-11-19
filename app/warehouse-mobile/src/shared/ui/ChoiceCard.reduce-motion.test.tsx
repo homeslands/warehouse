@@ -29,7 +29,7 @@ describe('ChoiceCard khi bật Reduce Motion', () => {
       // Một khung hình (16ms) để reanimated áp giá trị — bình thường lúc này mới đi được ~7% của 220ms.
       await act(async () => jest.advanceTimersByTime(16))
       expect(screen.getByTestId('card')).toHaveAnimatedStyle({
-        backgroundColor: rgba(lightColors.card),
+        backgroundColor: 'rgba(0, 0, 0, 0)',
         borderColor: rgba(lightColors.primary),
       })
       expect(screen.getByTestId('choice-card-radio-fill', hidden)).toHaveAnimatedStyle({

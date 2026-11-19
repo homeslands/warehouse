@@ -2,6 +2,7 @@ import type { AvailableMaterial } from '@/entities/import-form'
 
 import { lineSupplier, newDraft, newLocalLine, restampSupplier, stampSupplier } from './add-line'
 import { makeDraft, makeLine } from './fixtures'
+import { willAttachToSupplier } from './form-supplier'
 
 const S1 = { slug: 's1', code: 'NCC1', name: 'Hoà Phát' }
 const S2 = { slug: 's2', code: 'NCC2', name: 'Hà Tiên' }
@@ -65,6 +66,7 @@ describe('newLocalLine', () => {
       note: null,
       checked: true,
       changedOnServer: false,
+      materialSupplierSlugs: ['s1', 's2'],
     })
   })
 })
@@ -138,5 +140,36 @@ describe('newDraft', () => {
     const d = newDraft(header)
     expect(d).toMatchObject({ formSlug: 'new', version: null, header, lines: [] })
     expect(typeof d.savedAt).toBe('number')
+  })
+})
+
+describe('materialSupplierSlugs / willAttachToSupplier', () => {
+  it('newLocalLine records the material suppliers', () => {
+    const m = material({ suppliers: [S1, S2] })
+    const line = newLocalLine({
+      material: m,
+      unit: m.units[0],
+      quantity: 1,
+      unitPrice: 0,
+      headerSupplier: null,
+    })
+    expect(line.materialSupplierSlugs).toEqual(['s1', 's2'])
+  })
+  it('a fixed supplier the material lacks will attach; restamp to a known supplier does not', () => {
+    const m = material({ suppliers: [S2] })
+    const line = newLocalLine({
+      material: m,
+      unit: m.units[0],
+      quantity: 1,
+      unitPrice: 0,
+      headerSupplier: 's1',
+      fixedSupplier: { slug: 's1', name: 'Hoà Phát' },
+    })
+    const d = makeDraft([line, makeLine(2)], {
+      header: { ...makeDraft([]).header, supplierSlug: 's1' },
+    })
+    expect(d.lines.filter(willAttachToSupplier)).toHaveLength(1)
+    const restamped = restampSupplier(d, { slug: 's2', name: 'Hà Tiên' })
+    expect(restamped.lines.filter(willAttachToSupplier)).toHaveLength(0)
   })
 })

@@ -7,6 +7,7 @@ import { Alert } from 'react-native'
 import { useAuthStore, type UserWarehouse } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { changeLanguage, initI18n } from '@/shared/i18n'
+import { lightColors } from '@/shared/theme/tokens'
 
 import { SHEET_CLOSE_DELAY_MS as CLOSE_AFTER_SUCCESS_MS } from '@/shared/lib/useSheetSubmit'
 
@@ -252,7 +253,13 @@ describe('SelectWarehouseScreen screen — ADMIN tải danh sách kho lỗi', ()
     )
     expect(callsTo('get', '/warehouses')).toHaveLength(2)
     expect(screen.queryByText('Không tải được danh sách kho')).toBeNull()
-    expect(screen.getByText('Đã tắt')).toBeOnTheScreen()
+    // Kho đã tắt: chấm đỏ trước mã (nhãn truy cập vẫn nói "Đã tắt").
+    expect(
+      screen.getByTestId('warehouse-status-wh-2', { includeHiddenElements: true }),
+    ).toHaveStyle({
+      backgroundColor: lightColors.destructive,
+    })
+    expect(screen.getByRole('button', { name: /Kho Cũ, WH2.*Đã tắt/ })).toBeOnTheScreen()
   })
 
   it('thử lại vẫn lỗi → vẫn ở màn lỗi, câu lỗi mới', async () => {

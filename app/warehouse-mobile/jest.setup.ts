@@ -25,7 +25,7 @@ jest.mock('expo-haptics', () => ({
 
 // Camera là native: `CameraView` thành View có testID `camera-view` (bắn quét bằng
 // `fireEvent(view, 'barcodeScanned', { data })`); quyền camera điều khiển qua `__permission`:
-// `current` là trạng thái ban đầu, `afterRequest` là kết quả khi bấm xin quyền.
+// `current` là trạng thái ban đầu, `afterRequest` là kết quả khi bấm xin quyền / đọc lại quyền (`get`).
 jest.mock('expo-camera', () => {
   const React = jest.requireActual('react')
   const { View } = jest.requireActual('react-native')
@@ -35,10 +35,12 @@ jest.mock('expo-camera', () => {
     current: granted as object | null,
     afterRequest: granted as object,
     request: jest.fn(),
+    get: jest.fn(),
     reset() {
       this.current = granted
       this.afterRequest = granted
       this.request.mockClear()
+      this.get.mockClear()
     },
   }
   return {
@@ -50,7 +52,13 @@ jest.mock('expo-camera', () => {
         setState(permission.afterRequest)
         return permission.afterRequest
       }
-      return [state, request, request]
+      // `get` (phần tử thứ 3) chỉ đọc lại quyền hiện tại, không hiện hộp thoại xin quyền.
+      const get = async () => {
+        permission.get()
+        setState(permission.afterRequest)
+        return permission.afterRequest
+      }
+      return [state, request, get]
     },
     CameraView: (props: object) => React.createElement(View, { testID: 'camera-view', ...props }),
   }

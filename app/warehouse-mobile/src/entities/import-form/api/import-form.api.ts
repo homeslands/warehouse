@@ -5,14 +5,18 @@ import {
   patchData,
   postData,
   postFile,
+  putData,
   type UploadFile,
 } from '@/shared/api/http'
+import { fetchPagesUpToCap } from '@/shared/api/fetch-all-pages'
+import type { SlimForm } from '@/shared/lib/slim-form'
 import type { Paginated } from '@/shared/api/types'
 import type {
   AvailableMaterial,
   ImportForm,
   ImportFormFilters,
   ImportFormInput,
+  ImportFormStatus,
   ImportFormUpdateInput,
   SupplierOption,
 } from '../model/types'
@@ -72,6 +76,49 @@ export async function fetchImportForms(
     ...search,
   })
 }
+
+export type ImportFormSum = {
+  sum: number
+  count: number
+  truncated: boolean
+}
+
+/**
+ * Tổng tiền (`total`) các phiếu theo trạng thái của cả kho trong khoảng ngày lập (YYYY-MM-DD, gồm hai đầu).
+ * Đi hết các trang; chạm trần trang thì `truncated: true` (tổng chỉ là phần đã tải), không ném lỗi.
+ */
+export async function fetchImportFormSum(
+  warehouseSlug: string,
+  status: ImportFormStatus,
+  range?: { startDate: string; endDate: string },
+): Promise<ImportFormSum> {
+  const { items, truncated } = await fetchPagesUpToCap<ImportForm>(base(warehouseSlug), {
+    status,
+    ...range,
+  })
+  // Phân trang offset: dữ liệu đổi giữa chừng có thể lặp phiếu → mỗi `slug` chỉ tính một lần.
+  const unique = [...new Map(items.map((f) => [f.slug, f])).values()]
+  return {
+    sum: unique.reduce((acc, f) => acc + f.total, 0),
+    count: unique.length,
+    truncated,
+  }
+}
+
+/** Đếm phiếu theo trạng thái của cả kho: xin 1 phần tử, đọc `total`. `day` (YYYY-MM-DD) = chỉ phiếu lập ngày đó. */
+export const fetchImportFormCount = async (
+  warehouseSlug: string,
+  status: ImportFormStatus,
+  day?: string,
+): Promise<number> =>
+  (
+    await getPaginated<ImportForm>(base(warehouseSlug), {
+      page: 1,
+      size: 1,
+      status,
+      ...(day ? { startDate: day, endDate: day } : null),
+    })
+  ).total
 
 export const fetchImportForm = (warehouseSlug: string, slug: string): Promise<ImportForm> =>
   getData<ImportForm>(`${base(warehouseSlug)}/${slug}`)
@@ -151,7 +198,71 @@ export async function fetchSuppliers(): Promise<SupplierOption[]> {
   return res.items.map(({ slug, code, name }) => ({ slug, code, name }))
 }
 
+/**
+ * Gắn MỘT vật tư vào bên bán (`PUT /suppliers/:slug/materials`, body `{ materialSlugs }`; BE cần SUPPLIER_UPDATE
+ * + MATERIAL_UPDATE). BE thêm vào danh sách vật tư của bên bán, không thay thế.
+ */
+export async function attachMaterialToSupplier(
+  supplierSlug: string,
+  materialSlug: string,
+): Promise<void> {
+  await putData<unknown>(`/suppliers/${supplierSlug}/materials`, { materialSlugs: [materialSlug] })
+}
+
 /** Tải chứng từ lên trước khi lưu phiếu; trả URL để gửi ở trường `file`. */
 export function uploadImportFormFile(warehouseSlug: string, file: UploadFile): Promise<string> {
   return postFile<string>(`${base(warehouseSlug)}/upload-file`, file)
+}
+
+/** Kết quả tải hết vật tư của kho: `truncated` = chạm trần 50 trang (kho quá lớn) — chỉ có phần đầu. */
+export type AllAvailableMaterials = { items: AvailableMaterial[]; truncated: boolean }
+
+/**
+ * Mọi vật tư của kho cho bộ chọn phiếu nhập: đi hết các trang `available-materials` (size 100, tối đa 50
+ * trang — quá thì trả phần đã tải + `truncated: true`, không ném lỗi), khử trùng theo `slug` (trang sau có
+ * thể lặp khi dữ liệu đổi giữa chừng).
+ */
+export async function fetchAllAvailableMaterials(
+  warehouseSlug: string,
+): Promise<AllAvailableMaterials> {
+  const { items, truncated } = await fetchPagesUpToCap<AvailableMaterial>(
+    `${base(warehouseSlug)}/available-materials`,
+  )
+  const seen = new Set<string>()
+  return {
+    items: items.filter((m) => (seen.has(m.slug) ? false : (seen.add(m.slug), true))),
+    truncated,
+  }
+}
+
+/**
+ * Mọi phiếu ĐÃ XÁC NHẬN của cả kho trong khoảng ngày lập (đi hết các trang, bỏ trùng slug) ở dạng gọn
+ * cho tab Tổng quan. `party` = `requesterName` (người lập — phiếu nhập ở danh sách không có tên NCC).
+ * `truncated` = chạm trần trang (dữ liệu không đủ).
+ */
+export async function fetchConfirmedForms(
+  warehouseSlug: string,
+  range: { startDate: string; endDate: string },
+  signal?: AbortSignal,
+): Promise<{ forms: SlimForm[]; truncated: boolean }> {
+  const { items, truncated } = await fetchPagesUpToCap<ImportForm>(
+    base(warehouseSlug),
+    {
+      status: 'CONFIRMED',
+      ...range,
+    },
+    signal,
+  )
+  const unique = [...new Map(items.map((f) => [f.slug, f])).values()]
+  return {
+    forms: unique.map((f) => ({
+      slug: f.slug,
+      code: f.code,
+      createdAt: f.createdAt,
+      amount: f.total,
+      party: f.requesterName || null,
+      kind: 'import' as const,
+    })),
+    truncated,
+  }
 }

@@ -40,9 +40,7 @@ export type HistoryListProps = {
   today: Date
 }
 
-const TILE = 36
-/** Đường kẻ bắt đầu sau ô icon: lề 16 + ô 36 + khoảng 12. */
-const ROW_INSET = 64
+const TILE = 40
 
 type Look = { icon: LucideIcon; bg: keyof ColorTokens; fg: keyof ColorTokens }
 
@@ -101,7 +99,7 @@ function HistoryRow({ row, locale }: { row: InventoryHistory; locale: 'vi' | 'en
         alignItems: 'flex-start',
         gap: 12,
         minHeight: 58,
-        paddingHorizontal: 16,
+        paddingHorizontal: 20,
         paddingVertical: 11,
       }}
     >
@@ -110,7 +108,7 @@ function HistoryRow({ row, locale }: { row: InventoryHistory; locale: 'vi' | 'en
         style={{
           width: TILE,
           height: TILE,
-          borderRadius: 10,
+          borderRadius: TILE / 2,
           alignItems: 'center',
           justifyContent: 'center',
           backgroundColor: colors[look.bg],
@@ -178,7 +176,7 @@ export function HistoryList({
       {groups.map((g, i) => (
         <View key={g.key} testID={`history-day-${i}`}>
           <ComposeSectionHeader title={dayLabel(g.label)} />
-          <ListGroup large inset={ROW_INSET}>
+          <ListGroup variant="card">
             {g.rows.map((r) => (
               <HistoryRow key={r.slug} row={r} locale={locale} />
             ))}

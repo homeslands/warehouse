@@ -1,13 +1,16 @@
 export {
   baseKey,
   canSave,
+  clampSerials,
   draftFromForm,
   exportLineKey,
   hasEdits,
   isDirty,
+  lineSerials,
   linesTotal,
   MAX_ITEMS,
   newExportDraft,
+  normSerial,
   toInput,
   type CanSave,
   type ExportDraft,
@@ -35,3 +38,5 @@ export {
   type ExportLineSummaryContext,
 } from './model/export-line-summary'
 export { exportInfoRows, type ExportInfoInput } from './model/export-info-rows'
+/** Quy tắc thuần của phiếu xuất (ở `entities/export-form`), xuất lại cho các màn soạn phiếu. */
+export { exportHasPrice } from '@/entities/export-form'

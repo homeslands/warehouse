@@ -18,7 +18,7 @@ export type BottomDockProps = {
  * (không nền, không viền). Đo chiều cao phần nội dung (`onContentHeight`) để danh sách chừa đúng chỗ
  * ở đáy — nội dung có thể cao thêm (thông báo, câu chờ) nên không dùng hằng số.
  *
- * Vị trí như `FloatingCreateButton`: iOS bọc `SafeAreaView edges=['bottom']` — inset của CHÍNH view
+ * Vị trí: iOS bọc `SafeAreaView edges=['bottom']` — inset của CHÍNH view
  * này nên đã gồm thanh tab nổi nếu màn trải dưới thanh; Android dùng `View` thường (NativeTabs đã chừa
  * đáy, SafeAreaView sẽ đệm lần hai). Chiều cao đo là của phần nội dung BÊN TRONG (không gồm inset):
  * danh sách iOS đã tự chừa thanh tab qua `contentInsetAdjustmentBehavior="automatic"`.

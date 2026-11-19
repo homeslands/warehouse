@@ -1,14 +1,17 @@
 import {
   baseKey,
   canSave,
+  clampSerials,
   draftFromForm,
   exportLineKey,
   hasEdits,
   headerFromForm,
   isDirty,
+  lineSerials,
   linesTotal,
   MAX_ITEMS,
   newExportDraft,
+  normSerial,
   toInput,
 } from './draft'
 import { makeDraft, makeForm, makeItem, makeLine } from './fixtures'
@@ -273,5 +276,61 @@ describe('headerFromForm — chuẩn hoá file (m1)', () => {
       expect(d.headerBase?.file).toBeNull()
       expect(isDirty(d, form)).toBe(false)
     }
+  })
+})
+
+describe('serial của dòng', () => {
+  it('lineSerials: vắng → []', () => {
+    expect(lineSerials(makeLine(1))).toEqual([])
+    expect(lineSerials(makeLine(1, { serials: ['S1'] }))).toEqual(['S1'])
+  })
+
+  it('clampSerials giữ floor(round6(quantity × rate)) serial ĐẦU', () => {
+    expect(clampSerials(['A', 'B', 'C'], 2, 1)).toEqual(['A', 'B'])
+    expect(clampSerials(['A', 'B', 'C'], 1, 2)).toEqual(['A', 'B'])
+    expect(clampSerials(['A', 'B', 'C'], 1.5, 1)).toEqual(['A'])
+    // 0,3 × 10 = 3,0000000000000004 / 0,1 × 30 = 3 → không mất / thêm bậc vì dấu phẩy động
+    expect(clampSerials(['A', 'B', 'C', 'D'], 0.3, 10)).toEqual(['A', 'B', 'C'])
+    expect(clampSerials(['A', 'B'], 5, 1)).toEqual(['A', 'B'])
+    expect(clampSerials(['A'], 0, 1)).toEqual([])
+    expect(clampSerials(['A'], Number.NaN, 1)).toEqual([])
+  })
+
+  it('serial không tính vào isDirty / hasEdits và không gửi lên server', () => {
+    const form = makeForm([makeItem(1)])
+    const d = draftFromForm(form)
+    const withSerial = { ...d, lines: [{ ...d.lines[0]!, serials: ['S1'] }] }
+    expect(isDirty(withSerial, form)).toBe(false)
+    expect(hasEdits(withSerial)).toBe(false)
+    expect(toInput(withSerial)).toEqual(toInput(d))
+    expect(JSON.stringify(toInput(withSerial))).not.toContain('S1')
+  })
+})
+
+describe('normSerial', () => {
+  it('trim + viết hoa', () => {
+    expect(normSerial('  ab-1 ')).toBe('AB-1')
+    expect(normSerial('   ')).toBe('')
+  })
+})
+
+describe('đơn giá chỉ ở phiếu Bán (như web)', () => {
+  const header = (type: 'SALE' | 'PRODUCTION') => ({ ...makeDraft([]).header, type })
+
+  it('canSave: phiếu không phải Bán → dòng chưa có giá vẫn lưu được; phiếu Bán thì không', () => {
+    const lines = [makeLine(1, { unitPrice: null })]
+    expect(canSave(makeDraft(lines, { header: header('PRODUCTION') }))).toEqual({ ok: true })
+    expect(canSave(makeDraft(lines, { header: header('SALE') }))).toMatchObject({
+      ok: false,
+      reason: 'missingPrice',
+    })
+  })
+
+  it('toInput: phiếu không phải Bán → unitPrice luôn 0, kể cả dòng còn giá cũ', () => {
+    const lines = [makeLine(1, { unitPrice: 1234.5 })]
+    const draft = makeDraft(lines, { header: header('PRODUCTION'), headerBase: undefined })
+    expect(toInput(draft).items[0]!.unitPrice).toBe(0)
+    const sale = makeDraft(lines, { header: header('SALE'), headerBase: undefined })
+    expect(toInput(sale).items[0]!.unitPrice).toBe(1234.5)
   })
 })

@@ -34,7 +34,8 @@ export function makeForm(items: ExportFormItem[], over: Partial<ExportForm> = {}
     createdAt: '2026-11-04T00:00:00Z',
     updatedAt: '2026-11-04T00:00:00Z',
     code: 'PX-1',
-    type: 'PRODUCTION',
+    // Phiếu Bán: loại DUY NHẤT có đơn giá (`exportHasPrice`) — các test giá / thành tiền dựa vào đây.
+    type: 'SALE',
     status: 'DRAFT',
     purchaseOrder: 'PO-1',
     invoiceCode: 'HD-1',
@@ -75,7 +76,8 @@ export function makeLine(n: number, over: Partial<ExportLine> = {}): ExportLine 
 export function makeDraft(lines: ExportLine[], over: Partial<ExportDraft> = {}): ExportDraft {
   const header: ExportDraft['header'] = {
     code: 'PX-1',
-    type: 'PRODUCTION',
+    // Phiếu Bán: loại DUY NHẤT có đơn giá (`exportHasPrice`) — các test giá / thành tiền dựa vào đây.
+    type: 'SALE',
     purchaseOrder: 'PO-1',
     invoiceCode: 'HD-1',
     receiver: 'Bếp A',

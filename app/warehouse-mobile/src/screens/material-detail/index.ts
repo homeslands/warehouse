@@ -1,0 +1,1 @@
+export { MaterialDetailScreen } from './MaterialDetailScreen'

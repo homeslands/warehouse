@@ -1,12 +1,29 @@
 import { useTranslation } from 'react-i18next'
 
-import { ExportFormStatusPill, ExportFormTypePill, type ExportForm } from '@/entities/export-form'
-import type { FormatLocale } from '@/shared/lib/format'
-import { DetailHero } from '@/shared/ui/compose'
+import {
+  ExportFormStatusPill,
+  ExportFormTypePill,
+  exportStatusTone,
+  type ExportForm,
+  type ExportFormStatus,
+} from '@/entities/export-form'
+import { exportHasPrice } from '@/features/export-draft'
+import { formatFullDate, type FormatLocale } from '@/shared/lib/format'
+import { useTheme } from '@/shared/theme/useTheme'
+import { DetailCardHero } from '@/shared/ui/compose'
+import { Check, Clock, Pencil, X, type LucideIcon } from '@/shared/ui/icons'
+
+const STATUS_ICON: Record<ExportFormStatus, LucideIcon> = {
+  DRAFT: Pencil,
+  PENDING: Clock,
+  CONFIRMED: Check,
+  CANCELLED: X,
+}
 
 /**
- * Đầu màn xem phiếu xuất = `DetailHero` dùng chung: viên trạng thái + viên loại, người nhận làm tiêu đề,
- * "Tổng cộng" + tổng tiền của server, "n dòng" (Chờ duyệt: "n dòng · đã giữ hàng").
+ * Đầu màn xem phiếu xuất = một `DashCard` (`DetailCardHero`): vòng icon tô theo trạng thái + "Phiếu xuất" +
+ * viên trạng thái / loại, người nhận làm tiêu đề, "Tổng cộng" + tổng tiền của server, dòng phụ "mã phiếu ·
+ * ngày · n dòng" (Chờ duyệt: "n dòng · đã giữ hàng").
  */
 export function ExportDetailHero({
   form,
@@ -18,9 +35,15 @@ export function ExportDetailHero({
   locale: FormatLocale
 }) {
   const { t } = useTranslation('exportForms')
+  const { colors } = useTheme()
+  const tone = exportStatusTone(colors, form.status)
   return (
-    <DetailHero
+    <DetailCardHero
       testID="export-detail-hero"
+      icon={STATUS_ICON[form.status]}
+      iconBackground={tone.bg}
+      iconColor={tone.fg}
+      kind={t('view.kind')}
       pills={
         <>
           <ExportFormStatusPill testID="export-detail-status" status={form.status} />
@@ -29,8 +52,11 @@ export function ExportDetailHero({
       }
       title={form.receiver}
       totalLabel={t('view.total')}
-      total={form.totalAmount}
+      // Chỉ phiếu Bán có đơn giá (như web) → loại khác không có Tổng cộng.
+      total={exportHasPrice(form.type) ? form.totalAmount : null}
       locale={locale}
+      code={form.code}
+      date={formatFullDate(form.createdAt)}
       count={t(form.status === 'PENDING' ? 'view.lineCountReserved' : 'view.lineCount', {
         count: lineCount,
       })}

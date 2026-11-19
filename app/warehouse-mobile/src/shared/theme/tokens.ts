@@ -6,6 +6,11 @@ export type ColorTokens = {
   primaryForeground: string
   muted: string
   mutedForeground: string
+  /**
+   * Chữ phụ cấp 2 (giữa `foreground` và `mutedForeground`) — hàng 2 của dòng danh sách phẳng. Đủ AA trên
+   * nền `background`; `mutedForeground` là cấp 3 (hàng 3, chú thích).
+   */
+  secondaryForeground: string
   border: string
   input: string
   ring: string
@@ -13,6 +18,10 @@ export type ColorTokens = {
   success: string
   warning: string
   info: string
+  /** Chuỗi thứ hai của biểu đồ (indigo) — tách khỏi `accent`/`info` đều xanh dương. */
+  chart2: string
+  /** Xanh mòng két (teal): nhóm "Hoạt động" của Tổng quan — chữ đầu thẻ, đủ tương phản trên `card`. */
+  chart3: string
   /** Xanh dương hệ thống (nút tạo nổi) + chữ/icon trên nó. */
   accent: string
   accentForeground: string
@@ -27,6 +36,8 @@ export type ColorTokens = {
   grouped: string
   /** Đường kẻ giữa các dòng trong một nhóm. */
   separator: string
+  /** Đường kẻ của danh sách phẳng trên nền trắng (đậm hơn `separator`, gần opaqueSeparator của iOS). */
+  listSeparator: string
   /** Chữ tiêu đề/chú thích của nhóm. */
   groupedLabel: string
   /** Nền trung tính của ô icon nhạt, chip, ô tìm kiếm. */
@@ -42,6 +53,14 @@ export type ColorTokens = {
   /** Nền + chữ nhãn cảnh báo nhạt ("Dưới min"): chữ đậm hơn `warning` để đủ tương phản. */
   warningSoft: string
   warningText: string
+  /**
+   * Chữ trạng thái (nghiêng, không nền) trên dòng danh sách: màu tươi nhất còn đạt AA (≥4.5:1) trên nền
+   * `background` của từng chế độ.
+   */
+  statusWarning: string
+  statusAccent: string
+  statusSuccess: string
+  statusNeutral: string
   /** Nền + chữ nhãn thông tin nhạt ("Vượt max"). */
   infoSoft: string
   infoText: string
@@ -80,6 +99,7 @@ export const lightColors: ColorTokens = {
   primaryForeground: '#fafafa',
   muted: '#f5f5f5',
   mutedForeground: '#737373',
+  secondaryForeground: '#52525b',
   border: '#e5e5e5',
   input: '#e5e5e5',
   ring: '#a1a1a1',
@@ -87,6 +107,8 @@ export const lightColors: ColorTokens = {
   success: '#009966',
   warning: '#d08700',
   info: '#2e7dd7',
+  chart2: '#5856d6',
+  chart3: '#0e7f93',
   accent: '#007aff',
   accentForeground: '#ffffff',
   accentSoft: '#e5f0ff',
@@ -95,6 +117,7 @@ export const lightColors: ColorTokens = {
   sheetSolid: '#f2f2f7',
   grouped: '#f2f2f7',
   separator: '#e4e4e7',
+  listSeparator: '#c6c6c8',
   groupedLabel: '#6b6b70',
   fill: '#eeeeef',
   fillForeground: '#3f3f46',
@@ -103,6 +126,10 @@ export const lightColors: ColorTokens = {
   destructiveText: '#c50009',
   warningSoft: '#fdf3d6',
   warningText: '#8a5a00',
+  statusWarning: '#c2410c',
+  statusAccent: '#0a6cff',
+  statusSuccess: '#00875a',
+  statusNeutral: '#71717a',
   infoSoft: '#e9f1fd',
   infoText: '#1f4f9e',
   successSoft: '#ddf4ea',
@@ -128,6 +155,7 @@ export const darkColors: ColorTokens = {
   primaryForeground: '#171717',
   muted: '#262626',
   mutedForeground: '#a1a1a1',
+  secondaryForeground: '#d4d4d8',
   border: 'rgba(255,255,255,0.10)',
   input: 'rgba(255,255,255,0.15)',
   ring: '#737373',
@@ -135,6 +163,8 @@ export const darkColors: ColorTokens = {
   success: '#00bc7d',
   warning: '#fe9a00',
   info: '#51a2ff',
+  chart2: '#5e5ce6',
+  chart3: '#40c8e0',
   accent: '#0a84ff',
   accentForeground: '#ffffff',
   accentSoft: 'rgba(10,132,255,0.18)',
@@ -143,6 +173,7 @@ export const darkColors: ColorTokens = {
   sheetSolid: '#000000',
   grouped: '#000000',
   separator: '#38383a',
+  listSeparator: '#48484a',
   groupedLabel: '#8e8e93',
   fill: '#2c2c2e',
   fillForeground: '#d4d4d8',
@@ -151,6 +182,10 @@ export const darkColors: ColorTokens = {
   destructiveText: '#ff6467',
   warningSoft: 'rgba(254,154,0,0.16)',
   warningText: '#fcbb4a',
+  statusWarning: '#fb923c',
+  statusAccent: '#6cb4ff',
+  statusSuccess: '#34d399',
+  statusNeutral: '#a1a1aa',
   infoSoft: 'rgba(81,162,255,0.16)',
   infoText: '#8ec5ff',
   successSoft: 'rgba(0,188,125,0.18)',
@@ -168,4 +203,13 @@ export const darkColors: ColorTokens = {
   avatarFallback: '#3f3f46',
 }
 
-export const radius = { sm: 6, md: 8, lg: 10, group: 12, groupLarge: 26, xl: 14 } as const
+export const radius = {
+  sm: 6,
+  md: 8,
+  lg: 10,
+  group: 12,
+  groupLarge: 26,
+  xl: 14,
+  card: 24,
+  listCard: 20,
+} as const

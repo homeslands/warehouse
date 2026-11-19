@@ -1,5 +1,5 @@
-import { SheetStackLayout } from '@/bootstrap/SheetStackLayout'
+import { ScanStackLayout } from '@/bootstrap/ScanStackLayout'
 
-export default function SheetLayout() {
-  return <SheetStackLayout />
+export default function ScanLayout() {
+  return <ScanStackLayout />
 }

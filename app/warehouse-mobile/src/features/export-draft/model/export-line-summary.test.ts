@@ -146,3 +146,17 @@ describe('exportItemAsLine', () => {
     expect(texts(exportLineSummary(line, ctx({ lotLabel: null })).line3)).toContain('Lô tự động')
   })
 })
+
+describe('exportLineSummary — priced: false (phiếu không phải Bán)', () => {
+  it('dòng 2 chỉ "số đơn vị", không thành tiền, không bao giờ thiếu giá', () => {
+    const s = exportLineSummary(
+      makeLine(1, { quantity: 5, unitPrice: null }),
+      ctx({ priced: false }),
+    )
+    expect(s.line2).toBe('5 hộp')
+    expect(s.line2Tone).toBe('normal')
+    expect(s.amount).toBe('')
+    expect(s.amountTone).toBe('normal')
+    expect(s.missing).toBe(false)
+  })
+})

@@ -1,4 +1,4 @@
-import { receiverSuggestions } from './receiver-suggestions'
+import { isReceiverValidFor, receiverChoices } from './receiver-suggestions'
 
 const W = (slug: string, name: string, code = slug.toUpperCase()) => ({
   slug,
@@ -7,83 +7,81 @@ const W = (slug: string, name: string, code = slug.toUpperCase()) => ({
   isManager: false,
 })
 const warehouses = [
-  W('wh-a', 'Kho Tổng'),
+  W('wh-a', 'Kho Tổng', 'A'),
   W('wh-hn', 'Kho Hà Nội', 'HN'),
   W('wh-dn', 'Kho Đà Nẵng', 'DN'),
 ]
-const recent = ['Bếp B', 'kho hà nội', 'Tổ hàn A']
 
-describe('receiverSuggestions', () => {
-  it('loại khác Chuyển kho: chỉ người nhận gần đây (đúng thứ tự)', () => {
-    expect(
-      receiverSuggestions({ recent, warehouses, type: 'SALE', currentSlug: 'wh-a', query: '' }),
-    ).toEqual([
-      { kind: 'recent', value: 'Bếp B' },
-      { kind: 'recent', value: 'kho hà nội' },
-      { kind: 'recent', value: 'Tổ hàn A' },
+describe('receiverChoices', () => {
+  it('Chuyển kho: các kho trừ kho hiện tại; nhãn "Tên (MÃ)", value = tên kho, selected theo giá trị hiện tại', () => {
+    const opts = { warehouses, currentSlug: 'wh-a', recent: ['Bếp B'], value: 'Kho Đà Nẵng' }
+    expect(receiverChoices('TRANSFER', opts)).toEqual([
+      { label: 'Kho Hà Nội (HN)', value: 'Kho Hà Nội', selected: false },
+      { label: 'Kho Đà Nẵng (DN)', value: 'Kho Đà Nẵng', selected: true },
     ])
   })
 
-  it('Chuyển kho: thêm các kho chọn được TRỪ kho hiện tại (đánh dấu là kho), trước người nhận gần đây; người nhận trùng tên kho chỉ hiện một lần (là kho)', () => {
-    expect(
-      receiverSuggestions({ recent, warehouses, type: 'TRANSFER', currentSlug: 'wh-a', query: '' }),
-    ).toEqual([
-      { kind: 'warehouse', value: 'Kho Hà Nội', code: 'HN', slug: 'wh-hn' },
-      { kind: 'warehouse', value: 'Kho Đà Nẵng', code: 'DN', slug: 'wh-dn' },
-      { kind: 'recent', value: 'Bếp B' },
-      { kind: 'recent', value: 'Tổ hàn A' },
+  it('Chuyển kho: giá trị gõ tay không phải kho đứng đầu, selected', () => {
+    const out = receiverChoices('TRANSFER', {
+      warehouses,
+      currentSlug: 'wh-a',
+      recent: [],
+      value: 'Kho tàu',
+    })
+    expect(out.map((c) => [c.value, c.selected])).toEqual([
+      ['Kho tàu', true],
+      ['Kho Hà Nội', false],
+      ['Kho Đà Nẵng', false],
     ])
   })
 
-  it('lọc cả kho (tên hoặc mã) lẫn người nhận theo chữ đang gõ, bỏ dấu', () => {
-    expect(
-      receiverSuggestions({
-        recent,
-        warehouses,
-        type: 'TRANSFER',
-        currentSlug: 'wh-a',
-        query: 'da nang',
-      }),
-    ).toEqual([{ kind: 'warehouse', value: 'Kho Đà Nẵng', code: 'DN', slug: 'wh-dn' }])
-    expect(
-      receiverSuggestions({
-        recent,
-        warehouses,
-        type: 'TRANSFER',
-        currentSlug: 'wh-a',
-        query: 'hn',
-      }),
-    ).toEqual([{ kind: 'warehouse', value: 'Kho Hà Nội', code: 'HN', slug: 'wh-hn' }])
-    expect(
-      receiverSuggestions({ recent, warehouses, type: 'OTHER', currentSlug: 'wh-a', query: 'to' }),
-    ).toEqual([{ kind: 'recent', value: 'Tổ hàn A' }])
+  it('loại khác: tối đa 8 người nhận gần đây (không có kho)', () => {
+    const recent = Array.from({ length: 10 }, (_, i) => `Người ${i}`)
+    const out = receiverChoices('SALE', { warehouses, currentSlug: 'wh-a', recent, value: '' })
+    expect(out).toHaveLength(8)
+    expect(out[0]).toEqual({ label: 'Người 0', value: 'Người 0', selected: false })
   })
 
-  it('đã gõ đúng y một gợi ý → không gợi ý lại chính nó', () => {
-    expect(
-      receiverSuggestions({
-        recent,
-        warehouses,
-        type: 'TRANSFER',
-        currentSlug: 'wh-a',
-        query: 'Kho Hà Nội',
-      }),
-    ).toEqual([])
-  })
-
-  it('chưa gõ gì (query rỗng) mà ô đã có giá trị → đủ gợi ý, trừ chính giá trị đang có', () => {
-    expect(
-      receiverSuggestions({
-        recent,
-        warehouses,
-        type: 'SALE',
-        currentSlug: 'wh-a',
-        query: '',
-        current: 'Bếp B',
-      }),
-    ).toEqual([
-      { kind: 'recent', value: 'kho hà nội' },
-      { kind: 'recent', value: 'Tổ hàn A' },
+  it('giá trị gõ tay không có trong danh sách → đứng đầu, selected', () => {
+    const out = receiverChoices('SALE', {
+      warehouses,
+      currentSlug: 'wh-a',
+      recent: ['Bếp B', 'Tổ A'],
+      value: 'Anh Nam',
+    })
+    expect(out.map((c) => [c.value, c.selected])).toEqual([
+      ['Anh Nam', true],
+      ['Bếp B', false],
+      ['Tổ A', false],
     ])
+  })
+
+  it('giá trị đã có trong gần đây → đánh dấu tại chỗ, không nhân đôi', () => {
+    const out = receiverChoices('OTHER', {
+      warehouses,
+      currentSlug: 'wh-a',
+      recent: ['Bếp B', 'Tổ A'],
+      value: 'tổ a',
+    })
+    expect(out.map((c) => [c.value, c.selected])).toEqual([
+      ['Bếp B', false],
+      ['Tổ A', true],
+    ])
+  })
+})
+
+describe('isReceiverValidFor', () => {
+  it('cùng kiểu (cả hai không phải Chuyển kho): luôn giữ, kể cả tên kho', () => {
+    expect(isReceiverValidFor('SALE', 'PRODUCTION', 'Kho Hà Nội', warehouses)).toBe(true)
+  })
+  it('→ Chuyển kho: chỉ chuỗi khớp một kho', () => {
+    expect(isReceiverValidFor('SALE', 'TRANSFER', 'Kho Hà Nội', warehouses)).toBe(true)
+    expect(isReceiverValidFor('SALE', 'TRANSFER', 'Anh Nam', warehouses)).toBe(false)
+    expect(isReceiverValidFor('SALE', 'TRANSFER', '', warehouses)).toBe(false)
+  })
+  it('Chuyển kho → khác: bỏ khi là tên kho, giữ tên gõ tay', () => {
+    expect(isReceiverValidFor('TRANSFER', 'SALE', 'Kho Hà Nội', warehouses)).toBe(false)
+    expect(isReceiverValidFor('TRANSFER', 'SALE', 'Anh Nam', warehouses)).toBe(true)
+    expect(isReceiverValidFor('TRANSFER', 'SALE', '', warehouses)).toBe(true)
   })
 })

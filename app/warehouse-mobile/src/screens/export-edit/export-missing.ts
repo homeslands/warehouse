@@ -1,6 +1,6 @@
 import type { TFunction } from 'i18next'
 
-import { MAX_ITEMS, type ExportDraft } from '@/features/export-draft'
+import { exportHasPrice, MAX_ITEMS, type ExportDraft } from '@/features/export-draft'
 import type { MissingItem } from '@/shared/lib/missing'
 import { round6 } from '@/shared/lib/round'
 
@@ -29,6 +29,7 @@ export function exportMissing(draft: ExportDraft, t: TFunction): MissingItem[] {
   if (draft.lines.length === 0) {
     out.push({ id: 'lines', group: 'lines', target: { kind: 'lines' } })
   }
+  const priced = exportHasPrice(draft.header.type)
   for (const l of draft.lines) {
     if (!Number.isFinite(l.quantity) || round6(l.quantity) <= 0) {
       out.push({
@@ -37,7 +38,8 @@ export function exportMissing(draft: ExportDraft, t: TFunction): MissingItem[] {
         target: { kind: 'line', key: l.key, field: 'quantity' },
       })
     }
-    if (l.unitPrice === null || !Number.isFinite(l.unitPrice) || l.unitPrice < 0) {
+    // Chỉ phiếu Bán có đơn giá (như web); loại khác không bao giờ thiếu giá.
+    if (priced && (l.unitPrice === null || !Number.isFinite(l.unitPrice) || l.unitPrice < 0)) {
       out.push({
         id: `line:${l.key}:price`,
         group: 'price',

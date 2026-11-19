@@ -1,10 +1,13 @@
 import { useRouter } from 'expo-router'
-import { Globe, KeyRound, Warehouse } from '@/shared/ui/icons'
+import { Globe, KeyRound, Package, Ruler, Tag, Warehouse } from '@/shared/ui/icons'
 import { type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollView, View } from 'react-native'
 
+import { materialAbilities } from '@/entities/material'
+import { materialTypeAbilities } from '@/entities/material-type'
 import { useAuthStore } from '@/entities/session'
+import { unitAbilities } from '@/entities/unit'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { usePasswordNotice } from '@/features/change-password'
 import { useCurrentLanguage } from '@/features/language-switch'
@@ -12,18 +15,30 @@ import { useLogoutAction } from '@/features/logout'
 import { WarehouseTransition } from '@/features/warehouse-picker'
 import { appVersion } from '@/shared/config/app-version'
 import { getEnv, isSandbox } from '@/shared/config/env'
-import { ListGroup, ListRow, Screen, SectionFooter, SectionHeader, Text } from '@/shared/ui'
+import {
+  ICON_CARD_INSET,
+  ListGroup,
+  ListRow,
+  Screen,
+  SectionFooter,
+  SectionHeader,
+  Text,
+} from '@/shared/ui'
 
 import { ProfileHero } from './ProfileHero'
 
-/** Đường kẻ trong nhóm bắt đầu sau ô icon 30: lề 16 + ô 30 + khoảng cách 12. */
-const ROW_INSET = 58
-
-/** Một khối: tiêu đề nhóm viết thường (tuỳ chọn) + thẻ, cách khối sau 22. */
+/**
+ * Một khối: tiêu đề nhóm viết thường (tuỳ chọn, thẳng cột với vòng icon trong thẻ — lề `ICON_CARD_INSET`)
+ * + card, cách khối sau 14.
+ */
 function Section({ title, children }: { title?: string; children: ReactNode }) {
   return (
-    <View style={{ marginBottom: 22 }}>
-      {title ? <SectionHeader variant="sentence">{title}</SectionHeader> : null}
+    <View style={{ marginBottom: 14 }}>
+      {title ? (
+        <SectionHeader variant="sentence" inset={ICON_CARD_INSET}>
+          {title}
+        </SectionHeader>
+      ) : null}
       {children}
     </View>
   )
@@ -32,10 +47,10 @@ function Section({ title, children }: { title?: string; children: ReactNode }) {
 /**
  * Tài khoản kiểu trang "Tài khoản Apple" (iOS 26/27): đầu trang căn giữa (avatar, tên, vai trò), nhóm
  * "Làm việc" (kho), nhóm "Cài đặt" (ngôn ngữ, đổi mật khẩu), nhóm đăng xuất chữ đỏ căn giữa (hỏi lại
- * bằng hộp thoại gốc), chân màn "Kho · phiên bản · Sandbox". Nhóm bo góc 26, dòng cao 50.
+ * bằng hộp thoại gốc), chân màn "Kho · phiên bản · Sandbox". Mỗi nhóm có icon là một card `ListGroup variant="iconCard"` (vòng icon xám, lề quanh vòng cân 12), khoảng giữa card 14.
  */
 export function AccountScreen() {
-  const { t } = useTranslation(['account', 'auth', 'common'])
+  const { t } = useTranslation(['account', 'auth', 'catalog', 'common'])
   const router = useRouter()
   const user = useAuthStore((s) => s.user)
   const warehouse = useWarehouseStore((s) => s.current)
@@ -43,6 +58,10 @@ export function AccountScreen() {
   const logout = useLogoutAction('this-device')
   const logoutAll = useLogoutAction('all-devices')
   const passwordChanged = usePasswordNotice((s) => s.changed)
+
+  const canUnits = unitAbilities(user).read
+  const canTypes = materialTypeAbilities(user).read
+  const canMaterials = materialAbilities(user).read
 
   const footer = [t('common:appName'), appVersion()]
   if (isSandbox(getEnv())) footer.push(t('common:sandbox'))
@@ -58,9 +77,8 @@ export function AccountScreen() {
 
         <Section title={t('account:workSection')}>
           <WarehouseTransition>
-            <ListGroup large inset={ROW_INSET}>
+            <ListGroup variant="iconCard">
               <ListRow
-                large
                 icon={Warehouse}
                 label={t('account:warehouseRow')}
                 value={warehouse?.name ?? t('common:notSet')}
@@ -72,10 +90,40 @@ export function AccountScreen() {
           </WarehouseTransition>
         </Section>
 
+        {canUnits || canTypes || canMaterials ? (
+          <Section title={t('catalog:section')}>
+            <ListGroup variant="iconCard">
+              {canMaterials ? (
+                <ListRow
+                  icon={Package}
+                  label={t('catalog:material.title')}
+                  chevron
+                  onPress={() => router.push('/account/materials')}
+                />
+              ) : null}
+              {canUnits ? (
+                <ListRow
+                  icon={Ruler}
+                  label={t('catalog:unit.title')}
+                  chevron
+                  onPress={() => router.push('/account/units')}
+                />
+              ) : null}
+              {canTypes ? (
+                <ListRow
+                  icon={Tag}
+                  label={t('catalog:materialType.title')}
+                  chevron
+                  onPress={() => router.push('/account/material-types')}
+                />
+              ) : null}
+            </ListGroup>
+          </Section>
+        ) : null}
+
         <Section title={t('account:settingsSection')}>
-          <ListGroup large inset={ROW_INSET}>
+          <ListGroup variant="iconCard">
             <ListRow
-              large
               icon={Globe}
               label={t('common:language')}
               value={language.label}
@@ -83,7 +131,6 @@ export function AccountScreen() {
               onPress={() => router.navigate('/language')}
             />
             <ListRow
-              large
               icon={KeyRound}
               label={t('account:changePassword')}
               chevron
@@ -94,16 +141,15 @@ export function AccountScreen() {
             />
           </ListGroup>
           {passwordChanged ? (
-            <SectionFooter tone="success" accessibilityRole="alert">
+            <SectionFooter tone="success" accessibilityRole="alert" inset={ICON_CARD_INSET}>
               {t('auth:changePassword.success')}
             </SectionFooter>
           ) : null}
         </Section>
 
         <Section>
-          <ListGroup large inset={16}>
+          <ListGroup variant="card" inset={20}>
             <ListRow
-              large
               label={t('account:logout')}
               destructive
               centered
@@ -111,7 +157,6 @@ export function AccountScreen() {
               onPress={() => void logout.request()}
             />
             <ListRow
-              large
               label={t('account:logoutAll')}
               destructive
               centered

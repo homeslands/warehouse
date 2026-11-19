@@ -1,56 +1,68 @@
-import {
-  matchSuggestions,
-  RECEIVER_SUGGESTIONS_MAX,
-  type ExportFormType,
-} from '@/entities/export-form'
+import { RECEIVER_SUGGESTIONS_MAX, type ExportFormType } from '@/entities/export-form'
 import type { UserWarehouse } from '@/entities/session'
-import { normalizeForSearch } from '@/shared/lib/search'
 
-export type ReceiverSuggestion =
-  | { kind: 'recent'; value: string }
-  | { kind: 'warehouse'; value: string; code: string; slug: string }
+export type ReceiverChoice = { label: string; value: string; selected: boolean }
 
-const sameKey = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase()
+/** Khoá so sánh tên người nhận: bỏ khoảng trắng thừa, không phân biệt hoa thường. */
+export const receiverKey = (s: string) => s.trim().replace(/\s+/g, ' ').toLowerCase()
 
 /**
- * Gợi ý cho ô Người nhận: người nhận gần đây của kho (`useRecentReceivers`, đã bỏ trùng, mới nhất trước)
- * lọc theo chữ đang gõ (tối đa 8); loại Chuyển kho thêm — TRƯỚC — các kho người dùng chọn được (ADMIN+:
- * mọi kho đã tải; còn lại: kho của mình) trừ kho hiện tại, khớp theo tên hoặc mã (tối đa 8). Người nhận
- * gần đây trùng tên một kho chỉ hiện một lần, dưới dạng kho. Mục đúng y chữ đang gõ không hiện.
- *
- * `query`: chữ dùng để LỌC (nơi gọi truyền `''` khi người dùng chưa gõ gì từ lúc focus — ô đã điền sẵn
- * vẫn thấy đủ gợi ý); `current`: giá trị đang có trong ô — không gợi ý lại chính nó.
+ * Lựa chọn của menu Người nhận (mục "Nhập tên khác…" do UI thêm). Chuyển kho: các kho trừ kho hiện tại,
+ * nhãn "Tên kho (MÃ)", `value` = tên kho (đúng chuỗi `receiver` lưu từ trước). Loại khác: tối đa 8 người
+ * nhận gần đây (mới nhất trước). Cả hai: giá trị đang có mà không nằm trong danh sách (gõ tay) đứng đầu.
  */
-export function receiverSuggestions({
-  recent,
-  warehouses,
-  type,
-  currentSlug,
-  query,
-  current = query,
-}: {
-  recent: readonly string[]
-  warehouses: readonly UserWarehouse[]
-  type: ExportFormType
-  currentSlug: string | undefined
-  query: string
-  current?: string
-}): ReceiverSuggestion[] {
-  const targets = type === 'TRANSFER' ? warehouses.filter((w) => w.slug !== currentSlug) : []
-  const q = normalizeForSearch(query)
-  const whItems: ReceiverSuggestion[] = targets
-    .filter((w) => {
-      const name = normalizeForSearch(w.name)
-      if (q !== '' && name === q) return false
-      return name.includes(q) || normalizeForSearch(w.code).includes(q)
-    })
-    .slice(0, RECEIVER_SUGGESTIONS_MAX)
-    .map((w) => ({ kind: 'warehouse', value: w.name, code: w.code, slug: w.slug }))
-  const warehouseNames = new Set(targets.map((w) => sameKey(w.name)))
-  const recentItems: ReceiverSuggestion[] = matchSuggestions(
-    recent.filter((r) => !warehouseNames.has(sameKey(r))),
-    query,
-  ).map((value) => ({ kind: 'recent', value }))
-  const cur = normalizeForSearch(current)
-  return [...whItems, ...recentItems].filter((s) => normalizeForSearch(s.value) !== cur)
+export function receiverChoices(
+  type: ExportFormType,
+  {
+    warehouses,
+    currentSlug,
+    recent,
+    value,
+  }: {
+    warehouses: readonly UserWarehouse[]
+    currentSlug: string | undefined
+    recent: readonly string[]
+    value: string
+  },
+): ReceiverChoice[] {
+  const cur = receiverKey(value)
+  if (type === 'TRANSFER') {
+    const list = warehouses
+      .filter((w) => w.slug !== currentSlug)
+      .map((w) => ({
+        label: `${w.name} (${w.code})`,
+        value: w.name,
+        selected: cur !== '' && receiverKey(w.name) === cur,
+      }))
+    if (cur !== '' && !list.some((c) => c.selected)) {
+      list.unshift({ label: value.trim(), value: value.trim(), selected: true })
+    }
+    return list
+  }
+  const list = recent.slice(0, RECEIVER_SUGGESTIONS_MAX).map((r) => ({
+    label: r,
+    value: r,
+    selected: cur !== '' && receiverKey(r) === cur,
+  }))
+  if (cur !== '' && !list.some((c) => c.selected)) {
+    list.unshift({ label: value.trim(), value: value.trim(), selected: true })
+  }
+  return list
+}
+
+/**
+ * `receiver` còn hợp lệ khi đổi loại `prev` → `next`? Chỉ xét khi đổi "kiểu" (Chuyển kho ↔ loại khác); cùng
+ * kiểu luôn giữ. → Chuyển kho: phải là tên một kho; Chuyển kho → loại khác: chỉ bỏ khi là tên kho (tên gõ
+ * tay giữ lại).
+ */
+export function isReceiverValidFor(
+  prev: ExportFormType,
+  next: ExportFormType,
+  receiver: string,
+  warehouses: readonly UserWarehouse[],
+): boolean {
+  if ((next === 'TRANSFER') === (prev === 'TRANSFER')) return true
+  const key = receiverKey(receiver)
+  const isWarehouse = warehouses.some((w) => receiverKey(w.name) === key)
+  return next === 'TRANSFER' ? isWarehouse : !(key !== '' && isWarehouse)
 }

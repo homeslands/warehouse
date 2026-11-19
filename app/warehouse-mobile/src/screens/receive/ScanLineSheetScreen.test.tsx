@@ -1,18 +1,23 @@
 // fake-api PHẢI được import trước mọi module kéo `@/shared/api/http` vào (xem fake-api.ts).
-import { callsTo, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
+import { callsTo, failure, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen } from '@testing-library/react-native'
 
 import type { AvailableMaterial } from '@/entities/import-form'
 import { useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
-import { MAX_ITEMS, stopDraftPersistence, useReceiveDraft } from '@/features/receive-checklist'
+import {
+  MAX_ITEMS,
+  stopDraftPersistence,
+  useReceiveDraft,
+  useScanNotice,
+} from '@/features/receive-checklist'
 import { makeDraft, makeLine } from '@/features/receive-checklist/model/fixtures'
 import { changeLanguage, initI18n } from '@/shared/i18n'
 import { useLineFocus } from '@/shared/lib/line-focus'
+import { SafeAreaWrapper } from '@/shared/ui/testing/safe-area'
 
 import { ScanLineSheetScreen } from './ScanLineSheetScreen'
-import { useScanNotice } from './scan-notice.store'
 
 const mockNavigate = jest.fn()
 const mockBack = jest.fn()
@@ -20,7 +25,7 @@ const mockParams: { compose?: string } = {}
 jest.mock('expo-router', () => ({
   useRouter: () => ({ navigate: mockNavigate, back: mockBack, canGoBack: () => true }),
   useLocalSearchParams: () => mockParams,
-  Stack: jest.requireActual('@/shared/ui/testing/sheet-header').mockSheetStack,
+  Stack: { Screen: () => null },
 }))
 
 const WH = { slug: 'wh-a', code: 'A', name: 'Kho Tổng', isManager: true }
@@ -46,6 +51,7 @@ const show = () =>
     <QueryClientProvider client={client}>
       <ScanLineSheetScreen />
     </QueryClientProvider>,
+    { wrapper: SafeAreaWrapper },
   )
 const settle = () => act(async () => new Promise((r) => setTimeout(r, 0)))
 
@@ -193,6 +199,55 @@ describe('ScanLineSheetScreen', () => {
       expect(useScanNotice.getState().notice).toBeNull()
     })
 
+    describe('bên bán của dòng quét thêm (phiếu đã có)', () => {
+      const S2 = { slug: 's2', code: 'N2', name: 'Hà Tiên' }
+      const S3 = { slug: 's3', code: 'N3', name: 'Minh Phát' }
+      const line = (n: number, slug: string) =>
+        makeLine(n, { supplierSlug: slug, supplierName: `Tên ${slug}` })
+      function signIn(scope: string[]) {
+        useAuthStore.setState({
+          status: 'authenticated',
+          user: { userSlug: 'u', userName: 'an', scope, warehouses: [WH] } as never,
+        })
+      }
+      const EDIT = ['IMPORT_FORM_READ', 'IMPORT_FORM_CREATE', 'IMPORT_FORM_UPDATE_DRAFT']
+      async function scanAdd(lines: ReturnType<typeof makeLine>[]) {
+        useReceiveDraft.setState({
+          ctx: { userSlug: 'u', warehouseSlug: 'wh-a', formSlug: 'pn-1' },
+          draft: makeDraft(lines, { header: { ...makeDraft([]).header, supplierSlug: 's1' } }),
+          saving: false,
+        })
+        route('get', AV, () => page([mat('m-9', 'VT9', { suppliers: [S3] })]))
+        await show()
+        await scan('VT9')
+        await settle()
+        return useReceiveDraft.getState().draft!.lines.at(-1)!
+      }
+
+      it('nhiều bên bán + SUPPLIER_READ → theo luật lineSupplier (NCC duy nhất của vật tư)', async () => {
+        signIn([...EDIT, 'SUPPLIER_READ'])
+        const added = await scanAdd([line(1, 's1'), line(2, 's1'), line(3, S2.slug)])
+        expect(added).toMatchObject({ materialSlug: 'm-9', supplierSlug: 's3' })
+      })
+
+      it('một bên bán, không SUPPLIER_READ → luật lineSupplier', async () => {
+        signIn(EDIT)
+        const added = await scanAdd([line(1, 's1'), line(2, 's1')])
+        expect(added).toMatchObject({ materialSlug: 'm-9', supplierSlug: 's3' })
+      })
+
+      it('một bên bán + SUPPLIER_READ → mang bên bán của phiếu', async () => {
+        signIn([...EDIT, 'SUPPLIER_READ'])
+        const added = await scanAdd([line(1, 's1'), line(2, 's1')])
+        expect(added).toMatchObject({
+          materialSlug: 'm-9',
+          supplierSlug: 's1',
+          supplierName: 'Tên s1',
+          materialSupplierSlugs: ['s3'],
+        })
+      })
+    })
+
     it('compose: không có trên phiếu lẫn trong vật tư của kho (chỉ khớp một phần) → báo notFound', async () => {
       seed()
       route('get', AV, () => page([mat('m-9', 'VT9-X')]))
@@ -204,8 +259,129 @@ describe('ScanLineSheetScreen', () => {
         formSlug: 'pn-1',
         code: 'VT9',
         reason: 'notFound',
+        canCreate: false,
       })
       expect(mockBack).toHaveBeenCalledTimes(1)
+    })
+
+    it('✕ trong lúc đang tra mã (async) rồi request về → chỉ back() MỘT lần; thẻ đáy "Đang tra mã…" tới khi xong', async () => {
+      seed()
+      let release: () => void = () => {}
+      const gate = new Promise<void>((r) => (release = r))
+      route('get', AV, async () => {
+        await gate
+        return page([mat('m-9', 'VT9')])
+      })
+      await show()
+      await scan('VT9')
+      expect(screen.getByText('Đang tra mã…')).toBeOnTheScreen()
+      await fireEvent.press(screen.getByRole('button', { name: 'Đóng' }))
+      expect(mockBack).toHaveBeenCalledTimes(1)
+      release()
+      await settle()
+      expect(mockBack).toHaveBeenCalledTimes(1)
+    })
+
+    describe('không thấy trong kho → tra danh mục (cần MATERIAL_READ)', () => {
+      const MATS = '/materials'
+      const withRead = () =>
+        useAuthStore.setState({
+          status: 'authenticated',
+          user: {
+            userSlug: 'u',
+            userName: 'an',
+            scope: [
+              'IMPORT_FORM_READ',
+              'IMPORT_FORM_CREATE',
+              'IMPORT_FORM_UPDATE_DRAFT',
+              'MATERIAL_READ',
+            ],
+            warehouses: [WH],
+          } as never,
+        })
+      const cat = (items: unknown[]) =>
+        ok({ items, total: items.length, page: 1, pageSize: 5, totalPages: 1, hasNext: false })
+      const run = async () => {
+        seed()
+        route('get', AV, () => page([]))
+        await show()
+        await scan('VT9')
+        await settle()
+      }
+
+      it('có trong danh mục → notInWarehouse kèm vật tư, không thêm dòng', async () => {
+        withRead()
+        route('get', MATS, () =>
+          cat([
+            {
+              slug: 'm9',
+              code: 'VT9',
+              name: 'Dây điện',
+              warehouses: [],
+              suppliers: [{ slug: 's2', code: 'S2', name: 'NCC 2', extra: 1 }],
+            },
+          ]),
+        )
+        await run()
+        expect(useScanNotice.getState().notice).toEqual({
+          formSlug: 'pn-1',
+          code: 'VT9',
+          reason: 'notInWarehouse',
+          material: {
+            slug: 'm9',
+            code: 'VT9',
+            name: 'Dây điện',
+            suppliers: [{ slug: 's2', code: 'S2', name: 'NCC 2' }],
+          },
+        })
+        expect(useReceiveDraft.getState().draft!.lines).toHaveLength(2)
+        expect(mockBack).toHaveBeenCalledTimes(1)
+      })
+      it('danh mục không có → notFound, canCreate = true', async () => {
+        withRead()
+        route('get', MATS, () => cat([{ slug: 'x', code: 'VT90', name: 'Khác' }]))
+        await run()
+        expect(useScanNotice.getState().notice).toMatchObject({
+          reason: 'notFound',
+          canCreate: true,
+        })
+      })
+      it('danh mục cho biết vật tư ĐÃ ở kho này (tra kho lỗi) → coi như lỗi: notFound, canCreate = false', async () => {
+        withRead()
+        route('get', MATS, () =>
+          cat([
+            {
+              slug: 'm9',
+              code: 'VT9',
+              name: 'Dây điện',
+              warehouses: [{ slug: 'wh-a' }],
+              suppliers: [],
+            },
+          ]),
+        )
+        await run()
+        expect(useScanNotice.getState().notice).toMatchObject({
+          reason: 'notFound',
+          canCreate: false,
+        })
+      })
+      it('tra danh mục lỗi → notFound, canCreate = false', async () => {
+        withRead()
+        route('get', MATS, () => failure(500))
+        await run()
+        expect(useScanNotice.getState().notice).toMatchObject({
+          reason: 'notFound',
+          canCreate: false,
+        })
+      })
+      it('thiếu MATERIAL_READ → không tra danh mục, notFound, canCreate = false', async () => {
+        await run()
+        expect(callsTo('get', MATS)).toHaveLength(0)
+        expect(useScanNotice.getState().notice).toMatchObject({
+          reason: 'notFound',
+          canCreate: false,
+        })
+      })
     })
 
     it('compose without IMPORT_FORM_CREATE: matches lines on the form, never looks up / adds new materials', async () => {

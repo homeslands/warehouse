@@ -1,112 +1,134 @@
-import { Check, Clock, Pencil, X, type LucideIcon } from '@/shared/ui/icons'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pressable, View } from 'react-native'
 
-import type { ExportForm, ExportFormStatus } from '@/entities/export-form'
-import { formatMoney, formatTime } from '@/shared/lib/format'
+import {
+  exportHasPrice,
+  type ExportForm,
+  type ExportFormStatus,
+  type ExportFormType,
+} from '@/entities/export-form'
+import { formatDayMonth, formatMoney, formatTime } from '@/shared/lib/format'
+import type { ColorTokens } from '@/shared/theme/tokens'
 import { useTheme } from '@/shared/theme/useTheme'
-import { ROW_PRESS_DELAY_MS, Text } from '@/shared/ui'
+import { PlainListRow, RowLine, RowStatus, Text } from '@/shared/ui'
+import {
+  ArrowLeftRight,
+  Factory,
+  Package,
+  ShoppingCart,
+  Trash2,
+  type LucideIcon,
+} from '@/shared/ui/icons'
 
 export type ExportFormRowProps = {
   form: ExportForm
   locale: 'vi' | 'en'
   onPress: (form: ExportForm) => void
+  /** Dòng đầu nhóm tháng (không đường kẻ phía trên). */
+  first: boolean
+  /** Hiện trạng thái ở cột phải — chỉ khi đang xem "Tất cả" (lọc một trạng thái thì mọi dòng giống nhau). */
+  showStatus: boolean
 }
 
-/** Ô trạng thái (34pt) + lề chữ: đường kẻ giữa các dòng lùi bằng đây. */
-const TILE = 34
-const ROW_PAD = 16
-const ROW_GAP = 12
-export const EXPORT_ROW_INSET = ROW_PAD + TILE + ROW_GAP
-/** Cột phải rộng cố định: tổng tiền rất lớn co chữ lại chứ không đẩy cột trái. */
-const END_COLUMN = 108
+/** Hình icon theo LOẠI phiếu trong ô trung tính — hình nói loại, không mang màu. */
+const TYPE_ICON: Record<ExportFormType, LucideIcon> = {
+  SALE: ShoppingCart,
+  PRODUCTION: Factory,
+  TRANSFER: ArrowLeftRight,
+  DISPOSAL: Trash2,
+  OTHER: Package,
+}
 
-const TILE_ICON: Record<ExportFormStatus, LucideIcon> = {
-  DRAFT: Pencil,
-  PENDING: Clock,
-  CONFIRMED: Check,
-  CANCELLED: X,
+/** Chữ trạng thái nghiêng màu tươi (đủ AA). Màu CHỈ dành cho trạng thái (ô icon trung tính). */
+function statusColor(colors: ColorTokens, status: ExportFormStatus) {
+  return {
+    DRAFT: colors.statusWarning,
+    PENDING: colors.statusAccent,
+    CONFIRMED: colors.statusSuccess,
+    CANCELLED: colors.statusNeutral,
+  }[status]
 }
 
 /**
- * Một dòng phiếu xuất: ô trạng thái bo 10 (Nháp: bút chì vàng; Chờ duyệt: đồng hồ `accent`; Đã xuất:
- * dấu tích xanh; Huỷ: dấu ✕ xám); dòng 1 mã phiếu (code) đậm; dòng 2 "Loại · Người nhận · Người lập";
- * cột phải tổng tiền (numeric) + giờ tạo. Mọi chữ một dòng. Nền do khối bo góc của nhóm ngày vẽ.
+ * Một dòng phiếu xuất — danh sách kiểu lịch sử giao dịch (`PlainListRow`, gom theo tháng): ô icon trung
+ * tính, HÌNH theo loại; [mã 16 semibold, cắt GIỮA | tổng 16 semibold — chỉ phiếu Bán (như web), phiếu huỷ
+ * xám gạch ngang] / [giờ · dd/MM | chữ trạng thái nghiêng màu tươi, chỉ khi "Tất cả"] / [Loại · người nhận · người lập].
  */
 export const ExportFormRow = memo(function ExportFormRow({
   form,
   locale,
   onPress,
+  first,
+  showStatus,
 }: ExportFormRowProps) {
   const { t } = useTranslation('exportForms')
   const { colors } = useTheme()
-  const tone = {
-    DRAFT: { bg: colors.warningSoft, fg: colors.warningText },
-    PENDING: { bg: colors.accentSoft, fg: colors.accentText },
-    CONFIRMED: { bg: colors.successSoft, fg: colors.successText },
-    CANCELLED: { bg: colors.fill, fg: colors.mutedForeground },
-  }[form.status]
-  const Icon = TILE_ICON[form.status]
-  const meta = [t(`type.${form.type}`), form.receiver, form.requesterName]
-    .filter(Boolean)
-    .join(' · ')
-  const total = formatMoney(form.totalAmount, locale)
+  const status = t(`status.${form.status}`)
+  const type = t(`type.${form.type}`)
+  // Chỉ phiếu Bán có đơn giá (như web) → loại khác không hiện / không đọc tổng tiền.
+  const total = exportHasPrice(form.type) ? formatMoney(form.totalAmount, locale) : null
   const time = formatTime(form.createdAt)
-  const label = [form.code, t(`status.${form.status}`), meta, total, time].join(', ')
+  const when = [time, formatDayMonth(form.createdAt)].filter(Boolean).join(' · ')
+  const cancelled = form.status === 'CANCELLED'
+  const label = [form.code, status, type, form.receiver, form.requesterName, total, time]
+    .filter(Boolean)
+    .join(', ')
   return (
-    <Pressable
+    <PlainListRow
       testID="export-row"
-      accessibilityRole="button"
       accessibilityLabel={label}
       onPress={() => onPress(form)}
-      unstable_pressDelay={ROW_PRESS_DELAY_MS}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: ROW_GAP,
-        minHeight: 64,
-        paddingHorizontal: ROW_PAD,
-        paddingVertical: 12,
-        backgroundColor: pressed ? colors.rowPressed : colors.card,
-      })}
+      first={first}
+      tile={{ icon: TYPE_ICON[form.type], testID: `export-tile-${form.type}` }}
     >
-      <View
-        testID={`export-tile-${form.status}`}
-        style={{
-          width: TILE,
-          height: TILE,
-          borderRadius: 10,
-          backgroundColor: tone.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+      <RowLine
+        endTestID="export-row-end"
+        end={
+          total !== null ? (
+            <Text
+              numeric
+              weight="semibold"
+              size={16}
+              numberOfLines={1}
+              adjustsFontSizeToFit
+              minimumFontScale={0.5}
+              style={
+                cancelled
+                  ? { color: colors.mutedForeground, textDecorationLine: 'line-through' }
+                  : form.totalAmount === 0
+                    ? { color: colors.mutedForeground }
+                    : undefined
+              }
+            >
+              {total}
+            </Text>
+          ) : null
+        }
       >
-        <Icon size={18} color={tone.fg} strokeWidth={2.2} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-        <Text code weight="semibold" size={15} numberOfLines={1}>
+        <Text numeric weight="semibold" size={16} numberOfLines={1} ellipsizeMode="middle">
           {form.code}
         </Text>
-        <Text muted size={12.5} numberOfLines={1}>
-          {meta}
+      </RowLine>
+      <RowLine
+        end={
+          showStatus ? (
+            <RowStatus
+              testID={`export-status-${form.status}`}
+              label={status}
+              color={statusColor(colors, form.status)}
+            />
+          ) : null
+        }
+      >
+        <Text muted numeric size={14} numberOfLines={1}>
+          {when}
         </Text>
-      </View>
-      <View testID="export-row-end" style={{ width: END_COLUMN, alignItems: 'flex-end', gap: 4 }}>
-        <Text
-          numeric
-          weight="semibold"
-          size={14}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.5}
-        >
-          {total}
+      </RowLine>
+      <RowLine>
+        <Text muted size={14} numberOfLines={1}>
+          {[type, form.receiver, form.requesterName].filter(Boolean).join(' · ')}
         </Text>
-        <Text muted size={11.5} numberOfLines={1}>
-          {time}
-        </Text>
-      </View>
-    </Pressable>
+      </RowLine>
+    </PlainListRow>
   )
 })

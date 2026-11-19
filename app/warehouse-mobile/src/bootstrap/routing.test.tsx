@@ -4,7 +4,7 @@
  * (docs `router/reference/testing`).
  */
 // fake-api PHẢI được import trước mọi module kéo `@/shared/api/http` vào (xem fake-api.ts).
-import { ok, profile, resetFakeApi, route } from '@/shared/api/testing/fake-api'
+import { callsTo, ok, profile, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ActionSheetIOS, Platform } from 'react-native'
 import { router } from 'expo-router'
@@ -12,6 +12,7 @@ import { StackActions } from 'expo-router/react-navigation'
 import { act, fireEvent, renderRouter, screen, within } from 'expo-router/testing-library'
 
 import { bootstrapSession, useAuthStore } from '@/entities/session'
+import { expiryCutoffs } from '@/entities/inventory'
 import { item } from '@/entities/inventory/model/fixtures'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { useExportDraft } from '@/features/export-draft'
@@ -19,10 +20,12 @@ import {
   makeDraft as makeExportDraft,
   makeLine as makeExportLine,
 } from '@/features/export-draft/model/fixtures'
+import { useMaterialDraft } from '@/features/material-form'
 import { useReceiveDraft } from '@/features/receive-checklist'
 import { makeDraft, makeLine } from '@/features/receive-checklist/model/fixtures'
 import { useExportListFilter } from '@/screens/export-list'
 import { useImportListFilter } from '@/screens/import-list'
+import { useMaterialFilter } from '@/screens/material-list'
 import { useStockFilter } from '@/screens/stock'
 import { queryClient } from './providers'
 import { clearTokens, setTokens } from '@/shared/api/token-storage'
@@ -311,6 +314,8 @@ beforeEach(async () => {
   useAuthStore.setState({ status: 'loading', user: null, endReason: null })
   useWarehouseStore.getState().reset()
   useStockFilter.getState().reset()
+  useMaterialFilter.getState().reset()
+  useMaterialDraft.getState().reset()
   useImportListFilter.getState().reset()
   useExportListFilter.getState().reset()
   useExportDraft.getState().reset()
@@ -327,7 +332,7 @@ describe('SessionGate + routes', () => {
     expect(screen.getByLabelText('Số điện thoại')).toBeOnTheScreen()
   })
 
-  it('đã đăng nhập, 2 kho, chưa chọn → /select-warehouse; chọn kho → /import', async () => {
+  it('đã đăng nhập, 2 kho, chưa chọn → /select-warehouse; chọn kho → /overview (tab đầu)', async () => {
     signedIn({ scope: ALL, warehouses: [WH1, WH2] })
     await boot()
     expect(screen).toHavePathname('/select-warehouse')
@@ -337,19 +342,21 @@ describe('SessionGate + routes', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: /Kho Thủ Đức/ }))
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(useWarehouseStore.getState().current?.slug).toBe('wh-2')
   })
 
-  it('chỉ có EXPORT_FORM_READ → tab bar chỉ có Xuất và Tài khoản', async () => {
+  it('chỉ có EXPORT_FORM_READ → tab bar chỉ có Tổng quan, Xuất và Tài khoản', async () => {
     signedIn({ scope: ['EXPORT_FORM_READ'], warehouses: [WH1] })
     await boot()
-    expect(screen).toHavePathname('/export')
+    expect(screen).toHavePathname('/overview')
     // Nhãn tab ngắn theo mockup A; tiêu đề lớn native của màn vẫn là nhãn dài.
     expect(tabBar()).toEqual([
+      { title: 'Tổng quan', testID: 'tab-overview' },
       { title: 'Xuất', testID: 'tab-export' },
       { title: 'Tài khoản', testID: 'tab-account' },
     ])
+    await go('/export')
     expect(nativeHeaders(tabScreen('Xuất'))).toEqual([{ title: 'Xuất kho', largeTitle: true }])
   })
 
@@ -389,7 +396,7 @@ describe('SessionGate + routes', () => {
 
     await fireEvent.press(screen.getByRole('button', { name: /^Kho Tổng/ }))
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(useWarehouseStore.getState().current?.slug).toBe('wh-1')
   })
 
@@ -412,13 +419,13 @@ describe('SessionGate + routes', () => {
     )
     await fireEvent.press(screen.getByRole('button', { name: 'Thử lại' }))
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
   })
 
   it('endSession(expired) → về /login, màn login báo phiên hết hạn, store kho bị reset', async () => {
     signedIn({ scope: ALL, warehouses: [WH1] })
     await boot()
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
 
     await act(async () => useAuthStore.getState().endSession('expired'))
     await act(() => jest.runAllTimersAsync())
@@ -432,6 +439,7 @@ describe('SessionGate + routes', () => {
     stockOfWh1()
     await boot()
     for (const [href, tab, title] of [
+      ['/overview', 'Tổng quan', 'Tổng quan'],
       ['/import', 'Nhập', 'Nhập kho'],
       ['/export', 'Xuất', 'Xuất kho'],
       ['/stock', 'Tồn kho', 'Tồn kho'],
@@ -484,9 +492,9 @@ describe('SessionGate + routes', () => {
     signedIn({ scope: ALL, warehouses: [WH1, WH2] })
     await kv.set('warehouse.lastWarehouse.root', 'wh-1')
     await boot()
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
 
-    await fireEvent.press(warehouseButtons(tabScreen('Nhập'))[0])
+    await fireEvent.press(warehouseButtons(tabScreen('Tổng quan'))[0])
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/switch-warehouse')
     expect(headerButtonLabels()).toEqual(expect.arrayContaining(['Huỷ', 'Xong']))
@@ -508,7 +516,7 @@ describe('SessionGate + routes', () => {
     expect(useWarehouseStore.getState().current?.slug).toBe('wh-1')
 
     await pressHeaderButton('Xong')
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(useWarehouseStore.getState().current?.slug).toBe('wh-2')
   })
 
@@ -516,17 +524,17 @@ describe('SessionGate + routes', () => {
     signedIn({ scope: ALL, warehouses: [WH1, WH2] })
     await kv.set('warehouse.lastWarehouse.root', 'wh-1')
     await boot()
-    await fireEvent.press(warehouseButtons(tabScreen('Nhập'))[0])
+    await fireEvent.press(warehouseButtons(tabScreen('Tổng quan'))[0])
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/switch-warehouse')
 
     await pressHeaderButton('Huỷ')
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(useWarehouseStore.getState().current?.slug).toBe('wh-1')
 
     await act(async () => router.navigate('/select-warehouse'))
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
   })
 
   it('tab Tài khoản: dòng "Kho" (nhóm Làm việc) mở bảng đổi kho', async () => {
@@ -616,8 +624,10 @@ describe('SessionGate + routes', () => {
       await bootstrapSession()
     })
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/import')
-    expect(nativeHeaders(tabScreen('Nhập'))).toEqual([{ title: 'Nhập kho', largeTitle: true }])
+    expect(screen).toHavePathname('/overview')
+    expect(nativeHeaders(tabScreen('Tổng quan'))).toEqual([
+      { title: 'Tổng quan', largeTitle: true },
+    ])
   })
 
   it('đang mở /change-password thì phiên hết hạn → về /login', async () => {
@@ -631,16 +641,45 @@ describe('SessionGate + routes', () => {
     expect(screen).toHavePathname('/login')
   })
 
+  it('đang mở màn quét toàn màn /scan-material thì phiên hết hạn → về /login (rời như sheet)', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    await boot()
+    await go('/scan-material')
+    expect(screen).toHavePathname('/scan-material')
+    const scan = screen.container
+      .queryAll((n) => n.type === 'RNSModalScreen')
+      .find((n) => n.props.stackPresentation === 'fullScreenModal')
+    expect(scan).toBeDefined()
+    await act(async () => useAuthStore.getState().endSession('expired'))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/login')
+    expect(screen.queryByTestId('camera-view')).toBeNull()
+  })
+
+  it('đang mở /material-form/pick thì phiên hết hạn → về /login (không kẹt ở màn pick)', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    await act(async () => router.navigate('/material-form/pick?field=type'))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/material-form/pick')
+    await act(async () => useAuthStore.getState().endSession('expired'))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/login')
+  })
+
   it('quay lại app, quyền đổi: tab đang mở bị gỡ → sang tab đầu tiên còn lại; hết tab → /no-access', async () => {
     signedIn({ scope: ALL, warehouses: [WH1] })
     await boot()
+    expect(screen).toHavePathname('/overview')
+    await go('/import')
     expect(screen).toHavePathname('/import')
 
     const user = useAuthStore.getState().user!
     await act(async () => useAuthStore.getState().setUser({ ...user, scope: ['EXPORT_FORM_READ'] }))
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/export')
-    expect(tabBar().map((t) => t.title)).toEqual(['Xuất', 'Tài khoản'])
+    expect(screen).toHavePathname('/overview')
+    expect(tabBar().map((t) => t.title)).toEqual(['Tổng quan', 'Xuất', 'Tài khoản'])
 
     await act(async () => useAuthStore.getState().setUser({ ...user, scope: [] }))
     await act(() => jest.runAllTimersAsync())
@@ -657,7 +696,7 @@ describe('SessionGate + routes', () => {
     route('get', '/auth/me', () => ok(profile({ scope: ALL, warehouses: [WH1] })))
     await fireEvent.press(screen.getByRole('button', { name: 'Thử lại' }))
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
   })
 })
 
@@ -838,7 +877,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await boot()
     await go('/stock')
     await go('/stock-filter')
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
   })
 
   it('nút "Quét mã" trên header Tồn kho → mở sheet /scan-material (chỉ có ✕)', async () => {
@@ -849,8 +888,9 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await pressHeaderButton('Quét mã')
     expect(screen).toHavePathname('/scan-material')
     expect(screen.getByTestId('scan-sheet')).toBeOnTheScreen()
-    expect(headerButtonLabels()).toContain('Đóng')
-    expect(headerButtonLabels()).not.toContain('Xong')
+    // Toàn màn: ✕ do ScanScreen vẽ, không có nút trên header native.
+    expect(screen.getByRole('button', { name: 'Đóng' })).toBeOnTheScreen()
+    expect(headerButtonLabels()).not.toContain('Đóng')
   })
 
   it('quét mã khớp → đóng sheet, mở chi tiết vật tư; quay lại → danh sách', async () => {
@@ -905,18 +945,18 @@ describe('tab Tồn kho (Stack lồng)', () => {
   it('thiếu quyền xem tồn kho (deep link) → /scan-material bị khoá, về tab đầu', async () => {
     signedIn({ scope: ['IMPORT_FORM_READ', 'MATERIAL_READ'], warehouses: [WH1] })
     await boot()
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     await go('/scan-material')
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('scan-sheet')).toBeNull()
   })
 
   it('thiếu IMPORT_FORM_READ (deep link) → /import-line bị khoá, về tab đầu', async () => {
     signedIn({ scope: ['MATERIAL_READ', 'WAREHOUSE_READ'], warehouses: [WH1] })
     await boot()
-    expect(screen).toHavePathname('/stock')
+    expect(screen).toHavePathname('/overview')
     await go('/import-line?key=a')
-    expect(screen).toHavePathname('/stock')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('receive-line-sheet')).toBeNull()
   })
 
@@ -946,9 +986,9 @@ describe('tab Tồn kho (Stack lồng)', () => {
   it('/scan-line: chưa có bản nháp phiếu đang mở → bị khoá, về tab đầu', async () => {
     signedIn({ scope: ['IMPORT_FORM_READ'], warehouses: [WH1] })
     await boot()
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     await go('/scan-line')
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('scan-sheet')).toBeNull()
   })
 
@@ -962,7 +1002,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
       }),
     )
     await go('/scan-line')
-    expect(screen).toHavePathname('/stock')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('scan-sheet')).toBeNull()
     await act(async () => useReceiveDraft.getState().reset())
   })
@@ -978,7 +1018,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     )
     await go('/scan-line')
     expect(screen).toHavePathname('/scan-line')
-    expect(headerButtonLabels()).toContain('Đóng')
+    expect(screen.getByRole('button', { name: 'Đóng' })).toBeOnTheScreen()
     await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', { data: 'vt2' })
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/import-line')
@@ -987,13 +1027,50 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await act(async () => useReceiveDraft.getState().reset())
   })
 
+  it('/material-form/scan: mở màn quét trong sheet form vật tư, ✕ → về đúng /material-form (sheet vẫn mở)', async () => {
+    signedIn({
+      scope: [...ALL, 'MATERIAL_CREATE', 'MATERIAL_UPDATE', 'UNIT_READ'],
+      warehouses: [WH1],
+    })
+    await boot()
+    await go('/material-form')
+    expect(screen).toHavePathname('/material-form')
+    await go('/material-form/scan')
+    expect(screen).toHavePathname('/material-form/scan')
+    expect(screen.getByTestId('material-scan-sheet')).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Đóng' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/material-form')
+    expect(screen.queryByTestId('material-scan-sheet')).toBeNull()
+    expect(rootRoutes()).toEqual(['(tabs)', 'material-form'])
+  })
+
+  it('/scan-line?compose=1 mở từ màn soạn /import-form: đóng xong về màn soạn, modal /import-form còn nguyên', async () => {
+    signedIn({
+      scope: [...ALL, 'IMPORT_FORM_CREATE', 'IMPORT_FORM_UPDATE_DRAFT'],
+      warehouses: [WH1],
+    })
+    draftFormOfWh1()
+    await boot()
+    await go('/import-form/pn-1/edit')
+    expect(screen).toHavePathname('/import-form/pn-1/edit')
+    await go('/scan-line?compose=1')
+    expect(screen).toHavePathname('/scan-line')
+    expect(rootRoutes()).toEqual(['(tabs)', 'import-form', 'scan-line'])
+    await fireEvent.press(screen.getByRole('button', { name: 'Đóng' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/import-form/pn-1/edit')
+    expect(rootRoutes()).toEqual(['(tabs)', 'import-form'])
+    await act(async () => useReceiveDraft.getState().reset())
+  })
+
   it('Android: thiếu quyền xem tồn kho (deep link) → /stock-filter bị khoá, về tab đầu', async () => {
     jest.replaceProperty(Platform, 'OS', 'android')
     signedIn({ scope: ['IMPORT_FORM_READ', 'MATERIAL_READ'], warehouses: [WH1] })
     await boot()
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     await go('/stock-filter')
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('stock-filter-sheet')).toBeNull()
   })
 
@@ -1022,6 +1099,26 @@ describe('tab Tồn kho (Stack lồng)', () => {
     expect(screen.getByLabelText('Tối thiểu')).toBeOnTheScreen()
   })
 
+  it('sheet Hạn dùng: có quyền xem tồn kho → /expiry-batches mở được, ✕ đóng về màn trước', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    await boot()
+    await go('/stock')
+    await go('/expiry-batches?focus=expired')
+    expect(screen).toHavePathname('/expiry-batches')
+    expect(await screen.findByTestId('expiry-batches-sheet')).toBeOnTheScreen()
+    await pressHeaderButton('Huỷ')
+    expect(screen).toHavePathname('/stock')
+  })
+
+  it('sheet Hạn dùng: thiếu quyền xem tồn kho (deep link) → bị khoá, về tab đầu', async () => {
+    signedIn({ scope: ['IMPORT_FORM_READ', 'MATERIAL_READ'], warehouses: [WH1] })
+    await boot()
+    await go('/expiry-batches')
+    expect(screen).toHavePathname('/overview')
+    expect(screen.queryByTestId('expiry-batches-sheet')).toBeNull()
+  })
+
   it('sheet sửa ngưỡng: thiếu WAREHOUSE_UPDATE (deep link) → bị khoá, về tab đầu', async () => {
     signedIn({ scope: [...ALL, 'MATERIAL_UPDATE'], warehouses: [WH1] })
     stockOfWh1()
@@ -1034,6 +1131,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
   it('tab Nhập (iOS): bên phải = Lọc, rồi nút kho ngoài cùng; Lọc là mục button (không UIMenu), viền khi chưa lọc', async () => {
     signedIn({ scope: ALL, warehouses: [WH1] })
     await boot()
+    await go('/import')
     expect(screen).toHavePathname('/import')
     const [config] = tabScreen('Nhập').queryAll(
       (n) => n.type === 'RNSScreenStackHeaderConfig' && n.props.hidden === false,
@@ -1064,6 +1162,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
   it('tab Nhập: Lọc → sheet /import-filter MỘT trang (nửa màn); bật "Thời gian" → 7 ngày qua; ✕ → về /import, icon đặc + dòng tóm tắt', async () => {
     signedIn({ scope: ALL, warehouses: [WH1] })
     await boot()
+    await go('/import')
     await pressHeaderButton('Lọc')
     expect(screen).toHavePathname('/import-filter')
     expect(screen.getByTestId('import-filter-sheet')).toBeOnTheScreen()
@@ -1101,6 +1200,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     useImportListFilter.setState({ time: 'last30' })
     signedIn({ scope: ALL, warehouses: [WH1] })
     await boot()
+    await go('/import')
     await fireEvent.press(
       within(tabScreen('Nhập')).getByRole('button', { name: 'Bộ lọc: 30 ngày qua' }),
     )
@@ -1128,9 +1228,9 @@ describe('tab Tồn kho (Stack lồng)', () => {
     signedIn({ scope: ['MATERIAL_READ', 'WAREHOUSE_READ'], warehouses: [WH1] })
     stockOfWh1()
     await boot()
-    expect(screen).toHavePathname('/stock')
+    expect(screen).toHavePathname('/overview')
     await go('/import-filter')
-    expect(screen).toHavePathname('/stock')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('import-filter-sheet')).toBeNull()
   })
 
@@ -1157,7 +1257,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     expect(within(tab).getByRole('tab', { name: 'Chờ duyệt' })).toBeSelected()
     expect(within(tab).getByText('PX-20261101-0900')).toBeOnTheScreen()
     expect(within(tab).getByText('Sản xuất · Tổ hàn A · Tuấn')).toBeOnTheScreen()
-    expect(within(tab).getByRole('button', { name: 'Tạo phiếu xuất' })).toBeOnTheScreen()
+    expect(headerButtonLabels()).toContain('Tạo phiếu xuất')
   })
 
   it('tab Xuất: chạm phiếu → màn XEM /export/[formSlug]: tiêu đề nhỏ là mã phiếu, back chỉ icon, [Huỷ] [Xác nhận xuất kho]', async () => {
@@ -1264,9 +1364,9 @@ describe('tab Tồn kho (Stack lồng)', () => {
     signedIn({ scope: ['MATERIAL_READ', 'WAREHOUSE_READ'], warehouses: [WH1] })
     stockOfWh1()
     await boot()
-    expect(screen).toHavePathname('/stock')
+    expect(screen).toHavePathname('/overview')
     await go('/export-filter')
-    expect(screen).toHavePathname('/stock')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('export-filter-sheet')).toBeNull()
   })
 
@@ -1315,7 +1415,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     stockOfWh1()
     await boot()
     await go('/export')
-    await fireEvent.press(within(tabScreen('Xuất')).getByRole('button', { name: 'Tạo phiếu xuất' }))
+    await pressHeaderButton('Tạo phiếu xuất')
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/export-form/new/info')
     expect(rootRoutes()).toEqual(['(tabs)', 'export-form'])
@@ -1331,7 +1431,15 @@ describe('tab Tồn kho (Stack lồng)', () => {
     )
     await fireEvent.changeText(form.getByLabelText('Mã phiếu'), 'px-moi')
     await fireEvent.changeText(form.getByLabelText('Số PO'), 'PO-9')
-    await fireEvent.changeText(form.getByLabelText('Người nhận'), 'Tổ hàn A')
+    // Người nhận = dòng chọn → sheet /export-receiver; gõ tên mới + phím Xong → ghi rồi đóng sheet.
+    await fireEvent.press(form.getByRole('button', { name: 'Người nhận' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/export-receiver')
+    const receiverSearch = screen.getByLabelText('Tìm hoặc nhập tên người nhận')
+    await fireEvent.changeText(receiverSearch, 'Tổ hàn A')
+    await fireEvent(receiverSearch, 'submitEditing')
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/export-form/new/info')
     await act(() => jest.runAllTimersAsync())
     expect(form.queryByText(/^Còn thiếu/)).toBeNull()
     // Tiếp tục → bước 2 (đẩy lên trên bước 1); back gốc lùi đúng một bước.
@@ -1346,7 +1454,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await pressHeaderButton('Đóng')
     expect(screen).toHavePathname('/export')
     expect(rootRoutes()).toEqual(['(tabs)'])
-    await fireEvent.press(within(tabScreen('Xuất')).getByRole('button', { name: 'Tạo phiếu xuất' }))
+    await pressHeaderButton('Tạo phiếu xuất')
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/export-form/new/info')
     expect(within(formModal()).getByLabelText('Mã phiếu').props.value).toBe('PX-MOI')
@@ -1356,7 +1464,9 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await go('/export/new')
     expect(screen).toHavePathname('/export-form/new/info')
     expect(stackOf('export')).toEqual(['index'])
-    expect(within(formModal()).getByLabelText('Người nhận').props.value).toBe('Tổ hàn A')
+    expect(
+      within(formModal()).getByRole('button', { name: 'Người nhận, Tổ hàn A' }),
+    ).toBeOnTheScreen()
     await act(async () => useExportDraft.getState().reset())
   })
 
@@ -1388,12 +1498,20 @@ describe('tab Tồn kho (Stack lồng)', () => {
       .mockImplementation((_options, callback) => callback(0))
     await boot()
     await go('/export')
-    await fireEvent.press(within(tabScreen('Xuất')).getByRole('button', { name: 'Tạo phiếu xuất' }))
+    await pressHeaderButton('Tạo phiếu xuất')
     await act(() => jest.runAllTimersAsync())
     const form = within(formModal())
     await fireEvent.changeText(form.getByLabelText('Mã phiếu'), 'PX-MOI')
     await fireEvent.changeText(form.getByLabelText('Số PO'), 'PO-9')
-    await fireEvent.changeText(form.getByLabelText('Người nhận'), 'Tổ hàn A')
+    // Người nhận = dòng chọn → sheet /export-receiver; gõ tên mới + phím Xong → ghi rồi đóng sheet.
+    await fireEvent.press(form.getByRole('button', { name: 'Người nhận' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/export-receiver')
+    const receiverSearch = screen.getByLabelText('Tìm hoặc nhập tên người nhận')
+    await fireEvent.changeText(receiverSearch, 'Tổ hàn A')
+    await fireEvent(receiverSearch, 'submitEditing')
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/export-form/new/info')
     await fireEvent.press(form.getByRole('button', { name: 'Tiếp tục' }))
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/export-form/new/edit')
@@ -1504,9 +1622,9 @@ describe('tab Tồn kho (Stack lồng)', () => {
       ['Lưu nháp', true, false],
       ['Xoá nháp', false, true],
     ])
-    // Thêm vật tư ở đầu danh sách thẻ; Quét mã trên header.
-    expect(edit.getByRole('button', { name: 'Thêm vật tư' })).toBeOnTheScreen()
-    expect(edit.queryByRole('button', { name: 'Quét mã' })).toBeNull()
+    // Dòng "Quét mã" cuối danh sách thẻ (vật tư chỉ vào phiếu bằng quét); nút Quét mã của header là nút native.
+    expect(edit.getByRole('button', { name: 'Quét mã' })).toBeOnTheScreen()
+    expect(edit.queryByRole('button', { name: 'Thêm vật tư' })).toBeNull()
     // Xoá nháp → hộp hỏi gốc (huỷ → ở lại).
     await pressTopHeaderMenuItem('Xoá nháp')
     expect(sheet.mock.calls[0]![0]).toMatchObject({
@@ -1527,8 +1645,18 @@ describe('tab Tồn kho (Stack lồng)', () => {
     expect(screen.queryByTestId('export-info-sheet')).toBeNull()
   })
 
-  const EXPORT_SHEETS = ['/export-line?key=m-1%7Cu-1%7C', '/export-add-line', '/scan-export-line']
-  const exportSheetIds = ['export-line-sheet', 'export-add-line-sheet', 'scan-sheet']
+  const EXPORT_SHEETS = [
+    '/export-line?key=m-1%7Cu-1%7C',
+    '/scan-export-line',
+    '/export-type',
+    '/export-receiver',
+  ]
+  const exportSheetIds = [
+    'export-line-sheet',
+    'scan-sheet',
+    'export-type-sheet',
+    'export-receiver-sheet',
+  ]
   function openExportDraft() {
     return act(async () =>
       useExportDraft.setState({
@@ -1538,29 +1666,29 @@ describe('tab Tồn kho (Stack lồng)', () => {
     )
   }
 
-  it('/export-line, /export-add-line, /scan-export-line: chưa có bản nháp phiếu xuất đang mở → bị khoá', async () => {
+  it('/export-line, /scan-export-line: chưa có bản nháp phiếu xuất đang mở → bị khoá', async () => {
     signedIn({ scope: ['EXPORT_FORM_READ', 'EXPORT_FORM_CREATE'], warehouses: [WH1] })
     await boot()
     for (const [i, href] of EXPORT_SHEETS.entries()) {
       await go(href)
-      expect(screen).toHavePathname('/export')
+      expect(screen).toHavePathname('/overview')
       expect(screen.queryByTestId(exportSheetIds[i]!)).toBeNull()
     }
   })
 
-  it('thiếu EXPORT_FORM_READ (có bản nháp) → cả ba sheet của phiếu xuất bị khoá', async () => {
+  it('thiếu EXPORT_FORM_READ (có bản nháp) → cả hai sheet của phiếu xuất bị khoá', async () => {
     signedIn({ scope: ['IMPORT_FORM_READ', 'EXPORT_FORM_CREATE'], warehouses: [WH1] })
     await boot()
     await openExportDraft()
     for (const [i, href] of EXPORT_SHEETS.entries()) {
       await go(href)
-      expect(screen).toHavePathname('/import')
+      expect(screen).toHavePathname('/overview')
       expect(screen.queryByTestId(exportSheetIds[i]!)).toBeNull()
     }
     await act(async () => useExportDraft.getState().reset())
   })
 
-  it('/export-line mở bảng sửa dòng của bản nháp; /export-add-line khoá khi không có quyền tạo / sửa phiếu xuất', async () => {
+  it('/export-line mở bảng sửa dòng của bản nháp', async () => {
     signedIn({ scope: ['EXPORT_FORM_READ'], warehouses: [WH1] })
     stockOfWh1()
     await boot()
@@ -1568,59 +1696,47 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await go('/export-line?key=m-1%7Cu-1%7C')
     expect(screen).toHavePathname('/export-line')
     expect(screen.getByTestId('export-line-sheet')).toBeOnTheScreen()
-    await pressHeaderButton('Đóng')
-    await go('/export-add-line')
-    expect(screen).toHavePathname('/export')
-    expect(screen.queryByTestId('export-add-line-sheet')).toBeNull()
     await act(async () => useExportDraft.getState().reset())
   })
 
-  it('có EXPORT_FORM_CREATE: /export-add-line mở sheet thêm vật tư', async () => {
-    signedIn({ scope: ['EXPORT_FORM_READ', 'EXPORT_FORM_CREATE'], warehouses: [WH1] })
-    stockOfWh1()
+  it('/export-type, /export-receiver mở sheet chọn Loại / Người nhận của bản nháp', async () => {
+    signedIn({ scope: ['EXPORT_FORM_READ'], warehouses: [WH1] })
     await boot()
+    await go('/export')
     await openExportDraft()
-    await go('/export-add-line')
-    expect(screen).toHavePathname('/export-add-line')
-    expect(screen.getByTestId('export-add-line-sheet')).toBeOnTheScreen()
+    for (const [href, id] of [
+      ['/export-type', 'export-type-sheet'],
+      ['/export-receiver', 'export-receiver-sheet'],
+    ] as const) {
+      await go(href)
+      expect(screen).toHavePathname(href)
+      expect(screen.getByTestId(id)).toBeOnTheScreen()
+    }
     await act(async () => useExportDraft.getState().reset())
   })
 
-  it('/scan-export-line khi không có bước 2 nào đang mở: khớp dòng → đóng sheet, để lại yêu cầu mở sheet dòng (không tự mở /export-line); khớp vật tư chưa có dòng → thêm dòng ngay, đóng sheet (không mở sheet thêm vật tư)', async () => {
+  it('/scan-export-line quét liên tục: sheet ở lại sau mỗi lần quét (cộng vào dòng / thêm dòng), "Xong" đóng sheet', async () => {
     signedIn({ scope: ['EXPORT_FORM_READ', 'EXPORT_FORM_CREATE'], warehouses: [WH1] })
     stockOfWh1()
     await boot()
     await openExportDraft()
     await go('/scan-export-line')
     expect(screen).toHavePathname('/scan-export-line')
-    await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', { data: 'vt1' })
-    await act(() => jest.runAllTimersAsync())
-    expect(screen).not.toHavePathname('/scan-export-line')
-    expect(screen).not.toHavePathname('/export-line')
-    expect(useExportDraft.getState().draft!.lines).toHaveLength(1)
-    // Yêu cầu chờ bước 2 của phiếu nhận (ở đây không có bước 2 nào gắn).
-    expect(useLineFocus.getState().request).toEqual({
-      kind: 'export',
-      formSlug: 'px-1',
-      key: useExportDraft.getState().draft!.lines[0]!.key,
-    })
-    await go('/scan-export-line')
     await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', { data: 'VT-SN' })
     await act(() => jest.runAllTimersAsync())
-    expect(screen).not.toHavePathname('/scan-export-line')
-    expect(screen).not.toHavePathname('/export-add-line')
+    expect(screen).toHavePathname('/scan-export-line')
     expect(useExportDraft.getState().draft!.lines.map((l) => l.materialSlug)).toEqual([
       'm-1',
       'son',
     ])
-    expect(useLineFocus.getState().request).toMatchObject({ kind: 'export', formSlug: 'px-1' })
-    await act(async () => {
-      useLineFocus.getState().clear()
-      useExportDraft.getState().reset()
-    })
+    expect(screen.getByTestId('scan-count')).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Xong' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).not.toHavePathname('/scan-export-line')
+    await act(async () => useExportDraft.getState().reset())
   })
 
-  it('bước 2 đang mở + /scan-export-line khớp dòng → sheet đóng, bước 2 tự mở /export-line của dòng đó (focus=quantity); đóng sheet dòng rồi bước 2 được focus lại → không mở lại', async () => {
+  it('bước 2 đang mở + /scan-export-line: quét xong đóng sheet quét → về bước 2, không tự mở /export-line', async () => {
     signedIn({
       scope: ['EXPORT_FORM_READ', 'EXPORT_FORM_UPDATE_DRAFT_OWN', ...ALL],
       warehouses: [WH1],
@@ -1631,23 +1747,12 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await go('/export/px-1')
     await go('/export-form/px-1/edit')
     expect(screen).toHavePathname('/export-form/px-1/edit')
-    const key = useExportDraft.getState().draft!.lines[0]!.key
     await go('/scan-export-line')
     expect(screen).toHavePathname('/scan-export-line')
-    await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', { data: 'VT-01' })
+    await fireEvent(screen.getByTestId('camera-view'), 'barcodeScanned', { data: 'VT-SN' })
     await act(() => jest.runAllTimersAsync())
-    // Sheet quét pop → bước 2 (Stack modal) nhận 'focus' → navigate sheet dòng, ô số focus sẵn.
-    expect(screen).toHavePathname('/export-line')
-    expect(screen).toHaveSearchParams({ key, focus: 'quantity' })
-    expect(screen.getByTestId('export-line-sheet')).toBeOnTheScreen()
-    expect(useLineFocus.getState().request).toBeNull()
-    // Đóng sheet dòng (chưa sửa gì) → về bước 2; bước 2 focus lại nhưng yêu cầu đã tiêu thụ → ở lại.
-    await pressTopHeaderButton('Đóng')
-    await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/export-form/px-1/edit')
-    // Một lần focus lại nữa (mở rồi đóng sheet quét, không quét gì) → vẫn không mở lại.
-    await go('/scan-export-line')
-    await pressTopHeaderButton('Đóng')
+    expect(screen).toHavePathname('/scan-export-line')
+    await fireEvent.press(screen.getByRole('button', { name: 'Xong' }))
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/export-form/px-1/edit')
     expect(rootRoutes()).toEqual(['(tabs)', 'export-form'])
@@ -1687,6 +1792,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
       },
     ])
     await boot()
+    await go('/import')
     expect(screen).toHavePathname('/import')
     const tab = tabScreen('Nhập')
     expect(nativeHeaders(tab)).toEqual([{ title: 'Nhập kho', largeTitle: true }])
@@ -1749,6 +1855,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
   /** Mở phiếu pn-1 từ danh sách → màn xem. */
   async function openFormFromList() {
     await boot()
+    await go('/import')
     await fireEvent.press(screen.getByRole('button', { name: /PN-20261101-0900/ }))
     await act(() => jest.runAllTimersAsync())
   }
@@ -1912,6 +2019,46 @@ describe('tab Tồn kho (Stack lồng)', () => {
     // Đóng sheet trước khi dọn bản nháp (guard của sheet đang hiện lật → expo-router `replace` sang home).
     await act(async () => router.back())
     await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/import-form/pn-1/edit')
+    await act(async () => useReceiveDraft.getState().reset())
+  })
+
+  it('/import-pick: "+ Tạo vật tư mới" THAY sheet chọn bằng /material-form (không chồng hai sheet); ✕ → về màn soạn, không sheet mồ côi', async () => {
+    signedIn({
+      scope: [
+        ...ALL,
+        'IMPORT_FORM_CREATE',
+        'IMPORT_FORM_UPDATE_DRAFT',
+        'MATERIAL_CREATE',
+        'MATERIAL_UPDATE',
+        'WAREHOUSE_UPDATE',
+        'UNIT_READ',
+      ],
+      warehouses: [WH1],
+    })
+    draftFormOfWh1()
+    route('get', '/warehouses/wh-1/import-forms/available-materials', () =>
+      ok({ items: [], total: 0, page: 1, pageSize: 100, totalPages: 1, hasNext: false }),
+    )
+    await boot()
+    await go('/import-form/pn-1/edit')
+    await fireEvent.press(within(formModal()).getByRole('button', { name: 'Thêm vật tư' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(rootRoutes()).toEqual(['(tabs)', 'import-form', 'import-pick'])
+    await fireEvent.changeText(screen.getByLabelText('Tìm theo mã hoặc tên'), 'VT-09')
+    await act(() => jest.runAllTimersAsync())
+    await fireEvent.press(screen.getByRole('button', { name: '+ Tạo vật tư mới “VT-09”' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/material-form')
+    expect(rootRoutes()).toEqual(['(tabs)', 'import-form', 'material-form'])
+    // Mã điền sẵn làm form "đã sửa" → ✕ hỏi "Bỏ thay đổi?" (hộp gốc): chọn [Bỏ thay đổi] (chỉ số 0).
+    jest
+      .spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
+      .mockImplementation((_options, callback) => callback(0))
+    // ✕ của form vật tư → về màn soạn (không còn sheet chọn mồ côi).
+    await pressTopHeaderButton('Huỷ')
+    await act(() => jest.runAllTimersAsync())
+    expect(rootRoutes()).toEqual(['(tabs)', 'import-form'])
     expect(screen).toHavePathname('/import-form/pn-1/edit')
     await act(async () => useReceiveDraft.getState().reset())
   })
@@ -2085,8 +2232,10 @@ describe('tab Tồn kho (Stack lồng)', () => {
   it('import list + opens /import-form/new/info (bước 1 "Phiếu nhập mới"; Tiếp tục → bước 2, back → bước 1; quay lại rồi "+" mở lại đúng bản nháp)', async () => {
     signedIn({ scope: [...ALL, 'IMPORT_FORM_CREATE'], warehouses: [WH1] })
     await boot()
+    await go('/import')
     const tab = tabScreen('Nhập')
-    // Header của tab Nhập bên phải chỉ có Lọc (+ nút kho); "+" là nút nổi phía trên thanh tab.
+    // Header của tab Nhập bên phải: Lọc, "+" (nút gốc, thay nút nổi 2026-11-19), rồi nút kho. Mảng
+    // native đảo cho UIKit (phải → trái) nên "+" đứng trước "Lọc" trong mảng.
     const [config] = tab.queryAll(
       (n) => n.type === 'RNSScreenStackHeaderConfig' && n.props.hidden === false,
     )
@@ -2094,8 +2243,8 @@ describe('tab Tồn kho (Stack lồng)', () => {
       ((config.props.headerRightBarButtonItems ?? []) as { title?: string }[])
         .filter((i) => i.title)
         .map((i) => i.title),
-    ).toEqual(['Lọc'])
-    await fireEvent.press(within(tab).getByRole('button', { name: 'Tạo phiếu nhập' }))
+    ).toEqual(['Tạo phiếu nhập', 'Lọc'])
+    await pressHeaderButton('Tạo phiếu nhập')
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/import-form/new/info')
     expect(topModalHeader().props.title).toBe('Phiếu nhập mới')
@@ -2125,7 +2274,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/import')
     expect(rootRoutes()).toEqual(['(tabs)'])
-    await fireEvent.press(within(tabScreen('Nhập')).getByRole('button', { name: 'Tạo phiếu nhập' }))
+    await pressHeaderButton('Tạo phiếu nhập')
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/import-form/new/info')
     expect(within(formModal()).getByLabelText('Mã phiếu').props.value).toBe('PN-MOI')
@@ -2148,7 +2297,8 @@ describe('tab Tồn kho (Stack lồng)', () => {
     jest.spyOn(Platform, 'Version', 'get').mockReturnValue('26.0')
     signedIn({ scope: [...ALL, 'IMPORT_FORM_CREATE'], warehouses: [WH1] })
     await boot()
-    await fireEvent.press(within(tabScreen('Nhập')).getByRole('button', { name: 'Tạo phiếu nhập' }))
+    await go('/import')
+    await pressHeaderButton('Tạo phiếu nhập')
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/import-form/new/info')
     expect(rootRoutes()).toEqual(['(tabs)', 'import-form'])
@@ -2163,12 +2313,17 @@ describe('tab Tồn kho (Stack lồng)', () => {
   it('"+" bấm hai lần liền → chỉ MỘT modal, mở thẳng (không màn trung gian trong tab)', async () => {
     signedIn({ scope: [...ALL, 'IMPORT_FORM_CREATE'], warehouses: [WH1] })
     await boot()
+    await go('/import')
     const pops = jest.spyOn(StackActions, 'pop')
     const replaces = jest.spyOn(StackActions, 'replace')
-    // Cùng một nút bấm hai lần trước khi modal kịp che (lần hai không chờ hẹn giờ).
-    const fab = within(tabScreen('Nhập')).getByRole('button', { name: 'Tạo phiếu nhập' })
-    await fireEvent.press(fab)
-    await fireEvent.press(fab)
+    // Cùng một nút "+" trên header bấm hai lần trước khi modal kịp che (lần hai không chờ hẹn giờ).
+    const add = headerButtons().find(({ item }) => item.title === 'Tạo phiếu nhập')!
+    const press = () =>
+      fireEvent(add.config, 'pressHeaderBarButtonItem', {
+        nativeEvent: { buttonId: add.item.buttonId },
+      })
+    await press()
+    await press()
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/import-form/new/info')
     expect(rootRoutes()).toEqual(['(tabs)', 'import-form'])
@@ -2246,6 +2401,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
     signedIn({ scope: [...ALL, 'IMPORT_FORM_CREATE'], warehouses: [WH1, WH2] })
     await kv.set('warehouse.lastWarehouse.root', 'wh-1')
     await boot()
+    await go('/import')
     await go('/import-form/new/info')
     await act(async () => useReceiveDraft.getState().setHeader({ invoiceCode: 'HD-1' }))
     await fireEvent.press(within(formModal()).getByRole('button', { name: 'Tiếp tục' }))
@@ -2305,7 +2461,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
       useAuthStore.getState().setUser({ ...user, scope: ['EXPORT_FORM_READ', 'MATERIAL_READ'] }),
     )
     await act(() => jest.runAllTimersAsync())
-    expect(screen).toHavePathname('/export')
+    expect(screen).toHavePathname('/overview')
     // Route bị khoá đang hiện → expo-router `replace` sang `home` (một `(tabs)` mới, như sheet bị khoá).
     expect(rootRoutes()).not.toContain('import-form')
     expect(rootRoutes().at(-1)).toBe('(tabs)')
@@ -2381,7 +2537,8 @@ describe('tab Tồn kho (Stack lồng)', () => {
     route('get', '/warehouses/wh-1/import-forms/pn-9', () => ok(created))
     const sheet = jest.spyOn(ActionSheetIOS, 'showActionSheetWithOptions')
     await boot()
-    await fireEvent.press(within(tabScreen('Nhập')).getByRole('button', { name: 'Tạo phiếu nhập' }))
+    await go('/import')
+    await pressHeaderButton('Tạo phiếu nhập')
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/import-form/new/info')
     // Nhiều bước cùng gắn: bấm nút của màn TRÊN CÙNG (mục cuối).
@@ -2434,7 +2591,7 @@ describe('tab Tồn kho (Stack lồng)', () => {
       }),
     )
     await go('/import-add-line')
-    expect(screen).toHavePathname('/import')
+    expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('add-line-sheet')).toBeNull()
     await act(async () => useReceiveDraft.getState().reset())
   })
@@ -2460,12 +2617,490 @@ describe('tab Tồn kho (Stack lồng)', () => {
     expect(tabBar().map((t) => t.title)).not.toContain('Nhập')
   })
 
+  describe('Danh mục (Tài khoản)', () => {
+    const catalogLists = () => {
+      const empty = {
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 100,
+        totalPages: 0,
+        hasNext: false,
+        hasPrevios: false,
+      }
+      route('get', '/units', () => ok(empty))
+      route('get', '/material-types', () => ok(empty))
+    }
+    /** Header native của màn con `title` trong tab Tài khoản. */
+    const accountHeader = (title: string) =>
+      tabScreen('Tài khoản')
+        .queryAll((n) => n.type === 'RNSScreenStackHeaderConfig' && n.props.hidden === false)
+        .find((n) => n.props.title === title)
+
+    it('(e) chỉ MATERIAL_READ: có "Loại vật tư", không có "Đơn vị"', async () => {
+      signedIn({ scope: ['IMPORT_FORM_READ', 'MATERIAL_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account')
+      expect(screen.getByText('Danh mục')).toBeOnTheScreen()
+      expect(screen.getByRole('button', { name: 'Loại vật tư' })).toBeOnTheScreen()
+      expect(screen.queryByRole('button', { name: 'Đơn vị' })).toBeNull()
+    })
+
+    it('(e) không có quyền nào của danh mục: không có khối "Danh mục"', async () => {
+      signedIn({ scope: ['IMPORT_FORM_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account')
+      expect(screen.queryByText('Danh mục')).toBeNull()
+    })
+
+    it('(f) bấm "Đơn vị" → push /account/units; header nhỏ, không có nút kho', async () => {
+      catalogLists()
+      signedIn({ scope: [...ALL, 'UNIT_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account')
+      await fireEvent.press(screen.getByRole('button', { name: 'Đơn vị' }))
+      await act(() => jest.runAllTimersAsync())
+      expect(screen).toHavePathname('/account/units')
+      const header = accountHeader('Đơn vị tính')
+      expect(header).toBeDefined()
+      expect(header?.props.largeTitle).toBeFalsy()
+      expect(warehouseButtons(header)).toHaveLength(0)
+    })
+
+    it('(f) bấm "Loại vật tư" → push /account/material-types', async () => {
+      catalogLists()
+      signedIn({ scope: [...ALL, 'MATERIAL_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account')
+      await fireEvent.press(screen.getByRole('button', { name: 'Loại vật tư' }))
+      await act(() => jest.runAllTimersAsync())
+      expect(screen).toHavePathname('/account/material-types')
+    })
+
+    it('(g) có MATERIAL_READ: "Vật tư" đứng TRƯỚC "Loại vật tư"; bấm → push /account/materials', async () => {
+      catalogLists()
+      route('get', '/materials', () =>
+        ok({
+          items: [],
+          total: 0,
+          page: 1,
+          pageSize: 30,
+          totalPages: 0,
+          hasNext: false,
+          hasPrevios: false,
+        }),
+      )
+      signedIn({ scope: [...ALL, 'UNIT_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account')
+      const names = screen
+        .getAllByRole('button')
+        .map((b) => b.props.accessibilityLabel ?? '')
+        .filter((n: string) => ['Vật tư', 'Loại vật tư', 'Đơn vị'].includes(n))
+      expect(names).toEqual(['Vật tư', 'Đơn vị', 'Loại vật tư'])
+      await fireEvent.press(screen.getByRole('button', { name: 'Vật tư' }))
+      await act(() => jest.runAllTimersAsync())
+      expect(screen).toHavePathname('/account/materials')
+    })
+
+    it('(h) deep link /conversion-unit-form?material=m1 khi thiếu UNIT_UPDATE → về home', async () => {
+      signedIn({
+        scope: [...ALL, 'UNIT_READ', 'MATERIAL_UPDATE'],
+        warehouses: [WH1],
+      })
+      await boot()
+      await go('/conversion-unit-form?material=m1')
+      expect(screen).not.toHavePathname('/conversion-unit-form')
+      expect(screen).toHavePathname('/overview')
+    })
+
+    it('deep link /warehouse-assign?material=m1 khi thiếu WAREHOUSE_UPDATE → về home', async () => {
+      signedIn({
+        scope: [...ALL, 'MATERIAL_UPDATE'],
+        warehouses: [WH1],
+      })
+      await boot()
+      await go('/warehouse-assign?material=m1')
+      expect(screen).not.toHavePathname('/warehouse-assign')
+      expect(screen).toHavePathname('/overview')
+    })
+
+    it('(i) đổi phiên → useMaterialFilter và useMaterialDraft về rỗng', async () => {
+      signedIn({ scope: ALL, warehouses: [WH1] })
+      await boot()
+      const ref = { slug: 't1', code: 'XD', name: 'Xây dựng' }
+      await act(async () => {
+        useMaterialFilter.getState().setType(ref)
+        useMaterialDraft.getState().set('type', ref)
+      })
+      await act(async () => useAuthStore.getState().endSession('expired'))
+      await act(() => jest.runAllTimersAsync())
+      expect(useMaterialFilter.getState().type).toBeNull()
+      expect(useMaterialDraft.getState().type).toBeNull()
+    })
+
+    it('(f) bấm một dòng đơn vị → push màn chi tiết /account/units/<slug>', async () => {
+      route('get', '/units', () =>
+        ok({
+          items: [{ slug: 'kg', code: 'KG', name: 'Kilogram', createdAt: '', updatedAt: '' }],
+          total: 1,
+          page: 1,
+          pageSize: 100,
+          totalPages: 1,
+          hasNext: false,
+          hasPrevios: false,
+        }),
+      )
+      route('get', '/units/kg', () =>
+        ok({ slug: 'kg', code: 'KG', name: 'Kilogram', createdAt: '', updatedAt: '' }),
+      )
+      signedIn({ scope: [...ALL, 'UNIT_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account/units')
+      expect(screen).toHavePathname('/account/units')
+      await fireEvent.press(screen.getByRole('button', { name: /Kilogram/ }))
+      await act(() => jest.runAllTimersAsync())
+      expect(screen).toHavePathname('/account/units/kg')
+      expect(accountHeader('KG')).toBeDefined()
+    })
+
+    it('link sâu /account/units/<slug> mở thẳng màn chi tiết', async () => {
+      route('get', '/units/kg', () =>
+        ok({ slug: 'kg', code: 'KG', name: 'Kilogram', createdAt: '', updatedAt: '' }),
+      )
+      signedIn({ scope: [...ALL, 'UNIT_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account/units/kg')
+      expect(screen).toHavePathname('/account/units/kg')
+      expect(screen.getByText('Kilogram')).toBeOnTheScreen()
+    })
+
+    it('(g) deep link /unit-form khi thiếu UNIT_READ → bị chuyển hướng', async () => {
+      signedIn({ scope: ALL, warehouses: [WH1] })
+      await boot()
+      await go('/unit-form')
+      expect(screen).not.toHavePathname('/unit-form')
+      expect(screen).toHavePathname('/overview')
+    })
+
+    it('(h) nút + trên header: có khi có UNIT_CREATE, không có khi thiếu', async () => {
+      catalogLists()
+      signedIn({ scope: [...ALL, 'UNIT_READ', 'UNIT_CREATE'], warehouses: [WH1] })
+      await boot()
+      await go('/account/units')
+      const titles = (accountHeader('Đơn vị tính')?.props.headerRightBarButtonItems ?? []).map(
+        (i: { title?: string }) => i.title,
+      )
+      expect(titles).toEqual(['Thêm đơn vị'])
+    })
+
+    it('(h) thiếu UNIT_CREATE: header không có nút +', async () => {
+      catalogLists()
+      signedIn({ scope: [...ALL, 'UNIT_READ'], warehouses: [WH1] })
+      await boot()
+      await go('/account/units')
+      expect(accountHeader('Đơn vị tính')).toBeDefined()
+      expect(accountHeader('Đơn vị tính')?.props.headerRightBarButtonItems ?? []).toHaveLength(0)
+    })
+
+    it('nút + mở sheet /unit-form (tạo)', async () => {
+      catalogLists()
+      signedIn({ scope: [...ALL, 'UNIT_READ', 'UNIT_CREATE'], warehouses: [WH1] })
+      await boot()
+      await go('/account/units')
+      await pressHeaderButton('Thêm đơn vị')
+      expect(screen).toHavePathname('/unit-form')
+    })
+  })
+
   it('thiếu WAREHOUSE_READ → không có tab Tồn kho, /stock không tới được', async () => {
     signedIn({ scope: ['IMPORT_FORM_READ', 'MATERIAL_READ'], warehouses: [WH1] })
     await boot()
-    expect(screen).toHavePathname('/import')
-    expect(tabBar().map((t) => t.title)).toEqual(['Nhập', 'Tài khoản'])
+    expect(screen).toHavePathname('/overview')
+    expect(tabBar().map((t) => t.title)).toEqual(['Tổng quan', 'Nhập', 'Tài khoản'])
     await go('/stock')
     expect(screen).not.toHavePathname('/stock')
+  })
+})
+
+describe('tab Tổng quan: chấm đỏ = số lô quá hạn', () => {
+  type BatchParams = { size?: number; expiryBefore?: string }
+  /** Lô của wh-1: đếm quá hạn (mốc hôm nay) = `expired`, mọi request khác 0. Ghi lại params. */
+  function batchesOfWh1(expired: number) {
+    const reqs: BatchParams[] = []
+    const today = expiryCutoffs(new Date()).expired
+    route('get', '/warehouses/wh-1/material-batches', (config) => {
+      const params = (config.params ?? {}) as BatchParams
+      reqs.push(params)
+      const total = params.size === 1 && params.expiryBefore === today ? expired : 0
+      return ok({
+        items: [],
+        total,
+        page: 1,
+        pageSize: params.size ?? 50,
+        totalPages: 1,
+        hasNext: false,
+        hasPrevios: false,
+      })
+    })
+    return { reqs, today }
+  }
+  const overviewBadge = () => tabScreen('Tổng quan').props.badgeValue as string | undefined
+
+  it('có quyền tồn kho, 3 lô quá hạn → chấm "3"; dùng chung query đếm với màn (không thêm request)', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    const { reqs, today } = batchesOfWh1(3)
+    await boot()
+    expect(screen).toHavePathname('/overview')
+    expect(overviewBadge()).toBe('3')
+    expect(reqs.filter((p) => p.size === 1 && p.expiryBefore === today)).toHaveLength(1)
+    // Sang tab khác chấm vẫn còn.
+    await go('/import')
+    expect(overviewBadge()).toBe('3')
+  })
+
+  it('đổi sang kho không có lô quá hạn → chấm mất (số theo kho đang chọn)', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1, WH2] })
+    await kv.set('warehouse.lastWarehouse.root', 'wh-1')
+    stockOfWh1()
+    batchesOfWh1(3)
+    route('get', '/warehouses/wh-2/materials', () =>
+      ok({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 100,
+        totalPages: 0,
+        hasNext: false,
+        hasPrevios: false,
+      }),
+    )
+    route('get', '/warehouses/wh-2/material-batches', () =>
+      ok({
+        items: [],
+        total: 0,
+        page: 1,
+        pageSize: 1,
+        totalPages: 0,
+        hasNext: false,
+        hasPrevios: false,
+      }),
+    )
+    await boot()
+    expect(overviewBadge()).toBe('3')
+    await act(async () => useWarehouseStore.getState().select(WH2))
+    await act(() => jest.runAllTimersAsync())
+    expect(overviewBadge()).toBeUndefined()
+  })
+
+  it('0 lô quá hạn → không có chấm', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    batchesOfWh1(0)
+    await boot()
+    expect(overviewBadge()).toBeUndefined()
+  })
+
+  it('quyền tồn kho bị thu hồi giữa phiên (làm mới hồ sơ) → chấm biến mất dù còn số trong cache', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    batchesOfWh1(3)
+    await boot()
+    expect(overviewBadge()).toBe('3')
+    const user = useAuthStore.getState().user!
+    await act(async () =>
+      useAuthStore.getState().setUser({ ...user, scope: ['IMPORT_FORM_READ', 'EXPORT_FORM_READ'] }),
+    )
+    await act(() => jest.runAllTimersAsync())
+    expect(overviewBadge()).toBeUndefined()
+  })
+
+  it('đếm quá hạn lỗi → không chấm', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    route('get', '/warehouses/wh-1/material-batches', () => fail(500))
+    await boot()
+    expect(overviewBadge()).toBeUndefined()
+  })
+
+  it('không quyền tồn kho → không chấm, không gọi material-batches', async () => {
+    signedIn({ scope: ['IMPORT_FORM_READ', 'EXPORT_FORM_READ'], warehouses: [WH1] })
+    batchesOfWh1(3)
+    await boot()
+    expect(screen).toHavePathname('/overview')
+    expect(overviewBadge()).toBeUndefined()
+    expect(callsTo('get', '/warehouses/wh-1/material-batches')).toHaveLength(0)
+  })
+})
+
+describe('tab Tổng quan: chạm số → tab đích đã lọc sẵn (preset)', () => {
+  async function pressTodo(key: string) {
+    await fireEvent.press(within(tabScreen('Tổng quan')).getByTestId(`todo-${key}`))
+    await act(() => jest.runAllTimersAsync())
+  }
+
+  /** Phiếu xuất Chờ duyệt px-1 của wh-1 (danh sách + chi tiết). */
+  function pendingExportOfWh1() {
+    const form = {
+      slug: 'px-1',
+      code: 'PX-20261101-0900',
+      type: 'PRODUCTION',
+      status: 'PENDING',
+      receiver: 'Tổ hàn A',
+      requesterName: 'Tuấn',
+      requesterSlug: 'u-2',
+      totalAmount: 1000,
+      createdAt: new Date().toISOString(),
+      version: 1,
+    }
+    exportFormsOf('wh-1', [form])
+    route('get', '/warehouses/wh-1/export-forms/px-1', () => ok({ ...form, items: [] }))
+  }
+
+  it('chạm "Chờ duyệt" → /export: tìm kiếm, chip, Loại cũ bị xoá, chỉ còn Chờ duyệt; param bị xoá', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    useExportListFilter.setState({ query: 'abc', time: 'last7', type: 'SALE', status: 'ALL' })
+    await boot()
+    expect(screen).toHavePathname('/overview')
+    await pressTodo('exportPending')
+    expect(screen).toHavePathname('/export')
+    // Param đã được xoá khỏi CHÍNH route danh sách (không chỉ trên `(tabs)`).
+    const list = nestedStack(rootState(), 'export')?.routes[0] as { params?: { preset?: string } }
+    expect(list.params?.preset).toBeUndefined()
+    expect(useExportListFilter.getState()).toMatchObject({
+      query: '',
+      time: null,
+      requester: null,
+      approver: null,
+      type: null,
+      status: 'PENDING',
+    })
+    expect(within(tabScreen('Xuất')).getByRole('tab', { name: 'Chờ duyệt' })).toBeSelected()
+  })
+
+  it('preset chỉ áp một lần: đổi trạng thái rồi quay lại tab Xuất bằng thanh tab → giữ lựa chọn của người dùng', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    await pressTodo('exportPending')
+    await fireEvent.press(within(tabScreen('Xuất')).getByRole('tab', { name: 'Tất cả' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(useExportListFilter.getState().status).toBe('ALL')
+    await go('/overview')
+    await go('/export')
+    expect(useExportListFilter.getState().status).toBe('ALL')
+    // Chạm lại CÙNG số từ Tổng quan thì áp lại (param đã được xoá khỏi route danh sách).
+    await go('/overview')
+    await pressTodo('exportPending')
+    expect(useExportListFilter.getState().status).toBe('PENDING')
+  })
+
+  it('tab Xuất đang mở màn xem phiếu → chạm số trên Tổng quan về DANH SÁCH đã lọc (không kẹt ở màn xem)', async () => {
+    signedIn({ scope: [...ALL, 'EXPORT_FORM_CONFIRM'], warehouses: [WH1] })
+    pendingExportOfWh1()
+    await boot()
+    await go('/export')
+    await fireEvent.press(
+      within(tabScreen('Xuất')).getByRole('button', { name: /PX-20261101-0900/ }),
+    )
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/export/px-1')
+    await go('/overview')
+    await pressTodo('exportDraft')
+    expect(screen).toHavePathname('/export')
+    expect(stackOf('export')).toEqual(['index'])
+    expect(useExportListFilter.getState().status).toBe('DRAFT')
+    expect(within(tabScreen('Xuất')).getByRole('tab', { name: 'Nháp' })).toBeSelected()
+  })
+
+  it('chạm "Nháp" (Nhập) → /import với trạng thái Nháp, sạch tìm kiếm + chip', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    useImportListFilter.setState({ query: 'abc', time: 'last7', status: 'CONFIRMED' })
+    await boot()
+    await pressTodo('importDraft')
+    expect(screen).toHavePathname('/import')
+    expect(useImportListFilter.getState()).toMatchObject({ query: '', time: null, status: 'DRAFT' })
+  })
+
+  it('chạm "dưới mức" → /stock lọc Dưới tối thiểu (sạch tìm + loại); thanh tồn kho → bỏ mọi lọc', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    useStockFilter.setState({ query: 'x', typeSlug: 'son' })
+    await boot()
+    await pressTodo('stockLow')
+    expect(screen).toHavePathname('/stock')
+    expect(useStockFilter.getState()).toMatchObject({
+      query: '',
+      typeSlug: undefined,
+      level: 'low',
+    })
+    await go('/overview')
+    await fireEvent.press(within(tabScreen('Tổng quan')).getByTestId('overview-stock'))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/stock')
+    expect(useStockFilter.getState().level).toBeUndefined()
+  })
+})
+
+describe('tab Tổng quan: màn chi tiết /overview/[metric]', () => {
+  /** Header native trên cùng của tab Tổng quan (màn con là header cuối). */
+  const topOverviewHeader = () =>
+    tabScreen('Tổng quan')
+      .queryAll((n) => n.type === 'RNSScreenStackHeaderConfig' && n.props.hidden === false)
+      .at(-1)!
+
+  it('chạm thẻ Nhập kho → /overview/import (push, tiêu đề nhỏ, back chỉ icon); back → Tóm tắt', async () => {
+    jest.spyOn(Platform, 'Version', 'get').mockReturnValue('26.0')
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    expect(screen).toHavePathname('/overview')
+    await fireEvent.press(within(tabScreen('Tổng quan')).getByTestId('money-import'))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/overview/import')
+    expect(stackOf('overview')).toEqual(['index', '[metric]'])
+    const header = topOverviewHeader()
+    expect(header.props.title).toBe('Nhập kho')
+    expect(header.props.largeTitle).toBeFalsy()
+    expect(header.props.backButtonDisplayMode).toBe('minimal')
+    expect(within(tabScreen('Tổng quan')).getByTestId('detail-caps')).toHaveTextContent('TỔNG')
+    await act(async () => router.back())
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/overview')
+    expect(stackOf('overview')).toEqual(['index'])
+  })
+
+  it('chạm nút "Chi tiết" của thẻ Hoạt động → /overview/activity', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    await fireEvent.press(within(tabScreen('Tổng quan')).getByTestId('activity-detail'))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/overview/activity')
+    expect(topOverviewHeader().props.title).toBe('Hoạt động')
+  })
+
+  it('link sâu /overview/export khi chỉ có IMPORT_FORM_READ → về Tóm tắt, không request export-forms', async () => {
+    signedIn({ scope: ['IMPORT_FORM_READ'], warehouses: [WH1] })
+    await boot()
+    expect(screen).toHavePathname('/overview')
+    await go('/overview/export')
+    expect(screen).toHavePathname('/overview')
+    expect(stackOf('overview')).toEqual(['index'])
+    expect(callsTo('get', '/warehouses/wh-1/export-forms')).toHaveLength(0)
+  })
+
+  it('link sâu /overview/foo → về Tóm tắt', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    await go('/overview/foo')
+    expect(screen).toHavePathname('/overview')
+    expect(stackOf('overview')).toEqual(['index'])
+  })
+
+  it('mở app thẳng vào /overview/foo (link sâu lúc khởi động) → Tóm tắt, có Tóm tắt làm đáy Stack', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    rendered = await renderRouter('./app', { initialUrl: '/overview/foo' })
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/overview')
+    expect(stackOf('overview')).toEqual(['index'])
   })
 })

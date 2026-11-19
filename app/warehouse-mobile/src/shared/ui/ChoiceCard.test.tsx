@@ -72,7 +72,7 @@ describe('ChoiceCard', () => {
     expect(screen.getByTestId('choice-card-radio-fill', hidden)).toHaveStyle({ opacity: 0 })
   })
 
-  it('đang chọn: nền sheet + viền 2pt primary, ô icon đặc, radio đặc (sáng và tối)', async () => {
+  it('đang chọn: KHÔNG nền (như sheet đổi kho) + viền 2pt primary, ô icon đặc, radio đặc (sáng và tối)', async () => {
     for (const [scheme, colors] of [
       ['light', lightColors],
       ['dark', darkColors],
@@ -81,7 +81,7 @@ describe('ChoiceCard', () => {
       const view = await render(<ChoiceCard {...CARD} selected onPress={jest.fn()} />)
       expect(screen.getByRole('button', { name: /Công ty MEKONG/ })).toBeSelected()
       expect(screen.getByTestId('card')).toHaveStyle({
-        backgroundColor: rgba(colors.card),
+        backgroundColor: 'rgba(0, 0, 0, 0)',
         borderWidth: 2,
         borderColor: rgba(colors.primary),
       })
@@ -103,7 +103,7 @@ describe('ChoiceCard', () => {
       await view.rerender(<ChoiceCard {...CARD} selected onPress={jest.fn()} />)
       await act(async () => jest.advanceTimersByTime(400))
       expect(screen.getByTestId('card')).toHaveAnimatedStyle({
-        backgroundColor: rgba(lightColors.card),
+        backgroundColor: 'rgba(0, 0, 0, 0)',
         borderColor: rgba(lightColors.primary),
       })
       await view.rerender(<ChoiceCard {...CARD} selected={false} onPress={jest.fn()} />)

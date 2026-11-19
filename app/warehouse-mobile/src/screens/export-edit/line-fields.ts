@@ -1,27 +1,11 @@
 import type { InventoryItem, InventoryUnit } from '@/entities/inventory'
 import { exportLineKey, type ExportLine } from '@/features/export-draft'
-import { parseDecimalInput, type FormatLocale } from '@/shared/lib/format'
+import { type FormatLocale } from '@/shared/lib/format'
 import { formatMoneyInput, parseMoneyInput } from '@/shared/lib/money-input'
-import { round2, round6 } from '@/shared/lib/round'
+import { round2 } from '@/shared/lib/round'
 
 /** Ghi chú một dòng: chặn ở đây để ô một dòng không phình vô hạn. */
 export const NOTE_MAX_LENGTH = 500
-/** Giới hạn cột DECIMAL(18,6) của backend (đơn giá DECIMAL(18,2): `parseMoneyInput` tự chặn). */
-const QUANTITY_LIMIT = 1e12
-
-/**
- * Sheet sửa dòng `/export-line` — ✓ chỉ chặn chữ SAI, THIẾU vẫn lưu (spec wizard-apple §7). Ô số lượng:
- * trống (hay 0) = 0 "chưa nhập"; chữ không đọc được / quá 6 số lẻ → `quantityUnreadable`; quá lớn.
- */
-export function readQuantity(
-  text: string,
-): { value: number } | { error: 'quantityUnreadable' | 'quantityTooLarge' } {
-  if (text.trim() === '') return { value: 0 }
-  const v = parseDecimalInput(text, 6)
-  if (v === null) return { error: 'quantityUnreadable' }
-  if (v >= QUANTITY_LIMIT) return { error: 'quantityTooLarge' }
-  return { value: v }
-}
 
 /**
  * Sheet sửa dòng: ô đơn giá (chữ đã ngăn nghìn theo locale — `formatMoneyInput`). Trống = `null` "chưa
@@ -36,10 +20,6 @@ export function readPrice(
   if (!('error' in p)) return p
   return { error: p.error === 'tooLarge' ? 'unitPriceTooLarge' : 'unitPriceInvalid' }
 }
-
-/** Số lượng → chữ trong ô (không ngăn nghìn); 0 = chưa nhập → trống. */
-export const quantityToText = (n: number, decimalSep: string) =>
-  n > 0 ? String(round6(n)).replace('.', decimalSep) : ''
 
 /** Đơn giá → chữ trong ô, ngăn nghìn theo locale (vi "1.250.000,5"); `null` → trống. */
 export function priceToText(v: number | null, locale: FormatLocale): string {
