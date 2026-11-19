@@ -34,19 +34,19 @@ Mọi số lượng của module này (tồn, giữ chỗ, ngưỡng, delta, l�
 | `isBelowMinimum` | `quantity < effectiveMinimumInventory` (so sánh nhỏ hơn hẳn) | `inventory.mapper.ts:50-52` |
 | `isAboveMaximum` | `quantity > effectiveMaximumInventory` (so sánh lớn hơn hẳn) | `inventory.mapper.ts:54-56` |
 
-**Bất biến** do service bảo đảm (DB không có CHECK): `0 ≤ reservedQuantity ≤ quantity` (`inventory.service.ts:444-475`).
+**Bất biến** do service bảo đảm (DB không có CHECK): `0 ≤ reservedQuantity ≤ quantity` (`inventory.service.ts:455-486`).
 
 **Thao tác làm đổi số lượng.** Mỗi thao tác ghi đúng một dòng lịch sử:
 
 | Thao tác | `quantity` | `reservedQuantity` | `action` lịch sử | Nguồn |
 |---|---|---|---|---|
-| Gán vật tư vào kho (`PUT`/`POST` ở trang này) | = `quantity` ban đầu | 0 | `ASSIGN` | `inventory.service.ts:103-113`, `:141-166` |
-| Điều chỉnh (`PATCH .../quantity`) | `+ delta` | không đổi | `ADJUST` | `inventory.service.ts:232-258` |
-| Xác nhận phiếu nhập | `+` tổng số lượng quy về đơn vị cơ sở | không đổi | `IMPORT` | `inventory.service.ts:269-281`, gọi từ `import-form.service.ts` |
-| Gửi duyệt phiếu xuất (`DRAFT` → `PENDING`) | không đổi | `+` | `RESERVE` | `inventory.service.ts:312-330`, gọi từ `export-form.service.ts` |
-| Huỷ phiếu xuất `PENDING` | không đổi | `−` | `RELEASE` | `inventory.service.ts:333-345` |
-| Xác nhận phiếu xuất (`PENDING` → `CONFIRMED`) | `−` | `−` (cùng lượng) | `EXPORT` | `inventory.service.ts:291-305` (`fromReserved: true`) |
-| Gỡ vật tư khỏi kho (`DELETE`) | phải đang = 0 | phải đang = 0 | `REMOVE` | `inventory.service.ts:384-413` |
+| Gán vật tư vào kho (`PUT`/`POST` ở trang này) | = `quantity` ban đầu | 0 | `ASSIGN` | `inventory.service.ts:112-124`, `:152-177` |
+| Điều chỉnh (`PATCH .../quantity`) | `+ delta` | không đổi | `ADJUST` | `inventory.service.ts:243-269` |
+| Xác nhận phiếu nhập | `+` tổng số lượng quy về đơn vị cơ sở | không đổi | `IMPORT` | `inventory.service.ts:280-292`, gọi từ `import-form.service.ts` |
+| Gửi duyệt phiếu xuất (`DRAFT` → `PENDING`) | không đổi | `+` | `RESERVE` | `inventory.service.ts:323-341`, gọi từ `export-form.service.ts` |
+| Huỷ phiếu xuất `PENDING` | không đổi | `−` | `RELEASE` | `inventory.service.ts:344-356` |
+| Xác nhận phiếu xuất (`PENDING` → `CONFIRMED`) | `−` | `−` (cùng lượng) | `EXPORT` | `inventory.service.ts:302-316` (`fromReserved: true`) |
+| Gỡ vật tư khỏi kho (`DELETE`) | phải đang = 0 | phải đang = 0 | `REMOVE` | `inventory.service.ts:395-424` |
 
 - Nhiều dòng phiếu có cùng vật tư được cộng gộp thành một lần thay đổi và một dòng lịch sử.
 - Mọi thay đổi đều khoá dòng tồn (`SELECT ... FOR UPDATE`), nên request đồng thời chạy lần lượt và không ghi đè nhau. Module này **không** dùng `version` (optimistic lock).
@@ -120,8 +120,8 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 | `minimumInventory` | `number \| null` | Không | `≥ 0` | Không gửi hoặc `null` = dùng ngưỡng của vật tư |
 | `maximumInventory` | `number \| null` | Không | `≥ 0` | Như trên |
 
-- **Hành vi** (`inventory.service.ts:72-120`). Thứ tự kiểm tra: kho tồn tại → kho đang hoạt động → vật tư tồn tại → vật tư chưa từng gán vào kho → `effectiveMaximum ≥ effectiveMinimum`. Sau đó ghi dòng tồn và lịch sử `ASSIGN` trong một transaction.
-- **Không idempotent:** gán lại vật tư đã có trong kho trả `INVENTORY_DOES_EXIST` (`inventory.controller.ts:40-41`).
+- **Hành vi** (`inventory.service.ts:72-131`). Thứ tự kiểm tra: kho tồn tại → kho đang hoạt động → vật tư tồn tại → vật tư hiện chưa có trong kho (`!existed.deletedAt`) → `effectiveMaximum ≥ effectiveMinimum`. Nếu vật tư từng bị gỡ khỏi kho (`existed.deletedAt != null`), hệ thống khôi phục lại dòng tồn cũ (`recover`) với `quantity` mới, `reservedQuantity = 0` và ngưỡng override mới (`null` nếu không gửi) thay vì tạo dòng mới, đồng thời ghi thêm một dòng lịch sử `ASSIGN` trong cùng một transaction.
+- **Không idempotent:** gán lại vật tư đang có trong kho trả `INVENTORY_DOES_EXIST` (`inventory.controller.ts:40-41`).
 - **Response 200** (không phải 201): `result` là `InventoryResponseDto`.
 - **Lỗi riêng:**
 
@@ -134,7 +134,7 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 | 404 | 100501 `WAREHOUSE_NOT_FOUND` | Không có kho, hoặc kho đã xoá |
 | 422 | 100804 `INVENTORY_WAREHOUSE_INACTIVE` | Kho ngừng hoạt động |
 | 404 | 100701 `MATERIAL_NOT_FOUND` | Không có vật tư (mã của module material) |
-| 422 | 100802 `INVENTORY_DOES_EXIST` | Vật tư đã có trong kho, **kể cả khi đã bị gỡ** trước đó (kiểm tra `withDeleted`, `inventory.service.ts:86-90`) |
+| 422 | 100802 `INVENTORY_DOES_EXIST` | Vật tư đang có trong kho (`!existed.deletedAt`; dòng đã bị gỡ trước đó được khôi phục lại, `inventory.service.ts:87-92`) |
 | 422 | 100811 `INVENTORY_RANGE_INVALID` | Ngưỡng hiệu lực mâu thuẫn: `effectiveMaximum < effectiveMinimum` |
 
 ## POST /api/v1/warehouses/:warehouseSlug/materials
@@ -151,7 +151,7 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 | `material` | `object` | Có | Body của `POST /api/v1/materials` (`CreateMaterialRequestDto`), validate lồng nhau | Xem [material.md](material.md). `material.minimumInventory`/`maximumInventory` ở đây là ngưỡng **mặc định của vật tư**, khác override bên ngoài |
 | `supplierSlug` | `string` | Không | Trim, chuỗi không rỗng | Gắn vật tư mới với nhà cung cấp này trong cùng transaction |
 
-- **Hành vi** (`inventory.service.ts:129-173`): kiểm tra kho và nhà cung cấp **trước** transaction. Sau đó trong một transaction: tạo vật tư (kèm đơn vị cơ sở), gắn nhà cung cấp (nếu có), tạo dòng tồn, ghi lịch sử `ASSIGN`. Lỗi ở bước nào thì không có gì được ghi.
+- **Hành vi** (`inventory.service.ts:140-184`): kiểm tra kho và nhà cung cấp **trước** transaction. Sau đó trong một transaction: tạo vật tư (kèm đơn vị cơ sở), gắn nhà cung cấp (nếu có), tạo dòng tồn, ghi lịch sử `ASSIGN`. Lỗi ở bước nào thì không có gì được ghi.
 - **Response 201:** `result` là `InventoryResponseDto`. `units` lúc này chỉ có đơn vị cơ sở.
 - **Lỗi riêng:**
 
@@ -179,12 +179,12 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
 | `page`, `size` | `number` | Không | Xem conventions | |
-| `sort`, `startDate`, `endDate` | | Không | Được validate | **Bị bỏ qua**: luôn `createdAt DESC` (thời điểm gán vào kho), không lọc ngày (`inventory.service.ts:198-204`) |
+| `sort`, `startDate`, `endDate` | | Không | Được validate | **Bị bỏ qua**: luôn `createdAt DESC` (thời điểm gán vào kho), không lọc ngày (`inventory.service.ts:209-215`) |
 | `typeSlug` | `string` | Không | Trim | Lọc theo slug loại vật tư. Slug không tồn tại thì trả danh sách rỗng, không báo lỗi |
 | `belowMinimum` | `boolean` | Không | `"true"`/`"false"` | `true`: chỉ lấy dòng có `quantity < COALESCE(override min, min của vật tư)`. `false` hoặc không gửi: **không lọc** |
 | `aboveMaximum` | `boolean` | Không | `"true"`/`"false"` | `true`: chỉ lấy dòng có `quantity > COALESCE(override max, max của vật tư)`. `false` hoặc không gửi: không lọc |
 
-- Bộ lọc chạy ở SQL (`inventory.service.ts:186-196`), nên `total` và phân trang đúng theo bộ lọc. Gửi cả `belowMinimum=true` và `aboveMaximum=true` là điều kiện **AND**, gần như luôn rỗng.
+- Bộ lọc chạy ở SQL (`inventory.service.ts:197-207`), nên `total` và phân trang đúng theo bộ lọc. Gửi cả `belowMinimum=true` và `aboveMaximum=true` là điều kiện **AND**, gần như luôn rỗng.
 - Không gồm vật tư đã gỡ khỏi kho.
 - **Response 200:** trang phân trang của `InventoryResponseDto`.
 - **Lỗi riêng:**
@@ -205,7 +205,7 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 | `minimumInventory` | `number \| null` | Không | `≥ 0`, tối đa 6 chữ số thập phân | Không gửi: giữ nguyên. `null`: bỏ override, quay về ngưỡng của vật tư |
 | `maximumInventory` | `number \| null` | Không | Như trên | Như trên |
 
-Ở endpoint này `null` **có ý nghĩa** (`inventory.service.ts:221-224`), khác với PATCH của kho và cửa hàng.
+Ở endpoint này `null` **có ý nghĩa** (`inventory.service.ts:232-235`), khác với PATCH của kho và cửa hàng.
 
 - Không kiểm tra kho có đang hoạt động hay không.
 - **Response 200:** `result` là `InventoryResponseDto`.
@@ -215,7 +215,7 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 |---|---|---|
 | 400 | 100809 / 100810 | Ngưỡng sai |
 | 404 | 100501 `WAREHOUSE_NOT_FOUND` | Không có kho |
-| 404 | 100801 `INVENTORY_NOT_FOUND` | Kho có, nhưng vật tư chưa gán vào kho (hoặc đã gỡ, hoặc slug vật tư sai) (`inventory.service.ts:509-520`) |
+| 404 | 100801 `INVENTORY_NOT_FOUND` | Kho có, nhưng vật tư chưa gán vào kho (hoặc đã gỡ, hoặc slug vật tư sai) (`inventory.service.ts:520-531`) |
 | 422 | 100811 `INVENTORY_RANGE_INVALID` | Ngưỡng hiệu lực sau khi sửa mâu thuẫn |
 
 ## PATCH /api/v1/warehouses/:warehouseSlug/materials/:materialSlug/quantity
@@ -230,14 +230,14 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 | `delta` | `number` | Có | Khác `0`, tối đa 6 chữ số thập phân, được âm | Lượng cộng (dương) hoặc trừ (âm), theo **đơn vị cơ sở** |
 | `note` | `string` | Không | Trim, tối đa 255 ký tự | Lưu vào lịch sử `ADJUST` |
 
-- **Hành vi** (`inventory.service.ts:232-258`, `:444-475`): khoá dòng tồn, tính `quantity + delta`, kiểm tra bất biến, ghi giá trị mới và một dòng lịch sử `ADJUST`.
+- **Hành vi** (`inventory.service.ts:243-269`, `:455-486`): khoá dòng tồn, tính `quantity + delta`, kiểm tra bất biến, ghi giá trị mới và một dòng lịch sử `ADJUST`.
 - Không kiểm tra kho có đang hoạt động hay không.
 - **Response 200:** `result` là `InventoryResponseDto` sau khi điều chỉnh.
 - **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
 |---|---|---|
-| 400 | 100808 `INVENTORY_DELTA_INVALID` | Thiếu `delta`, không phải số, quá 6 chữ số thập phân, hoặc bằng `0` (kiểm tra `0` ở service, `inventory.service.ts:242-244`) |
+| 400 | 100808 `INVENTORY_DELTA_INVALID` | Thiếu `delta`, không phải số, quá 6 chữ số thập phân, hoặc bằng `0` (kiểm tra `0` ở service, `inventory.service.ts:253-255`) |
 | 400 | 100814 `INVENTORY_NOTE_INVALID` | `note` không phải chuỗi, hoặc dài hơn 255 ký tự |
 | 404 | 100501 `WAREHOUSE_NOT_FOUND` | Không có kho |
 | 404 | 100801 `INVENTORY_NOT_FOUND` | Vật tư chưa gán vào kho, hoặc bị gỡ trong lúc đang xử lý |
@@ -248,10 +248,10 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 
 - **Quyền:** `MATERIAL_UPDATE` **và** `WAREHOUSE_UPDATE` (`inventory.controller.ts:203-228`).
 - **Path params:** `warehouseSlug`, `materialSlug` (`string`).
-- **Hành vi** (`inventory.service.ts:384-413`): khoá dòng tồn, yêu cầu `quantity = 0` và `reservedQuantity = 0`, ghi lịch sử `REMOVE`, rồi xoá mềm dòng tồn.
+- **Hành vi** (`inventory.service.ts:395-424`): khoá dòng tồn, yêu cầu `quantity = 0` và `reservedQuantity = 0`, ghi lịch sử `REMOVE`, rồi xoá mềm dòng tồn.
 - Sau khi gỡ:
-  - Vật tư **không gán lại được** vào kho này: `PUT` trả `INVENTORY_DOES_EXIST`.
-  - Lịch sử của dòng đó **không đọc được** nữa: `GET .../histories` trả `INVENTORY_NOT_FOUND`.
+  - Vật tư **gán lại được** vào kho này qua `PUT` với các giá trị khởi tạo giống hệt như khi thêm mới (ngưỡng override cũ không giữ lại).
+  - Khi đang ở trạng thái đã gỡ, `GET .../histories` trả `INVENTORY_NOT_FOUND`; sau khi gán lại thì đọc lại được cả lịch sử trước và sau khi gỡ.
 - **Response 200:** `result` là chuỗi `"1 inventory have been removed successfully"`.
 - **Lỗi riêng:**
 
@@ -266,7 +266,7 @@ Nguồn: `inventory.dto.ts:246-285`, map ở `inventory.mapper.ts:109-128`.
 
 - **Quyền:** `MATERIAL_READ` **và** `WAREHOUSE_READ`. Không kiểm tra phạm vi kho (`inventory.controller.ts:230-249`).
 - **Path params:** `warehouseSlug`, `materialSlug` (`string`).
-- **Query:** `GetInventoryHistoryRequestDto` = `BaseQueryDto`. `page`, `size` có tác dụng. `sort`, `startDate`, `endDate` **bị bỏ qua** (luôn `createdAt DESC`, `inventory.service.ts:415-437`).
+- **Query:** `GetInventoryHistoryRequestDto` = `BaseQueryDto`. `page`, `size` có tác dụng. `sort`, `startDate`, `endDate` **bị bỏ qua** (luôn `createdAt DESC`, `inventory.service.ts:426-448`).
 - **Response 200:** trang phân trang của `InventoryHistoryResponseDto`, mới nhất trước. Lịch sử chỉ được thêm, không sửa hay xoá được qua API.
 - **Lỗi riêng:**
 
@@ -308,7 +308,7 @@ Nguồn: `src/inventory/inventory.validation.ts:45-117` (`InventoryValidation`, 
 - **Số thập phân:** server làm tròn 6 chữ số. FE nên tránh cộng trừ float rồi so sánh bằng; dùng `availableQuantity` do server trả.
 - **"Còn xuất được"** là `availableQuantity`, không phải `quantity`.
 - **Ngưỡng:** hiển thị `effective*`. `minimumInventory`/`maximumInventory` chỉ là override (có thể `null`). Muốn bỏ override thì gửi `null`.
-- **Gỡ vật tư là thao tác một chiều:** sau khi gỡ thì không gán lại được và không xem được lịch sử (xem `DELETE`).
+- **Gỡ rồi gán lại:** vật tư đã gỡ khỏi kho có thể gán lại qua `PUT` như thêm mới (ngưỡng override cũ không giữ lại, lịch sử cũ vẫn được nối tiếp).
 - **Kho ngừng hoạt động:** chặn gán vật tư (`PUT`/`POST`), nhưng **không** chặn sửa ngưỡng, điều chỉnh tồn hay gỡ.
 - **`PUT` trả 200, `POST` trả 201.**
 - **Path dùng `materialSlug`** (slug vật tư), không dùng `slug` của dòng tồn.

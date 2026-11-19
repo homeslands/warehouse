@@ -81,27 +81,38 @@ export class InventoryService {
 
     const material = await this.materialService.findEntityBySlug(dto.materialSlug);
 
-    // UNIQUE(warehouse, material) không bỏ qua row xoá mềm, nên phải tự tra kèm `withDeleted` thay
-    // vì để MySQL ném `ER_DUP_ENTRY` thành 500.
+    // `UQ_inventory(warehouse, material)` tính cả row xoá mềm: nếu vật tư đang ở trong kho thì chặn
+    // `INVENTORY_DOES_EXIST`, còn nếu từng bị gỡ (`deletedAt != null`) thì cập nhật lại số lượng/ngưỡng
+    // và `recover()` đúng row cũ thay vì `insert` row mới (sẽ dính `ER_DUP_ENTRY` → 500).
     const existed = await this.inventoryRepository.findOne({
       where: { warehouse: { id: warehouse.id }, material: { id: material.id } },
       withDeleted: true,
     });
-    if (existed) throw new InventoryException(InventoryValidation.INVENTORY_DOES_EXIST);
+    if (existed && !existed.deletedAt)
+      throw new InventoryException(InventoryValidation.INVENTORY_DOES_EXIST);
 
-    const row = this.inventoryRepository.create({
+    const payload = {
       warehouse,
       material,
       quantity: roundToScale(Number(dto.quantity ?? 0)),
       reservedQuantity: 0,
       minimumInventory: dto.minimumInventory ?? null,
       maximumInventory: dto.maximumInventory ?? null,
-    });
+    };
+    let row: Inventory;
+    if (existed) {
+      delete existed.deletedAt;
+      row = Object.assign(existed, payload);
+    } else {
+      row = this.inventoryRepository.create(payload);
+    }
     this.assertEffectiveRange(row);
 
-    // Dòng mới nên chưa cần khoá; chỉ cần dòng tồn và dòng lịch sử `ASSIGN` cùng commit/rollback.
+    // Dòng mới hoặc dòng xoá mềm gắn lại: lưu tồn, bỏ xoá mềm (nếu có) và ghi lịch sử `ASSIGN` trong 1 transaction.
     const created = await this.transactionManager.execute(async (manager) => {
-      const saved = await manager.getRepository(Inventory).save(row);
+      const repo = manager.getRepository(Inventory);
+      const saved = await repo.save(row);
+      if (existed) await repo.recover(saved);
       await this.recordHistory(
         manager,
         saved,

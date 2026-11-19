@@ -103,6 +103,7 @@ describe('InventoryService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     save: jest.fn((data) => data),
+    recover: jest.fn((data) => ({ ...data, deletedAt: undefined })),
     update: jest.fn(),
     softRemove: jest.fn(),
   };
@@ -311,13 +312,76 @@ describe('InventoryService', () => {
       await expectError(assign(), InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE.code);
     });
 
-    // UNIQUE(warehouse, material) không bỏ qua soft-delete, nên row đã xoá vẫn phải chặn ở tầng app.
-    it('rejects a material already assigned, including a soft-deleted row', async () => {
+    it('rejects a material currently active in the warehouse', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse());
+      materialService.findEntityBySlug.mockResolvedValue(material());
+      inventoryRepository.findOne.mockResolvedValue(row());
+
+      await expectError(assign(), InventoryValidation.INVENTORY_DOES_EXIST.code);
+      expect(transactionManager.execute).not.toHaveBeenCalled();
+    });
+
+    // `UQ_inventory(warehouse, material)` tính cả row xoá mềm: gán lại phải khôi phục đúng row cũ.
+    it('recovers a previously removed row with fresh quantity/thresholds and writes an ASSIGN history', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse());
+      materialService.findEntityBySlug.mockResolvedValue(material());
+      inventoryRepository.findOne
+        .mockResolvedValueOnce(
+          row({
+            id: 'wm-id-old',
+            deletedAt: new Date(),
+            quantity: 0,
+            minimumInventory: 50,
+            maximumInventory: 90,
+          }),
+        )
+        .mockResolvedValueOnce(row({ id: 'wm-id-old', quantity: 7 }));
+
+      const result = await assign({ quantity: 7 });
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(txInventoryRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({
+          id: 'wm-id-old',
+          quantity: 7,
+          reservedQuantity: 0,
+          minimumInventory: null,
+          maximumInventory: null,
+        }),
+      );
+      expect(txInventoryRepository.recover).toHaveBeenCalledWith(
+        expect.objectContaining({ id: 'wm-id-old' }),
+      );
+      expect(txInventoryRepository.save.mock.invocationCallOrder[0]).toBeLessThan(
+        txInventoryRepository.recover.mock.invocationCallOrder[0],
+      );
+      expect(writtenHistory()).toMatchObject({
+        inventory: { id: 'wm-id-old' },
+        action: InventoryHistoryAction.Assign,
+        quantityDelta: 7,
+        quantityBefore: 0,
+        quantityAfter: 7,
+        reservedBefore: 0,
+        reservedAfter: 0,
+        changedBy: { id: 'user-id-1' },
+      });
+      expect(result).toMatchObject({
+        quantity: 7,
+        effectiveMinimumInventory: 10,
+        effectiveMaximumInventory: 100,
+      });
+    });
+
+    it('rejects recovering a soft-deleted row when the new override conflicts with the material default', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
       inventoryRepository.findOne.mockResolvedValue(row({ deletedAt: new Date() }));
 
-      await expectError(assign(), InventoryValidation.INVENTORY_DOES_EXIST.code);
+      await expectError(
+        assign({ minimumInventory: 500 }),
+        InventoryValidation.INVENTORY_RANGE_INVALID.code,
+      );
+      expect(transactionManager.execute).not.toHaveBeenCalled();
     });
 
     it('throws WAREHOUSE_NOT_FOUND when the warehouse slug is unknown', async () => {
