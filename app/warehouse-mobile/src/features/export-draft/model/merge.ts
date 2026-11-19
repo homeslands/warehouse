@@ -3,10 +3,12 @@ import { round6 } from '@/shared/lib/round'
 
 import {
   baseKey,
+  clampSerials,
   exportLineKey,
   HEADER_FIELDS,
   headerFromForm,
   lineFromItem,
+  lineSerials,
   lineValues,
   normNote,
   samePrice,
@@ -42,6 +44,12 @@ function conflicts(old: ExportLine, fresh: ExportLineBase): boolean {
 /** Đơn vị người dùng đã đổi trên máy được giữ (dòng khớp theo khoá lúc tải nên server không đổi đơn vị). */
 function unitOf(l: ExportLine) {
   return { unitSlug: l.unitSlug, unitName: l.unitName, conversionRate: l.conversionRate }
+}
+
+/** Serial của dòng cũ cắt theo số lượng / đơn vị của dòng gộp; không có serial thì không thêm trường. */
+function withSerials(l: ExportLine, serials: string[]): ExportLine {
+  if (serials.length === 0) return l
+  return { ...l, serials: clampSerials(serials, l.quantity, l.conversionRate) }
 }
 
 export type MergeResult = {
@@ -112,7 +120,7 @@ export function mergeAfterConflict(local: ExportDraft, fresh: ExportForm): Merge
         batchExpiryDate: sameBatch ? next.batchExpiryDate : old.batchExpiryDate,
         ...(old.changedOnServer && { changedOnServer: true }),
       }
-      lines.push({ ...merged, key: exportLineKey(merged) })
+      lines.push(withSerials({ ...merged, key: exportLineKey(merged) }, lineSerials(old)))
       continue
     }
     const ob = old.base
@@ -137,7 +145,7 @@ export function mergeAfterConflict(local: ExportDraft, fresh: ExportForm): Merge
       note,
       changedOnServer: true,
     }
-    lines.push({ ...merged, key: exportLineKey(merged) })
+    lines.push(withSerials({ ...merged, key: exportLineKey(merged) }, lineSerials(old)))
   }
 
   const removed: string[] = []
@@ -165,7 +173,8 @@ export function mergeAfterConflict(local: ExportDraft, fresh: ExportForm): Merge
 /**
  * Khoá dòng phải duy nhất. Dòng server đổi lô / đơn vị trên máy mà khoá mới trùng dòng khác (vd server vừa
  * thêm dòng đúng lô đó) thì về lại lô + đơn vị trên server (khoá = khoá `base`) và đánh dấu `changedOnServer`
- * để kiểm lại. Còn trùng nữa (dòng thêm trên máy trùng dòng khác) thì cộng số lượng vào dòng đầu.
+ * để kiểm lại. Còn trùng nữa (dòng thêm trên máy trùng dòng khác) thì cộng số lượng vào dòng đầu (serial
+ * nối vào, bỏ trùng). Serial luôn cắt theo số lượng / đơn vị cuối của dòng.
  */
 function uniqueKeys(lines: ExportLine[], fresh: ExportForm): ExportLine[] {
   const count = new Map<string, number>()
@@ -189,6 +198,7 @@ function uniqueKeys(lines: ExportLine[], fresh: ExportForm): ExportLine[] {
         key,
         changedOnServer: true,
       }
+      l = withSerials(l, lineSerials(l))
     }
     const i = at.get(l.key)
     if (i === undefined) {
@@ -196,7 +206,11 @@ function uniqueKeys(lines: ExportLine[], fresh: ExportForm): ExportLine[] {
       out.push(l)
     } else {
       const first = out[i]!
-      out[i] = { ...first, quantity: round6(first.quantity + l.quantity), changedOnServer: true }
+      const serials = [...new Set([...lineSerials(first), ...lineSerials(l)])]
+      out[i] = withSerials(
+        { ...first, quantity: round6(first.quantity + l.quantity), changedOnServer: true },
+        serials,
+      )
     }
   }
   return out

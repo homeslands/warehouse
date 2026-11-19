@@ -1,15 +1,13 @@
+import { useRouter } from 'expo-router'
 import type { TFunction } from 'i18next'
 import { useImperativeHandle, useRef, useState, type Ref } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Platform, View, type TextInputInstance } from 'react-native'
+import { View, type TextInputInstance } from 'react-native'
 
-import { EXPORT_FORM_TYPES, type ExportFormType } from '@/entities/export-form'
+import type { ExportFormType } from '@/entities/export-form'
 import type { ExportHeader } from '@/features/export-draft'
 import { AttachmentField } from '@/features/form-attachment'
-import { OptionPill } from '@/features/list-filters'
 import { todayLocalIso } from '@/shared/lib/format'
-import { haptics } from '@/shared/lib/haptics'
-import { chooseAction } from '@/shared/lib/native-confirm'
 import { useTheme } from '@/shared/theme/useTheme'
 import { FormInfoRow } from '@/shared/ui'
 
@@ -97,7 +95,7 @@ export function toHeader(v: HeaderValues): ExportHeader {
   }
 }
 
-/** Ô chữ của đầu phiếu (Loại là ô chọn). */
+/** Trường chữ của đầu phiếu (Loại là ô chọn; Người nhận là chữ nhưng chọn qua sheet). */
 type TextField = 'code' | 'purchaseOrder' | 'receiver' | 'invoiceCode' | 'note'
 const TEXT_FIELDS: readonly TextField[] = [
   'code',
@@ -138,7 +136,7 @@ export type HeaderAttachment = {
 }
 
 export type ExportHeaderFieldsHandle = {
-  /** "Tới" vào ô (`MissingTarget` `header`): focus ô chữ, lỗi của ô hiện luôn (Loại luôn có giá trị). */
+  /** "Tới" vào ô (`MissingTarget` `header`): focus ô chữ / mở sheet Người nhận, lỗi của ô hiện luôn (Loại luôn có giá trị). */
   focus: (field: string) => void
   /** Bấm nút chính: hiện lỗi của mọi ô. */
   revealErrors: () => void
@@ -147,14 +145,13 @@ export type ExportHeaderFieldsHandle = {
 /**
  * Đầu phiếu xuất (bước 1 "Thông tin" của luồng 3 bước, spec form-wizard §4, wizard-apple §5): HAI khối kiểu
  * Cài đặt iOS (`FormInfoRow` trong khối bo, không tiêu đề nhóm) — khối BẮT BUỘC: Loại (dòng chọn chữ accent
- * "Sản xuất ⌄": iOS `chooseAction` 5 loại + "Đóng"; Android bung hàng viên `OptionPill` ngay dưới dòng vì
- * Alert chỉ chứa 3 nút; không UIMenu), Mã phiếu (viết hoa khi gõ), Số PO, Người nhận (`ReceiverField`, gợi ý
- * ngay dưới dòng); khối TUỲ CHỌN: Số HĐ, Ghi chú, Chứng từ (khi có `attachment` — `AttachmentField`, ghi
+ * "Sản xuất ⌄" → sheet `/export-type`), Mã phiếu (viết hoa khi gõ), Số PO, Người nhận (`ReceiverField` → sheet
+ * `/export-receiver`; hai sheet ghi thẳng vào bản nháp); khối TUỲ CHỌN: Số HĐ, Ghi chú, Chứng từ (khi có `attachment` — `AttachmentField`, ghi
  * `file` riêng qua `onChange`, KHÔNG qua `toHeader`). Mỗi ô giữ chữ đang gõ; mỗi lần gõ ghi ngay trường đó (đã
  * chuẩn hoá — `toHeader`) vào bản nháp qua `onChange`. Bản nháp đổi từ ngoài → ô có trường bị đổi theo bản
  * nháp ngay (kể cả ô đang focus), ô khác giữ chữ. Lỗi của ô (`headerErrors`) hiện sau lần rời ô đầu tiên,
  * sau "Tới" vào ô, hoặc sau `revealErrors`; `codeError` (lỗi server, vd trùng mã) thắng lỗi kiểm trên máy
- * của ô Mã. `disabled` (đang ghi lên server): không sửa được, dòng Loại không mở.
+ * của ô Mã. `disabled` (đang ghi lên server): không sửa được, dòng Loại / Người nhận không mở.
  */
 export function ExportHeaderFields({
   header,
@@ -172,11 +169,10 @@ export function ExportHeaderFields({
   ref?: Ref<ExportHeaderFieldsHandle>
 }) {
   const { t } = useTranslation('exportForms')
-  const { t: tc } = useTranslation('common')
   const { colors, radius } = useTheme()
   const [values, setValues] = useState(() => valuesOf(header))
   const [touched, setTouched] = useState<ReadonlySet<string>>(NO_TOUCHED)
-  const [typeOpen, setTypeOpen] = useState(false)
+  const router = useRouter()
 
   // Bản nháp đổi (do chính ô ghi, hay từ ngoài): đồng bộ các ô không focus ngay trong lần vẽ này.
   const [seen, setSeen] = useState(header)
@@ -194,7 +190,6 @@ export function ExportHeaderFields({
   const touch = (f: string) => setTouched((s) => (s.has(f) ? s : new Set(s).add(f)))
   const code = useRef<TextInputInstance>(null)
   const purchaseOrder = useRef<TextInputInstance>(null)
-  const receiver = useRef<TextInputInstance>(null)
   const invoiceCode = useRef<TextInputInstance>(null)
   const note = useRef<TextInputInstance>(null)
   useImperativeHandle(
@@ -203,12 +198,18 @@ export function ExportHeaderFields({
       focus: (field) => {
         if (field === 'type') return
         touch(field)
-        const input = { code, purchaseOrder, receiver, invoiceCode, note }[field as TextField]
-        input?.current?.focus()
+        if (field === 'receiver') return openSheet('/export-receiver')
+        const inputs: Partial<Record<string, typeof code>> = {
+          code,
+          purchaseOrder,
+          invoiceCode,
+          note,
+        }
+        inputs[field]?.current?.focus()
       },
       revealErrors: () => setTouched(new Set(ERROR_FIELDS)),
     }),
-    [],
+    // Không deps: `openSheet` đọc `disabled` / router của lần vẽ mới nhất.
   )
 
   const change = (f: TextField, text: string) => {
@@ -230,27 +231,11 @@ export function ExportHeaderFields({
 
   const errors = headerErrors(values, t)
   const shown = (f: keyof HeaderErrors) => (touched.has(f) ? errors[f] : undefined)
-  const pickType = (type: ExportFormType) => {
-    if (disabled || type === header.type) return
-    haptics.selection()
-    onChange({ type })
-  }
-
-  const typeOptions = EXPORT_FORM_TYPES.map((type) => t(`type.${type}`))
-  const openType = async () => {
+  /** Mở sheet chọn (khoá khi đang ghi). Rời dòng Người nhận để chọn → lỗi của ô hiện khi quay lại. */
+  function openSheet(href: '/export-type' | '/export-receiver') {
     if (disabled) return
-    if (Platform.OS === 'android') {
-      setTypeOpen((open) => !open)
-      return
-    }
-    const index = await chooseAction({
-      title: t('fields.type'),
-      actions: typeOptions.map((label) => ({ label })),
-      // "Đóng" chứ không "Huỷ": "Huỷ" là một loại phiếu trong danh sách.
-      cancelLabel: tc('close'),
-    })
-    const type = index === null ? undefined : EXPORT_FORM_TYPES[index]
-    if (type) pickType(type)
+    if (href === '/export-receiver') touch('receiver')
+    router.navigate(href)
   }
 
   return (
@@ -264,29 +249,8 @@ export function ExportHeaderFields({
           value={t(`type.${header.type}`)}
           chevron="down"
           accentValue
-          expanded={Platform.OS === 'android' ? typeOpen : undefined}
-          onPress={() => void openType()}
+          onPress={() => openSheet('/export-type')}
         />
-        {typeOpen && Platform.OS === 'android' ? (
-          <View
-            testID="export-type-options"
-            accessibilityRole="radiogroup"
-            accessibilityLabel={t('fields.type')}
-            style={{ flexDirection: 'row', flexWrap: 'wrap', gap: 8, padding: 12, paddingTop: 4 }}
-          >
-            {EXPORT_FORM_TYPES.map((type) => (
-              <OptionPill
-                key={type}
-                label={t(`type.${type}`)}
-                selected={header.type === type}
-                onPress={() => {
-                  pickType(type)
-                  setTypeOpen(false)
-                }}
-              />
-            ))}
-          </View>
-        ) : null}
         <FormInfoRow
           kind="input"
           testID="export-field-code"
@@ -313,11 +277,8 @@ export function ExportHeaderFields({
         />
         <ReceiverField
           value={values.receiver}
-          onChange={(text) => change('receiver', text)}
-          {...focusing('receiver')}
-          type={header.type}
-          inputRef={receiver}
           error={shown('receiver')}
+          onPress={() => openSheet('/export-receiver')}
         />
       </View>
       <View testID="export-group-optional" style={groupStyle}>

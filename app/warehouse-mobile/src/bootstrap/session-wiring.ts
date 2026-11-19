@@ -9,11 +9,17 @@ import {
 } from '@/entities/session'
 import { useWarehouseStore, type WarehouseSource } from '@/entities/warehouse'
 import { usePasswordNotice } from '@/features/change-password'
+import { useMaterialDraft } from '@/features/material-form'
+import { useMaterialFilter } from '@/screens/material-list'
 import { useExportDraft } from '@/features/export-draft'
-import { useReceiveDraft } from '@/features/receive-checklist'
+import {
+  resetScanNoticeOnWarehouseChange,
+  useReceiveDraft,
+  useScanNotice,
+} from '@/features/receive-checklist'
+import { usePeriodStore } from '@/features/overview-period'
 import { resetExportListOnWarehouseChange, useExportListFilter } from '@/screens/export-list'
 import { resetImportListOnWarehouseChange, useImportListFilter } from '@/screens/import-list'
-import { resetScanNoticeOnWarehouseChange, useScanNotice } from '@/screens/receive'
 import { resetStockFilterOnWarehouseChange, useStockFilter } from '@/screens/stock'
 import { setSessionEndHandler } from '@/shared/api/http'
 import { useFormNotice } from '@/shared/lib/form-notice.store'
@@ -46,7 +52,7 @@ function warehouseKey(user: CurrentUser, source: WarehouseSource): string {
  * - phiên bắt đầu/kết thúc → `queryClient.clear()`;
  * - phiên kết thúc → reset store kho, xoá thông báo "đã đổi mật khẩu", xoá bộ lọc tab Tồn kho, bộ lọc tab Nhập và tab Xuất,
  *   xoá bản nháp Nhận hàng trong bộ nhớ (bản đã lưu trên máy được giữ), thông báo quét không khớp và
- *   thông báo mức phiếu của form 3 bước (`useFormNotice`);
+ *   thông báo mức phiếu của form 3 bước (`useFormNotice`), lựa chọn dở của sheet vật tư / đơn vị quy đổi (`useMaterialDraft`), bộ lọc loại của danh sách Vật tư (`useMaterialFilter`), kỳ đang xem của tab Tổng quan (`usePeriodStore`);
  * - đổi kho → xoá ô tìm kiếm/bộ lọc tab Tồn kho và ô tìm kiếm tab Nhập / Xuất, thông báo quét không khớp
  *   và thông báo mức phiếu (từ khoá / phiếu của kho cũ không mang sang kho mới);
  * - vào `authenticated` (sau bootstrap, sau đăng nhập) hoặc hồ sơ nạp lại làm đổi danh sách kho /
@@ -70,6 +76,9 @@ export function wireSession(queryClient: QueryClient): () => void {
     useExportDraft.getState().reset()
     useScanNotice.getState().clear()
     useFormNotice.getState().reset()
+    useMaterialDraft.getState().reset()
+    useMaterialFilter.getState().reset()
+    usePeriodStore.getState().reset()
   })
   const offFormNotice = useWarehouseStore.subscribe((state, prev) => {
     if (state.current?.slug !== prev.current?.slug) useFormNotice.getState().reset()

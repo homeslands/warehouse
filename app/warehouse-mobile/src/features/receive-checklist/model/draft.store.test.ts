@@ -182,6 +182,18 @@ describe('useReceiveDraft', () => {
     expect(useReceiveDraft.getState().draft!.lines).toHaveLength(0)
   })
 
+  it('dòng thêm trên máy giữ materialSupplierSlugs qua lần ghi / nạp lại (kv round-trip)', async () => {
+    await useReceiveDraft.getState().load(ctx, form())
+    useReceiveDraft
+      .getState()
+      .addLine(makeLine(9, { base: null, supplierSlug: 's1', materialSupplierSlugs: ['s2', 's3'] }))
+    await settle()
+    useReceiveDraft.getState().reset()
+    await useReceiveDraft.getState().load(ctx, form())
+    const added = useReceiveDraft.getState().draft!.lines.find((l) => l.key === 'm-9|u-9')
+    expect(added).toMatchObject({ supplierSlug: 's1', materialSupplierSlugs: ['s2', 's3'] })
+  })
+
   it('discard xoá khoá và bản nháp, kể cả ghi đang chờ', async () => {
     await useReceiveDraft.getState().load(ctx, form())
     useReceiveDraft.getState().toggleCheck('m-1|u-1')

@@ -149,12 +149,16 @@ describe('useExportDraft', () => {
     store().setHeader({ type: 'DISPOSAL' })
     await settle()
     store().reset()
-    const fresh = makeForm([makeItem(1), makeItem(2)], { slug: 'px-1', version: 4, type: 'SALE' })
+    const fresh = makeForm([makeItem(1), makeItem(2)], {
+      slug: 'px-1',
+      version: 4,
+      type: 'TRANSFER',
+    })
     expect(await store().load(ctx, fresh)).toMatchObject({
       merged: true,
       headerConflicts: ['type'],
     })
-    expect(store().draft!.header.type).toBe('SALE')
+    expect(store().draft!.header.type).toBe('TRANSFER')
   })
 
   it('bản lưu cũ chưa có headerBase vẫn mở được: headerBase = đầu phiếu đang lưu', async () => {
@@ -436,5 +440,231 @@ describe('useExportDraft — phiên bản nháp (session)', () => {
 
     store().reset()
     expect(store().session).not.toBe(s1)
+  })
+})
+
+describe('useExportDraft — serial', () => {
+  it('isValidDraft: serials vắng hoặc mảng string là hợp lệ; khác thế không hợp lệ', () => {
+    expect(isValidDraft(makeDraft([makeLine(1)]))).toBe(true)
+    expect(isValidDraft(makeDraft([makeLine(1, { serials: [] })]))).toBe(true)
+    expect(isValidDraft(makeDraft([makeLine(1, { serials: ['A', 'B'] })]))).toBe(true)
+    const bad = (serials: unknown) =>
+      isValidDraft(makeDraft([{ ...makeLine(1), serials } as never]))
+    expect(bad('A')).toBe(false)
+    expect(bad([1])).toBe(false)
+    expect(bad(null)).toBe(false)
+    expect(bad(['A', null])).toBe(false)
+  })
+
+  it('updateLine nhận serials', async () => {
+    await store().load(ctx, form())
+    expect(store().updateLine('m-1|u-1|', { quantity: 11, serials: ['S1'] })).toEqual({
+      ok: true,
+      key: 'm-1|u-1|',
+    })
+    expect(store().draft!.lines[0]!.serials).toEqual(['S1'])
+  })
+
+  it('adoptServerForm (Nháp) mang serial theo khoá dòng, cắt theo số lượng server và GHI kv', async () => {
+    await store().load(ctx, form(3))
+    store().updateLine('m-1|u-1|', { quantity: 12, serials: ['A', 'B'] })
+    store().updateLine('m-2|u-2|', { quantity: 12, serials: ['C', 'D', 'E'] })
+    await settle()
+    const saved = makeForm([makeItem(1, { quantity: 12 }), makeItem(2, { quantity: 2 })], {
+      slug: 'px-1',
+      version: 4,
+    })
+    store().adoptServerForm(saved)
+    expect(store().draft!.version).toBe(4)
+    expect(store().draft!.lines[0]!.serials).toEqual(['A', 'B'])
+    expect(store().draft!.lines[1]!.serials).toEqual(['C', 'D'])
+    await settle()
+    const raw = JSON.parse((await AsyncStorage.getItem(key))!) as ExportDraft
+    expect(raw.version).toBe(4)
+    expect(raw.lines.map((l) => l.serials)).toEqual([
+      ['A', 'B'],
+      ['C', 'D'],
+    ])
+    // Mở lại: bản lưu cùng version → dùng bản lưu (giữ serial), không coi là đã sửa.
+    const r = await store().load(ctx, saved)
+    expect(r).toMatchObject({ local: true, edited: false, merged: false })
+    expect(store().draft!.lines[0]!.serials).toEqual(['A', 'B'])
+  })
+
+  it('adoptServerForm từ new có serial: xoá khoá new, ghi khoá slug mới', async () => {
+    const newCtx: DraftContext = { ...ctx, formSlug: 'new' }
+    await store().load(newCtx, null)
+    store().addLine(makeLine(1, { base: null, quantity: 1, serials: ['S1'] }))
+    await settle()
+    const newKey = exportDraftStorageKey('u1', 'wh1', 'new')
+    const slugKey = exportDraftStorageKey('u1', 'wh1', 'px-7')
+    expect(await AsyncStorage.getItem(newKey)).not.toBeNull()
+    store().adoptServerForm(makeForm([makeItem(1, { quantity: 1 })], { slug: 'px-7', version: 1 }))
+    await settle()
+    expect(await AsyncStorage.getItem(newKey)).toBeNull()
+    const raw = JSON.parse((await AsyncStorage.getItem(slugKey))!) as ExportDraft
+    expect(raw.lines[0]!.serials).toEqual(['S1'])
+    expect(store().ctx?.formSlug).toBe('px-7')
+  })
+
+  it('adoptServerForm phiếu không còn Nháp → xoá kv dù có serial', async () => {
+    await store().load(ctx, form(3))
+    store().updateLine('m-1|u-1|', { quantity: 10, serials: ['A'] })
+    await settle()
+    expect(await AsyncStorage.getItem(key)).not.toBeNull()
+    store().adoptServerForm(
+      makeForm([makeItem(1), makeItem(2)], { slug: 'px-1', version: 4, status: 'PENDING' }),
+    )
+    await settle()
+    expect(await AsyncStorage.getItem(key)).toBeNull()
+    expect(store().draft!.lines[0]!.serials).toEqual(['A'])
+  })
+
+  it('adoptServerForm Nháp không serial nào → xoá kv như cũ', async () => {
+    await store().load(ctx, form(3))
+    store().updateLine('m-1|u-1|', { quantity: 7, serials: [] })
+    await settle()
+    store().adoptServerForm(form(4))
+    await settle()
+    expect(await AsyncStorage.getItem(key)).toBeNull()
+  })
+})
+
+describe('useExportDraft — serial luôn hợp lệ', () => {
+  it('updateLine cắt serial theo số lượng / đơn vị mới (giữ tham chiếu khi không đổi)', async () => {
+    await store().load(ctx, form())
+    store().updateLine('m-1|u-1|', { quantity: 3, serials: ['A', 'B', 'C'] })
+    const kept = store().draft!.lines[0]!.serials
+    store().updateLine('m-1|u-1|', { note: 'x' })
+    expect(store().draft!.lines[0]!.serials).toBe(kept)
+    store().updateLine('m-1|u-1|', { quantity: 1 })
+    expect(store().draft!.lines[0]!.serials).toEqual(['A'])
+    store().updateLine('m-1|u-1|', { quantity: 2, serials: ['A', 'B'] })
+    store().updateLine('m-1|u-1|', { quantity: 0.5 }) // 0,5 × 1 → 0 serial
+    expect(store().draft!.lines[0]!.serials).toEqual([])
+  })
+
+  it('load chuẩn hoá serial của bản lưu: trim + viết hoa, bỏ rỗng, bỏ trùng, cắt theo số lượng', async () => {
+    const saved = makeDraft([
+      makeLine(1, { quantity: 3, serials: [' a1 ', 'A1', '  ', 'b2', 'c3', 'd4'] }),
+      makeLine(2),
+    ])
+    await AsyncStorage.setItem(key, JSON.stringify(saved))
+    await store().load(ctx, makeForm([makeItem(1), makeItem(2)], { slug: 'px-1' }))
+    expect(store().draft!.lines[0]!.serials).toEqual(['A1', 'B2', 'C3'])
+    expect(store().draft!.lines[1]!.serials).toBeUndefined()
+  })
+
+  it('load bản lưu đã chuẩn → không ghi lại', async () => {
+    const saved = makeDraft([makeLine(1, { quantity: 2, serials: ['A1', 'B2'] })])
+    const json = JSON.stringify(saved)
+    await AsyncStorage.setItem(key, json)
+    await store().load(ctx, makeForm([makeItem(1)], { slug: 'px-1' }))
+    await settle()
+    expect(await AsyncStorage.getItem(key)).toBe(json)
+  })
+})
+
+describe('useExportDraft — serial sau Lưu nháp (bỏ thay đổi / mở lại / thêm dòng)', () => {
+  /** Lưu nháp có serial: phiếu server v4 (dòng 1: 2 = serial A,B; dòng 2: 10). */
+  async function savedWithSerials() {
+    await store().load(ctx, form(3))
+    store().updateLine('m-1|u-1|', { quantity: 2, serials: ['A', 'B'] })
+    const saved = makeForm([makeItem(1, { quantity: 2 }), makeItem(2)], {
+      slug: 'px-1',
+      version: 4,
+    })
+    store().adoptServerForm(saved)
+    await settle()
+    return saved
+  }
+
+  it('discardEdits: bỏ sửa trên máy nhưng GIỮ serial đã lưu (cắt theo số lượng server), ghi kv', async () => {
+    const saved = await savedWithSerials()
+    const s0 = store().session
+    // Sửa tiếp trên máy: quét thêm C, D rồi sửa đầu phiếu.
+    store().updateLine('m-1|u-1|', { quantity: 4, serials: ['A', 'B', 'C', 'D'] })
+    store().setHeader({ receiver: 'Bếp Z' })
+    await store().discardEdits(saved)
+    expect(store().session).not.toBe(s0)
+    expect(store().draft!.header.receiver).toBe(saved.receiver)
+    expect(store().draft!.lines[0]).toMatchObject({ quantity: 2, serials: ['A', 'B'] })
+    await settle()
+    const raw = (await kv.get<ExportDraft>(key))!
+    expect(raw.version).toBe(4)
+    expect(raw.header.receiver).toBe(saved.receiver)
+    expect(raw.lines[0]!.serials).toEqual(['A', 'B'])
+    // Mở lại: không có gì để báo, serial vẫn chặn quét trùng.
+    store().reset()
+    expect(await store().load(ctx, saved)).toMatchObject({
+      local: true,
+      edited: false,
+      merged: false,
+    })
+    expect(store().draft!.lines[0]!.serials).toEqual(['A', 'B'])
+  })
+
+  it('discardEdits không còn serial → xoá kv, dựng lại từ phiếu (như discard + load)', async () => {
+    await store().load(ctx, form(3))
+    store().updateLine('m-1|u-1|', { quantity: 7 })
+    await settle()
+    expect(await AsyncStorage.getItem(key)).not.toBeNull()
+    await store().discardEdits(form(3))
+    await settle()
+    expect(await AsyncStorage.getItem(key)).toBeNull()
+    expect(store().draft).toEqual(draftFromForm(form(3)))
+  })
+
+  it('discardEdits phiếu không còn Nháp → xoá kv dù có serial', async () => {
+    await savedWithSerials()
+    await store().discardEdits(
+      makeForm([makeItem(1, { quantity: 2 }), makeItem(2)], {
+        slug: 'px-1',
+        version: 5,
+        status: 'PENDING',
+      }),
+    )
+    await settle()
+    expect(await AsyncStorage.getItem(key)).toBeNull()
+  })
+
+  it('load: bản lưu chỉ có serial (không sửa gì) mà version đổi → dựng từ server + mang serial, KHÔNG gộp', async () => {
+    await savedWithSerials()
+    store().reset()
+    // Web sửa: dòng 1 còn 1, dòng 2 đổi giá.
+    const fresh = makeForm([makeItem(1, { quantity: 1 }), makeItem(2, { unitPrice: 5000 })], {
+      slug: 'px-1',
+      version: 5,
+    })
+    expect(await store().load(ctx, fresh)).toEqual({
+      local: true,
+      edited: false,
+      merged: false,
+      removed: [],
+      headerConflicts: [],
+    })
+    expect(store().draft!.version).toBe(5)
+    expect(store().draft!.lines[0]).toMatchObject({ quantity: 1, serials: ['A'] })
+    expect(store().draft!.lines.some((l) => l.changedOnServer)).toBe(false)
+    await settle()
+    const raw = (await kv.get<ExportDraft>(key))!
+    expect(raw.version).toBe(5)
+    expect(raw.lines[0]!.serials).toEqual(['A'])
+  })
+
+  it('load: bản lưu không sửa, version đổi, serial bị cắt hết → xoá kv', async () => {
+    await savedWithSerials()
+    store().reset()
+    const fresh = makeForm([makeItem(2)], { slug: 'px-1', version: 5 })
+    expect(await store().load(ctx, fresh)).toMatchObject({ merged: false, edited: false })
+    expect(store().draft).toEqual(draftFromForm(fresh))
+    await settle()
+    expect(await AsyncStorage.getItem(key)).toBeNull()
+  })
+
+  it('addLine cắt serial theo số lượng (bất biến không phụ thuộc người gọi)', async () => {
+    await store().load(ctx, form())
+    store().addLine(makeLine(3, { base: null, quantity: 2, serials: ['A', 'B', 'C'] }))
+    expect(store().draft!.lines[2]!.serials).toEqual(['A', 'B'])
   })
 })

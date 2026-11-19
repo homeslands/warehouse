@@ -23,6 +23,10 @@ export type ReceiveRowProps = {
   disabled?: boolean
   /** Dòng bị chặn khi lưu (vd hạn dùng trước ngày phiếu): tô đỏ nhạt. */
   flagged?: boolean
+  /** Lưu sẽ gắn vật tư của dòng vào bên bán của dòng (`willAttachToSupplier`): viên "Mới với NCC". */
+  newToSupplier?: boolean
+  /** Tên bên bán của dòng cho nhãn đọc của viên ("Mới với <tên>"); `null` → "Mới với bên bán". */
+  newToSupplierName?: string | null
   /** Vị trí trong khối bo tròn: dòng đầu bo trên (không kẻ phía trên), dòng cuối bo dưới. */
   first?: boolean
   last?: boolean
@@ -41,6 +45,8 @@ function ReceiveRowImpl({
   mode,
   disabled = false,
   flagged = false,
+  newToSupplier = false,
+  newToSupplierName = null,
   first = false,
   last = false,
   onToggle,
@@ -98,6 +104,27 @@ function ReceiveRowImpl({
             >
               <Text weight="semibold" size={10.5} style={{ color: colors.accentText }}>
                 {t('receive.row.new')}
+              </Text>
+            </View>
+          ) : null}
+          {newToSupplier ? (
+            <View
+              accessible
+              accessibilityLabel={
+                newToSupplierName
+                  ? t('wizard.row.newToSupplier', { name: newToSupplierName })
+                  : t('wizard.row.newToSupplierNoName')
+              }
+              style={{
+                flexShrink: 0,
+                paddingHorizontal: 6,
+                paddingVertical: 1,
+                borderRadius: 999,
+                backgroundColor: colors.accentSoft,
+              }}
+            >
+              <Text weight="semibold" size={10.5} style={{ color: colors.accentText }}>
+                {t('wizard.row.newToSupplierShort')}
               </Text>
             </View>
           ) : null}

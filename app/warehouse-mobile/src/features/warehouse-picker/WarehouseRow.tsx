@@ -34,7 +34,10 @@ export function WarehouseRow({
       selected={selected}
       accessibilityLabel={accessibilityLabel}
       onPress={onPress}
-      subtitle={<WarehouseSubtitle warehouse={warehouse} role={role} inactive={inactive} />}
+      // Chấm trạng thái (xanh hoạt động / đỏ đã tắt) như bảng đổi kho.
+      subtitle={
+        <WarehouseSubtitle warehouse={warehouse} role={role} inactive={inactive} statusDot />
+      }
       trailing={selected ? <Check size={18} color={colors.foreground} aria-hidden /> : null}
     />
   )

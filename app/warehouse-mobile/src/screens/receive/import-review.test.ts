@@ -1,4 +1,10 @@
-import { makeDraft, makeLine } from '@/features/receive-checklist/model/fixtures'
+import { mergeAfterConflict } from '@/features/receive-checklist'
+import {
+  makeDraft,
+  makeForm,
+  makeItem,
+  makeLine,
+} from '@/features/receive-checklist/model/fixtures'
 import i18n, { changeLanguage, initI18n } from '@/shared/i18n'
 
 import { importReview } from './import-review'
@@ -90,5 +96,95 @@ describe('importReview', () => {
     expect(nbsp(r.lines[1]!.summary.line2)).toBe('1 bao × 1,000 đ')
     expect(r.lines[1]!.summary.line3.map((x) => x.text)).toEqual(['VT2', 'Exp 15/08/2028'])
     expect(r.warnings).toEqual(['1 line has a unit price of 0 đ'])
+  })
+})
+
+describe('importReview supplierNote (theo bên bán CỦA DÒNG)', () => {
+  const header = { ...makeDraft([]).header, supplierSlug: 'mp' }
+  const names: Record<string, string> = { mp: 'Minh Phát', ht: 'Hà Tiên' }
+  const withNames = opts({
+    supplierName: 'Minh Phát',
+    supplierNameOf: (slug: string) => names[slug] ?? null,
+  })
+  it('counts lines the save will attach, all to one supplier → its name', () => {
+    const draft = makeDraft(
+      [
+        makeLine(1, { supplierSlug: 'mp', materialSupplierSlugs: [] }),
+        makeLine(2, { supplierSlug: 'mp', materialSupplierSlugs: ['mp'] }),
+        makeLine(3, { supplierSlug: 'mp', materialSupplierSlugs: ['x'] }),
+        makeLine(4, { supplierSlug: null, materialSupplierSlugs: [] }),
+      ],
+      { header },
+    )
+    expect(importReview(draft, withNames).supplierNote).toBe(
+      'Khi lưu, 2 vật tư sẽ được gắn vào Minh Phát.',
+    )
+  })
+  it('is null when none will attach', () => {
+    const draft = makeDraft(
+      [makeLine(1, { materialSupplierSlugs: ['mp'], supplierSlug: 'mp' }), makeLine(2)],
+      {
+        header,
+      },
+    )
+    expect(importReview(draft, withNames).supplierNote).toBeNull()
+  })
+  it('several suppliers → fallback name', () => {
+    const draft = makeDraft(
+      [
+        makeLine(1, { supplierSlug: 'mp', materialSupplierSlugs: [] }),
+        makeLine(2, { supplierSlug: 'ht', materialSupplierSlugs: [] }),
+      ],
+      { header },
+    )
+    expect(importReview(draft, withNames).supplierNote).toBe(
+      'Khi lưu, 2 vật tư sẽ được gắn vào bên bán.',
+    )
+  })
+  it('header s1, lines s1 + s2, s1 line deleted → note + labels name what each line sends (s2)', () => {
+    const draft = makeDraft(
+      [
+        makeLine(2, { supplierSlug: 'ht', supplierName: 'Hà Tiên', materialSupplierSlugs: [] }),
+        makeLine(3),
+      ],
+      { header },
+    )
+    const r = importReview(draft, withNames)
+    expect(r.supplierNote).toBe('Khi lưu, 1 vật tư sẽ được gắn vào Hà Tiên.')
+    expect(r.lines[0]!.summary.line3.map((x) => x.text)).toContain('Mới với Hà Tiên')
+    expect(r.lines[1]!.summary.line3.map((x) => x.text).join()).not.toContain('Mới với')
+  })
+  it('real merge (server lines now s2 → header s2): device line still labelled with its own s1', () => {
+    const local = makeDraft(
+      [
+        makeLine(1, { supplierSlug: 'mp', supplierName: 'Minh Phát' }),
+        makeLine(9, {
+          base: null,
+          supplierSlug: 'mp',
+          supplierName: 'Minh Phát',
+          materialSupplierSlugs: [],
+        }),
+      ],
+      { header, version: 3 },
+    )
+    const fresh = makeForm([makeItem(1, { supplierSlug: 'ht', supplierName: 'Hà Tiên' })], {
+      version: 4,
+    })
+    const merged = mergeAfterConflict(local, fresh).draft
+    expect(merged.header.supplierSlug).toBe('ht')
+    const r = importReview(merged, opts({ supplierName: 'Hà Tiên' }))
+    const device = r.lines.find((l) => l.key === 'm-9|u-9')!
+    expect(device.summary.line3.map((x) => x.text)).toContain('Mới với Minh Phát')
+    expect(r.supplierNote).toBe('Khi lưu, 1 vật tư sẽ được gắn vào Minh Phát.')
+  })
+
+  it('header changed after a merge: a device line keeps its own supplier label', () => {
+    const draft = makeDraft(
+      [makeLine(1, { supplierSlug: 'mp', supplierName: 'Minh Phát', materialSupplierSlugs: [] })],
+      { header: { ...header, supplierSlug: 'ht' } },
+    )
+    const r = importReview(draft, opts({ supplierName: 'Hà Tiên' }))
+    expect(r.lines[0]!.summary.line3.map((x) => x.text)).toContain('Mới với Minh Phát')
+    expect(r.supplierNote).toBe('Khi lưu, 1 vật tư sẽ được gắn vào Minh Phát.')
   })
 })

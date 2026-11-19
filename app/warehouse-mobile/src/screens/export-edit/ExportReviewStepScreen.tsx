@@ -258,7 +258,8 @@ export function ExportReviewStepScreen() {
           onHeight={setDockHeight}
           notice={<ExportStepNotices notices={notices} />}
           summary={
-            shown ? (
+            // Phiếu không phải Bán: không có đơn giá → không có Tổng cộng.
+            shown && shown.total !== null ? (
               <ReviewTotal
                 testID="export-review-total"
                 label={t('exportForms:wizard.review.total')}

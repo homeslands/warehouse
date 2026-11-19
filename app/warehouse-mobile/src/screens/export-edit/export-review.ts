@@ -1,6 +1,7 @@
 import type { TFunction } from 'i18next'
 
 import {
+  exportHasPrice,
   exportInfoRows,
   exportLineSummary,
   linesTotal,
@@ -35,7 +36,8 @@ export type ExportReview = {
   /** Khối "Lưu ý" (rỗng → không vẽ). */
   warnings: string[]
   footnote: string
-  total: number
+  /** Tổng tiền; `null` = phiếu không có đơn giá (không phải Bán) — không vẽ dòng Tổng cộng. */
+  total: number | null
 }
 
 /**
@@ -65,10 +67,12 @@ export function exportReview(
 
   const infoRows = exportInfoRows(h, { t, noteLines: 2 })
 
+  const priced = exportHasPrice(h.type)
   const zero: ExportLine[] = []
   const over: ExportLine[] = []
   const lines = draft.lines.map((l): ExportReviewLine => {
-    const isZero = l.unitPrice !== null && round2(l.unitPrice) === 0
+    // Cảnh báo "đơn giá 0" chỉ có nghĩa với phiếu Bán.
+    const isZero = priced && l.unitPrice !== null && round2(l.unitPrice) === 0
     const left = available(l)
     const isOver = left !== null && round6(l.quantity) > left
     if (isZero) zero.push(l)
@@ -81,6 +85,7 @@ export function exportReview(
         lotLabel: lotLabel(l),
         shortage: shortage?.(l),
         baseUnitName: baseUnitName?.(l) ?? null,
+        priced,
         t,
         locale,
       }),
@@ -106,5 +111,11 @@ export function exportReview(
   const footnote =
     auto > 0 ? t(`${P}.footnote`, { count, auto }) : t(`${P}.footnotePicked`, { count })
 
-  return { infoRows, lines, warnings, footnote, total: linesTotal(draft.lines) }
+  return {
+    infoRows,
+    lines,
+    warnings,
+    footnote,
+    total: priced ? linesTotal(draft.lines) : null,
+  }
 }

@@ -7,6 +7,8 @@
   "conflict": "Someone else just changed this receipt — reloaded the latest version.",
   "expiryBeforeDate": "The expiry date cannot be before the receipt date.",
   "list": {
+    "groupCount_one": "{{count}} form",
+    "groupCount_other": "{{count}} forms",
     "title": "Import forms",
     "searchPlaceholder": "Form code, invoice no. or PO",
     "create": "New form",
@@ -22,8 +24,6 @@
     "invoice": "Inv. {{code}}",
     "purchaseOrder": "PO {{code}}",
     "createForm": "New import form",
-    "today": "Today",
-    "yesterday": "Yesterday",
     "filter": {
       "ALL": "All",
       "DRAFT": "Draft",
@@ -180,6 +180,9 @@
       "notFound": "No material with code “{{code}}” found on this form"
     }
   },
+  "scan": {
+    "createMaterial": "Create material {{code}}"
+  },
   "fieldCode": "Receipt code",
   "fieldInvoiceCode": "Invoice no.",
   "fieldPurchaseOrder": "Purchase order (PO)",
@@ -224,6 +227,7 @@
     "materialA11y": "{{name}}, code {{code}}, {{stock}}"
   },
   "view": {
+    "kind": "Import form",
     "info": "Details",
     "items": "Materials · {{n}}",
     "lineCount_one": "{{count}} material line",
@@ -251,6 +255,11 @@
       "note": "Note"
     },
     "scanNotFound": "No material with code “{{code}}” found in this warehouse",
+    "scanNotInWarehouse": "{{code}} · {{name}} is not in warehouse {{warehouse}} yet.",
+    "scanAssign": "Assign to warehouse and add to form",
+    "scanAssignNoPermission": "Ask an admin to assign this material to the warehouse in Catalog → Materials.",
+    "scanAssignConfirm": "Assign {{code}} to warehouse {{warehouse}}?",
+    "scanAssignReassign": "This material was removed from this warehouse before, so it cannot be assigned again — contact a system administrator.",
     "scanFull": "The form already has {{max}} lines — can't add material “{{code}}”",
     "scanNoUnit": "Material “{{code}}” has no unit — can't add it to the form",
     "missing": {
@@ -281,14 +290,31 @@
     }
   },
   "pick": {
+    "createDropsTicks_one": "Discard {{count}} selected materials to create a new one?",
+    "createDropsTicks_other": "Discard {{count}} selected materials to create a new one?",
+    "createNewShort": "Create material",
+    "createNew": "+ Create new material “{{query}}”",
     "addCount_one": "Add {{count}} material",
     "addCount_other": "Add {{count}} materials",
     "noUnit": "No unit yet",
     "a11y": "{{name}}, code {{code}}, base unit {{unit}}",
     "stock": "In stock {{n}} {{unit}}",
     "suppliers": "Sellers: {{names}}",
-    "loadingMore": "Loading more materials",
-    "loadMoreFailed": "Couldn't load more materials"
+    "groupMine": "{{name}}'s · {{count}}",
+    "groupOthers": "Other materials · {{count}}",
+    "othersHint": "Pick → added to the form and linked to {{name}} when the form is saved.",
+    "mineEmpty": "{{name}} has no materials in this warehouse yet — pick from the list below; they will be linked to {{name}} when the form is saved.",
+    "willAttach_one": "{{count}} material will be linked to {{name}} when the form is saved.",
+    "willAttach_other": "{{count}} materials will be linked to {{name}} when the form is saved.",
+    "groupNotInWarehouse": "Not in this warehouse · {{count}}",
+    "notInWarehouseHint": "Pick → assigned to warehouse {{warehouse}} and added to the form.",
+    "willAssign_one": "{{count}} material will be assigned to warehouse {{warehouse}}.",
+    "willAssign_other": "{{count}} materials will be assigned to warehouse {{warehouse}}.",
+    "assignConfirm_one": "Assign {{count}} material to warehouse {{warehouse}} and add it to the form?",
+    "assignConfirm_other": "Assign {{count}} materials to warehouse {{warehouse}} and add them to the form?",
+    "assignedNotAdded": "{{count}} material(s) assigned to the warehouse, but the form changed — reopen \"Add materials\" to add them to the form.",
+    "supplierFallback": "the seller",
+    "truncated": "This warehouse has too many materials — type to search."
   },
   "supplierSheet": {
     "title": "Seller",
@@ -326,6 +352,9 @@
       "zeroPrice_one": "{{count}} line has a unit price of 0 đ",
       "zeroPrice_other": "{{count}} lines have a unit price of 0 đ",
       "footnote": "The form is saved as a Draft; someone with permission will check the goods and confirm the import.",
+      "newToSupplier_one": "On save, {{count}} material will be linked to {{name}}.",
+      "newToSupplier_other": "On save, {{count}} materials will be linked to {{name}}.",
+      "supplierFallback": "the seller",
       "footnoteConfirm": "Save draft keeps the form as a Draft without adding stock. Save & confirm adds the stock right away and the form can no longer be edited.",
       "total": "Total",
       "save": "Save draft",
@@ -343,7 +372,10 @@
       "expiry": "Exp {{date}}",
       "noExpiry": "No expiry",
       "expiryBeforeDate": "Expiry before the receipt date",
-      "changed": "Changed elsewhere — review"
+      "changed": "Changed elsewhere — review",
+      "newToSupplier": "New to {{name}}",
+      "newToSupplierNoName": "New to the seller",
+      "newToSupplierShort": "New to supplier"
     }
   },
   "manage": {

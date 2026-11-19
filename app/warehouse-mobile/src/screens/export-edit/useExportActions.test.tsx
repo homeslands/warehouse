@@ -156,7 +156,8 @@ describe('useExportActions — Lưu', () => {
       type: 'PRODUCTION',
       purchaseOrder: 'PO-9',
       receiver: 'Tổ hàn A',
-      items: [{ materialSlug: 'm-1', unitSlug: 'u-1', quantity: 5, unitPrice: 2000 }],
+      // Không phải phiếu Bán: đơn giá luôn gửi 0 (như web), dù dòng còn giá trên máy.
+      items: [{ materialSlug: 'm-1', unitSlug: 'u-1', quantity: 5, unitPrice: 0 }],
     })
     expect(store().ctx?.formSlug).toBe('px-9')
     expect(store().draft?.version).toBe(1)
@@ -440,11 +441,11 @@ describe('useExportActions — Lưu', () => {
 
   it('409 khi chỉ sửa đầu phiếu → giữ trường đã sửa; trường server đổi khác → lấy server + báo tên trường', async () => {
     route('patch', FORM_URL, () => failure(409, 100800))
-    route('get', FORM_URL, () => ok(form2({ version: 5, type: 'SALE' })))
+    route('get', FORM_URL, () => ok(form2({ version: 5, type: 'TRANSFER' })))
     const { result } = await setup()
     await act(async () => void store().setHeader({ type: 'DISPOSAL', receiver: 'Bếp C' }))
     await act(() => result.current.save())
-    expect(store().draft?.header).toMatchObject({ type: 'SALE', receiver: 'Bếp C' })
+    expect(store().draft?.header).toMatchObject({ type: 'TRANSFER', receiver: 'Bếp C' })
     expect(result.current.notice).toBe(
       'Phiếu đã được sửa ở nơi khác — đã tải bản mới nhất và gộp với thay đổi trên máy. Xem lại các dòng rồi gửi lại. Đầu phiếu cũng đã bị đổi ở nơi khác — đã lấy theo bản mới: Loại.',
     )
@@ -502,6 +503,34 @@ describe('useExportActions — Gửi duyệt', () => {
     expect(leave.toView).toHaveBeenCalledWith('px-1')
     // Thông báo cũ của phiếu bỏ khi thao tác bắt đầu.
     expect(useFormNotice.getState().notice).toBeNull()
+  })
+
+  it('Gửi duyệt xong mà store đã sang phiếu khác (Lưu kèm serial vừa ghi kv) → kv của phiếu vẫn bị xoá', async () => {
+    // PATCH lưu phiếu còn Nháp có serial → adoptServerForm hẹn ghi bản nháp xuống kv.
+    route('patch', FORM_URL, () =>
+      ok(
+        form2({
+          version: 4,
+          items: [
+            makeItem(1, { quantity: 2 }),
+            makeItem(2, { batchSlug: 'b-2', batchExpiryDate: '2027-03-12' }),
+          ],
+        }),
+      ),
+    )
+    route('post', SUBMIT_URL, async () => {
+      // Trong lúc chờ, người dùng mở phiếu khác: `load` ghi nốt bản nháp px-1 (còn Nháp) xuống kv.
+      await store().load({ ...ctx, formSlug: 'px-2' }, null)
+      return ok(form2({ version: 5, status: 'PENDING' }))
+    })
+    const { result } = await setup()
+    await act(async () => void store().updateLine('m-1|u-1|', { quantity: 2, serials: ['A', 'B'] }))
+    await act(() => result.current.submit())
+    await act(async () => {
+      await new Promise((r) => setTimeout(r, 400))
+    })
+    expect(store().ctx?.formSlug).toBe('px-2')
+    expect(await kv.get(KEY)).toBeNull()
   })
 
   it('không có thay đổi: chỉ submit với version của phiếu', async () => {
@@ -826,5 +855,32 @@ describe('useExportActions — chứng từ đang tải lên', () => {
     expect(callsTo('patch', FORM_URL)).toHaveLength(1)
     expect(sent.file).toBe(S3)
     expect(leave.toView).toHaveBeenCalledWith('px-1')
+  })
+})
+
+describe('useExportActions — phiếu không phải Bán (không có đơn giá)', () => {
+  it('Lưu nháp: hộp hỏi chỉ nói số dòng, KHÔNG có tổng tiền (server lưu đơn giá 0)', async () => {
+    route('patch', FORM_URL, () => ok(form2({ version: 4, type: 'PRODUCTION' })))
+    const { result } = await setup(form2({ type: 'PRODUCTION' }))
+    await act(async () => void store().updateLine('m-1|u-1|', { quantity: 8 }))
+    await act(() => result.current.save())
+    expect(lastDialog().message).toMatch(/dòng vật tư/)
+    expect(lastDialog().message).not.toMatch(/tổng|đ/)
+  })
+
+  it('Gửi duyệt không sửa gì nhưng server còn đơn giá ≠ 0 (bản cũ) → PATCH đưa giá về 0 rồi mới gửi duyệt', async () => {
+    let sent: { items?: { unitPrice: number }[] } = {}
+    route('patch', FORM_URL, (config) => {
+      sent = body(config)
+      return ok(form2({ version: 4, type: 'PRODUCTION' }))
+    })
+    route('post', SUBMIT_URL, () =>
+      ok(form2({ version: 5, type: 'PRODUCTION', status: 'PENDING' })),
+    )
+    const { result } = await setup(form2({ type: 'PRODUCTION' }))
+    await act(() => result.current.submit())
+    expect(callsTo('patch', FORM_URL)).toHaveLength(1)
+    expect(sent.items!.every((i) => i.unitPrice === 0)).toBe(true)
+    expect(callsTo('post', SUBMIT_URL)).toHaveLength(1)
   })
 })

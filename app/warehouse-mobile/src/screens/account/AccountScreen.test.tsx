@@ -57,16 +57,25 @@ describe('AccountScreen', () => {
     expect(screen.getByText('0900 000 001')).toBeOnTheScreen()
     expect(screen.getByText('Quản lý')).toBeOnTheScreen()
     // jest: biến thể development → có nhãn Sandbox.
-    expect(screen.getByText('Kho · 2.3.4 (12) · Sandbox')).toBeOnTheScreen()
+    expect(screen.getByText('Soko · 2.3.4 (12) · Sandbox')).toBeOnTheScreen()
   })
 
   it('nhóm viết thường "Làm việc" / "Cài đặt"; dòng "Kho" mang tên kho đang chọn', async () => {
     await render(<AccountScreen />)
     expect(screen.getByRole('header', { name: 'Làm việc' })).toBeOnTheScreen()
     expect(screen.getByRole('header', { name: 'Cài đặt' })).toBeOnTheScreen()
+    // Vòng icon cân trong dòng: cách mép trái = mép trên = mép dưới (12); tiêu đề nhóm thẳng cột vòng icon.
+    expect(screen.getByRole('button', { name: 'Kho, Kho Một' })).toHaveStyle({
+      paddingLeft: 12,
+      paddingVertical: 12,
+    })
+    for (const name of ['Làm việc', 'Cài đặt'])
+      expect(screen.getByRole('header', { name })).toHaveStyle({ paddingHorizontal: 12 })
     expect(screen.getByRole('button', { name: 'Kho, Kho Một' })).toBeOnTheScreen()
-    // Ô icon tối cho cả ba dòng (kho, ngôn ngữ, đổi mật khẩu); nhóm đăng xuất không có ô icon.
-    expect(screen.getAllByTestId('icon-tile', { includeHiddenElements: true })).toHaveLength(3)
+    // Vòng icon (card) cho cả ba dòng (kho, ngôn ngữ, đổi mật khẩu); nhóm đăng xuất không có ô icon.
+    expect(screen.getAllByTestId('card-icon-circle', { includeHiddenElements: true })).toHaveLength(
+      3,
+    )
   })
 
   it('chưa có họ tên → tên lớn là SĐT định dạng + "Chưa đặt họ tên", không lặp SĐT', async () => {
@@ -132,7 +141,9 @@ describe('AccountScreen', () => {
     expect(screen.getByText('Đăng xuất')).toHaveStyle({ color: '#e7000b' })
     expect(screen.getByText('Đăng xuất mọi thiết bị')).toHaveStyle({ color: '#e7000b' })
     // Chỉ còn ô icon của các dòng phía trên (kho, ngôn ngữ, đổi mật khẩu).
-    expect(screen.getAllByTestId('icon-tile', { includeHiddenElements: true })).toHaveLength(3)
+    expect(screen.getAllByTestId('card-icon-circle', { includeHiddenElements: true })).toHaveLength(
+      3,
+    )
 
     await fireEvent.press(screen.getByRole('button', { name: 'Đăng xuất' }))
     expect(sheet.mock.calls[0]![0]).toMatchObject({

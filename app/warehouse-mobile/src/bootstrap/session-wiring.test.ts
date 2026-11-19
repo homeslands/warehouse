@@ -5,8 +5,8 @@ import { QueryClient } from '@tanstack/react-query'
 
 import { refreshCurrentUser, useAuthStore, type CurrentUser } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
-import { draftStorageKey, useReceiveDraft } from '@/features/receive-checklist'
-import { useScanNotice } from '@/screens/receive'
+import { draftStorageKey, useReceiveDraft, useScanNotice } from '@/features/receive-checklist'
+import { usePeriodStore } from '@/features/overview-period'
 import { useStockFilter } from '@/screens/stock'
 import { http } from '@/shared/api/http'
 import { useFormNotice } from '@/shared/lib/form-notice.store'
@@ -61,6 +61,14 @@ describe('wireSession', () => {
     useAuthStore.getState().endSession('revoked')
     expect(queryClient.getQueryData(['k'])).toBeUndefined()
     expect(useWarehouseStore.getState()).toMatchObject({ resolution: null, current: null })
+  })
+
+  it('kết thúc phiên → kỳ của tab Tổng quan về mặc định', () => {
+    useAuthStore.setState({ status: 'authenticated', user: user({ warehouses: [WH1] }) })
+    usePeriodStore.getState().setPeriod('year')
+    usePeriodStore.getState().back()
+    useAuthStore.getState().endSession('revoked')
+    expect(usePeriodStore.getState()).toMatchObject({ period: 'month', offset: 0 })
   })
 
   it('kết thúc phiên → xoá ô tìm kiếm/bộ lọc của tab Tồn kho', async () => {

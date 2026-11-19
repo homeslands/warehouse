@@ -1,0 +1,229 @@
+{
+  "todoTitle": "Việc cần làm",
+  "todo": {
+    "importDraft": "Phiếu nhập chờ kiểm hàng",
+    "exportPending": "Phiếu xuất chờ duyệt",
+    "exportDraft": "Phiếu xuất nháp",
+    "stockLow": "Vật tư hết / dưới mức",
+    "stockHigh": "Vật tư vượt mức"
+  },
+  "period": {
+    "today": "Hôm nay",
+    "yesterday": "Hôm qua",
+    "day": "Ngày {{range}}",
+    "weekThis": "Tuần này · {{range}}",
+    "weekPrev": "Tuần trước · {{range}}",
+    "week": "Tuần {{range}}",
+    "month": "Tháng {{month}} · {{range}}",
+    "year": "Năm {{year}}"
+  },
+  "loadError": "Không tải được số liệu",
+  "stockCardTitle": "Tình trạng tồn kho",
+  "stockTotal_one": "{{count}} vật tư",
+  "stockTotal_other": "{{count}} vật tư",
+  "stockLabel": "Tình trạng tồn kho: {{total}} vật tư, {{out}} hết, {{low}} dưới mức, {{high}} vượt mức",
+  "weekdayLong": {
+    "0": "Chủ nhật",
+    "1": "Thứ Hai",
+    "2": "Thứ Ba",
+    "3": "Thứ Tư",
+    "4": "Thứ Năm",
+    "5": "Thứ Sáu",
+    "6": "Thứ Bảy"
+  },
+  "money": {
+    "import": "Nhập kho",
+    "export": "Xuất kho",
+    "pending": "Đang chờ xử lý",
+    "pendingImports_one": "{{count}} phiếu nhập",
+    "pendingImports_other": "{{count}} phiếu nhập",
+    "pendingExports_one": "{{count}} phiếu xuất",
+    "pendingExports_other": "{{count}} phiếu xuất",
+    "truncated": "quá nhiều phiếu để tính",
+    "loading": "đang tải",
+    "rowA11y": "{{label}}: {{value}}",
+    "diff": "Chênh lệch nhập − xuất",
+    "barImport": "Nhập {{amount}}",
+    "barExport": "Xuất {{amount}}"
+  },
+  "expiry": {
+    "title": "Hạn dùng",
+    "openHint": "Mở danh sách lô theo hạn dùng",
+    "cardA11y": "Hạn dùng: {{expired}} quá hạn, {{soon}} sắp hết hạn",
+    "cardA11yExpiredFailed": "Hạn dùng: số lô quá hạn không tải được",
+    "cardA11ySoonLoading": "Hạn dùng: {{expired}} quá hạn, đang tải số sắp hết hạn",
+    "cardA11ySoonFailed": "Hạn dùng: {{expired}} quá hạn, số sắp hết hạn không tải được",
+    "overdue_one": "Quá {{count}} ngày",
+    "overdue_other": "Quá {{count}} ngày",
+    "today": "Hôm nay",
+    "left_one": "Còn {{count}} ngày",
+    "left_other": "Còn {{count}} ngày",
+    "rowA11y": "{{name}}, {{expiry}}, {{status}}",
+    "expiredUnit": " lô quá hạn",
+    "soonUnit": " sắp hết hạn",
+    "soonOnlyUnit": " lô sắp hết hạn",
+    "when": "Hôm nay",
+    "rowExpired_one": "{{count}} lô đã quá hạn",
+    "rowExpired_other": "{{count}} lô đã quá hạn",
+    "rowSoon_one": "{{count}} lô sắp hết hạn",
+    "rowSoon_other": "{{count}} lô sắp hết hạn",
+    "andSoon_one": "và {{count}} lô sắp hết hạn trong {{days}} ngày",
+    "andSoon_other": "và {{count}} lô sắp hết hạn trong {{days}} ngày",
+    "soonFailedSub": "số lô sắp hết hạn không tải được"
+  },
+  "dateLine": "{{weekday}}, {{day}} tháng {{month}}",
+  "dateLineA11y": "{{weekday}}, ngày {{day}} tháng {{month}}",
+  "monthName": {
+    "1": "tháng 1",
+    "2": "tháng 2",
+    "3": "tháng 3",
+    "4": "tháng 4",
+    "5": "tháng 5",
+    "6": "tháng 6",
+    "7": "tháng 7",
+    "8": "tháng 8",
+    "9": "tháng 9",
+    "10": "tháng 10",
+    "11": "tháng 11",
+    "12": "tháng 12"
+  },
+  "periodSeg": {
+    "day": "Ngày",
+    "week": "Tuần",
+    "month": "Tháng",
+    "year": "Năm"
+  },
+  "periodBack": "Kỳ trước",
+  "periodForward": "Kỳ sau",
+  "group": {
+    "attention": "Cần chú ý",
+    "money": "Tiền",
+    "stock": "Tồn kho",
+    "activity": "Hoạt động"
+  },
+  "now": "Hiện tại",
+  "openDetailHint": "Mở biểu đồ chi tiết",
+  "compare": {
+    "yesterday": "hôm qua",
+    "day": "ngày {{date}}",
+    "lastWeek": "tuần trước",
+    "week": "tuần {{date}}",
+    "month": "{{month}}",
+    "year": "năm {{year}}"
+  },
+  "delta": {
+    "up": "▲ {{pct}}% so {{name}}",
+    "down": "▼ {{pct}}% so {{name}}",
+    "same": "Bằng {{name}}",
+    "zero": "{{name}}: {{amount}}",
+    "upA11y": "tăng {{pct}}% so với {{name}}",
+    "downA11y": "giảm {{pct}}% so với {{name}}"
+  },
+  "stockOkUnit": "% ổn định",
+  "stockBreakdown": "{{out}} hết · {{low}} dưới mức · {{high}} vượt mức",
+  "activity": {
+    "title": "Phiếu đã xác nhận",
+    "unit": " phiếu",
+    "imports": "{{count}} nhập",
+    "exports": "{{count}} xuất",
+    "a11y": "Phiếu đã xác nhận: {{value}}"
+  },
+  "detail": {
+    "title": {
+      "import": "Nhập kho",
+      "export": "Xuất kho",
+      "activity": "Hoạt động"
+    },
+    "total": "Tổng",
+    "count": "Số phiếu",
+    "forms_one": "{{count}} phiếu",
+    "forms_other": "{{count}} phiếu",
+    "mon": {
+      "1": "thg 1",
+      "2": "thg 2",
+      "3": "thg 3",
+      "4": "thg 4",
+      "5": "thg 5",
+      "6": "thg 6",
+      "7": "thg 7",
+      "8": "thg 8",
+      "9": "thg 9",
+      "10": "thg 10",
+      "11": "thg 11",
+      "12": "thg 12"
+    },
+    "monthTick": {
+      "1": "T1",
+      "2": "T2",
+      "3": "T3",
+      "4": "T4",
+      "5": "T5",
+      "6": "T6",
+      "7": "T7",
+      "8": "T8",
+      "9": "T9",
+      "10": "T10",
+      "11": "T11",
+      "12": "T12"
+    },
+    "bucket": {
+      "hour": "{{from}}–{{to}}",
+      "day": "{{weekday}}, {{date}}",
+      "month": "{{month}}, {{year}}"
+    },
+    "avg": {
+      "hour": "TB/giờ {{value}}",
+      "day": "TB/ngày {{value}}",
+      "month": "TB/tháng {{value}}"
+    },
+    "highlightTitle": "Nổi bật",
+    "hl": {
+      "import": {
+        "hour": "Giờ nhập nhiều nhất là <b>{{when}}</b> với <b>{{value}}</b>",
+        "day": "Ngày nhập nhiều nhất là <b>{{when}}</b> với <b>{{value}}</b>",
+        "month": "Tháng nhập nhiều nhất là <b>{{when}}</b> với <b>{{value}}</b>"
+      },
+      "export": {
+        "hour": "Giờ xuất nhiều nhất là <b>{{when}}</b> với <b>{{value}}</b>",
+        "day": "Ngày xuất nhiều nhất là <b>{{when}}</b> với <b>{{value}}</b>",
+        "month": "Tháng xuất nhiều nhất là <b>{{when}}</b> với <b>{{value}}</b>"
+      },
+      "activity": {
+        "hour": "Giờ nhiều phiếu nhất là <b>{{when}}</b> với <b>{{value}}</b>",
+        "day": "Ngày nhiều phiếu nhất là <b>{{when}}</b> với <b>{{value}}</b>",
+        "month": "Tháng nhiều phiếu nhất là <b>{{when}}</b> với <b>{{value}}</b>"
+      },
+      "times": {
+        "hour": " — gấp {{times}} lần trung bình mỗi giờ.",
+        "day": " — gấp {{times}} lần trung bình mỗi ngày.",
+        "month": " — gấp {{times}} lần trung bình mỗi tháng."
+      },
+      "end": "."
+    },
+    "listTitle": "Phiếu trong kỳ",
+    "empty": "Không có phiếu nào trong kỳ này.",
+    "more": "Xem thêm ({{count}})",
+    "listTruncated": "Quá nhiều phiếu để liệt kê — hãy chọn kỳ ngắn hơn.",
+    "kind": {
+      "import": "Nhập",
+      "export": "Xuất"
+    },
+    "failed": "Không tải được số liệu. Kéo xuống để thử lại.",
+    "loading": "Đang tải…",
+    "chartA11y": "Biểu đồ {{name}}, {{span}}",
+    "chartHint": "Vuốt lên hoặc xuống để xem từng cột",
+    "openFormHint": "Mở phiếu"
+  },
+  "viewStock": "Xem tồn kho",
+  "detailButton": "Chi tiết",
+  "todoNone": "Không có việc tồn",
+  "todoRow": {
+    "importDraft": "phiếu chờ kiểm hàng",
+    "exportPending": "phiếu xuất chờ duyệt",
+    "exportDraft": "phiếu xuất nháp",
+    "stockLow": "vật tư hết / dưới mức",
+    "stockHigh": "vật tư vượt mức"
+  },
+  "todoMainUnit_one": " việc đang chờ",
+  "todoMainUnit_other": " việc đang chờ"
+}

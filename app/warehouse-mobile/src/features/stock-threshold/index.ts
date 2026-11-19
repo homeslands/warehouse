@@ -6,4 +6,4 @@ export {
   type ThresholdErrors,
   type ThresholdField,
   type ThresholdForm,
-} from './model/threshold'
+} from '@/entities/inventory'

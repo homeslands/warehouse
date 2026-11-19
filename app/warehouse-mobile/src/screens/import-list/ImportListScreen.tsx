@@ -1,3 +1,4 @@
+import { useQueryClient } from '@tanstack/react-query'
 import { Stack, useRouter, type NativeStackNavigationOptions } from 'expo-router'
 import { CloudOff, FunnelX, PackagePlus, SearchX } from '@/shared/ui/icons'
 import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
@@ -6,6 +7,7 @@ import { ActivityIndicator, RefreshControl, SectionList, View } from 'react-nati
 
 import {
   canCreateImportForm,
+  importFormKeys,
   useImportForms,
   importFormErrorMessage,
   type ImportForm,
@@ -22,44 +24,53 @@ import {
   useListViewer,
 } from '@/features/list-filters'
 import { tabHeaderRight, WarehouseTransition } from '@/features/warehouse-picker'
-import { groupFormsByDay, type DayGroup } from '@/shared/lib/group-by-day'
+import { groupFormsByMonth, type MonthGroup } from '@/shared/lib/group-by-month'
 import { useDebounced } from '@/shared/lib/useDebounced'
+import { useRoutePreset } from '@/shared/lib/useRoutePreset'
 import { useTheme } from '@/shared/theme/useTheme'
 import {
+  addHeaderItem,
+  AndroidAddButton,
   Button,
   EmptyState,
   ErrorBanner,
-  FLOATING_BUTTON_SPACE,
-  FloatingCreateButton,
   FormListSkeleton,
-  FormRowSeparator,
   Screen,
   SearchField,
-  SectionHeader,
+  ListSectionTitle,
   SegmentedControl,
 } from '@/shared/ui'
 
-import { IMPORT_ROW_INSET, ImportFormRow } from './ImportFormRow'
+import { ImportFormRow } from './ImportFormRow'
 import { useImportListFilter, type ImportStatusFilter } from './import-list.store'
 import { listQueryFilters } from './list-filters'
 
-const RowSeparator = () => <FormRowSeparator inset={IMPORT_ROW_INSET} />
 const STATUS_FILTERS: ImportStatusFilter[] = ['ALL', 'DRAFT', 'CONFIRMED', 'CANCELLED']
 const SEARCH_FIELDS: ImportFormSearchField[] = ['code', 'invoiceCode', 'purchaseOrder']
 
+/** `preset` từ tab Tổng quan: danh sách khớp đúng con số đã chạm (sạch tìm kiếm + chip, chỉ còn trạng thái). */
+const PRESETS = ['DRAFT'] as const
+function applyPreset(preset: (typeof PRESETS)[number]) {
+  const store = useImportListFilter.getState()
+  store.clearSearch()
+  store.clearChips()
+  store.setStatus(preset)
+}
+
 /**
  * Tab Nhập — danh sách phiếu nhập của kho đang chọn (hướng B). Header native của Stack lồng
- * (`TabStackLayout`): tiêu đề lớn + [Lọc, kho] bên phải (`tabHeaderRight`; Lọc mở sheet `/import-filter`,
+ * (`TabStackLayout`): tiêu đề lớn + [Lọc, +, kho] bên phải (`tabHeaderRight`; Lọc mở sheet `/import-filter`,
  * icon đặc khi đang lọc); ô tìm kiếm LUÔN hiện: `SearchField` ở đầu danh sách trên CẢ HAI nền
- * (không dùng ô native của header — nháy khi đổi tab trên iOS 26). "Tạo phiếu" là nút "+" nổi (Liquid Glass) trên thanh tab.
- * Danh sách gom theo NGÀY tạo (giờ máy), mỗi ngày một khối bo 26 (`SectionList` ảo hoá). Đầu danh
+ * (không dùng ô native của header — nháy khi đổi tab trên iOS 26). "Tạo phiếu" là nút "+" gốc trên header.
+ * Danh sách gom theo THÁNG tạo (giờ máy), danh sách PHẲNG kiểu danh sách giao dịch (`PlainListRow`, tiêu đề ngày `ListSectionTitle` + số phiếu đang hiện, `SectionList` ảo hoá). Đầu danh
  * sách: trạng thái; trường tìm (chỉ khi ô có chữ — API chỉ lọc tiền tố từng trường một); dòng tóm tắt
  * bộ lọc đang có hiệu lực (`FilterSummary`, chỉ khi đang lọc).
  */
 export function ImportListScreen() {
   const { t, i18n } = useTranslation(['importForms', 'common'])
-  const { colors, radius } = useTheme()
+  const { colors } = useTheme()
   const router = useRouter()
+  useRoutePreset(PRESETS, applyPreset)
   const warehouseSlug = useWarehouseStore((s) => s.current?.slug)
   const user = useAuthStore((s) => s.user)
   const status = useImportListFilter((s) => s.status)
@@ -87,15 +98,9 @@ export function ImportListScreen() {
     list
   const { refetch, fetchNextPage } = list
   const forms = useMemo(() => data?.pages.flatMap((p) => p.items) ?? [], [data])
-  // Nhóm theo ngày tạo (giờ máy); trang sau có thể tiếp một ngày của trang trước → gộp liền nhau.
-  const sections = useMemo(
-    () =>
-      groupFormsByDay(forms, new Date(), locale, {
-        today: t('importForms:list.today'),
-        yesterday: t('importForms:list.yesterday'),
-      }),
-    [forms, locale, t],
-  )
+  // Nhóm theo THÁNG tạo (giờ máy) — kiểu lịch sử giao dịch, ngày nằm trong dòng; trang sau có thể tiếp
+  // một tháng của trang trước → gộp liền nhau.
+  const sections = useMemo(() => groupFormsByMonth(forms, locale), [forms, locale])
 
   // Lỗi lần đầu rồi Thử lại: query về `pending` và xoá `error` — giữ màn lỗi thay vì nháy khung xương.
   const [lastError, setLastError] = useState<unknown>(null)
@@ -111,14 +116,17 @@ export function ImportListScreen() {
     }
   }, [])
   const retry = useCallback(() => void refetch({ cancelRefetch: false }), [refetch])
+  const queryClient = useQueryClient()
   const onRefresh = useCallback(async () => {
     setPulling(true)
+    // Kéo để tải lại cũng làm mới danh sách bên bán (NCC vừa tạo trên web hiện ngay khi tạo phiếu).
+    void queryClient.invalidateQueries({ queryKey: importFormKeys.suppliers() })
     try {
       await refetch({ cancelRefetch: false })
     } finally {
       if (mounted.current) setPulling(false)
     }
-  }, [refetch])
+  }, [refetch, queryClient])
   const onEndReached = useCallback(() => {
     if (!hasNextPage || isFetchingNextPage || isError) return
     void fetchNextPage({ cancelRefetch: false })
@@ -145,13 +153,22 @@ export function ImportListScreen() {
       activeLabel: t('importForms:list.filters.buttonOn'),
       onPress: openFilter,
     }
-    // Thứ tự luôn [Lọc, kho] qua `tabHeaderRight` (không tự đặt mục bên phải của màn đầu tab).
+    // "+" tạo phiếu là nút GỐC trên header kiểu app Apple (thay nút nổi, 2026-11-19).
+    const create = allowCreate
+      ? { label: t('importForms:list.createForm'), onPress: openCreate }
+      : null
+    // Thứ tự luôn [Lọc, +?, kho] qua `tabHeaderRight` (không tự đặt mục bên phải của màn đầu tab).
     const right = tabHeaderRight({
-      ios: [filterHeaderItem(filterButton)],
-      android: <AndroidFilterButton {...filterButton} />,
+      ios: [filterHeaderItem(filterButton), ...(create ? [addHeaderItem(create)] : [])],
+      android: (
+        <>
+          <AndroidFilterButton {...filterButton} />
+          {create ? <AndroidAddButton {...create} /> : null}
+        </>
+      ),
     })
     return right
-  }, [t, chipFiltered, openFilter])
+  }, [t, chipFiltered, openFilter, allowCreate, openCreate])
 
   const statusItems = STATUS_FILTERS.map((s) => ({
     value: s,
@@ -194,40 +211,28 @@ export function ImportListScreen() {
   )
 
   const renderItem = useCallback(
-    ({
-      item,
-      index,
-      section,
-    }: {
-      item: ImportForm
-      index: number
-      section: DayGroup<ImportForm>
-    }) => {
-      const last = section.data.length - 1
-      return (
-        <View
-          style={{
-            overflow: 'hidden',
-            borderTopLeftRadius: index === 0 ? radius.groupLarge : 0,
-            borderTopRightRadius: index === 0 ? radius.groupLarge : 0,
-            borderBottomLeftRadius: index === last ? radius.groupLarge : 0,
-            borderBottomRightRadius: index === last ? radius.groupLarge : 0,
-          }}
-        >
-          <ImportFormRow form={item} locale={locale} onPress={openForm} />
-        </View>
-      )
-    },
-    [radius.groupLarge, locale, openForm],
+    ({ item, index }: { item: ImportForm; index: number }) => (
+      <ImportFormRow
+        form={item}
+        locale={locale}
+        onPress={openForm}
+        first={index === 0}
+        showStatus={status === 'ALL'}
+      />
+    ),
+    [locale, openForm, status],
   )
   const firstKey = sections[0]?.key
   const renderSectionHeader = useCallback(
-    ({ section }: { section: DayGroup<ImportForm> }) => (
-      <View style={{ paddingTop: section.key === firstKey ? 4 : 24 }}>
-        <SectionHeader variant="sentence">{section.title}</SectionHeader>
+    ({ section }: { section: MonthGroup<ImportForm> }) => (
+      <View style={{ paddingTop: section.key === firstKey ? 6 : 24 }}>
+        <ListSectionTitle
+          title={section.title}
+          subtitle={t('importForms:list.groupCount', { count: section.data.length })}
+        />
       </View>
     ),
-    [firstKey],
+    [firstKey, t],
   )
 
   const empty = failedFirstLoad ? (
@@ -283,7 +288,7 @@ export function ImportListScreen() {
   )
 
   return (
-    <Screen edges={['left', 'right']} tone="grouped" collapsable={false}>
+    <Screen edges={['left', 'right']} tone="plain" collapsable={false}>
       <Stack.Screen options={headerOptions} />
       <WarehouseTransition style={{ flex: 1 }}>
         <SectionList
@@ -293,7 +298,6 @@ export function ImportListScreen() {
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           stickySectionHeadersEnabled={false}
-          ItemSeparatorComponent={RowSeparator}
           ListHeaderComponent={header}
           ListEmptyComponent={empty}
           ListFooterComponent={
@@ -310,7 +314,7 @@ export function ImportListScreen() {
             flexGrow: 1,
             paddingHorizontal: 16,
             paddingTop: 12,
-            paddingBottom: allowCreate ? FLOATING_BUTTON_SPACE : 32,
+            paddingBottom: 32,
           }}
           refreshControl={
             <RefreshControl
@@ -321,9 +325,6 @@ export function ImportListScreen() {
           }
         />
       </WarehouseTransition>
-      {allowCreate ? (
-        <FloatingCreateButton label={t('importForms:list.createForm')} onPress={openCreate} />
-      ) : null}
     </Screen>
   )
 }

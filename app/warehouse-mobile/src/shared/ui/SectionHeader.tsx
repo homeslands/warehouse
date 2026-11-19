@@ -8,9 +8,15 @@ import { Text } from './Text'
 export function SectionHeader({
   children,
   variant = 'caps',
+  inset = 16,
 }: {
   children: string
   variant?: 'caps' | 'sentence'
+  /**
+   * Lề trái của chữ. Trên thẻ variant card truyền `CARD_CONTENT_INSET` (20) để chữ thẳng cột với vòng icon
+   * / nhãn của dòng trong thẻ (mặc định 16 lệch 4pt).
+   */
+  inset?: number
 }) {
   const { colors } = useTheme()
   if (variant === 'sentence') {
@@ -19,7 +25,7 @@ export function SectionHeader({
         accessibilityRole="header"
         weight="semibold"
         size={13}
-        style={{ color: colors.fieldLabel, paddingHorizontal: 16, paddingBottom: 8 }}
+        style={{ color: colors.fieldLabel, paddingHorizontal: inset, paddingBottom: 8 }}
       >
         {children}
       </Text>
@@ -34,7 +40,7 @@ export function SectionHeader({
         color: colors.groupedLabel,
         textTransform: 'uppercase',
         letterSpacing: 0.4,
-        paddingHorizontal: 16,
+        paddingHorizontal: inset,
         paddingBottom: 6,
       }}
     >

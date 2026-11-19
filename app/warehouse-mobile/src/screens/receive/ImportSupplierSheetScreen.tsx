@@ -26,7 +26,7 @@ export function ImportSupplierSheetScreen() {
   const saving = useReceiveDraft((s) => s.saving)
   const user = useAuthStore((s) => s.user)
   const canPick = !!user && can(user, 'SUPPLIER_READ')
-  const suppliers = useSuppliers(canPick)
+  const suppliers = useSuppliers(canPick, { refreshOnOpen: true })
 
   // Chỉ phiếu mới có bên bán sửa được; không còn bản nháp / thiếu quyền xem bên bán → không có gì để làm.
   const gone = !draft || draft.formSlug !== 'new' || !canPick

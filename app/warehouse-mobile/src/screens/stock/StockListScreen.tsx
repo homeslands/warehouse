@@ -2,7 +2,7 @@ import { Stack, useRouter, type NativeStackNavigationOptions } from 'expo-router
 import { Layers, SearchX } from '@/shared/ui/icons'
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pressable, RefreshControl, SectionList, StyleSheet, View } from 'react-native'
+import { Pressable, RefreshControl, SectionList, View } from 'react-native'
 
 import {
   filterInventory,
@@ -15,14 +15,16 @@ import {
 } from '@/entities/inventory'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { tabHeaderRight, WarehouseTransition } from '@/features/warehouse-picker'
+import { useRoutePreset } from '@/shared/lib/useRoutePreset'
 import { useTheme } from '@/shared/theme/useTheme'
 import {
-  ComposeSectionHeader,
   EmptyState,
   ErrorBanner,
   FirstLoadState,
+  FormListSkeleton,
   Screen,
   SearchField,
+  ListSectionTitle,
   Text,
 } from '@/shared/ui'
 
@@ -32,13 +34,13 @@ import {
   isFilterActive,
   stockHeaderRightItems,
 } from './stock-header'
-import { StockOverview } from './StockOverview'
-import { STOCK_ROW_INSET, StockRow } from './StockRow'
+import { StockRow } from './StockRow'
+import { StockLevelChips } from './StockLevelChips'
 import { useStockFilter, type StockLevelFilter } from './stock-filter.store'
 
 const SKELETON_ROWS = 6
 
-type StockSection = { key: string; title: string; data: InventoryItem[] }
+type StockSection = { key: string; title: string; subtitle: string; data: InventoryItem[] }
 
 /** Lọc trên máy: ô tìm kiếm + loại + mức tồn. */
 function useFilteredStock(items: InventoryItem[] | undefined) {
@@ -61,57 +63,8 @@ function useFilteredStock(items: InventoryItem[] | undefined) {
 
 function SkeletonRows() {
   const { t } = useTranslation('inventory')
-  const { colors, radius } = useTheme()
-  const bar = (width: number | `${number}%`, height: number) => ({
-    width,
-    height,
-    borderRadius: 4,
-    backgroundColor: colors.fill,
-  })
   return (
-    <View
-      accessible
-      accessibilityLabel={t('loading')}
-      style={{ backgroundColor: colors.card, borderRadius: radius.groupLarge, overflow: 'hidden' }}
-    >
-      {Array.from({ length: SKELETON_ROWS }, (_, n) => (
-        <View
-          key={n}
-          testID="stock-skeleton-row"
-          style={{
-            flexDirection: 'row',
-            alignItems: 'center',
-            gap: 12,
-            minHeight: 68,
-            paddingHorizontal: 16,
-            borderTopWidth: n > 0 ? StyleSheet.hairlineWidth : 0,
-            borderTopColor: colors.separator,
-          }}
-        >
-          <View style={{ flex: 1, gap: 8 }}>
-            <View style={bar(`${70 - (n % 3) * 12}%`, 12)} />
-            <View style={bar(72, 10)} />
-          </View>
-          <View style={bar(44, 14)} />
-        </View>
-      ))}
-    </View>
-  )
-}
-
-/** Đường kẻ giữa hai dòng: nền thẻ, kẻ thẳng lề nội dung của dòng. */
-function RowSeparator() {
-  const { colors } = useTheme()
-  return (
-    <View style={{ backgroundColor: colors.card }}>
-      <View
-        style={{
-          height: StyleSheet.hairlineWidth,
-          marginLeft: STOCK_ROW_INSET,
-          backgroundColor: colors.separator,
-        }}
-      />
-    </View>
+    <FormListSkeleton label={t('loading')} rowTestID="stock-skeleton-row" rows={SKELETON_ROWS} />
   )
 }
 
@@ -148,6 +101,14 @@ function ActiveFilterHint({ text, onClear }: { text: string; onClear: () => void
   )
 }
 
+/** `preset` từ tab Tổng quan: `low`/`high` = chỉ mức tồn đó (sạch tìm kiếm + loại); `all` = bỏ mọi lọc. */
+const PRESETS = ['low', 'high', 'all'] as const
+function applyPreset(preset: (typeof PRESETS)[number]) {
+  const store = useStockFilter.getState()
+  store.reset()
+  if (preset !== 'all') store.setLevel(preset)
+}
+
 /**
  * Tab Tồn kho — danh sách tồn của kho đang chọn (mockup header-apple, hướng B). Header native của
  * Stack lồng (`TabStackLayout`): tiêu đề lớn, nút kho bên trái; màn này thêm ô tìm kiếm native và
@@ -157,8 +118,9 @@ function ActiveFilterHint({ text, onClear }: { text: string; onClear: () => void
  */
 export function StockListScreen() {
   const { t, i18n } = useTranslation(['inventory', 'common'])
-  const { colors, radius } = useTheme()
+  const { colors } = useTheme()
   const router = useRouter()
+  useRoutePreset(PRESETS, applyPreset)
   const warehouseSlug = useWarehouseStore((s) => s.current?.slug)
   const { data, error, errorUpdateCount, isError, isFetching, refetch } =
     useInventory(warehouseSlug)
@@ -240,13 +202,28 @@ export function StockListScreen() {
   // Hai nhóm (hướng C): "Cần chú ý" (hết → dưới min → vượt max) rồi "Bình thường"; nhóm rỗng ẩn.
   const sections = useMemo((): StockSection[] => {
     const { attention, normal } = groupByAttention(rows)
+    // "Cần chú ý": dòng phụ nói rõ từng mức ("2 hết · 1 thiếu · 1 vượt", bỏ mức 0).
+    const c = stockOverview(attention)
+    const breakdown = [
+      c.out > 0 ? t('inventory:sectionOut', { count: c.out }) : null,
+      c.low > 0 ? t('inventory:sectionLow', { count: c.low }) : null,
+      c.high > 0 ? t('inventory:sectionHigh', { count: c.high }) : null,
+    ]
+      .filter(Boolean)
+      .join(' · ')
     const all: StockSection[] = [
       {
         key: 'attention',
-        title: t('inventory:groupAttention', { count: attention.length }),
+        title: t('inventory:groupAttention'),
+        subtitle: breakdown,
         data: attention,
       },
-      { key: 'normal', title: t('inventory:groupNormal', { count: normal.length }), data: normal },
+      {
+        key: 'normal',
+        title: t('inventory:groupNormal'),
+        subtitle: t('inventory:itemCount', { count: normal.length }),
+        data: normal,
+      },
     ]
     return all.filter((sec) => sec.data.length > 0)
   }, [rows, t])
@@ -254,30 +231,17 @@ export function StockListScreen() {
   const overview = useMemo(() => (data && data.length > 0 ? stockOverview(data) : null), [data])
 
   const renderItem = useCallback(
-    ({ item, index, section }: { item: InventoryItem; index: number; section: StockSection }) => {
-      const last = section.data.length - 1
-      return (
-        <View
-          style={{
-            overflow: 'hidden',
-            borderTopLeftRadius: index === 0 ? radius.groupLarge : 0,
-            borderTopRightRadius: index === 0 ? radius.groupLarge : 0,
-            borderBottomLeftRadius: index === last ? radius.groupLarge : 0,
-            borderBottomRightRadius: index === last ? radius.groupLarge : 0,
-          }}
-        >
-          <StockRow item={item} locale={locale} onPress={openItem} />
-        </View>
-      )
-    },
-    [radius.groupLarge, locale, openItem],
+    ({ item, index }: { item: InventoryItem; index: number }) => (
+      <StockRow item={item} locale={locale} onPress={openItem} first={index === 0} />
+    ),
+    [locale, openItem],
   )
   const firstKey = sections[0]?.key
   const renderSectionHeader = useCallback(
     ({ section }: { section: StockSection }) => (
-      // Nhóm đầu không đệm; nhóm sau đệm 8 để tiêu đề không dính đáy thẻ nhóm trên.
-      <View style={{ paddingTop: section.key === firstKey ? 0 : 8 }}>
-        <ComposeSectionHeader title={section.title} />
+      // Cùng kiểu tiêu đề nhóm với tab Nhập / Xuất (`ListSectionTitle` + dòng phụ, đệm 6 / 24).
+      <View style={{ paddingTop: section.key === firstKey ? 6 : 24 }}>
+        <ListSectionTitle title={section.title} subtitle={section.subtitle} />
       </View>
     ),
     [firstKey],
@@ -340,7 +304,13 @@ export function StockListScreen() {
           onRetry={retry}
         />
       ) : null}
-      {overview ? <StockOverview counts={overview} /> : null}
+      {overview ? (
+        <StockLevelChips
+          counts={overview}
+          level={level}
+          onChange={(next) => useStockFilter.getState().setLevel(next)}
+        />
+      ) : null}
       {active && data ? (
         <ActiveFilterHint text={hint} onClear={() => useStockFilter.getState().clearFilters()} />
       ) : null}
@@ -348,7 +318,7 @@ export function StockListScreen() {
   )
 
   return (
-    <Screen edges={['left', 'right']} tone="grouped" collapsable={false}>
+    <Screen edges={['left', 'right']} tone="plain" collapsable={false}>
       <Stack.Screen options={headerOptions} />
       {/* Đổi kho → mờ rồi hiện lại. Không gộp lớp bọc (collapsable) để SectionList vẫn là "con đầu". */}
       <WarehouseTransition style={{ flex: 1 }}>
@@ -359,7 +329,6 @@ export function StockListScreen() {
           renderItem={renderItem}
           renderSectionHeader={renderSectionHeader}
           stickySectionHeadersEnabled={false}
-          ItemSeparatorComponent={RowSeparator}
           ListHeaderComponent={header}
           ListEmptyComponent={empty}
           contentInsetAdjustmentBehavior="automatic"

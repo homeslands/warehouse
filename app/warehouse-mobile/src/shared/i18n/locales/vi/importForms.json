@@ -7,6 +7,8 @@
   "conflict": "Phiếu vừa bị người khác thay đổi — đã tải lại bản mới nhất.",
   "expiryBeforeDate": "Hạn dùng không được trước ngày nhập của phiếu.",
   "list": {
+    "groupCount_one": "{{count}} phiếu",
+    "groupCount_other": "{{count}} phiếu",
     "title": "Phiếu nhập",
     "searchPlaceholder": "Mã phiếu, số HĐ hoặc PO",
     "create": "Tạo phiếu",
@@ -22,8 +24,6 @@
     "invoice": "HĐ {{code}}",
     "purchaseOrder": "PO {{code}}",
     "createForm": "Tạo phiếu nhập",
-    "today": "Hôm nay",
-    "yesterday": "Hôm qua",
     "filter": {
       "ALL": "Tất cả",
       "DRAFT": "Nháp",
@@ -180,6 +180,9 @@
       "notFound": "Không tìm thấy vật tư có mã “{{code}}” trên phiếu này"
     }
   },
+  "scan": {
+    "createMaterial": "Tạo vật tư {{code}}"
+  },
   "fieldCode": "Mã phiếu",
   "fieldInvoiceCode": "Số hoá đơn",
   "fieldPurchaseOrder": "Số đơn mua hàng (PO)",
@@ -224,6 +227,7 @@
     "materialA11y": "{{name}}, mã {{code}}, {{stock}}"
   },
   "view": {
+    "kind": "Phiếu nhập",
     "info": "Thông tin",
     "items": "Vật tư · {{n}}",
     "lineCount_one": "{{count}} dòng vật tư",
@@ -251,6 +255,11 @@
       "note": "Ghi chú"
     },
     "scanNotFound": "Không tìm thấy vật tư có mã “{{code}}” trong kho",
+    "scanNotInWarehouse": "{{code}} · {{name}} chưa có trong kho {{warehouse}}.",
+    "scanAssign": "Gắn vào kho và thêm vào phiếu",
+    "scanAssignNoPermission": "Nhờ quản trị gắn vật tư vào kho này ở Danh mục → Vật tư.",
+    "scanAssignConfirm": "Gắn {{code}} vào kho {{warehouse}}?",
+    "scanAssignReassign": "Vật tư từng được gỡ khỏi kho này nên chưa gắn lại được — liên hệ quản trị hệ thống.",
     "scanFull": "Phiếu đã đủ {{max}} dòng — không thêm được vật tư mã “{{code}}”",
     "scanNoUnit": "Vật tư mã “{{code}}” chưa có đơn vị — không thêm được vào phiếu",
     "missing": {
@@ -281,14 +290,31 @@
     }
   },
   "pick": {
+    "createDropsTicks_one": "Bỏ {{count}} vật tư đã chọn để tạo vật tư mới?",
+    "createDropsTicks_other": "Bỏ {{count}} vật tư đã chọn để tạo vật tư mới?",
+    "createNewShort": "Tạo vật tư",
+    "createNew": "+ Tạo vật tư mới “{{query}}”",
     "addCount_one": "Thêm {{count}} vật tư",
     "addCount_other": "Thêm {{count}} vật tư",
     "noUnit": "Chưa có đơn vị",
     "a11y": "{{name}}, mã {{code}}, đơn vị gốc {{unit}}",
     "stock": "Tồn {{n}} {{unit}}",
     "suppliers": "Bên bán: {{names}}",
-    "loadingMore": "Đang tải thêm vật tư",
-    "loadMoreFailed": "Không tải thêm được vật tư"
+    "groupMine": "Của {{name}} · {{count}}",
+    "groupOthers": "Vật tư khác · {{count}}",
+    "othersHint": "Chọn → thêm vào phiếu và gắn vào {{name}} khi lưu phiếu.",
+    "mineEmpty": "{{name}} chưa có vật tư nào trong kho này — chọn ở danh sách dưới, vật tư sẽ được gắn vào {{name}} khi lưu phiếu.",
+    "willAttach_one": "{{count}} vật tư sẽ được gắn vào {{name}} khi lưu phiếu.",
+    "willAttach_other": "{{count}} vật tư sẽ được gắn vào {{name}} khi lưu phiếu.",
+    "groupNotInWarehouse": "Chưa có trong kho · {{count}}",
+    "notInWarehouseHint": "Chọn → gắn vào kho {{warehouse}} và thêm vào phiếu.",
+    "willAssign_one": "{{count}} vật tư sẽ được gắn vào kho {{warehouse}}.",
+    "willAssign_other": "{{count}} vật tư sẽ được gắn vào kho {{warehouse}}.",
+    "assignConfirm_one": "Gắn {{count}} vật tư vào kho {{warehouse}} và thêm vào phiếu?",
+    "assignConfirm_other": "Gắn {{count}} vật tư vào kho {{warehouse}} và thêm vào phiếu?",
+    "assignedNotAdded": "Đã gắn {{count}} vật tư vào kho nhưng phiếu vừa thay đổi — mở lại \"Thêm vật tư\" để thêm vào phiếu.",
+    "supplierFallback": "bên bán",
+    "truncated": "Kho có quá nhiều vật tư — gõ để tìm."
   },
   "supplierSheet": {
     "title": "Bên bán",
@@ -326,6 +352,9 @@
       "zeroPrice_one": "{{count}} dòng có đơn giá 0 đ",
       "zeroPrice_other": "{{count}} dòng có đơn giá 0 đ",
       "footnote": "Phiếu được lưu ở trạng thái Nháp; người có quyền sẽ kiểm hàng và xác nhận nhập kho.",
+      "newToSupplier_one": "Khi lưu, {{count}} vật tư sẽ được gắn vào {{name}}.",
+      "newToSupplier_other": "Khi lưu, {{count}} vật tư sẽ được gắn vào {{name}}.",
+      "supplierFallback": "bên bán",
       "footnoteConfirm": "Lưu nháp: phiếu ở trạng thái Nháp, chưa cộng tồn kho. Lưu & xác nhận: cộng tồn kho ngay, không sửa phiếu được nữa.",
       "total": "Tổng cộng",
       "save": "Lưu nháp",
@@ -343,7 +372,10 @@
       "expiry": "HSD {{date}}",
       "noExpiry": "Không HSD",
       "expiryBeforeDate": "HSD trước ngày nhập",
-      "changed": "Đã đổi ở nơi khác — xem lại"
+      "changed": "Đã đổi ở nơi khác — xem lại",
+      "newToSupplier": "Mới với {{name}}",
+      "newToSupplierNoName": "Mới với bên bán",
+      "newToSupplierShort": "Mới với NCC"
     }
   },
   "manage": {

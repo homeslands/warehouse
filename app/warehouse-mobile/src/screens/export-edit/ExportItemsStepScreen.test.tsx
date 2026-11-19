@@ -21,14 +21,12 @@ import { makeForm, makeItem, makeLine } from '@/features/export-draft/model/fixt
 import { changeLanguage, initI18n } from '@/shared/i18n'
 import { SWIPE_DELETE_MS } from '@/shared/ui/compose'
 import { useFormNotice } from '@/shared/lib/form-notice.store'
-import { useLineFocus } from '@/shared/lib/line-focus'
 import { chooseAction, confirmAction } from '@/shared/lib/native-confirm'
 import { leaveCount, leaveSpies } from '@/shared/lib/testing/wizard-nav'
 import { lightColors } from '@/shared/theme/tokens'
 import { wizardMenuItem, wizardMenuLabels } from '@/shared/ui/testing/wizard-header'
 
 import { ExportItemsStepScreen } from './ExportItemsStepScreen'
-import { useExportScanNotice } from './scan-notice.store'
 
 type MockRoute = { key: string; name: string; params?: { formSlug: string } }
 const mockStack: { routes: MockRoute[] } = { routes: [] }
@@ -193,21 +191,12 @@ const swipeDelete = async (key: string) => {
   await fireEvent(row(key), 'accessibilityAction', { nativeEvent: { actionName: 'delete' } })
   await wait(SWIPE_DELETE_MS + 20)
 }
-/** Route sheet sửa dòng `key` (dòng vừa thêm / vừa quét: ô số tự focus). */
-const sheetOf = (key: string, justAdded = false) => ({
-  pathname: '/export-line',
-  params: justAdded ? { key, focus: 'quantity' } : { key },
-})
+/** Route sheet sửa dòng `key`. */
+const sheetOf = (key: string) => ({ pathname: '/export-line', params: { key } })
 const sheetOpens = () =>
   mockNavigate.mock.calls.filter(
     ([href]) => (href as { pathname?: string }).pathname === '/export-line',
   ).length
-/** Màn được focus lại (sheet phía trên vừa đóng / quay về từ bước 3). */
-async function refocus() {
-  mockNav.focused = true
-  await act(async () => mockNav.focusListeners.forEach((fn) => fn()))
-  await wait(50)
-}
 
 /** Bản nháp phiếu mới đã lưu trên máy (mở `/export-form/new/edit` → nạp nó). */
 async function storedNew(d: ExportDraft) {
@@ -295,16 +284,16 @@ describe('ExportItemsStepScreen — phiếu đã có', () => {
     expect(mockNavigate).toHaveBeenLastCalledWith(sheetOf('m-2|u-2|b-2'))
   })
 
-  it('mỗi vật tư một thẻ bo đủ góc; "⊕ Thêm vật tư" → /export-add-line; "Quét mã" trên header → /scan-export-line', async () => {
+  it('mỗi vật tư một thẻ bo đủ góc; dòng "Quét mã" cuối khối và "Quét mã" trên header đều → /scan-export-line', async () => {
     await show()
     const add = screen.getByTestId('export-items-add')
-    expect(add).toHaveAccessibleName('Thêm vật tư')
+    expect(add).toHaveAccessibleName('Quét mã')
     // Dòng cuối của khối có dòng "Thêm" bên dưới → không bo dưới; "Thêm" bo dưới.
     expect(flat(row('m-2|u-2|b-2')).borderTopLeftRadius).toBeGreaterThan(0)
     expect(flat(row('m-2|u-2|b-2')).borderBottomLeftRadius).toBeGreaterThan(0)
     await fireEvent.press(add)
-    expect(mockNavigate).toHaveBeenCalledWith('/export-add-line')
-    expect(screen.queryByRole('button', { name: 'Quét mã' })).toBeNull()
+    expect(mockNavigate).toHaveBeenCalledWith('/scan-export-line')
+    mockNavigate.mockClear()
     await act(async () => headerItem('Quét mã')!.onPress())
     expect(mockNavigate).toHaveBeenCalledWith('/scan-export-line')
   })
@@ -409,94 +398,6 @@ describe('ExportItemsStepScreen — phiếu đã có', () => {
     expect(jest.mocked(confirmAction).mock.calls.at(-1)![0].title).toBe('Bỏ thay đổi trên máy')
     expect(store().draft!.lines[0]!.quantity).toBe(10)
     expect(row('m-1|u-1|')).toHaveTextContent(/10 hộp × 1\.000\s?đ/)
-  })
-
-  it('quét mã không khớp (sheet ghi mã) → thông báo mức phiếu; chỉ của phiếu này; đóng thì mất; rời màn thì xoá', async () => {
-    const view = await show()
-    await act(async () => useExportScanNotice.getState().show('px-khac', '111'))
-    expect(screen.queryByText(/Không tìm thấy vật tư/)).toBeNull()
-    await act(async () => useExportScanNotice.getState().show('px-1', '8934563'))
-    expect(
-      within(screen.getByTestId('export-screen-notice')).getByText(
-        'Không tìm thấy vật tư có mã “8934563” trong kho',
-      ),
-    ).toBeOnTheScreen()
-    await fireEvent.press(screen.getByRole('button', { name: 'Đóng thông báo' }))
-    expect(screen.queryByText(/Không tìm thấy vật tư/)).toBeNull()
-    expect(useExportScanNotice.getState().notice).toBeNull()
-    await act(async () => useExportScanNotice.getState().show('px-1', '42'))
-    await view.unmount()
-    expect(useExportScanNotice.getState().notice).toBeNull()
-  })
-
-  it('quét mã: phiếu đủ 200 dòng / vật tư chưa có đơn vị → câu báo riêng', async () => {
-    await show()
-    await act(async () => useExportScanNotice.getState().show('px-1', 'SN1', 'full'))
-    expect(
-      screen.getByText('Phiếu đã đủ 200 dòng — không thêm được vật tư mã “SN1”'),
-    ).toBeOnTheScreen()
-    await act(async () => useExportScanNotice.getState().show('px-1', 'KEO', 'noUnit'))
-    expect(
-      screen.getByText('Vật tư mã “KEO” chưa có đơn vị — không thêm được vào phiếu'),
-    ).toBeOnTheScreen()
-  })
-
-  it('thông báo mức phiếu (store) và thông báo của màn xếp chồng, testID riêng, store TRƯỚC', async () => {
-    await show()
-    await act(async () =>
-      useFormNotice.getState().show({ kind: 'export', formSlug: 'px-1', message: 'Đã gộp' }),
-    )
-    await act(async () => useExportScanNotice.getState().show('px-1', '42'))
-    const dock = screen.getByTestId('export-items-dock-content')
-    const ids = within(dock)
-      .getAllByTestId(/^export-(form|screen)-notice$/)
-      .map((n) => n.props.testID)
-    expect(ids).toEqual(['export-form-notice', 'export-screen-notice'])
-    await fireEvent.press(screen.getAllByRole('button', { name: 'Đóng thông báo' })[0]!)
-    expect(useFormNotice.getState().notice).toBeNull()
-    expect(useExportScanNotice.getState().notice).toBeNull()
-  })
-
-  it('after adding 3 materials the first line sheet opens once (chờ màn được focus lại, ô số tự focus)', async () => {
-    await show()
-    // Bộ chọn đang đè lên: thêm 3 dòng rồi yêu cầu mở dòng ĐẦU (như `addMaterialLines`).
-    mockNav.focused = false
-    await act(async () => {
-      for (const n of [3, 4, 5]) store().addLine(makeLine(n, { base: null, quantity: 0 }))
-      useLineFocus.getState().ask('export', 'px-1', 'm-3|u-3|')
-    })
-    await wait(100)
-    expect(sheetOpens()).toBe(0)
-    await refocus()
-    expect(mockNavigate).toHaveBeenCalledWith(sheetOf('m-3|u-3|', true))
-    expect(sheetOpens()).toBe(1)
-    expect(useLineFocus.getState().request).toBeNull()
-  })
-
-  it('returning from review does not reopen the sheet', async () => {
-    await show()
-    mockNav.focused = false
-    await act(async () => useLineFocus.getState().ask('export', 'px-1', 'm-1|u-1|'))
-    await refocus()
-    expect(sheetOpens()).toBe(1)
-    // Sang bước 3 rồi quay lại: màn bước 2 được focus lại — không mở sheet lần nữa.
-    mockNav.focused = false
-    await refocus()
-    await refocus()
-    expect(sheetOpens()).toBe(1)
-  })
-
-  it('scan of an existing line opens its sheet', async () => {
-    await show()
-    // Sheet quét đóng → yêu cầu của đúng phiếu này; màn đang focus sẵn → mở ngay.
-    await act(async () => useLineFocus.getState().ask('export', 'px-1', 'm-2|u-2|b-2'))
-    await wait(50)
-    expect(mockNavigate).toHaveBeenLastCalledWith(sheetOf('m-2|u-2|b-2', true))
-    // Yêu cầu của phiếu nhập cùng slug không đụng màn này.
-    mockNavigate.mockClear()
-    await act(async () => useLineFocus.getState().ask('import', 'px-1', 'm-1|u-1|'))
-    await wait(50)
-    expect(mockNavigate).not.toHaveBeenCalled()
   })
 
   it('tapping the orange summary opens the first missing line sheet', async () => {
@@ -664,7 +565,7 @@ describe('ExportItemsStepScreen — phiếu đã có', () => {
 describe('ExportItemsStepScreen — phiếu mới (formSlug "new")', () => {
   beforeEach(() => open('new'))
 
-  it('empty form: khối chỉ có "⊕ Thêm vật tư" (bo cả trên) + câu xám; "Chưa có vật tư" và "Tiếp tục" mở bộ chọn', async () => {
+  it('empty form: khối chỉ có "Quét mã" (bo cả trên) + câu xám; "Chưa có vật tư" và "Tiếp tục" mở màn quét', async () => {
     await storedNew(newExportDraft({ code: 'PX-MOI', purchaseOrder: 'PO-9', receiver: 'A' }))
     await show()
     expect(mockHeader.options.title).toBe('Phiếu xuất mới')
@@ -672,26 +573,27 @@ describe('ExportItemsStepScreen — phiếu mới (formSlug "new")', () => {
     expect(screen.queryByTestId('export-items-add-hairline')).toBeNull()
     expect(
       within(screen.getByTestId('export-items-empty')).getByText(
-        'Chưa có vật tư — thêm hoặc quét mã',
+        'Chưa có vật tư — quét nhãn để thêm vật tư',
       ),
     ).toBeOnTheScreen()
     expect(within(summary()).getByText('0 vật tư')).toBeOnTheScreen()
     expectNextLocked('Còn thiếu: Chưa có vật tư')
-    // Phần thiếu "Chưa có vật tư" → mở bộ chọn vật tư (kèm gợi ý a11y).
+    // Phần thiếu "Chưa có vật tư" → mở màn quét (kèm gợi ý a11y).
     const gap = screen.getByRole('button', { name: 'Chưa có vật tư' })
-    // Gợi ý nói đúng việc chạm làm: mở bộ chọn (không phải "Mở dòng còn thiếu" — chưa có dòng nào).
-    expect(gap.props.accessibilityHint).toBe('Mở danh sách chọn vật tư')
+    // Gợi ý nói đúng việc chạm làm: mở màn quét (không phải "Mở dòng còn thiếu" — chưa có dòng nào).
+    expect(gap.props.accessibilityHint).toBe('Mở màn quét mã')
     await fireEvent.press(gap)
-    expect(mockNavigate).toHaveBeenCalledWith('/export-add-line')
-    // "Tiếp tục" lúc chưa có dòng cũng mở bộ chọn, không sang bước 3.
+    expect(mockNavigate).toHaveBeenCalledWith('/scan-export-line')
+    // "Tiếp tục" lúc chưa có dòng cũng mở màn quét, không sang bước 3.
     mockNavigate.mockClear()
     await fireEvent.press(nextButton())
-    expect(mockNavigate).toHaveBeenCalledWith('/export-add-line')
+    expect(mockNavigate).toHaveBeenCalledWith('/scan-export-line')
     expect(mockPush).not.toHaveBeenCalled()
   })
 
   it('dòng thiếu giá: "5 hộp · Chưa nhập đơn giá" cam; tóm tắt "1 chưa đủ" → sheet dòng đó; "Tiếp tục" → cùng sheet + rung lỗi', async () => {
     const d = newExportDraft({ code: 'PX-MOI', purchaseOrder: 'PO-9', receiver: 'Tổ hàn A' })
+    d.header.type = 'SALE' // chỉ phiếu Bán có đơn giá
     d.lines = [makeLine(1, { base: null, quantity: 5, unitPrice: null })]
     await storedNew(d)
     await show()
@@ -710,6 +612,7 @@ describe('ExportItemsStepScreen — phiếu mới (formSlug "new")', () => {
 
   it('dòng thiếu ngoài vùng đã vẽ (150 dòng) → chạm tóm tắt vẫn mở đúng sheet', async () => {
     const d = newExportDraft({ code: 'PX-MOI', purchaseOrder: 'PO-9', receiver: 'Tổ hàn A' })
+    d.header.type = 'SALE' // chỉ phiếu Bán có đơn giá
     d.lines = Array.from({ length: 150 }, (_, i) =>
       makeLine(i + 1, { base: null, unitPrice: i === 140 ? null : 1000 }),
     )

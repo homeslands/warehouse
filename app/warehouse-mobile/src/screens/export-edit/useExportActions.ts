@@ -27,6 +27,7 @@ import {
   canSave,
   detectShortages,
   exportDraftStorageKey,
+  exportHasPrice,
   isDirty,
   linesTotal,
   MAX_ITEMS,
@@ -46,7 +47,7 @@ import { useCodeTaken, useCodeTakenMessage } from '@/shared/lib/code-taken.store
 import { useFormNotice, type FormNotice } from '@/shared/lib/form-notice.store'
 import { formatMoney, type FormatLocale } from '@/shared/lib/format'
 import { haptics } from '@/shared/lib/haptics'
-import { round6 } from '@/shared/lib/round'
+import { round2, round6 } from '@/shared/lib/round'
 import { confirmAction } from '@/shared/lib/native-confirm'
 import { useGuardedAction } from '@/shared/lib/useGuardedAction'
 import type { WizardNav } from '@/shared/lib/useWizardNav'
@@ -234,9 +235,22 @@ function canSaveNotice(check: Exclude<CanSave, { ok: true }>, t: TFunction): Exp
   }
 }
 
-/** Nội dung hộp hỏi "Lưu nháp": số dòng + tổng tiền. */
+/**
+ * Phiếu không phải Bán mà dòng trên server còn đơn giá ≠ 0 (lưu bằng bản cũ bắt nhập giá mọi loại): Gửi
+ * duyệt phải PATCH trước để giá về 0 như "Lưu nháp" (`toInput`), dù trên máy không sửa gì.
+ */
+function staleNonSalePrice(draft: ExportDraft): boolean {
+  if (exportHasPrice(draft.header.type)) return false
+  return draft.lines.some((l) => l.base !== null && round2(l.base.unitPrice ?? 0) !== 0)
+}
+
+/**
+ * Nội dung hộp hỏi "Lưu nháp": số dòng + tổng tiền. Phiếu không phải Bán: chỉ số dòng — server lưu đơn
+ * giá 0 nên tổng tính trên máy (giá còn từ lúc phiếu là loại Bán) là số sai.
+ */
 function summary(draft: ExportDraft, t: TFunction, locale: FormatLocale): string {
   const { lines } = draft
+  if (!exportHasPrice(draft.header.type)) return t(`${P}.linesNoTotal`, { count: lines.length })
   return t(`${P}.lines`, { count: lines.length, total: formatMoney(linesTotal(lines), locale) })
 }
 
@@ -560,7 +574,7 @@ export function useExportActions({
             shortages: NO_DETECTED,
           })
         }
-      } else if (submitting ? isDirty(draft, form!) : true) {
+      } else if (submitting ? isDirty(draft, form!) || staleNonSalePrice(draft) : true) {
         const slug = form!.slug
         await queryClient.cancelQueries({ queryKey: exportFormKeys.detail(wh, slug) })
         try {
@@ -636,7 +650,13 @@ export function useExportActions({
         }
         throw failure
       }
-      if (!alive()) return
+      // Phiếu đã gửi duyệt: bản lưu Nháp của nó (Lưu kèm serial vừa ghi) phải mất kể cả khi phiên đã đổi
+      // hay store đã sang phiếu khác — không thì lần mở sau còn bản nháp cũ.
+      const draftKey = exportDraftStorageKey(ctx.userSlug, wh, slug)
+      if (!alive()) {
+        await kv.remove(draftKey)
+        return
+      }
       leaving.current = true
       await putDetail(submitted)
       void queryClient.invalidateQueries({ queryKey: exportFormKeys.warehouse(wh) })
@@ -647,7 +667,9 @@ export function useExportActions({
         if (isNew) leave.toList()
         else leave.toView(slug)
       }
+      // `discard` huỷ cả lần ghi đang hẹn; store đã sang phiếu khác thì chỉ xoá bản lưu của phiếu này.
       if (ownsDraft(slug)) await useExportDraft.getState().discard()
+      else await kv.remove(draftKey)
     } finally {
       useExportDraft.getState().setSaving(false)
       // Ghi xong mà đang rời luồng: giữ `busy` tới khi màn tháo ra (nút vẫn quay, không nháy trạng thái

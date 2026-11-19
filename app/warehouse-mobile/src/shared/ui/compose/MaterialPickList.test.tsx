@@ -70,6 +70,13 @@ describe('MaterialPickList', () => {
     expect(onToggle).not.toHaveBeenCalled()
   })
 
+  it('empty capacityLabel → no alert node even when full (rows still locked)', async () => {
+    const { onToggle } = await setup({ capacityLeft: 0, capacityLabel: '' })
+    expect(screen.queryByRole('alert')).toBeNull()
+    await fireEvent.press(box('Xi măng'))
+    expect(onToggle).not.toHaveBeenCalled()
+  })
+
   it('hides capacityLabel while there is room', async () => {
     await setup()
     expect(screen.queryByText('Phiếu tối đa 200 dòng')).toBeNull()

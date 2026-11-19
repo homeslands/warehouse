@@ -235,7 +235,7 @@ describe('mergeAfterConflict — đầu phiếu', () => {
     })
     expect(r.headerConflicts).toEqual([])
     // headerBase = đầu phiếu server → phần sửa trên máy vẫn là "có sửa".
-    expect(r.draft.headerBase).toMatchObject({ type: 'PRODUCTION', purchaseOrder: 'PO-2' })
+    expect(r.draft.headerBase).toMatchObject({ type: 'SALE', purchaseOrder: 'PO-2' })
     expect(hasEdits(r.draft)).toBe(true)
   })
 
@@ -243,9 +243,9 @@ describe('mergeAfterConflict — đầu phiếu', () => {
     const local = edited({ type: 'DISPOSAL', invoiceCode: 'HD-9' })
     const r = mergeAfterConflict(
       local,
-      makeForm([makeItem(1)], { version: 4, type: 'SALE', invoiceCode: 'HD-7' }),
+      makeForm([makeItem(1)], { version: 4, type: 'TRANSFER', invoiceCode: 'HD-7' }),
     )
-    expect(r.draft.header).toMatchObject({ type: 'SALE', invoiceCode: 'HD-7' })
+    expect(r.draft.header).toMatchObject({ type: 'TRANSFER', invoiceCode: 'HD-7' })
     expect(r.headerConflicts).toEqual(['type', 'invoiceCode'])
   })
 
@@ -262,17 +262,17 @@ describe('mergeAfterConflict — đầu phiếu', () => {
   it('không sửa đầu phiếu → lấy hết của server', () => {
     const r = mergeAfterConflict(
       edited({}),
-      makeForm([makeItem(1)], { version: 4, type: 'SALE', note: 'mới' }),
+      makeForm([makeItem(1)], { version: 4, type: 'TRANSFER', note: 'mới' }),
     )
-    expect(r.draft.header).toMatchObject({ type: 'SALE', note: 'mới' })
+    expect(r.draft.header).toMatchObject({ type: 'TRANSFER', note: 'mới' })
     expect(r.headerConflicts).toEqual([])
   })
 
   it('bản lưu cũ không có headerBase → đầu phiếu lấy của server, không báo', () => {
     const local = edited({ type: 'DISPOSAL' })
     delete (local as { headerBase?: unknown }).headerBase
-    const r = mergeAfterConflict(local, makeForm([makeItem(1)], { version: 4, type: 'SALE' }))
-    expect(r.draft.header.type).toBe('SALE')
+    const r = mergeAfterConflict(local, makeForm([makeItem(1)], { version: 4, type: 'TRANSFER' }))
+    expect(r.draft.header.type).toBe('TRANSFER')
     expect(r.headerConflicts).toEqual([])
   })
 })
@@ -306,5 +306,34 @@ describe('mergeAfterConflict — file đính kèm', () => {
     const r = mergeAfterConflict(local(B, A), server(C))
     expect(r.draft.header.file).toBe(C)
     expect(r.headerConflicts).toContain('file')
+  })
+})
+
+describe('mergeAfterConflict — serial', () => {
+  it('dòng khớp mang serial của dòng cũ, cắt theo số lượng mới', () => {
+    const local = makeDraft([
+      makeLine(1, { quantity: 3, serials: ['A', 'B', 'C'] }),
+      // Không sửa số (= base 10) nhưng có serial; server đổi số → 1 → lấy 1, còn 1 serial.
+      makeLine(2, { serials: ['X', 'Y'] }),
+    ])
+    const fresh = makeForm([makeItem(1), makeItem(2, { quantity: 1 })], { version: 4 })
+    const { draft } = mergeAfterConflict(local, fresh)
+    expect(draft.lines[0]).toMatchObject({ quantity: 3, serials: ['A', 'B', 'C'] })
+    expect(draft.lines[1]).toMatchObject({ quantity: 1, serials: ['X'], changedOnServer: true })
+  })
+
+  it('dòng thêm trên máy chưa khớp giữ nguyên serial; dòng thêm khớp dòng server cũng mang serial', () => {
+    const added = makeLine(5, { base: null, quantity: 2, serials: ['P', 'Q'] })
+    const addedMatched = makeLine(6, { base: null, quantity: 2, serials: ['M', 'N'] })
+    const local = makeDraft([added, addedMatched])
+    const fresh = makeForm([makeItem(6, { quantity: 2 })], { version: 4 })
+    const { draft } = mergeAfterConflict(local, fresh)
+    expect(draft.lines.find((l) => l.key === added.key)?.serials).toEqual(['P', 'Q'])
+    expect(draft.lines.find((l) => l.key === addedMatched.key)?.serials).toEqual(['M', 'N'])
+  })
+
+  it('dòng không có serial → kết quả không có serial', () => {
+    const { draft } = mergeAfterConflict(makeDraft([makeLine(1)]), makeForm([makeItem(1)]))
+    expect(draft.lines[0]!.serials ?? []).toEqual([])
   })
 })

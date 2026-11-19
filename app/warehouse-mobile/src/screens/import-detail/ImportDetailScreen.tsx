@@ -40,7 +40,7 @@ import {
 import {
   ComposeSectionHeader,
   LineSummaryRow,
-  ReviewInfoGroup,
+  ReviewInfoCard,
   SummaryText,
   WizardBottomBar,
   WizardMainButton,
@@ -316,7 +316,7 @@ export function ImportDetailScreen() {
   }, [form, supplierName, t])
 
   const listHeader = form ? (
-    <View style={{ gap: 18, paddingBottom: 18 }}>
+    <View style={{ gap: 14, paddingBottom: 14 }}>
       {query.isRefetchError ? (
         <ErrorBanner
           message={t('importForms:view.refreshError')}
@@ -333,9 +333,9 @@ export function ImportDetailScreen() {
       />
       <View>
         <ComposeSectionHeader title={t('importForms:view.info')} />
-        <ReviewInfoGroup rows={infoRows} testID="import-info" />
+        <ReviewInfoCard rows={infoRows} testID="import-info" />
         {form.file ? (
-          <View style={{ marginTop: 8 }}>
+          <View style={{ marginTop: 14 }}>
             <AttachmentRow
               testID="import-attachment"
               value={form.file}
@@ -362,6 +362,7 @@ export function ImportDetailScreen() {
           amount={<SummaryText segments={[{ text: summary.amount, tone: summary.amountTone }]} />}
           line2={<SummaryText segments={[{ text: summary.line2, tone: summary.line2Tone }]} />}
           line3={<SummaryText segments={summary.line3} />}
+          variant="card"
           first={index === 0}
           last={index === lines.length - 1}
           accessibilityLabel={summary.a11y}

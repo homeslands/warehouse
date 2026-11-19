@@ -5,16 +5,21 @@ import { useEffect, useState } from 'react'
 import { Platform } from 'react-native'
 
 import { can, useAuthStore } from '@/entities/session'
+import { materialAbilities } from '@/entities/material'
+import { materialTypeAbilities } from '@/entities/material-type'
+import { unitAbilities } from '@/entities/unit'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { useExportDraft } from '@/features/export-draft'
 import { useReceiveDraft } from '@/features/receive-checklist'
 import { canEditThresholds } from '@/features/stock-threshold'
+import { canAssignWarehouse } from '@/features/warehouse-assign'
 import { OfflineScreen } from '@/screens/offline'
 import { useTheme } from '@/shared/theme/useTheme'
 
 import { destinationFor, hrefFor, type Destination } from './destination'
 import { useAppBootstrap } from './providers'
 import { tabsFor } from './tabs'
+import { scanModalOptions } from './ScanStackLayout'
 import { useLeaveSheetOnSessionChange } from './useLeaveSheetOnSessionChange'
 import { sheetScreenOptions } from './sheet-options'
 
@@ -73,17 +78,16 @@ export function SessionGate() {
     gestureEnabled: false,
     ...(Platform.OS === 'android' ? { animation: 'slide_from_bottom' } : null),
   }
+  // Màn quét mã: toàn màn camera tràn viền (`ScanScreen`), nền đen.
+  const scanModal: NativeStackNavigationOptions = {
+    ...scanModalOptions,
+    contentStyle: { backgroundColor: '#000000' },
+  }
   const canSeeStock = tabsFor(user).includes('stock')
   const canSeeImport = tabsFor(user).includes('import')
   const canSeeExport = tabsFor(user).includes('export')
   const canEditStockThreshold = canEditThresholds(user)
   const canCreateImport = !!user && can(user, 'IMPORT_FORM_CREATE')
-  // Thêm dòng vào phiếu xuất: tạo phiếu mới, hoặc sửa nháp (quyền theo người lập do sheet tự kiểm trên phiếu).
-  const canEditExport =
-    !!user &&
-    (can(user, 'EXPORT_FORM_CREATE') ||
-      can(user, 'EXPORT_FORM_UPDATE_DRAFT') ||
-      can(user, 'EXPORT_FORM_UPDATE_DRAFT_OWN'))
   return (
     <>
       <StatusBar style="auto" />
@@ -126,9 +130,47 @@ export function SessionGate() {
         <Stack.Protected redirectTo={home} guard={inTabs && canSeeStock && canEditStockThreshold}>
           <Stack.Screen name="stock-threshold" options={fullSheet} />
         </Stack.Protected>
-        {/* Quét mã mở vật tư: khi thấy được tab Tồn kho (so mã với tồn của kho). Hết cỡ cho khung camera. */}
+        {/* Danh mục: sheet tạo / sửa / xem Đơn vị và Loại vật tư — cần quyền đọc tương ứng (tạo / sửa / xoá do
+            sheet tự kiểm). Hết cỡ (bàn phím). */}
+        <Stack.Protected redirectTo={home} guard={inTabs && unitAbilities(user).read}>
+          <Stack.Screen name="unit-form" options={fullSheet} />
+        </Stack.Protected>
+        <Stack.Protected redirectTo={home} guard={inTabs && materialTypeAbilities(user).read}>
+          <Stack.Screen name="material-type-form" options={fullSheet} />
+        </Stack.Protected>
+        {/* Vật tư: sheet tạo / sửa (có màn con chọn loại / đơn vị gốc) — cần quyền đọc vật tư. Hết cỡ (bàn phím). */}
+        <Stack.Protected redirectTo={home} guard={inTabs && materialAbilities(user).read}>
+          <Stack.Screen name="material-form" options={fullSheet} />
+        </Stack.Protected>
+        {/* Lọc danh sách Vật tư theo loại (nút Lọc trên header màn Vật tư): cần quyền đọc vật tư. Nửa màn. */}
+        <Stack.Protected redirectTo={home} guard={inTabs && materialAbilities(user).read}>
+          <Stack.Screen name="material-filter" options={halfSheet} />
+        </Stack.Protected>
+        {/* Đơn vị quy đổi của vật tư: thêm / sửa / gỡ — cần `manageConversions`. Hết cỡ (bàn phím). */}
+        <Stack.Protected
+          redirectTo={home}
+          guard={inTabs && materialAbilities(user).manageConversions}
+        >
+          <Stack.Screen name="conversion-unit-form" options={fullSheet} />
+        </Stack.Protected>
+        {/* Gắn vật tư vào kho: cần xem vật tư + MATERIAL_UPDATE và WAREHOUSE_UPDATE. */}
+        <Stack.Protected
+          redirectTo={home}
+          guard={inTabs && materialAbilities(user).read && canAssignWarehouse(user)}
+        >
+          <Stack.Screen name="warehouse-assign" options={fullSheet} />
+        </Stack.Protected>
+        {/* Lô quá hạn / sắp hết hạn (ô Hạn dùng ở Tổng quan): đọc tồn kho nên cần thấy tab Tồn kho. Nửa màn. */}
         <Stack.Protected redirectTo={home} guard={inTabs && canSeeStock}>
-          <Stack.Screen name="scan-material" options={fullSheet} />
+          <Stack.Screen name="expiry-batches" options={halfSheet} />
+        </Stack.Protected>
+        {/* Quét mã tìm vật tư trong danh mục (danh sách Vật tư, tab Tài khoản): cần xem vật tư. Toàn màn camera. */}
+        <Stack.Protected redirectTo={home} guard={inTabs && materialAbilities(user).read}>
+          <Stack.Screen name="scan-catalog-material" options={scanModal} />
+        </Stack.Protected>
+        {/* Quét mã mở vật tư: khi thấy được tab Tồn kho (so mã với tồn của kho). Toàn màn camera. */}
+        <Stack.Protected redirectTo={home} guard={inTabs && canSeeStock}>
+          <Stack.Screen name="scan-material" options={scanModal} />
         </Stack.Protected>
         {/* Bảng sửa dòng khi nhận hàng: cần thấy tab Nhập (bản nháp kiểm nằm ở màn phiếu). Hết cỡ (bàn phím). */}
         <Stack.Protected redirectTo={home} guard={inTabs && canSeeImport}>
@@ -161,23 +203,19 @@ export function SessionGate() {
         <Stack.Protected redirectTo={home} guard={inTabs && canSeeExport}>
           <Stack.Screen name="export-filter" options={halfSheet} />
         </Stack.Protected>
-        {/* Bảng sửa dòng / quét mã trong phiếu xuất đang lập: cần thấy tab Xuất + có bản nháp phiếu xuất đang
-            mở (sửa thẳng bản nháp). Hết cỡ (bàn phím / khung camera). */}
+        {/* Bảng sửa dòng / quét mã / chọn Loại, Người nhận trong phiếu xuất đang lập: cần thấy tab Xuất + có
+            bản nháp phiếu xuất đang mở (sửa thẳng bản nháp). Bảng sửa dòng hết cỡ (bàn phím); chọn Loại /
+            Người nhận nửa màn (kéo lên hết cỡ); quét mã toàn màn camera. */}
         <Stack.Protected redirectTo={home} guard={inTabs && canSeeExport && hasExportDraft}>
           <Stack.Screen name="export-line" options={fullSheet} />
-          <Stack.Screen name="scan-export-line" options={fullSheet} />
-        </Stack.Protected>
-        {/* Thêm vật tư vào phiếu xuất: như trên + được tạo / sửa phiếu xuất. Hết cỡ (danh sách + bàn phím). */}
-        <Stack.Protected
-          redirectTo={home}
-          guard={inTabs && canSeeExport && hasExportDraft && canEditExport}
-        >
-          <Stack.Screen name="export-add-line" options={fullSheet} />
+          <Stack.Screen name="export-type" options={halfSheet} />
+          <Stack.Screen name="export-receiver" options={halfSheet} />
+          <Stack.Screen name="scan-export-line" options={scanModal} />
         </Stack.Protected>
         {/* Quét mã trong phiếu: như bảng sửa dòng + phải có bản nháp đang mở (so mã với các dòng của nó).
-            Hết cỡ cho khung camera. */}
+            Toàn màn camera. */}
         <Stack.Protected redirectTo={home} guard={inTabs && canSeeImport && hasReceiveDraft}>
-          <Stack.Screen name="scan-line" options={fullSheet} />
+          <Stack.Screen name="scan-line" options={scanModal} />
         </Stack.Protected>
         {/* Ngôn ngữ: mở được cả từ màn đăng nhập (chưa đăng nhập) lẫn tab Tài khoản. */}
         <Stack.Protected redirectTo={home} guard={inTabs || destination === 'login'}>

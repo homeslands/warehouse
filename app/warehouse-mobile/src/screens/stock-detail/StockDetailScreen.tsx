@@ -214,7 +214,7 @@ export function StockDetailScreen() {
           scrollEventThrottle={100}
           contentContainerStyle={{
             flexGrow: 1,
-            gap: 18,
+            gap: 14,
             paddingHorizontal: 16,
             paddingTop: 12,
             paddingBottom: 32,

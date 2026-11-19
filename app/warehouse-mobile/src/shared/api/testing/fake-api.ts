@@ -9,7 +9,7 @@ export type Reply = { status: number; data?: unknown } | 'network' | 'hang'
 type Handler = (config: InternalAxiosRequestConfig) => Reply | Promise<Reply>
 
 const routes = new Map<string, Handler>()
-export const calls: { method: string; url: string; auth: string | undefined }[] = []
+export const calls: { method: string; url: string; auth: string | undefined; body?: unknown }[] = []
 
 export const route = (method: string, url: string, handler: Handler) =>
   routes.set(`${method} ${url}`, handler)
@@ -26,7 +26,12 @@ async function fakeAdapter(config: InternalAxiosRequestConfig) {
   const method = (config.method ?? 'get').toLowerCase()
   const url = config.url ?? ''
   const auth = config.headers.get('Authorization')
-  calls.push({ method, url, auth: typeof auth === 'string' ? auth : undefined })
+  calls.push({
+    method,
+    url,
+    auth: typeof auth === 'string' ? auth : undefined,
+    body: config.data,
+  })
 
   const handler = routes.get(`${method} ${url}`)
   if (!handler) throw new Error(`Chưa khai route: ${method} ${url}`)

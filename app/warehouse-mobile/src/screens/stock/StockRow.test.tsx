@@ -17,7 +17,7 @@ describe('StockRow — nền "đang chạm"', () => {
   afterEach(() => jest.useRealTimers())
 
   it('chỉ tô nền rowPressed sau khi giữ yên một nhịp (không nháy khi vuốt cuộn)', async () => {
-    await render(<StockRow item={item()} locale="vi" onPress={jest.fn()} />)
+    await render(<StockRow item={item()} locale="vi" onPress={jest.fn()} first />)
     const row = screen.getByTestId('stock-row')
     await fireEvent(row, 'responderGrant', { nativeEvent: { touches: [] }, persist: jest.fn() })
     expect(bg()).not.toBe(lightColors.rowPressed)
@@ -29,7 +29,7 @@ describe('StockRow — nền "đang chạm"', () => {
 
   it('chạm nhanh vẫn gọi onPress', async () => {
     const onPress = jest.fn()
-    await render(<StockRow item={item()} locale="vi" onPress={onPress} />)
+    await render(<StockRow item={item()} locale="vi" onPress={onPress} first />)
     fireEvent.press(screen.getByTestId('stock-row'))
     expect(onPress).toHaveBeenCalledTimes(1)
   })

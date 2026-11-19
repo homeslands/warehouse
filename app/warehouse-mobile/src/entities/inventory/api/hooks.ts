@@ -1,5 +1,11 @@
 import { useInfiniteQuery, useQuery } from '@tanstack/react-query'
-import { fetchAllInventory, fetchInventoryHistory, fetchMaterialBatches } from './inventory.api'
+import {
+  fetchAllInventory,
+  fetchBatchCount,
+  fetchExpiringBatches,
+  fetchInventoryHistory,
+  fetchMaterialBatches,
+} from './inventory.api'
 import { inventoryKeys } from './query-keys'
 
 const STALE_TIME_MS = 30_000
@@ -53,6 +59,33 @@ export function useInventoryHistory(
     initialPageParam: 1,
     getNextPageParam: (last) => (last.hasNext ? last.page + 1 : undefined),
     enabled: !!warehouseSlug && !!materialSlug,
+    staleTime: STALE_TIME_MS,
+  })
+}
+
+/** Số lô còn hàng có hạn dùng trước `expiryBefore`. Không `keepPreviousData` (key có kho). */
+export function useBatchCount(
+  warehouseSlug: string | undefined,
+  expiryBefore: string,
+  enabled: boolean,
+) {
+  return useQuery({
+    queryKey: inventoryKeys.expiryCount(warehouseSlug ?? '', expiryBefore),
+    queryFn: () => fetchBatchCount(warehouseSlug as string, expiryBefore),
+    enabled: enabled && !!warehouseSlug,
+    staleTime: STALE_TIME_MS,
+  })
+}
+
+/** Lô còn hàng có hạn dùng trước `expiryBefore`, hạn gần nhất trước, 50 lô/trang. */
+export function useExpiringBatches(warehouseSlug: string | undefined, expiryBefore: string) {
+  return useInfiniteQuery({
+    queryKey: inventoryKeys.expiring(warehouseSlug ?? '', expiryBefore),
+    queryFn: ({ pageParam }) =>
+      fetchExpiringBatches(warehouseSlug as string, expiryBefore, pageParam),
+    initialPageParam: 1,
+    getNextPageParam: (last) => (last.hasNext ? last.page + 1 : undefined),
+    enabled: !!warehouseSlug,
     staleTime: STALE_TIME_MS,
   })
 }

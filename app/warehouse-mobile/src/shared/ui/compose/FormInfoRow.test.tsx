@@ -18,6 +18,20 @@ beforeAll(async () => {
 })
 
 describe('FormInfoRow', () => {
+  it('input kind renders trailing node after the field', async () => {
+    const { Text } = jest.requireActual('react-native')
+    await render(
+      <FormInfoRow
+        kind="input"
+        label="Mã"
+        value=""
+        onChangeText={jest.fn()}
+        trailing={<Text>quét</Text>}
+      />,
+    )
+    expect(screen.getByText('quét')).toBeOnTheScreen()
+  })
+
   it('required empty input shows Bắt buộc placeholder in warning color and a dot', async () => {
     await render(
       <FormInfoRow

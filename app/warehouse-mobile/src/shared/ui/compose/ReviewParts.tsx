@@ -137,6 +137,9 @@ export type ReviewNotesProps = {
   /** Tiêu đề của các cảnh báo (vd "Lưu ý") — chỉ trong nhãn đọc. */
   title: string
   warnings: readonly string[]
+  /** Ghi chú thêm (vd "Khi lưu, n vật tư sẽ được gắn vào …") cùng kiểu chữ, ngay trên `footnote`. */
+  supplierNote?: string | null
+  supplierNoteTestID?: string
   footnote: string
   warningsTestID: string
   footnoteTestID: string
@@ -150,6 +153,8 @@ export type ReviewNotesProps = {
 export function ReviewNotes({
   title,
   warnings,
+  supplierNote,
+  supplierNoteTestID,
   footnote,
   warningsTestID,
   footnoteTestID,
@@ -170,6 +175,16 @@ export function ReviewNotes({
             </Text>
           ))}
         </View>
+      ) : null}
+      {supplierNote ? (
+        <Text
+          testID={supplierNoteTestID}
+          muted
+          size={12.5}
+          style={{ paddingHorizontal: FOOTER_INSET, lineHeight: 19, marginBottom: -4 }}
+        >
+          {supplierNote}
+        </Text>
       ) : null}
       <Text
         testID={footnoteTestID}

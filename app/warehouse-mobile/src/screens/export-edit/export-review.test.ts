@@ -78,7 +78,7 @@ describe('exportReview', () => {
       opts(),
     )
     expect(full.infoRows).toEqual([
-      { key: 'type', label: 'Loại', value: 'Sản xuất' },
+      { key: 'type', label: 'Loại', value: 'Bán' },
       { key: 'code', label: 'Mã phiếu', value: 'PX-1', format: 'code' },
       { key: 'purchaseOrder', label: 'Số PO', value: 'PO-1', format: 'code' },
       { key: 'receiver', label: 'Người nhận', value: base.header.receiver },
@@ -115,5 +115,15 @@ describe('exportReview', () => {
     const draft = makeDraft([makeLine(1), makeLine(2)])
     const r = exportReview(draft, opts({ available: () => 10 }))
     expect(r.warnings).toEqual([])
+  })
+})
+
+describe('exportReview — phiếu không phải Bán', () => {
+  it('không Tổng cộng, không cảnh báo đơn giá 0', () => {
+    const d = makeDraft([makeLine(1, { unitPrice: 0 })])
+    d.header = { ...d.header, type: 'PRODUCTION' }
+    const r = exportReview(d, opts())
+    expect(r.total).toBeNull()
+    expect(r.warnings.some((w) => /đơn giá/i.test(w))).toBe(false)
   })
 })
