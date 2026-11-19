@@ -321,6 +321,12 @@ export class ImportFormAvailableMaterialResponseDto {
   @ApiProperty({ description: 'Current stock in this warehouse, in the base unit' })
   quantity: number;
 
+  @ApiPropertyOptional({
+    description:
+      'Effective maximum stock threshold in this warehouse (in the base unit). Omitted when no maximum threshold (> 0) is configured.',
+  })
+  effectiveMaximumInventory?: number;
+
   @ApiProperty({
     type: [ImportFormAvailableSupplierResponseDto],
     description: 'Suppliers of the material — candidates for `items[].supplierSlug`',

@@ -55,3 +55,4 @@ Module `src/example` là mẫu để tạo module mới, không dành cho FE nê
 | Ngày | PR | Thay đổi | Breaking |
 |---|---|---|---|
 | 2026-11-07 | (PR này) | Bản đầu tiên, mô tả API tại `main` `5555273` | — |
+| 2026-11-19 | (PR này) | `PUT /warehouses/:warehouseSlug/materials` khôi phục dòng tồn đã xoá mềm khi gán lại; `GET .../import-forms/available-materials` trả thêm `effectiveMaximumInventory` khi `> 0` | Không |
