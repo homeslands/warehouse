@@ -5,7 +5,6 @@ import { notifyManager, QueryClient, QueryClientProvider } from '@tanstack/react
 import { act, fireEvent, render, screen, within } from '@testing-library/react-native'
 import type { NativeStackHeaderItem, NativeStackNavigationOptions } from 'expo-router'
 import * as DocumentPicker from 'expo-document-picker'
-import { Platform, TextInput } from 'react-native'
 
 import type { ExportForm } from '@/entities/export-form'
 import { useAuthStore } from '@/entities/session'
@@ -127,6 +126,12 @@ async function show() {
 
 const store = () => useExportDraft.getState()
 const field = (label: string) => screen.getByLabelText(label)
+const receiverRow = (value?: string) =>
+  screen.getByRole('button', { name: value ? `Người nhận, ${value}` : 'Người nhận' })
+/** Người nhận chọn qua sheet `/export-receiver` (sheet ghi thẳng bản nháp): giả lập bằng `setHeader`. */
+async function setReceiver(name: string) {
+  await act(async () => store().setHeader({ receiver: name }))
+}
 const nextButton = () => screen.getByRole('button', { name: 'Tiếp tục' })
 type ButtonItem = { label: string; disabled?: boolean; onPress: () => void }
 const items = (side: 'left' | 'right'): ButtonItem[] =>
@@ -205,46 +210,29 @@ describe('ExportInfoStepScreen — phiếu mới', () => {
     }
   })
 
-  it('type row shows Sản xuất and choosing Bán sets header.type', async () => {
-    jest.mocked(chooseAction).mockResolvedValueOnce(1)
+  it('dòng Loại / Người nhận mở sheet (/export-type, /export-receiver); đang ghi thì không mở', async () => {
     await show()
     await fireEvent.press(screen.getByRole('button', { name: 'Loại, Sản xuất' }))
-    const arg = jest.mocked(chooseAction).mock.calls.at(-1)![0]
-    expect(arg.actions.map((a) => a.label)).toEqual([
-      'Sản xuất',
-      'Bán',
-      'Chuyển kho',
-      'Huỷ',
-      'Khác',
-    ])
-    await settled()
-    expect(store().draft!.header.type).toBe('SALE')
+    expect(mockNavigate).toHaveBeenLastCalledWith('/export-type')
+    await fireEvent.press(receiverRow())
+    expect(mockNavigate).toHaveBeenLastCalledWith('/export-receiver')
+    // Rời dòng để chọn → quay lại thấy lỗi của ô.
+    expect(screen.getByText('Cần nhập người nhận.')).toBeOnTheScreen()
+    mockNavigate.mockClear()
+    await act(async () => {
+      store().setSaving(true)
+    })
+    await fireEvent.press(screen.getByRole('button', { name: 'Loại, Sản xuất' }))
+    await fireEvent.press(receiverRow())
+    expect(mockNavigate).not.toHaveBeenCalled()
+  })
+
+  it('đổi Loại / Người nhận từ sheet (ghi bản nháp) → dòng hiện giá trị mới', async () => {
+    await show()
+    await act(async () => store().setHeader({ type: 'SALE' }))
+    await setReceiver('Bếp B')
     expect(screen.getByRole('button', { name: 'Loại, Bán' })).toBeOnTheScreen()
-  })
-
-  it('Android: type row opens inline options (no action sheet); choosing one sets the type and closes', async () => {
-    const os = jest.replaceProperty(Platform, 'OS', 'android')
-    try {
-      await show()
-      expect(screen.queryByTestId('export-type-options')).toBeNull()
-      await fireEvent.press(screen.getByRole('button', { name: 'Loại, Sản xuất' }))
-      expect(chooseAction).not.toHaveBeenCalled()
-      expect(screen.getByRole('button', { name: 'Loại, Sản xuất' })).toBeExpanded()
-      expect(screen.getAllByRole('radio')).toHaveLength(5)
-      await fireEvent.press(screen.getByRole('radio', { name: 'Huỷ' }))
-      expect(store().draft!.header.type).toBe('DISPOSAL')
-      expect(screen.queryByTestId('export-type-options')).toBeNull()
-      expect(screen.getByRole('button', { name: 'Loại, Huỷ' })).toBeCollapsed()
-    } finally {
-      os.restore()
-    }
-  })
-
-  it('type row: cancelling the action sheet keeps the type', async () => {
-    await show()
-    await fireEvent.press(screen.getByRole('button', { name: 'Loại, Sản xuất' }))
-    await settled()
-    expect(store().draft!.header.type).toBe('PRODUCTION')
+    expect(receiverRow('Bếp B')).toBeOnTheScreen()
   })
 
   it('Tiếp tục disabled with Còn thiếu: Người nhận', async () => {
@@ -256,11 +244,9 @@ describe('ExportInfoStepScreen — phiếu mới', () => {
     expect(nextButton().props.accessibilityHint).toBe('Còn thiếu: Người nhận')
   })
 
-  it('Tiếp tục khi người nhận trống → không chuyển bước; rung lỗi, lỗi ô hiện, focus ô Người nhận', async () => {
+  it('Tiếp tục khi người nhận trống → không chuyển bước; rung lỗi, lỗi ô hiện, mở sheet Người nhận', async () => {
     await storedNew(newExportDraft({ code: 'PX-MOI', purchaseOrder: 'PO-9' }))
-    const focus = jest.spyOn(TextInput.prototype as unknown as { focus: () => void }, 'focus')
     await show()
-    focus.mockClear()
     expect(screen.queryByText('Cần nhập người nhận.')).toBeNull()
     await fireEvent.press(nextButton())
     expect(mockPush).not.toHaveBeenCalled()
@@ -271,12 +257,7 @@ describe('ExportInfoStepScreen — phiếu mới', () => {
         .mocked(jest.requireMock('expo-haptics').notificationAsync as jest.Mock)
         .mock.calls.filter(([type]) => type === 'error'),
     ).toHaveLength(1)
-    expect(
-      focus.mock.contexts.map(
-        (c) => (c as { props: { accessibilityLabel?: string } }).props.accessibilityLabel,
-      ),
-    ).toEqual(['Người nhận'])
-    focus.mockRestore()
+    expect(mockNavigate).toHaveBeenCalledWith('/export-receiver')
   })
 
   it('bản trắng: gợi ý liệt kê mọi ô bắt buộc còn trống theo thứ tự màn hình', async () => {
@@ -287,7 +268,7 @@ describe('ExportInfoStepScreen — phiếu mới', () => {
   it('filling receiver enables Tiếp tục which pushes /export-form/new/edit', async () => {
     await storedNew(newExportDraft({ code: 'PX-MOI', purchaseOrder: 'PO-9' }))
     await show()
-    await fireEvent.changeText(field('Người nhận'), 'Tổ hàn A')
+    await setReceiver('Tổ hàn A')
     expect(screen.queryByText(/^Còn thiếu/)).toBeNull()
     expect(nextButton()).toBeEnabled()
     expect(nextButton()).not.toHaveStyle({ backgroundColor: lightColors.fill })
@@ -351,7 +332,7 @@ describe('ExportInfoStepScreen — phiếu mới', () => {
     await act(async () =>
       store().replace({ ...d, header: { ...d.header, receiver: 'Bếp Z', note: 'Giao 9h' } }),
     )
-    expect(field('Người nhận').props.value).toBe('Bếp Z')
+    expect(receiverRow('Bếp Z')).toBeOnTheScreen()
     expect(field('Ghi chú').props.value).toBe('Giao 9h')
     expect(field('Số PO').props.value).toBe('PO-7 ')
     await fireEvent(field('Số PO'), 'blur')
@@ -379,19 +360,21 @@ describe('ExportInfoStepScreen — phiếu mới', () => {
 
   it('focused field + external replace → field resynced BEFORE the next keystroke; typing never writes the pre-replace text back', async () => {
     await show()
-    await fireEvent(field('Người nhận'), 'focus')
-    await fireEvent.changeText(field('Người nhận'), 'Bếp cũ')
+    await fireEvent(field('Số PO'), 'focus')
+    await fireEvent.changeText(field('Số PO'), 'PO-CU')
     const d = store().draft!
-    await act(async () => store().replace({ ...d, header: { ...d.header, receiver: 'Bếp mới' } }))
-    expect(field('Người nhận').props.value).toBe('Bếp mới')
+    await act(async () =>
+      store().replace({ ...d, header: { ...d.header, purchaseOrder: 'PO-MOI' } }),
+    )
+    expect(field('Số PO').props.value).toBe('PO-MOI')
     const writes: string[] = []
     const unsubscribe = useExportDraft.subscribe((st) => {
-      if (st.draft) writes.push(st.draft.header.receiver)
+      if (st.draft) writes.push(st.draft.header.purchaseOrder)
     })
-    await fireEvent.changeText(field('Người nhận'), `${field('Người nhận').props.value}A`)
+    await fireEvent.changeText(field('Số PO'), `${field('Số PO').props.value}A`)
     unsubscribe()
-    expect(store().draft!.header.receiver).toBe('Bếp mớiA')
-    expect(writes.some((w) => w.startsWith('Bếp cũ'))).toBe(false)
+    expect(store().draft!.header.purchaseOrder).toBe('PO-MOIA')
+    expect(writes.some((w) => w.startsWith('PO-CU'))).toBe(false)
   })
 
   it('thông báo mức phiếu (useFormNotice) của đúng phiếu hiện ở đáy; của phiếu khác thì không', async () => {
@@ -424,7 +407,7 @@ describe('ExportInfoStepScreen — phiếu đã có', () => {
       pathname: '/export-form/[formSlug]/edit',
       params: { formSlug: 'px-1' },
     })
-    await fireEvent.changeText(field('Người nhận'), 'Bếp Z')
+    await setReceiver('Bếp Z')
     expect(menuItem('Lưu nháp')).toMatchObject({ disabled: false })
   })
 
@@ -450,7 +433,8 @@ describe('ExportInfoStepScreen — ô đầu phiếu (phiếu mới)', () => {
     const code = field('Mã phiếu').props.value as string
     expect(code).toMatch(BUSINESS_CODE_REGEX)
     expect(store().draft!.header).toMatchObject({ code, type: 'PRODUCTION', receiver: '' })
-    expect(field('Người nhận').props.placeholder).toBe('Bắt buộc')
+    expect(receiverRow()).toBeOnTheScreen()
+    expect(within(receiverRow()).getByText('Chọn')).toBeOnTheScreen()
     expect(field('Số PO').props.placeholder).toBe('Bắt buộc')
     expect(field('Số HĐ').props.placeholder).toBe('Tuỳ chọn')
     // Chưa đổi gì: ⋯ chỉ có "Lưu nháp" khoá (bản trắng chưa có gì để bỏ).
@@ -460,14 +444,14 @@ describe('ExportInfoStepScreen — ô đầu phiếu (phiếu mới)', () => {
     expect(await AsyncStorage.getItem(NEW_KEY)).toBeNull()
   })
 
-  it('gõ người nhận → ghi ngay vào bản nháp (đã chuẩn hoá), giữ chữ đang gõ; lần sửa đầu → lưu trên máy, có ⋯', async () => {
+  it('gõ Số PO → ghi ngay vào bản nháp (đã chuẩn hoá), giữ chữ đang gõ; lần sửa đầu → lưu trên máy, có ⋯', async () => {
     await show()
-    await fireEvent.changeText(field('Người nhận'), ' Tổ hàn A ')
-    expect(store().draft!.header.receiver).toBe('Tổ hàn A')
-    expect(field('Người nhận').props.value).toBe(' Tổ hàn A ')
+    await fireEvent.changeText(field('Số PO'), ' PO-7 ')
+    expect(store().draft!.header.purchaseOrder).toBe('PO-7')
+    expect(field('Số PO').props.value).toBe(' PO-7 ')
     await wait(350)
     expect(JSON.parse((await AsyncStorage.getItem(NEW_KEY))!)).toMatchObject({
-      header: { receiver: 'Tổ hàn A' },
+      header: { purchaseOrder: 'PO-7' },
     })
     expect(menuLabels()).toEqual(['Lưu nháp', 'Bỏ phiếu mới'])
   })
@@ -493,9 +477,6 @@ describe('ExportInfoStepScreen — ô đầu phiếu (phiếu mới)', () => {
     await fireEvent.changeText(field('Mã phiếu'), '-AB')
     await fireEvent(field('Mã phiếu'), 'blur')
     expect(screen.getByText('Mã phiếu gồm 2–32 chữ, số hoặc dấu gạch ngang.')).toBeOnTheScreen()
-    await fireEvent.changeText(field('Người nhận'), 'x'.repeat(256))
-    await fireEvent(field('Người nhận'), 'blur')
-    expect(screen.getByText('Người nhận tối đa 255 ký tự.')).toBeOnTheScreen()
     await fireEvent.changeText(field('Số PO'), 'PO-3')
     expect(screen.queryByText('Cần nhập số PO.')).toBeNull()
   })
@@ -526,10 +507,10 @@ describe('ExportInfoStepScreen — ô đầu phiếu (phiếu đã có)', () => 
 
   it('nhóm Thông tin điền sẵn từ bản nháp', async () => {
     await show()
-    expect(screen.getByRole('button', { name: 'Loại, Sản xuất' })).toBeOnTheScreen()
+    expect(screen.getByRole('button', { name: 'Loại, Bán' })).toBeOnTheScreen()
     expect(field('Mã phiếu').props.value).toBe('PX-1')
     expect(field('Số PO').props.value).toBe('PO-1')
-    expect(field('Người nhận').props.value).toBe('Bếp A')
+    expect(receiverRow('Bếp A')).toBeOnTheScreen()
     expect(field('Số HĐ').props.value).toBe('HD-1')
     expect(field('Ghi chú').props.value).toBe('')
   })
@@ -563,8 +544,7 @@ describe('ExportInfoStepScreen — ô đầu phiếu (phiếu đã có)', () => 
       return ok(form2({ version: 4, receiver: 'Bếp Z', purchaseOrder: 'PO-7' }))
     })
     await show()
-    await fireEvent(field('Người nhận'), 'focus')
-    await fireEvent.changeText(field('Người nhận'), ' Bếp Z ')
+    await setReceiver('Bếp Z')
     await fireEvent.changeText(field('Số PO'), 'PO-7')
     await act(async () => menuItem('Lưu nháp')!.onPress())
     await settled()
@@ -577,7 +557,7 @@ describe('ExportInfoStepScreen — ô đầu phiếu (phiếu đã có)', () => 
 
   it('đầu phiếu còn lỗi → "Lưu nháp" khoá (không gửi được), "Tiếp tục" khoá', async () => {
     await show()
-    await fireEvent.changeText(field('Người nhận'), '')
+    await setReceiver('')
     expect(menuItem('Lưu nháp')).toMatchObject({ disabled: true })
     expect(nextButton()).toHaveStyle({ backgroundColor: lightColors.fill })
     await fireEvent.press(nextButton())
@@ -587,92 +567,12 @@ describe('ExportInfoStepScreen — ô đầu phiếu (phiếu đã có)', () => 
 
   it('Bỏ thay đổi trên máy → hỏi lại → các ô đầu phiếu về bản trên máy chủ', async () => {
     await show()
-    await fireEvent.changeText(field('Người nhận'), 'Bếp Z')
-    await fireEvent(field('Người nhận'), 'blur')
+    await setReceiver('Bếp Z')
     await act(async () => menuItem('Bỏ thay đổi trên máy')!.onPress())
     await settled()
     expect(jest.mocked(confirmAction).mock.calls.at(-1)![0].title).toBe('Bỏ thay đổi trên máy')
     expect(store().draft!.header.receiver).toBe('Bếp A')
-    expect(field('Người nhận').props.value).toBe('Bếp A')
-  })
-})
-
-describe('ExportInfoStepScreen — gợi ý người nhận', () => {
-  const WH_HN = { slug: 'wh-hn', code: 'HN', name: 'Kho Hà Nội', isManager: false }
-  const list = () => screen.getByTestId('receiver-suggestions')
-  const signInWith = (warehouses: (typeof WH)[]) =>
-    useAuthStore.setState({
-      status: 'authenticated',
-      user: { userSlug: 'u', userName: 'an', scope: ALL, warehouses } as never,
-    })
-  beforeEach(() => {
-    useWarehouseStore.setState({ warehouses: null })
-    route('get', LIST_URL, () =>
-      ok({
-        items: [
-          { receiver: 'Tổ hàn A', createdAt: '2026-11-05T08:00:00Z' },
-          { receiver: 'Bếp B', createdAt: '2026-11-04T08:00:00Z' },
-          { receiver: 'tổ hàn a', createdAt: '2026-11-03T08:00:00Z' },
-        ],
-        total: 3,
-        page: 1,
-        pageSize: 50,
-        totalPages: 1,
-        hasNext: false,
-      }),
-    )
-  })
-
-  it('chưa focus ô Người nhận → không tải, không hiện gợi ý', async () => {
-    await show()
-    expect(screen.queryByTestId('receiver-suggestions')).toBeNull()
-    expect(callsTo('get', LIST_URL)).toHaveLength(0)
-  })
-
-  it('focus → người nhận gần đây (bỏ trùng, mới nhất trước); gõ để lọc; chạm → điền ô + bản nháp, đóng danh sách', async () => {
-    await show()
-    await fireEvent(field('Người nhận'), 'focus')
-    await settled()
-    expect(
-      within(list())
-        .getAllByRole('button')
-        .map((b) => b.props.accessibilityLabel),
-    ).toEqual(['Tổ hàn A', 'Bếp B'])
-    await fireEvent.changeText(field('Người nhận'), 'bep')
-    expect(within(list()).getAllByRole('button')).toHaveLength(1)
-    await fireEvent.press(screen.getByRole('button', { name: 'Bếp B' }))
-    expect(field('Người nhận').props.value).toBe('Bếp B')
-    expect(store().draft!.header.receiver).toBe('Bếp B')
-    expect(screen.queryByTestId('receiver-suggestions')).toBeNull()
-  })
-
-  it('Chuyển kho: thêm các kho của người dùng TRỪ kho hiện tại, ghi rõ là kho', async () => {
-    signInWith([WH, WH_HN])
-    await show()
-    jest.mocked(chooseAction).mockResolvedValueOnce(2)
-    await fireEvent.press(screen.getByRole('button', { name: 'Loại, Sản xuất' }))
-    await settled()
-    await fireEvent(field('Người nhận'), 'focus')
-    await settled()
-    expect(within(list()).getByText('Kho')).toBeOnTheScreen()
-    expect(screen.getByRole('button', { name: 'Kho Hà Nội, kho HN' })).toBeOnTheScreen()
-    expect(screen.queryByRole('button', { name: /Kho Tổng/ })).toBeNull()
-    await fireEvent.press(screen.getByRole('button', { name: 'Kho Hà Nội, kho HN' }))
-    expect(field('Người nhận').props.value).toBe('Kho Hà Nội')
-  })
-
-  it('ADMIN+ (danh sách mọi kho đã tải trong store kho): gợi ý theo danh sách đó', async () => {
-    useWarehouseStore.setState({
-      warehouses: [WH, WH_HN, { slug: 'wh-dn', code: 'DN', name: 'Kho Đà Nẵng', isManager: false }],
-    })
-    await show()
-    jest.mocked(chooseAction).mockResolvedValueOnce(2)
-    await fireEvent.press(screen.getByRole('button', { name: 'Loại, Sản xuất' }))
-    await settled()
-    await fireEvent(field('Người nhận'), 'focus')
-    await settled()
-    expect(screen.getByRole('button', { name: 'Kho Đà Nẵng, kho DN' })).toBeOnTheScreen()
-    expect(screen.getByRole('button', { name: 'Kho Hà Nội, kho HN' })).toBeOnTheScreen()
+    expect(receiverRow('Bếp A')).toBeOnTheScreen()
   })
 })
 

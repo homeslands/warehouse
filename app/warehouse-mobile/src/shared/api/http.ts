@@ -269,11 +269,12 @@ export async function deleteData<T>(url: string, body?: unknown): Promise<T> {
 export async function getPaginated<T>(
   url: string,
   params: ListParams<Record<string, unknown>>,
+  signal?: AbortSignal,
 ): Promise<Paginated<T>> {
   const query = Object.fromEntries(
     Object.entries(params).filter(([, v]) => v !== undefined && v !== null && v !== ''),
   )
-  const raw = await getData<BackendPaginated<T>>(url, { params: query })
+  const raw = await getData<BackendPaginated<T>>(url, { params: query, signal })
 
   return {
     items: raw.items,

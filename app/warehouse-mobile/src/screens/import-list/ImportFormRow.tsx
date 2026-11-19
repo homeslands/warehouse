@@ -1,120 +1,110 @@
-import { Check, Pencil, X, type LucideIcon } from '@/shared/ui/icons'
 import { memo } from 'react'
 import { useTranslation } from 'react-i18next'
-import { Pressable, View } from 'react-native'
 
 import type { ImportForm, ImportFormStatus } from '@/entities/import-form'
-import { formatMoney, formatTime } from '@/shared/lib/format'
+import { formatDayMonth, formatMoney, formatTime } from '@/shared/lib/format'
+import type { ColorTokens } from '@/shared/theme/tokens'
 import { useTheme } from '@/shared/theme/useTheme'
-import { ROW_PRESS_DELAY_MS, Text } from '@/shared/ui'
+import { PlainListRow, RowLine, RowStatus, Text } from '@/shared/ui'
+import { PackagePlus } from '@/shared/ui/icons'
 
 export type ImportFormRowProps = {
   form: ImportForm
   locale: 'vi' | 'en'
   onPress: (form: ImportForm) => void
+  /** Dòng đầu nhóm tháng (không đường kẻ phía trên). */
+  first: boolean
+  /** Hiện trạng thái ở cột phải — chỉ khi đang xem "Tất cả" (lọc một trạng thái thì mọi dòng giống nhau). */
+  showStatus: boolean
 }
 
-/** Ô trạng thái (34pt) + lề chữ: đường kẻ giữa các dòng lùi bằng đây. */
-const TILE = 34
-const ROW_PAD = 16
-const ROW_GAP = 12
-export const IMPORT_ROW_INSET = ROW_PAD + TILE + ROW_GAP
-/** Cột phải rộng cố định: tổng tiền rất lớn co chữ lại chứ không đẩy cột trái. */
-const END_COLUMN = 108
-
-const TILE_ICON: Record<ImportFormStatus, LucideIcon> = {
-  DRAFT: Pencil,
-  CONFIRMED: Check,
-  CANCELLED: X,
+/** Chữ trạng thái nghiêng màu tươi (đủ AA). Màu CHỈ dành cho trạng thái (ô icon trung tính). */
+function statusColor(colors: ColorTokens, status: ImportFormStatus) {
+  return {
+    DRAFT: colors.statusWarning,
+    CONFIRMED: colors.statusSuccess,
+    CANCELLED: colors.statusNeutral,
+  }[status]
 }
 
 /**
- * Một dòng phiếu nhập (hướng B): ô trạng thái bo 10 (Nháp: bút chì vàng; Đã nhập: dấu tích xanh;
- * Huỷ: dấu ✕ xám); dòng 1 mã phiếu (code) đậm; dòng 2 "HĐ … · PO … · người tạo"; cột phải tổng tiền (numeric)
- * + giờ tạo. Mọi chữ một dòng. Nền do khối bo góc của nhóm ngày vẽ.
+ * Một dòng phiếu nhập — danh sách kiểu lịch sử giao dịch (`PlainListRow`, gom theo tháng): ô icon trung
+ * tính "hộp +" (điểm neo, không màu); [mã 16 semibold, cắt GIỮA | tổng 16 semibold — 0 đ xám, phiếu huỷ
+ * xám gạch ngang] / [giờ · dd/MM | chữ trạng thái nghiêng màu tươi, chỉ khi "Tất cả"] / [HĐ · PO · người tạo].
  */
 export const ImportFormRow = memo(function ImportFormRow({
   form,
   locale,
   onPress,
+  first,
+  showStatus,
 }: ImportFormRowProps) {
   const { t } = useTranslation('importForms')
   const { colors } = useTheme()
-  const tone = {
-    DRAFT: { bg: colors.warningSoft, fg: colors.warningText },
-    CONFIRMED: { bg: colors.successSoft, fg: colors.successText },
-    CANCELLED: { bg: colors.fill, fg: colors.mutedForeground },
-  }[form.status]
-  const Icon = TILE_ICON[form.status]
+  const status = t(`status.${form.status}`)
   const invoice = t('list.invoice', { code: form.invoiceCode })
   const po = form.purchaseOrder ? t('list.purchaseOrder', { code: form.purchaseOrder }) : null
-  const meta = [invoice, po, form.requesterName].filter(Boolean).join(' · ')
   const total = formatMoney(form.total, locale)
   const time = formatTime(form.createdAt)
-  const label = [
-    form.code,
-    t(`status.${form.status}`),
-    invoice,
-    po,
-    form.requesterName,
-    total,
-    time,
-  ]
+  const when = [time, formatDayMonth(form.createdAt)].filter(Boolean).join(' · ')
+  const cancelled = form.status === 'CANCELLED'
+  const label = [form.code, status, invoice, po, form.requesterName, total, time]
     .filter(Boolean)
     .join(', ')
   return (
-    <Pressable
+    <PlainListRow
       testID="import-row"
-      accessibilityRole="button"
       accessibilityLabel={label}
       onPress={() => onPress(form)}
-      unstable_pressDelay={ROW_PRESS_DELAY_MS}
-      style={({ pressed }) => ({
-        flexDirection: 'row',
-        alignItems: 'center',
-        gap: ROW_GAP,
-        minHeight: 64,
-        paddingHorizontal: ROW_PAD,
-        paddingVertical: 12,
-        backgroundColor: pressed ? colors.rowPressed : colors.card,
-      })}
+      first={first}
+      tile={{ icon: PackagePlus, testID: 'import-tile' }}
     >
-      <View
-        testID={`import-tile-${form.status}`}
-        style={{
-          width: TILE,
-          height: TILE,
-          borderRadius: 10,
-          backgroundColor: tone.bg,
-          alignItems: 'center',
-          justifyContent: 'center',
-        }}
+      <RowLine
+        endTestID="import-row-end"
+        end={
+          <Text
+            numeric
+            weight="semibold"
+            size={16}
+            numberOfLines={1}
+            adjustsFontSizeToFit
+            minimumFontScale={0.5}
+            style={
+              cancelled
+                ? { color: colors.mutedForeground, textDecorationLine: 'line-through' }
+                : form.total === 0
+                  ? { color: colors.mutedForeground }
+                  : undefined
+            }
+          >
+            {total}
+          </Text>
+        }
       >
-        <Icon size={18} color={tone.fg} strokeWidth={2.2} />
-      </View>
-      <View style={{ flex: 1, minWidth: 0, gap: 4 }}>
-        <Text code weight="semibold" size={15} numberOfLines={1}>
+        <Text numeric weight="semibold" size={16} numberOfLines={1} ellipsizeMode="middle">
           {form.code}
         </Text>
-        <Text muted size={12.5} numberOfLines={1}>
-          {meta}
+      </RowLine>
+      <RowLine
+        end={
+          showStatus ? (
+            <RowStatus
+              testID={`import-status-${form.status}`}
+              label={status}
+              color={statusColor(colors, form.status)}
+            />
+          ) : null
+        }
+      >
+        <Text muted numeric size={14} numberOfLines={1}>
+          {when}
         </Text>
-      </View>
-      <View testID="import-row-end" style={{ width: END_COLUMN, alignItems: 'flex-end', gap: 4 }}>
-        <Text
-          numeric
-          weight="semibold"
-          size={14}
-          numberOfLines={1}
-          adjustsFontSizeToFit
-          minimumFontScale={0.5}
-        >
-          {total}
+      </RowLine>
+      <RowLine>
+        <Text muted size={14} numberOfLines={1}>
+          {[invoice, po, form.requesterName].filter(Boolean).join(' · ')}
         </Text>
-        <Text muted size={11.5} numberOfLines={1}>
-          {time}
-        </Text>
-      </View>
-    </Pressable>
+      </RowLine>
+    </PlainListRow>
   )
 })

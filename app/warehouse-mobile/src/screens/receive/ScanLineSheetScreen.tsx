@@ -1,6 +1,6 @@
 import { useQueryClient, type QueryClient } from '@tanstack/react-query'
 import { useLocalSearchParams, useRouter } from 'expo-router'
-import { useEffect, useRef } from 'react'
+import { useEffect, useRef, useState } from 'react'
 
 import {
   fetchAvailableMaterials,
@@ -8,15 +8,19 @@ import {
   useSuppliers,
   type AvailableMaterial,
 } from '@/entities/import-form'
+import { fetchMaterialByCode } from '@/entities/material'
 import { can, useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
-import { matchCode, ScanSheet, type MatchResult } from '@/features/scan-material'
-import { MAX_ITEMS, useReceiveDraft, type LocalLine } from '@/features/receive-checklist'
+import { matchCode, ScanMatchScreen, type MatchResult } from '@/features/scan-material'
+import {
+  MAX_ITEMS,
+  useReceiveDraft,
+  type LocalLine,
+  useScanNotice,
+  addImportLines,
+} from '@/features/receive-checklist'
 import { useLineFocus } from '@/shared/lib/line-focus'
 import { useCloseSheet } from '@/shared/lib/useCloseSheet'
-
-import { addImportLines } from './add-import-lines'
-import { useScanNotice } from './scan-notice.store'
 
 const norm = (code: string) => code.trim().toUpperCase()
 
@@ -57,10 +61,20 @@ async function lookupMaterial(
  *   gác `available-materials` bằng quyền này) → không tra, báo `notOnForm`; có quyền → tra vật tư của kho theo mã
  *   (`available-materials`, khớp CHÍNH XÁC mã) → thêm một dòng như bộ chọn (`addImportLines`) + mở sheet
  *   của dòng đó như trên; phiếu đủ 200 dòng / vật tư chưa có đơn vị / không thấy → báo mức phiếu (`full` / `noUnit` /
- *   `notFound`).
+ *   `notFound`). Không thấy trong kho → tra danh mục (`GET /materials?code=`, cần `MATERIAL_READ`): có →
+ *   `notInWarehouse` (màn phiếu cho gắn kho rồi thêm dòng); không có → `notFound` + `canCreate`; lỗi / thiếu
+ *   quyền → `notFound` không `canCreate`.
  */
 export function ScanLineSheetScreen() {
-  const close = useCloseSheet()
+  const closeSheet = useCloseSheet()
+  // Đóng đúng MỘT lần: ✕ trong lúc `addScanned` còn chờ request rồi `close()` lần nữa sẽ `back()` khỏi cả modal phiếu.
+  const closed = useRef(false)
+  const close = () => {
+    if (closed.current) return
+    closed.current = true
+    closeSheet()
+  }
+  const [busy, setBusy] = useState(false)
   const router = useRouter()
   const queryClient = useQueryClient()
   const { compose } = useLocalSearchParams<{ compose?: string }>()
@@ -93,13 +107,42 @@ export function ScanLineSheetScreen() {
     const store = useReceiveDraft.getState()
     if (!mounted.current || store.saving || store.ctx?.formSlug !== formSlug) return
     if (!material) {
-      notice.show(formSlug, code, 'notFound')
+      // Không thấy trong kho: tra danh mục (cần MATERIAL_READ). Có → "chưa có trong kho" (gắn kho được);
+      // không có → cho tạo; lỗi / thiếu quyền → không biết mã có tồn tại không nên KHÔNG gợi ý tạo.
+      let catalog: Awaited<ReturnType<typeof fetchMaterialByCode>> = null
+      let canCreate = false
+      const u = useAuthStore.getState().user
+      if (u && can(u, 'MATERIAL_READ')) {
+        try {
+          catalog = await fetchMaterialByCode(code)
+          canCreate = true
+        } catch {
+          // lỗi mạng: giữ canCreate = false
+        }
+        const after = useReceiveDraft.getState()
+        if (!mounted.current || after.saving || after.ctx?.formSlug !== formSlug) return
+      }
+      // Danh mục nói vật tư ĐÃ ở kho này mà tra kho không thấy → tra kho đã lỗi: không biết gì chắc chắn.
+      if (catalog?.warehouses.some((w) => w.slug === warehouseSlug)) {
+        catalog = null
+        canCreate = false
+      }
+      if (catalog) {
+        notice.show(formSlug, code, 'notInWarehouse', {
+          material: {
+            slug: catalog.slug,
+            code: catalog.code,
+            name: catalog.name,
+            suppliers: catalog.suppliers.map((s) => ({ slug: s.slug, code: s.code, name: s.name })),
+          },
+        })
+      } else notice.show(formSlug, code, 'notFound', { canCreate })
       close()
       return
     }
     const keys = addImportLines([material], {
-      isNew: formSlug === 'new',
       supplierName: (slug) => suppliers.data?.find((s) => s.slug === slug)?.name ?? null,
+      user: useAuthStore.getState().user,
     })
     if (keys[0]) {
       notice.clear()
@@ -123,7 +166,10 @@ export function ScanLineSheetScreen() {
       return
     }
     if (composing && canAdd) {
-      void addScanned(draft.formSlug, result.text)
+      setBusy(true)
+      void addScanned(draft.formSlug, result.text).finally(() => {
+        if (mounted.current) setBusy(false)
+      })
       return
     }
     if (composing) {
@@ -135,5 +181,5 @@ export function ScanLineSheetScreen() {
     close()
   }
 
-  return <ScanSheet items={lines} onResult={onResult} onClose={close} />
+  return <ScanMatchScreen items={lines} busy={busy} onResult={onResult} onClose={close} />
 }

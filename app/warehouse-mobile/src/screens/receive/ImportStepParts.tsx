@@ -15,17 +15,24 @@ import type { ImportWizardDraft } from './useImportWizardDraft'
  */
 export function ImportStepNotices({ notices }: { notices: Notices }) {
   const { colors } = useTheme()
-  const { formNotice, screenNotice, dismiss } = notices
+  const { formNotice, screenNotice, screenAction, dismiss } = notices
   const items = [
-    formNotice ? { testID: 'import-form-notice', message: formNotice } : null,
-    screenNotice ? { testID: 'import-screen-notice', message: screenNotice } : null,
+    formNotice ? { testID: 'import-form-notice', message: formNotice, action: undefined } : null,
+    screenNotice
+      ? { testID: 'import-screen-notice', message: screenNotice, action: screenAction }
+      : null,
   ].filter((n) => n !== null)
   return (
     <>
       {items.map((n) => (
         // Nền thẻ đặc dưới nền đỏ nhạt để chữ không lẫn với nội dung bên dưới.
         <View key={n.testID} style={{ borderRadius: 12, backgroundColor: colors.card }}>
-          <ReceiveErrorNotice testID={n.testID} message={n.message} onDismiss={dismiss} />
+          <ReceiveErrorNotice
+            testID={n.testID}
+            message={n.message}
+            onDismiss={dismiss}
+            action={n.action}
+          />
         </View>
       ))}
     </>

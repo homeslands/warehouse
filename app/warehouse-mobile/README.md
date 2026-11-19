@@ -46,7 +46,7 @@ Phân phối:
 
 ## TODO trước khi phát hành
 
-- [ ] **Bundle ID / package thật**: hiện là giá trị tạm `com.homeslands.warehouse`.
+- [x] **Bundle ID / package thật**: `com.mekong.warehouse` (chốt 2026-11-10; `.dev` / `.preview` cho 2 biến thể nội bộ). Không đổi sau khi đã đẩy bản lên store.
 - [ ] **URL API production**: `eas.json` profile `production` đang trỏ sandbox.
 - [ ] **Tài khoản Apple Developer, Google Play và Expo** (EAS) của công ty.
 - [ ] **Dạng store — chưa chốt**:

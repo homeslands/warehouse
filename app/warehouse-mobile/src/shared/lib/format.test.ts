@@ -1,9 +1,11 @@
 import {
   formatMoney,
+  formatMoneyCompact,
   formatQuantity,
   formatEntryDate,
   formatFullDate,
   formatShortDate,
+  formatDayMonth,
   formatTime,
   parseDecimalInput,
   todayLocalIso,
@@ -105,5 +107,42 @@ describe('formatEntryDate', () => {
   })
   it('không đọc được → null', () => {
     expect(formatEntryDate('abc', now)).toBeNull()
+  })
+})
+
+describe('formatMoneyCompact', () => {
+  it.each([
+    [125_400_000, 'vi', '125,4 tr đ'],
+    [1_250_000_000, 'vi', '1,25 tỷ đ'],
+    [3_104_400, 'vi', '3,1 tr đ'],
+    [999_999_999, 'vi', '1 tỷ đ'],
+    [120_000_000, 'vi', '120 tr đ'],
+    [125_400_000, 'en', '125.4M đ'],
+    [1_250_000_000, 'en', '1.25B đ'],
+    [3_104_400, 'en', '3.1M đ'],
+  ] as const)('%d (%s) → %s', (v, l, out) => {
+    expect(formatMoneyCompact(v, l)).toBe(out)
+  })
+
+  it('dưới 1 triệu = formatMoney đầy đủ', () => {
+    expect(formatMoneyCompact(4440, 'vi')).toBe(formatMoney(4440, 'vi'))
+    expect(formatMoneyCompact(850_000, 'vi')).toBe(formatMoney(850_000, 'vi'))
+    expect(formatMoneyCompact(999_999, 'vi')).toBe(formatMoney(999_999, 'vi'))
+    expect(formatMoneyCompact(500, 'vi')).toBe(formatMoney(500, 'vi'))
+    expect(formatMoneyCompact(0, 'vi')).toBe('0 đ')
+  })
+
+  it('số âm giữ đúng dấu của formatMoney', () => {
+    const sign = formatMoney(-5, 'vi').charAt(0)
+    expect(formatMoneyCompact(-27_200_000, 'vi')).toBe(`${sign}27,2 tr đ`)
+    expect(formatMoneyCompact(-999_999, 'vi')).toBe(formatMoney(-999_999, 'vi'))
+  })
+})
+
+describe('formatDayMonth', () => {
+  it('dd/MM theo giờ máy của mốc ISO; không đọc được → rỗng', () => {
+    expect(formatDayMonth(new Date(2026, 10, 5, 23, 59).toISOString())).toBe('05/11')
+    expect(formatDayMonth(new Date(2026, 0, 1, 0, 1).toISOString())).toBe('01/01')
+    expect(formatDayMonth('không phải ngày')).toBe('')
   })
 })

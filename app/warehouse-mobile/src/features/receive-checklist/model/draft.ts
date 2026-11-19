@@ -49,6 +49,11 @@ export type LocalLine = {
   changedOnServer: boolean
   /** Snapshot đơn vị của vật tư (dòng thêm từ bộ chọn / quét) để đổi đơn vị tại chỗ; tuỳ chọn. */
   units?: AvailableUnit[]
+  /**
+   * NCC của vật tư lúc thêm trên máy (chỉ ở máy, không gửi server). Vắng = dòng từ server / bản nháp
+   * cũ → không bao giờ coi là "mới với NCC".
+   */
+  materialSupplierSlugs?: string[]
 }
 
 export type ReceiveHeader = {

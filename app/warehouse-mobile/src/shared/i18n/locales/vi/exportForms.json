@@ -13,6 +13,8 @@
     "OTHER": "Khác"
   },
   "list": {
+    "groupCount_one": "{{count}} phiếu",
+    "groupCount_other": "{{count}} phiếu",
     "searchPlaceholder": "Mã phiếu, số HĐ hoặc PO",
     "createForm": "Tạo phiếu xuất",
     "loading": "Đang tải phiếu xuất",
@@ -24,8 +26,6 @@
     "refreshError": "Không làm mới được danh sách",
     "emptyFiltered": "Không có phiếu khớp bộ lọc",
     "emptyFilteredDescription": "Bỏ bớt bộ lọc thời gian, người hoặc loại để xem thêm phiếu.",
-    "today": "Hôm nay",
-    "yesterday": "Hôm qua",
     "filter": {
       "ALL": "Tất cả",
       "DRAFT": "Nháp",
@@ -42,6 +42,7 @@
     }
   },
   "view": {
+    "kind": "Phiếu xuất",
     "info": "Thông tin",
     "items": "Vật tư · {{n}}",
     "total": "Tổng cộng",
@@ -63,6 +64,7 @@
   "decision": {
     "confirmTitle": "Xác nhận xuất kho {{code}}?",
     "confirmMessage": "Trừ tồn kho {{lines}} dòng vật tư, tổng {{total}}. Không hoàn tác được.",
+    "confirmMessageNoTotal": "Trừ tồn kho {{lines}} dòng vật tư. Không hoàn tác được.",
     "confirmLabel": "Xác nhận xuất kho",
     "cancelTitle": "Huỷ phiếu {{code}}?",
     "cancelDraftMessage": "Phiếu chuyển sang Đã huỷ (vẫn giữ lại để tra cứu).",
@@ -159,6 +161,8 @@
       "review": "Xem lại",
       "lines_one": "{{count}} dòng vật tư · tổng {{total}}",
       "lines_other": "{{count}} dòng vật tư · tổng {{total}}",
+      "linesNoTotal_one": "{{count}} dòng vật tư",
+      "linesNoTotal_other": "{{count}} dòng vật tư",
       "deleteTitle": "Xoá phiếu nháp {{code}}?",
       "deleteMessage": "Phiếu bị xoá hẳn khỏi máy chủ, không khôi phục được.",
       "deleteLabel": "Xoá nháp",
@@ -185,10 +189,7 @@
       "duplicate": "Có dòng trùng vật tư, đơn vị và lô.",
       "recovered": "Phiếu {{code}} đã được tạo ở lần Lưu trước (bị ngắt) — đã mở lại phiếu đó.",
       "dismiss": "Đóng thông báo"
-    },
-    "scanNotFound": "Không tìm thấy vật tư có mã “{{code}}” trong kho",
-    "scanFull": "Phiếu đã đủ {{max}} dòng — không thêm được vật tư mã “{{code}}”",
-    "scanNoUnit": "Vật tư mã “{{code}}” chưa có đơn vị — không thêm được vào phiếu"
+    }
   },
   "lot": {
     "label": "Lô",
@@ -203,40 +204,27 @@
   },
   "line": {
     "quantity": "Số lượng",
-    "unit": "Đơn vị",
     "unitPrice": "Đơn giá",
     "amount": "Thành tiền",
     "note": "Ghi chú",
-    "quantityUnreadable": "Số lượng không hợp lệ — chỉ gồm chữ số, tối đa 6 chữ số thập phân",
-    "quantityTooLarge": "Số lượng quá lớn",
     "unitPriceInvalid": "Đơn giá phải ≥ 0, tối đa 2 chữ số thập phân",
     "unitPriceTooLarge": "Đơn giá quá lớn",
     "duplicate": "Đã có dòng cùng vật tư, đơn vị và lô này — chọn lô khác hoặc gộp số lượng vào dòng đó.",
     "remove": "Xoá khỏi phiếu",
     "removeTitle": "Xoá dòng này khỏi phiếu?",
     "removeMessage": "{{name}} sẽ bị bỏ khỏi phiếu (chỉ trên máy, tới khi Lưu).",
-    "savingNote": "Đang lưu phiếu — chờ lưu xong rồi sửa tiếp."
+    "savingNote": "Đang lưu phiếu — chờ lưu xong rồi sửa tiếp.",
+    "dropOne": "Bớt 1",
+    "dropSerial": "Bỏ serial {{serial}}",
+    "serials": "Serial",
+    "unscanned": "{{count}} chưa có serial"
   },
-  "addLine": {
-    "title": "Thêm vật tư",
-    "search": "Tìm theo mã hoặc tên",
-    "loading": "Đang tải vật tư của kho",
-    "loadError": "Không tải được vật tư của kho",
-    "empty": "Không có vật tư phù hợp",
-    "baseUnit": "Đơn vị gốc",
-    "rate": "1 {{unit}} = {{rate}} {{base}}",
-    "outOfStock": "Hết hàng",
-    "materialA11y": "{{name}}, mã {{code}}, {{stock}}",
-    "addCount_one": "Thêm {{count}} vật tư",
-    "addCount_other": "Thêm {{count}} vật tư",
-    "already": "đã có",
-    "noBaseUnit": "Chưa có đơn vị",
-    "more": "Hiện {{shown}}/{{total}} vật tư — gõ để tìm thêm"
-  },
-  "receiverSuggest": {
-    "recent": "Gần đây",
-    "warehouses": "Kho",
-    "warehouseA11y": "{{name}}, kho {{code}}"
+  "receiverPicker": {
+    "placeholder": "Chọn",
+    "search": "Tìm hoặc nhập tên người nhận",
+    "useTyped": "Dùng “{{name}}”",
+    "noRecent": "Chưa có người nhận gần đây — gõ tên ở ô trên.",
+    "noWarehouses": "Không có kho khác để chuyển — gõ tên ở ô trên."
   },
   "compose": {
     "newTitle": "Phiếu xuất mới",
@@ -261,18 +249,15 @@
     "next": "Tiếp tục",
     "stillMissing": "Còn thiếu: {{fields}}",
     "saveDraft": "Lưu nháp",
-    "add": "Thêm vật tư",
     "scan": "Quét mã",
-    "empty": "Chưa có vật tư — thêm hoặc quét mã",
+    "empty": "Chưa có vật tư — quét nhãn để thêm vật tư",
     "summary_one": "{{count}} vật tư",
     "summary_other": "{{count}} vật tư",
     "infoMissing": "Thông tin phiếu còn thiếu",
     "removeTitle": "Xoá {{name}} khỏi phiếu?",
     "short": "Không đủ hàng",
-    "qtyBar": "Số lượng · {{unit}}",
     "priceBar": "Đơn giá · {{unit}}",
     "goToMissing": "Mở dòng còn thiếu",
-    "goToAdd": "Mở danh sách chọn vật tư",
     "submit": "Gửi duyệt",
     "review": {
       "info": "Thông tin",
@@ -297,9 +282,30 @@
       "qtyPrice": "{{qty}} {{unit}} × {{price}}",
       "missingQty": "Chưa nhập số lượng",
       "qtyNoPrice": "{{qty}} {{unit}} · Chưa nhập đơn giá",
+      "qtyOnly": "{{qty}} {{unit}}",
       "missingBoth": "Chưa nhập số lượng, đơn giá",
       "autoLot": "Lô tự động",
       "duplicate": "Trùng dòng khác (cùng vật tư, đơn vị, lô)"
-    }
+    },
+    "goToScan": "Mở màn quét mã"
+  },
+  "scanSheet": {
+    "done": "Xong",
+    "busy": "Đang lưu phiếu — chưa quét được",
+    "notFound": "Không tìm thấy vật tư có mã “{{code}}” trong kho",
+    "duplicateSerial": "Serial {{serial}} đã quét (ở {{name}})",
+    "noUnit": "Vật tư “{{name}}” chưa có đơn vị",
+    "full": "Phiếu đã đủ {{max}} dòng",
+    "overStock": "{{name}} chỉ còn {{available}} {{unit}}",
+    "addedDetail": "＋1 · SL {{qty}} {{unit}}",
+    "listTitle": "Đã quét · {{count}}",
+    "empty": "Chưa quét vật tư nào",
+    "duplicateLabel": "Serial đã quét",
+    "notFoundShort": "Không tìm thấy vật tư trong kho",
+    "repeatCode": "Mã vẫn trong khung — đưa ra ngoài rồi quét lại để cộng thêm",
+    "expand": "Xem tất cả",
+    "collapse": "Thu gọn",
+    "expandA11y": "Xem tất cả mục đã quét",
+    "collapseA11y": "Thu gọn danh sách đã quét"
   }
 }

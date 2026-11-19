@@ -5,6 +5,7 @@ import type {
   ExportFormItemInput,
   ExportFormType,
 } from '@/entities/export-form'
+import { exportHasPrice } from '@/entities/export-form'
 import { sumLineAmounts } from '@/shared/lib/line-amount'
 import { round2, round6 } from '@/shared/lib/round'
 
@@ -46,6 +47,11 @@ export type ExportLine = {
   note: string | null
   base: ExportLineBase | null
   changedOnServer?: boolean
+  /**
+   * Serial đã quét của dòng, theo thứ tự quét (chỉ trên máy — không gửi server, không tính vào
+   * `isDirty` / `hasEdits`). Vắng = `[]`. Bất biến: `serials.length ≤ floor(quantity × conversionRate)`.
+   */
+  serials?: string[]
 }
 
 export type ExportHeader = {
@@ -121,6 +127,30 @@ export function lineValues(l: ExportLine): ExportLineBase {
     batchSlug: l.batchSlug,
     note: l.note,
   }
+}
+
+/** Serial chuẩn hoá: trim + viết hoa (như `parseLabel` của scan-material). */
+export function normSerial(s: string): string {
+  return s.trim().toUpperCase()
+}
+
+/** Serial đã quét của dòng (vắng = `[]`). */
+export function lineSerials(l: Pick<ExportLine, 'serials'>): string[] {
+  return l.serials ?? []
+}
+
+/**
+ * Giữ `floor(round6(quantity × conversionRate))` serial ĐẦU (mỗi serial là một đơn vị gốc). Không đổi
+ * thì trả đúng mảng truyền vào.
+ */
+export function clampSerials(
+  serials: string[],
+  quantity: number,
+  conversionRate: number,
+): string[] {
+  const units = round6(quantity * conversionRate)
+  const max = Number.isFinite(units) ? Math.max(0, Math.floor(units)) : 0
+  return serials.length <= max ? serials : serials.slice(0, max)
 }
 
 /** Khoá của dòng như lúc tải từ server (đơn vị + lô lúc đó); dòng thêm trên máy thì là khoá hiện tại. */
@@ -236,6 +266,7 @@ export function toInput(draft: ExportDraft): ExportFormInput {
   }
   const invoiceCode = optional(h.invoiceCode)
   const note = optional(h.note)
+  const priced = exportHasPrice(h.type)
   // PATCH chỉ gửi `file` khi khác gốc (URL mới, hoặc `''` khi gỡ): bản lưu cũ thiếu trường này không
   // được làm mất file trên server. Phiếu mới: có thì gửi.
   const file = onServer
@@ -257,7 +288,8 @@ export function toInput(draft: ExportDraft): ExportFormInput {
         materialSlug: l.materialSlug,
         unitSlug: l.unitSlug,
         quantity: round6(l.quantity),
-        unitPrice: round2(l.unitPrice ?? 0),
+        // Không phải phiếu Bán: luôn 0 (như web), kể cả khi dòng còn giá cũ từ lúc phiếu là loại Bán.
+        unitPrice: priced ? round2(l.unitPrice ?? 0) : 0,
         ...(l.batchSlug !== null && { batchSlug: l.batchSlug }),
         ...(lineNote !== null && { note: lineNote.trim() }),
       }
@@ -281,9 +313,9 @@ export function canSave(draft: ExportDraft): CanSave {
   if (badQty.length > 0) {
     return { ok: false, reason: 'badQuantity', keys: badQty.map((l) => l.key) }
   }
-  const noPrice = lines.filter(
-    (l) => l.unitPrice === null || !Number.isFinite(l.unitPrice) || l.unitPrice < 0,
-  )
+  const noPrice = !exportHasPrice(draft.header.type)
+    ? []
+    : lines.filter((l) => l.unitPrice === null || !Number.isFinite(l.unitPrice) || l.unitPrice < 0)
   if (noPrice.length > 0) {
     return { ok: false, reason: 'missingPrice', keys: noPrice.map((l) => l.key) }
   }

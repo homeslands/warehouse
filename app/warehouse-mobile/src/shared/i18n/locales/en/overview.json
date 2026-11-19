@@ -1,0 +1,229 @@
+{
+  "todoTitle": "To do",
+  "todo": {
+    "importDraft": "Import forms awaiting check",
+    "exportPending": "Export forms awaiting approval",
+    "exportDraft": "Draft export forms",
+    "stockLow": "Materials out / below minimum",
+    "stockHigh": "Materials above maximum"
+  },
+  "period": {
+    "today": "Today",
+    "yesterday": "Yesterday",
+    "day": "{{range}}",
+    "weekThis": "This week · {{range}}",
+    "weekPrev": "Last week · {{range}}",
+    "week": "Week {{range}}",
+    "month": "Month {{month}} · {{range}}",
+    "year": "Year {{year}}"
+  },
+  "loadError": "Could not load figures",
+  "stockCardTitle": "Stock health",
+  "stockTotal_one": "{{count}} material",
+  "stockTotal_other": "{{count}} materials",
+  "stockLabel": "Stock health: {{total}} materials, {{out}} out of stock, {{low}} below minimum, {{high}} above maximum",
+  "weekdayLong": {
+    "0": "Sunday",
+    "1": "Monday",
+    "2": "Tuesday",
+    "3": "Wednesday",
+    "4": "Thursday",
+    "5": "Friday",
+    "6": "Saturday"
+  },
+  "money": {
+    "import": "Goods in",
+    "export": "Goods out",
+    "pending": "Awaiting processing",
+    "pendingImports_one": "{{count}} import form",
+    "pendingImports_other": "{{count}} import forms",
+    "pendingExports_one": "{{count}} export form",
+    "pendingExports_other": "{{count}} export forms",
+    "truncated": "too many forms to total",
+    "loading": "loading",
+    "rowA11y": "{{label}}: {{value}}",
+    "diff": "Imports − exports",
+    "barImport": "In {{amount}}",
+    "barExport": "Out {{amount}}"
+  },
+  "expiry": {
+    "title": "Expiry",
+    "openHint": "Opens the list of batches by expiry date",
+    "cardA11y": "Expiry: {{expired}} expired, {{soon}} expiring soon",
+    "cardA11yExpiredFailed": "Expiry: expired count could not be loaded",
+    "cardA11ySoonLoading": "Expiry: {{expired}} expired, loading expiring-soon count",
+    "cardA11ySoonFailed": "Expiry: {{expired}} expired, expiring-soon count could not be loaded",
+    "overdue_one": "{{count}} day overdue",
+    "overdue_other": "{{count}} days overdue",
+    "today": "Today",
+    "left_one": "{{count}} day left",
+    "left_other": "{{count}} days left",
+    "rowA11y": "{{name}}, {{expiry}}, {{status}}",
+    "expiredUnit": " expired lots",
+    "soonUnit": " expiring soon",
+    "soonOnlyUnit": " lots expiring soon",
+    "when": "Today",
+    "rowExpired_one": "{{count}} batch expired",
+    "rowExpired_other": "{{count}} batches expired",
+    "rowSoon_one": "{{count}} batch expiring soon",
+    "rowSoon_other": "{{count}} batches expiring soon",
+    "andSoon_one": "and {{count}} batch expiring within {{days}} days",
+    "andSoon_other": "and {{count}} batches expiring within {{days}} days",
+    "soonFailedSub": "expiring-soon count could not be loaded"
+  },
+  "dateLine": "{{weekday}}, {{monthName}} {{day}}",
+  "dateLineA11y": "{{weekday}}, {{monthName}} {{day}}",
+  "monthName": {
+    "1": "January",
+    "2": "February",
+    "3": "March",
+    "4": "April",
+    "5": "May",
+    "6": "June",
+    "7": "July",
+    "8": "August",
+    "9": "September",
+    "10": "October",
+    "11": "November",
+    "12": "December"
+  },
+  "periodSeg": {
+    "day": "Day",
+    "week": "Week",
+    "month": "Month",
+    "year": "Year"
+  },
+  "periodBack": "Previous period",
+  "periodForward": "Next period",
+  "group": {
+    "attention": "Needs attention",
+    "money": "Money",
+    "stock": "Stock",
+    "activity": "Activity"
+  },
+  "now": "Now",
+  "openDetailHint": "Opens the detailed chart",
+  "compare": {
+    "yesterday": "yesterday",
+    "day": "{{date}}",
+    "lastWeek": "last week",
+    "week": "week of {{date}}",
+    "month": "{{month}}",
+    "year": "{{year}}"
+  },
+  "delta": {
+    "up": "▲ {{pct}}% vs {{name}}",
+    "down": "▼ {{pct}}% vs {{name}}",
+    "same": "Same as {{name}}",
+    "zero": "{{name}}: {{amount}}",
+    "upA11y": "up {{pct}}% vs {{name}}",
+    "downA11y": "down {{pct}}% vs {{name}}"
+  },
+  "stockOkUnit": "% healthy",
+  "stockBreakdown": "{{out}} out · {{low}} below min · {{high}} above max",
+  "activity": {
+    "title": "Confirmed forms",
+    "unit": " forms",
+    "imports": "{{count}} in",
+    "exports": "{{count}} out",
+    "a11y": "Confirmed forms: {{value}}"
+  },
+  "detail": {
+    "title": {
+      "import": "Goods in",
+      "export": "Goods out",
+      "activity": "Activity"
+    },
+    "total": "Total",
+    "count": "Forms",
+    "forms_one": "{{count}} form",
+    "forms_other": "{{count}} forms",
+    "mon": {
+      "1": "Jan",
+      "2": "Feb",
+      "3": "Mar",
+      "4": "Apr",
+      "5": "May",
+      "6": "Jun",
+      "7": "Jul",
+      "8": "Aug",
+      "9": "Sep",
+      "10": "Oct",
+      "11": "Nov",
+      "12": "Dec"
+    },
+    "monthTick": {
+      "1": "J",
+      "2": "F",
+      "3": "M",
+      "4": "A",
+      "5": "M",
+      "6": "J",
+      "7": "J",
+      "8": "A",
+      "9": "S",
+      "10": "O",
+      "11": "N",
+      "12": "D"
+    },
+    "bucket": {
+      "hour": "{{from}}–{{to}}",
+      "day": "{{weekday}}, {{date}}",
+      "month": "{{month}} {{year}}"
+    },
+    "avg": {
+      "hour": "Avg/hour {{value}}",
+      "day": "Avg/day {{value}}",
+      "month": "Avg/month {{value}}"
+    },
+    "highlightTitle": "Highlights",
+    "hl": {
+      "import": {
+        "hour": "The busiest hour for goods in was <b>{{when}}</b> with <b>{{value}}</b>",
+        "day": "The busiest day for goods in was <b>{{when}}</b> with <b>{{value}}</b>",
+        "month": "The busiest month for goods in was <b>{{when}}</b> with <b>{{value}}</b>"
+      },
+      "export": {
+        "hour": "The busiest hour for goods out was <b>{{when}}</b> with <b>{{value}}</b>",
+        "day": "The busiest day for goods out was <b>{{when}}</b> with <b>{{value}}</b>",
+        "month": "The busiest month for goods out was <b>{{when}}</b> with <b>{{value}}</b>"
+      },
+      "activity": {
+        "hour": "The hour with the most forms was <b>{{when}}</b> with <b>{{value}}</b>",
+        "day": "The day with the most forms was <b>{{when}}</b> with <b>{{value}}</b>",
+        "month": "The month with the most forms was <b>{{when}}</b> with <b>{{value}}</b>"
+      },
+      "times": {
+        "hour": " — {{times}}× the hourly average.",
+        "day": " — {{times}}× the daily average.",
+        "month": " — {{times}}× the monthly average."
+      },
+      "end": "."
+    },
+    "listTitle": "Forms in period",
+    "empty": "No forms in this period.",
+    "more": "Show more ({{count}})",
+    "listTruncated": "Too many forms to list — pick a shorter period.",
+    "kind": {
+      "import": "In",
+      "export": "Out"
+    },
+    "failed": "Couldn't load the figures. Pull down to retry.",
+    "loading": "Loading…",
+    "chartA11y": "{{name}} chart, {{span}}",
+    "chartHint": "Swipe up or down to step through the bars",
+    "openFormHint": "Opens the form"
+  },
+  "viewStock": "View stock",
+  "detailButton": "Details",
+  "todoNone": "Nothing pending",
+  "todoRow": {
+    "importDraft": "receipts awaiting check",
+    "exportPending": "issues awaiting approval",
+    "exportDraft": "draft issues",
+    "stockLow": "materials out / low",
+    "stockHigh": "materials over max"
+  },
+  "todoMainUnit_one": " task pending",
+  "todoMainUnit_other": " tasks pending"
+}

@@ -14,6 +14,7 @@ import {
 import { can, useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
 import {
+  exportHasPrice,
   exportInfoRows,
   exportItemAsLine,
   exportLineSummary,
@@ -38,7 +39,7 @@ import {
 import {
   ComposeSectionHeader,
   LineSummaryRow,
-  ReviewInfoGroup,
+  ReviewInfoCard,
   SummaryText,
   WizardBottomBar,
   WizardMainButton,
@@ -121,6 +122,7 @@ export function ExportDetailScreen() {
               // Nháp: dòng chưa gán lô sẽ tự chọn lô khi gửi duyệt → "Lô tự động"; phiếu đã giữ hàng /
               // đã xuất / đã huỷ không còn nghĩa "tự động" → không đoạn lô.
               lotLabel: form.status === 'DRAFT' ? lotLabelOf(item) : (lotLabelOf(item) ?? false),
+              priced: exportHasPrice(form.type),
               t,
               locale,
             }),
@@ -250,7 +252,7 @@ export function ExportDetailScreen() {
   const [dockHeight, setDockHeight] = useState(0)
 
   const listHeader = form ? (
-    <View style={{ gap: 18, paddingBottom: 18 }}>
+    <View style={{ gap: 14, paddingBottom: 14 }}>
       {query.isRefetchError ? (
         <ErrorBanner
           message={t('exportForms:view.refreshError')}
@@ -262,9 +264,9 @@ export function ExportDetailScreen() {
       <ExportDetailHero form={form} lineCount={items.length} locale={locale} />
       <View>
         <ComposeSectionHeader title={t('exportForms:view.info')} />
-        <ReviewInfoGroup rows={infoRows} testID="export-info" />
+        <ReviewInfoCard rows={infoRows} testID="export-info" />
         {form.file ? (
-          <View style={{ marginTop: 8 }}>
+          <View style={{ marginTop: 14 }}>
             <AttachmentRow
               testID="export-attachment"
               value={form.file}
@@ -291,6 +293,7 @@ export function ExportDetailScreen() {
           amount={<SummaryText segments={[{ text: summary.amount, tone: summary.amountTone }]} />}
           line2={<SummaryText segments={[{ text: summary.line2, tone: summary.line2Tone }]} />}
           line3={<SummaryText segments={summary.line3} />}
+          variant="card"
           first={index === 0}
           last={index === lines.length - 1}
           accessibilityLabel={summary.a11y}

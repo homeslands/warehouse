@@ -1,9 +1,10 @@
 // fake-api PHẢI được import trước mọi module kéo `@/shared/api/http` vào (xem fake-api.ts).
-import { ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
+import { callsTo, ok, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { QueryClient, QueryClientProvider } from '@tanstack/react-query'
 import { act, fireEvent, render, screen } from '@testing-library/react-native'
 
+import { importFormKeys } from '@/entities/import-form'
 import { useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { stopDraftPersistence, useReceiveDraft } from '@/features/receive-checklist'
@@ -133,5 +134,17 @@ describe('ImportSupplierSheetScreen', () => {
     route('get', '/suppliers', () => paged([]))
     await show()
     expect(screen.getByText('Chưa có bên bán nào')).toBeOnTheScreen()
+  })
+})
+
+describe('ImportSupplierSheetScreen — NCC mới tạo ở nơi khác', () => {
+  it('mở sheet luôn tải lại danh sách bên bán dù cache còn mới (NCC vừa tạo trên web hiện ra)', async () => {
+    // Cache còn "mới" (vừa tải xong) nhưng chưa có NCC tạo sau đó.
+    client.setQueryData(importFormKeys.suppliers(), SUPPLIERS)
+    const fresh = { slug: 's4', code: 'MP04', name: 'Minh Phát' }
+    route('get', '/suppliers', () => paged([fresh, ...SUPPLIERS]))
+    await show()
+    expect(callsTo('get', '/suppliers')).toHaveLength(1)
+    expect(card('Minh Phát')).toBeOnTheScreen()
   })
 })

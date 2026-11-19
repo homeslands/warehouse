@@ -8,6 +8,7 @@ import {
   importFormErrorMessage,
   receiveMode,
   useImportForm,
+  useSuppliers,
   type ImportFormAccess,
   type ReceiveMode,
 } from '@/entities/import-form'
@@ -21,12 +22,15 @@ import {
   linesTotal,
   progress,
   RECEIVE_CHECKLIST_ENABLED,
+  supplierNameLookup,
   useReceiveDraft,
+  willAttachToSupplier,
   deriveHeaderSupplier,
   type LineFilter,
   type LoadResult,
   type LocalLine,
   type StatusOptions,
+  useScanNotice,
 } from '@/features/receive-checklist'
 import { WarehouseTransition } from '@/features/warehouse-picker'
 import { useLineFocus } from '@/shared/lib/line-focus'
@@ -42,7 +46,6 @@ import { ReceiveHeader } from './ReceiveHeader'
 import { ReceiveRow } from './ReceiveRow'
 import { ReceiveTiles } from './ReceiveTiles'
 import { AndroidReceiveHeaderRight, receiveHeaderRightItems } from './receive-header'
-import { useScanNotice } from './scan-notice.store'
 import { conflictMessage, useReceiveActions } from './useReceiveActions'
 
 /**
@@ -438,7 +441,18 @@ export function ReceiveScreen() {
 
   // FlatList chỉ vẽ lại dòng khi `data`/`extraData` đổi: khoá khi gửi + dòng bị tô phải đi qua đây.
   const { flagged } = actions
-  const rowState = useMemo(() => ({ saving, flagged }), [saving, flagged])
+  // Viên "Mới với NCC" (chỉ phiếu Nháp): dòng mà lưu sẽ gắn vật tư vào bên bán CỦA DÒNG; tên tra theo
+  // slug (danh sách bên bán nếu đã có trong cache — không tải thêm — rồi tới các dòng).
+  const showAttach = ready && isDraftForm
+  const supplierList = useSuppliers(false).data
+  const supplierNameOf = useMemo(
+    () => supplierNameLookup({ suppliers: supplierList, lines }),
+    [supplierList, lines],
+  )
+  const rowState = useMemo(
+    () => ({ saving, flagged, showAttach, supplierNameOf }),
+    [saving, flagged, showAttach, supplierNameOf],
+  )
 
   const body =
     lines && head ? (
@@ -457,6 +471,10 @@ export function ReceiveScreen() {
             mode={tickUi ? 'check' : checklist ? 'review' : 'view'}
             disabled={rowState.saving}
             flagged={rowState.flagged.has(item.key)}
+            newToSupplier={rowState.showAttach && willAttachToSupplier(item)}
+            newToSupplierName={
+              item.supplierSlug ? rowState.supplierNameOf(item.supplierSlug) : null
+            }
             onToggle={onToggle}
             onOpen={onOpen}
           />

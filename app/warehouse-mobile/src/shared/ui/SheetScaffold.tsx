@@ -1,7 +1,9 @@
 import { Stack } from 'expo-router'
-import type { ReactNode, Ref } from 'react'
-import { Platform, type ScrollViewInstance } from 'react-native'
+import { HeaderHeightContext } from 'expo-router/react-navigation'
+import { use, type ReactNode, type Ref } from 'react'
+import { Platform, View, type ScrollViewInstance } from 'react-native'
 
+import { canUseLiquidGlass } from '../lib/liquid-glass'
 import { useTheme } from '../theme/useTheme'
 import { FormScrollView } from './FormScrollView'
 import { Screen } from './Screen'
@@ -27,6 +29,8 @@ export type SheetScaffoldProps = {
   scrollRef?: Ref<ScrollViewInstance>
   /** Nội dung ghim dưới vùng cuộn (vd nút "Thêm n vật tư"), nổi lên trên bàn phím. */
   bottom?: ReactNode
+  /** Nội dung ghim TRÊN vùng cuộn (không cuộn theo), vd ô tìm + hàng "Chọn tất cả" của bộ chọn. */
+  top?: ReactNode
   /** Nền `grouped` (xám kiểu Cài đặt iOS) cho sheet gồm các nhóm thẻ. */
   grouped?: boolean
   /** Cuộn tới gần cuối (còn ≤ 400pt) — vd tải trang danh sách tiếp theo. Gọi lặp khi còn cuộn: màn tự chặn. */
@@ -59,8 +63,14 @@ export function SheetScaffold({
   bottom,
   grouped = false,
   onEndReached,
+  top,
 }: SheetScaffoldProps) {
   const { colors } = useTheme()
+  // iOS 26 (nền kính): header sheet nằm ĐÈ lên nội dung — vùng cuộn tự chừa chỗ
+  // (`contentInsetAdjustmentBehavior`), còn phần ghim `top` nằm ngoài vùng cuộn nên phải tự đẩy xuống
+  // đúng chiều cao header (giá trị native báo về). Không có context (test) → 0.
+  const headerHeight = use(HeaderHeightContext) ?? 0
+  const topOffset = top && canUseLiquidGlass() ? headerHeight : 0
   return (
     // Header native lo mép trên; giữ hai bên + đáy (thanh home).
     <Screen
@@ -81,6 +91,13 @@ export function SheetScaffold({
           spinner: colors.foreground,
         })}
       />
+      {top ? (
+        <View
+          style={{ paddingHorizontal: 16, paddingTop: 8 + topOffset, paddingBottom: 4, gap: 4 }}
+        >
+          {top}
+        </View>
+      ) : null}
       <FormScrollView
         ref={scrollRef}
         bottom={bottom}

@@ -280,14 +280,51 @@ describe('AddLineSheetScreen — thêm dòng', () => {
     expect(added()).toMatchObject({ supplierSlug: 's9', supplierName: 'Bên bán mới' })
   })
 
-  it('phiếu trên server: vật tư không có NCC đầu phiếu nhưng chỉ có một NCC → NCC đó (luật suy ra)', async () => {
-    seed([makeLine(1)], { supplierSlug: 's2' })
-    await show()
-    await search('xi')
-    await pick(/Xi trắng/)
-    await fireEvent.changeText(screen.getByLabelText('Số lượng'), '1')
-    await pressSheetDone()
-    expect(added()).toMatchObject({ supplierSlug: 's1', supplierName: 'Hoà Phát' })
+  describe('phiếu đã có: bên bán của phiếu chỉ khi CHẮC (một bên bán + SUPPLIER_READ)', () => {
+    const supA = (n: number) => makeLine(n, { supplierSlug: 'sup-a', supplierName: 'Minh Phát' })
+    async function addXiTrang() {
+      await show()
+      await search('xi')
+      await pick(/Xi trắng/)
+      await fireEvent.changeText(screen.getByLabelText('Số lượng'), '1')
+      await pressSheetDone()
+    }
+
+    it('một bên bán + SUPPLIER_READ: dòng mới mang bên bán đó dù vật tư thuộc NCC khác', async () => {
+      signIn([
+        'IMPORT_FORM_READ',
+        'IMPORT_FORM_CREATE',
+        'IMPORT_FORM_UPDATE_DRAFT',
+        'SUPPLIER_READ',
+      ])
+      seed([supA(1), supA(2)], { supplierSlug: 'sup-a' })
+      await addXiTrang()
+      expect(added()).toMatchObject({
+        supplierSlug: 'sup-a',
+        supplierName: 'Minh Phát',
+        materialSupplierSlugs: ['s1'],
+      })
+    })
+
+    it('một bên bán nhưng KHÔNG có SUPPLIER_READ → luật lineSupplier (NCC duy nhất của vật tư)', async () => {
+      seed([supA(1), supA(2)], { supplierSlug: 'sup-a' })
+      await addXiTrang()
+      expect(added()).toMatchObject({ supplierSlug: 's1', supplierName: 'Hoà Phát' })
+    })
+
+    it('nhiều bên bán (đầu phiếu suy ra sup-a) + SUPPLIER_READ → luật lineSupplier, không gán sup-a', async () => {
+      signIn([
+        'IMPORT_FORM_READ',
+        'IMPORT_FORM_CREATE',
+        'IMPORT_FORM_UPDATE_DRAFT',
+        'SUPPLIER_READ',
+      ])
+      seed([supA(1), supA(2), makeLine(3, { supplierSlug: 's2', supplierName: 'Hà Tiên' })], {
+        supplierSlug: 'sup-a',
+      })
+      await addXiTrang()
+      expect(added()).toMatchObject({ supplierSlug: 's1', supplierName: 'Hoà Phát' })
+    })
   })
 
   it('đã đủ 200 dòng → báo, không thêm', async () => {

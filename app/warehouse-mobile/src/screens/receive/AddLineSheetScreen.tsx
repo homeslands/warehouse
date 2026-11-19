@@ -13,7 +13,15 @@ import {
 } from '@/entities/import-form'
 import { can, useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
-import { lineKey, MAX_ITEMS, newLocalLine, useReceiveDraft } from '@/features/receive-checklist'
+import {
+  fixedSupplierFor,
+  formSupplierSlug,
+  lineKey,
+  MAX_ITEMS,
+  newLocalLine,
+  useReceiveDraft,
+  baseUnitOf,
+} from '@/features/receive-checklist'
 import { formatQuantity, parseDecimalInput, type FormatLocale } from '@/shared/lib/format'
 import { haptics } from '@/shared/lib/haptics'
 import { useCloseSheet } from '@/shared/lib/useCloseSheet'
@@ -28,8 +36,6 @@ import {
   SheetScaffold,
   Text,
 } from '@/shared/ui'
-
-import { baseUnitOf } from './import-units'
 
 const SEARCH_DEBOUNCE_MS = 300
 /** Giới hạn cột DECIMAL(18,6) / DECIMAL(18,2) của backend (như web `shared/lib/number`). */
@@ -159,18 +165,17 @@ export function AddLineSheetScreen() {
       return
     }
     const store = useReceiveDraft.getState()
-    const headerSupplier = store.draft?.header.supplierSlug ?? null
-    // Phiếu tạo trên máy đã chọn bên bán: mọi dòng mang bên bán đó (spec §5.4).
-    const fixedSupplier =
-      isNew && headerSupplier
-        ? {
-            slug: headerSupplier,
-            name:
-              suppliers.data?.find((s) => s.slug === headerSupplier)?.name ??
-              picked.suppliers.find((s) => s.slug === headerSupplier)?.name ??
-              null,
-          }
-        : undefined
+    if (!store.draft) return
+    const headerSupplier = store.draft.header.supplierSlug
+    // Phiếu có "bên bán của phiếu" (chỉ khi chắc — `formSupplierSlug`): mọi dòng mang bên bán đó (backend
+    // tự gắn vật tư vào bên bán). Không có → luật `lineSupplier` (không tạo liên kết mới).
+    const formSupplier = formSupplierSlug(store.draft, user)
+    const fixedSupplier = fixedSupplierFor({
+      formSupplier,
+      material: picked,
+      lines: store.draft.lines,
+      knownName: suppliers.data?.find((s) => s.slug === formSupplier)?.name,
+    })
     const line = newLocalLine({
       material: picked,
       unit,

@@ -1,8 +1,9 @@
 import { useRouter } from 'expo-router'
+import { useRef } from 'react'
 
 import { useInventory, type InventoryItem } from '@/entities/inventory'
 import { useWarehouseStore } from '@/entities/warehouse'
-import { ScanSheet, type MatchResult } from '@/features/scan-material'
+import { ScanMatchScreen, type MatchResult } from '@/features/scan-material'
 import { useCloseSheet } from '@/shared/lib/useCloseSheet'
 
 import { useStockFilter } from './stock-filter.store'
@@ -14,7 +15,14 @@ import { useStockFilter } from './stock-filter.store'
  * "Không tìm thấy vật tư khớp “…”".
  */
 export function ScanMaterialSheetScreen() {
-  const close = useCloseSheet()
+  const closeSheet = useCloseSheet()
+  // Đóng đúng MỘT lần: khớp → close + push chi tiết; ✕ lúc đang trượt đóng không được `back()` thêm khỏi trang chi tiết.
+  const closed = useRef(false)
+  const close = () => {
+    if (closed.current) return
+    closed.current = true
+    closeSheet()
+  }
   const router = useRouter()
   const warehouseSlug = useWarehouseStore((s) => s.current?.slug)
   const { data, errorUpdateCount, isFetching, refetch } = useInventory(warehouseSlug)
@@ -33,7 +41,7 @@ export function ScanMaterialSheetScreen() {
   }
 
   return (
-    <ScanSheet
+    <ScanMatchScreen
       items={data}
       failed={!data && errorUpdateCount > 0}
       retrying={isFetching}

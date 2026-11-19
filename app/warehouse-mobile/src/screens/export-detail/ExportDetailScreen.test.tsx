@@ -183,7 +183,8 @@ afterEach(async () => {
 
 describe('ExportDetailScreen — đầu phiếu', () => {
   it('tiêu đề = mã phiếu; viên trạng thái + viên loại, người nhận đậm, tổng tiền, "3 dòng · đã giữ hàng" (PENDING)', async () => {
-    route('get', FORM_URL, () => ok(makeForm()))
+    // Phiếu Bán: loại duy nhất có Tổng cộng (đơn giá).
+    route('get', FORM_URL, () => ok(makeForm({ type: 'SALE' })))
     await show()
     expect(mockHeader.options.title).toBe('PX-20261105-0001')
     expect(screen.getByText('Chờ duyệt')).toBeOnTheScreen()
@@ -194,7 +195,7 @@ describe('ExportDetailScreen — đầu phiếu', () => {
     expect(screen.getByTestId('export-detail-status-dot')).toHaveStyle({
       backgroundColor: lightColors.accentText,
     })
-    expect(screen.getAllByText('Sản xuất').length).toBeGreaterThan(0)
+    expect(screen.getAllByText('Bán').length).toBeGreaterThan(0)
     expect(screen.getByText('Tổng cộng')).toBeOnTheScreen()
     expect(flat(screen.getAllByText('Tổ hàn A')[0])).toMatchObject({
       fontSize: 20,
@@ -362,7 +363,12 @@ describe('ExportDetailScreen — dòng vật tư và nhãn lô', () => {
 
   it('dòng như bước 3 của form: tên, số lượng × đơn giá, thành tiền, mã vật tư, ghi chú dòng; không bấm được', async () => {
     route('get', FORM_URL, () =>
-      ok(makeForm({ items: [item(1, { quantity: 2.5, amount: 50_000, note: 'Giao gấp' })] })),
+      ok(
+        makeForm({
+          type: 'SALE',
+          items: [item(1, { quantity: 2.5, amount: 50_000, note: 'Giao gấp' })],
+        }),
+      ),
     )
     await show()
     expect(screen.getByText('Thép cuộn 1')).toBeOnTheScreen()
@@ -681,5 +687,22 @@ describe('ExportDetailScreen — tải / làm mới', () => {
     expect(mockHandOff).toHaveBeenCalledWith('/export-form/new/info')
     expect(mockReplace).not.toHaveBeenCalled()
     expect(callsTo('get', '/warehouses/wh-a/export-forms/new')).toHaveLength(0)
+  })
+
+  describe('ExportDetailScreen — phiếu không phải Bán', () => {
+    it('không Tổng cộng, dòng chỉ "số đơn vị" (không × đơn giá, không thành tiền)', async () => {
+      route('get', FORM_URL, () =>
+        ok(
+          makeForm({
+            type: 'PRODUCTION',
+            items: [item(1, { quantity: 2.5, amount: 0, unitPrice: 0 })],
+          }),
+        ),
+      )
+      await show()
+      expect(screen.queryByText('Tổng cộng')).toBeNull()
+      expect(screen.queryByTestId('export-detail-hero-total')).toBeNull()
+      expect(screen.queryByText(/×/)).toBeNull()
+    })
   })
 })

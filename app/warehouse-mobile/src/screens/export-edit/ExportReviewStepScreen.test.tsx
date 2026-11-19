@@ -243,7 +243,7 @@ describe('ExportReviewStepScreen — phiếu đã có', () => {
       within(screen.getByTestId('export-review-list')).getByTestId('export-wizard-steps-3'),
     ).toBeOnTheScreen()
     const info = within(screen.getByTestId('export-review-info'))
-    expect(info.getByText('Sản xuất')).toBeOnTheScreen()
+    expect(info.getByText('Bán')).toBeOnTheScreen()
     expect(info.getByText('PX-1')).toBeOnTheScreen()
     expect(info.getByText('PO-1')).toBeOnTheScreen()
     expect(info.getByText('Bếp A')).toBeOnTheScreen()

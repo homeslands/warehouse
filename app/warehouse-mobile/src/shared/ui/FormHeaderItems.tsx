@@ -1,4 +1,4 @@
-import { ScanBarcode } from './icons'
+import { Plus, ScanBarcode } from './icons'
 import type { NativeStackHeaderItem } from 'expo-router'
 import type { ColorValue } from 'react-native'
 import { Pressable, View } from 'react-native'
@@ -76,6 +76,41 @@ export function AndroidScanButton({ label, onPress }: HeaderAction) {
       })}
     >
       <ScanBarcode size={22} color={colors.foreground} aria-hidden />
+    </Pressable>
+  )
+}
+
+/**
+ * iOS: nút "+" GỐC trên header (tạo mới — phiếu nhập/xuất, vật tư), kiểu app Apple thay cho nút nổi.
+ * `type: 'button'`, SF Symbol `plus`, nhãn đọc màn hình = `label`.
+ */
+export function addHeaderItem({ label, onPress }: HeaderAction): NativeStackHeaderItem {
+  return {
+    type: 'button',
+    label,
+    accessibilityLabel: label,
+    icon: { type: 'sfSymbol', name: 'plus' },
+    onPress,
+  }
+}
+
+/** Android: nút "+" phẳng, vùng chạm 44 (cặp với `addHeaderItem`). */
+export function AndroidAddButton({ label, onPress }: HeaderAction) {
+  const { colors } = useTheme()
+  return (
+    <Pressable
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        width: 44,
+        height: 44,
+        alignItems: 'center',
+        justifyContent: 'center',
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <Plus size={22} color={colors.foreground} aria-hidden />
     </Pressable>
   )
 }

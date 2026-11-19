@@ -9,6 +9,8 @@ export type SectionFooterProps = Pick<TextProps, 'accessibilityRole'> & {
   numeric?: boolean
   /** `success` cho thông báo xong việc. */
   tone?: 'default' | 'success'
+  /** Lề trái/phải của chữ; dưới thẻ variant card truyền `CARD_CONTENT_INSET` (20). */
+  inset?: number
 }
 
 /** Chú thích nhỏ dưới một `ListGroup`. */
@@ -16,6 +18,7 @@ export function SectionFooter({
   children,
   tone = 'default',
   numeric,
+  inset = 16,
   ...rest
 }: SectionFooterProps) {
   const { colors } = useTheme()
@@ -27,7 +30,7 @@ export function SectionFooter({
     <Text
       numeric={numeric}
       size={12}
-      style={{ color, lineHeight: 17, paddingHorizontal: 16, paddingTop: 6 }}
+      style={{ color, lineHeight: 17, paddingHorizontal: inset, paddingTop: 6 }}
       {...rest}
     >
       {children}

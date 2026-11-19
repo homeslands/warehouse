@@ -3,6 +3,7 @@ import { act, fireEvent, render, screen } from '@testing-library/react-native'
 import { useAuthStore, type UserWarehouse } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { changeLanguage, initI18n } from '@/shared/i18n'
+import { lightColors } from '@/shared/theme/tokens'
 
 import { WarehouseList } from './WarehouseList'
 
@@ -93,7 +94,7 @@ describe('WarehouseList', () => {
     })
   })
 
-  it('ADMIN: hiện MỌI kho đã tải (không phải user.warehouses), kho đã tắt có viên "Đã tắt"', async () => {
+  it('ADMIN: hiện MỌI kho đã tải (không phải user.warehouses), kho đã tắt có chấm đỏ (nhãn truy cập "Đã tắt")', async () => {
     adminWith([
       wh(1, { name: 'Kho Tổng', isActive: true }),
       wh(2, { name: 'Kho Cũ', isActive: false }),
@@ -102,7 +103,17 @@ describe('WarehouseList', () => {
     await render(<WarehouseList selectedSlug={undefined} onPressWarehouse={jest.fn()} />)
     expect(screen.getAllByRole('button')).toHaveLength(3)
     expect(screen.getByRole('header', { name: '3 kho của bạn' })).toBeOnTheScreen()
-    expect(screen.getAllByText('Đã tắt')).toHaveLength(1)
+    expect(screen.queryByText('Đã tắt')).toBeNull()
+    expect(
+      screen.getByTestId('warehouse-status-wh-2', { includeHiddenElements: true }),
+    ).toHaveStyle({
+      backgroundColor: lightColors.destructive,
+    })
+    expect(
+      screen.getByTestId('warehouse-status-wh-1', { includeHiddenElements: true }),
+    ).toHaveStyle({
+      backgroundColor: lightColors.success,
+    })
     expect(screen.getByRole('button', { name: 'Kho Cũ, WH2, Đã tắt' })).toBeOnTheScreen()
     // ADMIN không là thành viên: không gắn chip "Thành viên"; kho mình quản lý vẫn có "Quản lý".
     expect(screen.queryByText('Thành viên')).toBeNull()
@@ -110,11 +121,21 @@ describe('WarehouseList', () => {
     expect(screen.getByRole('button', { name: 'Kho Tổng, WH1' })).toBeOnTheScreen()
   })
 
-  it('ADMIN, bảng đổi kho (cards): cũng có viên "Đã tắt"', async () => {
+  it('ADMIN, bảng đổi kho (cards): chấm trạng thái xanh (hoạt động) / đỏ (đã tắt) thay viên "Đã tắt"; nhãn truy cập vẫn có "Đã tắt"', async () => {
     adminWith([wh(1), wh(2, { name: 'Kho Cũ', isActive: false })])
     await render(<WarehouseList variant="cards" selectedSlug="wh-1" onPressWarehouse={jest.fn()} />)
     expect(screen.getAllByTestId(/^warehouse-card-wh-/)).toHaveLength(2)
-    expect(screen.getAllByText('Đã tắt')).toHaveLength(1)
+    expect(screen.queryByText('Đã tắt')).toBeNull()
+    expect(
+      screen.getByTestId('warehouse-status-wh-1', { includeHiddenElements: true }),
+    ).toHaveStyle({
+      backgroundColor: lightColors.success,
+    })
+    expect(
+      screen.getByTestId('warehouse-status-wh-2', { includeHiddenElements: true }),
+    ).toHaveStyle({
+      backgroundColor: lightColors.destructive,
+    })
     expect(screen.getByRole('button', { name: 'Kho Cũ, WH2, Đã tắt' })).toBeOnTheScreen()
   })
 

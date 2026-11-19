@@ -80,6 +80,29 @@ describe('LineSummaryRow', () => {
     expect(screen.getByTestId('row-hairline')).toHaveStyle({ left: 64 })
   })
 
+  it("mặc định giữ kiểu cũ (bo 26, lề 16, ô icon 36 bo 10); variant='card' → bo 24, lề 20, vòng 40", async () => {
+    await show({ first: true, last: true, icon: 'import' })
+    expect(screen.getByTestId('row')).toHaveStyle({
+      borderTopLeftRadius: radius.groupLarge,
+      paddingLeft: 16,
+    })
+    expect(screen.getByTestId('row-icon')).toHaveStyle({ width: 36, height: 36, borderRadius: 10 })
+
+    await show({ first: true, last: true, icon: 'import', variant: 'card' })
+    expect(screen.getByTestId('row')).toHaveStyle({
+      borderTopLeftRadius: radius.card,
+      borderBottomLeftRadius: radius.card,
+      paddingLeft: 20,
+    })
+    expect(screen.getByTestId('row-icon')).toHaveStyle({ width: 40, height: 40, borderRadius: 20 })
+
+    await show({ first: false, last: false, variant: 'card' })
+    expect(screen.getByTestId('row')).toHaveStyle({
+      borderTopLeftRadius: 0,
+      borderBottomLeftRadius: 0,
+    })
+  })
+
   it('icon đầu thẻ: nền accent nhạt; dòng thiếu (warning) → nền cam nhạt', async () => {
     await show({ icon: 'import' })
     expect(screen.getByTestId('row-icon')).toHaveStyle({ backgroundColor: lightColors.accentSoft })

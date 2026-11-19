@@ -479,6 +479,8 @@ export function useReceiveActions(context: ReceiveActionsContext): ReceiveAction
       } else void kv.remove(newKey)
       queryClient.setQueryData(importFormKeys.detail(wh, created.slug), created)
       void queryClient.invalidateQueries({ queryKey: [...importFormKeys.warehouse(wh), 'list'] })
+      // Tạo phiếu có thể gắn vật tư ↔ bên bán → bộ chọn tải lại.
+      void queryClient.invalidateQueries({ queryKey: importFormKeys.availablePrefix(wh) })
 
       // "Lưu & xác nhận": xác nhận phiếu vừa tạo (không áp cho phiếu mở lại — xem trên).
       let confirmError: string | null = null
@@ -760,6 +762,8 @@ export function useReceiveActions(context: ReceiveActionsContext): ReceiveAction
         if (ownsDraft()) useReceiveDraft.getState().adoptServerForm(saved)
         await putDetail(saved)
         void queryClient.invalidateQueries({ queryKey: [...importFormKeys.warehouse(wh), 'list'] })
+        // Lưu có thể gắn vật tư ↔ bên bán (dòng mang bên bán vật tư chưa có) → bộ chọn tải lại.
+        void queryClient.invalidateQueries({ queryKey: importFormKeys.availablePrefix(wh) })
       }
       if (kind === 'save') {
         haptics.success()

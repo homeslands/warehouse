@@ -25,7 +25,7 @@ export type GlassCircleButtonProps = {
 
 /**
  * Nút tròn Liquid Glass tương tác (`GlassView isInteractive`), dự phòng là hình tròn đặc + bóng nhẹ.
- * Dùng chung cho nút nổi tạo phiếu (`FloatingCreateButton`) và nút "+" ở đáy màn phiếu nhập.
+ * Dùng cho nút "+" ở đáy màn phiếu nhập và nút của màn quét (nút nổi tạo phiếu đã bỏ 2026-11-19 — "+" lên header).
  *
  * KHÔNG đặt opacity/scale lên GlassView hay cha của nó (alpha < 1 làm mất hiệu ứng kính); phản hồi
  * nhấn của kính do `isInteractive` lo. Chỉ nhánh dự phòng mới mờ/thu nhỏ khi nhấn.

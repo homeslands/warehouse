@@ -5,10 +5,13 @@ import { createDraftPersistence } from '@/shared/lib/draft-persistence'
 import { kv } from '@/shared/storage/kv'
 
 import {
+  clampSerials,
   draftFromForm,
   exportLineKey,
   hasEdits,
+  lineSerials,
   newExportDraft,
+  normSerial,
   type ExportDraft,
   type ExportHeader,
   type ExportHeaderField,
@@ -33,6 +36,7 @@ export type LinePatch = Partial<
     | 'batchSlug'
     | 'batchExpiryDate'
     | 'note'
+    | 'serials'
   >
 >
 
@@ -113,11 +117,20 @@ type DraftState = {
    * người dùng nên chưa lưu `kv` — lần sửa đầu tiên mới ghi. Chưa nạp phiếu nào → bỏ qua.
    */
   seed: (draft: ExportDraft) => void
-  /** "Bỏ thay đổi": xoá bản lưu và bản trong bộ nhớ. */
+  /** Bỏ hẳn bản nháp (phiếu mới, xoá phiếu, phiếu không còn): xoá bản lưu và bản trong bộ nhớ. */
   discard: () => Promise<void>
   /**
-   * Sau Lưu / Tạo thành công: dựng lại từ phiếu server. Không còn gì chỉ có trên máy nên xoá bản lưu
-   * cũ (cả khoá `new` lẫn khoá của phiếu) — để bản cũ lại sẽ hồi sinh phần đã gửi ở lần mở sau.
+   * "Bỏ thay đổi trên máy" của phiếu đã có: dựng lại từ `form` nhưng GIỮ serial đã quét (chỉ có trên máy)
+   * theo khoá dòng, cắt theo số lượng server — serial chỉ được nối vào cuối nên N serial đầu là phần đã
+   * lưu. Phiếu còn Nháp và còn serial → ghi ngay bản dựng lại xuống `kv`; không thì xoá bản lưu. Tăng
+   * `session` như `discard` (kết quả async cũ không gắn nhầm). Store không giữ phiếu `form.slug` → bỏ qua.
+   */
+  discardEdits: (form: ExportForm) => Promise<void>
+  /**
+   * Sau Lưu / Tạo thành công: dựng lại từ phiếu server, mang serial đã quét (chỉ có trên máy) theo khoá
+   * dòng từ bản nháp trước sang (cắt theo số lượng server). Phiếu còn Nháp và có serial → ghi bản nháp
+   * xuống khoá của phiếu (lần mở sau vẫn chặn quét trùng); không thì xoá bản lưu của phiếu — để bản cũ
+   * lại sẽ hồi sinh phần đã gửi ở lần mở sau. Khoá `new` (khi phiếu mới vừa tạo) luôn bị xoá.
    */
   adoptServerForm: (form: ExportForm) => void
   /** Hết phiên: chỉ xoá bộ nhớ (sau khi ghi nốt phần đang chờ); bản đã lưu được GIỮ. */
@@ -139,8 +152,45 @@ export function isValidDraft(v: unknown): v is ExportDraft {
       typeof l.materialSlug === 'string' &&
       typeof l.unitSlug === 'string' &&
       typeof l.quantity === 'number' &&
-      typeof l.conversionRate === 'number',
+      typeof l.conversionRate === 'number' &&
+      (l.serials === undefined ||
+        (Array.isArray(l.serials) && l.serials.every((x) => typeof x === 'string'))),
   )
+}
+
+/**
+ * Serial của bản lưu: chuẩn hoá (`normSerial`), bỏ rỗng, bỏ trùng (giữ lần đầu), cắt theo số lượng.
+ * Không đổi gì thì trả đúng `d` (không gây ghi lại thừa).
+ */
+function withCleanSerials(d: ExportDraft): ExportDraft {
+  let changed = false
+  const lines = d.lines.map((l) => {
+    if (l.serials === undefined) return l
+    const unique = [...new Set(l.serials.map(normSerial).filter((x) => x !== ''))]
+    const serials = clampSerials(unique, l.quantity, l.conversionRate)
+    if (serials.length === l.serials.length && serials.every((x, i) => x === l.serials![i])) {
+      return l
+    }
+    changed = true
+    return { ...l, serials }
+  })
+  return changed ? { ...d, lines } : d
+}
+
+const hasSerials = (d: ExportDraft) => d.lines.some((l) => lineSerials(l).length > 0)
+
+/** Mang serial theo khoá dòng từ bản nháp trước sang bản dựng từ server (cắt theo số lượng mới). */
+function carrySerials(prev: ExportDraft | null, next: ExportDraft): ExportDraft {
+  const byKey = new Map<string, string[]>()
+  for (const l of prev?.lines ?? []) if (lineSerials(l).length > 0) byKey.set(l.key, lineSerials(l))
+  if (byKey.size === 0) return next
+  const lines = next.lines.map((l) => {
+    const serials = byKey.get(l.key)
+    if (!serials) return l
+    const kept = clampSerials(serials, l.quantity, l.conversionRate)
+    return kept.length > 0 ? { ...l, serials: kept } : l
+  })
+  return { ...next, lines }
 }
 
 /**
@@ -200,20 +250,28 @@ export const useExportDraft = create<DraftState>((set, get) => {
       const valid = isValidDraft(raw)
       if (raw !== null && !valid) await kv.remove(keyOf(ctx))
       if (mine !== epoch) return NOTHING_LOADED
-      const saved = valid ? withHeaderBase(raw) : null
+      const saved = valid ? withCleanSerials(withHeaderBase(raw)) : null
       let draft: ExportDraft | null
       let removed: string[] = []
       let headerConflicts: ExportHeaderField[] = []
       let merged = false
-      if (saved && form && saved.version !== form.version) {
+      // Bản lưu không có sửa nào (chỉ còn serial sau Lưu nháp) mà version đổi: không có gì để gộp —
+      // dựng lại từ server, chỉ mang serial theo (không báo "đã đổi trên server").
+      const serialsOnly = !!saved && !!form && saved.version !== form.version && !hasEdits(saved)
+      if (serialsOnly) draft = carrySerials(saved, draftFromForm(form))
+      else if (saved && form && saved.version !== form.version) {
         merged = true
         ;({ draft, removed, headerConflicts } = mergeAfterConflict(saved, form))
       } else if (saved) draft = saved
       else if (form) draft = draftFromForm(form)
       else draft = ctx.formSlug === 'new' ? newExportDraft() : null
       set({ ctx, draft })
-      // Chỉ ghi khi đã có thay đổi của người dùng: bản dựng mới không ghi; bản đã gộp thì ghi.
-      if (saved && draft !== saved) schedulePersist()
+      // Chỉ ghi khi đã có thay đổi của người dùng: bản dựng mới không ghi; bản đã gộp thì ghi. Bản chỉ
+      // mang serial: còn serial thì ghi, hết thì xoá bản lưu (không còn gì trên máy).
+      if (serialsOnly) {
+        if (hasSerials(draft!)) schedulePersist()
+        else await kv.remove(keyOf(ctx))
+      } else if (saved && draft !== saved) schedulePersist()
       return {
         local: !!saved,
         edited: !!saved && hasEdits(saved),
@@ -230,7 +288,8 @@ export const useExportDraft = create<DraftState>((set, get) => {
       if (draft.lines.some((l) => l.key === key)) {
         return { ok: false, reason: 'duplicate', existingKey: key }
       }
-      change((d) => ({ ...d, lines: [...d.lines, { ...line, key }] }))
+      const serials = line.serials && clampSerials(line.serials, line.quantity, line.conversionRate)
+      change((d) => ({ ...d, lines: [...d.lines, { ...line, key, ...(serials && { serials }) }] }))
       return { ok: true, key }
     },
 
@@ -241,6 +300,9 @@ export const useExportDraft = create<DraftState>((set, get) => {
       const next = { ...draft.lines[i]!, ...patch }
       // Đổi đơn vị / lô đổi khoá dòng (khoá = vật tư + đơn vị + lô).
       next.key = exportLineKey(next)
+      // Sửa số lượng / đơn vị không được để serial vượt `floor(quantity × rate)`.
+      if (next.serials)
+        next.serials = clampSerials(next.serials, next.quantity, next.conversionRate)
       if (next.key !== key && draft.lines.some((l) => l.key === next.key)) {
         return { ok: false, reason: 'duplicate', existingKey: next.key }
       }
@@ -275,14 +337,30 @@ export const useExportDraft = create<DraftState>((set, get) => {
       if (ctx) await kv.remove(keyOf(ctx))
     },
 
+    async discardEdits(form) {
+      const { ctx, draft: prev } = get()
+      if (!ctx || ctx.formSlug !== form.slug) return
+      ++epoch
+      cancelTimer()
+      const draft = carrySerials(prev, draftFromForm(form))
+      set((st) => ({ draft, session: st.session + 1 }))
+      if (form.status === 'DRAFT' && hasSerials(draft)) {
+        schedulePersist()
+        await flush()
+      } else await kv.remove(keyOf(ctx))
+    },
+
     adoptServerForm(form) {
-      const { ctx } = get()
+      const { ctx, draft: prev } = get()
       if (!ctx) return
       const nextCtx = { ...ctx, formSlug: form.slug }
+      const draft = carrySerials(prev, draftFromForm(form))
+      const keep = form.status === 'DRAFT' && hasSerials(draft)
       cancelTimer()
-      void kv.remove(keyOf(ctx))
-      void kv.remove(keyOf(nextCtx))
-      set({ ctx: nextCtx, draft: draftFromForm(form) })
+      if (!keep || keyOf(ctx) !== keyOf(nextCtx)) void kv.remove(keyOf(ctx))
+      if (!keep) void kv.remove(keyOf(nextCtx))
+      set({ ctx: nextCtx, draft })
+      if (keep) schedulePersist()
     },
 
     reset() {

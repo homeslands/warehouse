@@ -21,9 +21,37 @@ export function lineSupplier(
 export type FixedSupplier = { slug: string; name: string | null }
 
 /**
- * Dòng thêm trên máy: coi như đã kiểm, `base` null (không có số trên phiếu). `fixedSupplier` (phiếu
- * tạo trên máy có bên bán đầu phiếu): MỌI dòng mang bên bán đó — một phiếu một bên bán, backend tự gắn
- * bên bán vào vật tư chưa có. Không có → luật suy ra `lineSupplier` (phiếu đã có trên server).
+ * Bên bán gắn cứng cho dòng mới khi phiếu có "bên bán của phiếu" (`formSupplierSlug` — phiếu mới: bên
+ * bán bước 1; phiếu đã có: chỉ khi chắc chắn); `null` → `undefined` (dùng luật `lineSupplier`). Tên:
+ * `knownName` (danh sách bên bán) → `material.suppliers` → dòng có sẵn trong phiếu cùng slug → null.
+ */
+export function fixedSupplierFor({
+  formSupplier,
+  material,
+  lines,
+  knownName,
+}: {
+  formSupplier: string | null
+  material: Pick<AvailableMaterial, 'suppliers'>
+  lines: readonly Pick<LocalLine, 'supplierSlug' | 'supplierName'>[]
+  knownName?: string | null
+}): FixedSupplier | undefined {
+  if (!formSupplier) return undefined
+  return {
+    slug: formSupplier,
+    name:
+      knownName ??
+      material.suppliers.find((s) => s.slug === formSupplier)?.name ??
+      lines.find((l) => l.supplierSlug === formSupplier && l.supplierName)?.supplierName ??
+      null,
+  }
+}
+
+/**
+ * Dòng thêm trên máy: coi như đã kiểm, `base` null (không có số trên phiếu). `fixedSupplier` (phiếu có
+ * "bên bán của phiếu" — `fixedSupplierFor`): MỌI dòng mang bên bán đó — một phiếu một bên bán, backend
+ * tự gắn bên bán vào vật tư chưa có. Không có → luật suy ra `lineSupplier(material, headerSupplier)`
+ * (chỉ lấy NCC mà vật tư ĐÃ có, không bao giờ tạo liên kết mới).
  */
 export function newLocalLine({
   material,
@@ -57,6 +85,7 @@ export function newLocalLine({
     note: null,
     checked: true,
     changedOnServer: false,
+    materialSupplierSlugs: material.suppliers.map((s) => s.slug),
   }
 }
 

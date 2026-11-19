@@ -9,8 +9,8 @@ import { useWarehouseStore } from '@/entities/warehouse'
 import {
   availableInLineUnit,
   exportLineSummary,
+  exportHasPrice,
   linesTotal,
-  MAX_ITEMS,
   useExportDraft,
   useLotInfo,
   type ExportLine,
@@ -40,13 +40,10 @@ import {
 import { ExportStepLoadState, ExportStepNotices } from './ExportStepParts'
 import { useExportWizardLabels } from './useExportWizardLabels'
 import { exportMissingLabel } from './export-missing'
-import { useExportScanNotice } from './scan-notice.store'
 import { exportWizardLeave, useExportActions } from './useExportActions'
 import { useExportDraftMenu } from './useExportDraftMenu'
 import { useExportStepNotices } from './useExportStepNotices'
 import { useExportWizardDraft } from './useExportWizardDraft'
-
-const clearScanNotice = () => useExportScanNotice.getState().clear()
 
 /**
  * Bước 2 "Vật tư" của phiếu xuất (modal `/export-form/[formSlug]/edit`, spec form-wizard §5,
@@ -54,10 +51,9 @@ const clearScanNotice = () => useExportScanNotice.getState().clear()
  * bước 2) ✕ đóng modal, màn được đẩy lên ‹ (back gốc — lùi một bước); "Phiếu
  * xuất mới" / "Sửa phiếu" + "Bước 2/3 · Vật tư" [quét] [⋯ — Lưu nháp / Bỏ / Xoá nháp]; vạch tiến độ + MỘT
  * khối nhóm "Vật tư · n": mỗi vật tư một dòng CHỈ ĐỌC (`LineSummaryRow` trong `SwipeToDelete`, chạm → sheet
- * sửa dòng `/export-line`), dòng cuối "⊕ Thêm vật tư"; trống → khối chỉ có "⊕ Thêm vật tư" + câu xám; thanh
+ * sửa dòng `/export-line`), dòng cuối "Quét mã" (mở sheet quét liên tục — vật tư chỉ vào phiếu bằng quét nhãn); trống → khối chỉ có "Quét mã" + câu xám; thanh
  * đáy có nền: [thông báo mức phiếu] [tóm tắt "n vật tư · k chưa đủ" (chạm phần cam → sheet của dòng thiếu
- * đầu tiên) + tổng tiền] [gợi ý "Thông tin phiếu còn thiếu" → bước 1] ["Tiếp tục" → bước 3]. Dòng vừa thêm
- * (bộ chọn) / vừa quét → sheet của dòng đó tự mở (`useComposeLineOpen`). Nạp / gác quyền bản nháp ở
+ * đầu tiên) + tổng tiền] [gợi ý "Thông tin phiếu còn thiếu" → bước 1] ["Tiếp tục" → bước 3]. Nạp / gác quyền bản nháp ở
  * `useExportWizardDraft` (dùng chung mọi bước).
  */
 export function ExportItemsStepScreen() {
@@ -86,21 +82,11 @@ export function ExportItemsStepScreen() {
   const writing = busy !== null || saving
   const lines: ExportLine[] | null = ready && draft ? draft.lines : null
   const total = useMemo(() => linesTotal(lines ?? []), [lines])
+  // Chỉ phiếu Bán có đơn giá (như web): loại khác không hiện giá / thành tiền / tổng.
+  const priced = exportHasPrice(draft?.header.type)
 
-  // Mã quét trong phiếu không khớp dòng / vật tư nào (sheet `/scan-export-line` ghi, xem scan-notice.store).
-  const scan = useExportScanNotice((s) => (s.notice?.formSlug === formSlug ? s.notice : null))
-  const scanNotice = scan
-    ? scan.reason === 'full'
-      ? t('exportForms:edit.scanFull', { code: scan.code, max: MAX_ITEMS })
-      : scan.reason === 'noUnit'
-        ? t('exportForms:edit.scanNoUnit', { code: scan.code })
-        : t('exportForms:edit.scanNotFound', { code: scan.code })
-    : null
   // (Lưu nháp trùng mã: `useExportActions` về bước 1 — lỗi hiện dưới ô Mã phiếu ở đó.)
-  const extra = useMemo(() => ({ message: scanNotice, dismiss: clearScanNotice }), [scanNotice])
-  const notices = useExportStepNotices(formSlug, extra)
-  // Rời màn thì bỏ thông báo quét (không để nó hiện lại ở phiếu khác).
-  useEffect(() => clearScanNotice, [])
+  const notices = useExportStepNotices(formSlug)
 
   // "còn n": tồn của kho (dòng lô tự động) + thông tin lô (dòng chọn lô; cũng cho ngày nhập của nhãn).
   const inventory = useInventory(warehouseSlug)
@@ -110,18 +96,15 @@ export function ExportItemsStepScreen() {
   )
   const lots = useLotInfo(warehouseSlug, lines ?? undefined)
 
-  // Sheet sửa dòng: chạm dòng / phần thiếu → mở thường; dòng vừa thêm / vừa quét (yêu cầu `useLineFocus`
-  // của bộ chọn / sheet quét) → tự mở MỘT lần khi màn được focus lại, ô số focus sẵn.
+  // Sheet sửa dòng: chạm dòng / phần thiếu. (Vật tư chỉ vào phiếu bằng quét liên tục ở `/scan-export-line`,
+  // không còn yêu cầu mở sheet dòng sau khi thêm.)
   const { openLine } = useComposeLineOpen({
     kind: 'export',
     formSlug,
-    href: (key, { justAdded }) => {
+    href: (key) => {
       const state = useExportDraft.getState()
       if (state.saving || !state.draft?.lines.some((l) => l.key === key)) return null
-      return {
-        pathname: '/export-line',
-        params: justAdded ? { key, focus: 'quantity' } : { key },
-      }
+      return { pathname: '/export-line', params: { key } }
     },
   })
   /** Vuốt xoá: dòng có sẵn trên server → hỏi lại; dòng mới thêm trên máy → xoá ngay (spec §5.2). */
@@ -148,11 +131,6 @@ export function ExportItemsStepScreen() {
 
   const openScan = useCallback(() => {
     router.navigate('/scan-export-line')
-    // `router` đổi định danh mỗi lần render.
-    // eslint-disable-next-line react-hooks/exhaustive-deps
-  }, [])
-  const openAdd = useCallback(() => {
-    router.navigate('/export-add-line')
     // `router` đổi định danh mỗi lần render.
     // eslint-disable-next-line react-hooks/exhaustive-deps
   }, [])
@@ -190,16 +168,16 @@ export function ExportItemsStepScreen() {
   }, [incomplete, other, t])
   const goTo = useCallback(
     (target: MissingTarget) => {
-      if (target.kind === 'lines') openAdd()
+      if (target.kind === 'lines') openScan()
       else if (target.kind === 'line') openLine(target.key)
     },
-    [openAdd, openLine],
+    [openScan, openLine],
   )
   /** Tới chỗ thiếu ĐẦU TIÊN của bước 2: sheet của dòng thiếu đầu tiên, không thì mục khác. `false` = đủ. */
-  // Gợi ý a11y của phần cam = việc `toFirstGap` sẽ làm (chưa có dòng → mở bộ chọn, không phải "mở dòng").
+  // Gợi ý a11y của phần cam = việc `toFirstGap` sẽ làm (chưa có dòng → mở màn quét, không phải "mở dòng").
   const gapHint = t(
     !incomplete[0] && other[0]?.target.kind === 'lines'
-      ? 'exportForms:wizard.goToAdd'
+      ? 'exportForms:wizard.goToScan'
       : 'exportForms:wizard.goToMissing',
   )
   const toFirstGap = () => {
@@ -231,7 +209,7 @@ export function ExportItemsStepScreen() {
   const { goToStep } = nav
   const canNext = canEnterStep3(step1Ok, step2Ok)
   // "Tiếp tục" TRÔNG như khoá khi chưa vào được bước 3 nhưng vẫn bấm được: bấm → rung lỗi + sheet của dòng
-  // thiếu đầu tiên (chưa có dòng → bộ chọn); chỉ bước 1 thiếu → về bước 1. Đủ → bước 3.
+  // thiếu đầu tiên (chưa có dòng → màn quét); chỉ bước 1 thiếu → về bước 1. Đủ → bước 3.
   const nextHint = !canNext
     ? gapText
       ? t('exportForms:wizard.stillMissing', { fields: gapText })
@@ -270,8 +248,8 @@ export function ExportItemsStepScreen() {
   const { shortages } = notices
   // FlatList chỉ vẽ lại dòng khi `data`/`extraData` đổi: khoá khi ghi, thiếu hàng, tồn / lô, trùng phải qua đây.
   const rowState = useMemo(
-    () => ({ writing, shortages, stockBySlug, lots, duplicates }),
-    [writing, shortages, stockBySlug, lots, duplicates],
+    () => ({ writing, shortages, stockBySlug, lots, duplicates, priced }),
+    [writing, shortages, stockBySlug, lots, duplicates, priced],
   )
   const now = new Date()
 
@@ -298,12 +276,12 @@ export function ExportItemsStepScreen() {
   )
   const listFooter = (
     <View>
-      {/* "⊕ Thêm vật tư" là thẻ riêng như mỗi vật tư (cách thẻ trên 10). */}
+      {/* "Quét mã" là thẻ riêng như mỗi vật tư (cách thẻ trên 10). */}
       <View>
         <AddLineRow
           testID="export-items-add"
-          label={t('exportForms:wizard.add')}
-          onPress={openAdd}
+          label={t('exportForms:wizard.scan')}
+          onPress={openScan}
           disabled={writing}
           first
         />
@@ -347,6 +325,7 @@ export function ExportItemsStepScreen() {
             shortage: rowState.shortages.get(item.key),
             baseUnitName: rowState.stockBySlug.get(item.materialSlug)?.baseUnit?.name ?? null,
             duplicate: rowState.duplicates.has(item.key),
+            priced: rowState.priced,
             t,
             locale,
           })
@@ -468,9 +447,11 @@ export function ExportItemsStepScreen() {
                       </Pressable>
                     ) : null}
                   </View>
-                  <Text testID="export-items-total" numeric weight="bold" size={18}>
-                    {formatMoney(total, locale)}
-                  </Text>
+                  {priced ? (
+                    <Text testID="export-items-total" numeric weight="bold" size={18}>
+                      {formatMoney(total, locale)}
+                    </Text>
+                  ) : null}
                 </View>
                 {step2Ok && !step1Ok ? (
                   <Pressable

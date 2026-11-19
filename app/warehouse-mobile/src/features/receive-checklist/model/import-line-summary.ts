@@ -3,6 +3,7 @@ import type { TFunction } from 'i18next'
 import type { ImportFormItem } from '@/entities/import-form'
 
 import type { LocalLine } from './draft'
+import { willAttachToSupplier } from './form-supplier'
 import { formatFullDate, formatMoney, formatQuantity, type FormatLocale } from '@/shared/lib/format'
 import { lineAmount } from '@/shared/lib/line-amount'
 import { round6 } from '@/shared/lib/round'
@@ -18,6 +19,11 @@ export type ImportLineSummaryContext = {
   formDate: string
   t: TFunction
   locale: FormatLocale
+  /**
+   * Tra tên bên bán theo slug (`supplierNameLookup`). Dòng mà lưu sẽ gắn vật tư vào bên bán CỦA DÒNG
+   * (`willAttachToSupplier`) thêm "Mới với <tên>" sau mã; không tra được → tên chụp trên dòng → "bên bán".
+   */
+  supplierNameOf?: (slug: string) => string | null
 }
 
 /**
@@ -58,6 +64,15 @@ export function importLineSummary(line: LocalLine, ctx: ImportLineSummaryContext
       tone: 'muted',
     },
   ]
+  if (line.supplierSlug !== null && willAttachToSupplier(line)) {
+    const name = ctx.supplierNameOf?.(line.supplierSlug) ?? line.supplierName
+    line3.splice(1, 0, {
+      text: name
+        ? t('importForms:wizard.row.newToSupplier', { name })
+        : t('importForms:wizard.row.newToSupplierNoName'),
+      tone: 'muted',
+    })
+  }
   if (qtyMissing && line.base !== null) {
     line3.push({ text: t('importForms:wizard.zeroHint'), tone: 'muted' })
   }

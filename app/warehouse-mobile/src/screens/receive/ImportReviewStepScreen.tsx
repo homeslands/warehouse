@@ -3,7 +3,7 @@ import { useCallback, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { FlatList, View } from 'react-native'
 
-import { useReceiveDraft } from '@/features/receive-checklist'
+import { supplierNameLookup, useReceiveDraft } from '@/features/receive-checklist'
 import { WarehouseTransition } from '@/features/warehouse-picker'
 import type { FormatLocale } from '@/shared/lib/format'
 import { canEnterStep3, stepStatus, type WizardStep } from '@/shared/lib/wizard-steps'
@@ -85,7 +85,12 @@ export function ImportReviewStepScreen() {
       supplierRequired,
       onPress: noop,
     })
-    return importReview(draft, { supplierName: supplier?.name ?? null, t, locale })
+    return importReview(draft, {
+      supplierName: supplier?.name ?? null,
+      supplierNameOf: supplierNameLookup({ suppliers, lines: draft.lines }),
+      t,
+      locale,
+    })
   }, [ready, draft, isNew, canPickSupplier, suppliers, supplierRequired, t, locale])
 
   const status = useMemo(
@@ -178,6 +183,8 @@ export function ImportReviewStepScreen() {
     <ReviewNotes
       title={t('importForms:wizard.review.warnings')}
       warnings={shown.warnings}
+      supplierNote={shown.supplierNote}
+      supplierNoteTestID="import-review-supplier-note"
       // Có quyền xác nhận: nói rõ khác nhau giữa hai nút (như web).
       footnote={canConfirm ? t('importForms:wizard.review.footnoteConfirm') : shown.footnote}
       warningsTestID="import-review-warnings"

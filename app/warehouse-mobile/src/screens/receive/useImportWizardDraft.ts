@@ -193,7 +193,7 @@ export function useImportWizardDraft(formSlug: string): ImportWizardDraft {
 
   // Bên bán chọn được: phiếu mới + `SUPPLIER_READ`; bắt buộc khi kho có danh sách bên bán.
   const canPickSupplier = isNew && !!user && can(user, 'SUPPLIER_READ')
-  const suppliers = useSuppliers(canPickSupplier)
+  const suppliers = useSuppliers(canPickSupplier, { refreshOnOpen: true })
   const supplierRequired = canPickSupplier && (suppliers.data?.length ?? 0) > 0
   // Thêm vật tư mới (bộ chọn / quét thêm dòng) cần IMPORT_FORM_CREATE: backend gác `available-materials`
   // bằng quyền này. Người chỉ sửa nháp vẫn sửa / xoá / quét tới các dòng đã có.

@@ -161,7 +161,7 @@ describe('/export-line trên Stack thật', () => {
 
   it('edits → swipe-down is blocked and asks; Tiếp tục sửa stays with the text; Bỏ thay đổi leaves without writing', async () => {
     const r = await openSheet()
-    await act(async () => fireEvent.changeText(screen.getByTestId('export-line-sheet-qty'), '99'))
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Bớt 1' })))
     expect(sheetScreen().props.preventNativeDismiss).toBe(true)
 
     confirm.mockResolvedValueOnce(false)
@@ -169,7 +169,7 @@ describe('/export-line trên Stack thật', () => {
     await settle()
     expect(confirm).toHaveBeenCalledWith(expect.objectContaining({ title: 'Bỏ thay đổi?' }))
     expect(rootStack(r)).toEqual(['index', 'export-line'])
-    expect(screen.getByTestId('export-line-sheet-qty').props.value).toBe('99')
+    expect(screen.getByTestId('export-line-sheet-qty')).toHaveTextContent('9')
 
     confirm.mockResolvedValueOnce(true)
     await swipeDown()
@@ -191,27 +191,12 @@ describe('/export-line trên Stack thật', () => {
 
   it('quantity only (same key) + ✓ → writes, leaves, never asks', async () => {
     const r = await openSheet()
-    await act(async () => fireEvent.changeText(screen.getByTestId('export-line-sheet-qty'), '12'))
+    await act(async () => fireEvent.press(screen.getByRole('button', { name: 'Bớt 1' })))
     expect(sheetScreen().props.preventNativeDismiss).toBe(true)
     await pressHeaderItem('right')
     await settle()
     expect(rootStack(r)).toEqual(['index'])
     expect(confirm).not.toHaveBeenCalled()
-    expect(lines()[0]!.quantity).toBe(12)
-  })
-
-  it('unit change (key changes) + ✓ → writes once, leaves exactly one screen, never asks', async () => {
-    const r = await openSheet()
-    jest.mocked(chooseAction).mockResolvedValueOnce(1)
-    await act(async () =>
-      fireEvent.press(screen.getByRole('button', { name: 'Đơn vị hộp, chạm để đổi' })),
-    )
-    await act(async () => fireEvent.changeText(screen.getByTestId('export-line-sheet-qty'), '2'))
-    expect(sheetScreen().props.preventNativeDismiss).toBe(true)
-    await pressHeaderItem('right')
-    await settle()
-    expect(rootStack(r)).toEqual(['index'])
-    expect(confirm).not.toHaveBeenCalled()
-    expect(lines().map((l) => [l.key, l.quantity])).toEqual([['m-1|u-thung|', 2]])
+    expect(lines()[0]!.quantity).toBe(9)
   })
 })

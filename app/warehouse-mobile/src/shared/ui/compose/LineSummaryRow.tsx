@@ -108,6 +108,11 @@ export type LineSummaryRowProps = {
   /** Nhãn đọc của cả dòng (tên + số × giá + thiếu gì) — màn ghép sẵn đã dịch. */
   accessibilityLabel: string
   testID?: string
+  /**
+   * `card`: kiểu card Tổng quan (màn chi tiết phiếu) — bo 24 ở đầu / cuối khối, lề trong 20, icon trong vòng
+   * tròn 40, kẻ mảnh thụt 72. Mặc định giữ nguyên (bước 2 / 3 của form).
+   */
+  variant?: 'default' | 'card'
 }
 
 /**
@@ -134,15 +139,20 @@ export const LineSummaryRow = memo(function LineSummaryRow({
   disabled = false,
   accessibilityLabel,
   testID,
+  variant = 'default',
 }: LineSummaryRowProps) {
   const { colors, radius } = useTheme()
   const swipeA11y = useSwipeDeleteA11y()
-  const top = first ? radius.groupLarge : 0
-  const bottom = last ? radius.groupLarge : 0
+  const isCard = variant === 'card'
+  const edge = isCard ? radius.card : radius.groupLarge
+  const inset = isCard ? 20 : ROW_INSET
+  const box = isCard ? 40 : ICON_BOX
+  const top = first ? edge : 0
+  const bottom = last ? edge : 0
   const frame = {
     minHeight: 44,
     paddingVertical: 12,
-    paddingLeft: ROW_INSET,
+    paddingLeft: inset,
     paddingRight: 12,
     flexDirection: 'row',
     alignItems: 'center',
@@ -151,6 +161,7 @@ export const LineSummaryRow = memo(function LineSummaryRow({
     borderTopRightRadius: top,
     borderBottomLeftRadius: bottom,
     borderBottomRightRadius: bottom,
+    ...(isCard ? { borderCurve: 'continuous' as const } : null),
   } as const
   const Glyph = icon === 'export' ? PackageMinus : PackagePlus
 
@@ -164,7 +175,7 @@ export const LineSummaryRow = memo(function LineSummaryRow({
             position: 'absolute',
             top: 0,
             right: 0,
-            left: icon ? ROW_INSET + ICON_BOX + ICON_GAP : ROW_INSET,
+            left: icon ? inset + box + ICON_GAP : inset,
             height: StyleSheet.hairlineWidth,
             backgroundColor: colors.separator,
           }}
@@ -174,9 +185,9 @@ export const LineSummaryRow = memo(function LineSummaryRow({
         <View
           testID={testID ? `${testID}-icon` : undefined}
           style={{
-            width: ICON_BOX,
-            height: ICON_BOX,
-            borderRadius: 10,
+            width: box,
+            height: box,
+            borderRadius: isCard ? box / 2 : 10,
             alignItems: 'center',
             justifyContent: 'center',
             backgroundColor: warning ? colors.warningSoft : colors.accentSoft,
