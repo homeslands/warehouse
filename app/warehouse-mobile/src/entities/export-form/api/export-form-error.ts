@@ -62,6 +62,7 @@ const ERROR_KEYS: Record<number, string> = {
   101436: 'codeSearchInvalid',
   101437: 'notPending',
   101438: 'cannotBeCancelled',
+  101440: 'fileRequired',
   [BATCH_INSUFFICIENT_CODE]: 'shortage',
   [INVENTORY_INSUFFICIENT_CODE]: 'shortage',
 }

@@ -92,3 +92,20 @@ describe('exportMissing — đơn giá chỉ ở phiếu Bán', () => {
     expect(exportMissing(d, t).some((m) => m.group === 'price')).toBe(true)
   })
 })
+
+describe('exportMissing — chứng từ bắt buộc cho Xuất huỷ (DISPOSAL)', () => {
+  it('DISPOSAL thiếu file → thiếu header:file; có file hoặc loại khác → không thiếu', () => {
+    const d = makeDraft([makeLine(1, { unitPrice: null })])
+    d.header = { ...d.header, type: 'DISPOSAL', file: null }
+    expect(exportMissing(d, t)).toEqual([
+      { id: 'header:file', group: 'file', target: { kind: 'header', field: 'file' } },
+    ])
+    expect(exportMissingLabel(t)('file', 1)).toBe('Chứng từ')
+
+    d.header = { ...d.header, type: 'DISPOSAL', file: 'https://s3.test/bien-ban.pdf' }
+    expect(exportMissing(d, t)).toEqual([])
+
+    d.header = { ...d.header, type: 'PRODUCTION', file: null }
+    expect(exportMissing(d, t)).toEqual([])
+  })
+})

@@ -11,7 +11,11 @@ import {
   Matches,
   MaxLength,
   Min,
+  registerDecorator,
+  ValidateIf,
   ValidateNested,
+  ValidationArguments,
+  ValidationOptions,
 } from 'class-validator';
 import { Transform, Type } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
@@ -34,6 +38,31 @@ import {
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const upper = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toUpperCase() : value;
+
+/**
+ * Bắt buộc có chứng từ khi tạo phiếu xuất huỷ (`DISPOSAL`). `UpdateExportFormRequestDto` bỏ qua
+ * bước này vì PATCH có thể chỉ sửa 1 phần field khác — service kiểm tra trạng thái sau khi gộp.
+ */
+function IsRequiredWhenDisposal(validationOptions?: ValidationOptions) {
+  return function (object: object, propertyName: string) {
+    registerDecorator({
+      name: 'isRequiredWhenDisposal',
+      target: object.constructor,
+      propertyName,
+      options: validationOptions,
+      validator: {
+        validate(value: unknown, args: ValidationArguments) {
+          if (args.object instanceof UpdateExportFormRequestDto) return true;
+          const obj = args.object as { type?: ExportFormType };
+          if (obj.type !== ExportFormType.Disposal) return true;
+          // Giá trị sai kiểu (không phải string) nhường cho `@IsString` báo `EXPORT_FORM_FILE_INVALID`.
+          if (value !== undefined && value !== null && typeof value !== 'string') return true;
+          return typeof value === 'string' && value.trim().length > 0;
+        },
+      },
+    });
+  };
+}
 
 /**
  * 1 dòng vật tư trong body. Tỉ lệ quy đổi, mã/tên, `baseQuantity`, `amount` do server tính/chép.
@@ -127,12 +156,18 @@ export class CreateExportFormRequestDto {
 
   @AutoMap()
   @ApiPropertyOptional({
-    description: 'S3 link returned by `POST .../export-forms/upload-file` — stored as-is',
+    description:
+      'S3 link returned by `POST .../export-forms/upload-file` — stored as-is (required when type is DISPOSAL)',
   })
-  @IsOptional()
+  @ValidateIf(
+    (o: CreateExportFormRequestDto) =>
+      (!(o instanceof UpdateExportFormRequestDto) && o.type === ExportFormType.Disposal) ||
+      (o.file !== undefined && o.file !== null),
+  )
   @Transform(trim)
   @IsString({ message: 'EXPORT_FORM_FILE_INVALID' })
   @MaxLength(EXPORT_FORM_FILE_MAX_LENGTH, { message: 'EXPORT_FORM_FILE_INVALID' })
+  @IsRequiredWhenDisposal({ message: 'EXPORT_FORM_FILE_IS_REQUIRED' })
   file?: string;
 
   @AutoMap()

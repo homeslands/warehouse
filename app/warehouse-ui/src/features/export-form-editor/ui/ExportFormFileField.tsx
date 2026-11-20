@@ -9,6 +9,7 @@ import type { ExportFormValues } from '../model/export-form-editor.schema'
 type Props = {
   form: UseFormReturn<ExportFormValues>
   warehouseSlug: string
+  required?: boolean
   onUploadingChange: (uploading: boolean) => void
 }
 
@@ -21,7 +22,7 @@ const MESSAGES = {
 const displayName = (value: string) => fileDisplayName(value.split('/').pop() ?? value)
 
 /** Ô "Chứng từ đính kèm" của phiếu xuất — bọc mỏng quanh `FileUploadField`. */
-export function ExportFormFileField({ form, warehouseSlug, onUploadingChange }: Props) {
+export function ExportFormFileField({ form, warehouseSlug, required, onUploadingChange }: Props) {
   const { t } = useTranslation('exportForms')
   const upload = useCallback(
     (file: File) => uploadExportFormFile(warehouseSlug, file),
@@ -32,6 +33,7 @@ export function ExportFormFileField({ form, warehouseSlug, onUploadingChange }: 
       form={form}
       name="file"
       label={t('fieldFile')}
+      required={required}
       upload={upload}
       displayName={displayName}
       onUploadingChange={onUploadingChange}

@@ -14,11 +14,19 @@ const values = (over: Record<string, unknown> = {}) =>
   ({ type: 'SALE', receiver: 'A', purchaseOrder: 'PO', items: [line()], ...over }) as never
 
 describe('exportFormStepStatus', () => {
-  it('① xong khi có type, người nhận, PO', () => {
+  it('① xong khi có type, người nhận, PO (và chứng từ nếu Xuất huỷ)', () => {
     expect(exportFormStepStatus(values(), { sale: true }).infoDone).toBe(true)
     expect(exportFormStepStatus(values({ type: undefined }), { sale: true }).infoDone).toBe(false)
     expect(exportFormStepStatus(values({ receiver: ' ' }), { sale: true }).infoDone).toBe(false)
     expect(exportFormStepStatus(values({ purchaseOrder: '' }), { sale: true }).infoDone).toBe(false)
+    expect(
+      exportFormStepStatus(values({ type: 'DISPOSAL', file: '  ' }), { sale: false }).infoDone,
+    ).toBe(false)
+    expect(
+      exportFormStepStatus(values({ type: 'DISPOSAL', file: 'https://s3.test/a.pdf' }), {
+        sale: false,
+      }).infoDone,
+    ).toBe(true)
   })
 
   it('② Bán cần đơn giá ≥ 0', () => {
