@@ -1,5 +1,5 @@
 import { useRouter } from 'expo-router'
-import { Globe, KeyRound, Package, Ruler, Tag, Warehouse } from '@/shared/ui/icons'
+import { Eye, Globe, KeyRound, Package, Ruler, SunMoon, Tag, Warehouse } from '@/shared/ui/icons'
 import { type ReactNode } from 'react'
 import { useTranslation } from 'react-i18next'
 import { ScrollView, View } from 'react-native'
@@ -9,6 +9,7 @@ import { materialTypeAbilities } from '@/entities/material-type'
 import { useAuthStore } from '@/entities/session'
 import { unitAbilities } from '@/entities/unit'
 import { useWarehouseStore } from '@/entities/warehouse'
+import { useCurrentAppearance } from '@/features/appearance-switch'
 import { usePasswordNotice } from '@/features/change-password'
 import { useCurrentLanguage } from '@/features/language-switch'
 import { useLogoutAction } from '@/features/logout'
@@ -46,7 +47,7 @@ function Section({ title, children }: { title?: string; children: ReactNode }) {
 
 /**
  * Tài khoản kiểu trang "Tài khoản Apple" (iOS 26/27): đầu trang căn giữa (avatar, tên, vai trò), nhóm
- * "Làm việc" (kho), nhóm "Cài đặt" (ngôn ngữ, đổi mật khẩu), nhóm đăng xuất chữ đỏ căn giữa (hỏi lại
+ * "Làm việc" (kho), nhóm "Cài đặt" (ngôn ngữ, giao diện, đổi mật khẩu), nhóm đăng xuất chữ đỏ căn giữa (hỏi lại
  * bằng hộp thoại gốc), chân màn "Kho · phiên bản · Sandbox". Mỗi nhóm có icon là một card `ListGroup variant="iconCard"` (vòng icon xám, lề quanh vòng cân 12), khoảng giữa card 14.
  */
 export function AccountScreen() {
@@ -55,6 +56,7 @@ export function AccountScreen() {
   const user = useAuthStore((s) => s.user)
   const warehouse = useWarehouseStore((s) => s.current)
   const language = useCurrentLanguage()
+  const appearance = useCurrentAppearance()
   const logout = useLogoutAction('this-device')
   const logoutAll = useLogoutAction('all-devices')
   const passwordChanged = usePasswordNotice((s) => s.changed)
@@ -131,6 +133,13 @@ export function AccountScreen() {
               onPress={() => router.navigate('/language')}
             />
             <ListRow
+              icon={SunMoon}
+              label={t('common:appearance')}
+              value={appearance.label}
+              chevron
+              onPress={() => router.navigate('/appearance')}
+            />
+            <ListRow
               icon={KeyRound}
               label={t('account:changePassword')}
               chevron
@@ -146,6 +155,20 @@ export function AccountScreen() {
             </SectionFooter>
           ) : null}
         </Section>
+
+        {/* Chỉ bản dev: công cụ kiểm thử, bản phát hành không có. */}
+        {__DEV__ ? (
+          <Section title={t('account:devSection')}>
+            <ListGroup variant="iconCard">
+              <ListRow
+                icon={Eye}
+                label={t('account:replayWelcome')}
+                chevron
+                onPress={() => router.navigate('/welcome-preview')}
+              />
+            </ListGroup>
+          </Section>
+        ) : null}
 
         <Section>
           <ListGroup variant="card" inset={20}>

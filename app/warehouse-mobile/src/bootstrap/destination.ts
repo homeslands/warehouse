@@ -5,15 +5,24 @@ import { hasBusinessTab, tabsFor } from './tabs'
 
 /**
  * Nơi app phải đứng, suy ra thuần từ `(status, kho, user)`. `splash` = chưa biết (đang khởi động /
- * đang nạp hồ sơ / đang resolve kho). `noWarehouse` và `noAccess` cùng route `/no-access`.
+ * đang nạp hồ sơ / đang resolve kho). `noWarehouse` và `noAccess` cùng route `/no-access`. `welcome` = màn
+ * chào một lần, thay cho `login` khi máy chưa xem (`welcomeSeen`, mặc định coi như đã xem).
  */
 export type Destination =
-  'splash' | 'offline' | 'login' | 'noWarehouse' | 'select-warehouse' | 'noAccess' | 'tabs'
+  | 'splash'
+  | 'offline'
+  | 'welcome'
+  | 'login'
+  | 'noWarehouse'
+  | 'select-warehouse'
+  | 'noAccess'
+  | 'tabs'
 
 export function destinationFor(
   status: AuthStatus,
   resolution: Resolution | null,
   user: CurrentUser | null,
+  welcomeSeen = true,
 ): Destination {
   switch (status) {
     case 'loading':
@@ -21,7 +30,7 @@ export function destinationFor(
     case 'offline':
       return 'offline'
     case 'unauthenticated':
-      return 'login'
+      return welcomeSeen ? 'login' : 'welcome'
     case 'authenticated':
       if (resolution === null) return 'splash'
       if (resolution === 'none') return 'noWarehouse'
@@ -37,6 +46,8 @@ export function destinationFor(
  */
 export function hrefFor(destination: Destination, user: CurrentUser | null): string | null {
   switch (destination) {
+    case 'welcome':
+      return '/welcome'
     case 'login':
       return '/login'
     case 'select-warehouse':

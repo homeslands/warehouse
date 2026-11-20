@@ -1,6 +1,6 @@
 # warehouse-mobile
 
-App di động React Native + Expo (SDK 58, React Native 0.88, React 19.3, TypeScript ~6.0), điều hướng bằng Expo Router. Dùng chung `warehouse-api` với web, không sửa backend. Luồng: đăng nhập → chọn kho → 5 tab (Tổng quan, Nhập "Nhận hàng", Xuất, Tồn kho, Tài khoản). Mô tả đầy đủ hiện trạng: `docs/agents/app-scope.md`.
+App di động React Native + Expo (SDK 58, React Native 0.88, React 19.3, TypeScript ~6.0), điều hướng bằng Expo Router. Dùng chung `warehouse-api` với web, không sửa backend. Luồng: (màn chào, chỉ lần đầu cài) → đăng nhập → chọn kho → 5 tab (Tổng quan, Nhập "Nhận hàng", Xuất, Tồn kho, Tài khoản). Mô tả đầy đủ hiện trạng: `docs/agents/app-scope.md`.
 
 ## Lệnh (Node 24: `source ~/.nvm/nvm.sh && nvm use 24`)
 
@@ -24,8 +24,8 @@ app/         route Expo Router, mỏng: chỉ render screen
 src/
   shared/    config, theme, ui, i18n, storage, api   (không import lớp trên)
   entities/  session, warehouse, inventory, import-form, export-form, user, unit, material-type, material   (chỉ import shared)
-  features/  auth-login, warehouse-picker, change-password, logout, language-switch, overview-period, scan-material, receive-checklist, list-filters, catalog-form, material-form, warehouse-assign
-  screens/   overview, overview-detail, import-list, export-list, import-detail, export-detail, export-edit, receive, login, select-warehouse, change-password, language, no-access, offline, account, stock, stock-detail, catalog-form, catalog-list, catalog-detail, material-list, material-detail, material-form, conversion-unit-form, warehouse-assign
+  features/  auth-login, warehouse-picker, change-password, logout, language-switch, appearance-switch, onboarding, overview-period, scan-material, receive-checklist, list-filters, catalog-form, material-form, warehouse-assign, reorder
+  screens/   welcome, overview, overview-detail, import-list, export-list, import-detail, export-detail, export-edit, receive, login, select-warehouse, change-password, language, appearance, no-access, offline, account, stock, stock-detail, catalog-form, catalog-list, catalog-detail, material-list, material-detail, material-form, conversion-unit-form, warehouse-assign, reorder
   bootstrap/ providers, SessionGate, session-wiring, tabs, TabsLayout, TabStackLayout, FormModalStackLayout, routing.test.tsx
 ```
 
@@ -70,22 +70,23 @@ src/
 
 Chỉ đọc file khớp với việc đang làm; mỗi file bắt đầu bằng dòng "Đọc khi".
 
-| Khu vực                          | File                                    | Đọc khi                                                                                              |
-| -------------------------------- | --------------------------------------- | ---------------------------------------------------------------------------------------------------- |
-| Hiện trạng tính năng             | `docs/agents/app-scope.md`              | cần biết app có những tab/tính năng nào                                                              |
-| Tab, header, điều hướng          | `docs/agents/header-tabs-navigation.md` | sửa NativeTabs, header tab/Stack, `tabHeaderRight`, nâng SDK (API `unstable_*`)                      |
-| Bottom sheet                     | `docs/agents/sheets.md`                 | thêm/sửa sheet, `SHEET_ROUTES`, đóng sheet, test sheet                                               |
-| Bàn phím                         | `docs/agents/keyboard.md`               | màn/sheet có ô nhập                                                                                  |
-| Danh mục                         | `docs/agents/catalog.md`                | danh mục đơn vị / loại vật tư / vật tư + quy đổi, gắn / gỡ kho, sheet tạo/sửa/xoá, lọc máy / tìm API |
-| Tab Tổng quan                    | `docs/agents/overview-tab.md`           | sửa tab Tổng quan, số đếm, preset bộ lọc (`useRoutePreset`)                                          |
-| Tab Tồn kho                      | `docs/agents/stock-tab.md`              | danh sách tồn, lọc, chi tiết vật tư, quét mã                                                         |
-| Danh sách phiếu nhập             | `docs/agents/import-list.md`            | tab Nhập: danh sách, bộ lọc, `features/list-filters`                                                 |
-| Nhận hàng / Kiểm hàng            | `docs/agents/import-checklist.md`       | màn xem phiếu nhập, checklist, `useReceiveDraft`                                                     |
-| Soạn phiếu nhập                  | `docs/agents/import-wizard.md`          | form 3 bước nhập, sheet dòng/chọn vật tư/bên bán                                                     |
-| Tab Xuất: danh sách, xem, entity | `docs/agents/export-list-detail.md`     | danh sách/xem phiếu xuất, `entities/export-form`                                                     |
-| Soạn phiếu xuất                  | `docs/agents/export-wizard.md`          | form 3 bước xuất, sheet, `features/export-draft`                                                     |
-| Bộ khung form 3 bước             | `docs/agents/compose-kit.md`            | `shared/ui/compose`, wizard helpers, tổng quan luồng 3 bước                                          |
-| Kho, phiên, token, HTTP          | `docs/agents/warehouses-session.md`     | phiên, token, chọn/đổi kho, nguồn kho theo vai trò                                                   |
-| Nền tảng giao diện               | `docs/agents/ui-foundations.md`         | chữ, theme, ListGroup, motion, haptics, nút kính, tiền, confirm/guarded action, i18n                 |
-| Thư viện native                  | `docs/agents/native-libs.md`            | Expo Go vs build riêng, camera, datetimepicker, glass, blur, gesture-handler                         |
-| Test                             | `docs/agents/testing.md`                | jest setup, reanimated, fake-api, helper test header/tab                                             |
+| Khu vực                          | File                                    | Đọc khi                                                                                                            |
+| -------------------------------- | --------------------------------------- | ------------------------------------------------------------------------------------------------------------------ |
+| Hiện trạng tính năng             | `docs/agents/app-scope.md`              | cần biết app có những tab/tính năng nào                                                                            |
+| Tab, header, điều hướng          | `docs/agents/header-tabs-navigation.md` | sửa NativeTabs, header tab/Stack, `tabHeaderRight`, nâng SDK (API `unstable_*`)                                    |
+| Bottom sheet                     | `docs/agents/sheets.md`                 | thêm/sửa sheet, `SHEET_ROUTES`, đóng sheet, test sheet                                                             |
+| Bàn phím                         | `docs/agents/keyboard.md`               | màn/sheet có ô nhập                                                                                                |
+| Danh mục                         | `docs/agents/catalog.md`                | danh mục đơn vị / loại vật tư / vật tư + quy đổi, gắn / gỡ kho, sheet tạo/sửa/xoá, lọc máy / tìm API               |
+| Tab Tổng quan                    | `docs/agents/overview-tab.md`           | sửa tab Tổng quan, số đếm, preset bộ lọc (`useRoutePreset`)                                                        |
+| Tab Tồn kho                      | `docs/agents/stock-tab.md`              | danh sách tồn, lọc, chi tiết vật tư, quét mã                                                                       |
+| Đề xuất đặt hàng                 | `docs/agents/reorder.md`                | màn `/stock/reorder`, sheet `/reorder-line`, `features/reorder` (mức đỏ/vàng, nhóm bên bán, chia sẻ, dấu "đã đặt") |
+| Danh sách phiếu nhập             | `docs/agents/import-list.md`            | tab Nhập: danh sách, bộ lọc, `features/list-filters`                                                               |
+| Nhận hàng / Kiểm hàng            | `docs/agents/import-checklist.md`       | màn xem phiếu nhập, checklist, `useReceiveDraft`                                                                   |
+| Soạn phiếu nhập                  | `docs/agents/import-wizard.md`          | form 3 bước nhập, sheet dòng/chọn vật tư/bên bán                                                                   |
+| Tab Xuất: danh sách, xem, entity | `docs/agents/export-list-detail.md`     | danh sách/xem phiếu xuất, `entities/export-form`                                                                   |
+| Soạn phiếu xuất                  | `docs/agents/export-wizard.md`          | form 3 bước xuất, sheet, `features/export-draft`                                                                   |
+| Bộ khung form 3 bước             | `docs/agents/compose-kit.md`            | `shared/ui/compose`, wizard helpers, tổng quan luồng 3 bước                                                        |
+| Kho, phiên, token, HTTP          | `docs/agents/warehouses-session.md`     | phiên, token, chọn/đổi kho, nguồn kho theo vai trò                                                                 |
+| Nền tảng giao diện               | `docs/agents/ui-foundations.md`         | chữ, theme, ListGroup, motion, haptics, nút kính, tiền, confirm/guarded action, i18n                               |
+| Thư viện native                  | `docs/agents/native-libs.md`            | Expo Go vs build riêng, camera, datetimepicker, glass, blur, gesture-handler                                       |
+| Test                             | `docs/agents/testing.md`                | jest setup, reanimated, fake-api, helper test header/tab                                                           |

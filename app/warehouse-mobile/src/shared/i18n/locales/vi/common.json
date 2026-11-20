@@ -101,5 +101,23 @@
     "openFailed": "Không mở được chứng từ.",
     "cameraDenied": "Chưa cho phép dùng camera.",
     "openSettings": "Mở Cài đặt"
+  },
+  "appearance": "Giao diện",
+  "appAppearance": "Giao diện ứng dụng",
+  "appearanceSystem": "Theo hệ thống",
+  "appearanceSystemHint": "Tự đổi theo cài đặt của máy",
+  "appearanceLight": "Sáng",
+  "appearanceLightHint": "Luôn dùng nền sáng",
+  "appearanceDark": "Tối",
+  "appearanceDarkHint": "Luôn dùng nền tối",
+  "welcome": {
+    "title": "Chào mừng tới Soko",
+    "scanTitle": "Quét mã nhập / xuất",
+    "scanBody": "Lập phiếu nhanh bằng camera, không cần gõ mã.",
+    "stockTitle": "Tồn kho & hạn dùng",
+    "stockBody": "Biết ngay vật tư sắp thiếu, sắp hết hạn hay đã quá hạn.",
+    "reorderTitle": "Đề xuất đặt hàng",
+    "reorderBody": "Gom vật tư cần đặt theo nhà cung cấp, gửi đi trong vài chạm.",
+    "start": "Bắt đầu"
   }
 }

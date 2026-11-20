@@ -74,6 +74,8 @@ export function TabStackLayout({ tab }: { tab: TabKey }) {
       {tab === 'overview' ? <Stack.Screen name="[metric]" options={{ title: '' }} /> : null}
       {/* Tồn kho: chi tiết vật tư (push). Tiêu đề (mã vật tư) do màn tự khai khi đã có dữ liệu. */}
       {tab === 'stock' ? <Stack.Screen name="[materialSlug]" options={{ title: '' }} /> : null}
+      {/* Tồn kho: Đề xuất đặt hàng (push). Tiêu đề do màn tự khai. */}
+      {tab === 'stock' ? <Stack.Screen name="reorder" options={{ title: '' }} /> : null}
       {/* Nhập: xem một phiếu (push, mọi trạng thái). Tiêu đề (mã phiếu) do màn tự khai khi có dữ liệu. */}
       {tab === 'import' ? <Stack.Screen name="[formSlug]/index" options={{ title: '' }} /> : null}
       {/* Xuất: xem một phiếu (push, mọi trạng thái). Tiêu đề (mã phiếu) do màn tự khai khi có dữ liệu. */}
