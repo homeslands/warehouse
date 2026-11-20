@@ -61,6 +61,9 @@ export function ExportFormInfoStep({
             const select = (next: ExportFormType, focus = false) => {
               if (next !== field.value && onTypeChange(next, field.value) === false) return
               field.onChange(next)
+              if (next !== 'DISPOSAL' && form.getFieldState('file').error?.type !== 'server') {
+                form.clearErrors('file')
+              }
               if (focus) radios.current[EXPORT_FORM_TYPES.indexOf(next)]?.focus()
             }
             const onKeyDown = (e: KeyboardEvent) => {
@@ -150,6 +153,7 @@ export function ExportFormInfoStep({
           <ExportFormFileField
             form={form}
             warehouseSlug={warehouseSlug}
+            required={type === 'DISPOSAL'}
             onUploadingChange={onUploadingChange}
           />
         </div>

@@ -33,6 +33,7 @@
   "receiverTooLong": "At most 255 characters",
   "purchaseOrderRequired": "Enter the PO number",
   "referenceTooLong": "At most 64 characters",
+  "fileRequired": "Attach disposal supporting document",
   "fileTooLong": "File key is too long",
   "codeRequired": "Enter a form code",
   "codeInvalid": "Form code has an invalid format",

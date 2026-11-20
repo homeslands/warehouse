@@ -105,6 +105,7 @@ const FIELD_BY_CODE = {
   101411: 'receiver',
   101413: 'file',
   101434: 'file',
+  101440: 'file',
 } as const
 
 /**
@@ -141,9 +142,14 @@ type SaveRequest = {
   changed: string[]
 }
 
-/** Schema theo lý do xuất đang chọn: chỉ Bán mới bắt nhập đơn giá. */
+/** Schema theo lý do xuất đang chọn: Bán bắt nhập đơn giá, Xuất huỷ bắt buộc chứng từ đính kèm. */
 const resolver: Resolver<ExportFormValues> = (values, context, options) =>
-  zodResolver(buildExportFormSchema({ sale: values.type === 'SALE' }))(values, context, options)
+  zodResolver(
+    buildExportFormSchema({
+      sale: values.type === 'SALE',
+      disposal: values.type === 'DISPOSAL',
+    }),
+  )(values, context, options)
 
 const formTotal = (items: ExportFormItemValues[] | undefined) =>
   roundMoney(
@@ -286,6 +292,7 @@ export function ExportFormSheet({
   const type = useWatch({ control: form.control, name: 'type' })
   const receiver = useWatch({ control: form.control, name: 'receiver' })
   const purchaseOrder = useWatch({ control: form.control, name: 'purchaseOrder' })
+  const file = useWatch({ control: form.control, name: 'file' })
   const sale = type === 'SALE'
   const isDirty = form.formState.isDirty
   // Đọc trong lúc render để RHF theo dõi `dirtyFields` (proxy của formState chỉ cập nhật trường đã được đọc).
@@ -487,6 +494,9 @@ export function ExportFormSheet({
       shouldDirty: true,
       shouldValidate: form.formState.isSubmitted,
     })
+    if (dropPrices.next !== 'DISPOSAL' && form.getFieldState('file').error?.type !== 'server') {
+      form.clearErrors('file')
+    }
     setDropOpen(false)
   }
 
@@ -707,7 +717,13 @@ export function ExportFormSheet({
     })
 
   const steps = exportFormStepStatus(
-    { type, receiver: receiver ?? '', purchaseOrder: purchaseOrder ?? '', items: items ?? [] },
+    {
+      type,
+      receiver: receiver ?? '',
+      purchaseOrder: purchaseOrder ?? '',
+      file: file ?? '',
+      items: items ?? [],
+    },
     { sale },
   )
 

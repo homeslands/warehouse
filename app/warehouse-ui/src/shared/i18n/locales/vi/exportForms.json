@@ -33,6 +33,7 @@
   "receiverTooLong": "Tối đa 255 ký tự",
   "purchaseOrderRequired": "Nhập số PO",
   "referenceTooLong": "Tối đa 64 ký tự",
+  "fileRequired": "Đính kèm chứng từ xuất huỷ",
   "fileTooLong": "Khoá file quá dài",
   "codeRequired": "Nhập mã phiếu",
   "codeInvalid": "Mã phiếu không đúng định dạng",

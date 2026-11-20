@@ -39,7 +39,7 @@ function buildItemSchema(sale: boolean) {
   })
 }
 
-export function buildExportFormSchema(opts: { sale: boolean }) {
+export function buildExportFormSchema(opts: { sale: boolean; disposal?: boolean }) {
   return z
     .object({
       type: z.enum(EXPORT_FORM_TYPES, { error: 'exportForms:typeRequired' }),
@@ -54,7 +54,10 @@ export function buildExportFormSchema(opts: { sale: boolean }) {
         .min(1, 'exportForms:purchaseOrderRequired')
         .max(REFERENCE_MAX, 'exportForms:referenceTooLong'),
       invoiceCode: z.string().trim().max(REFERENCE_MAX, 'exportForms:referenceTooLong'),
-      file: z.string().max(FILE_MAX, 'exportForms:fileTooLong'),
+      file: z
+        .string()
+        .max(FILE_MAX, 'exportForms:fileTooLong')
+        .refine((v) => !opts.disposal || v.trim() !== '', 'exportForms:fileRequired'),
       note: z.string(),
       code: z
         .string()
@@ -67,6 +70,13 @@ export function buildExportFormSchema(opts: { sale: boolean }) {
         .max(EXPORT_FORM_ITEMS_MAX, 'exportForms:itemsTooMany'),
     })
     .superRefine((values, ctx) => {
+      if (!opts.disposal && values.type === 'DISPOSAL' && values.file.trim() === '') {
+        ctx.addIssue({
+          code: 'custom',
+          path: ['file'],
+          message: 'exportForms:fileRequired',
+        })
+      }
       // Cùng (vật tư, đơn vị, lô) không được lặp. Báo ở ô lô của dòng xuất hiện SAU.
       const seen = new Set<string>()
       values.items.forEach((item, index) => {
