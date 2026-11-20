@@ -192,17 +192,32 @@ export class InventoryResponseDto extends BaseResponseDto {
   })
   maximumInventory?: number | null;
 
-  @ApiProperty({ description: 'Minimum threshold actually in effect = override ?? Material value' })
+  @ApiProperty({
+    description: 'Minimum threshold actually in effect = override ?? Material value (0 = unset)',
+  })
   effectiveMinimumInventory: number;
 
-  @ApiProperty({ description: 'Maximum threshold actually in effect = override ?? Material value' })
+  @ApiProperty({
+    description:
+      'Maximum threshold actually in effect = override ?? Material value (0 = unlimited)',
+  })
   effectiveMaximumInventory: number;
 
   @ApiProperty({ description: 'quantity < effectiveMinimumInventory' })
   isBelowMinimum: boolean;
 
-  @ApiProperty({ description: 'quantity > effectiveMaximumInventory' })
+  @ApiProperty({
+    description:
+      'quantity > effectiveMaximumInventory (always false when effectiveMaximumInventory is 0 / unlimited)',
+  })
   isAboveMaximum: boolean;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Timestamp of the most recent re-assignment after removal; null when never re-assigned',
+  })
+  reassignedAt?: string | null;
 
   @ApiPropertyOptional({ description: 'Warehouse slug' })
   warehouseSlug?: string;

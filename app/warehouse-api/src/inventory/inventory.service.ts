@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EntityManager, FindOptionsWhere, In, Raw, Repository } from 'typeorm';
+import { EntityManager, In, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -19,9 +19,8 @@ import { InventoryHistory } from './inventory-history.entity';
 import { InventoryHistoryAction } from './inventory.constants';
 import { InventoryException } from './inventory.exception';
 import { InventoryValidation } from './inventory.validation';
-import { effectiveMaximum, effectiveMinimum } from './inventory.util';
+import { effectiveMaximum, effectiveMinimum, InventoryRow } from './inventory.util';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
-import { Material } from 'src/material/material.entity';
 import { MaterialService } from 'src/material/material.service';
 import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
 import { Supplier } from 'src/supplier/supplier.entity';
@@ -80,39 +79,61 @@ export class InventoryService {
       throw new InventoryException(InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE);
 
     const material = await this.materialService.findEntityBySlug(dto.materialSlug);
+    const initialQuantity = roundToScale(Number(dto.quantity ?? 0));
+    const minimumInventory = dto.minimumInventory ?? null;
+    const maximumInventory = dto.maximumInventory ?? null;
 
-    // UNIQUE(warehouse, material) không bỏ qua row xoá mềm, nên phải tự tra kèm `withDeleted` thay
-    // vì để MySQL ném `ER_DUP_ENTRY` thành 500.
-    const existed = await this.inventoryRepository.findOne({
-      where: { warehouse: { id: warehouse.id }, material: { id: material.id } },
-      withDeleted: true,
-    });
-    if (existed) throw new InventoryException(InventoryValidation.INVENTORY_DOES_EXIST);
+    // `UQ_inventory(warehouse, material)` tính cả row xoá mềm: đọc và khoá trong transaction
+    // (`withDeleted: true`) để 2 request đồng thời không ghi đè `quantity` của nhau; phần gán tồn
+    // đi qua `mutate()` để giữ khoá dòng và ghi lịch sử (`ASSIGN` lần đầu, `REASSIGN` khi gán lại).
+    const assigned = await this.transactionManager.execute(async (manager) => {
+      const repo = manager.getRepository(Inventory);
+      const existed = await repo.findOne({
+        where: { warehouse: { id: warehouse.id }, material: { id: material.id } },
+        withDeleted: true,
+        lock: WRITE_LOCK,
+      });
+      if (existed && !existed.deletedAt)
+        throw new InventoryException(InventoryValidation.INVENTORY_DOES_EXIST);
 
-    const row = this.inventoryRepository.create({
-      warehouse,
-      material,
-      quantity: roundToScale(Number(dto.quantity ?? 0)),
-      reservedQuantity: 0,
-      minimumInventory: dto.minimumInventory ?? null,
-      maximumInventory: dto.maximumInventory ?? null,
-    });
-    this.assertEffectiveRange(row);
+      this.assertEffectiveRange({ minimumInventory, maximumInventory, material });
 
-    // Dòng mới nên chưa cần khoá; chỉ cần dòng tồn và dòng lịch sử `ASSIGN` cùng commit/rollback.
-    const created = await this.transactionManager.execute(async (manager) => {
-      const saved = await manager.getRepository(Inventory).save(row);
-      await this.recordHistory(
-        manager,
-        saved,
-        { action: InventoryHistoryAction.Assign, quantityDelta: saved.quantity },
-        { quantity: 0, reservedQuantity: 0 },
-        actor,
-      );
-      return saved;
+      let inventoryId: string;
+      let action: InventoryHistoryAction;
+      if (existed) {
+        await repo.update(
+          { id: existed.id },
+          {
+            quantity: 0,
+            reservedQuantity: 0,
+            minimumInventory,
+            maximumInventory,
+            reassignedAt: new Date(),
+            deletedAt: null,
+          },
+        );
+        inventoryId = existed.id;
+        action = InventoryHistoryAction.Reassign;
+      } else {
+        const inserted = await repo.save(
+          this.inventoryRepository.create({
+            warehouse,
+            material,
+            quantity: 0,
+            reservedQuantity: 0,
+            minimumInventory,
+            maximumInventory,
+            reassignedAt: null,
+          }),
+        );
+        inventoryId = inserted.id;
+        action = InventoryHistoryAction.Assign;
+      }
+
+      return this.mutate(manager, inventoryId, { action, quantityDelta: initialQuantity }, actor);
     });
     this.logger.log(
-      `Material ${material.id} assigned to warehouse ${warehouse.id}: ${created.id}`,
+      `Material ${material.id} assigned to warehouse ${warehouse.id}: ${assigned.id}`,
       context,
     );
     // Đọc lại kèm `RELATIONS`: `findEntityBySlug` không load đơn vị của vật tư (`units`).
@@ -137,6 +158,7 @@ export class InventoryService {
       throw new InventoryException(InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE);
     // Tra TRƯỚC transaction để slug sai không chạm DB. Bỏ qua nhà cung cấp đã xoá mềm.
     const supplier = dto.supplierSlug ? await this.findSupplier(dto.supplierSlug) : null;
+    const initialQuantity = roundToScale(Number(dto.quantity ?? 0));
 
     const created = await this.transactionManager.execute(async (manager) => {
       const material = await this.materialService.createMaterialIn(manager, dto.material);
@@ -147,22 +169,24 @@ export class InventoryService {
       const row = this.inventoryRepository.create({
         warehouse,
         material,
-        quantity: roundToScale(Number(dto.quantity ?? 0)),
+        quantity: 0,
         reservedQuantity: 0,
         minimumInventory: dto.minimumInventory ?? null,
         maximumInventory: dto.maximumInventory ?? null,
+        reassignedAt: null,
       });
       this.assertEffectiveRange(row);
 
       const saved = await manager.getRepository(Inventory).save(row);
-      await this.recordHistory(
+      const mutated = await this.mutate(
         manager,
-        saved,
-        { action: InventoryHistoryAction.Assign, quantityDelta: saved.quantity },
-        { quantity: 0, reservedQuantity: 0 },
+        saved.id,
+        { action: InventoryHistoryAction.Assign, quantityDelta: initialQuantity },
         actor,
       );
-      return saved;
+      mutated.warehouse = warehouse;
+      mutated.material = material;
+      return mutated;
     });
     this.logger.log(
       `Material ${created.material.id} created in warehouse ${warehouse.id}: ${created.id}` +
@@ -178,30 +202,46 @@ export class InventoryService {
   ): Promise<AppPaginatedResponseDto<InventoryResponseDto>> {
     const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
 
-    // 2 filter `belowMinimum`/`aboveMaximum` so với ngưỡng EFFECTIVE (`COALESCE(override, mặc định
-    // của material)`) — so cột với cột nên phải dùng `Raw`. `Raw` đặt trên cột của `material` để
-    // TypeORM truyền vào alias của bảng material đã join; phía `Inventory` là alias gốc mà
-    // `find*` luôn đặt bằng `metadata.name`. Viết theo tên property (`quantity`, `minimumInventory`),
-    // TypeORM tự đổi sang tên cột thật. Lọc ở SQL để phân trang vẫn đúng tổng số.
-    const wm = this.inventoryRepository.metadata.name;
-    const materialWhere: FindOptionsWhere<Material> = {};
-    if (query.typeSlug) materialWhere.type = { slug: query.typeSlug };
-    if (query.belowMinimum === true)
-      materialWhere.minimumInventory = Raw(
-        (minimum) => `${wm}.quantity < COALESCE(${wm}.minimumInventory, ${minimum})`,
-      );
-    if (query.aboveMaximum === true)
-      materialWhere.maximumInventory = Raw(
-        (maximum) => `${wm}.quantity > COALESCE(${wm}.maximumInventory, ${maximum})`,
-      );
+    // Sắp xếp ưu tiên ngày gán lại gần nhất (`COALESCE(reassignedAt, createdAt) DESC`) và lọc
+    // ngưỡng ở SQL trước khi hydrate `RELATIONS` (có quan hệ 1-nhiều `unitsCanHave`) để phân trang
+    // luôn đúng tổng số dòng tồn.
+    const qb = this.inventoryRepository
+      .createQueryBuilder('inventory')
+      .innerJoin('inventory.material', 'material')
+      .where('inventory.warehouse = :warehouseId', { warehouseId: warehouse.id });
 
-    const [items, total] = await this.inventoryRepository.findAndCount({
-      where: { warehouse: { id: warehouse.id }, material: materialWhere },
-      relations: RELATIONS,
-      order: { createdAt: 'DESC' },
-      skip: (query.page - 1) * query.size,
-      take: query.size,
-    });
+    if (query.typeSlug) {
+      qb.innerJoin('material.type', 'type').andWhere('type.slug = :typeSlug', {
+        typeSlug: query.typeSlug,
+      });
+    }
+    if (query.belowMinimum === true) {
+      qb.andWhere(
+        'inventory.quantity < COALESCE(inventory.minimumInventory, material.minimumInventory)',
+      );
+    }
+    if (query.aboveMaximum === true) {
+      // `0` là không giới hạn (quy ước BA) — `NULLIF(..., 0)` để so sánh với `NULL` trả về false.
+      qb.andWhere(
+        'inventory.quantity > NULLIF(COALESCE(inventory.maximumInventory, material.maximumInventory), 0)',
+      );
+    }
+
+    qb.orderBy('COALESCE(inventory.reassigned_at_column, inventory.created_at_column)', 'DESC')
+      .addOrderBy('inventory.id_column', 'DESC')
+      .offset((query.page - 1) * query.size)
+      .limit(query.size);
+
+    const [pageRows, total] = await qb.getManyAndCount();
+    const ids = pageRows.map((row) => row.id);
+    const hydrated = ids.length
+      ? await this.inventoryRepository.find({
+          where: { id: In(ids) },
+          relations: RELATIONS,
+        })
+      : [];
+    const byId = new Map(hydrated.map((row) => [row.id, row]));
+    const items = ids.map((id) => byId.get(id)).filter((row): row is Inventory => Boolean(row));
 
     return toPaginatedResponse(
       this.mapper.mapArray(items, Inventory, InventoryResponseDto),
@@ -524,8 +564,10 @@ export class InventoryService {
    * `Material` vẫn phải ra một khoảng hợp lệ, nếu không client dựng được cặp ngưỡng mâu thuẫn
    * (min 50 override, max 10 của material) mà không endpoint nào báo lỗi.
    */
-  private assertEffectiveRange(row: Inventory): void {
-    if (effectiveMaximum(row) < effectiveMinimum(row))
+  private assertEffectiveRange(row: InventoryRow): void {
+    const max = effectiveMaximum(row);
+    // `max === null` (nghĩa là 0 = không giới hạn) không chặn dù `effectiveMinimum > 0`.
+    if (max !== null && max < effectiveMinimum(row))
       throw new InventoryException(InventoryValidation.INVENTORY_RANGE_INVALID);
   }
 

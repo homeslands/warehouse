@@ -177,7 +177,7 @@ Tổng cộng 19 endpoint. Loại vật tư dùng chung bộ quyền `MATERIAL_*
 | typeSlug | string (slug) | có | khác rỗng | Slug của loại vật tư |
 | baseUnitSlug | string (slug) | có | khác rỗng, không được `null` | Slug của unit làm đơn vị cơ sở |
 | minimumInventory | number | không | ≥ 0, tối đa 6 chữ số thập phân, không nhận số dạng mũ (`decimal.validator.ts`) | Mặc định `0` |
-| maximumInventory | number | không | ≥ 0, tối đa 6 chữ số thập phân | Mặc định `0`. Phải ≥ `minimumInventory` |
+| maximumInventory | number | không | ≥ 0, tối đa 6 chữ số thập phân | Mặc định `0` (`0` = không giới hạn). Nếu `> 0` phải ≥ `minimumInventory` |
 
 Body **không** nhận nhà cung cấp hay đơn vị quy đổi; hai thứ này có route riêng ở dưới.
 
@@ -195,7 +195,7 @@ Body **không** nhận nhà cung cấp hay đơn vị quy đổi; hai thứ này
 | 400 | 100709 `MATERIAL_MAXIMUM_INVENTORY_INVALID` | Như trên |
 | 422 | 100705 `MATERIAL_CODE_DOES_EXIST` | `code` đã được dùng |
 | 422 | 100706 `MATERIAL_CODE_RESERVED_BY_DELETED` | Một vật tư đã xoá mềm vẫn giữ `code` này |
-| 422 | 100710 `MATERIAL_INVENTORY_RANGE_INVALID` | `maximumInventory < minimumInventory` |
+| 422 | 100710 `MATERIAL_INVENTORY_RANGE_INVALID` | `0 < maximumInventory < minimumInventory` (`maximumInventory = 0` là không giới hạn) |
 | 404 | 100601 `MATERIAL_TYPE_NOT_FOUND` | `typeSlug` không tồn tại |
 | 404 | 100901 `UNIT_NOT_FOUND` | `baseUnitSlug` không tồn tại |
 
@@ -248,7 +248,7 @@ Body **không** nhận nhà cung cấp hay đơn vị quy đổi; hai thứ này
 | 404 | 100701 `MATERIAL_NOT_FOUND` | Không thấy slug |
 | 400/422 | các mã validate như POST | Field có gửi nhưng sai (`baseUnitSlug: ""` trả 422 `100724`) |
 | 422 | 100705 / 100706 | Đổi sang `code` đã bị dùng |
-| 422 | 100710 `MATERIAL_INVENTORY_RANGE_INVALID` | Sau khi gộp, max < min |
+| 422 | 100710 `MATERIAL_INVENTORY_RANGE_INVALID` | Sau khi gộp, `0 < max < min` (`max = 0` là không giới hạn) |
 | 404 | 100601 `MATERIAL_TYPE_NOT_FOUND` | `typeSlug` không tồn tại |
 | 404 | 100901 `UNIT_NOT_FOUND` | `baseUnitSlug` không tồn tại |
 | 422 | 100723 `MATERIAL_BASE_UNIT_LOCKED` | Đổi đơn vị cơ sở khi đã có tồn hoặc đã có đơn vị quy đổi |
@@ -534,7 +534,7 @@ Các mã 100711, 100713, 100719, 100727, 100728, 100730 không được dùng. T
 - **Định danh:** mọi route dùng `slug`, response không bao giờ trả `id`.
 - **Không có optimistic lock:** `MaterialType` và `Material` kế thừa `Base`, không có `version`. PATCH đồng thời thì request sau ghi đè.
 - **Xoá mềm:** `code` của loại vật tư hay vật tư đã xoá vẫn bị giữ chỗ (`*_CODE_RESERVED_BY_DELETED`). Với `name` của loại vật tư, service chỉ kiểm tra trùng trong bản ghi chưa xoá, nhưng DB có UNIQUE index trên `name_column` (`src/migrations/1783728000015-create-material-tables.ts:28`). Trùng tên với một loại vật tư đã xoá mềm vì vậy có thể trả **500** (chưa xác minh bằng chạy thật).
-- **Ngưỡng tồn:** khi tạo, nếu gửi `minimumInventory > 0` mà không gửi `maximumInventory` thì max mặc định là `0` và request bị chặn với `MATERIAL_INVENTORY_RANGE_INVALID`. `0` **không** có nghĩa là "không giới hạn". Ngưỡng là số thập phân (tối đa 6 chữ số), dù message của mã 100708/100709 ghi "integer".
+- **Ngưỡng tồn:** `maximumInventory = 0` nghĩa là **không giới hạn** (áp dụng khi tạo, sửa vật tư và đánh dấu vượt ngưỡng). Khi tạo, gửi `minimumInventory > 0` mà không gửi `maximumInventory` (mặc định `0`) là hợp lệ; chỉ bị chặn `MATERIAL_INVENTORY_RANGE_INVALID` (`100710`) khi `0 < maximumInventory < minimumInventory`. Ngưỡng là số thập phân (tối đa 6 chữ số), dù message của mã 100708/100709 ghi "integer".
 - **`units` và `conversion-units`:** `MaterialResponseDto.units` đưa đơn vị cơ sở lên đầu. `GET .../conversion-units` thì sắp thuần theo `unit.code`. Cả hai đều có dòng đơn vị cơ sở.
 - **Đổi đơn vị cơ sở** chỉ được làm khi vật tư chưa có tồn và chưa gắn đơn vị quy đổi. Đây là thao tác để sửa khai báo sai, không dùng để chuyển đổi nghiệp vụ.
 - **Nhà cung cấp:** `PUT /materials/:slug/suppliers` thay toàn bộ danh sách. Muốn thêm hoặc gỡ từng phần cho nhiều vật tư thì dùng `PUT|DELETE /suppliers/:slug/materials` ([supplier.md](supplier.md)).

@@ -38,6 +38,7 @@ import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { Inventory } from 'src/inventory/inventory.entity';
+import { effectiveMaximum } from 'src/inventory/inventory.util';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import {
   buildSortOrder,
@@ -232,25 +233,30 @@ export class ImportFormService {
     });
 
     return toPaginatedResponse(
-      rows.map(({ material, quantity }) => ({
-        slug: material.slug,
-        code: material.code,
-        name: material.name,
-        baseUnitSlug: material.baseUnit?.slug ?? null,
-        quantity,
-        suppliers: (material.suppliers ?? [])
-          .map(({ slug, code, name }) => ({ slug, code, name }))
-          .sort((a, b) => a.code.localeCompare(b.code)),
-        units: (material.unitsCanHave ?? [])
-          .map((mu) => ({
-            unitSlug: mu.unit.slug,
-            unitCode: mu.unit.code,
-            unitName: mu.unit.name,
-            conversionRate: Number(mu.conversionRate),
-            isBaseUnit: mu.unitId === material.baseUnit?.id,
-          }))
-          .sort((a, b) => a.conversionRate - b.conversionRate),
-      })),
+      rows.map((row) => {
+        const { material, quantity } = row;
+        const max = effectiveMaximum(row);
+        return {
+          slug: material.slug,
+          code: material.code,
+          name: material.name,
+          baseUnitSlug: material.baseUnit?.slug ?? null,
+          quantity,
+          ...(max !== null ? { effectiveMaximumInventory: max } : {}),
+          suppliers: (material.suppliers ?? [])
+            .map(({ slug, code, name }) => ({ slug, code, name }))
+            .sort((a, b) => a.code.localeCompare(b.code)),
+          units: (material.unitsCanHave ?? [])
+            .map((mu) => ({
+              unitSlug: mu.unit.slug,
+              unitCode: mu.unit.code,
+              unitName: mu.unit.name,
+              conversionRate: Number(mu.conversionRate),
+              isBaseUnit: mu.unitId === material.baseUnit?.id,
+            }))
+            .sort((a, b) => a.conversionRate - b.conversionRate),
+        };
+      }),
       total,
       query,
     );

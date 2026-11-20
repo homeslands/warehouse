@@ -606,6 +606,17 @@ describe('MaterialService', () => {
       ).resolves.toBeDefined();
     });
 
+    it('accepts minimumInventory > 0 when maximumInventory is 0 (unlimited)', async () => {
+      materialRepository.findOne.mockResolvedValue(null);
+      materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
+      materialRepository.create.mockImplementation((data) => data);
+      materialRepository.save.mockImplementation((data) => data);
+
+      await expect(
+        service.createMaterial(createDto({ minimumInventory: 50, maximumInventory: 0 })),
+      ).resolves.toMatchObject({ minimumInventory: 50, maximumInventory: 0 });
+    });
+
     it('reports a different error when the code is held by a soft-deleted material', async () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial({ deletedAt: new Date() }));
 
@@ -689,13 +700,25 @@ describe('MaterialService', () => {
     });
 
     // Ngưỡng phải so trên giá trị SAU khi ghép, không phải trên mỗi phần client gửi.
-    it('chặn khi minimumInventory mới vượt maximumInventory đang có trong DB', async () => {
+    it('chặn khi minimumInventory mới vượt maximumInventory dương đang có trong DB', async () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial());
 
       await expectError(
         service.updateMaterial('mat-slug-1', { minimumInventory: 999 } as never),
         MaterialValidation.MATERIAL_INVENTORY_RANGE_INVALID.code,
       );
+    });
+
+    it('cho phép maximumInventory = 0 (không giới hạn) dù minimumInventory > 0', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial());
+      materialRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateMaterial('mat-slug-1', {
+        minimumInventory: 50,
+        maximumInventory: 0,
+      } as never);
+
+      expect(result).toMatchObject({ minimumInventory: 50, maximumInventory: 0 });
     });
   });
 
