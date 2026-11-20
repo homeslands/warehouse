@@ -618,4 +618,35 @@ describe('ExportInfoStepScreen — Chứng từ', () => {
     expect(screen.getByRole('button', { name: 'Chứng từ, phieu-giao.pdf' })).toBeOnTheScreen()
     expect(menuLabels()).toContain('Bỏ phiếu mới')
   })
+
+  it('Xuất huỷ thiếu chứng từ → Chứng từ nằm nhóm bắt buộc, Còn thiếu: Chứng từ, Lưu nháp khoá, Tiếp tục hiện lỗi', async () => {
+    await storedNew({
+      ...newExportDraft({
+        type: 'DISPOSAL',
+        code: 'PX-HUY',
+        purchaseOrder: 'PO-9',
+        receiver: 'Kho huỷ',
+      }),
+      lines: [makeLine(1, { base: null, quantity: 1 })],
+    })
+    await show()
+    const required = screen.getByTestId('export-group-required')
+    const optional = screen.getByTestId('export-group-optional')
+    expect(within(required).getByTestId('export-field-file')).toBeOnTheScreen()
+    expect(within(optional).queryByTestId('export-field-file')).toBeNull()
+    expect(screen.getByText('Còn thiếu: Chứng từ')).toBeOnTheScreen()
+    expect(menuItem('Lưu nháp')).toMatchObject({ disabled: true })
+
+    await fireEvent.press(nextButton())
+    expect(mockPush).not.toHaveBeenCalled()
+    expect(screen.getByText('Phiếu xuất huỷ cần đính kèm chứng từ.')).toBeOnTheScreen()
+
+    await act(async () => store().setHeader({ file: S3 }))
+    expect(screen.queryByText(/^Còn thiếu/)).toBeNull()
+    await fireEvent.press(nextButton())
+    expect(mockPush).toHaveBeenCalledWith({
+      pathname: '/export-form/[formSlug]/edit',
+      params: { formSlug: 'new' },
+    })
+  })
 })
