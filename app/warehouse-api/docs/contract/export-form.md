@@ -110,7 +110,7 @@ Nếu dữ liệu giữ chỗ trên lô không khớp với phiếu thì trả 4
 | purchaseOrder | string | **có** | Không rỗng, ≤ 64 ký tự | Khác phiếu nhập: ở đây bắt buộc |
 | invoiceCode | string | không | ≤ 64 ký tự | Không gửi thì lưu `null` (`service.ts:150`) |
 | receiver | string | có | Không rỗng, ≤ 255 ký tự | Người hoặc bộ phận nhận hàng, chuỗi tự do |
-| file | string | không | ≤ 1024 ký tự | Link nhận từ `POST .../upload-file` |
+| file | string | **có** khi `type = DISPOSAL` | Không rỗng khi `DISPOSAL`, ≤ 1024 ký tự | Link nhận từ `POST .../upload-file`. Bắt buộc đối với phiếu xuất huỷ |
 | note | string | không | Không có validator kiểu (xem Ghi chú cho FE) | |
 | items | `CreateExportFormItemDto[]` | có | 1–200 phần tử | Thứ tự trong mảng = `lineNo` 1..n |
 
@@ -140,6 +140,7 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 | 422 | 101409 | `invoiceCode` dài hơn 64 ký tự |
 | 422 | 101410 / 101411 | `receiver` thiếu / dài hơn 255 ký tự |
 | 422 | 101413 | `file` sai |
+| 422 | 101440 | `type = DISPOSAL` nhưng thiếu hoặc rỗng `file` |
 | 422 | 101418 / 101419 | `items` thiếu hoặc rỗng / quá 200 dòng |
 | 422 | 101420–101424, 101433 | Field trong `items[i]` không hợp lệ |
 | 404 | 100501 | Không có kho |
@@ -212,7 +213,7 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
   - Có gửi `items` (khác `null`): thay **toàn bộ** các dòng và tính lại `totalAmount` (`service.ts:230-253`).
 - **Response 200:** `ExportFormResponseDto` kèm `items`.
 - **Lỗi riêng:** 422 101439 (`version` không hợp lệ), 404 101401, 409 100800 (sai version), 409 101415 (không còn `DRAFT`,
-  bao gồm cả `PENDING`), 403 / 403 101416, 422 101404/101405, và các lỗi validate hoặc lỗi dòng giống POST.
+  bao gồm cả `PENDING`), 403 / 403 101416, 422 101404/101405, 422 101440 (phiếu sau sửa có `type = DISPOSAL` nhưng không có `file`), và các lỗi validate hoặc lỗi dòng giống POST.
 
 ## POST /api/v1/warehouses/:warehouseSlug/export-forms/:slug/submit
 
@@ -236,6 +237,7 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 | 404 | 100801 `INVENTORY_NOT_FOUND` | Vật tư đã bị gỡ khỏi kho |
 | 409 | 101505 `MATERIAL_BATCH_RESERVED_INVALID` | Bất biến `0 ≤ reserved ≤ remaining` của lô bị vi phạm (dữ liệu hỏng) |
 | 422 | 100812 `INVENTORY_QUANTITY_BELOW_RESERVED` | Bất biến tồn kho bị vi phạm (dữ liệu hỏng) |
+| 422 | 101440 `EXPORT_FORM_FILE_IS_REQUIRED` | Phiếu `DISPOSAL` chưa có chứng từ đính kèm (`file`) |
 
 ## POST /api/v1/warehouses/:warehouseSlug/export-forms/:slug/confirm
 
@@ -376,6 +378,7 @@ Nguồn: `src/export-form/export-form.validation.ts:91-222`. HTTP mặc định 
 | EXPORT_FORM_NOT_PENDING | 101437 | 409 | Only a PENDING export form can be confirmed (submit the draft first) |
 | EXPORT_FORM_CANNOT_BE_CANCELLED | 101438 | 409 | Only a DRAFT or PENDING export form can be cancelled |
 | EXPORT_FORM_VERSION_INVALID | 101439 | 422 | version is required and must be an integer >= 1 (from the most recent GET) |
+| EXPORT_FORM_FILE_IS_REQUIRED | 101440 | 422 | File is required for a DISPOSAL export form |
 
 Mã từ module khác mà các route này có thể trả: `DATA_VERSION_CONFLICT` 100800 (409), `WAREHOUSE_NOT_FOUND` 100501 (404),
 `WAREHOUSE_ACCESS_DENIED` 100523 (403), `USER_NOT_FOUND` 100405 (404), `INVENTORY_NOT_FOUND` 100801 (404),

@@ -55,3 +55,4 @@ Module `src/example` là mẫu để tạo module mới, không dành cho FE nê
 | Ngày | PR | Thay đổi | Breaking |
 |---|---|---|---|
 | 2026-11-07 | (PR này) | Bản đầu tiên, mô tả API tại `main` `5555273` | — |
+| 2026-11-20 | (PR này) | Bắt buộc chứng từ đính kèm (`file`) khi tạo, sửa và gửi duyệt phiếu xuất huỷ (`DISPOSAL`), thêm mã lỗi `101440 EXPORT_FORM_FILE_IS_REQUIRED` | Có (siết validation cho `type = DISPOSAL`) |

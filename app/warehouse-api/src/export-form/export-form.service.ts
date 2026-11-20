@@ -141,6 +141,7 @@ export class ExportFormService {
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_WAREHOUSE_INACTIVE);
 
     const data = this.mapper.map(dto, CreateExportFormRequestDto, ExportForm);
+    this.assertDisposalHasFile(data);
     await this.assertCodeIsFree(data.code);
     const { items, total } = await this.buildItems(dto.items, warehouse.id);
     const requester = await this.findUser(currentUser.userId);
@@ -226,6 +227,10 @@ export class ExportFormService {
     );
 
     const data = pickDefined(this.mapper.map(dto, UpdateExportFormRequestDto, ExportForm));
+    this.assertDisposalHasFile({
+      type: data.type ?? form.type,
+      file: data.file !== undefined ? data.file : form.file,
+    });
     if (data.code !== undefined && data.code !== form.code) await this.assertCodeIsFree(data.code);
     const replacement =
       dto.items !== undefined && dto.items !== null
@@ -294,6 +299,7 @@ export class ExportFormService {
       AuthorityCode.ExportFormUpdateDraft,
       AuthorityCode.ExportFormUpdateDraftOwn,
     );
+    this.assertDisposalHasFile(form);
     const items = this.assertItemsHaveMaterial(form);
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
@@ -670,6 +676,13 @@ export class ExportFormService {
   private assertIsDraft(form: ExportForm): void {
     if (form.status !== ExportFormStatus.Draft)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_DRAFT);
+  }
+
+  /** Phiếu xuất huỷ (`DISPOSAL`) bắt buộc phải có chứng từ đính kèm (`file`). */
+  private assertDisposalHasFile(form: Pick<ExportForm, 'type' | 'file'>): void {
+    if (form.type === ExportFormType.Disposal && !form.file?.trim()) {
+      throw new ExportFormException(ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED);
+    }
   }
 
   /** "Bản đầy đủ HOẶC bản `_OWN`" — xem `ImportFormService.assertCanModify`. */
