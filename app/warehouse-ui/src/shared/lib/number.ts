@@ -19,3 +19,6 @@ export const DECIMAL_18_2_LIMIT = 1e16
  * server lưu. Không phải làm tròn "toán học" chuẩn: `toFixed` dựa trên số nhị phân nên `1.005` → `1`.
  */
 export const roundMoney = (value: number): number => Number(value.toFixed(2))
+
+/** Làm tròn số lượng 6 số lẻ, khớp `roundToScale` của backend (`DECIMAL(18,6)`). */
+export const roundQuantity = (value: number): number => Number(value.toFixed(6))

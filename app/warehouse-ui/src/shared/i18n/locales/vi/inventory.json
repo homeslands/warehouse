@@ -85,12 +85,15 @@
   "notInWarehouse": "Vật tư không còn ở kho này",
   "action": {
     "ASSIGN": "Gắn vào kho",
+    "REASSIGN": "Thêm lại vào kho",
     "IMPORT": "Nhập kho",
     "ADJUST": "Điều chỉnh",
     "RESERVE": "Giữ chỗ",
     "RELEASE": "Bỏ giữ chỗ",
     "REMOVE": "Gỡ khỏi kho"
   },
+  "milestoneRemoved": "Đã xoá khỏi kho vào {{time}}",
+  "milestoneReassigned": "Đã thêm lại vào kho vào {{time}}",
   "reservedChange": "Giữ chỗ {{delta}} ({{before}} → {{after}})",
   "importFormNote": "Phiếu nhập {{code}}",
   "createAndAssignConfirmTitle": "Tạo vật tư {{code}} và gắn vào kho {{warehouse}}?",

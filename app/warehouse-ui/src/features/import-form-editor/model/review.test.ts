@@ -98,6 +98,57 @@ describe('reviewImportForm', () => {
     })
   })
 
+  it('overMaxByLine: làm tròn 6 chữ số thập phân để không báo vượt sai do sai số float', () => {
+    const materials = map(mat({ slug: 'm-a', quantity: 99.7, effectiveMaximumInventory: 100 }))
+    // `99.7 + 0.1 + 0.1 + 0.1` trong IEEE-754 ra 100.00000000000001; làm tròn 6 số lẻ = 100 (không vượt).
+    expect(
+      overMaxByLine(
+        [
+          { materialSlug: 'm-a', unitSlug: 'u-kg', quantity: 0.1 },
+          { materialSlug: 'm-a', unitSlug: 'u-kg', quantity: 0.1 },
+          { materialSlug: 'm-a', unitSlug: 'u-kg', quantity: 0.1 },
+        ],
+        materials,
+      ).size,
+    ).toBe(0)
+
+    const over = overMaxByLine(
+      [
+        { materialSlug: 'm-a', unitSlug: 'u-kg', quantity: 0.1 },
+        { materialSlug: 'm-a', unitSlug: 'u-kg', quantity: 0.1 },
+        { materialSlug: 'm-a', unitSlug: 'u-kg', quantity: 0.100001 },
+      ],
+      materials,
+    )
+    expect(Object.fromEntries(over)).toEqual({
+      2: { after: 100.000001, max: 100, baseUnitCode: 'KG' },
+    })
+  })
+
+  it('overMaxByLine: fallback theo baseUnitSlug khi vật tư cũ thiếu cờ isBaseUnit', () => {
+    const legacy = mat({
+      slug: 'm-legacy',
+      quantity: 95,
+      effectiveMaximumInventory: 100,
+      units: [
+        {
+          unitSlug: 'u-kg',
+          unitCode: 'KG',
+          unitName: 'Kilogram',
+          conversionRate: 1,
+          isBaseUnit: false,
+        },
+      ],
+    })
+    const over = overMaxByLine(
+      [{ materialSlug: 'm-legacy', unitSlug: 'u-kg', quantity: 10 }],
+      map(legacy),
+    )
+    expect(Object.fromEntries(over)).toEqual({
+      0: { after: 105, max: 100, baseUnitCode: 'KG' },
+    })
+  })
+
   it('bước Kiểm tra (reviewImportForm) không lặp lại cảnh báo vượt max', () => {
     const r = reviewImportForm(
       values([{ quantity: 50 }]),

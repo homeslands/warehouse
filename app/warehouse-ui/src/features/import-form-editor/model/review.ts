@@ -1,5 +1,6 @@
-import type { AvailableMaterial, AvailableUnit } from '@/entities/import-form'
-import { effectiveSupplier, type ImportFormValues } from './import-form-editor.schema'
+import type { AvailableMaterial } from '@/entities/import-form'
+import { roundQuantity } from '@/shared/lib/number'
+import { baseUnitOf, effectiveSupplier, type ImportFormValues } from './import-form-editor.schema'
 
 export type OverMaxWarning = {
   after: number
@@ -17,20 +18,12 @@ export type ReviewWarning =
       baseQuantity: number
       baseUnitCode: string
     }
-  | ({ kind: 'overMax'; index: number } & OverMaxWarning)
 
 export type NewSupplierLink = { supplierSlug: string; materialSlugs: string[] }
 
-function resolveBaseUnit(material: AvailableMaterial): AvailableUnit | undefined {
-  return (
-    material.units.find((u) => u.isBaseUnit) ??
-    material.units.find((u) => u.unitSlug === material.baseUnitSlug)
-  )
-}
-
 /**
- * Cộng dồn lượng nhập (quy về đơn vị gốc) của các dòng cùng vật tư rồi so với `effectiveMaximumInventory` (> 0).
- * Gắn cảnh báo vào dòng cuối của vật tư đó — dùng ở bước ② (`ImportFormItemsField.tsx`) ngay khi gõ số lượng.
+ * Cộng dồn lượng nhập (quy về đơn vị gốc, làm tròn 6 số lẻ như API) của các dòng cùng vật tư rồi so với
+ * `effectiveMaximumInventory` (> 0). Gắn cảnh báo vào dòng cuối của vật tư đó — dùng ở bước ②.
  */
 export function overMaxByLine(
   items: readonly { materialSlug: string; unitSlug: string; quantity?: number }[],
@@ -41,11 +34,14 @@ export function overMaxByLine(
     const material = materials.get(item.materialSlug)
     if (!material) return
     const unit = material.units.find((u) => u.unitSlug === item.unitSlug)
-    const baseUnit = resolveBaseUnit(material)
+    const baseUnit = baseUnitOf(material)
     if (unit && baseUnit && typeof item.quantity === 'number' && item.quantity > 0) {
-      const baseQuantity = item.quantity * unit.conversionRate
+      const baseQuantity = roundQuantity(item.quantity * unit.conversionRate)
       const prev = baseTotals.get(material.slug)
-      baseTotals.set(material.slug, { base: (prev?.base ?? 0) + baseQuantity, lastIndex: index })
+      baseTotals.set(material.slug, {
+        base: roundQuantity((prev?.base ?? 0) + baseQuantity),
+        lastIndex: index,
+      })
     }
   })
 
@@ -54,9 +50,9 @@ export function overMaxByLine(
     const material = materials.get(slug)
     const max = material?.effectiveMaximumInventory
     if (!material || max === undefined || max <= 0) continue
-    const after = material.quantity + base
+    const after = roundQuantity(material.quantity + base)
     if (after > max) {
-      const baseUnit = resolveBaseUnit(material)
+      const baseUnit = baseUnitOf(material)
       result.set(lastIndex, {
         after,
         max,
@@ -86,9 +82,9 @@ export function reviewImportForm(
     const material = materials.get(item.materialSlug)
     if (!material) return
     const unit = material.units.find((u) => u.unitSlug === item.unitSlug)
-    const baseUnit = resolveBaseUnit(material)
+    const baseUnit = baseUnitOf(material)
     if (unit && baseUnit && typeof item.quantity === 'number') {
-      const baseQuantity = item.quantity * unit.conversionRate
+      const baseQuantity = roundQuantity(item.quantity * unit.conversionRate)
       if (unit.unitSlug !== baseUnit.unitSlug) {
         warnings.push({
           kind: 'nonBaseUnit',

@@ -161,7 +161,6 @@
   "warnLineNamed": "Dòng {{line}} · {{name}}",
   "warnZeroPrice": "{{line}} — đơn giá 0",
   "warnNonBaseUnit": "{{line}} — {{quantity}} {{unit}} = {{baseQuantity}} {{baseUnit}}",
-  "warnOverMax": "{{line}} — tồn sau nhập {{after}} {{unit}} > max {{max}} {{unit}}",
   "lineOverMax": "Tồn sau nhập {{after}} > max {{max}}",
   "infoNewSupplier_one": "Sẽ gắn {{supplier}} làm nhà cung cấp cho {{count}} vật tư chưa từng mua của họ.",
   "infoNewSupplier_other": "Sẽ gắn {{supplier}} làm nhà cung cấp cho {{count}} vật tư chưa từng mua của họ.",

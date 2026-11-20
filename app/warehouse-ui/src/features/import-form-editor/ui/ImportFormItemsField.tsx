@@ -1,5 +1,5 @@
 import { ListChecksIcon, PlusIcon, Trash2Icon } from 'lucide-react'
-import { useEffect, useId, useRef, useState, type ComponentType } from 'react'
+import { useEffect, useId, useMemo, useRef, useState, type ComponentType } from 'react'
 import { flushSync } from 'react-dom'
 import { useFieldArray, useWatch, type UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
@@ -113,10 +113,14 @@ export function ImportFormItemsField({
   const found = searching ? (searchResult.data?.items ?? []) : []
   // Vật tư chọn từ kết quả tìm có thể nằm ngoài 100 bản ghi đầu của `materials` → giữ lại để nhãn / đơn vị / tồn còn.
   const [picked, setPicked] = useState<ReadonlyMap<string, AvailableMaterial>>(new Map())
-  const bySlug = new Map<string, AvailableMaterial>([
-    ...picked,
-    ...materials.map((m): [string, AvailableMaterial] => [m.slug, m]),
-  ])
+  const bySlug = useMemo(
+    () =>
+      new Map<string, AvailableMaterial>([
+        ...picked,
+        ...materials.map((m): [string, AvailableMaterial] => [m.slug, m]),
+      ]),
+    [picked, materials],
+  )
   const supplierName = (slug: string) =>
     suppliers.find((x) => x.slug === slug)?.name ??
     [...bySlug.values()].flatMap((m) => m.suppliers).find((x) => x.slug === slug)?.name ??
@@ -307,7 +311,23 @@ export function ImportFormItemsField({
     )
   }
   const full = fields.length >= IMPORT_FORM_ITEMS_MAX
-  const overMax = overMaxByLine(items, bySlug)
+  // Khóa nguyên thuỷ theo 3 trường ảnh hưởng trần tồn: RHF có lúc giữ nguyên tham chiếu `items` khi sửa ô con tại chỗ.
+  const overMaxKey = items
+    .map((item) => `${item.materialSlug}\0${item.unitSlug}\0${item.quantity ?? ''}`)
+    .join('\n')
+  const overMax = useMemo(() => {
+    const lines = overMaxKey
+      ? overMaxKey.split('\n').map((entry) => {
+          const [materialSlug = '', unitSlug = '', quantity = ''] = entry.split('\0')
+          return {
+            materialSlug,
+            unitSlug,
+            quantity: quantity === '' ? undefined : Number(quantity),
+          }
+        })
+      : []
+    return overMaxByLine(lines, bySlug)
+  }, [overMaxKey, bySlug])
   const rootError =
     form.formState.errors.items?.root?.message ?? form.formState.errors.items?.message
 
