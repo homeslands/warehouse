@@ -114,5 +114,61 @@
   "expiryOverdue_other": "quá {{count}} ngày",
   "expirySheetEmpty": "Không có lô nào quá hạn hoặc sắp hết hạn",
   "expirySheetError": "Không tải được danh sách lô",
-  "expiryRowLabel": "{{name}}, {{status}}, còn {{quantity}}"
+  "expiryRowLabel": "{{name}}, {{status}}, còn {{quantity}}",
+  "reorder": {
+    "entry": "Đề xuất đặt hàng · {{count}}",
+    "title": "Đề xuất đặt hàng",
+    "subtitle": "{{warehouse}} · số gợi ý = tối đa − tồn",
+    "chipAll": "Tất cả",
+    "chipShort": "Thiếu",
+    "chipSoon": "Sắp thiếu",
+    "loading": "Đang tải đề xuất đặt hàng",
+    "empty": "Không có vật tư nào cần đặt",
+    "emptyDescription": "Vật tư dưới mức tối thiểu hoặc sắp thiếu sẽ hiện ở đây.",
+    "group": {
+      "choose": "Cần chọn nơi đặt",
+      "none": "Chưa có bên bán",
+      "all": "Vật tư cần đặt"
+    },
+    "groupCount_one": "{{count}} vật tư",
+    "groupCount_other": "{{count}} vật tư",
+    "groupCountOrdered_one": "{{count}} vật tư · {{ordered}} đã đặt",
+    "groupCountOrdered_other": "{{count}} vật tư · {{ordered}} đã đặt",
+    "orderQty": "đặt {{qty}}",
+    "enterQty": "Nhập số",
+    "pickSupplier": "Chọn nơi đặt",
+    "orderedOn": "Đã đặt {{date}}",
+    "stockOf": "tồn {{value}}",
+    "soon": "Sắp thiếu",
+    "hintSuggested": "gợi ý",
+    "hintEdited": "bạn đã sửa",
+    "hintSkipped": "không gửi lại",
+    "alsoAt": "Còn ở: {{names}}",
+    "availableAt": "Có ở: {{names}}",
+    "sendTo": "Gửi cho {{supplier}}",
+    "shareList": "Chia sẻ danh sách",
+    "sendLocked": "Nhập số cho vật tư để chia sẻ",
+    "suppliersError": "Không tải được danh sách bên bán",
+    "shareErrorTitle": "Không chia sẻ được",
+    "markTitle": "Đánh dấu đã đặt?",
+    "markMessage_one": "Bạn đã gửi cho {{supplier}}? Đánh dấu {{count}} vật tư là đã đặt.",
+    "markMessage_other": "Bạn đã gửi cho {{supplier}}? Đánh dấu {{count}} vật tư là đã đặt.",
+    "markListMessage_one": "Bạn đã gửi danh sách này? Đánh dấu {{count}} vật tư là đã đặt.",
+    "markListMessage_other": "Bạn đã gửi danh sách này? Đánh dấu {{count}} vật tư là đã đặt.",
+    "markConfirm": "Đánh dấu",
+    "sheet": {
+      "qtyLabel": "Số lượng đặt",
+      "unitLabel": "Đơn vị",
+      "qtyInvalid": "Nhập số lớn hơn 0.",
+      "suggested": "Gợi ý: {{qty}}",
+      "supplierGroup": "Nơi đặt",
+      "unmark": "Bỏ dấu “Đã đặt {{date}}”",
+      "loading": "Đang tải"
+    },
+    "share": {
+      "header": "Đề xuất đặt hàng — {{warehouse}} — {{date}}",
+      "to": "Gửi: {{supplier}}",
+      "line": "{{index}}. {{name}} ({{code}}) — {{qty}} {{unit}}"
+    }
+  }
 }

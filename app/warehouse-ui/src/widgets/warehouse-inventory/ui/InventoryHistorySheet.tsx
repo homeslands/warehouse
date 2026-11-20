@@ -209,15 +209,29 @@ export function InventoryHistorySheet({
                   <ol className="divide-y">
                     {rows.map((h) => {
                       const code = importFormCode(h.note)
+                      const milestoneKey =
+                        h.action === 'REMOVE'
+                          ? 'inventory:milestoneRemoved'
+                          : h.action === 'REASSIGN'
+                            ? 'inventory:milestoneReassigned'
+                            : null
                       return (
                         // Dạng sao kê: trái = thao tác, ghi chú, "thời gian · người"; phải = lượng thay đổi (đậm, có màu)
                         // và tồn trước → sau — mắt quét dọc cột phải là thấy tồn đi lên / xuống thế nào.
-                        <li key={h.slug} className="flex items-start justify-between gap-4 py-3">
+                        <li
+                          key={h.slug}
+                          className={cn(
+                            'flex items-start justify-between gap-4 py-3',
+                            milestoneKey && 'bg-muted/40 -mx-2 rounded-md px-2',
+                          )}
+                        >
                           <div className="min-w-0 space-y-0.5">
                             <p className="text-sm font-medium">
-                              {isKnownAction(h.action)
-                                ? t(`inventory:action.${h.action}`)
-                                : h.action}
+                              {milestoneKey
+                                ? t(milestoneKey, { time: formatDateTime(h.createdAt) })
+                                : isKnownAction(h.action)
+                                  ? t(`inventory:action.${h.action}`)
+                                  : h.action}
                             </p>
                             {h.note !== null && h.note !== '' && (
                               <p className="text-sm break-words">
@@ -234,8 +248,9 @@ export function InventoryHistorySheet({
                               </p>
                             )}
                             <p className="text-muted-foreground text-xs tabular-nums">
-                              {formatDateTime(h.createdAt)} ·{' '}
-                              {h.changedByName || t('common:unnamedUser')}
+                              {milestoneKey
+                                ? h.changedByName || t('common:unnamedUser')
+                                : `${formatDateTime(h.createdAt)} · ${h.changedByName || t('common:unnamedUser')}`}
                             </p>
                           </div>
                           {h.quantityDelta !== 0 && (

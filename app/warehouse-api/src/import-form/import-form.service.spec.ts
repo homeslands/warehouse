@@ -652,6 +652,69 @@ describe('ImportFormService', () => {
       ]);
     });
 
+    it('includes effectiveMaximumInventory (warehouse override ?? material default) only when > 0', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      inventoryRepository.findAndCount.mockResolvedValue([
+        [
+          {
+            quantity: 10,
+            maximumInventory: 80,
+            material: {
+              ...cement,
+              slug: 'm-override',
+              code: 'M-1',
+              baseUnit: kg,
+              maximumInventory: 100,
+            },
+          },
+          {
+            quantity: 10,
+            maximumInventory: null,
+            material: {
+              ...cement,
+              slug: 'm-default',
+              code: 'M-2',
+              baseUnit: kg,
+              maximumInventory: 100,
+            },
+          },
+          {
+            quantity: 10,
+            maximumInventory: null,
+            material: {
+              ...cement,
+              slug: 'm-unset',
+              code: 'M-3',
+              baseUnit: kg,
+              maximumInventory: 0,
+            },
+          },
+          {
+            quantity: 10,
+            maximumInventory: 0,
+            material: {
+              ...cement,
+              slug: 'm-override-unlimited',
+              code: 'M-4',
+              baseUnit: kg,
+              maximumInventory: 100,
+            },
+          },
+        ],
+        4,
+      ]);
+
+      const result = await service.findAvailableMaterials('wh-slug', {
+        page: 1,
+        size: 10,
+      } as never);
+
+      expect(result.items[0].effectiveMaximumInventory).toBe(80);
+      expect(result.items[1].effectiveMaximumInventory).toBe(100);
+      expect(result.items[2]).not.toHaveProperty('effectiveMaximumInventory');
+      expect(result.items[3]).not.toHaveProperty('effectiveMaximumInventory');
+    });
+
     it('returns WAREHOUSE_NOT_FOUND for an unknown warehouse', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(null);
 

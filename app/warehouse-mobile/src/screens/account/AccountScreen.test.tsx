@@ -6,6 +6,7 @@ import { useAuthStore } from '@/entities/session'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { usePasswordNotice } from '@/features/change-password'
 import { changeLanguage, initI18n } from '@/shared/i18n'
+import { useAppearance } from '@/shared/theme/appearance'
 
 import { AccountScreen } from './AccountScreen'
 
@@ -32,12 +33,21 @@ beforeAll(async () => {
   await initI18n()
 })
 
-afterEach(() => jest.restoreAllMocks())
+// Mặc định dựng như bản phát hành (không có nhóm "Nhà phát triển"); test dòng dev tự bật lại.
+const dev = globalThis as unknown as { __DEV__: boolean }
+const DEV = dev.__DEV__
+
+afterEach(() => {
+  jest.restoreAllMocks()
+  dev.__DEV__ = DEV
+})
 
 beforeEach(async () => {
+  dev.__DEV__ = false
   resetFakeApi()
   mockNavigate.mockClear()
   usePasswordNotice.getState().clear()
+  useAppearance.setState({ preference: 'system' })
   await changeLanguage('vi')
   useAuthStore.setState({ status: 'authenticated', user, endReason: null })
   useWarehouseStore.setState({
@@ -72,9 +82,9 @@ describe('AccountScreen', () => {
     for (const name of ['Làm việc', 'Cài đặt'])
       expect(screen.getByRole('header', { name })).toHaveStyle({ paddingHorizontal: 12 })
     expect(screen.getByRole('button', { name: 'Kho, Kho Một' })).toBeOnTheScreen()
-    // Vòng icon (card) cho cả ba dòng (kho, ngôn ngữ, đổi mật khẩu); nhóm đăng xuất không có ô icon.
+    // Vòng icon (card) cho cả bốn dòng (kho, ngôn ngữ, giao diện, đổi mật khẩu); nhóm đăng xuất không có ô icon.
     expect(screen.getAllByTestId('card-icon-circle', { includeHiddenElements: true })).toHaveLength(
-      3,
+      4,
     )
   })
 
@@ -121,6 +131,14 @@ describe('AccountScreen', () => {
     expect(screen.getByRole('button', { name: 'Language, English' })).toBeOnTheScreen()
   })
 
+  it('dòng Giao diện → mở sheet /appearance; giá trị theo lựa chọn đang dùng', async () => {
+    await render(<AccountScreen />)
+    await fireEvent.press(screen.getByRole('button', { name: 'Giao diện, Theo hệ thống' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/appearance')
+    await act(async () => useAppearance.setState({ preference: 'dark' }))
+    expect(screen.getByRole('button', { name: 'Giao diện, Tối' })).toBeOnTheScreen()
+  })
+
   it('Đổi mật khẩu → mở sheet /change-password; đổi xong thì hiện thông báo, mở lại thì ẩn', async () => {
     await render(<AccountScreen />)
     expect(screen.queryByText(/Đã đổi mật khẩu/)).toBeNull()
@@ -140,9 +158,9 @@ describe('AccountScreen', () => {
     await render(<AccountScreen />)
     expect(screen.getByText('Đăng xuất')).toHaveStyle({ color: '#e7000b' })
     expect(screen.getByText('Đăng xuất mọi thiết bị')).toHaveStyle({ color: '#e7000b' })
-    // Chỉ còn ô icon của các dòng phía trên (kho, ngôn ngữ, đổi mật khẩu).
+    // Chỉ còn ô icon của các dòng phía trên (kho, ngôn ngữ, giao diện, đổi mật khẩu).
     expect(screen.getAllByTestId('card-icon-circle', { includeHiddenElements: true })).toHaveLength(
-      3,
+      4,
     )
 
     await fireEvent.press(screen.getByRole('button', { name: 'Đăng xuất' }))
@@ -168,5 +186,19 @@ describe('AccountScreen', () => {
       await screen.findByRole('button', { name: 'Đăng xuất mọi thiết bị', busy: true }),
     ).toBeDisabled()
     await act(async () => release())
+  })
+
+  it('bản dev: nhóm "Nhà phát triển" có dòng "Xem lại màn chào" → mở /welcome-preview', async () => {
+    dev.__DEV__ = true
+    await render(<AccountScreen />)
+    expect(screen.getByText('Nhà phát triển')).toBeOnTheScreen()
+    await fireEvent.press(screen.getByRole('button', { name: 'Xem lại màn chào' }))
+    expect(mockNavigate).toHaveBeenCalledWith('/welcome-preview')
+  })
+
+  it('bản phát hành: không có nhóm "Nhà phát triển"', async () => {
+    await render(<AccountScreen />)
+    expect(screen.queryByText('Xem lại màn chào')).toBeNull()
+    expect(screen.queryByText('Nhà phát triển')).toBeNull()
   })
 })

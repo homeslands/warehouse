@@ -45,7 +45,7 @@ export class InventoryProfile extends AutomapperProfile {
         ),
         forMember(
           (d) => d.effectiveMaximumInventory,
-          mapFrom((s) => effectiveMaximum(s)),
+          mapFrom((s) => effectiveMaximum(s) ?? 0),
         ),
         forMember(
           (d) => d.isBelowMinimum,
@@ -53,7 +53,14 @@ export class InventoryProfile extends AutomapperProfile {
         ),
         forMember(
           (d) => d.isAboveMaximum,
-          mapFrom((s) => s.quantity > effectiveMaximum(s)),
+          mapFrom((s) => {
+            const max = effectiveMaximum(s);
+            return max !== null && s.quantity > max;
+          }),
+        ),
+        forMember(
+          (d) => d.reassignedAt,
+          mapFrom((s) => (s.reassignedAt ? s.reassignedAt.toString() : null)),
         ),
         forMember(
           (d) => d.warehouseSlug,

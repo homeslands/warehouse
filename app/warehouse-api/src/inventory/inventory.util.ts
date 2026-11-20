@@ -12,9 +12,16 @@ export const effectiveMinimum = (row: {
   material?: { minimumInventory?: number } | null;
 }): number => row.minimumInventory ?? row.material?.minimumInventory ?? 0;
 
+/**
+ * Ngưỡng tối đa hiệu lực: `0` là không giới hạn (quy ước BA) ⇒ trả `null` khi `<= 0`.
+ * Kho đặt override `0` cũng có nghĩa là bỏ giới hạn tối đa tại kho đó (khác `null` là dùng mặc định của `Material`).
+ */
 export const effectiveMaximum = (row: {
   maximumInventory?: number | null;
   material?: { maximumInventory?: number } | null;
-}): number => row.maximumInventory ?? row.material?.maximumInventory ?? 0;
+}): number | null => {
+  const max = row.maximumInventory ?? row.material?.maximumInventory ?? 0;
+  return max > 0 ? max : null;
+};
 
 export type InventoryRow = Pick<Inventory, 'minimumInventory' | 'maximumInventory' | 'material'>;

@@ -3,6 +3,7 @@ import type { InventoryAction } from '@/entities/inventory'
 
 export const KNOWN_ACTIONS: readonly InventoryAction[] = [
   'ASSIGN',
+  'REASSIGN',
   'ADJUST',
   'IMPORT',
   'RESERVE',

@@ -114,5 +114,61 @@
   "expiryOverdue_other": "{{count}} days overdue",
   "expirySheetEmpty": "No batches are expired or expiring soon",
   "expirySheetError": "Couldn't load the batch list",
-  "expiryRowLabel": "{{name}}, {{status}}, {{quantity}} left"
+  "expiryRowLabel": "{{name}}, {{status}}, {{quantity}} left",
+  "reorder": {
+    "entry": "Reorder suggestions · {{count}}",
+    "title": "Reorder suggestions",
+    "subtitle": "{{warehouse}} · suggested = max − stock",
+    "chipAll": "All",
+    "chipShort": "Short",
+    "chipSoon": "Running low",
+    "loading": "Loading reorder suggestions",
+    "empty": "Nothing to reorder",
+    "emptyDescription": "Materials below minimum or running low will appear here.",
+    "group": {
+      "choose": "Choose where to order",
+      "none": "No supplier yet",
+      "all": "Materials to reorder"
+    },
+    "groupCount_one": "{{count}} material",
+    "groupCount_other": "{{count}} materials",
+    "groupCountOrdered_one": "{{count}} material · {{ordered}} ordered",
+    "groupCountOrdered_other": "{{count}} materials · {{ordered}} ordered",
+    "orderQty": "order {{qty}}",
+    "enterQty": "Enter qty",
+    "pickSupplier": "Choose supplier",
+    "orderedOn": "Ordered {{date}}",
+    "stockOf": "stock {{value}}",
+    "soon": "Running low",
+    "hintSuggested": "suggested",
+    "hintEdited": "edited by you",
+    "hintSkipped": "won't resend",
+    "alsoAt": "Also at: {{names}}",
+    "availableAt": "Available at: {{names}}",
+    "sendTo": "Send to {{supplier}}",
+    "shareList": "Share list",
+    "sendLocked": "Enter quantities to share",
+    "suppliersError": "Couldn't load the supplier list",
+    "shareErrorTitle": "Couldn't share",
+    "markTitle": "Mark as ordered?",
+    "markMessage_one": "Did you send it to {{supplier}}? Mark {{count}} material as ordered.",
+    "markMessage_other": "Did you send it to {{supplier}}? Mark {{count}} materials as ordered.",
+    "markListMessage_one": "Did you send this list? Mark {{count}} material as ordered.",
+    "markListMessage_other": "Did you send this list? Mark {{count}} materials as ordered.",
+    "markConfirm": "Mark",
+    "sheet": {
+      "qtyLabel": "Quantity to order",
+      "unitLabel": "Unit",
+      "qtyInvalid": "Enter a number greater than 0.",
+      "suggested": "Suggested: {{qty}}",
+      "supplierGroup": "Order from",
+      "unmark": "Remove “Ordered {{date}}” mark",
+      "loading": "Loading"
+    },
+    "share": {
+      "header": "Reorder request — {{warehouse}} — {{date}}",
+      "to": "To: {{supplier}}",
+      "line": "{{index}}. {{name}} ({{code}}) — {{qty}} {{unit}}"
+    }
+  }
 }

@@ -101,5 +101,23 @@
     "openFailed": "Couldn't open the attachment.",
     "cameraDenied": "Camera access isn't allowed.",
     "openSettings": "Open Settings"
+  },
+  "appearance": "Appearance",
+  "appAppearance": "App appearance",
+  "appearanceSystem": "Automatic",
+  "appearanceSystemHint": "Match the device setting",
+  "appearanceLight": "Light",
+  "appearanceLightHint": "Always use a light background",
+  "appearanceDark": "Dark",
+  "appearanceDarkHint": "Always use a dark background",
+  "welcome": {
+    "title": "Welcome to Soko",
+    "scanTitle": "Scan to receive & issue",
+    "scanBody": "Create forms with your camera, no typing codes.",
+    "stockTitle": "Stock & expiry",
+    "stockBody": "See what's running low, expiring soon or expired.",
+    "reorderTitle": "Reorder suggestions",
+    "reorderBody": "Group items to order by supplier and send in a few taps.",
+    "start": "Get Started"
   }
 }

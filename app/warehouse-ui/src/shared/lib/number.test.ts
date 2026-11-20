@@ -1,5 +1,5 @@
 import { describe, expect, it } from 'vitest'
-import { hasAtMostDecimals, roundMoney } from './number'
+import { hasAtMostDecimals, roundMoney, roundQuantity } from './number'
 
 describe('hasAtMostDecimals', () => {
   it.each([0, 1, 1.5, 0.123456, 1.000001, 50])('%s có ≤ 6 số lẻ', (v) => {
@@ -23,5 +23,13 @@ describe('roundMoney', () => {
     expect(roundMoney(1.005)).toBe(1)
     expect(roundMoney(2.135)).toBe(2.13)
     expect(roundMoney(2.175)).toBe(2.17)
+  })
+})
+
+describe('roundQuantity', () => {
+  it('làm tròn 6 số lẻ, khử sai số dấu phẩy động khớp backend', () => {
+    expect(roundQuantity(99.7 + 0.1 + 0.1 + 0.1)).toBe(100)
+    expect(roundQuantity(0.1 + 0.2)).toBe(0.3)
+    expect(roundQuantity(1.1234564)).toBe(1.123456)
   })
 })

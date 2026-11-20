@@ -57,8 +57,10 @@ Mọi số là CẢ KHO (không lọc người lập). Hàng bằng 0 vẫn hi�
 | `importDraft`    | `useImportFormCount(slug, 'DRAFT')`         | `IMPORT_FORM_READ`                                        | `/import` `DRAFT`   |
 | `exportPending`  | `useExportFormCount(slug, 'PENDING')`       | `EXPORT_FORM_READ` (nổi bật nếu có `EXPORT_FORM_CONFIRM`) | `/export` `PENDING` |
 | `exportDraft`    | `useExportFormCount(slug, 'DRAFT')`         | `EXPORT_FORM_READ`                                        | `/export` `DRAFT`   |
-| `stockLow`       | `stockOverview(useInventory)` → `out + low` | `MATERIAL_READ` + `WAREHOUSE_READ`                        | `/stock` `low`      |
+| `stockLow`       | `stockOverview(useInventory)` → `out + low` | `MATERIAL_READ` + `WAREHOUSE_READ`                        | `/stock/reorder`    |
 | `stockHigh`      | `stockOverview` → `high`                    | như trên                                                  | `/stock` `high`     |
+
+Số `stockLow` khớp đúng số đỏ của màn Đề xuất đặt hàng (`/stock/reorder`): hết hàng luôn đỏ kể cả Min 0 (ruling R5, xem `reorder.md`).
 
 ## Hạn dùng
 
@@ -86,7 +88,7 @@ Card (kiểu mới)
 - Sáng / tối: vòng icon `fill`, card Hạn dùng đỏ (`destructiveSoft`), chấm đỏ / cam ở hàng, nút viên accentText trên `fill`.
 - Cỡ chữ lớn + iPhone SE: dòng chính 32 co chữ, 2 card Nhập/Xuất cạnh nhau, hàng Việc cần làm xuống 2 dòng.
 - VoiceOver: hàng Việc cần làm đọc "Phiếu xuất chờ duyệt, 2"; khối chính Hạn dùng / Tồn kho / Hoạt động đọc nhãn gộp, hàng / nút / link vẫn tới được riêng.
-- Vùng chạm ≥ 44, phản hồi `rowPressed`; chạm đúng đích (sheet focus expired/soon, `/stock` all, `/overview/activity`, preset hàng).
+- Vùng chạm ≥ 44, phản hồi `rowPressed`; chạm đúng đích (sheet focus expired/soon, `/stock` all, `stockLow` → `/stock/reorder` (Đề xuất đặt hàng, xem `reorder.md`), `/overview/activity`, preset hàng).
 - Chi tiết: danh sách phiếu trong card (số tiền dài không tràn), "Xem thêm (n)" mở +20 dòng, Reduce Motion.
 
 Chi tiết

@@ -50,7 +50,8 @@ export type InventoryFilters = {
   code?: string
 }
 
-export type InventoryAction = 'ASSIGN' | 'ADJUST' | 'IMPORT' | 'RESERVE' | 'RELEASE' | 'REMOVE'
+export type InventoryAction =
+  'ASSIGN' | 'REASSIGN' | 'ADJUST' | 'IMPORT' | 'RESERVE' | 'RELEASE' | 'REMOVE'
 
 /** `InventoryHistoryResponseDto`. `action` khai `string` để mã mới của BE không làm vỡ kiểu — FE hiện nguyên mã. */
 export type InventoryHistory = {

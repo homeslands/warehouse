@@ -85,12 +85,15 @@
   "notInWarehouse": "This material is no longer in this warehouse",
   "action": {
     "ASSIGN": "Added to warehouse",
+    "REASSIGN": "Re-added to warehouse",
     "IMPORT": "Goods receipt",
     "ADJUST": "Adjustment",
     "RESERVE": "Reserved",
     "RELEASE": "Released",
     "REMOVE": "Removed"
   },
+  "milestoneRemoved": "Removed from warehouse on {{time}}",
+  "milestoneReassigned": "Re-added to warehouse on {{time}}",
   "reservedChange": "Reserved {{delta}} ({{before}} → {{after}})",
   "importFormNote": "Goods receipt {{code}}",
   "createAndAssignConfirmTitle": "Create material {{code}} and add it to warehouse {{warehouse}}?",

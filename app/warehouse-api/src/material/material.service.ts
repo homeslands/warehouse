@@ -624,7 +624,8 @@ export class MaterialService {
   }
 
   private assertInventoryRange(minimum: number, maximum: number): void {
-    if (maximum < minimum)
+    // 0 là không giới hạn (quy ước BA) — chỉ chặn khi đặt trần dương mà nhỏ hơn min.
+    if (maximum > 0 && maximum < minimum)
       throw new MaterialException(MaterialValidation.MATERIAL_INVENTORY_RANGE_INVALID);
   }
 }
