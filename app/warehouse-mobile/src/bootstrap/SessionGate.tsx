@@ -10,13 +10,16 @@ import { materialTypeAbilities } from '@/entities/material-type'
 import { unitAbilities } from '@/entities/unit'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { useExportDraft } from '@/features/export-draft'
+import { markWelcomeSeen, useWelcome } from '@/features/onboarding'
 import { useReceiveDraft } from '@/features/receive-checklist'
 import { canEditThresholds } from '@/features/stock-threshold'
 import { canAssignWarehouse } from '@/features/warehouse-assign'
 import { OfflineScreen } from '@/screens/offline'
+import { markLaunchDone } from '@/shared/lib/launch'
 import { useTheme } from '@/shared/theme/useTheme'
 
 import { destinationFor, hrefFor, type Destination } from './destination'
+import { LaunchOverlay } from './LaunchOverlay'
 import { useAppBootstrap } from './providers'
 import { tabsFor } from './tabs'
 import { scanModalOptions } from './ScanStackLayout'
@@ -48,14 +51,38 @@ export function SessionGate() {
   const hasReceiveDraft = useReceiveDraft((s) => !!s.ctx && !!s.draft)
   // Sheet của màn lập / sửa phiếu xuất: chỉ khi có bản nháp phiếu xuất đang mở (màn phiếu đã nạp).
   const hasExportDraft = useExportDraft((s) => !!s.ctx && !!s.draft)
-  const destination = useStableDestination(destinationFor(status, resolution, user))
+  const endReason = useAuthStore((s) => s.endReason)
+  const seen = useWelcome((s) => s.seen)
+  // Máy từng có phiên: đang đăng nhập / offline (có token sẵn) hoặc phiên vừa bị kết thúc (hết hạn, bị
+  // khoá, đăng xuất) → coi như đã qua màn chào, kể cả người dùng cũ cập nhật app mà refresh bị từ chối
+  // (màn đăng nhập phải báo lý do ngay, không bị màn chào chen trước).
+  const hadSession = status === 'authenticated' || status === 'offline' || endReason !== null
+  // Chưa nạp (`null`) hoặc lỗi đọc → coi như đã xem; chỉ `false` (máy chưa từng xem) mới ra màn chào.
+  const welcomeSeen = seen !== false || hadSession
+  const destination = useStableDestination(destinationFor(status, resolution, user, welcomeSeen))
   const visible = ready && destination !== 'splash'
   const home = hrefFor(destination, user) ?? undefined
   useLeaveSheetOnSessionChange(destination, home ?? null)
 
+  // Lưu lại để lần mở sau / đăng xuất về sau không gặp màn chào. Phụ thuộc cả `seen`: cờ có thể nạp xong
+  // SAU khi phiên đã có (đọc bộ nhớ chậm hơn mạng).
   useEffect(() => {
-    if (visible) SplashScreen.hide()
-  }, [visible])
+    if (hadSession && seen === false) void markWelcomeSeen()
+  }, [hadSession, seen])
+
+  // Khởi động nguội: lớp phủ logo (trùng splash gốc) gỡ splash gốc khi đã vẽ xong rồi chạy animation;
+  // chỉ một lần trong đời app (SessionGate không bị gỡ khi về nền / mở lại).
+  const [launching, setLaunching] = useState(true)
+  const launch =
+    visible && launching ? (
+      <LaunchOverlay
+        onShown={() => SplashScreen.hide()}
+        onDone={() => {
+          setLaunching(false)
+          markLaunchDone()
+        }}
+      />
+    ) : null
 
   if (!visible) return null
   if (destination === 'offline') {
@@ -63,6 +90,7 @@ export function SessionGate() {
       <>
         <StatusBar style="auto" />
         <OfflineScreen />
+        {launch}
       </>
     )
   }
@@ -112,10 +140,11 @@ export function SessionGate() {
           <Stack.Screen name="export-form" options={formModal} />
         </Stack.Protected>
         {/* MỌI bottom sheet là một route trình bày giống nhau (`sheet(...)`), có Stack lồng cho header
-            native (`app/<sheet>/_layout.tsx`), luôn nằm trên một màn khác (không là màn đầu stack). Đổi kho / đổi mật khẩu: chỉ khi đang ở tab. */}
+            native (`app/<sheet>/_layout.tsx`), luôn nằm trên một màn khác (không là màn đầu stack). Đổi kho / đổi mật khẩu / giao diện: chỉ khi đang ở tab. */}
         <Stack.Protected redirectTo={home} guard={inTabs}>
           <Stack.Screen name="switch-warehouse" options={halfSheet} />
           <Stack.Screen name="change-password" options={fullSheet} />
+          <Stack.Screen name="appearance" options={halfSheet} />
         </Stack.Protected>
         {/* Lọc tồn kho dạng sheet: CHỈ Android (iOS dùng menu gốc trên header của tab Tồn kho), và chỉ
             khi được thấy tab Tồn kho — deep link không được dựng `useInventory` cho người thiếu quyền. */}
@@ -129,6 +158,10 @@ export function SessionGate() {
             cả hai). Hết cỡ (bàn phím). */}
         <Stack.Protected redirectTo={home} guard={inTabs && canSeeStock && canEditStockThreshold}>
           <Stack.Screen name="stock-threshold" options={fullSheet} />
+        </Stack.Protected>
+        {/* Đề xuất đặt hàng: sửa số / đơn vị / nơi đặt của một dòng. Như tab Tồn kho; hết cỡ (bàn phím). */}
+        <Stack.Protected redirectTo={home} guard={inTabs && canSeeStock}>
+          <Stack.Screen name="reorder-line" options={fullSheet} />
         </Stack.Protected>
         {/* Danh mục: sheet tạo / sửa / xem Đơn vị và Loại vật tư — cần quyền đọc tương ứng (tạo / sửa / xoá do
             sheet tự kiểm). Hết cỡ (bàn phím). */}
@@ -227,6 +260,14 @@ export function SessionGate() {
         >
           <Stack.Screen name="no-access" />
         </Stack.Protected>
+        {/* Màn chào một lần (máy mới cài, chưa đăng nhập): bấm "Bắt đầu" ghi cờ → đích thành `login`. */}
+        <Stack.Protected redirectTo={home} guard={destination === 'welcome'}>
+          <Stack.Screen name="welcome" />
+        </Stack.Protected>
+        {/* Chỉ bản dev: xem lại màn chào khi đã đăng nhập (dòng ở tab Tài khoản), modal toàn màn. */}
+        <Stack.Protected redirectTo={home} guard={inTabs && __DEV__}>
+          <Stack.Screen name="welcome-preview" options={formModal} />
+        </Stack.Protected>
         <Stack.Protected redirectTo={home} guard={destination === 'login'}>
           <Stack.Screen name="login" />
         </Stack.Protected>
@@ -235,6 +276,7 @@ export function SessionGate() {
           <Stack.Screen name="index" />
         </Stack.Protected>
       </Stack>
+      {launch}
     </>
   )
 }
