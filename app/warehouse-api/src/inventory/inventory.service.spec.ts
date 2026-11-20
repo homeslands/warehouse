@@ -87,10 +87,10 @@ describe('InventoryService', () => {
   let service: InventoryService;
   const inventoryRepository = {
     findOne: jest.fn(),
+    find: jest.fn(),
     create: jest.fn(),
     save: jest.fn(),
-    findAndCount: jest.fn(),
-    metadata: { name: 'Inventory' },
+    createQueryBuilder: jest.fn(),
   };
   const warehouseRepository = { findOneBy: jest.fn() };
   const supplierRepository = { findOneBy: jest.fn() };
@@ -103,7 +103,6 @@ describe('InventoryService', () => {
     find: jest.fn(),
     findOne: jest.fn(),
     save: jest.fn((data) => data),
-    recover: jest.fn((data) => ({ ...data, deletedAt: undefined })),
     update: jest.fn(),
     softRemove: jest.fn(),
   };
@@ -165,16 +164,39 @@ describe('InventoryService', () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.createMaterialIn.mockResolvedValue(material());
       inventoryRepository.create.mockImplementation((data) => ({ id: 'wm-id-1', ...data }));
+      txInventoryRepository.save.mockImplementation((data) => data);
+      // `mutate()` đọc lại bản ghi vừa insert trong cùng transaction để khoá dòng và ghi lịch sử.
+      txInventoryRepository.findOne.mockImplementation(async () => {
+        const calls = txInventoryRepository.save.mock.calls;
+        return {
+          ...(calls[calls.length - 1]?.[0] ?? row({ quantity: 0 })),
+          id: 'wm-id-1',
+          warehouse: undefined,
+        };
+      });
     });
 
-    it('creates the material, the inventory row and an ASSIGN history in ONE transaction', async () => {
+    it('creates the material, the inventory row via mutate() and an ASSIGN history in ONE transaction', async () => {
       const result = await create({ quantity: 5, minimumInventory: 20 });
 
       expect(transactionManager.execute).toHaveBeenCalledTimes(1);
       // Vật tư được tạo bằng `manager` của transaction này, không tự mở transaction riêng.
       expect(materialService.createMaterialIn).toHaveBeenCalledWith(manager, materialDto);
       expect(txInventoryRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ quantity: 5, reservedQuantity: 0, minimumInventory: 20 }),
+        expect.objectContaining({
+          quantity: 0,
+          reservedQuantity: 0,
+          minimumInventory: 20,
+          reassignedAt: null,
+        }),
+      );
+      expect(txInventoryRepository.findOne).toHaveBeenCalledWith({
+        where: { id: 'wm-id-1' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(txInventoryRepository.update).toHaveBeenCalledWith(
+        { id: 'wm-id-1' },
+        { quantity: 5, reservedQuantity: 0 },
       );
       expect(writtenHistory()).toMatchObject({
         action: InventoryHistoryAction.Assign,
@@ -187,6 +209,7 @@ describe('InventoryService', () => {
         warehouseSlug: 'wh-slug-1',
         quantity: 5,
         effectiveMinimumInventory: 20,
+        reassignedAt: null,
       });
     });
 
@@ -248,17 +271,23 @@ describe('InventoryService', () => {
     const assign = (overrides: Record<string, unknown> = {}) =>
       service.assignMaterial('wh-slug-1', { materialSlug: 'mat-slug-1', ...overrides }, actor);
 
-    it('creates the row and falls back to the material thresholds when no override is given', async () => {
+    it('creates the row via mutate() and falls back to the material thresholds when no override is given', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      // 1: tra trùng (chưa gán) — 2: đọc lại dòng vừa ghi kèm relations để dựng response.
-      inventoryRepository.findOne
+      txInventoryRepository.findOne
         .mockResolvedValueOnce(null)
-        .mockResolvedValueOnce(row({ quantity: 5 }));
-      inventoryRepository.create.mockImplementation((data) => data);
+        .mockResolvedValueOnce(row({ id: 'wm-id-1', quantity: 0, warehouse: undefined }));
+      inventoryRepository.create.mockImplementation((data) => ({ id: 'wm-id-1', ...data }));
+      txInventoryRepository.save.mockImplementation((data) => data);
+      inventoryRepository.findOne.mockResolvedValueOnce(row({ quantity: 5, reassignedAt: null }));
 
       const result = await assign({ quantity: 5 });
 
+      expect(txInventoryRepository.findOne).toHaveBeenNthCalledWith(1, {
+        where: { warehouse: { id: 'wh-id-1' }, material: { id: 'mat-id-1' } },
+        withDeleted: true,
+        lock: { mode: 'pessimistic_write' },
+      });
       expect(inventoryRepository.findOne).toHaveBeenLastCalledWith(
         expect.objectContaining({
           where: { warehouse: { slug: 'wh-slug-1' }, material: { slug: 'mat-slug-1' } },
@@ -279,21 +308,36 @@ describe('InventoryService', () => {
         effectiveMaximumInventory: 100,
         isBelowMinimum: true,
         isAboveMaximum: false,
+        reassignedAt: null,
         materialCode: 'MAT-001',
         warehouseSlug: 'wh-slug-1',
       });
     });
 
-    it('writes the row and an ASSIGN history entry in the same transaction', async () => {
+    it('writes initial quantity through mutate() and records an ASSIGN history entry in the same transaction', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      inventoryRepository.findOne.mockResolvedValueOnce(null).mockResolvedValueOnce(row());
+      txInventoryRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(row({ id: 'wm-id-1', quantity: 0, warehouse: undefined }));
       inventoryRepository.create.mockImplementation((data) => ({ id: 'wm-id-1', ...data }));
+      txInventoryRepository.save.mockImplementation((data) => data);
+      inventoryRepository.findOne.mockResolvedValueOnce(row({ quantity: 5 }));
 
       await assign({ quantity: 5 });
 
       expect(transactionManager.execute).toHaveBeenCalledTimes(1);
-      expect(txInventoryRepository.save).toHaveBeenCalledTimes(1);
+      expect(txInventoryRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ quantity: 0, reservedQuantity: 0, reassignedAt: null }),
+      );
+      expect(txInventoryRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: 'wm-id-1' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(txInventoryRepository.update).toHaveBeenCalledWith(
+        { id: 'wm-id-1' },
+        { quantity: 5, reservedQuantity: 0 },
+      );
       expect(writtenHistory()).toMatchObject({
         inventory: { id: 'wm-id-1' },
         action: InventoryHistoryAction.Assign,
@@ -312,52 +356,71 @@ describe('InventoryService', () => {
       await expectError(assign(), InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE.code);
     });
 
-    it('rejects a material currently active in the warehouse', async () => {
+    it('rejects a material currently active in the warehouse under the transaction lock', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      inventoryRepository.findOne.mockResolvedValue(row());
+      txInventoryRepository.findOne.mockResolvedValue(row({ deletedAt: null }));
 
       await expectError(assign(), InventoryValidation.INVENTORY_DOES_EXIST.code);
-      expect(transactionManager.execute).not.toHaveBeenCalled();
+      expect(txInventoryRepository.update).not.toHaveBeenCalled();
+      expect(txInventoryRepository.save).not.toHaveBeenCalled();
     });
 
-    // `UQ_inventory(warehouse, material)` tính cả row xoá mềm: gán lại phải khôi phục đúng row cũ.
-    it('recovers a previously removed row with fresh quantity/thresholds and writes an ASSIGN history', async () => {
+    // `UQ_inventory(warehouse, material)` tính cả row xoá mềm: gán lại phải khoá và khôi phục
+    // đúng row cũ, lưu `reassignedAt`, đi qua `mutate()` và ghi lịch sử `REASSIGN`.
+    it('recovers a previously removed row with reassignedAt via mutate() and writes a REASSIGN history', async () => {
+      const reassignedAt = new Date('2026-11-20T02:00:00.000Z');
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      inventoryRepository.findOne
+      txInventoryRepository.findOne
         .mockResolvedValueOnce(
           row({
             id: 'wm-id-old',
-            deletedAt: new Date(),
+            deletedAt: new Date('2026-11-18T00:00:00.000Z'),
             quantity: 0,
             minimumInventory: 50,
             maximumInventory: 90,
           }),
         )
-        .mockResolvedValueOnce(row({ id: 'wm-id-old', quantity: 7 }));
+        .mockResolvedValueOnce(
+          row({ id: 'wm-id-old', quantity: 0, warehouse: undefined, reassignedAt }),
+        );
+      inventoryRepository.findOne.mockResolvedValueOnce(
+        row({ id: 'wm-id-old', quantity: 7, reassignedAt }),
+      );
 
       const result = await assign({ quantity: 7 });
 
       expect(transactionManager.execute).toHaveBeenCalledTimes(1);
-      expect(txInventoryRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({
-          id: 'wm-id-old',
-          quantity: 7,
+      expect(txInventoryRepository.findOne).toHaveBeenNthCalledWith(1, {
+        where: { warehouse: { id: 'wh-id-1' }, material: { id: 'mat-id-1' } },
+        withDeleted: true,
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(txInventoryRepository.update).toHaveBeenNthCalledWith(
+        1,
+        { id: 'wm-id-old' },
+        {
+          quantity: 0,
           reservedQuantity: 0,
           minimumInventory: null,
           maximumInventory: null,
-        }),
+          reassignedAt: expect.any(Date),
+          deletedAt: null,
+        },
       );
-      expect(txInventoryRepository.recover).toHaveBeenCalledWith(
-        expect.objectContaining({ id: 'wm-id-old' }),
-      );
-      expect(txInventoryRepository.save.mock.invocationCallOrder[0]).toBeLessThan(
-        txInventoryRepository.recover.mock.invocationCallOrder[0],
+      expect(txInventoryRepository.findOne).toHaveBeenNthCalledWith(2, {
+        where: { id: 'wm-id-old' },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(txInventoryRepository.update).toHaveBeenNthCalledWith(
+        2,
+        { id: 'wm-id-old' },
+        { quantity: 7, reservedQuantity: 0 },
       );
       expect(writtenHistory()).toMatchObject({
         inventory: { id: 'wm-id-old' },
-        action: InventoryHistoryAction.Assign,
+        action: InventoryHistoryAction.Reassign,
         quantityDelta: 7,
         quantityBefore: 0,
         quantityAfter: 7,
@@ -369,19 +432,20 @@ describe('InventoryService', () => {
         quantity: 7,
         effectiveMinimumInventory: 10,
         effectiveMaximumInventory: 100,
+        reassignedAt: reassignedAt.toString(),
       });
     });
 
     it('rejects recovering a soft-deleted row when the new override conflicts with the material default', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      inventoryRepository.findOne.mockResolvedValue(row({ deletedAt: new Date() }));
+      txInventoryRepository.findOne.mockResolvedValue(row({ deletedAt: new Date() }));
 
       await expectError(
         assign({ minimumInventory: 500 }),
         InventoryValidation.INVENTORY_RANGE_INVALID.code,
       );
-      expect(transactionManager.execute).not.toHaveBeenCalled();
+      expect(txInventoryRepository.update).not.toHaveBeenCalled();
     });
 
     it('throws WAREHOUSE_NOT_FOUND when the warehouse slug is unknown', async () => {
@@ -393,18 +457,43 @@ describe('InventoryService', () => {
       });
     });
 
-    // Override 1 vế phải so với vế EFFECTIVE còn lại, không so với null.
-    it('rejects an override that conflicts with the material default on the other side', async () => {
+    // Override 1 vế phải so với vế EFFECTIVE còn lại, trừ khi max = 0 (không giới hạn).
+    it('rejects an override that conflicts with a positive material default on the other side', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
       materialService.findEntityBySlug.mockResolvedValue(material());
-      inventoryRepository.findOne.mockResolvedValue(null);
-      inventoryRepository.create.mockImplementation((data) => data);
+      txInventoryRepository.findOne.mockResolvedValue(null);
 
       await expectError(
         assign({ minimumInventory: 500 }),
         InventoryValidation.INVENTORY_RANGE_INVALID.code,
       );
-      expect(transactionManager.execute).not.toHaveBeenCalled();
+      expect(txInventoryRepository.save).not.toHaveBeenCalled();
+    });
+
+    it('accepts minimumInventory > 0 when effective maximumInventory is 0 (unlimited)', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse());
+      materialService.findEntityBySlug.mockResolvedValue(material({ maximumInventory: 0 }));
+      txInventoryRepository.findOne
+        .mockResolvedValueOnce(null)
+        .mockResolvedValueOnce(row({ id: 'wm-id-1', quantity: 0, warehouse: undefined }));
+      inventoryRepository.create.mockImplementation((data) => ({ id: 'wm-id-1', ...data }));
+      txInventoryRepository.save.mockImplementation((data) => data);
+      inventoryRepository.findOne.mockResolvedValueOnce(
+        row({
+          quantity: 80,
+          minimumInventory: 50,
+          maximumInventory: null,
+          material: material({ maximumInventory: 0 }),
+        }),
+      );
+
+      const result = await assign({ quantity: 80, minimumInventory: 50 });
+
+      expect(result).toMatchObject({
+        effectiveMinimumInventory: 50,
+        effectiveMaximumInventory: 0,
+        isAboveMaximum: false,
+      });
     });
   });
 
@@ -428,13 +517,29 @@ describe('InventoryService', () => {
       });
     });
 
-    it('rejects an update that would make max lower than min', async () => {
+    it('rejects an update that would make a positive max lower than min', async () => {
       inventoryRepository.findOne.mockResolvedValue(row());
 
       await expectError(
         service.updateThresholds('wh-slug-1', 'mat-slug-1', { maximumInventory: 5 }),
         InventoryValidation.INVENTORY_RANGE_INVALID.code,
       );
+    });
+
+    it('treats effective maximum 0 (from material or warehouse override) as unlimited', async () => {
+      inventoryRepository.findOne.mockResolvedValue(row({ quantity: 500 }));
+      inventoryRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateThresholds('wh-slug-1', 'mat-slug-1', {
+        minimumInventory: 50,
+        maximumInventory: 0,
+      });
+
+      expect(result).toMatchObject({
+        effectiveMinimumInventory: 50,
+        effectiveMaximumInventory: 0,
+        isAboveMaximum: false,
+      });
     });
   });
 
@@ -652,26 +757,58 @@ describe('InventoryService', () => {
 
   describe('findAll', () => {
     const page = { page: 1, size: 10 };
+    const makeQb = (pageRows: Inventory[], total: number) => {
+      const qb = {
+        innerJoin: jest.fn().mockReturnThis(),
+        where: jest.fn().mockReturnThis(),
+        andWhere: jest.fn().mockReturnThis(),
+        orderBy: jest.fn().mockReturnThis(),
+        addOrderBy: jest.fn().mockReturnThis(),
+        offset: jest.fn().mockReturnThis(),
+        limit: jest.fn().mockReturnThis(),
+        getManyAndCount: jest.fn().mockResolvedValue([pageRows, total]),
+      };
+      inventoryRepository.createQueryBuilder.mockReturnValue(qb);
+      return qb;
+    };
 
-    it('filters by warehouse/type and paginates without the query builder', async () => {
+    it('filters by warehouse/type via QueryBuilder, orders by COALESCE(reassignedAt, createdAt) DESC and preserves page order', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
-      inventoryRepository.findAndCount.mockResolvedValue([[row()], 11]);
+      const first = row({ id: 'wm-2', reassignedAt: new Date('2026-11-20T00:00:00.000Z') });
+      const second = row({ id: 'wm-1', reassignedAt: null });
+      const qb = makeQb([first, second], 11);
+      // Giả lập `WHERE id IN (...)` trả ngược thứ tự để xác nhận service giữ đúng thứ tự trang.
+      inventoryRepository.find.mockResolvedValue([second, first]);
 
       const result = await service.findAll('wh-slug-1', { ...page, typeSlug: 'type-slug-1' });
 
-      const options = inventoryRepository.findAndCount.mock.calls[0][0];
-      expect(options).toMatchObject({
-        where: { warehouse: { id: 'wh-id-1' }, material: { type: { slug: 'type-slug-1' } } },
+      expect(inventoryRepository.createQueryBuilder).toHaveBeenCalledWith('inventory');
+      expect(qb.innerJoin).toHaveBeenCalledWith('inventory.material', 'material');
+      expect(qb.innerJoin).toHaveBeenCalledWith('material.type', 'type');
+      expect(qb.where).toHaveBeenCalledWith('inventory.warehouse = :warehouseId', {
+        warehouseId: 'wh-id-1',
+      });
+      expect(qb.andWhere).toHaveBeenCalledWith('type.slug = :typeSlug', {
+        typeSlug: 'type-slug-1',
+      });
+      expect(qb.orderBy).toHaveBeenCalledWith(
+        'COALESCE(inventory.reassigned_at_column, inventory.created_at_column)',
+        'DESC',
+      );
+      expect(qb.addOrderBy).toHaveBeenCalledWith('inventory.id_column', 'DESC');
+      expect(qb.offset).toHaveBeenCalledWith(0);
+      expect(qb.limit).toHaveBeenCalledWith(10);
+      expect(inventoryRepository.find).toHaveBeenCalledWith({
+        where: { id: expect.anything() },
         relations: {
           warehouse: true,
           material: { type: true, baseUnit: true, unitsCanHave: { unit: true } },
         },
-        order: { createdAt: 'DESC' },
-        skip: 0,
-        take: 10,
       });
-      expect(options.where.material.minimumInventory).toBeUndefined();
-      expect(options.where.material.maximumInventory).toBeUndefined();
+      expect(result.items.map((item) => item.reassignedAt)).toEqual([
+        first.reassignedAt.toString(),
+        null,
+      ]);
       expect(result).toMatchObject({ total: 11, totalPages: 2, hasNext: true, hasPrevios: false });
       expect(result.items[0].baseUnit).toMatchObject({
         slug: 'unit-slug-1',
@@ -696,31 +833,35 @@ describe('InventoryService', () => {
       });
     });
 
-    it('returns baseUnit null for a material without a base unit', async () => {
+    it('returns baseUnit null for a material without a base unit and skips hydrate when empty', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
-      inventoryRepository.findAndCount.mockResolvedValue([
-        [row({ material: material({ baseUnit: undefined }) })],
-        1,
+      makeQb([row({ id: 'wm-id-1' })], 1);
+      inventoryRepository.find.mockResolvedValue([
+        row({ material: material({ baseUnit: undefined }) }),
       ]);
 
       const result = await service.findAll('wh-slug-1', page);
-
       expect(result.items[0].baseUnit).toBeNull();
+
+      makeQb([], 0);
+      inventoryRepository.find.mockClear();
+      const emptyResult = await service.findAll('wh-slug-1', page);
+      expect(emptyResult.items).toEqual([]);
+      expect(inventoryRepository.find).not.toHaveBeenCalled();
     });
 
-    // Phải so với ngưỡng EFFECTIVE (override ?? mặc định của material), không phải chỉ override.
-    it('compares quantity against the effective thresholds', async () => {
+    // Phải so với ngưỡng EFFECTIVE và coi max = 0 là không giới hạn (`NULLIF(..., 0)`).
+    it('compares quantity against effective thresholds and treats max = 0 as unlimited', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse());
-      inventoryRepository.findAndCount.mockResolvedValue([[], 0]);
+      const qb = makeQb([], 0);
 
       await service.findAll('wh-slug-1', { ...page, belowMinimum: true, aboveMaximum: true });
 
-      const { material: where } = inventoryRepository.findAndCount.mock.calls[0][0].where;
-      expect(where.minimumInventory.getSql('m.minimumInventory')).toBe(
-        'Inventory.quantity < COALESCE(Inventory.minimumInventory, m.minimumInventory)',
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'inventory.quantity < COALESCE(inventory.minimumInventory, material.minimumInventory)',
       );
-      expect(where.maximumInventory.getSql('m.maximumInventory')).toBe(
-        'Inventory.quantity > COALESCE(Inventory.maximumInventory, m.maximumInventory)',
+      expect(qb.andWhere).toHaveBeenCalledWith(
+        'inventory.quantity > NULLIF(COALESCE(inventory.maximumInventory, material.maximumInventory), 0)',
       );
     });
   });

@@ -81,6 +81,11 @@ export class Inventory extends Base {
   })
   maximumInventory?: number | null;
 
+  /** `null` khi chỉ mới gán lần đầu; cập nhật mỗi lần gán lại sau khi đã gỡ khỏi kho. */
+  @AutoMap()
+  @Column({ name: 'reassigned_at_column', type: 'datetime', precision: 6, nullable: true })
+  reassignedAt?: Date | null;
+
   /** Append-only, mới nhất đọc qua `GET .../materials/:materialSlug/histories`. Không `cascade`. */
   @OneToMany(() => InventoryHistory, (history) => history.inventory)
   histories?: InventoryHistory[];

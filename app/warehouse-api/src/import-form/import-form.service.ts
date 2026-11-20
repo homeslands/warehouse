@@ -242,7 +242,7 @@ export class ImportFormService {
           name: material.name,
           baseUnitSlug: material.baseUnit?.slug ?? null,
           quantity,
-          ...(max > 0 ? { effectiveMaximumInventory: max } : {}),
+          ...(max !== null ? { effectiveMaximumInventory: max } : {}),
           suppliers: (material.suppliers ?? [])
             .map(({ slug, code, name }) => ({ slug, code, name }))
             .sort((a, b) => a.code.localeCompare(b.code)),

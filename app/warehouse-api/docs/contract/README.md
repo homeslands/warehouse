@@ -56,3 +56,4 @@ Module `src/example` là mẫu để tạo module mới, không dành cho FE nê
 |---|---|---|---|
 | 2026-11-07 | (PR này) | Bản đầu tiên, mô tả API tại `main` `5555273` | — |
 | 2026-11-19 | (PR này) | `PUT /warehouses/:warehouseSlug/materials` khôi phục dòng tồn đã xoá mềm khi gán lại; `GET .../import-forms/available-materials` trả thêm `effectiveMaximumInventory` khi `> 0` | Không |
+| 2026-11-20 | (PR này) | `PUT /warehouses/:warehouseSlug/materials` khoá row trong transaction, giữ `createdAt` gốc, ghi `reassignedAt` và lịch sử `REASSIGN` khi gán lại; `GET .../materials` sắp theo `COALESCE(reassignedAt, createdAt) DESC`; đồng bộ quy ước `max = 0` là không giới hạn trên `material`, `inventory`, `import-form` | Không |
