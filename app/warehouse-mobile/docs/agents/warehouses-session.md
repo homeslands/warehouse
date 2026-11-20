@@ -1,6 +1,6 @@
 # Kho, phiên, token và HTTP
 
-Đọc khi: đụng phiên đăng nhập, token/HTTP, chọn/đổi kho, nguồn danh sách kho theo vai trò, `session-wiring`.
+Đọc khi: đụng phiên đăng nhập, token/HTTP, chọn/đổi kho, nguồn danh sách kho theo vai trò, `session-wiring`, màn chào lần đầu (`/welcome`).
 
 - `getTokens()` đọc **đồng bộ** từ bộ nhớ. `hydrateTokens()` (async, đọc SecureStore, khoá `warehouse.auth`) **phải được await trước request đầu tiên**; bootstrap đã làm việc này, đừng gọi API trước nó.
 
@@ -15,6 +15,8 @@
 - Trạng thái `offline` không tự hồi phục: `OfflineScreen` (`src/screens/offline/OfflineScreen.tsx`) có nút Thử lại gọi `bootstrapSession()`; `SessionGate` không có logic retry.
 
 - `useWarehouseStore.select()` **reject** (`select() before resolveFor`) nếu `resolveFor(user)` chưa chạy cho user hiện tại. Reset kho và cache query được nối vào kết thúc phiên ở `session-wiring.ts`. `resolveFor(user, source)`: `source` mặc định `'mine'` (`user.warehouses`); `'all'` (ADMIN+) tải `GET /warehouses` — xem "Nguồn danh sách kho theo vai trò".
+
+- **Màn chào một lần (`/welcome`, 2026-11-20)**: máy mới cài, chưa đăng nhập → đích `welcome` thay cho `login` (`destinationFor(..., welcomeSeen)`); thứ tự lớp phủ logo → màn chào → đăng nhập. Cờ theo MÁY `warehouse.welcomeSeen` (`features/onboarding`: `useWelcome`, `initWelcome` chạy trong `useAppBootstrap`, `markWelcomeSeen`); đăng xuất không xoá. Chỉ "chưa có cờ" mới là chưa xem — đọc lỗi / giá trị hỏng / chưa nạp đều coi như đã xem (không bao giờ chặn đường tới đăng nhập). Máy từng có phiên (`authenticated` / `offline` hoặc `endReason` khác null — gồm cả người dùng cũ cập nhật app mà refresh bị từ chối) → coi như đã xem ngay trong `SessionGate` (`hadSession`) và ghi cờ, nên người dùng cũ không bao giờ thấy màn chào và màn đăng nhập báo lý do hết phiên ngay. Bấm "Bắt đầu" chỉ ghi cờ, `Stack.Protected` tự chuyển `/login`. 3 dòng + nút chỉ bắt đầu hiện lần lượt khi lớp phủ logo xong (`shared/lib/launch.ts` `useLaunch`, `SessionGate` gọi `markLaunchDone`). Xem lại trên máy: bản dev có nhóm "Nhà phát triển" → "Xem lại màn chào" ở tab Tài khoản (`__DEV__`), mở route `/welcome-preview` (modal toàn màn, guard `inTabs && __DEV__`, `WelcomeScreen onPreviewClose`): chạy lại hiệu ứng, "Bắt đầu" chỉ `router.back()`, không đụng cờ. Muốn thử luồng thật (máy mới cài): Android xoá dữ liệu Expo Go; iPhone đăng xuất trước rồi cài lại Expo Go (token ở Keychain không mất khi gỡ app). Test: mock AsyncStorage `getItem` đã là `jest.fn` — `spyOn` không được `restoreAllMocks` gỡ, phải tự trả lại implementation.
 
 - Chọn kho có HAI route: `/select-warehouse` (lần đầu sau đăng nhập, màn đầy đủ, chạm là chọn, không Huỷ) và `/switch-warehouse` (sheet). Đừng gộp lại: route lần đầu là màn đầu stack, trình bày modal sẽ bị RN Screens cảnh báo. Sheet luôn phải nằm trên một màn khác (guard tương ứng).
 

@@ -1,5 +1,5 @@
 import { Stack, useRouter, type NativeStackNavigationOptions } from 'expo-router'
-import { Layers, SearchX } from '@/shared/ui/icons'
+import { ChevronRight, Layers, SearchX, ShoppingCart } from '@/shared/ui/icons'
 import { useCallback, useDeferredValue, useEffect, useMemo, useRef, useState } from 'react'
 import { useTranslation } from 'react-i18next'
 import { Pressable, RefreshControl, SectionList, View } from 'react-native'
@@ -14,6 +14,7 @@ import {
   type InventoryItem,
 } from '@/entities/inventory'
 import { useWarehouseStore } from '@/entities/warehouse'
+import { reorderLevel } from '@/features/reorder'
 import { tabHeaderRight, WarehouseTransition } from '@/features/warehouse-picker'
 import { useRoutePreset } from '@/shared/lib/useRoutePreset'
 import { useTheme } from '@/shared/theme/useTheme'
@@ -98,6 +99,36 @@ function ActiveFilterHint({ text, onClear }: { text: string; onClear: () => void
         </Text>
       </Pressable>
     </View>
+  )
+}
+
+/** Hàng lối vào "Đề xuất đặt hàng · n" dưới chip mức tồn (n = vật tư đỏ + vàng của cả kho). */
+function ReorderEntry({ count, onPress }: { count: number; onPress: () => void }) {
+  const { t } = useTranslation('inventory')
+  const { colors } = useTheme()
+  const label = t('reorder.entry', { count })
+  return (
+    <Pressable
+      testID="stock-reorder-entry"
+      accessibilityRole="button"
+      accessibilityLabel={label}
+      onPress={onPress}
+      style={({ pressed }) => ({
+        minHeight: 44,
+        flexDirection: 'row',
+        alignItems: 'center',
+        gap: 8,
+        paddingLeft: 18,
+        paddingRight: 8,
+        opacity: pressed ? 0.6 : 1,
+      })}
+    >
+      <ShoppingCart size={18} color={colors.info} />
+      <Text weight="medium" size={14} numeric style={{ flex: 1, color: colors.info }}>
+        {label}
+      </Text>
+      <ChevronRight size={18} color={colors.mutedForeground} />
+    </Pressable>
   )
 }
 
@@ -229,6 +260,11 @@ export function StockListScreen() {
   }, [rows, t])
   // Tổng quan đếm trên CẢ KHO, không theo tìm kiếm / lọc.
   const overview = useMemo(() => (data && data.length > 0 ? stockOverview(data) : null), [data])
+  // Đề xuất đặt hàng: cũng đếm cả kho (đỏ + vàng), không theo tìm kiếm / lọc.
+  const reorderCount = useMemo(
+    () => (data ? data.filter((i) => reorderLevel(i) !== null).length : 0),
+    [data],
+  )
 
   const renderItem = useCallback(
     ({ item, index }: { item: InventoryItem; index: number }) => (
@@ -310,6 +346,9 @@ export function StockListScreen() {
           level={level}
           onChange={(next) => useStockFilter.getState().setLevel(next)}
         />
+      ) : null}
+      {reorderCount > 0 ? (
+        <ReorderEntry count={reorderCount} onPress={() => router.push('/stock/reorder')} />
       ) : null}
       {active && data ? (
         <ActiveFilterHint text={hint} onClear={() => useStockFilter.getState().clearFilters()} />

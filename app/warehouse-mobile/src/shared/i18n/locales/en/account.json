@@ -15,5 +15,7 @@
   "changePasswordConfirm": "Other devices will be signed out after the password is changed.",
   "noName": "No name set",
   "workSection": "Work",
-  "warehouseRow": "Warehouse"
+  "warehouseRow": "Warehouse",
+  "devSection": "Developer",
+  "replayWelcome": "Replay welcome screen"
 }

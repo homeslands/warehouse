@@ -4,18 +4,20 @@
  * (docs `router/reference/testing`).
  */
 // fake-api PHẢI được import trước mọi module kéo `@/shared/api/http` vào (xem fake-api.ts).
-import { callsTo, ok, profile, resetFakeApi, route } from '@/shared/api/testing/fake-api'
+import { callsTo, failure, ok, profile, resetFakeApi, route } from '@/shared/api/testing/fake-api'
 import AsyncStorage from '@react-native-async-storage/async-storage'
 import { ActionSheetIOS, Platform } from 'react-native'
 import { router } from 'expo-router'
 import { StackActions } from 'expo-router/react-navigation'
 import { act, fireEvent, renderRouter, screen, within } from 'expo-router/testing-library'
+import * as SplashScreen from 'expo-splash-screen'
 
 import { bootstrapSession, useAuthStore } from '@/entities/session'
 import { expiryCutoffs } from '@/entities/inventory'
 import { item } from '@/entities/inventory/model/fixtures'
 import { useWarehouseStore } from '@/entities/warehouse'
 import { useExportDraft } from '@/features/export-draft'
+import { WELCOME_SEEN_KEY, useWelcome } from '@/features/onboarding'
 import {
   makeDraft as makeExportDraft,
   makeLine as makeExportLine,
@@ -29,6 +31,7 @@ import { useMaterialFilter } from '@/screens/material-list'
 import { useStockFilter } from '@/screens/stock'
 import { queryClient } from './providers'
 import { clearTokens, setTokens } from '@/shared/api/token-storage'
+import { useLaunch } from '@/shared/lib/launch'
 import { useLineFocus } from '@/shared/lib/line-focus'
 import { kv } from '@/shared/storage/kv'
 
@@ -311,6 +314,10 @@ beforeEach(async () => {
   clearTokens()
   await AsyncStorage.clear()
   await kv.set('warehouse.language', 'vi')
+  // Mặc định máy đã xem màn chào (test riêng ở describe 'Màn chào' tự xoá cờ).
+  await kv.set(WELCOME_SEEN_KEY, true)
+  useWelcome.setState({ seen: null })
+  useLaunch.setState({ done: false })
   useAuthStore.setState({ status: 'loading', user: null, endReason: null })
   useWarehouseStore.getState().reset()
   useStockFilter.getState().reset()
@@ -324,6 +331,13 @@ beforeEach(async () => {
   // `queryClient` của app là module dùng chung: cache của test trước không được lọt sang test sau.
   queryClient.clear()
 })
+
+// Splash gốc: kiểm lớp phủ khởi động gỡ nó đúng một lần.
+jest.mock('expo-splash-screen', () => ({
+  ...jest.requireActual('expo-splash-screen'),
+  preventAutoHideAsync: jest.fn(() => Promise.resolve(true)),
+  hide: jest.fn(),
+}))
 
 describe('SessionGate + routes', () => {
   it('chưa đăng nhập → /login', async () => {
@@ -548,6 +562,16 @@ describe('SessionGate + routes', () => {
     expect(screen).toHavePathname('/switch-warehouse')
   })
 
+  it('mở app: lớp phủ logo gỡ splash gốc rồi tự biến mất; app dùng được bên dưới', async () => {
+    jest.mocked(SplashScreen.hide).mockClear()
+    await boot()
+    expect(SplashScreen.hide).toHaveBeenCalledTimes(1)
+    // App đã dựng sẵn bên dưới lớp phủ (không chặn chạm), animation xong thì gỡ lớp phủ.
+    expect(screen.getByRole('button', { name: 'Đăng nhập' })).toBeOnTheScreen()
+    await act(() => jest.runAllTimersAsync())
+    expect(screen.queryByTestId('launch-overlay', { includeHiddenElements: true })).toBeNull()
+  })
+
   it('đăng nhập: viên ngôn ngữ mở sheet /language; chọn English + ✓ → đổi ngôn ngữ, về /login', async () => {
     await boot()
     expect(screen).toHavePathname('/login')
@@ -589,6 +613,25 @@ describe('SessionGate + routes', () => {
     expect(screen.getByLabelText('Mật khẩu hiện tại')).toBeOnTheScreen()
     await pressHeaderButton('Huỷ')
     expect(screen).toHavePathname('/account')
+  })
+
+  it('tab Tài khoản: Giao diện → /appearance, ✕ → về', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    await go('/account')
+    await fireEvent.press(screen.getByRole('button', { name: 'Giao diện, Theo hệ thống' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/appearance')
+    expect(screen.getByRole('button', { name: /^Tối/ })).toBeOnTheScreen()
+    await pressHeaderButton('Huỷ')
+    expect(screen).toHavePathname('/account')
+  })
+
+  it('chưa đăng nhập: /appearance khoá, về /login', async () => {
+    await boot()
+    await act(async () => router.navigate('/appearance'))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/login')
   })
 
   it('đang mở /language từ Tài khoản thì phiên hết hạn → về /login, dùng được ngay', async () => {
@@ -1117,6 +1160,28 @@ describe('tab Tồn kho (Stack lồng)', () => {
     await go('/expiry-batches')
     expect(screen).toHavePathname('/overview')
     expect(screen.queryByTestId('expiry-batches-sheet')).toBeNull()
+  })
+
+  it('/stock/reorder mở từ tab Tồn kho với `index` nằm dưới (back về danh sách)', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    stockOfWh1()
+    await boot()
+    await go('/stock')
+    await go('/stock/reorder')
+    expect(screen).toHavePathname('/stock/reorder')
+    expect(
+      within(tabScreen('Tồn kho')).getAllByTestId('stock-list', { includeHiddenElements: true }),
+    ).toHaveLength(1)
+    await act(async () => router.back())
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/stock')
+  })
+
+  it('/reorder-line: thiếu quyền xem tồn kho (deep link) → bị khoá, về tab đầu', async () => {
+    signedIn({ scope: ['IMPORT_FORM_READ', 'MATERIAL_READ'], warehouses: [WH1] })
+    await boot()
+    await go('/reorder-line?materialSlug=son')
+    expect(screen).toHavePathname('/overview')
   })
 
   it('sheet sửa ngưỡng: thiếu WAREHOUSE_UPDATE (deep link) → bị khoá, về tab đầu', async () => {
@@ -3022,18 +3087,12 @@ describe('tab Tổng quan: chạm số → tab đích đã lọc sẵn (preset)'
     expect(useImportListFilter.getState()).toMatchObject({ query: '', time: null, status: 'DRAFT' })
   })
 
-  it('chạm "dưới mức" → /stock lọc Dưới tối thiểu (sạch tìm + loại); thanh tồn kho → bỏ mọi lọc', async () => {
+  it('chạm "dưới mức" → /stock/reorder (Đề xuất đặt hàng); thanh tồn kho → /stock bỏ mọi lọc', async () => {
     signedIn({ scope: ALL, warehouses: [WH1] })
     stockOfWh1()
-    useStockFilter.setState({ query: 'x', typeSlug: 'son' })
     await boot()
     await pressTodo('stockLow')
-    expect(screen).toHavePathname('/stock')
-    expect(useStockFilter.getState()).toMatchObject({
-      query: '',
-      typeSlug: undefined,
-      level: 'low',
-    })
+    expect(screen).toHavePathname('/stock/reorder')
     await go('/overview')
     await fireEvent.press(within(tabScreen('Tổng quan')).getByTestId('overview-stock'))
     await act(() => jest.runAllTimersAsync())
@@ -3102,5 +3161,124 @@ describe('tab Tổng quan: màn chi tiết /overview/[metric]', () => {
     await act(() => jest.runAllTimersAsync())
     expect(screen).toHavePathname('/overview')
     expect(stackOf('overview')).toEqual(['index'])
+  })
+})
+
+describe('Màn chào (lần đầu cài app)', () => {
+  beforeEach(async () => {
+    await AsyncStorage.removeItem(WELCOME_SEEN_KEY)
+  })
+
+  it('máy mới, chưa đăng nhập → /welcome; bấm Bắt đầu → /login và lưu cờ', async () => {
+    await boot()
+    expect(screen).toHavePathname('/welcome')
+    expect(screen.getByRole('header', { name: 'Chào mừng tới Soko' })).toBeOnTheScreen()
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Bắt đầu' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/login')
+    expect(await kv.get(WELCOME_SEEN_KEY)).toBe(true)
+  })
+
+  it('máy mới nhưng đã đăng nhập từ trước (cập nhật app) → vào tab, không qua màn chào, lưu cờ', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    expect(screen).toHavePathname('/overview')
+    expect(screen.queryByText('Chào mừng tới Soko')).toBeNull()
+    expect(await kv.get(WELCOME_SEEN_KEY)).toBe(true)
+  })
+
+  it('máy có phiên cũ nhưng refresh bị từ chối (cập nhật app sau lâu ngày) → /login có báo lý do, không qua màn chào', async () => {
+    setTokens({ accessToken: 'acc-1', refreshToken: 'ref-1' })
+    route('get', '/auth/me', () => failure(401, 100003))
+    route('post', '/auth/refresh', () => failure(401, 100004))
+    await boot()
+    expect(screen).toHavePathname('/login')
+    expect(useAuthStore.getState().endReason).not.toBeNull()
+    expect(screen.queryByText('Chào mừng tới Soko')).toBeNull()
+    expect(await kv.get(WELCOME_SEEN_KEY)).toBe(true)
+  })
+
+  it('đã đăng nhập (chưa có cờ) rồi đăng xuất → /login, không về màn chào', async () => {
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    await act(async () => {
+      useAuthStore.getState().endSession('loggedOut')
+      await jest.runAllTimersAsync()
+    })
+    expect(screen).toHavePathname('/login')
+  })
+
+  it('đọc cờ lỗi → coi như đã xem: /login', async () => {
+    // `getItem` của mock AsyncStorage (jest.setup) đã là jest.fn: spyOn trả lại chính nó nên
+    // `restoreAllMocks` không gỡ được → tự trả lại cách chạy gốc, không lọt sang test sau.
+    const getItem = AsyncStorage.getItem as jest.Mock
+    const original = getItem.getMockImplementation()!
+    getItem.mockImplementation((key: string) =>
+      key === WELCOME_SEEN_KEY ? Promise.reject(new Error('hỏng')) : original(key),
+    )
+    try {
+      await boot()
+      expect(screen).toHavePathname('/login')
+    } finally {
+      getItem.mockImplementation(original)
+    }
+  })
+
+  it('đã xem rồi: mở thẳng /welcome → bị chuyển về /login', async () => {
+    await kv.set(WELCOME_SEEN_KEY, true)
+    await boot()
+    expect(screen).toHavePathname('/login')
+    await act(async () => {
+      router.navigate('/welcome')
+      await jest.runAllTimersAsync()
+    })
+    expect(screen).toHavePathname('/login')
+  })
+
+  it('bản dev: đang ở tab mở /welcome-preview → xem lại màn chào; bấm Bắt đầu → quay về, cờ không đổi', async () => {
+    await kv.set(WELCOME_SEEN_KEY, true)
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    await boot()
+    await go('/account')
+    await go('/welcome-preview')
+    expect(screen).toHavePathname('/welcome-preview')
+    expect(screen.getByRole('header', { name: 'Chào mừng tới Soko' })).toBeOnTheScreen()
+
+    await fireEvent.press(screen.getByRole('button', { name: 'Bắt đầu' }))
+    await act(() => jest.runAllTimersAsync())
+    expect(screen).toHavePathname('/account')
+    expect(await kv.get(WELCOME_SEEN_KEY)).toBe(true)
+  })
+
+  it('bản phát hành (__DEV__ = false): /welcome-preview bị khoá', async () => {
+    await kv.set(WELCOME_SEEN_KEY, true)
+    signedIn({ scope: ALL, warehouses: [WH1] })
+    const g = globalThis as unknown as { __DEV__: boolean }
+    const dev = g.__DEV__
+    g.__DEV__ = false
+    try {
+      await boot()
+      await go('/welcome-preview')
+      expect(screen).toHavePathname('/overview')
+    } finally {
+      g.__DEV__ = dev
+    }
+  })
+
+  it('chưa đăng nhập: /welcome-preview bị khoá', async () => {
+    await kv.set(WELCOME_SEEN_KEY, true)
+    await boot()
+    await go('/welcome-preview')
+    expect(screen).toHavePathname('/login')
+  })
+
+  it('màn chào → /language bị khoá (chỉ mở từ đăng nhập / tab)', async () => {
+    await boot()
+    await act(async () => {
+      router.navigate('/language')
+      await jest.runAllTimersAsync()
+    })
+    expect(screen).toHavePathname('/welcome')
   })
 })

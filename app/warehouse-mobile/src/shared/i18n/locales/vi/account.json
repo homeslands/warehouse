@@ -15,5 +15,7 @@
   "changePasswordConfirm": "Các thiết bị khác sẽ bị đăng xuất sau khi đổi mật khẩu.",
   "noName": "Chưa đặt họ tên",
   "workSection": "Làm việc",
-  "warehouseRow": "Kho"
+  "warehouseRow": "Kho",
+  "devSection": "Nhà phát triển",
+  "replayWelcome": "Xem lại màn chào"
 }

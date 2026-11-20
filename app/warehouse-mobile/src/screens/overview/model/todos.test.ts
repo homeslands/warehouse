@@ -71,7 +71,7 @@ describe('overviewTodos', () => {
     expect(href('importDraft')).toEqual({ pathname: '/import', params: { preset: 'DRAFT' } })
     expect(href('exportDraft')).toEqual({ pathname: '/export', params: { preset: 'DRAFT' } })
     expect(href('exportPending')).toEqual({ pathname: '/export', params: { preset: 'PENDING' } })
-    expect(href('stockLow')).toEqual({ pathname: '/stock', params: { preset: 'low' } })
+    expect(href('stockLow')).toEqual({ pathname: '/stock/reorder', params: {} })
     expect(href('stockHigh')).toEqual({ pathname: '/stock', params: { preset: 'high' } })
     expect(STOCK_HREF).toEqual({ pathname: '/stock', params: { preset: 'all' } })
   })

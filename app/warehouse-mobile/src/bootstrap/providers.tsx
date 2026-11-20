@@ -7,8 +7,10 @@ import { GestureHandlerRootView } from 'react-native-gesture-handler'
 import { SafeAreaProvider } from 'react-native-safe-area-context'
 
 import { bootstrapSession, useRefreshProfileOnForeground } from '@/entities/session'
+import { initWelcome } from '@/features/onboarding'
 import { isApiError } from '@/shared/api/http'
 import i18n, { initI18n } from '@/shared/i18n'
+import { initAppearance } from '@/shared/theme/appearance'
 import { useTheme } from '@/shared/theme/useTheme'
 
 import { navigationThemeFor } from './navigation-theme'
@@ -31,7 +33,7 @@ export const queryClient = new QueryClient({
 })
 
 /**
- * Nối dây phiên rồi chạy song song i18n + `bootstrapSession()`. True khi cả hai xong (lỗi
+ * Nối dây phiên rồi chạy song song i18n + giao diện đã lưu + cờ màn chào + `bootstrapSession()`. True khi cả hai xong (lỗi
  * cũng tính là xong — không bao giờ kẹt ở splash). Gọi đúng một lần, ở SessionGate.
  */
 export function useAppBootstrap(): boolean {
@@ -41,7 +43,7 @@ export function useAppBootstrap(): boolean {
     // TRƯỚC bootstrapSession: handler 401 và listener resolve kho phải có mặt khi nó chạy.
     const unwire = wireSession(queryClient)
     let alive = true
-    Promise.all([initI18n(), bootstrapSession()])
+    Promise.all([initI18n(), initAppearance(), initWelcome(), bootstrapSession()])
       .catch((e: unknown) => console.warn('[bootstrap] Khởi động lỗi', e))
       .finally(() => {
         if (alive) setBooted(true)

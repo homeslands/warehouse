@@ -4,10 +4,13 @@ export type TodoKey = 'importDraft' | 'exportPending' | 'exportDraft' | 'stockLo
 /** Màu nhãn + icon của ô: `default` = xám, `muted` = ô bằng 0 / chưa có số / lỗi. */
 export type TodoTone = 'muted' | 'default' | 'accent' | 'warning' | 'info'
 export type TodoCount = { count?: number; failed: boolean }
-/** `preset`: import `DRAFT`; export `DRAFT` | `PENDING`; stock `low` | `high` | `all`. */
+/**
+ * `preset`: import `DRAFT`; export `DRAFT` | `PENDING`; stock `high` | `all`. `stockLow` mở màn
+ * "Đề xuất đặt hàng" (`/stock/reorder`, không có param).
+ */
 export type OverviewHref = {
-  pathname: '/import' | '/export' | '/stock'
-  params: { preset: string }
+  pathname: '/import' | '/export' | '/stock' | '/stock/reorder'
+  params: { preset?: string }
 }
 /**
  * Sheet "Hạn dùng" (route sheet gốc): cuộn tới nhóm `focus`. Mở bằng `router.push` như các sheet khác
@@ -65,7 +68,7 @@ const DEFS: Def[] = [
   {
     key: 'stockLow',
     visible: canStock,
-    href: { pathname: '/stock', params: { preset: 'low' } },
+    href: { pathname: '/stock/reorder', params: {} },
     tone: () => 'warning',
   },
   {

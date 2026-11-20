@@ -378,6 +378,43 @@ describe('StockListScreen — danh sách', () => {
   })
 })
 
+describe('StockListScreen — lối vào Đề xuất đặt hàng', () => {
+  const lvl = (slug: string, quantity: number, min: number) =>
+    item({
+      slug,
+      materialSlug: slug,
+      materialName: `Vật tư ${slug}`,
+      materialCode: slug.toUpperCase(),
+      quantity,
+      availableQuantity: quantity,
+      effectiveMinimumInventory: min,
+      effectiveMaximumInventory: 300,
+    })
+
+  it('2 vật tư đỏ + 1 vàng → hàng "Đề xuất đặt hàng · 3" (cả kho, không theo tìm kiếm); chạm → push /stock/reorder', async () => {
+    route('get', '/warehouses/wh-a/materials', () =>
+      page([lvl('a', 10, 100), lvl('b', 0, 50), lvl('c', 110, 100), lvl('d', 500, 100)]),
+    )
+    await show()
+    const entry = screen.getByTestId('stock-reorder-entry')
+    expect(within(entry).getByText('Đề xuất đặt hàng · 3')).toBeOnTheScreen()
+
+    await typeSearch('vat tu d')
+    expect(
+      within(screen.getByTestId('stock-reorder-entry')).getByText('Đề xuất đặt hàng · 3'),
+    ).toBeOnTheScreen()
+
+    await fireEvent.press(screen.getByTestId('stock-reorder-entry'))
+    expect(mockPush).toHaveBeenCalledWith('/stock/reorder')
+  })
+
+  it('không vật tư nào cần đặt → không có hàng', async () => {
+    route('get', '/warehouses/wh-a/materials', () => page([lvl('d', 500, 100), lvl('e', 300, 0)]))
+    await show()
+    expect(screen.queryByTestId('stock-reorder-entry')).toBeNull()
+  })
+})
+
 describe('StockListScreen — header native: menu Lọc', () => {
   beforeEach(() => route('get', '/warehouses/wh-a/materials', () => page(MOCKUP)))
 

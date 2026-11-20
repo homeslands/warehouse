@@ -46,9 +46,28 @@ describe('destinationFor', () => {
   })
 })
 
+describe('destinationFor + màn chào', () => {
+  it('chưa đăng nhập, máy chưa xem màn chào → welcome', () => {
+    expect(destinationFor('unauthenticated', null, null, false)).toBe('welcome')
+  })
+
+  it('chưa đăng nhập, đã xem → login', () => {
+    expect(destinationFor('unauthenticated', null, null, true)).toBe('login')
+  })
+
+  it('mất mạng lúc khởi động trên máy mới cài → vẫn offline, không phải màn chào', () => {
+    expect(destinationFor('offline', null, null, false)).toBe('offline')
+  })
+
+  it('đã đăng nhập dù chưa xem → theo kho như cũ (người dùng cũ cập nhật app)', () => {
+    expect(destinationFor('authenticated', 'selected', reader, false)).toBe('tabs')
+  })
+})
+
 describe('hrefFor', () => {
   it('mỗi đích có route riêng; tabs → tab đầu tiên user được thấy (Tổng quan)', () => {
     expect(hrefFor('login', null)).toBe('/login')
+    expect(hrefFor('welcome', null)).toBe('/welcome')
     expect(hrefFor('select-warehouse', reader)).toBe('/select-warehouse')
     expect(hrefFor('noWarehouse', reader)).toBe('/no-access')
     expect(hrefFor('noAccess', nobody)).toBe('/no-access')
