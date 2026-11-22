@@ -19,7 +19,6 @@ import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto, VersionedResponseDto } from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { QUANTITY_SCALE } from 'src/shared/utils/decimal.transformer';
-import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { SEARCH_CODE_REGEX } from 'src/shared/utils/query.util';
 import {
   EXPORT_FORM_FILE_MAX_LENGTH,
@@ -89,13 +88,6 @@ export class CreateExportFormItemDto {
  * trong body.
  */
 export class CreateExportFormRequestDto {
-  @AutoMap()
-  @ApiProperty({ description: 'The business code of the export form', example: 'PX-2026-0001' })
-  @Transform(trim)
-  @Matches(BUSINESS_CODE_REGEX, { message: 'EXPORT_FORM_CODE_INVALID' })
-  @IsNotEmpty({ message: 'EXPORT_FORM_CODE_IS_REQUIRED' })
-  code: string;
-
   @AutoMap()
   @ApiProperty({ enum: ExportFormType, description: 'Reason of the export' })
   @IsEnum(ExportFormType, { message: 'EXPORT_FORM_TYPE_INVALID' })

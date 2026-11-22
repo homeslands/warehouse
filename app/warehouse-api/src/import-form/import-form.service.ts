@@ -35,6 +35,8 @@ import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierException } from 'src/supplier/supplier.exception';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
+import { CodeType } from 'src/code-generate/code-generate.constants';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { Inventory } from 'src/inventory/inventory.entity';
@@ -102,6 +104,7 @@ export class ImportFormService {
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly transactionManagerService: TransactionManagerService,
+    private readonly codeGenerateService: CodeGenerateService,
     private readonly inventoryService: InventoryService,
     private readonly s3Service: S3Service,
     private readonly materialBatchService: MaterialBatchService,
@@ -141,7 +144,6 @@ export class ImportFormService {
       throw new ImportFormException(ImportFormValidation.IMPORT_FORM_WAREHOUSE_INACTIVE);
 
     const data = this.mapper.map(dto, CreateImportFormRequestDto, ImportForm);
-    await this.assertCodeIsFree(data.code);
     const { items, total, supplierLinks } = await this.buildItems(
       dto.items,
       warehouse.id,
@@ -164,6 +166,8 @@ export class ImportFormService {
     // mới vào vật tư cũng nằm trong transaction này: phiếu lỗi thì không để lại cặp gắn dở.
     const created = await this.transactionManagerService.execute(async (manager) => {
       await insertMaterialSuppliers(manager, supplierLinks);
+      // Sinh mã ngay trước khi lưu: `FOR UPDATE` trên bộ đếm giữ tới khi transaction kết thúc.
+      form.code = await this.codeGenerateService.generate(manager, CodeType.ImportForm, warehouse);
       const saved = await manager.save(form);
       saved.items = await this.saveItems(manager, saved, items);
       return saved;
@@ -284,7 +288,6 @@ export class ImportFormService {
 
     // PATCH partial: xem `pickDefined` — field không gửi giữ nguyên giá trị cũ.
     const data = pickDefined(this.mapper.map(dto, UpdateImportFormRequestDto, ImportForm));
-    if (data.code !== undefined && data.code !== form.code) await this.assertCodeIsFree(data.code);
     // Gửi `items` = thay toàn bộ dòng. Dựng + kiểm tra dòng mới TRƯỚC khi mở transaction để lỗi
     // nghiệp vụ không chạm DB; không gửi thì giữ nguyên dòng cũ.
     const formDate = data.date ?? form.date;
@@ -633,21 +636,10 @@ export class ImportFormService {
     );
   }
 
-  /**
-   * `code` có UNIQUE index ở DB nhưng index đó KHÔNG bỏ qua bản ghi xoá mềm — nên phải tra kèm
-   * `withDeleted` và phân biệt 2 tình huống, thay vì để MySQL ném `ER_DUP_ENTRY` thành lỗi 500.
-   */
-  private async assertCodeIsFree(code: string): Promise<void> {
-    const existed = await this.importFormRepository.findOne({
-      where: { code },
-      withDeleted: true,
-    });
-    if (!existed) return;
-    throw new ImportFormException(
-      existed.deletedAt
-        ? ImportFormValidation.IMPORT_FORM_CODE_RESERVED_BY_DELETED_IMPORT_FORM
-        : ImportFormValidation.IMPORT_FORM_CODE_DOES_EXIST,
-    );
+  private async findWarehouse(slug: string): Promise<Warehouse> {
+    const warehouse = await this.warehouseRepository.findOneBy({ slug });
+    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
+    return warehouse;
   }
 
   private async findUser(id: string): Promise<User> {
