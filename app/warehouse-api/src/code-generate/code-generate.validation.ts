@@ -1,5 +1,5 @@
 import { HttpStatus } from '@nestjs/common';
-import { createErrorCode, TErrorCodeValue } from 'src/app/app.validation';
+import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 // Code generate Error Code 1016xx
 export const CODE_GENERATE_TRANSACTION_REQUIRED = 'CODE_GENERATE_TRANSACTION_REQUIRED';

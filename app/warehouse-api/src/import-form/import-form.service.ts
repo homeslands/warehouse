@@ -636,12 +636,6 @@ export class ImportFormService {
     );
   }
 
-  private async findWarehouse(slug: string): Promise<Warehouse> {
-    const warehouse = await this.warehouseRepository.findOneBy({ slug });
-    if (!warehouse) throw new WarehouseException(WarehouseValidation.WAREHOUSE_NOT_FOUND);
-    return warehouse;
-  }
-
   private async findUser(id: string): Promise<User> {
     const user = await this.userRepository.findOneBy({ id });
     if (!user) throw new UserException(UserValidation.USER_NOT_FOUND);
