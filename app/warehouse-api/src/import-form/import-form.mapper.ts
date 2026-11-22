@@ -11,7 +11,6 @@ import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { versionedMapper } from 'src/app/versioned.mapper';
-import { normalizeCode } from 'src/shared/utils/code.util';
 
 /**
  * Dùng chung cho cả 2 map Create/Update -> Entity. Automapper KHÔNG kế thừa map của DTO cha, nên
@@ -24,11 +23,6 @@ import { normalizeCode } from 'src/shared/utils/code.util';
  */
 const normalizeImportForm = <T extends Partial<CreateImportFormRequestDto>>() =>
   [
-    // `code` unique ⇒ upper-case ngay tại đây để `pn-01` và `PN-01` va nhau ở tầng check trùng.
-    forMember<T, ImportForm>(
-      (d) => d.code,
-      mapFrom((s) => normalizeCode(s.code)),
-    ),
     forMember<T, ImportForm>(
       (d) => d.purchaseOrder,
       mapFrom((s) => s.purchaseOrder?.trim()),

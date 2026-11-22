@@ -9,6 +9,7 @@ import { Material } from 'src/material/material.entity';
 import { User } from 'src/user/user.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { DbModule } from 'src/db/db.module';
+import { CodeGenerateModule } from 'src/code-generate/code-generate.module';
 import { InventoryModule } from 'src/inventory/inventory.module';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { MaterialBatchModule } from 'src/material-batch/material-batch.module';
@@ -30,6 +31,7 @@ import { MaterialBatch } from 'src/material-batch/material-batch.entity';
       MaterialBatch,
     ]),
     DbModule,
+    CodeGenerateModule,
     InventoryModule,
     MaterialBatchModule,
   ],

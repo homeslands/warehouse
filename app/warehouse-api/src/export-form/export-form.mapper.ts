@@ -11,7 +11,6 @@ import { ExportForm } from './export-form.entity';
 import { ExportFormItem } from './export-form-item.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { versionedMapper } from 'src/app/versioned.mapper';
-import { normalizeCode } from 'src/shared/utils/code.util';
 
 /**
  * Dùng chung cho Create/Update -> Entity (automapper không kế thừa map của DTO cha). Mọi `mapFrom`
@@ -20,10 +19,6 @@ import { normalizeCode } from 'src/shared/utils/code.util';
  */
 const normalizeExportForm = <T extends Partial<CreateExportFormRequestDto>>() =>
   [
-    forMember<T, ExportForm>(
-      (d) => d.code,
-      mapFrom((s) => normalizeCode(s.code)),
-    ),
     forMember<T, ExportForm>(
       (d) => d.type,
       mapFrom((s) => s.type),
