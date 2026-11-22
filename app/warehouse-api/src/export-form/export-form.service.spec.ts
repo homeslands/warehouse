@@ -29,6 +29,8 @@ import { MaterialBatchStatus } from 'src/material-batch/material-batch.constants
 import { MaterialBatchService } from 'src/material-batch/material-batch.service';
 import { MaterialBatchException } from 'src/material-batch/material-batch.exception';
 import { MaterialBatchValidation } from 'src/material-batch/material-batch.validation';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
+import { CodeType } from 'src/code-generate/code-generate.constants';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { S3Service } from 'src/file/s3/s3.service';
 
@@ -56,6 +58,8 @@ describe('ExportFormService', () => {
     release: jest.fn(),
   };
   const transactionManager = { execute: jest.fn() };
+  const codeGenerateService = { generate: jest.fn() };
+  const generatedCode = 'EX-WH-01-261012-000001';
   const s3Service = { uploadFile: jest.fn(), getFileUrl: jest.fn() };
 
   // Vật tư base = KG, gắn thêm BAO (1 BAO = 50 KG).
@@ -88,7 +92,6 @@ describe('ExportFormService', () => {
     }) as MaterialBatch;
 
   const createDto: CreateExportFormRequestDto = {
-    code: 'px-0001',
     type: ExportFormType.Sale,
     purchaseOrder: 'PO-1',
     receiver: 'Xuong A',
@@ -134,6 +137,7 @@ describe('ExportFormService', () => {
     exportFormRepository.create.mockImplementation((data) => data);
     manager.save.mockImplementation(async (data) => data);
     transactionManager.execute.mockImplementation(async (onSave) => onSave(manager));
+    codeGenerateService.generate.mockResolvedValue(generatedCode);
     inventoryRepository.find.mockImplementation(allAssigned);
     batchRepository.find.mockResolvedValue([]);
 
@@ -148,6 +152,7 @@ describe('ExportFormService', () => {
         { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: getRepositoryToken(MaterialBatch), useValue: batchRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
+        { provide: CodeGenerateService, useValue: codeGenerateService },
         { provide: InventoryService, useValue: inventoryService },
         { provide: MaterialBatchService, useValue: materialBatchService },
         { provide: S3Service, useValue: s3Service },
@@ -171,8 +176,13 @@ describe('ExportFormService', () => {
       const result = await service.createExportForm('wh-slug', createDto, actor());
 
       const form = manager.save.mock.calls[0][0];
+      expect(codeGenerateService.generate).toHaveBeenCalledWith(
+        manager,
+        CodeType.ExportForm,
+        warehouse,
+      );
       expect(form).toMatchObject({
-        code: 'PX-0001',
+        code: generatedCode,
         type: ExportFormType.Sale,
         purchaseOrder: 'PO-1',
         invoiceCode: null,
@@ -268,14 +278,6 @@ describe('ExportFormService', () => {
 
       await expectError(service.createExportForm('wh-slug', dto, actor()), error.code);
       expect(manager.save).not.toHaveBeenCalled();
-    });
-
-    it('rejects a code already used by a deleted form', async () => {
-      exportFormRepository.findOne.mockResolvedValue({ deletedAt: new Date() });
-      await expectError(
-        service.createExportForm('wh-slug', createDto, actor()),
-        ExportFormValidation.EXPORT_FORM_CODE_RESERVED_BY_DELETED_EXPORT_FORM.code,
-      );
     });
   });
 

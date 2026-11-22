@@ -3,11 +3,6 @@ import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 // Export form Error Code 1014xx
 export const EXPORT_FORM_NOT_FOUND = 'EXPORT_FORM_NOT_FOUND';
-export const EXPORT_FORM_CODE_IS_REQUIRED = 'EXPORT_FORM_CODE_IS_REQUIRED';
-export const EXPORT_FORM_CODE_INVALID = 'EXPORT_FORM_CODE_INVALID';
-export const EXPORT_FORM_CODE_DOES_EXIST = 'EXPORT_FORM_CODE_DOES_EXIST';
-export const EXPORT_FORM_CODE_RESERVED_BY_DELETED_EXPORT_FORM =
-  'EXPORT_FORM_CODE_RESERVED_BY_DELETED_EXPORT_FORM';
 export const EXPORT_FORM_TYPE_INVALID = 'EXPORT_FORM_TYPE_INVALID';
 export const EXPORT_FORM_PURCHASE_ORDER_IS_REQUIRED = 'EXPORT_FORM_PURCHASE_ORDER_IS_REQUIRED';
 export const EXPORT_FORM_PURCHASE_ORDER_INVALID = 'EXPORT_FORM_PURCHASE_ORDER_INVALID';
@@ -47,10 +42,6 @@ export const EXPORT_FORM_VERSION_INVALID = 'EXPORT_FORM_VERSION_INVALID';
 
 export type TExportFormErrorCodeKey =
   | typeof EXPORT_FORM_NOT_FOUND
-  | typeof EXPORT_FORM_CODE_IS_REQUIRED
-  | typeof EXPORT_FORM_CODE_INVALID
-  | typeof EXPORT_FORM_CODE_DOES_EXIST
-  | typeof EXPORT_FORM_CODE_RESERVED_BY_DELETED_EXPORT_FORM
   | typeof EXPORT_FORM_TYPE_INVALID
   | typeof EXPORT_FORM_PURCHASE_ORDER_IS_REQUIRED
   | typeof EXPORT_FORM_PURCHASE_ORDER_INVALID
@@ -90,16 +81,8 @@ export type TExportFormErrorCode = Record<TExportFormErrorCodeKey, TErrorCodeVal
 
 export const ExportFormValidation: TExportFormErrorCode = {
   EXPORT_FORM_NOT_FOUND: createErrorCode(101401, 'Export form not found', HttpStatus.NOT_FOUND),
-  EXPORT_FORM_CODE_IS_REQUIRED: createErrorCode(101402, 'Export form code is required'),
-  EXPORT_FORM_CODE_INVALID: createErrorCode(
-    101403,
-    'Export form code must be 2-32 letters, digits or hyphens',
-  ),
-  EXPORT_FORM_CODE_DOES_EXIST: createErrorCode(101404, 'Export form code does exist'),
-  EXPORT_FORM_CODE_RESERVED_BY_DELETED_EXPORT_FORM: createErrorCode(
-    101405,
-    'Export form code is still held by a deleted export form',
-  ),
+  // 101402-101405 (`EXPORT_FORM_CODE_*`) đã bỏ khi mã phiếu chuyển sang tự sinh
+  // (`CodeGenerateService`) — giữ trống, không cấp lại cho lỗi khác.
   EXPORT_FORM_TYPE_INVALID: createErrorCode(
     101406,
     'Type must be one of PRODUCTION, DISPOSAL, TRANSFER, SALE, OTHER',

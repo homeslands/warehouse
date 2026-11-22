@@ -19,7 +19,6 @@ const messagesOf = <T extends object>(cls: new () => T, payload: object, propert
 
 describe('CreateExportFormRequestDto', () => {
   const valid = {
-    code: 'PX-2026-0001',
     type: 'SALE',
     purchaseOrder: 'PO-1',
     receiver: 'Xuong A',
@@ -30,8 +29,14 @@ describe('CreateExportFormRequestDto', () => {
     expect(messagesOf(CreateExportFormRequestDto, valid)).toEqual([]);
   });
 
+  // Mã phiếu do server tự sinh (`CodeGenerateService`) — client gửi `code` thì bị `whitelist` bỏ.
+  it('strips code from the body', () => {
+    const dto = plainToInstance(CreateExportFormRequestDto, { ...valid, code: 'PX-2026-0001' });
+    expect(validateSync(dto, { whitelist: true })).toEqual([]);
+    expect(dto).not.toHaveProperty('code');
+  });
+
   it.each([
-    ['code', 'EXPORT_FORM_CODE_IS_REQUIRED'],
     ['type', 'EXPORT_FORM_TYPE_INVALID'],
     ['purchaseOrder', 'EXPORT_FORM_PURCHASE_ORDER_IS_REQUIRED'],
     ['receiver', 'EXPORT_FORM_RECEIVER_IS_REQUIRED'],
