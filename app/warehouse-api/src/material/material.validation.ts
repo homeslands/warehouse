@@ -27,6 +27,9 @@ export const MATERIAL_HAS_SUPPLIER_INVALID = 'MATERIAL_HAS_SUPPLIER_INVALID';
 export const MATERIAL_DATE_RANGE_INVALID = 'MATERIAL_DATE_RANGE_INVALID';
 export const MATERIAL_NAME_SEARCH_INVALID = 'MATERIAL_NAME_SEARCH_INVALID';
 export const MATERIAL_CODE_SEARCH_INVALID = 'MATERIAL_CODE_SEARCH_INVALID';
+export const MATERIAL_BARCODE_INVALID = 'MATERIAL_BARCODE_INVALID';
+export const MATERIAL_BARCODE_DOES_EXIST = 'MATERIAL_BARCODE_DOES_EXIST';
+export const MATERIAL_BARCODE_RESERVED_BY_DELETED = 'MATERIAL_BARCODE_RESERVED_BY_DELETED';
 
 export type TMaterialErrorCodeKey =
   | typeof MATERIAL_NOT_FOUND
@@ -54,7 +57,10 @@ export type TMaterialErrorCodeKey =
   | typeof MATERIAL_SUPPLIER_SLUGS_INVALID
   | typeof MATERIAL_DATE_RANGE_INVALID
   | typeof MATERIAL_NAME_SEARCH_INVALID
-  | typeof MATERIAL_CODE_SEARCH_INVALID;
+  | typeof MATERIAL_CODE_SEARCH_INVALID
+  | typeof MATERIAL_BARCODE_INVALID
+  | typeof MATERIAL_BARCODE_DOES_EXIST
+  | typeof MATERIAL_BARCODE_RESERVED_BY_DELETED;
 
 export type TMaterialErrorCode = Record<TMaterialErrorCodeKey, TErrorCodeValue>;
 
@@ -170,5 +176,15 @@ export const MaterialValidation: TMaterialErrorCode = {
     100732,
     'code may only contain letters, digits, "_" and "-"',
     HttpStatus.BAD_REQUEST,
+  ),
+  MATERIAL_BARCODE_INVALID: createErrorCode(
+    100733,
+    'barcode must be 8-14 digits (EAN-8/UPC/EAN-13/GTIN-14)',
+    HttpStatus.BAD_REQUEST,
+  ),
+  MATERIAL_BARCODE_DOES_EXIST: createErrorCode(100734, 'Material barcode does exist'),
+  MATERIAL_BARCODE_RESERVED_BY_DELETED: createErrorCode(
+    100735,
+    'Material barcode is still held by a deleted material',
   ),
 };

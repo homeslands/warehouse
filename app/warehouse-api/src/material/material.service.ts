@@ -129,6 +129,7 @@ export class MaterialService {
     const data = this.mapper.map(dto, CreateMaterialRequestDto, Material);
 
     await this.assertCodeIsFree(data.code);
+    if (data.barcode) await this.assertBarcodeIsFree(data.barcode);
     this.assertInventoryRange(data.minimumInventory, data.maximumInventory);
     // Ném `MATERIAL_TYPE_NOT_FOUND` nếu slug sai — lỗi của module material-type, cố ý không bọc lại.
     data.type = await this.materialTypeService.findEntityBySlug(dto.typeSlug);
@@ -260,6 +261,8 @@ export class MaterialService {
     const data = pickDefined(this.mapper.map(dto, UpdateMaterialRequestDto, Material));
     if (data.code !== undefined && data.code !== material.code)
       await this.assertCodeIsFree(data.code);
+    if (data.barcode !== undefined && data.barcode !== material.barcode)
+      await this.assertBarcodeIsFree(data.barcode);
     // So sánh ngưỡng trên giá trị SAU khi ghép, không phải trên mỗi phần client gửi: PATCH chỉ đổi
     // `minimumInventory` vẫn phải bị chặn nếu nó vượt `maximumInventory` đang có trong DB.
     this.assertInventoryRange(
@@ -406,6 +409,20 @@ export class MaterialService {
       existed.deletedAt
         ? MaterialValidation.MATERIAL_CODE_RESERVED_BY_DELETED
         : MaterialValidation.MATERIAL_CODE_DOES_EXIST,
+    );
+  }
+
+  /** Cùng lý do với `assertCodeIsFree`: UNIQUE của `barcode_column` tính cả vật tư xoá mềm. */
+  private async assertBarcodeIsFree(barcode: string): Promise<void> {
+    const existed = await this.materialRepository.findOne({
+      where: { barcode },
+      withDeleted: true,
+    });
+    if (!existed) return;
+    throw new MaterialException(
+      existed.deletedAt
+        ? MaterialValidation.MATERIAL_BARCODE_RESERVED_BY_DELETED
+        : MaterialValidation.MATERIAL_BARCODE_DOES_EXIST,
     );
   }
 

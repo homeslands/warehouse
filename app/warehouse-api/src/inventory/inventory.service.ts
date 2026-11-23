@@ -8,6 +8,7 @@ import {
   AdjustInventoryQuantityRequestDto,
   AssignInventoryRequestDto,
   CreateInventoryMaterialRequestDto,
+  GenerateMaterialBarcodeResponseDto,
   GetInventoryHistoryRequestDto,
   GetInventoryRequestDto,
   UpdateInventoryRequestDto,
@@ -22,6 +23,7 @@ import { InventoryValidation } from './inventory.validation';
 import { effectiveMaximum, effectiveMinimum, InventoryRow } from './inventory.util';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { MaterialService } from 'src/material/material.service';
+import { CreateMaterialRequestDto } from 'src/material/material.dto';
 import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
 import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierException } from 'src/supplier/supplier.exception';
@@ -34,6 +36,8 @@ import { CurrentUserDto } from 'src/user/user.decorator';
 import { User } from 'src/user/user.entity';
 import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
 import { WRITE_LOCK } from 'src/shared/utils/lock.util';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
+import { CodeType } from 'src/code-generate/code-generate.constants';
 
 /**
  * Quan hệ đủ để dựng response: `warehouse`, `material` kèm `type`/`baseUnit` và mọi đơn vị của vật
@@ -66,7 +70,29 @@ export class InventoryService {
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly materialService: MaterialService,
     private readonly transactionManager: TransactionManagerService,
+    private readonly codeGenerateService: CodeGenerateService,
   ) {}
+
+  /**
+   * Cấp trước mã vạch EAN-13 (`CodeType.Barcode`) cho vật tư mới sắp gán vào kho này — dùng khi sản
+   * phẩm không có mã vạch của nhà sản xuất. Chỉ cấp, KHÔNG tạo vật tư: client in tem rồi gửi lại ở
+   * `material.barcode` của `POST /warehouses/:slug/materials`. Không cấp mã vật tư ở đây: `code` tự
+   * sinh lúc tạo vật tư. Số cấp ra mà không dùng thì bỏ trống, bộ đếm không bao giờ cấp lại.
+   */
+  async generateMaterialBarcode(
+    warehouseSlug: string,
+  ): Promise<GenerateMaterialBarcodeResponseDto> {
+    const context = `${InventoryService.name}.${this.generateMaterialBarcode.name}`;
+    const warehouse = await findWarehouse(this.warehouseRepository, warehouseSlug);
+    if (!warehouse.isActive)
+      throw new InventoryException(InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE);
+
+    const barcode = await this.transactionManager.execute((manager) =>
+      this.codeGenerateService.generate(manager, CodeType.Barcode, warehouse),
+    );
+    this.logger.log(`Barcode generated for warehouse ${warehouse.id}: ${barcode}`, context);
+    return { barcode };
+  }
 
   async assignMaterial(
     warehouseSlug: string,
@@ -146,6 +172,7 @@ export class InventoryService {
    * kho mâu thuẫn với ngưỡng mặc định...) thì không để lại vật tư "mồ côi" không thuộc kho nào.
    * Vật tư mới nên không cần tra trùng `(kho, vật tư)` như `assignMaterial`. Có `supplierSlug` thì
    * gắn luôn cặp (vật tư, nhà cung cấp) vào `material_supplier_tbl` trong cùng transaction.
+   * `material.code` bỏ trống thì tự sinh (`CodeType.Item`) trong cùng transaction.
    */
   async createMaterialInWarehouse(
     warehouseSlug: string,
@@ -161,7 +188,15 @@ export class InventoryService {
     const initialQuantity = roundToScale(Number(dto.quantity ?? 0));
 
     const created = await this.transactionManager.execute(async (manager) => {
-      const material = await this.materialService.createMaterialIn(manager, dto.material);
+      // Không gửi `code` ⇒ sinh trong CHÍNH transaction này: tạo vật tư hỏng thì bộ đếm rollback
+      // theo, không đốt số. Gửi `code` thì giữ nguyên (vẫn qua rào trùng của `MaterialService`).
+      const materialDto: CreateMaterialRequestDto = dto.material.code
+        ? (dto.material as CreateMaterialRequestDto)
+        : {
+            ...dto.material,
+            code: await this.codeGenerateService.generate(manager, CodeType.Item, warehouse),
+          };
+      const material = await this.materialService.createMaterialIn(manager, materialDto);
       if (supplier)
         await insertMaterialSuppliers(manager, [
           { materialId: material.id, supplierId: supplier.id },

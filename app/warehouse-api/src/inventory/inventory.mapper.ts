@@ -75,6 +75,10 @@ export class InventoryProfile extends AutomapperProfile {
           mapFrom((s) => s.material?.code),
         ),
         forMember(
+          (d) => d.materialBarcode,
+          mapFrom((s) => s.material?.barcode ?? null),
+        ),
+        forMember(
           (d) => d.materialName,
           mapFrom((s) => s.material?.name),
         ),

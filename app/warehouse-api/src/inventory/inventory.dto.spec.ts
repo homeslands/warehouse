@@ -22,9 +22,8 @@ describe('CreateInventoryMaterialRequestDto', () => {
     expect(messagesOf({ quantity: 1 })).toContain('INVENTORY_MATERIAL_IS_REQUIRED');
   });
 
-  // POST tạo vật tư mới nên phải đủ mọi field bắt buộc của `POST /materials`.
+  // POST tạo vật tư mới nên phải đủ mọi field bắt buộc của `POST /materials` — trừ `code` (tự sinh).
   it.each([
-    ['code', 'MATERIAL_CODE_IS_REQUIRED'],
     ['name', 'MATERIAL_NAME_IS_REQUIRED'],
     ['typeSlug', 'MATERIAL_TYPE_SLUG_IS_REQUIRED'],
     ['baseUnitSlug', 'MATERIAL_BASE_UNIT_SLUG_IS_REQUIRED'],
@@ -32,6 +31,26 @@ describe('CreateInventoryMaterialRequestDto', () => {
     const partial: Record<string, unknown> = { ...material };
     delete partial[field];
     expect(messagesOf({ material: partial })).toContain(message);
+  });
+
+  it('does not require material.code (server generates it)', () => {
+    const withoutCode: Record<string, unknown> = { ...material };
+    delete withoutCode.code;
+    expect(messagesOf({ material: withoutCode })).toEqual([]);
+  });
+
+  it('still validates material.code when it is sent', () => {
+    expect(messagesOf({ material: { ...material, code: '-bad-' } })).toContain(
+      'MATERIAL_CODE_INVALID',
+    );
+  });
+
+  it('keeps the other material fields through whitelist (OmitType copies their metadata)', () => {
+    const dto = plainToInstance(CreateInventoryMaterialRequestDto, {
+      material: { ...material, barcode: '2000100000014', minimumInventory: 5 },
+    });
+    validateSync(dto, { whitelist: true });
+    expect(dto.material).toMatchObject({ barcode: '2000100000014', minimumInventory: 5 });
   });
 
   it('accepts an optional supplierSlug (trimmed)', () => {
