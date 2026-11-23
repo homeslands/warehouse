@@ -12,10 +12,12 @@ Mỗi loại mã tự sinh (`CodeType`) có một quy tắc giữ **tiền tố*
 | `EXPORT_FORM` | `EX` | như trên | Mã phiếu xuất |
 | `BALANCE_FORM` | `BL` | như trên | Chưa dùng |
 | `SHELF` | `SH` | như trên | Chưa dùng |
-| `BARCODE` | `20` | EAN-13 `{prefix:2}{warehouse.barcodeNo:3}{seq:7}{check}` | `POST /warehouses/:warehouseSlug/materials/barcode` |
+| `BARCODE` | `20` | EAN-13 `{prefix:2}{số kho:3}{seq:7}{check}` | `POST /warehouses/:warehouseSlug/materials/barcode` |
 
 - Bộ đếm `seq` của mã chữ reset theo (loại, kho, ngày giờ Việt Nam). Bộ đếm mã vạch chạy theo (kho) và **không reset**.
 - Chữ số kiểm tra EAN-13 theo chuẩn GS1 (mod 10, trọng số 1/3).
+- Mã vạch **chỉ dùng cho vật tư** (`material.barcode`). Phiếu nhập/xuất chỉ có mã chữ (`code`).
+- Số kho trong mã vạch (`001`…`999`) là thứ tự tạo của kho, tính cả kho đã xoá mềm, nên không đổi theo thời gian. Server tự tính khi sinh mã vạch; kho không có field nào cho mã vạch.
 - Đổi tiền tố **không** làm cấp trùng: mã cũ giữ tiền tố cũ, bộ đếm vẫn chạy tiếp theo `type`. Mã mới sinh ra từ request kế tiếp dùng tiền tố mới.
 - Tiền tố `20`–`29` là dải GS1 dành cho mã lưu hành nội bộ. Nên giữ `BARCODE` trong dải này để không trùng mã vạch thật của nhà sản xuất.
 
@@ -89,7 +91,7 @@ Nguồn: `src/code-generate/code-generate.validation.ts` (`CodeGenerateValidatio
 | `CODE_GENERATE_TRANSACTION_REQUIRED` | 101601 | 500 | Code generation must run inside a transaction |
 | `CODE_GENERATE_WAREHOUSE_CODE_MISSING` | 101602 | 422 | Warehouse has no code to build the generated code from |
 | `CODE_GENERATE_COUNT_INVALID` | 101603 | 500 | Number of codes to generate must be a positive integer |
-| `CODE_GENERATE_WAREHOUSE_BARCODE_NO_MISSING` | 101604 | 422 | Warehouse has no barcode number to build the barcode from |
+| `CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED` | 101604 | 422 | Barcodes support at most 999 warehouses |
 | `CODE_GENERATE_BARCODE_EXHAUSTED` | 101605 | 422 | Barcode sequence of this warehouse is exhausted (max 9999999) |
 | `CODE_RULE_NOT_FOUND` | 101606 | 404 | Code rule not found |
 | `CODE_RULE_PREFIX_INVALID` | 101607 | 400 | prefix must be 2 uppercase letters/digits (BARCODE: exactly 2 digits) |
