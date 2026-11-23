@@ -21,6 +21,9 @@ import { MaterialTypeResponseDto } from 'src/material-type/material-type.dto';
 import { UnitResponseDto } from 'src/unit/unit.dto';
 import { SupplierResponseDto } from 'src/supplier/supplier.dto';
 
+/** EAN-8 / UPC-A (12) / EAN-13 / GTIN-14 — chỉ chặn hình dạng, không kiểm chữ số kiểm tra của mã nhà sản xuất. */
+export const MATERIAL_BARCODE_REGEX = /^\d{8,14}$/;
+
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const upper = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toUpperCase() : value;
@@ -37,6 +40,18 @@ export class CreateMaterialRequestDto {
   @Matches(BUSINESS_CODE_REGEX, { message: 'MATERIAL_CODE_INVALID' })
   @IsNotEmpty({ message: 'MATERIAL_CODE_IS_REQUIRED' })
   code: string;
+
+  @AutoMap()
+  @ApiPropertyOptional({
+    description:
+      'Barcode printed on the product (8-14 digits). Products without one: get a generated ' +
+      'EAN-13 from POST /warehouses/{warehouseSlug}/materials/barcode',
+    example: '2000100000017',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @Matches(MATERIAL_BARCODE_REGEX, { message: 'MATERIAL_BARCODE_INVALID' })
+  barcode?: string;
 
   @AutoMap()
   @ApiProperty({ description: 'The name of material', example: 'Rubber gloves' })
@@ -222,6 +237,10 @@ export class MaterialResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty()
   code: string;
+
+  @AutoMap()
+  @ApiPropertyOptional({ nullable: true })
+  barcode?: string | null;
 
   @AutoMap()
   @ApiProperty()

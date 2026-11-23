@@ -663,6 +663,65 @@ describe('MaterialService', () => {
     });
   });
 
+  describe('barcode', () => {
+    beforeEach(() => unitService.findEntityBySlug.mockResolvedValue(unit()));
+
+    it('tra trùng mã vạch kèm bản ghi xoá mềm khi tạo', async () => {
+      materialRepository.findOne.mockImplementation(async ({ where }) =>
+        where.barcode ? baseMaterial({ barcode: '2000100000014' }) : null,
+      );
+
+      await expectError(
+        service.createMaterial(createDto({ barcode: '2000100000014' })),
+        MaterialValidation.MATERIAL_BARCODE_DOES_EXIST.code,
+      );
+      expect(materialRepository.findOne).toHaveBeenCalledWith({
+        where: { barcode: '2000100000014' },
+        withDeleted: true,
+      });
+      expect(transactionManagerService.execute).not.toHaveBeenCalled();
+    });
+
+    it('báo lỗi riêng khi mã vạch bị vật tư đã xoá giữ chỗ', async () => {
+      materialRepository.findOne.mockImplementation(async ({ where }) =>
+        where.barcode ? baseMaterial({ deletedAt: new Date() }) : null,
+      );
+
+      await expectError(
+        service.createMaterial(createDto({ barcode: '2000100000014' })),
+        MaterialValidation.MATERIAL_BARCODE_RESERVED_BY_DELETED.code,
+      );
+    });
+
+    it('không tra mã vạch khi tạo vật tư không có mã vạch', async () => {
+      materialRepository.findOne.mockResolvedValue(null);
+      materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
+      materialRepository.create.mockImplementation((data) => data);
+      materialRepository.save.mockImplementation((data) => data);
+
+      await service.createMaterial(createDto());
+
+      expect(materialRepository.findOne).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ barcode: expect.anything() }) }),
+      );
+    });
+
+    it('PATCH không gửi barcode thì không tra trùng; gửi trùng vật tư khác thì chặn', async () => {
+      materialRepository.findOne.mockResolvedValueOnce(baseMaterial({ barcode: '11111111' }));
+      materialRepository.save.mockImplementation((data) => data);
+      await service.updateMaterial('mat-slug-1', { name: 'X' } as never);
+      expect(materialRepository.findOne).toHaveBeenCalledTimes(1);
+
+      materialRepository.findOne
+        .mockResolvedValueOnce(baseMaterial({ barcode: '11111111' }))
+        .mockResolvedValueOnce(baseMaterial({ id: 'other', barcode: '22222222' }));
+      await expectError(
+        service.updateMaterial('mat-slug-1', { barcode: '22222222' } as never),
+        MaterialValidation.MATERIAL_BARCODE_DOES_EXIST.code,
+      );
+    });
+  });
+
   // PATCH phải là partial update đúng nghĩa REST: field không gửi giữ nguyên giá trị cũ.
   describe('updateMaterial — partial (PATCH)', () => {
     it('chỉ đổi field được gửi, các field khác giữ nguyên', async () => {

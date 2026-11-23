@@ -38,6 +38,11 @@ const normalizeMaterial = <T extends Partial<CreateMaterialRequestDto>>() =>
       (d) => d.name,
       mapFrom((s) => s.name?.trim()),
     ),
+    // Khai tường minh: `@AutoMap()` của field không đi qua `PartialType` ⇒ PATCH sẽ mất `barcode`.
+    forMember<T, Material>(
+      (d) => d.barcode,
+      mapFrom((s) => s.barcode),
+    ),
   ] as const;
 
 /**
