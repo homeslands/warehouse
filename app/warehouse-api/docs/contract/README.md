@@ -21,6 +21,7 @@ Tài liệu này mô tả API mà **code BE trên nhánh `main` đang chạy**. 
 | [export-form.md](export-form.md) | Phiếu xuất: endpoint và vòng đời trạng thái |
 | [material.md](material.md) | Vật tư, loại vật tư, lô vật tư |
 | [unit.md](unit.md) | Đơn vị tính |
+| [code-rule.md](code-rule.md) | Quy tắc sinh mã (tiền tố mã tự sinh, mã vạch EAN-13) |
 | [tax-profile.md](tax-profile.md) | Hồ sơ thuế |
 | [supplier.md](supplier.md) | Nhà cung cấp |
 | [file.md](file.md) | Tải lên, tải xuống tệp |
@@ -57,3 +58,5 @@ Module `src/example` là mẫu để tạo module mới, không dành cho FE nê
 | 2026-11-07 | (PR này) | Bản đầu tiên, mô tả API tại `main` `5555273` | — |
 | 2026-11-19 | (PR này) | `PUT /warehouses/:warehouseSlug/materials` khôi phục dòng tồn đã xoá mềm khi gán lại; `GET .../import-forms/available-materials` trả thêm `effectiveMaximumInventory` khi `> 0` | Không |
 | 2026-11-20 | (PR này) | `PUT /warehouses/:warehouseSlug/materials` khoá row trong transaction, giữ `createdAt` gốc, ghi `reassignedAt` và lịch sử `REASSIGN` khi gán lại; `GET .../materials` sắp theo `COALESCE(reassignedAt, createdAt) DESC`; đồng bộ quy ước `max = 0` là không giới hạn trên `material`, `inventory`, `import-form` | Không |
+| 2026-11-23 | (PR này) | Mã vạch (chỉ vật tư): `material.barcode`, `materialBarcode` trong tồn kho; thêm `POST /warehouses/:warehouseSlug/materials/barcode` (trả `{ barcode }`) và `GET`/`PATCH /code-rules` | Không |
+| 2026-11-23 | (PR này) | `POST /warehouses/:warehouseSlug/materials`: `material.code` không còn bắt buộc, bỏ trống thì server tự sinh | Không (nới validation) |

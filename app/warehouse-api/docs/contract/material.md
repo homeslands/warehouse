@@ -54,6 +54,7 @@ Tổng cộng 19 endpoint. Loại vật tư dùng chung bộ quyền `MATERIAL_*
 |---|---|---|
 | slug, createdAt, updatedAt | string | Xem conventions.md |
 | code | string | IN HOA |
+| barcode | string \| null | Mã vạch quét được trên sản phẩm, hoặc EAN-13 hệ thống sinh. `null` = chưa có |
 | name | string | |
 | minimumInventory | number (≥ 0, tối đa 6 chữ số thập phân) | Ngưỡng mặc định áp cho mọi kho. Cột `DECIMAL(18,6)`, server trả về `number` (`material.entity.ts:66-86`) |
 | maximumInventory | number (≥ 0, tối đa 6 chữ số thập phân) | Như trên |
@@ -173,6 +174,7 @@ Tổng cộng 19 endpoint. Loại vật tư dùng chung bộ quyền `MATERIAL_*
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
 | code | string | có | `BUSINESS_CODE_REGEX` (2-32 ký tự, như loại vật tư) | Server trim rồi chuyển sang IN HOA. Unique tính cả bản ghi đã xoá mềm |
+| barcode | string | không | 8-14 chữ số (`^\d{8,14}$`: EAN-8/UPC/EAN-13/GTIN-14), không kiểm chữ số kiểm tra | Mã vạch in trên sản phẩm. Sản phẩm không có mã vạch: lấy EAN-13 từ `POST /warehouses/:warehouseSlug/materials/barcode` (xem [inventory.md](inventory.md)). Unique tính cả bản ghi đã xoá mềm: trùng → 100734, bị vật tư đã xoá giữ → 100735. PATCH gửi `barcode` cũng kiểm tra như vậy |
 | name | string | có | khác rỗng | **Không** unique |
 | typeSlug | string (slug) | có | khác rỗng | Slug của loại vật tư |
 | baseUnitSlug | string (slug) | có | khác rỗng, không được `null` | Slug của unit làm đơn vị cơ sở |
@@ -514,6 +516,9 @@ Không truyền HTTP status thì mặc định là 422 (`src/app/error-code.util
 | MATERIAL_DATE_RANGE_INVALID | 100729 | 400 | startDate must not be after endDate |
 | MATERIAL_NAME_SEARCH_INVALID | 100731 | 400 | name may only contain letters, digits and spaces |
 | MATERIAL_CODE_SEARCH_INVALID | 100732 | 400 | code may only contain letters, digits, "_" and "-" |
+| MATERIAL_BARCODE_INVALID | 100733 | 400 | barcode must be 8-14 digits (EAN-8/UPC/EAN-13/GTIN-14) |
+| MATERIAL_BARCODE_DOES_EXIST | 100734 | 422 | Material barcode does exist |
+| MATERIAL_BARCODE_RESERVED_BY_DELETED | 100735 | 422 | Material barcode is still held by a deleted material |
 
 Các mã 100711, 100713, 100719, 100727, 100728, 100730 không được dùng. Theo comment trong code, 100713 và 100719 được cố ý bỏ trống.
 

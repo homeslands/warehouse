@@ -12,6 +12,7 @@ Một dòng tồn kho (`Inventory`) là một cặp (kho, vật tư). Vật tư 
 |---|---|---|---|
 | PUT | /api/v1/warehouses/:warehouseSlug/materials | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | Gán vật tư có sẵn vào kho |
 | POST | /api/v1/warehouses/:warehouseSlug/materials | `MATERIAL_CREATE` + `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | Tạo vật tư mới và gán vào kho (một transaction) |
+| POST | /api/v1/warehouses/:warehouseSlug/materials/barcode | `MATERIAL_CREATE` + `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | Cấp mã vạch EAN-13 cho vật tư mới của kho |
 | GET | /api/v1/warehouses/:warehouseSlug/materials | `MATERIAL_READ` + `WAREHOUSE_READ` | Danh sách tồn của kho (phân trang, có lọc) |
 | PATCH | /api/v1/warehouses/:warehouseSlug/materials/:materialSlug | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | Sửa ngưỡng min/max riêng của kho |
 | PATCH | /api/v1/warehouses/:warehouseSlug/materials/:materialSlug/quantity | `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | Cộng/trừ tồn theo delta (cửa tạm) |
@@ -77,6 +78,7 @@ Nguồn: `inventory.dto.ts:171-241`, map ở `inventory.mapper.ts:25-107`.
 | `warehouseSlug` | `string` | |
 | `materialSlug` | `string` | |
 | `materialCode` | `string` | |
+| `materialBarcode` | `string \| null` | Mã vạch của vật tư. `null` = chưa có |
 | `materialName` | `string` | |
 | `typeSlug` | `string?` | Slug loại vật tư |
 | `typeName` | `string?` | |
@@ -150,10 +152,10 @@ Nguồn: `inventory.dto.ts`, map ở `inventory.mapper.ts`.
 | `quantity` | `number` | Không | Như `PUT` | Tồn ban đầu, mặc định `0` |
 | `minimumInventory` | `number \| null` | Không | Như `PUT` | Override **của kho này** |
 | `maximumInventory` | `number \| null` | Không | Như `PUT` | Override **của kho này** |
-| `material` | `object` | Có | Body của `POST /api/v1/materials` (`CreateMaterialRequestDto`), validate lồng nhau | Xem [material.md](material.md). `material.minimumInventory`/`maximumInventory` ở đây là ngưỡng **mặc định của vật tư**, khác override bên ngoài |
+| `material` | `object` | Có | Body của `POST /api/v1/materials` (`CreateInventoryMaterialItemDto`), validate lồng nhau, **trừ `material.code` không bắt buộc** | Xem [material.md](material.md). Bỏ trống `material.code` thì server tự sinh mã `{tiền tố ITEM}-{warehouse.code}-{yymmdd}-{seq:6}` (ví dụ `IT-WH-HN-01-261123-000001`); gửi thì vẫn validate và kiểm tra trùng như `POST /materials`. `material.minimumInventory`/`maximumInventory` ở đây là ngưỡng **mặc định của vật tư**, khác override bên ngoài |
 | `supplierSlug` | `string` | Không | Trim, chuỗi không rỗng | Gắn vật tư mới với nhà cung cấp này trong cùng transaction |
 
-- **Hành vi** (`inventory.service.ts:140-184`): kiểm tra kho và nhà cung cấp **trước** transaction. Sau đó trong một transaction: tạo vật tư (kèm đơn vị cơ sở), gắn nhà cung cấp (nếu có), tạo dòng tồn, ghi lịch sử `ASSIGN`. Lỗi ở bước nào thì không có gì được ghi.
+- **Hành vi** (`InventoryService.createMaterialInWarehouse`): kiểm tra kho và nhà cung cấp **trước** transaction. Sau đó trong một transaction: sinh `material.code` nếu không gửi, tạo vật tư (kèm đơn vị cơ sở), gắn nhà cung cấp (nếu có), tạo dòng tồn, ghi lịch sử `ASSIGN`. Lỗi ở bước nào thì không có gì được ghi, kể cả số thứ tự của mã tự sinh (bộ đếm rollback theo). Response trả mã đã sinh ở `materialCode`.
 - **Response 201:** `result` là `InventoryResponseDto`. `units` lúc này chỉ có đơn vị cơ sở.
 - **Lỗi riêng:**
 
@@ -171,6 +173,27 @@ Nguồn: `inventory.dto.ts`, map ở `inventory.mapper.ts`.
 | 404 | 100601 `MATERIAL_TYPE_NOT_FOUND` | `material.typeSlug` không tồn tại |
 | 404 | 100901 `UNIT_NOT_FOUND` | `material.baseUnitSlug` không tồn tại |
 | 422 | 100811 `INVENTORY_RANGE_INVALID` | Ngưỡng hiệu lực của kho mâu thuẫn |
+| 422 | 101602 `CODE_GENERATE_WAREHOUSE_CODE_MISSING` | Không gửi `material.code` và kho không có `code` |
+| 404 | 101606 `CODE_RULE_NOT_FOUND` | Không gửi `material.code` và chưa seed quy tắc `ITEM` |
+
+## POST /api/v1/warehouses/:warehouseSlug/materials/barcode
+
+- **Quyền:** `MATERIAL_CREATE` **và** `MATERIAL_UPDATE` **và** `WAREHOUSE_UPDATE`, giống `POST /materials` (`inventory.controller.ts`).
+- **Path params:** `warehouseSlug` (`string`).
+- **Body:** không có.
+- **Hành vi** (`InventoryService.generateMaterialBarcode`): dùng khi sản phẩm **không có mã vạch** của nhà sản xuất. Server cấp một EAN-13 dạng `{prefix:2}{số kho:3}{seq:7}{check}`, tiền tố theo quy tắc `BARCODE` (mặc định `20`), ví dụ `2000100000014`. Số kho là thứ tự tạo của kho (kho tạo đầu tiên là `001`, tính cả kho đã xoá), server tự tính, không có field nào ở API kho. Bộ đếm mã vạch chạy theo kho và không reset theo ngày.
+
+  Endpoint **chỉ cấp số, không tạo vật tư** và **không cấp mã vật tư** (mã vật tư tự sinh khi tạo vật tư). FE gửi lại giá trị ở `material.barcode` của `POST /warehouses/:warehouseSlug/materials`. Số đã cấp mà không dùng thì bỏ trống, không bao giờ được cấp lại. Tiền tố sửa ở [code-rule.md](code-rule.md).
+- **Response 201:** `result` là `{ barcode: string }`.
+- **Lỗi riêng:**
+
+| HTTP | code | Khi nào |
+|---|---|---|
+| 404 | 100501 `WAREHOUSE_NOT_FOUND` | Không có kho |
+| 422 | 100804 `INVENTORY_WAREHOUSE_INACTIVE` | Kho ngừng hoạt động |
+| 422 | 101604 `CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED` | Kho là kho thứ 1000 trở đi (mã vạch chỉ chứa được 999 kho) |
+| 422 | 101605 `CODE_GENERATE_BARCODE_EXHAUSTED` | Kho đã dùng hết 9 999 999 mã vạch |
+| 404 | 101606 `CODE_RULE_NOT_FOUND` | Chưa seed quy tắc `BARCODE` (chưa chạy migration) |
 
 ## GET /api/v1/warehouses/:warehouseSlug/materials
 
@@ -313,5 +336,7 @@ Nguồn: `src/inventory/inventory.validation.ts:45-117` (`InventoryValidation`, 
 - **Gỡ rồi gán lại:** vật tư đã gỡ khỏi kho có thể gán lại qua `PUT` (giữ `createdAt`, cập nhật `reassignedAt`, ngưỡng override cũ không giữ lại, lịch sử ghi `REASSIGN` nối tiếp dòng `REMOVE`).
 - **Kho ngừng hoạt động:** chặn gán vật tư (`PUT`/`POST`), nhưng **không** chặn sửa ngưỡng, điều chỉnh tồn hay gỡ.
 - **`PUT` trả 200, `POST` trả 201.**
+- **Mã vật tư:** `POST .../materials` không cần `material.code`, server tự sinh. Chỉ gửi khi muốn đặt mã riêng.
+- **Sản phẩm không có mã vạch:** gọi `POST .../materials/barcode` lấy `{ barcode }`, in lên tem, rồi tạo vật tư bằng `POST .../materials` với `material.barcode` đó (bỏ trống `material.code` để server tự sinh).
 - **Path dùng `materialSlug`** (slug vật tư), không dùng `slug` của dòng tồn.
 - **Phạm vi:** FE chỉ hiện các kho của user, lấy danh sách từ `GET /warehouses` hoặc `GET /auth/me`.

@@ -23,6 +23,8 @@ import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierException } from 'src/supplier/supplier.exception';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
+import { CodeType } from 'src/code-generate/code-generate.constants';
 
 // Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
 jest.mock('src/material/material-supplier.util');
@@ -113,6 +115,7 @@ describe('InventoryService', () => {
     ),
   };
   const transactionManager = { execute: jest.fn((onSave) => onSave(manager)) };
+  const codeGenerateService = { generate: jest.fn() };
 
   /** Dòng lịch sử duy nhất đã ghi trong lần gọi vừa rồi. */
   const writtenHistory = () => {
@@ -140,6 +143,7 @@ describe('InventoryService', () => {
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
         { provide: MaterialService, useValue: materialService },
+        { provide: CodeGenerateService, useValue: codeGenerateService },
       ],
     }).compile();
     await module.init();
@@ -213,6 +217,37 @@ describe('InventoryService', () => {
       });
     });
 
+    it('keeps a client-sent code and does not generate one', async () => {
+      await create();
+
+      expect(codeGenerateService.generate).not.toHaveBeenCalled();
+      expect(materialService.createMaterialIn).toHaveBeenCalledWith(manager, materialDto);
+    });
+
+    it('generates the material code inside the same transaction when code is omitted', async () => {
+      const wh = warehouse({ code: 'WH-HN-01' });
+      warehouseRepository.findOneBy.mockResolvedValue(wh);
+      codeGenerateService.generate.mockResolvedValue('IT-WH-HN-01-261123-000001');
+      const withoutCode: Record<string, unknown> = { ...materialDto };
+      delete withoutCode.code;
+
+      await service.createMaterialInWarehouse(
+        'wh-slug-1',
+        { material: withoutCode } as never,
+        actor,
+      );
+
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(codeGenerateService.generate).toHaveBeenCalledWith(manager, CodeType.Item, wh);
+      expect(materialService.createMaterialIn).toHaveBeenCalledWith(manager, {
+        ...withoutCode,
+        code: 'IT-WH-HN-01-261123-000001',
+      });
+      expect(codeGenerateService.generate.mock.invocationCallOrder[0]).toBeLessThan(
+        materialService.createMaterialIn.mock.invocationCallOrder[0],
+      );
+    });
+
     it('rejects an inactive warehouse before creating anything', async () => {
       warehouseRepository.findOneBy.mockResolvedValue(warehouse({ isActive: false }));
 
@@ -264,6 +299,41 @@ describe('InventoryService', () => {
       });
       expect(transactionManager.execute).not.toHaveBeenCalled();
       expect(materialService.createMaterialIn).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('generateMaterialBarcode', () => {
+    it('issues only a barcode (no item code) for the warehouse inside a transaction', async () => {
+      const wh = warehouse({ code: 'WH-HN-01' });
+      warehouseRepository.findOneBy.mockResolvedValue(wh);
+      codeGenerateService.generate.mockResolvedValue('2000100000014');
+
+      const result = await service.generateMaterialBarcode('wh-slug-1');
+
+      expect(result).toEqual({ barcode: '2000100000014' });
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(codeGenerateService.generate).toHaveBeenCalledTimes(1);
+      expect(codeGenerateService.generate).toHaveBeenCalledWith(manager, CodeType.Barcode, wh);
+    });
+
+    it('refuses an inactive warehouse without consuming any number', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse({ isActive: false }));
+
+      await expectError(
+        service.generateMaterialBarcode('wh-slug-1'),
+        InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE.code,
+      );
+      expect(codeGenerateService.generate).not.toHaveBeenCalled();
+    });
+
+    it('throws WAREHOUSE_NOT_FOUND for an unknown warehouse', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(null);
+
+      const promise = service.generateMaterialBarcode('missing');
+      await expect(promise).rejects.toBeInstanceOf(WarehouseException);
+      await expect(promise).rejects.toMatchObject({
+        code: WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
+      });
     });
   });
 
