@@ -87,6 +87,7 @@ describe('EditInventoryThresholdsDialog', () => {
     expect(saveBtn).toBeEnabled()
 
     await user.click(saveBtn)
+    expect(screen.getByText('100 → 200')).toBeInTheDocument()
     await confirmStep(user, 'Lưu thay đổi')
 
     await waitFor(() => expect(sentBody).toEqual({ maximumInventory: 200 }))
@@ -119,6 +120,7 @@ describe('EditInventoryThresholdsDialog', () => {
     expect(screen.getByLabelText('Tồn tối thiểu')).toHaveAttribute('placeholder', '5')
 
     await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    expect(screen.getByText('10 → Mặc định (5)')).toBeInTheDocument()
     await confirmStep(user, 'Lưu thay đổi')
 
     await waitFor(() => expect(sentBody).toEqual({ minimumInventory: null }))
@@ -191,7 +193,7 @@ describe('EditInventoryThresholdsDialog', () => {
     expect(maxInput).toHaveAttribute('aria-invalid', 'true')
   })
 
-  it('BE trả 100811 → quay về màn nhập và hiện lỗi dưới ô tương ứng', async () => {
+  it('BE trả 100811 → quay về màn nhập, hiện lỗi dưới ô tương ứng và focus vào ô đó', async () => {
     server.use(mswHttp.patch(`${BASE}/warehouses/w-a/materials/m-1`, () => apiError(422, 100811)))
     const { user } = renderWithProviders(
       <EditInventoryThresholdsDialog
@@ -211,7 +213,76 @@ describe('EditInventoryThresholdsDialog', () => {
     expect(
       await screen.findByText('Tồn tối đa phải lớn hơn hoặc bằng tồn tối thiểu'),
     ).toBeInTheDocument()
-    expect(screen.getByLabelText('Tồn tối đa')).toHaveAttribute('aria-invalid', 'true')
+    const maxInput = screen.getByLabelText('Tồn tối đa')
+    expect(maxInput).toHaveAttribute('aria-invalid', 'true')
+    expect(maxInput).toHaveFocus()
+  })
+
+  it('xoá trắng ô đang có ngưỡng riêng → báo lỗi nhập số, không gửi null về mặc định', async () => {
+    const patchHit = vi.fn()
+    server.use(
+      mswHttp.patch(`${BASE}/warehouses/w-a/materials/m-1`, () => {
+        patchHit()
+        return ok(makeItem())
+      }),
+    )
+    const { user } = renderWithProviders(
+      <EditInventoryThresholdsDialog
+        warehouseSlug="w-a"
+        item={makeItem()}
+        onOpenChange={vi.fn()}
+      />,
+      { auth: 'admin' },
+    )
+
+    const maxInput = await screen.findByLabelText('Tồn tối đa')
+    await user.clear(maxInput)
+    expect(screen.queryByText('Đang theo mặc định của vật tư')).not.toBeInTheDocument()
+
+    const saveBtn = screen.getByRole('button', { name: 'Lưu' })
+    expect(saveBtn).toBeEnabled()
+    await user.click(saveBtn)
+
+    expect(screen.queryByText('Lưu thay đổi ngưỡng tồn?')).not.toBeInTheDocument()
+    expect(screen.getByText('Nhập số ≥ 0, tối đa 6 chữ số thập phân')).toBeInTheDocument()
+    expect(maxInput).toHaveAttribute('aria-invalid', 'true')
+    expect(maxInput).toHaveFocus()
+    expect(patchHit).not.toHaveBeenCalled()
+  })
+
+  it('tải mặc định vật tư đang chờ và lỗi → hiện trạng thái rõ ràng và cho phép thử lại', async () => {
+    let attempts = 0
+    let resolvePending: (() => void) | undefined
+    server.use(
+      mswHttp.get(`${BASE}/materials/m-1`, async () => {
+        attempts += 1
+        if (attempts === 1) {
+          await new Promise<void>((resolve) => {
+            resolvePending = resolve
+          })
+          return apiError(500)
+        }
+        return ok(makeMaterial())
+      }),
+    )
+    const { user } = renderWithProviders(
+      <EditInventoryThresholdsDialog
+        warehouseSlug="w-a"
+        item={makeItem()}
+        onOpenChange={vi.fn()}
+      />,
+      { auth: 'admin' },
+    )
+
+    const useDefaultBtns = await screen.findAllByRole('button', { name: 'Dùng mặc định' })
+    await user.click(useDefaultBtns[0])
+    expect(screen.getByText('Đang tải mặc định…')).toBeInTheDocument()
+
+    resolvePending?.()
+    expect(await screen.findByText('Không tải được mặc định')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('button', { name: 'Thử lại' }))
+    expect(await screen.findByText('Mặc định: 5')).toBeInTheDocument()
   })
 
   it('BE trả 100801 → đóng hộp, báo info toast và gọi onNotFound', async () => {

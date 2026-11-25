@@ -107,5 +107,9 @@
   "thresholdUseDefault": "Use default",
   "thresholdUnlimited": "Unlimited",
   "thresholdDefaultValue": "Default: {{value}}",
-  "thresholdFollowingDefault": "Using material default"
+  "thresholdFollowingDefault": "Using material default",
+  "thresholdLoadingDefault": "Loading default…",
+  "thresholdDefaultLoadFailed": "Couldn't load default",
+  "thresholdDefaultBadge": "Default ({{value}})",
+  "thresholdDefaultShort": "Default"
 }

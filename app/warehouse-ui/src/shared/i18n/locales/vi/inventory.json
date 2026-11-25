@@ -107,5 +107,9 @@
   "thresholdUseDefault": "Dùng mặc định",
   "thresholdUnlimited": "Không giới hạn",
   "thresholdDefaultValue": "Mặc định: {{value}}",
-  "thresholdFollowingDefault": "Đang theo mặc định của vật tư"
+  "thresholdFollowingDefault": "Đang theo mặc định của vật tư",
+  "thresholdLoadingDefault": "Đang tải mặc định…",
+  "thresholdDefaultLoadFailed": "Không tải được mặc định",
+  "thresholdDefaultBadge": "Mặc định ({{value}})",
+  "thresholdDefaultShort": "Mặc định"
 }

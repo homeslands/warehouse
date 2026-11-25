@@ -1,6 +1,7 @@
 import { useQueryClient } from '@tanstack/react-query'
 import { SlidersHorizontalIcon } from 'lucide-react'
 import { useId, useRef, useState } from 'react'
+import { flushSync } from 'react-dom'
 import { useTranslation } from 'react-i18next'
 import { toast } from 'sonner'
 import { isApiError } from '@/shared/api/http'
@@ -27,13 +28,16 @@ import {
 } from '@/entities/inventory'
 import { useMaterial } from '@/entities/material'
 import {
+  EMPTY_THRESHOLD_DRAFT,
   buildThresholdPatch,
+  hasThresholdDraftChanges,
   initialThresholdDraft,
   mapThresholdApiError,
   validateThresholdDraft,
   type MaterialThresholdDefaults,
   type ThresholdDraft,
   type ThresholdEditErrors,
+  type ThresholdFieldDraft,
   type ThresholdKey,
   type ThresholdTarget,
 } from '../model/thresholds'
@@ -63,7 +67,7 @@ export function EditInventoryThresholdsDialog({
   const [prevItem, setPrevItem] = useState(item)
   const [last, setLast] = useState(item)
   const [draft, setDraft] = useState<ThresholdDraft>(() =>
-    item ? initialThresholdDraft(item) : {},
+    item ? initialThresholdDraft(item) : EMPTY_THRESHOLD_DRAFT,
   )
   const [errors, setErrors] = useState<ThresholdEditErrors>({})
   const [tried, setTried] = useState(false)
@@ -103,6 +107,7 @@ export function EditInventoryThresholdsDialog({
   }
 
   const patch = shown ? buildThresholdPatch(draft, shown) : {}
+  const hasChanges = shown ? hasThresholdDraftChanges(draft, shown) : false
   const isDirty = Object.keys(patch).length > 0
 
   const handleOpenChange = (open: boolean) => {
@@ -111,18 +116,27 @@ export function EditInventoryThresholdsDialog({
     onOpenChange(open)
   }
 
-  const updateField = (key: ThresholdKey, value: number | undefined) => {
+  const applyFieldDraft = (key: ThresholdKey, nextField: ThresholdFieldDraft) => {
     if (!shown) return
-    const next = { ...draft, [key]: value }
+    const next = { ...draft, [key]: nextField }
     setDraft(next)
     if (tried) {
       setErrors(validateThresholdDraft(next, shown, defaults))
     }
   }
 
+  const updateNumberField = (key: ThresholdKey, value: number | undefined) => {
+    if (draft[key].mode === 'default' && value === undefined) return
+    applyFieldDraft(key, { mode: 'custom', value })
+  }
+
+  const resetToDefault = (key: ThresholdKey) => {
+    applyFieldDraft(key, { mode: 'default' })
+  }
+
   const askConfirm = (event: React.FormEvent) => {
     event.preventDefault()
-    if (!shown || !isDirty || update.isPending) return
+    if (!shown || !hasChanges || update.isPending) return
     const nextErrors = validateThresholdDraft(draft, shown, defaults)
     setErrors(nextErrors)
     setTried(true)
@@ -151,9 +165,15 @@ export function EditInventoryThresholdsDialog({
           if (isApiError(error)) {
             const mapped = mapThresholdApiError(error.code, patch)
             if (mapped) {
-              setErrors(mapped)
-              setTried(true)
-              setStep('edit')
+              const firstKey: ThresholdKey = mapped.minimumInventory
+                ? 'minimumInventory'
+                : 'maximumInventory'
+              flushSync(() => {
+                setErrors(mapped)
+                setTried(true)
+                setStep('edit')
+              })
+              inputRefs.current[firstKey]?.focus()
               return
             }
             if (error.code === INVENTORY_NOT_FOUND) {
@@ -192,6 +212,31 @@ export function EditInventoryThresholdsDialog({
       ]
     : []
 
+  const formatDefaultBadge = (defaultLabel: string | undefined) =>
+    defaultLabel !== undefined
+      ? t('inventory:thresholdDefaultBadge', { value: defaultLabel })
+      : t('inventory:thresholdDefaultShort')
+
+  const changes =
+    step === 'confirm' && shown
+      ? fields.flatMap((f) => {
+          if (!(f.key in patch)) return []
+          const nextValue = patch[f.key]
+          if (nextValue === undefined) return []
+          const prevValue = shown[f.key]
+          return [
+            {
+              key: f.key,
+              label: f.label,
+              from:
+                prevValue === null ? formatDefaultBadge(f.defaultLabel) : formatQuantity(prevValue),
+              to:
+                nextValue === null ? formatDefaultBadge(f.defaultLabel) : formatQuantity(nextValue),
+            },
+          ]
+        })
+      : []
+
   return (
     <Dialog open={item !== null} onOpenChange={handleOpenChange}>
       <DialogContent
@@ -208,6 +253,20 @@ export function EditInventoryThresholdsDialog({
             icon={<SlidersHorizontalIcon />}
             title={t('inventory:editThresholdsConfirmTitle')}
             description={titleText}
+            details={
+              changes.length > 0 ? (
+                <dl className="divide-y rounded-lg border px-3 text-sm">
+                  {changes.map((c) => (
+                    <div key={c.key} className="flex items-center justify-between gap-4 py-2">
+                      <dt className="text-muted-foreground">{c.label}</dt>
+                      <dd className="font-medium tabular-nums">
+                        {c.from} → {c.to}
+                      </dd>
+                    </div>
+                  ))}
+                </dl>
+              ) : undefined
+            }
             confirmLabel={update.isPending ? t('common:saving') : t('common:saveChanges')}
             isPending={update.isPending}
             onBack={() => setStep('edit')}
@@ -230,9 +289,17 @@ export function EditInventoryThresholdsDialog({
               {fields.map((f) => {
                 const inputId = `${formId}-${f.key}`
                 const error = errors[f.key]
-                const isDefault = draft[f.key] === undefined
+                const fieldDraft = draft[f.key]
+                const isDefault = fieldDraft.mode === 'default'
+                const value = fieldDraft.mode === 'custom' ? fieldDraft.value : undefined
+                const needsMaterial = shown !== null && shown[f.key] !== null
                 const statusId = `${inputId}-status`
                 const errorId = `${inputId}-error`
+                const placeholder =
+                  isDefault && needsMaterial && material.isPending
+                    ? t('inventory:thresholdLoadingDefault')
+                    : (f.defaultLabel ?? t('inventory:thresholdUseDefault'))
+
                 return (
                   <div key={f.key} className="space-y-1.5">
                     <Label htmlFor={inputId}>{f.label}</Label>
@@ -241,9 +308,9 @@ export function EditInventoryThresholdsDialog({
                         inputRefs.current[f.key] = el
                       }}
                       id={inputId}
-                      value={draft[f.key]}
-                      onChange={(v) => updateField(f.key, v)}
-                      placeholder={f.defaultLabel ?? t('inventory:thresholdUseDefault')}
+                      value={value}
+                      onChange={(v) => updateNumberField(f.key, v)}
+                      placeholder={placeholder}
                       disabled={update.isPending}
                       aria-invalid={error ? true : undefined}
                       aria-describedby={error ? errorId : isDefault ? statusId : undefined}
@@ -260,17 +327,42 @@ export function EditInventoryThresholdsDialog({
                         size="xs"
                         className="h-auto p-0 font-normal"
                         disabled={update.isPending}
-                        onClick={() => updateField(f.key, undefined)}
+                        onClick={() => resetToDefault(f.key)}
                       >
                         {t('inventory:thresholdUseDefault')}
                       </Button>
                     ) : (
                       !error && (
-                        <p id={statusId} className="text-muted-foreground text-xs">
-                          {f.defaultLabel !== undefined
-                            ? t('inventory:thresholdDefaultValue', { value: f.defaultLabel })
-                            : t('inventory:thresholdFollowingDefault')}
-                        </p>
+                        <>
+                          {needsMaterial && material.isPending ? (
+                            <p id={statusId} className="text-muted-foreground text-xs">
+                              {t('inventory:thresholdLoadingDefault')}
+                            </p>
+                          ) : needsMaterial && material.isError ? (
+                            <p
+                              id={statusId}
+                              className="text-destructive flex flex-wrap items-center gap-1.5 text-xs"
+                            >
+                              <span>{t('inventory:thresholdDefaultLoadFailed')}</span>
+                              <Button
+                                type="button"
+                                variant="link"
+                                size="xs"
+                                className="h-auto p-0 font-normal"
+                                disabled={update.isPending}
+                                onClick={() => void material.refetch()}
+                              >
+                                {t('common:retry')}
+                              </Button>
+                            </p>
+                          ) : (
+                            <p id={statusId} className="text-muted-foreground text-xs">
+                              {f.defaultLabel !== undefined
+                                ? t('inventory:thresholdDefaultValue', { value: f.defaultLabel })
+                                : t('inventory:thresholdFollowingDefault')}
+                            </p>
+                          )}
+                        </>
                       )
                     )}
                   </div>
@@ -288,7 +380,7 @@ export function EditInventoryThresholdsDialog({
               >
                 {t('common:cancel')}
               </Button>
-              <Button type="submit" size="xl" disabled={!isDirty || update.isPending}>
+              <Button type="submit" size="xl" disabled={!hasChanges || update.isPending}>
                 {t('common:save')}
               </Button>
             </DialogFooter>
