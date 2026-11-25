@@ -126,6 +126,11 @@ export const AuthorityCode = {
   // ===== Seed ở migration 1783728000047 (File) =====
   // `POST /file/upload` — upload file đính kèm lên S3. Chỉ có CREATE: chưa có route đọc/xoá file.
   FileCreate: 'FILE_CREATE',
+
+  // ===== Seed ở migration 1783728000051 (Code rule — quy tắc sinh mã) =====
+  // Chỉ READ/UPDATE: loại mã là enum cố định, không có API tạo/xoá quy tắc.
+  CodeRuleRead: 'CODE_RULE_READ',
+  CodeRuleUpdate: 'CODE_RULE_UPDATE',
 } as const;
 export type TAuthorityCode = (typeof AuthorityCode)[keyof typeof AuthorityCode];
 

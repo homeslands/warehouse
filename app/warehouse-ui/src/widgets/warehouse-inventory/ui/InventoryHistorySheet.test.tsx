@@ -208,11 +208,44 @@ describe('InventoryHistorySheet', () => {
     })
     await user.click(await screen.findByRole('button', { name: 'Xem thêm' }))
     const list = await screen.findByRole('list')
-    expect(await within(list).findByText('Gỡ khỏi kho')).toBeInTheDocument()
+    expect(await within(list).findByText(/^Đã xoá khỏi kho vào /)).toBeInTheDocument()
     expect(pages).toEqual(['1', '2'])
     await waitFor(() =>
       expect(screen.queryByRole('button', { name: 'Xem thêm' })).not.toBeInTheDocument(),
     )
+  })
+
+  it('mốc gỡ rồi thêm lại (REMOVE / REASSIGN): hiện mốc rõ ràng và vẫn hiện tồn đầu nếu > 0', async () => {
+    setup({}, () =>
+      envelope(
+        [
+          history({
+            slug: 'h-reassign',
+            action: 'REASSIGN',
+            quantityDelta: 5,
+            quantityBefore: 0,
+            quantityAfter: 5,
+            changedByName: 'Bình',
+          }),
+          history({
+            slug: 'h-remove',
+            action: 'REMOVE',
+            changedByName: 'An',
+          }),
+        ],
+        1,
+        false,
+      ),
+    )
+    const list = await screen.findByRole('list')
+    const reassignHeading = await within(list).findByText(/^Đã thêm lại vào kho vào /)
+    const reassignRow = reassignHeading.closest('li')!
+    expect(within(reassignRow).getByTestId('history-change')).toHaveTextContent('+5')
+    expect(within(reassignRow).getByTestId('history-change')).toHaveTextContent('0 → 5')
+    expect(within(reassignRow).getByText('Bình')).toBeInTheDocument()
+
+    const removeHeading = within(list).getByText(/^Đã xoá khỏi kho vào /)
+    expect(within(removeHeading.closest('li')!).getByText('An')).toBeInTheDocument()
   })
 
   it('mã thao tác lạ → hiện nguyên mã', async () => {

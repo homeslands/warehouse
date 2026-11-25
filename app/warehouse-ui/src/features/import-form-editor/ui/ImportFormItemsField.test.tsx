@@ -149,12 +149,14 @@ let current: ImportFormValues | undefined
 
 function Harness({
   items,
+  materials,
   loadError,
   supplierSlug = '',
   canPickSupplier = false,
   onMaterialPicked,
 }: {
   items?: ImportFormValues['items']
+  materials?: AvailableMaterial[]
   loadError?: { message: string; onRetry: () => void }
   supplierSlug?: string
   canPickSupplier?: boolean
@@ -173,7 +175,7 @@ function Harness({
     <Form {...form}>
       <ImportFormItemsField
         form={form}
-        materials={loadError ? [] : [flour, sugar]}
+        materials={loadError ? [] : (materials ?? [flour, sugar])}
         fallbackLabels={{}}
         warehouseSlug="w-a"
         warehouseName="Kho A"
@@ -681,5 +683,39 @@ describe('ImportFormItemsField', () => {
     await waitFor(() =>
       expect(screen.getByRole('textbox', { name: 'Số lượng dòng 2' })).toHaveFocus(),
     )
+  })
+
+  it('gõ số lượng làm tồn sau nhập > max → hiện cảnh báo ngay trên dòng; giảm xuống thì ẩn', async () => {
+    const cappedFlour: AvailableMaterial = { ...flour, effectiveMaximumInventory: 130 }
+    const { user } = renderWithProviders(
+      <Harness
+        materials={[cappedFlour, sugar]}
+        items={[{ ...EMPTY_ITEM, materialSlug: 'm-flour', unitSlug: 'u-kg' }]}
+      />,
+    )
+    const qty = screen.getByRole('textbox', { name: 'Số lượng dòng 1' })
+    await user.type(qty, '30')
+    expect(screen.getByText('Tồn sau nhập 150 KG > max 130 KG')).toBeInTheDocument()
+
+    await user.clear(qty)
+    await user.type(qty, '5')
+    expect(screen.queryByText(/Tồn sau nhập .* > max/)).not.toBeInTheDocument()
+  })
+
+  it('quy đổi đơn vị + cộng dồn nhiều dòng cùng vật tư → báo ở dòng cuối của vật tư đó', async () => {
+    const cappedFlour: AvailableMaterial = { ...flour, effectiveMaximumInventory: 130 }
+    renderWithProviders(
+      <Harness
+        materials={[cappedFlour, sugar]}
+        items={[
+          { ...EMPTY_ITEM, materialSlug: 'm-flour', unitSlug: 'u-kg', quantity: 10 },
+          { ...EMPTY_ITEM, materialSlug: 'm-flour', unitSlug: 'u-bag', quantity: 1 },
+        ]}
+      />,
+    )
+    expect(within(screen.getByTestId('line-0')).queryByText(/Tồn sau nhập/)).not.toBeInTheDocument()
+    expect(
+      within(screen.getByTestId('line-1')).getByText('Tồn sau nhập 155 KG > max 130 KG'),
+    ).toBeInTheDocument()
   })
 })

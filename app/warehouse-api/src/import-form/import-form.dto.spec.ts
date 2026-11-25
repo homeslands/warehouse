@@ -16,7 +16,6 @@ const messagesOf = <T extends object>(cls: new () => T, payload: object, propert
 
 describe('CreateImportFormRequestDto', () => {
   const valid = {
-    code: 'PN-2026-0001',
     invoiceCode: 'HD-1',
     date: '2026-10-12',
     items: [{ materialSlug: 'mat-1', unitSlug: 'unit-1', quantity: 10, unitPrice: 1500.5 }],
@@ -24,6 +23,13 @@ describe('CreateImportFormRequestDto', () => {
 
   it('accepts a minimal valid body (purchaseOrder/file/note optional)', () => {
     expect(messagesOf(CreateImportFormRequestDto, valid)).toEqual([]);
+  });
+
+  // Mã phiếu do server tự sinh (`CodeGenerateService`) — client gửi `code` thì bị `whitelist` bỏ.
+  it('strips code from the body', () => {
+    const dto = plainToInstance(CreateImportFormRequestDto, { ...valid, code: 'PN-2026-0001' });
+    expect(validateSync(dto, { whitelist: true })).toEqual([]);
+    expect(dto).not.toHaveProperty('code');
   });
 
   // Phiếu nhập không gắn nhà cung cấp — `supplierSlug` không còn là field của body.
@@ -34,7 +40,6 @@ describe('CreateImportFormRequestDto', () => {
   });
 
   it.each([
-    ['code', 'IMPORT_FORM_CODE_IS_REQUIRED'],
     ['invoiceCode', 'IMPORT_FORM_INVOICE_CODE_IS_REQUIRED'],
     ['date', 'IMPORT_FORM_DATE_INVALID'],
     ['items', 'IMPORT_FORM_ITEMS_IS_REQUIRED'],
@@ -42,12 +47,6 @@ describe('CreateImportFormRequestDto', () => {
     const body: Record<string, unknown> = { ...valid };
     delete body[field];
     expect(messagesOf(CreateImportFormRequestDto, body, field)).toContain(message);
-  });
-
-  it.each(['-PN', 'P', 'PN 01', 'a'.repeat(33)])('rejects code %s', (code) => {
-    expect(messagesOf(CreateImportFormRequestDto, { ...valid, code }, 'code')).toContain(
-      'IMPORT_FORM_CODE_INVALID',
-    );
   });
 
   it.each(['12/10/2026', '2026-13-01', '2026-02-30', '2026-10-12T00:00:00Z'])(

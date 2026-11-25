@@ -3,6 +3,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   MaxLength,
   Min,
   ValidateIf,
@@ -19,6 +20,7 @@ import {
   MaterialConversionUnitResponseDto,
 } from 'src/material/material.dto';
 import { UnitResponseDto } from 'src/unit/unit.dto';
+import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 
@@ -80,6 +82,26 @@ export class AssignInventoryRequestDto {
 
 /** Chỉ sửa ngưỡng override — cố ý KHÔNG nhận `quantity` (đi qua `PATCH .../quantity`). */
 /**
+ * `material` của `POST /warehouses/:slug/materials`: như `POST /materials` nhưng `code` KHÔNG bắt
+ * buộc — bỏ trống thì server tự sinh (`CodeType.Item`) trong transaction tạo vật tư. Gửi thì vẫn
+ * qua đủ rào định dạng/trùng như `POST /materials`.
+ */
+export class CreateInventoryMaterialItemDto extends OmitType(CreateMaterialRequestDto, [
+  'code',
+] as const) {
+  @ApiPropertyOptional({
+    description:
+      'Business code of the material. Omit it to let the server generate one ' +
+      '(`{ITEM prefix}-{warehouse code}-{yymmdd}-{seq}`)',
+    example: 'MAT-001',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @Matches(BUSINESS_CODE_REGEX, { message: 'MATERIAL_CODE_INVALID' })
+  code?: string;
+}
+
+/**
  * `POST /warehouses/:slug/materials` — tạo vật tư MỚI và gán luôn vào kho. `material` phải đủ mọi
  * field bắt buộc của `POST /materials`. Lồng riêng vì cả 2 phần đều có `minimumInventory`/
  * `maximumInventory` nhưng khác nghĩa: trong `material` là ngưỡng mặc định của vật tư, ngoài là
@@ -89,13 +111,13 @@ export class CreateInventoryMaterialRequestDto extends OmitType(AssignInventoryR
   'materialSlug',
 ] as const) {
   @ApiProperty({
-    type: CreateMaterialRequestDto,
-    description: 'The new material (all required fields)',
+    type: CreateInventoryMaterialItemDto,
+    description: 'The new material (all required fields; `code` is optional and auto-generated)',
   })
   @IsNotEmpty({ message: 'INVENTORY_MATERIAL_IS_REQUIRED' })
   @ValidateNested()
-  @Type(() => CreateMaterialRequestDto)
-  material: CreateMaterialRequestDto;
+  @Type(() => CreateInventoryMaterialItemDto)
+  material: CreateInventoryMaterialItemDto;
 
   // Nằm ngoài `material` vì `CreateMaterialRequestDto` cố ý không nhận nhà cung cấp (xem
   // `Material.suppliers`). Có gửi thì gắn cặp (vật tư mới, nhà cung cấp) cùng transaction tạo vật tư.
@@ -192,17 +214,32 @@ export class InventoryResponseDto extends BaseResponseDto {
   })
   maximumInventory?: number | null;
 
-  @ApiProperty({ description: 'Minimum threshold actually in effect = override ?? Material value' })
+  @ApiProperty({
+    description: 'Minimum threshold actually in effect = override ?? Material value (0 = unset)',
+  })
   effectiveMinimumInventory: number;
 
-  @ApiProperty({ description: 'Maximum threshold actually in effect = override ?? Material value' })
+  @ApiProperty({
+    description:
+      'Maximum threshold actually in effect = override ?? Material value (0 = unlimited)',
+  })
   effectiveMaximumInventory: number;
 
   @ApiProperty({ description: 'quantity < effectiveMinimumInventory' })
   isBelowMinimum: boolean;
 
-  @ApiProperty({ description: 'quantity > effectiveMaximumInventory' })
+  @ApiProperty({
+    description:
+      'quantity > effectiveMaximumInventory (always false when effectiveMaximumInventory is 0 / unlimited)',
+  })
   isAboveMaximum: boolean;
+
+  @ApiPropertyOptional({
+    nullable: true,
+    description:
+      'Timestamp of the most recent re-assignment after removal; null when never re-assigned',
+  })
+  reassignedAt?: string | null;
 
   @ApiPropertyOptional({ description: 'Warehouse slug' })
   warehouseSlug?: string;
@@ -212,6 +249,9 @@ export class InventoryResponseDto extends BaseResponseDto {
 
   @ApiPropertyOptional({ description: 'Material code' })
   materialCode?: string;
+
+  @ApiPropertyOptional({ nullable: true, description: 'Material barcode' })
+  materialBarcode?: string | null;
 
   @ApiPropertyOptional({ description: 'Material name' })
   materialName?: string;
@@ -241,6 +281,16 @@ export class InventoryResponseDto extends BaseResponseDto {
 }
 
 export class GetInventoryHistoryRequestDto extends BaseQueryDto {}
+
+/**
+ * `POST /warehouses/:slug/materials/barcode` — mã vạch EAN-13 cấp sẵn cho vật tư MỚI (không có mã
+ * vạch của nhà sản xuất) sắp tạo + gán vào kho này. Client gửi lại ở `material.barcode` của
+ * `POST /warehouses/:slug/materials`; mã vật tư thì để trống cho server tự sinh lúc tạo.
+ */
+export class GenerateMaterialBarcodeResponseDto {
+  @ApiProperty({ description: 'Generated EAN-13 barcode', example: '2000100000014' })
+  barcode: string;
+}
 
 /** 1 dòng lịch sử tồn kho, mới nhất trước. Mọi số lượng theo đơn vị cơ sở của vật tư. */
 export class InventoryHistoryResponseDto extends BaseResponseDto {

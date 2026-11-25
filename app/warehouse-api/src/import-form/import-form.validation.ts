@@ -3,11 +3,6 @@ import { createErrorCode, TErrorCodeValue } from 'src/app/error-code.util';
 
 // Import form Error Code 1013xx
 export const IMPORT_FORM_NOT_FOUND = 'IMPORT_FORM_NOT_FOUND';
-export const IMPORT_FORM_CODE_IS_REQUIRED = 'IMPORT_FORM_CODE_IS_REQUIRED';
-export const IMPORT_FORM_CODE_INVALID = 'IMPORT_FORM_CODE_INVALID';
-export const IMPORT_FORM_CODE_DOES_EXIST = 'IMPORT_FORM_CODE_DOES_EXIST';
-export const IMPORT_FORM_CODE_RESERVED_BY_DELETED_IMPORT_FORM =
-  'IMPORT_FORM_CODE_RESERVED_BY_DELETED_IMPORT_FORM';
 export const IMPORT_FORM_PURCHASE_ORDER_INVALID = 'IMPORT_FORM_PURCHASE_ORDER_INVALID';
 export const IMPORT_FORM_INVOICE_CODE_IS_REQUIRED = 'IMPORT_FORM_INVOICE_CODE_IS_REQUIRED';
 export const IMPORT_FORM_INVOICE_CODE_INVALID = 'IMPORT_FORM_INVOICE_CODE_INVALID';
@@ -44,10 +39,6 @@ export const IMPORT_FORM_VERSION_INVALID = 'IMPORT_FORM_VERSION_INVALID';
 
 export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_NOT_FOUND
-  | typeof IMPORT_FORM_CODE_IS_REQUIRED
-  | typeof IMPORT_FORM_CODE_INVALID
-  | typeof IMPORT_FORM_CODE_DOES_EXIST
-  | typeof IMPORT_FORM_CODE_RESERVED_BY_DELETED_IMPORT_FORM
   | typeof IMPORT_FORM_PURCHASE_ORDER_INVALID
   | typeof IMPORT_FORM_INVOICE_CODE_IS_REQUIRED
   | typeof IMPORT_FORM_INVOICE_CODE_INVALID
@@ -81,16 +72,8 @@ export type TImportFormErrorCode = Record<TImportFormErrorCodeKey, TErrorCodeVal
 
 export const ImportFormValidation: TImportFormErrorCode = {
   IMPORT_FORM_NOT_FOUND: createErrorCode(101301, 'Import form not found', HttpStatus.NOT_FOUND),
-  IMPORT_FORM_CODE_IS_REQUIRED: createErrorCode(101302, 'Import form code is required'),
-  IMPORT_FORM_CODE_INVALID: createErrorCode(
-    101303,
-    'Import form code must be 2-32 letters, digits or hyphens',
-  ),
-  IMPORT_FORM_CODE_DOES_EXIST: createErrorCode(101304, 'Import form code does exist'),
-  IMPORT_FORM_CODE_RESERVED_BY_DELETED_IMPORT_FORM: createErrorCode(
-    101305,
-    'Import form code is still held by a deleted import form',
-  ),
+  // 101302-101305 (`IMPORT_FORM_CODE_*`) đã bỏ khi mã phiếu chuyển sang tự sinh
+  // (`CodeGenerateService`) — giữ trống, không cấp lại cho lỗi khác.
   IMPORT_FORM_PURCHASE_ORDER_INVALID: createErrorCode(
     101306,
     'Purchase order must be at most 64 characters',

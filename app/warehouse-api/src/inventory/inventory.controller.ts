@@ -17,6 +17,7 @@ import {
   AdjustInventoryQuantityRequestDto,
   AssignInventoryRequestDto,
   CreateInventoryMaterialRequestDto,
+  GenerateMaterialBarcodeResponseDto,
   GetInventoryHistoryRequestDto,
   GetInventoryRequestDto,
   InventoryHistoryResponseDto,
@@ -36,6 +37,36 @@ import { CurrentUser, CurrentUserDto } from 'src/user/user.decorator';
 @ApiParam({ name: 'warehouseSlug', required: true, example: 'x7fk2p9qab' })
 export class InventoryController {
   constructor(private readonly inventoryService: InventoryService) {}
+
+  // Cấp mã vạch cho vật tư MỚI sắp tạo + gán vào kho ⇒ cùng bộ quyền với `POST /` bên dưới.
+  // Khai trước các route `:materialSlug` (route tĩnh, không bị nuốt bởi tham số).
+  @Post('barcode')
+  @RequireAuthority(
+    AuthorityCode.MaterialCreate,
+    AuthorityCode.MaterialUpdate,
+    AuthorityCode.WarehouseUpdate,
+  )
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Generate an EAN-13 barcode for a new material of this warehouse',
+    description:
+      'For products without a manufacturer barcode. Only issues the number — send it back as ' +
+      '`material.barcode` of `POST /warehouses/{warehouseSlug}/materials`.',
+  })
+  @ApiResponseWithType({
+    status: HttpStatus.CREATED,
+    description: 'Generated',
+    type: GenerateMaterialBarcodeResponseDto,
+  })
+  async generateMaterialBarcode(@Param('warehouseSlug') warehouseSlug: string) {
+    const result = await this.inventoryService.generateMaterialBarcode(warehouseSlug);
+    return {
+      message: 'Barcode has been generated successfully',
+      statusCode: HttpStatus.CREATED,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<GenerateMaterialBarcodeResponseDto>;
+  }
 
   // Gán vật tư CÓ SẴN vào kho (trước đây là `POST`). Chưa idempotent: gán lại vật tư đã có trong kho
   // vẫn ném `INVENTORY_DOES_EXIST`.
@@ -79,7 +110,9 @@ export class InventoryController {
   @ApiOperation({
     summary: 'Create a new material and assign it to this warehouse (one transaction)',
     description:
-      '`material` takes every required field of `POST /materials`; the outer ' +
+      '`material` takes every required field of `POST /materials` except `code`: omit ' +
+      '`material.code` and the server generates it (`{ITEM prefix}-{warehouse code}-{yymmdd}-{seq}`) ' +
+      'in the same transaction. The outer ' +
       '`minimumInventory`/`maximumInventory` are overrides for this warehouse only. Optional ' +
       '`supplierSlug` attaches the new material to that supplier in the same transaction ' +
       '(`SUPPLIER_NOT_FOUND` if the slug is unknown — nothing is created).',

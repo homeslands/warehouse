@@ -42,6 +42,8 @@ import {
   BatchConsumeLine,
   MaterialBatchService,
 } from 'src/material-batch/material-batch.service';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
+import { CodeType } from 'src/code-generate/code-generate.constants';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { AppPaginatedResponseDto } from 'src/app/app.dto';
 import {
@@ -96,6 +98,7 @@ export class ExportFormService {
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly transactionManagerService: TransactionManagerService,
+    private readonly codeGenerateService: CodeGenerateService,
     private readonly inventoryService: InventoryService,
     private readonly materialBatchService: MaterialBatchService,
     private readonly s3Service: S3Service,
@@ -142,7 +145,6 @@ export class ExportFormService {
 
     const data = this.mapper.map(dto, CreateExportFormRequestDto, ExportForm);
     this.assertDisposalHasFile(data);
-    await this.assertCodeIsFree(data.code);
     const { items, total } = await this.buildItems(dto.items, warehouse.id);
     const requester = await this.findUser(currentUser.userId);
 
@@ -159,6 +161,8 @@ export class ExportFormService {
     });
     // Đầu phiếu + dòng trong 1 transaction: lỗi ở dòng nào thì rollback cả phiếu.
     const created = await this.transactionManagerService.execute(async (manager) => {
+      // Sinh mã ngay trước khi lưu: `FOR UPDATE` trên bộ đếm giữ tới khi transaction kết thúc.
+      form.code = await this.codeGenerateService.generate(manager, CodeType.ExportForm, warehouse);
       const saved = await manager.save(form);
       saved.items = await this.saveItems(manager, saved, items);
       return saved;
@@ -231,7 +235,6 @@ export class ExportFormService {
       type: data.type ?? form.type,
       file: data.file !== undefined ? data.file : form.file,
     });
-    if (data.code !== undefined && data.code !== form.code) await this.assertCodeIsFree(data.code);
     const replacement =
       dto.items !== undefined && dto.items !== null
         ? await this.buildItems(dto.items, form.warehouse.id)
@@ -698,20 +701,6 @@ export class ExportFormService {
       ownCode,
       form.requester?.id,
       () => new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_OWNER),
-    );
-  }
-
-  /** UNIQUE `code` tính cả bản ghi xoá mềm ⇒ tra `withDeleted` để báo lỗi riêng. */
-  private async assertCodeIsFree(code: string): Promise<void> {
-    const existed = await this.exportFormRepository.findOne({
-      where: { code },
-      withDeleted: true,
-    });
-    if (!existed) return;
-    throw new ExportFormException(
-      existed.deletedAt
-        ? ExportFormValidation.EXPORT_FORM_CODE_RESERVED_BY_DELETED_EXPORT_FORM
-        : ExportFormValidation.EXPORT_FORM_CODE_DOES_EXIST,
     );
   }
 

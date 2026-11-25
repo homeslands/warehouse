@@ -235,5 +235,8 @@ export function formTotal(items: { quantity?: number; unitPrice?: number }[]): n
 }
 
 export function baseUnitOf(material: AvailableMaterial): AvailableUnit | undefined {
-  return material.units.find((u) => u.isBaseUnit)
+  return (
+    material.units.find((u) => u.isBaseUnit) ??
+    material.units.find((u) => u.unitSlug === material.baseUnitSlug)
+  )
 }

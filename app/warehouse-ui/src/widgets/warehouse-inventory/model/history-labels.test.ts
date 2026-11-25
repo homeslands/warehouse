@@ -2,8 +2,8 @@ import { describe, expect, it } from 'vitest'
 import { importFormCode, isKnownAction, signed } from './history-labels'
 
 describe('history-labels', () => {
-  it('nhận đủ 6 mã, mã lạ thì không', () => {
-    for (const a of ['ASSIGN', 'ADJUST', 'IMPORT', 'RESERVE', 'RELEASE', 'REMOVE'])
+  it('nhận đủ 7 mã, mã lạ thì không', () => {
+    for (const a of ['ASSIGN', 'REASSIGN', 'ADJUST', 'IMPORT', 'RESERVE', 'RELEASE', 'REMOVE'])
       expect(isKnownAction(a)).toBe(true)
     expect(isKnownAction('TRANSFER')).toBe(false)
   })

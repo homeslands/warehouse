@@ -606,6 +606,17 @@ describe('MaterialService', () => {
       ).resolves.toBeDefined();
     });
 
+    it('accepts minimumInventory > 0 when maximumInventory is 0 (unlimited)', async () => {
+      materialRepository.findOne.mockResolvedValue(null);
+      materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
+      materialRepository.create.mockImplementation((data) => data);
+      materialRepository.save.mockImplementation((data) => data);
+
+      await expect(
+        service.createMaterial(createDto({ minimumInventory: 50, maximumInventory: 0 })),
+      ).resolves.toMatchObject({ minimumInventory: 50, maximumInventory: 0 });
+    });
+
     it('reports a different error when the code is held by a soft-deleted material', async () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial({ deletedAt: new Date() }));
 
@@ -652,6 +663,65 @@ describe('MaterialService', () => {
     });
   });
 
+  describe('barcode', () => {
+    beforeEach(() => unitService.findEntityBySlug.mockResolvedValue(unit()));
+
+    it('tra trùng mã vạch kèm bản ghi xoá mềm khi tạo', async () => {
+      materialRepository.findOne.mockImplementation(async ({ where }) =>
+        where.barcode ? baseMaterial({ barcode: '2000100000014' }) : null,
+      );
+
+      await expectError(
+        service.createMaterial(createDto({ barcode: '2000100000014' })),
+        MaterialValidation.MATERIAL_BARCODE_DOES_EXIST.code,
+      );
+      expect(materialRepository.findOne).toHaveBeenCalledWith({
+        where: { barcode: '2000100000014' },
+        withDeleted: true,
+      });
+      expect(transactionManagerService.execute).not.toHaveBeenCalled();
+    });
+
+    it('báo lỗi riêng khi mã vạch bị vật tư đã xoá giữ chỗ', async () => {
+      materialRepository.findOne.mockImplementation(async ({ where }) =>
+        where.barcode ? baseMaterial({ deletedAt: new Date() }) : null,
+      );
+
+      await expectError(
+        service.createMaterial(createDto({ barcode: '2000100000014' })),
+        MaterialValidation.MATERIAL_BARCODE_RESERVED_BY_DELETED.code,
+      );
+    });
+
+    it('không tra mã vạch khi tạo vật tư không có mã vạch', async () => {
+      materialRepository.findOne.mockResolvedValue(null);
+      materialTypeService.findEntityBySlug.mockResolvedValue(materialType());
+      materialRepository.create.mockImplementation((data) => data);
+      materialRepository.save.mockImplementation((data) => data);
+
+      await service.createMaterial(createDto());
+
+      expect(materialRepository.findOne).not.toHaveBeenCalledWith(
+        expect.objectContaining({ where: expect.objectContaining({ barcode: expect.anything() }) }),
+      );
+    });
+
+    it('PATCH không gửi barcode thì không tra trùng; gửi trùng vật tư khác thì chặn', async () => {
+      materialRepository.findOne.mockResolvedValueOnce(baseMaterial({ barcode: '11111111' }));
+      materialRepository.save.mockImplementation((data) => data);
+      await service.updateMaterial('mat-slug-1', { name: 'X' } as never);
+      expect(materialRepository.findOne).toHaveBeenCalledTimes(1);
+
+      materialRepository.findOne
+        .mockResolvedValueOnce(baseMaterial({ barcode: '11111111' }))
+        .mockResolvedValueOnce(baseMaterial({ id: 'other', barcode: '22222222' }));
+      await expectError(
+        service.updateMaterial('mat-slug-1', { barcode: '22222222' } as never),
+        MaterialValidation.MATERIAL_BARCODE_DOES_EXIST.code,
+      );
+    });
+  });
+
   // PATCH phải là partial update đúng nghĩa REST: field không gửi giữ nguyên giá trị cũ.
   describe('updateMaterial — partial (PATCH)', () => {
     it('chỉ đổi field được gửi, các field khác giữ nguyên', async () => {
@@ -689,13 +759,25 @@ describe('MaterialService', () => {
     });
 
     // Ngưỡng phải so trên giá trị SAU khi ghép, không phải trên mỗi phần client gửi.
-    it('chặn khi minimumInventory mới vượt maximumInventory đang có trong DB', async () => {
+    it('chặn khi minimumInventory mới vượt maximumInventory dương đang có trong DB', async () => {
       materialRepository.findOne.mockResolvedValue(baseMaterial());
 
       await expectError(
         service.updateMaterial('mat-slug-1', { minimumInventory: 999 } as never),
         MaterialValidation.MATERIAL_INVENTORY_RANGE_INVALID.code,
       );
+    });
+
+    it('cho phép maximumInventory = 0 (không giới hạn) dù minimumInventory > 0', async () => {
+      materialRepository.findOne.mockResolvedValue(baseMaterial());
+      materialRepository.save.mockImplementation((data) => data);
+
+      const result = await service.updateMaterial('mat-slug-1', {
+        minimumInventory: 50,
+        maximumInventory: 0,
+      } as never);
+
+      expect(result).toMatchObject({ minimumInventory: 50, maximumInventory: 0 });
     });
   });
 

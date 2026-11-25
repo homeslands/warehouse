@@ -23,6 +23,10 @@ import {
   MaterialBatchValidation,
   TMaterialBatchErrorCode,
 } from 'src/material-batch/material-batch.validation';
+import {
+  CodeGenerateValidation,
+  TCodeGenerateErrorCode,
+} from 'src/code-generate/code-generate.validation';
 import { TaxProfileValidation, TTaxProfileErrorCode } from 'src/tax-profile/tax-profile.validation';
 import { DbValidation, TDbErrorCode } from 'src/db/db.validation';
 import { FileValidation, TFileErrorCode } from 'src/file/file.validation';
@@ -53,6 +57,7 @@ export const AppValidation: TAuthErrorCode &
   TImportFormErrorCode &
   TExportFormErrorCode &
   TMaterialBatchErrorCode &
+  TCodeGenerateErrorCode &
   TTaxProfileErrorCode &
   TDbErrorCode &
   TFileErrorCode &
@@ -74,6 +79,7 @@ export const AppValidation: TAuthErrorCode &
   ...ImportFormValidation,
   ...ExportFormValidation,
   ...MaterialBatchValidation,
+  ...CodeGenerateValidation,
   ...TaxProfileValidation,
   ...DbValidation,
   ...FileValidation,

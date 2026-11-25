@@ -9,6 +9,7 @@ import { MaterialModule } from 'src/material/material.module';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { DbModule } from 'src/db/db.module';
 import { Supplier } from 'src/supplier/supplier.entity';
+import { CodeGenerateModule } from 'src/code-generate/code-generate.module';
 
 @Module({
   // Chiều phụ thuộc 1 chiều: `Inventory -> Material`. `Warehouse` chỉ cần Repository (tra
@@ -20,6 +21,8 @@ import { Supplier } from 'src/supplier/supplier.entity';
     TypeOrmModule.forFeature([Inventory, InventoryHistory, Warehouse, Supplier]),
     MaterialModule,
     DbModule,
+    // Sinh mã vật tư khi tạo (`POST .../materials`) + cấp mã vạch (`POST .../materials/barcode`).
+    CodeGenerateModule,
   ],
   controllers: [InventoryController],
   providers: [InventoryService, InventoryProfile],

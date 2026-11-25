@@ -20,7 +20,6 @@ import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto, VersionedResponseDto } from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
 import { QUANTITY_SCALE } from 'src/shared/utils/decimal.transformer';
-import { BUSINESS_CODE_REGEX } from 'src/shared/utils/code.util';
 import { SEARCH_CODE_REGEX } from 'src/shared/utils/query.util';
 import {
   IMPORT_FORM_DATE_REGEX,
@@ -104,13 +103,6 @@ export class CreateImportFormItemDto {
  * `total` cũng không nằm trong body: server tính = Σ `amount` của `items`.
  */
 export class CreateImportFormRequestDto {
-  @AutoMap()
-  @ApiProperty({ description: 'The business code of the import form', example: 'PN-2026-0001' })
-  @Transform(trim)
-  @Matches(BUSINESS_CODE_REGEX, { message: 'IMPORT_FORM_CODE_INVALID' })
-  @IsNotEmpty({ message: 'IMPORT_FORM_CODE_IS_REQUIRED' })
-  code: string;
-
   @AutoMap()
   @ApiPropertyOptional({ description: 'Purchase order number', example: 'PO-2026-0012' })
   @IsOptional()
@@ -320,6 +312,12 @@ export class ImportFormAvailableMaterialResponseDto {
 
   @ApiProperty({ description: 'Current stock in this warehouse, in the base unit' })
   quantity: number;
+
+  @ApiPropertyOptional({
+    description:
+      'Effective maximum stock threshold in this warehouse (in the base unit). Omitted when no maximum threshold (> 0) is configured.',
+  })
+  effectiveMaximumInventory?: number;
 
   @ApiProperty({
     type: [ImportFormAvailableSupplierResponseDto],

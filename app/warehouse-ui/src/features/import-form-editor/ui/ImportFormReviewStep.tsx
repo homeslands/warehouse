@@ -95,13 +95,6 @@ export function ImportFormReviewStep({
           baseQuantity: formatQuantity(w.baseQuantity),
           baseUnit: w.baseUnitCode,
         })
-      case 'overMax':
-        return t('importForms:warnOverMax', {
-          line,
-          after: formatQuantity(w.after),
-          max: formatQuantity(w.max),
-          unit: w.baseUnitCode,
-        })
     }
   }
 

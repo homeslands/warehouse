@@ -198,6 +198,7 @@ Server tự tính, client không gửi: `conversionRate` (chụp tại thời đ
 | slug, code, name | string | Của vật tư |
 | baseUnitSlug | string \| null | `null` với vật tư cũ chưa có đơn vị cơ sở |
 | quantity | number | Tồn hiện tại trong kho, theo đơn vị cơ sở |
+| effectiveMaximumInventory | number (optional) | Ngưỡng tồn tối đa hiệu lực của kho (ưu tiên override của kho, ngược lại lấy mặc định của vật tư), theo đơn vị cơ sở. Không có mặt khi ngưỡng hiệu lực bằng `0` (không giới hạn, kể cả trường hợp kho đặt override `0`) |
 | suppliers[] | `{ slug, code, name }` | NCC của vật tư, sắp theo `code`. Là danh sách gợi ý cho `items[].supplierSlug` |
 | units[] | `{ unitSlug, unitCode, unitName, conversionRate: number, isBaseUnit: boolean }` | Sắp theo `conversionRate` tăng dần |
 

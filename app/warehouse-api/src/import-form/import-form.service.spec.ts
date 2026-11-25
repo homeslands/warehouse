@@ -27,6 +27,8 @@ import { Material } from 'src/material/material.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
 import { ImportFormItem } from './import-form-item.entity';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
+import { CodeType } from 'src/code-generate/code-generate.constants';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
@@ -61,6 +63,8 @@ describe('ImportFormService', () => {
   const inventoryService = { receive: jest.fn() };
   const materialBatchService = { createFromImportItems: jest.fn() };
   const transactionManager = { execute: jest.fn() };
+  const codeGenerateService = { generate: jest.fn() };
+  const generatedCode = 'IM-WH-01-261012-000001';
   const s3Service = { uploadFile: jest.fn(), getFileUrl: jest.fn() };
 
   const supplier = {
@@ -92,7 +96,6 @@ describe('ImportFormService', () => {
   const approver = { id: 'u2', slug: 'u2-slug', firstName: 'Binh', lastName: 'Tran' } as User;
 
   const createDto: CreateImportFormRequestDto = {
-    code: 'pn-0001',
     invoiceCode: 'HD-1',
     date: '2026-10-12',
     items: [
@@ -137,6 +140,7 @@ describe('ImportFormService', () => {
     importFormRepository.save.mockImplementation(async (data) => data);
     manager.save.mockImplementation(async (data) => data);
     transactionManager.execute.mockImplementation(async (onSave) => onSave(manager));
+    codeGenerateService.generate.mockResolvedValue(generatedCode);
     inventoryRepository.find.mockImplementation(allAssigned);
 
     const module: TestingModule = await Test.createTestingModule({
@@ -150,6 +154,7 @@ describe('ImportFormService', () => {
         { provide: getRepositoryToken(Supplier), useValue: supplierRepository },
         { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
+        { provide: CodeGenerateService, useValue: codeGenerateService },
         { provide: InventoryService, useValue: inventoryService },
         { provide: S3Service, useValue: s3Service },
         { provide: MaterialBatchService, useValue: materialBatchService },
@@ -343,7 +348,12 @@ describe('ImportFormService', () => {
       expect(transactionManager.execute).toHaveBeenCalledTimes(1);
       expect(importFormRepository.save).not.toHaveBeenCalled();
       const [[form], [items]] = manager.save.mock.calls;
-      expect(form).toMatchObject({ code: 'PN-0001' });
+      expect(form).toMatchObject({ code: generatedCode });
+      expect(codeGenerateService.generate).toHaveBeenCalledWith(
+        manager,
+        CodeType.ImportForm,
+        warehouse,
+      );
       expect(items).toHaveLength(2);
       items.forEach((item: ImportFormItem) => expect(item.importForm).toBe(form));
     });
@@ -433,12 +443,12 @@ describe('ImportFormService', () => {
       );
     });
 
-    it('creates a DRAFT with requester snapshot and an uppercased code', async () => {
+    it('creates a DRAFT with requester snapshot and a generated code', async () => {
       const result = await service.createImportForm('wh-slug', createDto, actor());
 
       expect(manager.save).toHaveBeenCalledWith(
         expect.objectContaining({
-          code: 'PN-0001',
+          code: generatedCode,
           status: ImportFormStatus.Draft,
           requester,
           requesterName: 'Nguyen An',
@@ -448,7 +458,7 @@ describe('ImportFormService', () => {
         }),
       );
       expect(result).toMatchObject({
-        code: 'PN-0001',
+        code: generatedCode,
         status: ImportFormStatus.Draft,
         requesterSlug: 'u1-slug',
         approverSlug: null,
@@ -475,23 +485,6 @@ describe('ImportFormService', () => {
         service.createImportForm('nope', createDto, actor()),
         WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
       );
-    });
-
-    it.each([
-      ['an active form', undefined, ImportFormValidation.IMPORT_FORM_CODE_DOES_EXIST.code],
-      [
-        'a soft-deleted form',
-        new Date(),
-        ImportFormValidation.IMPORT_FORM_CODE_RESERVED_BY_DELETED_IMPORT_FORM.code,
-      ],
-    ])('rejects a code already held by %s', async (_label, deletedAt, code) => {
-      importFormRepository.findOne.mockResolvedValue(draft({ deletedAt }));
-
-      await expectError(service.createImportForm('wh-slug', createDto, actor()), code);
-      expect(importFormRepository.findOne).toHaveBeenCalledWith({
-        where: { code: 'PN-0001' },
-        withDeleted: true,
-      });
     });
   });
 
@@ -650,6 +643,69 @@ describe('ImportFormService', () => {
           ],
         },
       ]);
+    });
+
+    it('includes effectiveMaximumInventory (warehouse override ?? material default) only when > 0', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(warehouse);
+      inventoryRepository.findAndCount.mockResolvedValue([
+        [
+          {
+            quantity: 10,
+            maximumInventory: 80,
+            material: {
+              ...cement,
+              slug: 'm-override',
+              code: 'M-1',
+              baseUnit: kg,
+              maximumInventory: 100,
+            },
+          },
+          {
+            quantity: 10,
+            maximumInventory: null,
+            material: {
+              ...cement,
+              slug: 'm-default',
+              code: 'M-2',
+              baseUnit: kg,
+              maximumInventory: 100,
+            },
+          },
+          {
+            quantity: 10,
+            maximumInventory: null,
+            material: {
+              ...cement,
+              slug: 'm-unset',
+              code: 'M-3',
+              baseUnit: kg,
+              maximumInventory: 0,
+            },
+          },
+          {
+            quantity: 10,
+            maximumInventory: 0,
+            material: {
+              ...cement,
+              slug: 'm-override-unlimited',
+              code: 'M-4',
+              baseUnit: kg,
+              maximumInventory: 100,
+            },
+          },
+        ],
+        4,
+      ]);
+
+      const result = await service.findAvailableMaterials('wh-slug', {
+        page: 1,
+        size: 10,
+      } as never);
+
+      expect(result.items[0].effectiveMaximumInventory).toBe(80);
+      expect(result.items[1].effectiveMaximumInventory).toBe(100);
+      expect(result.items[2]).not.toHaveProperty('effectiveMaximumInventory');
+      expect(result.items[3]).not.toHaveProperty('effectiveMaximumInventory');
     });
 
     it('returns WAREHOUSE_NOT_FOUND for an unknown warehouse', async () => {
@@ -968,9 +1024,8 @@ describe('ImportFormService', () => {
 
     // Automapper không kế thừa map Create -> Update: field nào thiếu `forMember` là PATCH âm thầm bỏ.
     it('applies every editable field that is sent', async () => {
-      importFormRepository.findOne.mockResolvedValueOnce(draft()).mockResolvedValueOnce(null);
+      importFormRepository.findOne.mockResolvedValueOnce(draft());
       const patch = {
-        code: 'pn-0002',
         purchaseOrder: 'PO-9',
         invoiceCode: 'HD-9',
         date: '2026-11-01',
@@ -985,20 +1040,7 @@ describe('ImportFormService', () => {
         full(),
       );
 
-      expect(result).toMatchObject({ ...patch, code: 'PN-0002' });
-    });
-
-    it('checks code uniqueness only when the code actually changes', async () => {
-      importFormRepository.findOne.mockResolvedValueOnce(draft());
-
-      await service.updateImportForm(
-        'wh-slug',
-        'form-slug',
-        { code: 'pn-0001', version: 1 },
-        full(),
-      );
-
-      expect(importFormRepository.findOne).toHaveBeenCalledTimes(1);
+      expect(result).toMatchObject({ ...patch, code: 'PN-0001' });
     });
 
     it.each([ImportFormStatus.Confirmed, ImportFormStatus.Cancelled])(
