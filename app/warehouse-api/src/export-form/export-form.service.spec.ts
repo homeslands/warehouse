@@ -801,7 +801,11 @@ describe('ExportFormService', () => {
       it('a DISPOSAL form is confirmed with EXPORT_FORM_APPROVE_DISPOSAL (or by SUPER_ADMIN)', async () => {
         // Bản mới mỗi lần: lần xác nhận đầu sửa trạng thái của object trả về.
         exportFormRepository.findOne.mockImplementation(async () =>
-          pending({ type: ExportFormType.Disposal, items: [] }),
+          pending({
+            type: ExportFormType.Disposal,
+            file: 'https://s3.test/bien-ban.pdf',
+            items: [],
+          }),
         );
 
         await expect(
@@ -820,6 +824,22 @@ describe('ExportFormService', () => {
             actor([], 'u2', RoleEnum.SuperAdmin),
           ),
         ).resolves.toBeDefined();
+      });
+
+      it('rejects confirming a PENDING DISPOSAL form that has no attached file', async () => {
+        exportFormRepository.findOne.mockResolvedValue(
+          pending({ type: ExportFormType.Disposal, file: null, items: [lineA()] }),
+        );
+        await expectError(
+          service.confirmExportForm(
+            'wh-slug',
+            'form-slug',
+            { version: 1 },
+            actor([AuthorityCode.ExportFormConfirm, AuthorityCode.ExportFormApproveDisposal], 'u2'),
+          ),
+          ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED.code,
+        );
+        expect(transactionManager.execute).not.toHaveBeenCalled();
       });
 
       it('propagates a reserved-batch mismatch so the transaction rolls back', async () => {

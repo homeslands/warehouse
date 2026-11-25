@@ -251,4 +251,17 @@ describe('ExportFormInfoStep', () => {
     await user.click(screen.getByRole('radio', { name: 'Sản xuất' }))
     expect(screen.queryByText('Đính kèm chứng từ xuất huỷ')).not.toBeInTheDocument()
   })
+
+  it('sau lần gửi đầu: đổi từ loại khác sang Xuất huỷ khi chưa có file → báo lỗi chứng từ ngay', async () => {
+    onTypeChange = () => true
+    const { user } = renderWithProviders(
+      <Harness defaults={{ type: 'PRODUCTION', receiver: 'Xưởng A', purchaseOrder: 'PO-1' }} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
+    expect(screen.queryByText('Đính kèm chứng từ xuất huỷ')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Xuất huỷ' }))
+    expect(await screen.findByText('Đính kèm chứng từ xuất huỷ')).toBeInTheDocument()
+  })
 })

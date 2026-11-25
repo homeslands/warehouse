@@ -224,7 +224,7 @@ export function ExportFormSheet({
   canPickBatch,
   onSaved,
 }: ExportFormSheetProps) {
-  const { t } = useTranslation(['exportForms', 'common'])
+  const { t } = useTranslation(['exportForms', 'common', 'errors'])
   const qc = useQueryClient()
   const reasonId = useId()
   const detail = useExportForm(warehouseSlug, formSlug ?? '', {
@@ -494,7 +494,12 @@ export function ExportFormSheet({
       shouldDirty: true,
       shouldValidate: form.formState.isSubmitted,
     })
-    if (dropPrices.next !== 'DISPOSAL' && form.getFieldState('file').error?.type !== 'server') {
+    const fileError = form.getFieldState('file').error
+    if (
+      dropPrices.next !== 'DISPOSAL' &&
+      fileError &&
+      (fileError.type !== 'server' || fileError.message === t('errors:exportFormFileRequired'))
+    ) {
       form.clearErrors('file')
     }
     setDropOpen(false)

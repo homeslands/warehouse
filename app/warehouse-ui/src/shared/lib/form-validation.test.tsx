@@ -30,6 +30,34 @@ function Harness() {
   )
 }
 
+const conditionalSchema = z
+  .object({ password: z.string(), confirm: z.string() })
+  .refine((v) => v.password !== 'need' || v.confirm !== '', {
+    path: ['confirm'],
+    message: 'needed',
+  })
+
+function PostSubmitHarness() {
+  const form = useForm({
+    resolver: zodResolver(conditionalSchema),
+    mode: 'onTouched',
+    defaultValues: { password: '', confirm: '' },
+  })
+  useRevalidateWhenTouched(form, 'password', 'confirm')
+  // Cố ý không đọc `form.formState.isSubmitted` ở đây để xác nhận hook tự theo dõi qua `useFormState`.
+  const error = form.formState.errors.confirm?.message
+  return (
+    <form>
+      <input aria-label="password" {...form.register('password')} />
+      <input aria-label="confirm" {...form.register('confirm')} />
+      <p role="status">{error ?? ''}</p>
+      <button type="button" onClick={() => void form.handleSubmit(() => undefined)()}>
+        Submit
+      </button>
+    </form>
+  )
+}
+
 function setup() {
   render(<Harness />)
   return userEvent.setup()
@@ -65,5 +93,16 @@ describe('useRevalidateWhenTouched', () => {
     await user.type(screen.getByLabelText('password'), 'x')
 
     expect(await screen.findByText('mismatch')).toBeInTheDocument()
+  })
+
+  it('sau lần gửi đầu dù ô đích chưa chạm → sửa ô nguồn kiểm lại ô đích ngay', async () => {
+    render(<PostSubmitHarness />)
+    const user = userEvent.setup()
+
+    await user.click(screen.getByRole('button', { name: 'Submit' }))
+    expect(screen.getByRole('status')).toHaveTextContent('')
+
+    await user.type(screen.getByLabelText('password'), 'need')
+    expect(await screen.findByText('needed')).toBeInTheDocument()
   })
 })

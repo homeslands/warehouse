@@ -351,6 +351,7 @@ export class ExportFormService {
     // Xuất huỷ cần thêm quyền duyệt riêng — phụ thuộc dữ liệu phiếu nên guard không kiểm được.
     if (form.type === ExportFormType.Disposal)
       assertHasAnyAuthority(currentUser, [AuthorityCode.ExportFormApproveDisposal]);
+    this.assertDisposalHasFile(form);
     const items = this.assertItemsHaveMaterial(form);
     const approver = await this.findUser(currentUser.userId);
 

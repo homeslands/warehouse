@@ -507,6 +507,11 @@ describe('ExportFormSheet — tạo', () => {
       'step',
     )
     expect(onSaved).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('radio', { name: 'Sản xuất' }))
+    expect(
+      screen.queryByText('Phiếu xuất huỷ bắt buộc có chứng từ đính kèm'),
+    ).not.toBeInTheDocument()
   })
 
   it('dòng vượt khả dụng → hai nút gửi khoá kèm lý do; ③ liệt kê dòng vượt; Lưu nháp vẫn được', async () => {

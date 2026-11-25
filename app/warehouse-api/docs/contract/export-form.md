@@ -258,6 +258,7 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 | 409 | 101505 | Lô đã giữ chỗ không còn trong tập lô còn hàng, hoặc lượng giữ không khớp |
 | 422 | 100806 / 100812 | Bất biến tồn kho bị vi phạm (`INVENTORY_QUANTITY_NEGATIVE` / `_BELOW_RESERVED`) |
 | 404 | 100801 | Vật tư không còn được gán vào kho |
+| 422 | 101440 `EXPORT_FORM_FILE_IS_REQUIRED` | Phiếu `DISPOSAL` chưa có chứng từ đính kèm (`file`) |
 | 404 | 100405 | User trong JWT không còn tồn tại |
 
 ## POST /api/v1/warehouses/:warehouseSlug/export-forms/:slug/cancel
