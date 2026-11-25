@@ -20,6 +20,10 @@ import {
   RemoveWarehouseMaterialDialog,
   type RemovableMaterial,
 } from '@/features/warehouse-material-remove'
+import {
+  EditInventoryThresholdsDialog,
+  type ThresholdTarget,
+} from '@/features/warehouse-material-thresholds'
 import { buildInventoryColumns } from './inventory-columns'
 import { InventoryHistorySheet } from './InventoryHistorySheet'
 
@@ -29,16 +33,23 @@ type Props = {
   warehouse: { slug: string; name: string; isActive: boolean }
   /** Quyền hộp thêm vật tư (`materialAddAbilities`); nút Thêm hiện khi `assign || create`. */
   addAbilities: MaterialAddAbilities
+  canEditThresholds: boolean
   canRemove: boolean
   /** `BACKEND_SUPPORTS.inventorySearch` — truyền vào để test bật được. */
   searchEnabled: boolean
 }
 
 /**
- * Tab "Vật tư" của trang chi tiết kho: `GET /warehouses/{w}/materials` + thêm / gỡ + sheet lịch sử (`?material=`).
+ * Tab "Vật tư" của trang chi tiết kho: `GET /warehouses/{w}/materials` + thêm / sửa ngưỡng / gỡ + sheet lịch sử (`?material=`).
  * Trang / bộ lọc ở state (như tab Vật tư của NCC) — URL chỉ giữ `?tab=` của trang và `?material=` của sheet.
  */
-export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchEnabled }: Props) {
+export function WarehouseInventory({
+  warehouse,
+  addAbilities,
+  canEditThresholds,
+  canRemove,
+  searchEnabled,
+}: Props) {
   const { t } = useTranslation(['inventory', 'common'])
   const addHintId = useId()
   const [page, setPage] = useState(1)
@@ -47,6 +58,7 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
   const [typeSlug, setTypeSlug] = useState('')
   const [alert, setAlert] = useState<Alert>('')
   const [adding, setAdding] = useState(false)
+  const [editingThresholds, setEditingThresholds] = useState<ThresholdTarget | null>(null)
   const [removing, setRemoving] = useState<RemovableMaterial | null>(null)
   const [params, setParams] = useSearchParams()
   const location = useLocation()
@@ -85,13 +97,15 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
       buildInventoryColumns(
         t,
         {
+          canEditThresholds,
           canRemove,
           onViewHistory: (item) => setViewingSlug(item.materialSlug),
+          onEditThresholds: setEditingThresholds,
           onRemove: setRemoving,
         },
         backTo,
       ),
-    [t, canRemove, setViewingSlug, backTo],
+    [t, canEditThresholds, canRemove, setViewingSlug, backTo],
   )
 
   const filtered = typeSlug !== '' || alert !== '' || (searchEnabled && search.trim() !== '')
@@ -192,6 +206,8 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
         warehouseSlug={warehouse.slug}
         materialSlug={viewingSlug}
         item={data?.items.find((i) => i.materialSlug === viewingSlug)}
+        canEditThresholds={canEditThresholds}
+        onEditThresholds={setEditingThresholds}
         canRemove={canRemove}
         onRemove={(target) => setRemoving(target)}
         onOpenChange={(open) => !open && setViewingSlug(null)}
@@ -207,6 +223,16 @@ export function WarehouseInventory({ warehouse, addAbilities, canRemove, searchE
           description={t('inventory:addFromWarehouseDescription', { warehouse: warehouse.name })}
           abilities={addAbilities}
           onAdded={() => {}}
+        />
+      )}
+      {canEditThresholds && (
+        <EditInventoryThresholdsDialog
+          warehouseSlug={warehouse.slug}
+          item={editingThresholds}
+          onOpenChange={(open) => !open && setEditingThresholds(null)}
+          onNotFound={(slug) => {
+            if (viewingSlug === slug) setViewingSlug(null)
+          }}
         />
       )}
       {canRemove && (

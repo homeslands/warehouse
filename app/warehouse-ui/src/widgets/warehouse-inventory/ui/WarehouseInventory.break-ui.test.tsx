@@ -102,6 +102,7 @@ describe('WarehouseInventory — break-ui', () => {
       <WarehouseInventory
         warehouse={{ slug: 'w-a', name: 'Kho A', isActive: true }}
         addAbilities={{ search: true, assign: true, create: true, attachSupplier: true }}
+        canEditThresholds
         canRemove
         searchEnabled={false}
       />,

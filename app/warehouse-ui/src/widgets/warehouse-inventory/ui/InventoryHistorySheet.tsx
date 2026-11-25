@@ -82,6 +82,8 @@ type Props = {
   materialSlug: string | null
   /** Dòng của bảng nếu có; không có (mở bằng URL) → tự tải `GET /materials/{slug}`. */
   item: InventoryItem | undefined
+  canEditThresholds?: boolean
+  onEditThresholds?: (item: InventoryItem) => void
   canRemove: boolean
   onRemove: (target: { materialSlug: string; materialCode: string; materialName: string }) => void
   onOpenChange: (open: boolean) => void
@@ -92,6 +94,8 @@ export function InventoryHistorySheet({
   warehouseSlug,
   materialSlug,
   item,
+  canEditThresholds = false,
+  onEditThresholds,
   canRemove,
   onRemove,
   onOpenChange,
@@ -298,6 +302,11 @@ export function InventoryHistorySheet({
         </div>
 
         <SheetFooter className="flex-row flex-wrap gap-2 border-t [&>*]:flex-auto">
+          {canEditThresholds && item !== undefined && !notInWarehouse && onEditThresholds && (
+            <Button variant="outline" onClick={() => onEditThresholds(item)}>
+              {t('inventory:editThresholdsMenu')}
+            </Button>
+          )}
           {showRemove && summary && (
             <div className="flex flex-col gap-1">
               <Button

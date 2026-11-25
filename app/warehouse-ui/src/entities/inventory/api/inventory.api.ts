@@ -1,10 +1,11 @@
-import { deleteData, getPaginated, postData, putData } from '@/shared/api/http'
+import { deleteData, getPaginated, patchData, postData, putData } from '@/shared/api/http'
 import type { ListParams, Paginated } from '@/shared/api/types'
 import type {
   InventoryFilters,
   InventoryHistory,
   InventoryItem,
   InventoryThresholdInput,
+  InventoryThresholdPatch,
   WarehouseMaterialInput,
 } from '../model/types'
 
@@ -57,3 +58,13 @@ export const fetchInventoryHistory = (
 /** Chặn khi tồn > 0 (100807) / giữ chỗ > 0 (100813); 100801 khi đã không còn ở kho. */
 export const removeWarehouseMaterial = (warehouseSlug: string, materialSlug: string) =>
   deleteData<unknown>(`${base(warehouseSlug)}/${materialSlug}`)
+
+/** Sửa ngưỡng riêng của kho (`null` = bỏ override về mặc định vật tư; `undefined` = giữ nguyên). */
+export const updateInventoryThresholds = (
+  warehouseSlug: string,
+  materialSlug: string,
+  patch: InventoryThresholdPatch,
+): Promise<InventoryItem> => {
+  const body = Object.fromEntries(Object.entries(patch).filter(([, value]) => value !== undefined))
+  return patchData<InventoryItem>(`${base(warehouseSlug)}/${materialSlug}`, body)
+}

@@ -99,5 +99,13 @@
   "createAndAssignConfirmTitle": "Tạo vật tư {{code}} và gắn vào kho {{warehouse}}?",
   "createAndAssignConfirmAction": "Xác nhận tạo vật tư",
   "confirmSupplier": "Nhà cung cấp",
-  "createAndAssignConfirmDescription": "Vật tư mới được thêm vào danh mục và gắn vào kho ngay."
+  "createAndAssignConfirmDescription": "Vật tư mới được thêm vào danh mục và gắn vào kho ngay.",
+  "editThresholdsMenu": "Sửa ngưỡng tồn",
+  "editThresholdsTitle": "Sửa ngưỡng tồn",
+  "editThresholdsConfirmTitle": "Lưu thay đổi ngưỡng tồn?",
+  "editThresholdsUpdatedToast": "Đã cập nhật ngưỡng tồn cho {{name}}",
+  "thresholdUseDefault": "Dùng mặc định",
+  "thresholdUnlimited": "Không giới hạn",
+  "thresholdDefaultValue": "Mặc định: {{value}}",
+  "thresholdFollowingDefault": "Đang theo mặc định của vật tư"
 }
