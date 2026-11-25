@@ -8,6 +8,7 @@ import {
   fetchInventoryHistory,
   fetchWarehouseInventory,
   removeWarehouseMaterial,
+  updateInventoryThresholds,
 } from './inventory.api'
 import type { InventoryItem } from '../model/types'
 
@@ -156,5 +157,26 @@ describe('inventory.api', () => {
     )
     await removeWarehouseMaterial('w-a', 'm-1')
     expect(called).toBe(true)
+  })
+
+  it('PATCH sửa ngưỡng riêng: giữ số 0 và null, bỏ trường undefined', async () => {
+    let body: unknown
+    server.use(
+      mswHttp.patch(`${BASE}/warehouses/w-a/materials/m-1`, async ({ request }) => {
+        body = await request.json()
+        return ok(item)
+      }),
+    )
+    await updateInventoryThresholds('w-a', 'm-1', {
+      minimumInventory: undefined,
+      maximumInventory: 0,
+    })
+    expect(body).toEqual({ maximumInventory: 0 })
+
+    await updateInventoryThresholds('w-a', 'm-1', {
+      minimumInventory: null,
+      maximumInventory: 100,
+    })
+    expect(body).toEqual({ minimumInventory: null, maximumInventory: 100 })
   })
 })

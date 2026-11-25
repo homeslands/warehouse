@@ -3,6 +3,7 @@ import { http as mswHttp } from 'msw'
 import { useLocation } from 'react-router-dom'
 import { describe, expect, it } from 'vitest'
 import { ok, paginated } from '@/shared/test/api'
+import { confirmStep } from '@/shared/test/confirm'
 import { server } from '@/shared/test/msw'
 import { renderWithProviders } from '@/shared/test/render'
 import { chooseOption } from '@/shared/test/select'
@@ -68,6 +69,7 @@ function setup(
   opts: {
     items?: InventoryItem[]
     add?: MaterialAddAbilities
+    canEditThresholds?: boolean
     canRemove?: boolean
     isActive?: boolean
     searchEnabled?: boolean
@@ -83,6 +85,23 @@ function setup(
       return opts.handler?.(params) ?? paginated(opts.items ?? [matcha, noUnitAbove])
     }),
     mswHttp.get(`${BASE}/warehouses/w-a/materials/:m/histories`, () => paginated([])),
+    mswHttp.get(`${BASE}/materials/:m`, () =>
+      ok({
+        slug: 'm-matcha',
+        createdAt: '',
+        updatedAt: '',
+        code: 'NL04',
+        name: 'Matcha',
+        minimumInventory: 5,
+        maximumInventory: 100,
+        type: { slug: 'mt-1', code: 'NL', name: 'Nguyên liệu' },
+        baseUnit: null,
+        hasSupplier: false,
+        suppliers: [],
+        warehouses: [],
+        units: [],
+      }),
+    ),
     mswHttp.get(`${BASE}/material-types`, () =>
       paginated([{ slug: 'mt-1', code: 'NL', name: 'Nguyên liệu', createdAt: '', updatedAt: '' }]),
     ),
@@ -92,6 +111,7 @@ function setup(
       <WarehouseInventory
         warehouse={{ slug: 'w-a', name: 'Kho A', isActive: opts.isActive ?? true }}
         addAbilities={opts.add ?? ALL}
+        canEditThresholds={opts.canEditThresholds ?? true}
         canRemove={opts.canRemove ?? true}
         searchEnabled={opts.searchEnabled ?? false}
       />
@@ -206,10 +226,42 @@ describe('WarehouseInventory', () => {
   })
 
   it('không quyền gỡ → menu không có mục gỡ', async () => {
-    const { user } = setup({ canRemove: false })
+    const { user } = setup({ canRemove: false, canEditThresholds: false })
     await user.click(await screen.findByRole('button', { name: 'Thao tác cho NL04' }))
     expect(screen.getByRole('menuitem', { name: 'Xem lịch sử' })).toBeInTheDocument()
+    expect(screen.queryByRole('menuitem', { name: 'Sửa ngưỡng tồn' })).not.toBeInTheDocument()
     expect(screen.queryByRole('menuitem', { name: 'Gỡ khỏi kho' })).not.toBeInTheDocument()
+  })
+
+  it('sửa ngưỡng tồn từ menu ⋯ → PATCH thành công cập nhật lại bảng', async () => {
+    let current = matcha
+    server.use(
+      mswHttp.get(`${BASE}/warehouses/w-a/materials`, () => paginated([current])),
+      mswHttp.patch(`${BASE}/warehouses/w-a/materials/m-matcha`, async ({ request }) => {
+        const body = (await request.json()) as {
+          minimumInventory?: number | null
+          maximumInventory?: number | null
+        }
+        current = {
+          ...current,
+          maximumInventory:
+            body.maximumInventory !== undefined ? body.maximumInventory : current.maximumInventory,
+          effectiveMaximumInventory: body.maximumInventory ?? current.effectiveMaximumInventory,
+        }
+        return ok(current)
+      }),
+    )
+    const { user } = setup({ handler: () => paginated([current]) })
+    await user.click(await screen.findByRole('button', { name: 'Thao tác cho NL04' }))
+    await user.click(screen.getByRole('menuitem', { name: 'Sửa ngưỡng tồn' }))
+
+    const maxInput = await screen.findByLabelText('Tồn tối đa')
+    await user.clear(maxInput)
+    await user.type(maxInput, '90')
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmStep(user, 'Lưu thay đổi')
+
+    expect(await screen.findByText('20 – 90')).toBeInTheDocument()
   })
 
   it('"Xem lịch sử" trong menu → ?material=<slug>, bấm ⋯ không mở thêm qua dòng', async () => {

@@ -12,12 +12,14 @@ import {
   fetchInventoryHistory,
   fetchWarehouseInventory,
   removeWarehouseMaterial,
+  updateInventoryThresholds,
 } from './inventory.api'
 import { inventoryKeys } from './query-keys'
 import type {
   InventoryFilters,
   InventoryItem,
   InventoryThresholdInput,
+  InventoryThresholdPatch,
   WarehouseMaterialInput,
 } from '../model/types'
 
@@ -98,6 +100,22 @@ export function useCreateWarehouseMaterial() {
   >({
     mutationFn: ({ warehouseSlug, material, supplierSlug }) =>
       createMaterialInWarehouse(warehouseSlug, material, supplierSlug),
+    meta: { suppressErrorToast: true },
+    onSuccess: (_, { warehouseSlug }) => {
+      void qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouseSlug) })
+    },
+  })
+}
+
+export function useUpdateInventoryThresholds() {
+  const qc = useQueryClient()
+  return useMutation<
+    InventoryItem,
+    ApiError,
+    { warehouseSlug: string; materialSlug: string; patch: InventoryThresholdPatch }
+  >({
+    mutationFn: ({ warehouseSlug, materialSlug, patch }) =>
+      updateInventoryThresholds(warehouseSlug, materialSlug, patch),
     meta: { suppressErrorToast: true },
     onSuccess: (_, { warehouseSlug }) => {
       void qc.invalidateQueries({ queryKey: inventoryKeys.warehouse(warehouseSlug) })

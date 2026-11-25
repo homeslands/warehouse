@@ -94,3 +94,9 @@ export type InventoryThresholdInput = {
   minimumInventory?: number
   maximumInventory?: number
 }
+
+/** Patch ngưỡng RIÊNG của kho (`PATCH /warehouses/{w}/materials/{m}`). `null` = bỏ override về mặc định vật tư; `undefined` = giữ nguyên. */
+export type InventoryThresholdPatch = {
+  minimumInventory?: number | null
+  maximumInventory?: number | null
+}

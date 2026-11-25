@@ -14,8 +14,10 @@ import { formatStock } from '../model/format'
 import { IconTooltip } from '@/shared/ui/IconTooltip'
 
 export type InventoryRowHandlers = {
+  canEditThresholds: boolean
   canRemove: boolean
   onViewHistory: (item: InventoryItem) => void
+  onEditThresholds: (item: InventoryItem) => void
   onRemove: (item: InventoryItem) => void
 }
 
@@ -38,8 +40,10 @@ export function StockCell({
 export function InventoryRowActions({
   item,
   t,
+  canEditThresholds,
   canRemove,
   onViewHistory,
+  onEditThresholds,
   onRemove,
 }: InventoryRowHandlers & { item: InventoryItem; t: TFunction<readonly ['inventory', 'common']> }) {
   const blocked = removeBlockReason(item)
@@ -61,6 +65,11 @@ export function InventoryRowActions({
         <DropdownMenuItem onSelect={() => onViewHistory(item)}>
           {t('inventory:viewHistory')}
         </DropdownMenuItem>
+        {canEditThresholds && (
+          <DropdownMenuItem onSelect={() => onEditThresholds(item)}>
+            {t('inventory:editThresholdsMenu')}
+          </DropdownMenuItem>
+        )}
         {canRemove && (
           <>
             <DropdownMenuItem

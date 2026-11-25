@@ -126,6 +126,7 @@ export function WarehouseDetailPage() {
       key={warehouse.slug}
       warehouse={warehouse}
       addAbilities={materialAddAbilities(user)}
+      canEditThresholds={ability.editInventoryThresholds}
       canRemove={ability.removeInventory}
       searchEnabled={BACKEND_SUPPORTS.inventorySearch}
     />
