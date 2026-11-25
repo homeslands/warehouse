@@ -279,6 +279,33 @@ describe('ExportFormService', () => {
       await expectError(service.createExportForm('wh-slug', dto, actor()), error.code);
       expect(manager.save).not.toHaveBeenCalled();
     });
+    it('requires a non-empty file when creating a DISPOSAL export form', async () => {
+      await expectError(
+        service.createExportForm(
+          'wh-slug',
+          { ...createDto, type: ExportFormType.Disposal, file: undefined },
+          actor(),
+        ),
+        ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED.code,
+      );
+      await expectError(
+        service.createExportForm(
+          'wh-slug',
+          { ...createDto, type: ExportFormType.Disposal, file: '   ' },
+          actor(),
+        ),
+        ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED.code,
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+
+      await expect(
+        service.createExportForm(
+          'wh-slug',
+          { ...createDto, type: ExportFormType.Disposal, file: 'https://s3.test/bien-ban.pdf' },
+          actor(),
+        ),
+      ).resolves.toMatchObject({ type: ExportFormType.Disposal });
+    });
   });
 
   describe('updateExportForm — partial (PATCH)', () => {
@@ -344,6 +371,44 @@ describe('ExportFormService', () => {
         ),
         ExportFormValidation.EXPORT_FORM_NOT_DRAFT.code,
       );
+    });
+
+    it('requires a file when switching to DISPOSAL or updating a DISPOSAL draft', async () => {
+      exportFormRepository.findOne.mockResolvedValue(
+        draft({ type: ExportFormType.Sale, file: null }),
+      );
+      await expectError(
+        service.updateExportForm(
+          'wh-slug',
+          'form-slug',
+          { version: 1, type: ExportFormType.Disposal },
+          actor([AuthorityCode.ExportFormUpdateDraft]),
+        ),
+        ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED.code,
+      );
+
+      exportFormRepository.findOne.mockResolvedValue(
+        draft({ type: ExportFormType.Disposal, file: 'https://s3.test/bien-ban.pdf' }),
+      );
+      await expectError(
+        service.updateExportForm(
+          'wh-slug',
+          'form-slug',
+          { version: 1, file: '' },
+          actor([AuthorityCode.ExportFormUpdateDraft]),
+        ),
+        ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED.code,
+      );
+      expect(manager.save).not.toHaveBeenCalled();
+
+      await expect(
+        service.updateExportForm(
+          'wh-slug',
+          'form-slug',
+          { version: 1, receiver: 'Tổ tiêu huỷ' },
+          actor([AuthorityCode.ExportFormUpdateDraft]),
+        ),
+      ).resolves.toMatchObject({ receiver: 'Tổ tiêu huỷ' });
     });
   });
 
@@ -650,6 +715,17 @@ describe('ExportFormService', () => {
         );
         await expectError(service.deleteExportForm('wh-slug', 'form-slug', full), code);
       });
+
+      it('rejects submitting a DISPOSAL draft that has no attached file', async () => {
+        exportFormRepository.findOne.mockResolvedValue(
+          draft({ type: ExportFormType.Disposal, file: null, items: [lineA()] }),
+        );
+        await expectError(
+          service.submitExportForm('wh-slug', 'form-slug', { version: 1 }, owner()),
+          ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED.code,
+        );
+        expect(transactionManager.execute).not.toHaveBeenCalled();
+      });
     });
 
     describe('confirm (PENDING -> CONFIRMED)', () => {
@@ -725,7 +801,11 @@ describe('ExportFormService', () => {
       it('a DISPOSAL form is confirmed with EXPORT_FORM_APPROVE_DISPOSAL (or by SUPER_ADMIN)', async () => {
         // Bản mới mỗi lần: lần xác nhận đầu sửa trạng thái của object trả về.
         exportFormRepository.findOne.mockImplementation(async () =>
-          pending({ type: ExportFormType.Disposal, items: [] }),
+          pending({
+            type: ExportFormType.Disposal,
+            file: 'https://s3.test/bien-ban.pdf',
+            items: [],
+          }),
         );
 
         await expect(
@@ -744,6 +824,22 @@ describe('ExportFormService', () => {
             actor([], 'u2', RoleEnum.SuperAdmin),
           ),
         ).resolves.toBeDefined();
+      });
+
+      it('rejects confirming a PENDING DISPOSAL form that has no attached file', async () => {
+        exportFormRepository.findOne.mockResolvedValue(
+          pending({ type: ExportFormType.Disposal, file: null, items: [lineA()] }),
+        );
+        await expectError(
+          service.confirmExportForm(
+            'wh-slug',
+            'form-slug',
+            { version: 1 },
+            actor([AuthorityCode.ExportFormConfirm, AuthorityCode.ExportFormApproveDisposal], 'u2'),
+          ),
+          ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED.code,
+        );
+        expect(transactionManager.execute).not.toHaveBeenCalled();
       });
 
       it('propagates a reserved-batch mismatch so the transaction rolls back', async () => {

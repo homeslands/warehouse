@@ -26,7 +26,7 @@ const api = (statusCode: number, code?: number, message = 'x') => ({
 })
 
 describe('exportFormErrorMessage', () => {
-  it.each([101418, 101410, 101417, 101415, 101416, 101437, 101438, 101432, 101425])(
+  it.each([101418, 101410, 101417, 101415, 101416, 101437, 101438, 101432, 101425, 101440])(
     'mã %i → câu tiếng Việt riêng',
     (code) => {
       const msg = exportFormErrorMessage(api(400, code), i18n.t)

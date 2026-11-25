@@ -39,6 +39,7 @@ export const EXPORT_FORM_CODE_SEARCH_INVALID = 'EXPORT_FORM_CODE_SEARCH_INVALID'
 export const EXPORT_FORM_NOT_PENDING = 'EXPORT_FORM_NOT_PENDING';
 export const EXPORT_FORM_CANNOT_BE_CANCELLED = 'EXPORT_FORM_CANNOT_BE_CANCELLED';
 export const EXPORT_FORM_VERSION_INVALID = 'EXPORT_FORM_VERSION_INVALID';
+export const EXPORT_FORM_FILE_IS_REQUIRED = 'EXPORT_FORM_FILE_IS_REQUIRED';
 
 export type TExportFormErrorCodeKey =
   | typeof EXPORT_FORM_NOT_FOUND
@@ -75,7 +76,8 @@ export type TExportFormErrorCodeKey =
   | typeof EXPORT_FORM_CODE_SEARCH_INVALID
   | typeof EXPORT_FORM_NOT_PENDING
   | typeof EXPORT_FORM_CANNOT_BE_CANCELLED
-  | typeof EXPORT_FORM_VERSION_INVALID;
+  | typeof EXPORT_FORM_VERSION_INVALID
+  | typeof EXPORT_FORM_FILE_IS_REQUIRED;
 
 export type TExportFormErrorCode = Record<TExportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -201,5 +203,9 @@ export const ExportFormValidation: TExportFormErrorCode = {
   EXPORT_FORM_VERSION_INVALID: createErrorCode(
     101439,
     'version is required and must be an integer >= 1 (from the most recent GET)',
+  ),
+  EXPORT_FORM_FILE_IS_REQUIRED: createErrorCode(
+    101440,
+    'File is required for a DISPOSAL export form',
   ),
 };

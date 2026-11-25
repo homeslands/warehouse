@@ -70,11 +70,41 @@ describe('CreateExportFormRequestDto', () => {
       'EXPORT_FORM_ITEM_BATCH_SLUG_INVALID',
     );
   });
+
+  it('requires file for DISPOSAL (missing, null or whitespace) and accepts non-empty file', () => {
+    for (const file of [undefined, null, '   ']) {
+      const body: Record<string, unknown> = { ...valid, type: 'DISPOSAL' };
+      if (file === undefined) delete body.file;
+      else body.file = file;
+      const messages = messagesOf(CreateExportFormRequestDto, body, 'file');
+      expect(messages[0]).toBe('EXPORT_FORM_FILE_IS_REQUIRED');
+    }
+    expect(
+      messagesOf(CreateExportFormRequestDto, { ...valid, type: 'DISPOSAL', file: 123 }, 'file')[0],
+    ).toBe('EXPORT_FORM_FILE_INVALID');
+    expect(
+      messagesOf(CreateExportFormRequestDto, {
+        ...valid,
+        type: 'DISPOSAL',
+        file: ' https://s3.test/bien-ban.pdf ',
+      }),
+    ).toEqual([]);
+    expect(messagesOf(CreateExportFormRequestDto, { ...valid, type: 'SALE', file: '' })).toEqual(
+      [],
+    );
+  });
 });
 
 describe('UpdateExportFormRequestDto', () => {
   it('accepts a body with only version (every other field optional)', () => {
     expect(messagesOf(UpdateExportFormRequestDto, { version: 1 })).toEqual([]);
+  });
+
+  it('allows partial PATCH without file when type is DISPOSAL (service validates merged form)', () => {
+    expect(messagesOf(UpdateExportFormRequestDto, { version: 1, type: 'DISPOSAL' })).toEqual([]);
+    expect(messagesOf(UpdateExportFormRequestDto, { version: 1, type: 'SALE', file: '' })).toEqual(
+      [],
+    );
   });
 });
 

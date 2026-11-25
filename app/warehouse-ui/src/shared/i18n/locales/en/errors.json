@@ -258,6 +258,7 @@
   "exportFormCodeSearchInvalid": "Search code may only contain letters, digits, \"_\" and \"-\"",
   "exportFormNotPending": "The form is not pending approval — submit it before confirming",
   "exportFormCannotBeCancelled": "Only a draft or pending form can be cancelled",
+  "exportFormFileRequired": "A disposal export form requires an attachment",
   "inventoryAvailableInsufficient": "Not enough available stock in the warehouse (reserved quantity excluded)",
   "materialBatchInsufficient": "The batches do not have enough available quantity (reserved quantity excluded)"
 }

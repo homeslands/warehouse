@@ -2,6 +2,7 @@ import { useId, useRef, type KeyboardEvent } from 'react'
 import type { UseFormReturn } from 'react-hook-form'
 import { useTranslation } from 'react-i18next'
 import { cn } from '@/shared/lib/cn'
+import { useRevalidateWhenTouched } from '@/shared/lib/form-validation'
 import { Button } from '@/shared/ui/button'
 import {
   FormControl,
@@ -42,10 +43,11 @@ export function ExportFormInfoStep({
   onUploadingChange,
   onTypeChange,
 }: ExportFormInfoStepProps) {
-  const { t } = useTranslation(['exportForms'])
+  const { t } = useTranslation(['exportForms', 'errors'])
   const labelId = useId()
   const radios = useRef<(HTMLButtonElement | null)[]>([])
   const type = form.watch('type')
+  useRevalidateWhenTouched(form, 'type', 'file')
 
   return (
     <>
@@ -61,6 +63,15 @@ export function ExportFormInfoStep({
             const select = (next: ExportFormType, focus = false) => {
               if (next !== field.value && onTypeChange(next, field.value) === false) return
               field.onChange(next)
+              const fileError = form.getFieldState('file').error
+              if (
+                next !== 'DISPOSAL' &&
+                fileError &&
+                (fileError.type !== 'server' ||
+                  fileError.message === t('errors:exportFormFileRequired'))
+              ) {
+                form.clearErrors('file')
+              }
               if (focus) radios.current[EXPORT_FORM_TYPES.indexOf(next)]?.focus()
             }
             const onKeyDown = (e: KeyboardEvent) => {
@@ -150,6 +161,7 @@ export function ExportFormInfoStep({
           <ExportFormFileField
             form={form}
             warehouseSlug={warehouseSlug}
+            required={type === 'DISPOSAL'}
             onUploadingChange={onUploadingChange}
           />
         </div>

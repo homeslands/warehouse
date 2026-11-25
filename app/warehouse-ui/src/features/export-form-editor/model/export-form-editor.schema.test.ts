@@ -174,6 +174,18 @@ describe('buildExportFormSchema', () => {
       issues(values({ type: 'OTHER', items: [item({ unitPrice: undefined })] }), false),
     ).toEqual([])
   })
+
+  it('Xuất huỷ (DISPOSAL) bắt buộc có chứng từ đính kèm (file)', () => {
+    expect(issues(values({ type: 'DISPOSAL', file: '' }), false)).toEqual([
+      ['file', 'exportForms:fileRequired'],
+    ])
+    expect(issues(values({ type: 'DISPOSAL', file: '   ' }), false)).toEqual([
+      ['file', 'exportForms:fileRequired'],
+    ])
+    expect(
+      issues(values({ type: 'DISPOSAL', file: 'https://s3.test/bien-ban.pdf' }), false),
+    ).toEqual([])
+  })
 })
 
 describe('mapping', () => {

@@ -12,6 +12,8 @@ type Props<T extends FieldValues> = {
   /** Ô chuỗi trong form giữ `key` của file đã tải lên (`''` = chưa có). */
   name: FieldPath<T>
   label: string
+  /** Hiện dấu `*` bắt buộc, gắn `aria-required` và tự kiểm lại khi gỡ file. */
+  required?: boolean
   /** Tải file lên, trả về `key` để lưu vào form. */
   upload: (file: File) => Promise<string>
   /** Tên dễ đọc của `key` để hiện cạnh icon file. */
@@ -30,6 +32,7 @@ export function FileUploadField<T extends FieldValues>({
   form,
   name,
   label,
+  required,
   upload,
   displayName,
   onUploadingChange,
@@ -56,7 +59,10 @@ export function FileUploadField<T extends FieldValues>({
     setBusy(true)
     try {
       const key = await upload(file)
-      form.setValue(name, key as FieldPathValue<T, FieldPath<T>>, { shouldDirty: true })
+      form.setValue(name, key as FieldPathValue<T, FieldPath<T>>, {
+        shouldDirty: true,
+        shouldValidate: form.formState.isSubmitted,
+      })
     } catch {
       form.setError(name, { type: 'server', message: messages.failed })
     } finally {
@@ -70,8 +76,8 @@ export function FileUploadField<T extends FieldValues>({
     <FormField
       control={form.control}
       name={name}
-      render={({ field }) => (
-        <FormItem>
+      render={({ field, fieldState }) => (
+        <FormItem required={required}>
           <FormLabel htmlFor={inputId}>{label}</FormLabel>
           <input
             id={inputId}
@@ -97,6 +103,7 @@ export function FileUploadField<T extends FieldValues>({
                   onClick={() => {
                     form.setValue(name, empty, { shouldDirty: true })
                     form.clearErrors(name)
+                    if (required) void form.trigger(name)
                   }}
                 >
                   <XIcon aria-hidden />
@@ -109,6 +116,8 @@ export function FileUploadField<T extends FieldValues>({
               variant="outline"
               className="w-fit"
               disabled={uploading}
+              aria-required={required || undefined}
+              aria-invalid={!!fieldState.error || undefined}
               onClick={() => inputRef.current?.click()}
             >
               {uploading ? (

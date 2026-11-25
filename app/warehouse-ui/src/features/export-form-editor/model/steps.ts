@@ -1,7 +1,7 @@
 import type { ExportFormValues } from './export-form-editor.schema'
 
 export type ExportFormStepStatus = {
-  /** ① xong: có lý do xuất, người nhận và số PO. */
+  /** ① xong: có lý do xuất, người nhận, số PO (và chứng từ nếu là Xuất huỷ). */
   infoDone: boolean
   /** ② xong: có ít nhất một dòng đủ. */
   itemsDone: boolean
@@ -13,13 +13,16 @@ const isNumber = (v: unknown): v is number => typeof v === 'number' && Number.is
 
 /** Trạng thái của dải bước — chỉ để định hướng, không thay cho validate của schema. */
 export function exportFormStepStatus(
-  values: Pick<ExportFormValues, 'type' | 'receiver' | 'purchaseOrder' | 'items'>,
+  values: Pick<ExportFormValues, 'type' | 'receiver' | 'purchaseOrder' | 'items'> & {
+    file?: string
+  },
   { sale }: { sale: boolean },
 ): ExportFormStepStatus {
   const infoDone =
     Boolean(values.type) &&
     (values.receiver ?? '').trim() !== '' &&
-    (values.purchaseOrder ?? '').trim() !== ''
+    (values.purchaseOrder ?? '').trim() !== '' &&
+    (values.type !== 'DISPOSAL' || (values.file ?? '').trim() !== '')
   const lineCount = (values.items ?? []).filter(
     (item) =>
       Boolean(item.materialSlug) &&

@@ -11,6 +11,7 @@ const HEADER_ORDER = [
   'code',
   'purchaseOrder',
   'receiver',
+  'file',
   'invoiceCode',
 ] as const satisfies readonly (keyof HeaderErrors)[]
 

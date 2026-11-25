@@ -258,6 +258,7 @@
   "exportFormCodeSearchInvalid": "Mã tìm kiếm chỉ gồm chữ, số, \"_\" và \"-\"",
   "exportFormNotPending": "Phiếu chưa ở trạng thái Chờ duyệt — gửi duyệt trước khi xác nhận",
   "exportFormCannotBeCancelled": "Chỉ huỷ được phiếu Nháp hoặc Chờ duyệt",
+  "exportFormFileRequired": "Phiếu xuất huỷ bắt buộc có chứng từ đính kèm",
   "inventoryAvailableInsufficient": "Tồn kho khả dụng không đủ (đã trừ phần đang giữ chỗ)",
   "materialBatchInsufficient": "Các lô không đủ số lượng khả dụng (đã trừ phần đang giữ chỗ)"
 }
