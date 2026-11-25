@@ -17,4 +17,4 @@ export {
   type AttachmentField as AttachmentFieldState,
   type AttachmentFieldOptions,
 } from './model/useAttachmentField'
-export { AttachmentField } from './ui/AttachmentField'
+export { AttachmentField, type AttachmentFieldHandle } from './ui/AttachmentField'

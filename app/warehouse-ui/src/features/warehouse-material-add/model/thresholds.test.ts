@@ -41,14 +41,18 @@ describe('validateAssignThresholds', () => {
     ).toEqual({})
   })
 
-  it('vật tư chưa đặt max (0): nhập tối thiểu > 0 mà không nhập tối đa → báo cần nhập tối đa', () => {
+  it('vật tư chưa đặt max (0): nhập tối thiểu > 0 vẫn hợp lệ (max = 0 là không giới hạn)', () => {
     expect(
       validateAssignThresholds(
         { minimumInventory: 5 },
         { minimumInventory: 0, maximumInventory: 0 },
       ),
-    ).toEqual({
-      minimumInventory: { key: 'inventory:thresholdMinAboveDefaultMax', values: { max: 0 } },
-    })
+    ).toEqual({})
+    expect(
+      validateAssignThresholds(
+        { minimumInventory: 5, maximumInventory: 0 },
+        { minimumInventory: 0, maximumInventory: 0 },
+      ),
+    ).toEqual({})
   })
 })

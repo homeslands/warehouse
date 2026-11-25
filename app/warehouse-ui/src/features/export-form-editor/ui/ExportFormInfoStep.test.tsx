@@ -43,7 +43,12 @@ function Harness({
   canReadWarehouses?: boolean
 }) {
   const form = useForm<ExportFormValues>({
-    resolver: zodResolver(buildExportFormSchema({ sale: false })),
+    resolver: (values, context, options) =>
+      zodResolver(buildExportFormSchema({ sale: false, disposal: values.type === 'DISPOSAL' }))(
+        values,
+        context,
+        options,
+      ),
     mode: 'onTouched',
     defaultValues: { ...emptyExportFormValues(new Date(2026, 9, 26, 8, 5)), ...defaults },
   })
@@ -226,5 +231,37 @@ describe('ExportFormInfoStep', () => {
     onTypeChange = () => true
     renderWithProviders(<Harness />)
     expect(screen.getByLabelText(/Mã phiếu/)).toHaveValue('PX-20261026-0805')
+  })
+
+  it('Xuất huỷ → hiện dấu * bắt buộc ở Chứng từ đính kèm, trống thì báo lỗi và xoá lỗi khi đổi loại khác', async () => {
+    onTypeChange = () => true
+    const { user } = renderWithProviders(
+      <Harness defaults={{ type: 'DISPOSAL', receiver: 'Tổ huỷ', purchaseOrder: 'PO-1' }} />,
+    )
+    const fileLabel = screen.getByText('Chứng từ đính kèm').closest('label')!
+    expect(fileLabel).toHaveTextContent('*')
+    expect(screen.getByRole('button', { name: 'Chọn file' })).toHaveAttribute(
+      'aria-required',
+      'true',
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
+    expect(await screen.findByText('Đính kèm chứng từ xuất huỷ')).toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Sản xuất' }))
+    expect(screen.queryByText('Đính kèm chứng từ xuất huỷ')).not.toBeInTheDocument()
+  })
+
+  it('sau lần gửi đầu: đổi từ loại khác sang Xuất huỷ khi chưa có file → báo lỗi chứng từ ngay', async () => {
+    onTypeChange = () => true
+    const { user } = renderWithProviders(
+      <Harness defaults={{ type: 'PRODUCTION', receiver: 'Xưởng A', purchaseOrder: 'PO-1' }} />,
+    )
+
+    await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
+    expect(screen.queryByText('Đính kèm chứng từ xuất huỷ')).not.toBeInTheDocument()
+
+    await user.click(screen.getByRole('radio', { name: 'Xuất huỷ' }))
+    expect(await screen.findByText('Đính kèm chứng từ xuất huỷ')).toBeInTheDocument()
   })
 })

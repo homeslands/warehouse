@@ -1,5 +1,5 @@
 import { useEffect } from 'react'
-import type { FieldPath, FieldValues, UseFormReturn } from 'react-hook-form'
+import { useFormState, type FieldPath, type FieldValues, type UseFormReturn } from 'react-hook-form'
 
 /**
  * Mọi form dùng `mode: 'onTouched'`: một ô được kiểm khi rời ô lần đầu, sau đó kiểm lại mỗi lần gõ —
@@ -16,13 +16,16 @@ export function useRevalidateWhenTouched<T extends FieldValues>(
   source: FieldPath<T>,
   target: FieldPath<T>,
 ) {
+  // Đọc qua `useFormState` để đăng ký theo dõi `isSubmitted` (proxy `form.formState` không tự cập nhật trong callback nếu component không đọc lúc render).
+  const { isSubmitted } = useFormState({ control: form.control })
+
   useEffect(() => {
     const subscription = form.watch((_values, { name }) => {
       if (name !== source) return
-      if (form.getFieldState(target).isTouched || form.formState.isSubmitted) {
+      if (form.getFieldState(target).isTouched || isSubmitted) {
         void form.trigger(target)
       }
     })
     return () => subscription.unsubscribe()
-  }, [form, source, target])
+  }, [form, source, target, isSubmitted])
 }

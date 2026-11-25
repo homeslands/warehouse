@@ -144,6 +144,7 @@ export class ExportFormService {
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_WAREHOUSE_INACTIVE);
 
     const data = this.mapper.map(dto, CreateExportFormRequestDto, ExportForm);
+    this.assertDisposalHasFile(data);
     const { items, total } = await this.buildItems(dto.items, warehouse.id);
     const requester = await this.findUser(currentUser.userId);
 
@@ -230,6 +231,10 @@ export class ExportFormService {
     );
 
     const data = pickDefined(this.mapper.map(dto, UpdateExportFormRequestDto, ExportForm));
+    this.assertDisposalHasFile({
+      type: data.type ?? form.type,
+      file: data.file !== undefined ? data.file : form.file,
+    });
     const replacement =
       dto.items !== undefined && dto.items !== null
         ? await this.buildItems(dto.items, form.warehouse.id)
@@ -297,6 +302,7 @@ export class ExportFormService {
       AuthorityCode.ExportFormUpdateDraft,
       AuthorityCode.ExportFormUpdateDraftOwn,
     );
+    this.assertDisposalHasFile(form);
     const items = this.assertItemsHaveMaterial(form);
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
@@ -345,6 +351,7 @@ export class ExportFormService {
     // Xuất huỷ cần thêm quyền duyệt riêng — phụ thuộc dữ liệu phiếu nên guard không kiểm được.
     if (form.type === ExportFormType.Disposal)
       assertHasAnyAuthority(currentUser, [AuthorityCode.ExportFormApproveDisposal]);
+    this.assertDisposalHasFile(form);
     const items = this.assertItemsHaveMaterial(form);
     const approver = await this.findUser(currentUser.userId);
 
@@ -673,6 +680,13 @@ export class ExportFormService {
   private assertIsDraft(form: ExportForm): void {
     if (form.status !== ExportFormStatus.Draft)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_NOT_DRAFT);
+  }
+
+  /** Phiếu xuất huỷ (`DISPOSAL`) bắt buộc phải có chứng từ đính kèm (`file`). */
+  private assertDisposalHasFile(form: Pick<ExportForm, 'type' | 'file'>): void {
+    if (form.type === ExportFormType.Disposal && !form.file?.trim()) {
+      throw new ExportFormException(ExportFormValidation.EXPORT_FORM_FILE_IS_REQUIRED);
+    }
   }
 
   /** "Bản đầy đủ HOẶC bản `_OWN`" — xem `ImportFormService.assertCanModify`. */

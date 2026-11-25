@@ -5,6 +5,7 @@ import {
   ApiParam,
   ApiBody,
   ApiConsumes,
+  ApiUnprocessableEntityResponse,
 } from '@nestjs/swagger';
 import {
   HttpStatus,
@@ -61,6 +62,9 @@ export class ExportFormController {
     status: HttpStatus.CREATED,
     description: 'Created',
     type: ExportFormResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: '101440 EXPORT_FORM_FILE_IS_REQUIRED — File is required when type is DISPOSAL',
   })
   async createExportForm(
     @Param('warehouseSlug') warehouseSlug: string,
@@ -176,6 +180,9 @@ export class ExportFormController {
     description: 'Updated',
     type: ExportFormResponseDto,
   })
+  @ApiUnprocessableEntityResponse({
+    description: '101440 EXPORT_FORM_FILE_IS_REQUIRED — File is required when type is DISPOSAL',
+  })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async updateExportForm(
     @Param('warehouseSlug') warehouseSlug: string,
@@ -214,6 +221,9 @@ export class ExportFormController {
     description: 'Submitted',
     type: ExportFormResponseDto,
   })
+  @ApiUnprocessableEntityResponse({
+    description: '101440 EXPORT_FORM_FILE_IS_REQUIRED — File is required when type is DISPOSAL',
+  })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async submitExportForm(
     @Param('warehouseSlug') warehouseSlug: string,
@@ -249,6 +259,9 @@ export class ExportFormController {
     status: HttpStatus.OK,
     description: 'Confirmed',
     type: ExportFormResponseDto,
+  })
+  @ApiUnprocessableEntityResponse({
+    description: '101440 EXPORT_FORM_FILE_IS_REQUIRED — File is required when type is DISPOSAL',
   })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async confirmExportForm(

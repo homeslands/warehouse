@@ -17,6 +17,7 @@ const NONE = {
   viewMembers: false,
   manageMembers: false,
   viewInventory: false,
+  editInventoryThresholds: false,
   removeInventory: false,
 }
 const ALL = {
@@ -28,6 +29,7 @@ const ALL = {
   viewMembers: true,
   manageMembers: true,
   viewInventory: true,
+  editInventoryThresholds: true,
   removeInventory: true,
 }
 
@@ -119,12 +121,15 @@ describe('warehouseAbilities — cờ userSearch TẮT (GET /users bỏ qua ware
 })
 
 describe('warehouseAbilities — vật tư trong kho', () => {
-  it('cờ BẬT: xem = MATERIAL_READ + WAREHOUSE_READ; gỡ = MATERIAL_UPDATE + WAREHOUSE_UPDATE', () => {
+  it('cờ BẬT: xem = MATERIAL_READ + WAREHOUSE_READ; sửa ngưỡng / gỡ = MATERIAL_UPDATE + WAREHOUSE_UPDATE', () => {
     const flags = { authorityGuards: true, userSearch: true }
     const a = (scope: string[]) => warehouseAbilities(user('MANAGER', scope), flags)
     expect(a(['MATERIAL_READ', 'WAREHOUSE_READ']).viewInventory).toBe(true)
     expect(a(['MATERIAL_READ']).viewInventory).toBe(false)
     expect(a(['WAREHOUSE_READ']).viewInventory).toBe(false)
+    expect(a(['MATERIAL_UPDATE', 'WAREHOUSE_UPDATE']).editInventoryThresholds).toBe(true)
+    expect(a(['MATERIAL_UPDATE']).editInventoryThresholds).toBe(false)
+    expect(a(['WAREHOUSE_UPDATE']).editInventoryThresholds).toBe(false)
     expect(a(['MATERIAL_UPDATE', 'WAREHOUSE_UPDATE']).removeInventory).toBe(true)
     expect(a(['MATERIAL_UPDATE']).removeInventory).toBe(false)
     expect(a(['WAREHOUSE_UPDATE']).removeInventory).toBe(false)
@@ -134,10 +139,15 @@ describe('warehouseAbilities — vật tư trong kho', () => {
     const flags = { authorityGuards: false, userSearch: true }
     expect(warehouseAbilities(user('ADMIN'), flags)).toMatchObject({
       viewInventory: true,
+      editInventoryThresholds: true,
       removeInventory: true,
     })
     expect(
       warehouseAbilities(user('MANAGER', ['MATERIAL_READ', 'WAREHOUSE_READ']), flags),
-    ).toMatchObject({ viewInventory: false, removeInventory: false })
+    ).toMatchObject({
+      viewInventory: false,
+      editInventoryThresholds: false,
+      removeInventory: false,
+    })
   })
 })

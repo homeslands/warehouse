@@ -6,7 +6,7 @@ import { View, type TextInputInstance } from 'react-native'
 
 import type { ExportFormType } from '@/entities/export-form'
 import type { ExportHeader } from '@/features/export-draft'
-import { AttachmentField } from '@/features/form-attachment'
+import { AttachmentField, type AttachmentFieldHandle } from '@/features/form-attachment'
 import { todayLocalIso } from '@/shared/lib/format'
 import { useTheme } from '@/shared/theme/useTheme'
 import { FormInfoRow } from '@/shared/ui'
@@ -34,10 +34,11 @@ export type HeaderValues = {
   invoiceCode: string
   receiver: string
   note: string
+  file: string | null
 }
 
 export type HeaderErrors = Partial<
-  Record<'code' | 'purchaseOrder' | 'invoiceCode' | 'receiver', string>
+  Record<'code' | 'purchaseOrder' | 'invoiceCode' | 'receiver' | 'file', string>
 >
 
 export function valuesOf(h: ExportHeader): HeaderValues {
@@ -48,10 +49,11 @@ export function valuesOf(h: ExportHeader): HeaderValues {
     invoiceCode: h.invoiceCode ?? '',
     receiver: h.receiver,
     note: h.note ?? '',
+    file: h.file,
   }
 }
 
-/** Kiểm như DTO backend (mã, PO + người nhận bắt buộc, độ dài); câu lỗi là `exportForms:errors.*`. */
+/** Kiểm như DTO backend (mã, PO + người nhận bắt buộc, chứng từ bắt buộc khi Xuất huỷ, độ dài); câu lỗi là `exportForms:errors.*`. */
 export function headerErrors(v: HeaderValues, t: TFunction): HeaderErrors {
   const code = v.code.trim()
   const po = v.purchaseOrder.trim()
@@ -77,6 +79,8 @@ export function headerErrors(v: HeaderValues, t: TFunction): HeaderErrors {
         : receiver.length > RECEIVER_MAX
           ? e('receiverInvalid')
           : undefined,
+    file:
+      v.type === 'DISPOSAL' && (!v.file || v.file.trim() === '') ? e('fileRequired') : undefined,
   }
 }
 
@@ -108,6 +112,7 @@ const ERROR_FIELDS: readonly (keyof HeaderErrors)[] = [
   'code',
   'purchaseOrder',
   'receiver',
+  'file',
   'invoiceCode',
 ]
 const NO_TOUCHED: ReadonlySet<string> = new Set()
@@ -126,7 +131,9 @@ function resync(prev: HeaderValues, header: ExportHeader): HeaderValues {
   for (const f of TEXT_FIELDS) {
     if (local[f] !== header[f]) next = { ...next, [f]: fresh[f] }
   }
-  return prev.type === header.type ? next : { ...next, type: header.type }
+  if (prev.type !== header.type) next = { ...next, type: header.type }
+  if (prev.file !== header.file) next = { ...next, file: header.file }
+  return next
 }
 
 /** Dòng "Chứng từ": kho để tải lên + khoá bản nháp (kết quả về muộn của bản nháp khác bị bỏ). */
@@ -192,6 +199,7 @@ export function ExportHeaderFields({
   const purchaseOrder = useRef<TextInputInstance>(null)
   const invoiceCode = useRef<TextInputInstance>(null)
   const note = useRef<TextInputInstance>(null)
+  const fileField = useRef<AttachmentFieldHandle>(null)
   useImperativeHandle(
     ref,
     () => ({
@@ -199,6 +207,10 @@ export function ExportHeaderFields({
         if (field === 'type') return
         touch(field)
         if (field === 'receiver') return openSheet('/export-receiver')
+        if (field === 'file') {
+          if (!disabled) fileField.current?.open()
+          return
+        }
         const inputs: Partial<Record<string, typeof code>> = {
           code,
           purchaseOrder,
@@ -280,6 +292,24 @@ export function ExportHeaderFields({
           error={shown('receiver')}
           onPress={() => openSheet('/export-receiver')}
         />
+        {header.type === 'DISPOSAL' && attachment ? (
+          <AttachmentField
+            ref={fileField}
+            kind="export"
+            testID="export-field-file"
+            label={t('fields.file')}
+            required
+            validationError={shown('file')}
+            warehouseSlug={attachment.warehouseSlug}
+            value={header.file}
+            onChange={(file) => {
+              if (!file) touch('file')
+              onChange({ file })
+            }}
+            getFormKey={attachment.getFormKey}
+            disabled={disabled}
+          />
+        ) : null}
       </View>
       <View testID="export-group-optional" style={groupStyle}>
         <FormInfoRow
@@ -303,8 +333,9 @@ export function ExportHeaderFields({
           inputRef={note}
           {...input('note')}
         />
-        {attachment ? (
+        {header.type !== 'DISPOSAL' && attachment ? (
           <AttachmentField
+            ref={fileField}
             kind="export"
             testID="export-field-file"
             label={t('fields.file')}

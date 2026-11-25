@@ -128,6 +128,9 @@ function setup({
       ),
     ),
     mswHttp.get(URL_BATCHES, () => paginated(batches())),
+    mswHttp.post(`${URL_W}/upload-file`, () =>
+      ok('https://s3.test/export-forms/bien-ban-huy-1762000000000.pdf'),
+    ),
     ...(formSlug && detail ? [mswHttp.get(`${URL_W}/${formSlug}`, () => ok(detail))] : []),
   )
   const onOpenChange = vi.fn()
@@ -201,10 +204,17 @@ const footerButtons = () =>
     .map((b) => b.textContent)
 const tick = () => new Promise((r) => setTimeout(r, 100))
 
-async function fillInfo(user: User, type = 'Sản xuất') {
+async function fillInfo(user: User, type = 'Sản xuất', opts: { skipFile?: boolean } = {}) {
   await user.click(await screen.findByRole('radio', { name: type }))
   await user.type(screen.getByRole('textbox', { name: /^Người nhận/ }), 'Xưởng 1')
   await user.type(screen.getByRole('textbox', { name: /^Số PO/ }), 'PO-12')
+  if (type === 'Xuất huỷ' && !opts.skipFile) {
+    await user.upload(
+      screen.getByLabelText(/^Chứng từ đính kèm/),
+      new File(['pdf'], 'bien-ban-huy.pdf', { type: 'application/pdf' }),
+    )
+    await screen.findByText('bien-ban-huy.pdf')
+  }
 }
 async function next(user: User) {
   await user.click(screen.getByRole('button', { name: 'Tiếp tục' }))
@@ -450,6 +460,58 @@ describe('ExportFormSheet — tạo', () => {
     const { user } = setup({ canConfirm: true })
     await toReview(user, { type: 'Xuất huỷ' })
     expect(footerButtons()).toEqual(['Quay lại', 'Lưu nháp', 'Lưu & gửi duyệt'])
+  })
+
+  it('Xuất huỷ thiếu chứng từ ở ① → không sang ②, hiện lỗi và focus "Chọn file"', async () => {
+    const { user } = setup()
+    await fillInfo(user, 'Xuất huỷ', { skipFile: true })
+    await next(user)
+    expect(await screen.findByText('Đính kèm chứng từ xuất huỷ')).toBeVisible()
+    await waitFor(() => expect(screen.getByRole('button', { name: 'Chọn file' })).toHaveFocus())
+    expect(within(stepsNav()).getByRole('button', { name: '① Thông tin phiếu' })).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
+  })
+
+  it('backend trả 101440 khi sửa sang Xuất huỷ thiếu file → nhảy về ① và hiện lỗi dưới ô chứng từ', async () => {
+    const existing = exportForm({
+      slug: 'xf-1',
+      type: 'PRODUCTION',
+      file: 'https://s3.test/export-forms/old-1762000000000.pdf',
+      items: [item({ quantity: 10 })],
+    })
+    server.use(
+      mswHttp.patch(`${URL_W}/xf-1`, () =>
+        apiError(422, 101440, 'File is required for a DISPOSAL export form'),
+      ),
+    )
+    const { user, onSaved } = setup({ formSlug: 'xf-1', detail: existing })
+    await waitFor(() => expect(qtyBox()).toHaveValue('10'))
+    await user.click(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ }))
+    await user.click(await screen.findByRole('radio', { name: 'Xuất huỷ' }))
+    await user.click(screen.getByRole('button', { name: 'Gỡ file' }))
+    expect(await screen.findByText('Đính kèm chứng từ xuất huỷ')).toBeVisible()
+
+    await user.upload(
+      screen.getByLabelText(/^Chứng từ đính kèm/),
+      new File(['pdf'], 'bien-ban-huy.pdf', { type: 'application/pdf' }),
+    )
+    await screen.findByText('bien-ban-huy.pdf')
+    await user.click(screen.getByRole('button', { name: /Chi tiết vật tư/ }))
+    await user.click(screen.getByRole('button', { name: 'Lưu' }))
+    await confirmDialog(user, 'Lưu thay đổi')
+    expect(await screen.findByText('Phiếu xuất huỷ bắt buộc có chứng từ đính kèm')).toBeVisible()
+    expect(within(stepsNav()).getByRole('button', { name: /Thông tin phiếu$/ })).toHaveAttribute(
+      'aria-current',
+      'step',
+    )
+    expect(onSaved).not.toHaveBeenCalled()
+
+    await user.click(screen.getByRole('radio', { name: 'Sản xuất' }))
+    expect(
+      screen.queryByText('Phiếu xuất huỷ bắt buộc có chứng từ đính kèm'),
+    ).not.toBeInTheDocument()
   })
 
   it('dòng vượt khả dụng → hai nút gửi khoá kèm lý do; ③ liệt kê dòng vượt; Lưu nháp vẫn được', async () => {

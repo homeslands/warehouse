@@ -15,6 +15,8 @@ export type WarehouseAbilities = {
   manageMembers: boolean
   /** `GET /warehouses/{w}/materials` + lịch sử: MATERIAL_READ + WAREHOUSE_READ. */
   viewInventory: boolean
+  /** `PATCH /warehouses/{w}/materials/{m}`: MATERIAL_UPDATE + WAREHOUSE_UPDATE. */
+  editInventoryThresholds: boolean
   /** `DELETE /warehouses/{w}/materials/{m}`: MATERIAL_UPDATE + WAREHOUSE_UPDATE. */
   removeInventory: boolean
 }
@@ -44,6 +46,7 @@ export function warehouseAbilities(
       viewMembers: membersOpen && admin,
       manageMembers: membersOpen && admin,
       viewInventory: admin,
+      editInventoryThresholds: admin,
       removeInventory: admin,
     }
   }
@@ -62,6 +65,7 @@ export function warehouseAbilities(
     viewMembers: membersOpen && can(user, 'USER_READ'),
     manageMembers: membersOpen && can(user, 'WAREHOUSE_UPDATE') && can(user, 'USER_READ'),
     viewInventory: can(user, 'MATERIAL_READ') && can(user, 'WAREHOUSE_READ'),
+    editInventoryThresholds: can(user, 'MATERIAL_UPDATE') && can(user, 'WAREHOUSE_UPDATE'),
     removeInventory: can(user, 'MATERIAL_UPDATE') && can(user, 'WAREHOUSE_UPDATE'),
   }
 }

@@ -44,7 +44,8 @@ export function validateAssignThresholds(
 
   const min = input.minimumInventory ?? defaults.minimumInventory
   const max = input.maximumInventory ?? defaults.maximumInventory
-  if (max >= min) return errors
+  // Quy ước BA: tối đa = 0 là không giới hạn, không chặn khi tối thiểu > 0.
+  if (max === 0 || max >= min) return errors
   if (input.maximumInventory !== undefined) {
     errors.maximumInventory = { key: 'inventory:thresholdRange' }
   } else {

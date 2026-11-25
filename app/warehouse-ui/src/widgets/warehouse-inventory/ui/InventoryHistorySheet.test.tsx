@@ -277,6 +277,31 @@ describe('InventoryHistorySheet', () => {
     })
   })
 
+  it('nút Sửa ngưỡng tồn: hiện khi đủ quyền và có item; gọi onEditThresholds', async () => {
+    const onEditThresholds = vi.fn()
+    const target = item()
+    const { user } = setup({
+      item: target,
+      canEditThresholds: true,
+      onEditThresholds,
+    })
+    const dialog = await screen.findByRole('dialog')
+    await user.click(within(dialog).getByRole('button', { name: 'Sửa ngưỡng tồn' }))
+    expect(onEditThresholds).toHaveBeenCalledWith(target)
+  })
+
+  it('ẩn nút Sửa ngưỡng tồn khi thiếu quyền hoặc mở bằng URL (thiếu item)', async () => {
+    const first = setup({ canEditThresholds: false, onEditThresholds: vi.fn() })
+    await screen.findByRole('dialog')
+    expect(screen.queryByRole('button', { name: 'Sửa ngưỡng tồn' })).not.toBeInTheDocument()
+    first.unmount()
+
+    server.use(mswHttp.get(`${BASE}/materials/m-matcha`, () => ok(material())))
+    setup({ item: undefined, canEditThresholds: true, onEditThresholds: vi.fn() })
+    await screen.findByText('NL04 · Matcha')
+    expect(screen.queryByRole('button', { name: 'Sửa ngưỡng tồn' })).not.toBeInTheDocument()
+  })
+
   it('không quyền gỡ → không có nút', async () => {
     setup({ canRemove: false })
     await screen.findByRole('dialog')

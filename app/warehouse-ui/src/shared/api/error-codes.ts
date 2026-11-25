@@ -293,6 +293,7 @@ export const ERROR_CODE_KEYS: Record<number, ErrorMessageKey> = {
   101436: 'exportFormCodeSearchInvalid',
   101437: 'exportFormNotPending',
   101438: 'exportFormCannotBeCancelled',
+  101440: 'exportFormFileRequired',
   // Thiếu hàng khi gửi duyệt / xác nhận (cả hai 409): tồn kho (inventory) và lô (material-batch).
   100817: 'inventoryAvailableInsufficient',
   101502: 'materialBatchInsufficient',
