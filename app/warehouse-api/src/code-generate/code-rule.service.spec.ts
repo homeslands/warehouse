@@ -73,6 +73,16 @@ describe('CodeRuleService', () => {
     expect(codeRuleRepository.findOneBy).not.toHaveBeenCalled();
   });
 
+  // Tiền tố mã vạch nằm ở env `BARCODE_PREFIX`, không còn là quy tắc sửa qua API.
+  it.each(['BARCODE', 'barcode'])('rejects %s as a code rule type', async (type) => {
+    await expectError(service.findOne(type), CodeGenerateValidation.CODE_RULE_TYPE_INVALID.code);
+    await expectError(
+      service.updateCodeRule(type, { prefix: '21' }),
+      CodeGenerateValidation.CODE_RULE_TYPE_INVALID.code,
+    );
+    expect(codeRuleRepository.findOneBy).not.toHaveBeenCalled();
+  });
+
   it('reports a known type that was never seeded', async () => {
     codeRuleRepository.findOneBy.mockResolvedValue(null);
     await expectError(service.findOne('SHELF'), CodeGenerateValidation.CODE_RULE_NOT_FOUND.code);
@@ -102,30 +112,6 @@ describe('CodeRuleService', () => {
       expect(codeRuleRepository.save).toHaveBeenCalledWith(
         expect.objectContaining({ prefix: 'IT', description: 'Vật tư' }),
       );
-    });
-
-    it('accepts a 2-digit prefix for BARCODE', async () => {
-      codeRuleRepository.findOneBy.mockResolvedValue(
-        rule({ type: CodeType.Barcode, prefix: '20' }),
-      );
-
-      await service.updateCodeRule('BARCODE', { prefix: '21' });
-
-      expect(codeRuleRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ prefix: '21' }),
-      );
-    });
-
-    it('rejects a letter prefix for BARCODE (EAN-13 is digits only)', async () => {
-      codeRuleRepository.findOneBy.mockResolvedValue(
-        rule({ type: CodeType.Barcode, prefix: '20' }),
-      );
-
-      await expectError(
-        service.updateCodeRule('BARCODE', { prefix: 'AB' }),
-        CodeGenerateValidation.CODE_RULE_PREFIX_INVALID.code,
-      );
-      expect(codeRuleRepository.save).not.toHaveBeenCalled();
     });
   });
 });

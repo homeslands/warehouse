@@ -11,7 +11,7 @@ import {
 } from '@nestjs/common';
 import { CodeRuleResponseDto, UpdateCodeRuleRequestDto } from './code-rule.dto';
 import { CodeRuleService } from './code-rule.service';
-import { CodeType } from './code-generate.constants';
+import { CODE_RULE_TYPES } from './code-generate.constants';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { ApiResponseWithType } from 'src/app/app.decorator';
@@ -56,7 +56,7 @@ export class CodeRuleController {
     description: 'Retrieved',
     type: CodeRuleResponseDto,
   })
-  @ApiParam({ name: 'type', required: true, enum: CodeType })
+  @ApiParam({ name: 'type', required: true, enum: CODE_RULE_TYPES })
   async findOne(@Param('type') type: string) {
     const result = await this.codeRuleService.findOne(type);
     return {
@@ -72,7 +72,7 @@ export class CodeRuleController {
   @HttpCode(HttpStatus.OK)
   @ApiOperation({ summary: 'Update the prefix/description of a code generation rule' })
   @ApiResponseWithType({ status: HttpStatus.OK, description: 'Updated', type: CodeRuleResponseDto })
-  @ApiParam({ name: 'type', required: true, enum: CodeType })
+  @ApiParam({ name: 'type', required: true, enum: CODE_RULE_TYPES })
   async updateCodeRule(
     @Param('type') type: string,
     @Body(new ValidationPipe({ transform: true, whitelist: true }))

@@ -9,7 +9,8 @@ Tạo master data **kho** cho hệ thống và cho phép phân công **1 quản 
 | Field | Kiểu | Bắt buộc? | Ghi chú |
 |---|---|---|---|
 | name | string | có | tên kho, unique giữa các kho chưa xoá (check ở service, không có index DB) |
-| code | string | có | mã kho nghiệp vụ, vd `WH-HN-01`. UNIQUE ở DB, tự `trim().toUpperCase()` |
+| code | string | server sinh | mã kho `{WAREHOUSE prefix}-{warehouseNo:3}`, vd `WH-001`, sinh lúc tạo, không sửa được. UNIQUE ở DB. Kho có trước migration `1783728000052` giữ mã cũ nhập tay |
+| warehouseNo | number | server sinh | số kho 1-999 = MAX + 1 (tính cả xoá mềm), không đổi; 3 chữ số kho trong mã vạch EAN-13. UNIQUE. Kho cũ backfill theo thứ tự tạo |
 | address | string | có | địa chỉ kho |
 | phonenumber | string | không | số liên hệ của kho, cho phép cả số cố định (`/^0\d{8,10}$/`) |
 | description | string | không | ghi chú tự do |
@@ -22,10 +23,9 @@ Entity kế thừa **`Base`** (bỏ `VersionedBase` từ migration `178372800002
 
 ## Quy tắc nghiệp vụ
 
-- `code` unique giữa các kho **chưa xoá mềm**. Nếu `code` đang bị 1 kho đã xoá mềm giữ chỗ ⇒ trả lỗi riêng `WAREHOUSE_CODE_RESERVED_BY_DELETED_WAREHOUSE` (chặn ở service để MySQL không ném `ER_DUP_ENTRY` thành 500).
+- `code`/`warehouseNo` sinh trong transaction tạo kho (`CodeGenerateService.generateWarehouseCode`, khoá dòng `WAREHOUSE` của `code_rule_tbl` để 2 request đồng thời không lấy trùng số). Mã sinh ra vẫn được check trùng với mã nhập tay của kho cũ: trùng kho sống ⇒ `WAREHOUSE_CODE_DOES_EXIST`, trùng kho xoá mềm ⇒ `WAREHOUSE_CODE_RESERVED_BY_DELETED_WAREHOUSE`.
 - `name` unique giữa các kho chưa xoá mềm.
-- `code` được chuẩn hoá `trim().toUpperCase()` trong mapper ⇒ `wh-hn-01` và `WH-HN-01` là **trùng nhau**.
-- Khi update, chỉ check lại trùng `code`/`name` nếu giá trị thực sự đổi.
+- Khi update, chỉ check lại trùng `name` nếu giá trị thực sự đổi. `code`/`warehouseNo` không có trong body.
 - **Phân công quản lý**: user được gán phải (1) tồn tại và chưa xoá mềm, (2) `isActive === true`, (3) `role.name === 'MANAGER'`. Gán `SUPERVISOR` làm quản lý kho sẽ tạo ra người không có quyền `IMPORT_FORM_CONFIRM`/`EXPORT_FORM_CONFIRM`/`BALANCE_FORM_APPROVE`/`WAREHOUSE_PAYMENT_APPROVE` của chính kho mình quản lý — đây là ràng buộc toàn vẹn dữ liệu, không phải phân quyền người gọi.
 - **1 user được phụ trách nhiều kho** — cố ý cho phép (tổ chức nhỏ 1 quản lý 2 điểm). Siết lại sau cần migration; nới ra thì miễn phí.
 - Gửi `managerSlug: null` để **gỡ phân công**; không tra user, không lỗi.
