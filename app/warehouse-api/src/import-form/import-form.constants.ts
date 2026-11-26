@@ -19,8 +19,17 @@ export const IMPORT_FORM_DATE_REGEX = /^\d{4}-\d{2}-\d{2}$/;
 /** Số chữ số thập phân của cột tiền (`total_column`, `unit_price_column`, `amount_column`) — DECIMAL(18,2). */
 export const IMPORT_FORM_MONEY_SCALE = 2;
 
-/** Số dòng vật tư tối đa trong 1 phiếu. */
-export const IMPORT_FORM_ITEMS_MAX = 200;
+/**
+ * Số dòng tối đa trong 1 phiếu. 1 dòng = 1 đơn vị hàng có mã riêng (`ImportFormItem.code`), nên trần
+ * này là số đơn vị hàng của phiếu, không phải số loại vật tư.
+ */
+export const IMPORT_FORM_ITEMS_MAX = 1000;
+
+/** Số đơn vị tối đa của 1 lần `POST .../items` (nhập tay `quantity` = N ⇒ N dòng, N mã). */
+export const IMPORT_FORM_ADD_QUANTITY_MAX = 500;
+
+/** Độ dài cột mã đơn vị hàng (`import_form_item_tbl.code_column`, `material_batch_tbl.code_column`). */
+export const ITEM_CODE_MAX_LENGTH = 64;
 
 export const IMPORT_FORM_REFERENCE_MAX_LENGTH = 64;
 export const IMPORT_FORM_FILE_MAX_LENGTH = 1024;

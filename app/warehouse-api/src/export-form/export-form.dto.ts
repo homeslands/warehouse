@@ -267,6 +267,9 @@ export class ExportFormItemResponseDto extends BaseResponseDto {
   })
   batchSlug?: string | null;
 
+  @ApiPropertyOptional({ description: 'Item code of the batch (null if no batch / legacy batch)' })
+  batchCode?: string | null;
+
   @ApiPropertyOptional({ description: 'Expiry date of the batch (null if none / no batch)' })
   batchExpiryDate?: string | null;
 

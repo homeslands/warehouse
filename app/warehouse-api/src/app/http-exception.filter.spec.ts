@@ -2,11 +2,13 @@ import { ArgumentsHost, BadRequestException, HttpStatus, ValidationPipe } from '
 import { HttpExceptionFilter } from './http-exception.filter';
 import { AppValidation } from './app.validation';
 import {
-  CreateImportFormRequestDto,
   GetAllImportFormRequestDto,
   UpdateImportFormRequestDto,
 } from 'src/import-form/import-form.dto';
-import { ChangeExportFormStatusRequestDto } from 'src/export-form/export-form.dto';
+import {
+  ChangeExportFormStatusRequestDto,
+  CreateExportFormRequestDto,
+} from 'src/export-form/export-form.dto';
 import { BaseQueryDto, MAX_PAGE_SIZE } from './base.dto';
 import { AppException } from './app.exception';
 import { AppCommonValidation } from './app-common.validation';
@@ -42,28 +44,29 @@ describe('HttpExceptionFilter', () => {
   });
 
   // `ValidationPipe` mặc định trả `items.0.KEY` cho DTO lồng nhau — filter phải bỏ tiền tố đường dẫn.
+  // (Phiếu xuất: phiếu nhập không còn nhận `items` lồng trong body.)
   it('maps a nested DTO error from the default ValidationPipe', async () => {
     const pipe = new ValidationPipe({ transform: true, whitelist: true });
     const body = {
-      code: 'PN-1',
-      invoiceCode: 'HD-1',
-      date: '2026-10-12',
+      type: 'SALE',
+      purchaseOrder: 'PO-1',
+      receiver: 'R',
       items: [{ materialSlug: 'm', unitSlug: 'u', quantity: -1, unitPrice: 1 }],
     };
 
     const error = await pipe
-      .transform(body, { type: 'body', metatype: CreateImportFormRequestDto })
+      .transform(body, { type: 'body', metatype: CreateExportFormRequestDto })
       .catch((e: BadRequestException) => e);
 
     expect((error as BadRequestException).getResponse()).toMatchObject({
-      message: ['items.0.IMPORT_FORM_ITEM_QUANTITY_INVALID'],
+      message: ['items.0.EXPORT_FORM_ITEM_QUANTITY_INVALID'],
     });
 
     const { status, body: response } = run(error as BadRequestException);
     expect(status).toHaveBeenCalledWith(HttpStatus.UNPROCESSABLE_ENTITY);
     expect(response).toMatchObject({
-      code: AppValidation.IMPORT_FORM_ITEM_QUANTITY_INVALID.code,
-      message: AppValidation.IMPORT_FORM_ITEM_QUANTITY_INVALID.message,
+      code: AppValidation.EXPORT_FORM_ITEM_QUANTITY_INVALID.code,
+      message: AppValidation.EXPORT_FORM_ITEM_QUANTITY_INVALID.message,
     });
   });
 
