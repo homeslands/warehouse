@@ -24,6 +24,8 @@ import {
 import { CustomFileInterceptor } from 'src/file/custom-interceptor';
 import { IMPORT_FORM_UPLOAD_MAX_SIZE } from './import-form.constants';
 import {
+  AddImportFormItemRequestDto,
+  AddImportFormItemResponseDto,
   ChangeImportFormStatusRequestDto,
   CreateImportFormRequestDto,
   GetAllImportFormRequestDto,
@@ -58,7 +60,10 @@ export class ImportFormController {
   @Post()
   @RequireAuthority(AuthorityCode.ImportFormCreate)
   @HttpCode(HttpStatus.CREATED)
-  @ApiOperation({ summary: 'Create a DRAFT import form in this warehouse' })
+  @ApiOperation({
+    summary: 'Create an empty DRAFT import form in this warehouse',
+    description: 'Add goods afterwards with POST .../import-forms/{slug}/items',
+  })
   @ApiResponseWithType({
     status: HttpStatus.CREATED,
     description: 'Created',
@@ -216,6 +221,78 @@ export class ImportFormController {
     );
     return {
       message: 'Import form has been updated successfully',
+      statusCode: HttpStatus.OK,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<ImportFormResponseDto>;
+  }
+
+  // Không gắn `@RequireAuthority`: quyền như sửa nháp (bản đầy đủ HOẶC `_OWN`), service tự check.
+  @Post(':slug/items')
+  @HttpCode(HttpStatus.CREATED)
+  @ApiOperation({
+    summary: 'Add goods to a DRAFT import form (scan a barcode or pick a material)',
+    description:
+      'Each unit becomes 1 line with its own generated code (quantity N => N lines). No version ' +
+      'needed; the form version is bumped. Requires IMPORT_FORM_UPDATE_DRAFT, or ' +
+      'IMPORT_FORM_UPDATE_DRAFT_OWN for own forms',
+  })
+  @ApiResponseWithType({
+    status: HttpStatus.CREATED,
+    description: 'Added',
+    type: AddImportFormItemResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  async addItems(
+    @Param('warehouseSlug') warehouseSlug: string,
+    @Param('slug') slug: string,
+    @Body(new ValidationPipe({ transform: true, whitelist: true }))
+    requestData: AddImportFormItemRequestDto,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    const result = await this.importFormService.addItems(
+      warehouseSlug,
+      slug,
+      requestData,
+      currentUser,
+    );
+    return {
+      message: 'Items have been added successfully',
+      statusCode: HttpStatus.CREATED,
+      timestamp: new Date().toISOString(),
+      result,
+    } as AppResponseDto<AddImportFormItemResponseDto>;
+  }
+
+  @Delete(':slug/items/:itemSlug')
+  @HttpCode(HttpStatus.OK)
+  @ApiOperation({
+    summary: 'Remove 1 line (1 unit of goods) from a DRAFT import form',
+    description:
+      'Its code is never reissued. Requires IMPORT_FORM_UPDATE_DRAFT, or ' +
+      'IMPORT_FORM_UPDATE_DRAFT_OWN for own forms',
+  })
+  @ApiResponseWithType({
+    status: HttpStatus.OK,
+    description: 'Removed',
+    type: ImportFormResponseDto,
+  })
+  @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
+  @ApiParam({ name: 'itemSlug', required: true, example: 'k2p9qabx7f' })
+  async removeItem(
+    @Param('warehouseSlug') warehouseSlug: string,
+    @Param('slug') slug: string,
+    @Param('itemSlug') itemSlug: string,
+    @CurrentUser() currentUser: CurrentUserDto,
+  ) {
+    const result = await this.importFormService.removeItem(
+      warehouseSlug,
+      slug,
+      itemSlug,
+      currentUser,
+    );
+    return {
+      message: 'Item has been removed successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,

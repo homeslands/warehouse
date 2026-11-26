@@ -1,30 +1,26 @@
 import {
-  ArrayMaxSize,
-  ArrayNotEmpty,
-  IsArray,
   IsEnum,
   IsInt,
   IsISO8601,
   IsNotEmpty,
   IsOptional,
-  IsPositive,
   IsString,
   Matches,
+  Max,
   MaxLength,
   Min,
-  ValidateNested,
 } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto, VersionedResponseDto } from 'src/app/base.dto';
 import { IsDecimalWithScale } from 'src/shared/utils/decimal.validator';
-import { QUANTITY_SCALE } from 'src/shared/utils/decimal.transformer';
 import { SEARCH_CODE_REGEX } from 'src/shared/utils/query.util';
+import { MATERIAL_BARCODE_REGEX } from 'src/material/material.dto';
 import {
+  IMPORT_FORM_ADD_QUANTITY_MAX,
   IMPORT_FORM_DATE_REGEX,
   IMPORT_FORM_FILE_MAX_LENGTH,
-  IMPORT_FORM_ITEMS_MAX,
   IMPORT_FORM_MONEY_SCALE,
   IMPORT_FORM_REFERENCE_MAX_LENGTH,
   ImportFormStatus,
@@ -35,34 +31,62 @@ const upper = ({ value }: { value: unknown }) =>
   typeof value === 'string' ? value.trim().toUpperCase() : value;
 
 /**
- * 1 dòng vật tư trong body. Chỉ nhận slug + số lượng + đơn giá: tỉ lệ quy đổi, mã/tên vật tư/đơn vị,
- * `baseQuantity` và `amount` đều do server tính/chép — không tin client.
+ * Thêm hàng vào phiếu nháp (`POST .../import-forms/:slug/items`). Vật tư chỉ ra bằng ĐÚNG 1 trong 2:
+ * `barcode` (quét) hoặc `materialSlug` (chọn tay). Mỗi đơn vị (`quantity` = số đơn vị, nguyên) thành
+ * 1 dòng mang 1 mã riêng. Tỉ lệ quy đổi, mã/tên vật tư/đơn vị, `baseQuantity` và `amount` đều do
+ * server tính/chép — không tin client.
  */
-export class CreateImportFormItemDto {
-  @ApiProperty({ description: 'Slug of the material', example: 'x7fk2p9qab' })
+export class AddImportFormItemRequestDto {
+  @ApiPropertyOptional({
+    description: 'Barcode of the material (scan). Send exactly one of barcode / materialSlug',
+    example: '2000100000019',
+  })
+  @IsOptional()
   @Transform(trim)
-  @IsNotEmpty({ message: 'IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED' })
-  materialSlug: string;
+  @Matches(MATERIAL_BARCODE_REGEX, { message: 'IMPORT_FORM_ITEM_BARCODE_INVALID' })
+  barcode?: string;
 
-  @ApiProperty({
-    description: 'Slug of the unit; must be attached to the material (base or conversion unit)',
+  @ApiPropertyOptional({
+    description: 'Slug of the material (manual entry). Send exactly one of barcode / materialSlug',
+    example: 'x7fk2p9qab',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString({ message: 'IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED' })
+  @IsNotEmpty({ message: 'IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED' })
+  materialSlug?: string;
+
+  @ApiPropertyOptional({
+    description:
+      'Slug of the unit; must be attached to the material (base or conversion unit). Omitted: ' +
+      'the base unit of the material',
     example: 'k2p9qabx7f',
   })
+  @IsOptional()
   @Transform(trim)
+  @IsString({ message: 'IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED' })
   @IsNotEmpty({ message: 'IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED' })
-  unitSlug: string;
+  unitSlug?: string;
 
-  @ApiProperty({ description: 'Quantity in the given unit (> 0)', example: 10.5 })
-  @IsPositive({ message: 'IMPORT_FORM_ITEM_QUANTITY_INVALID' })
-  @IsDecimalWithScale(QUANTITY_SCALE, { message: 'IMPORT_FORM_ITEM_QUANTITY_INVALID' })
-  quantity: number;
+  @ApiPropertyOptional({
+    description:
+      'Number of units to add (integer). Each unit becomes 1 line with its own code. A scan sends 1',
+    default: 1,
+    minimum: 1,
+    maximum: IMPORT_FORM_ADD_QUANTITY_MAX,
+  })
+  @IsOptional()
+  @IsInt({ message: 'IMPORT_FORM_ITEM_QUANTITY_INVALID' })
+  @Min(1, { message: 'IMPORT_FORM_ITEM_QUANTITY_INVALID' })
+  @Max(IMPORT_FORM_ADD_QUANTITY_MAX, { message: 'IMPORT_FORM_ITEM_QUANTITY_INVALID' })
+  quantity?: number = 1;
 
   @ApiProperty({ description: 'Price of 1 unit (in the given unit)', example: 150000, minimum: 0 })
   @Min(0, { message: 'IMPORT_FORM_ITEM_UNIT_PRICE_INVALID' })
   @IsDecimalWithScale(IMPORT_FORM_MONEY_SCALE, { message: 'IMPORT_FORM_ITEM_UNIT_PRICE_INVALID' })
   unitPrice: number;
 
-  @ApiPropertyOptional({ description: 'Free-text note for this line' })
+  @ApiPropertyOptional({ description: 'Free-text note, copied to every line added' })
   @IsOptional()
   @Transform(trim)
   @IsString({ message: 'IMPORT_FORM_ITEM_NOTE_INVALID' })
@@ -70,8 +94,8 @@ export class CreateImportFormItemDto {
 
   @ApiPropertyOptional({
     description:
-      'Slug of the supplier of this line. A supplier not yet attached to the material is attached ' +
-      'automatically (same transaction as the form); an unknown slug is rejected. Omitted: the ' +
+      'Slug of the supplier of these lines. A supplier not yet attached to the material is ' +
+      'attached automatically (same transaction); an unknown slug is rejected. Omitted: the ' +
       'only supplier of the material is used, or none when the material has 0 or several',
     example: 'sup-slug-1',
   })
@@ -82,8 +106,8 @@ export class CreateImportFormItemDto {
 
   @ApiPropertyOptional({
     description:
-      'Expiry date of the goods on this line (YYYY-MM-DD), not before the form date. Copied to ' +
-      'the material batch created when the form is confirmed',
+      'Expiry date of the goods (YYYY-MM-DD), not before the form date. Copied to the material ' +
+      'batch created when the form is confirmed',
     example: '2027-10-12',
   })
   @IsOptional()
@@ -100,7 +124,8 @@ export class CreateImportFormItemDto {
  * Kho lấy từ route (`/warehouses/:warehouseSlug/import-forms`), người lập lấy từ JWT, người duyệt
  * gán lúc xác nhận/huỷ, trạng thái luôn bắt đầu `DRAFT` — nên không field nào trong 4 thứ đó nằm
  * trong body. Phiếu nhập không gắn nhà cung cấp.
- * `total` cũng không nằm trong body: server tính = Σ `amount` của `items`.
+ * Tạo phiếu nháp RỖNG: hàng thêm sau qua `POST .../import-forms/:slug/items` (mỗi đơn vị 1 mã).
+ * `total` không nằm trong body: server tính = Σ `amount` của các dòng.
  */
 export class CreateImportFormRequestDto {
   @AutoMap()
@@ -143,21 +168,12 @@ export class CreateImportFormRequestDto {
   @IsOptional()
   @Transform(trim)
   note?: string;
-
-  // Cố ý KHÔNG `@AutoMap()`: service resolve vật tư/đơn vị rồi tự dựng `ImportFormItem`.
-  @ApiProperty({ type: [CreateImportFormItemDto], description: 'Material lines (at least 1)' })
-  @IsArray({ message: 'IMPORT_FORM_ITEMS_IS_REQUIRED' })
-  @ArrayNotEmpty({ message: 'IMPORT_FORM_ITEMS_IS_REQUIRED' })
-  @ArrayMaxSize(IMPORT_FORM_ITEMS_MAX, { message: 'IMPORT_FORM_ITEMS_TOO_MANY' })
-  @ValidateNested({ each: true })
-  @Type(() => CreateImportFormItemDto)
-  items: CreateImportFormItemDto[];
 }
 
 /**
- * PATCH partial (chỉ khi phiếu còn `DRAFT`). Gửi `items` là THAY TOÀN BỘ dòng của phiếu (vẫn phải
- * có ít nhất 1 dòng) và tính lại `total`; không gửi thì giữ nguyên dòng cũ. `version` bắt buộc — optimistic lock của
- * `VersionedBase`, xem `UpdateExampleRequestDto`.
+ * PATCH partial phần đầu phiếu (chỉ khi phiếu còn `DRAFT`) — dòng KHÔNG sửa qua đây mà qua
+ * `POST`/`DELETE .../items`. `version` bắt buộc — optimistic lock của `VersionedBase`, xem
+ * `UpdateExampleRequestDto`.
  */
 export class UpdateImportFormRequestDto extends PartialType(CreateImportFormRequestDto) {
   @ApiProperty({
@@ -331,8 +347,15 @@ export class ImportFormAvailableMaterialResponseDto {
 
 export class ImportFormItemResponseDto extends BaseResponseDto {
   @AutoMap()
-  @ApiProperty({ description: 'Line number, in the order the items were sent (1-based)' })
+  @ApiProperty({ description: 'Line number, in the order the lines were added (1-based)' })
   lineNo: number;
+
+  @AutoMap()
+  @ApiPropertyOptional({
+    description: 'Code of this unit of goods (null on lines written before item codes existed)',
+    example: 'IT-WH-001-261126-000001',
+  })
+  code?: string | null;
 
   @ApiProperty()
   materialSlug: string;
@@ -379,7 +402,7 @@ export class ImportFormItemResponseDto extends BaseResponseDto {
   unitName: string;
 
   @AutoMap()
-  @ApiProperty({ description: 'Quantity in the given unit' })
+  @ApiProperty({ description: 'Quantity in the given unit (1 on lines that carry a code)' })
   quantity: number;
 
   @AutoMap()
@@ -459,7 +482,63 @@ export class ImportFormResponseDto extends VersionedResponseDto {
 
   @ApiPropertyOptional({
     type: () => [ImportFormItemResponseDto],
-    description: 'Material lines. Omitted in the list endpoint.',
+    description: 'Lines, 1 per unit of goods, ordered by lineNo. Omitted in the list endpoint.',
   })
   items?: ImportFormItemResponseDto[];
+
+  @ApiPropertyOptional({
+    type: () => [ImportFormItemGroupResponseDto],
+    description:
+      'items grouped by (material, unit, unit price), in order of first appearance. Omitted in ' +
+      'the list endpoint.',
+  })
+  groups?: ImportFormItemGroupResponseDto[];
+}
+
+/** Các dòng cùng (vật tư, đơn vị, đơn giá) gộp lại để hiển thị bảng phiếu. */
+export class ImportFormItemGroupResponseDto {
+  @ApiProperty()
+  materialSlug: string;
+
+  @ApiProperty()
+  materialCode: string;
+
+  @ApiProperty()
+  materialName: string;
+
+  @ApiProperty()
+  unitSlug: string;
+
+  @ApiProperty()
+  unitCode: string;
+
+  @ApiProperty()
+  unitName: string;
+
+  @ApiProperty()
+  unitPrice: number;
+
+  @ApiProperty({ description: 'Σ quantity of the lines, in the given unit' })
+  quantity: number;
+
+  @ApiProperty({ description: 'Σ baseQuantity of the lines, in the material base unit' })
+  baseQuantity: number;
+
+  @ApiProperty({ description: 'Σ amount of the lines' })
+  amount: number;
+
+  @ApiProperty({ type: [String], description: 'Codes of the lines (null codes are skipped)' })
+  codes: string[];
+}
+
+export class AddImportFormItemResponseDto {
+  @ApiProperty({
+    type: [String],
+    description: 'Codes generated by this request, 1 per unit added',
+    example: ['IT-WH-001-261126-000001'],
+  })
+  codes: string[];
+
+  @ApiProperty({ type: ImportFormResponseDto, description: 'The form after the change' })
+  form: ImportFormResponseDto;
 }

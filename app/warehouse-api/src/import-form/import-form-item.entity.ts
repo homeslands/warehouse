@@ -1,14 +1,18 @@
-import { Column, Entity, JoinColumn, ManyToOne, OneToMany, Unique } from 'typeorm';
+import { Column, Entity, Index, JoinColumn, ManyToOne, OneToMany } from 'typeorm';
 import { AutoMap } from '@automapper/classes';
 import { Base } from 'src/app/base.entity';
 import { Material } from 'src/material/material.entity';
 import { Unit } from 'src/unit/unit.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 import { ImportForm } from './import-form.entity';
+import { ITEM_CODE_MAX_LENGTH } from './import-form.constants';
 import { MaterialBatch } from 'src/material-batch/material-batch.entity';
 
 /**
- * 1 dòng vật tư của phiếu nhập. Chỉ ghi qua API của phiếu cha, không có API riêng.
+ * 1 dòng của phiếu nhập = 1 ĐƠN VỊ hàng (theo `unit` của dòng, `quantity` luôn = 1) mang 1 mã riêng
+ * `code` (`CodeType.Item`), sinh ngay lúc thêm vào phiếu nháp (`POST .../import-forms/:slug/items`):
+ * quét 1 lần = 1 dòng, nhập tay `quantity` = N ⇒ N dòng. Xác nhận phiếu chép `code` sang lô sinh từ
+ * dòng (1 dòng ⇒ 1 lô). Dòng ghi trước khi có luồng này giữ `quantity` cũ và `code` = NULL.
  *
  * Mọi thứ đọc được từ danh mục đều được **snapshot** lúc ghi: `conversionRate` (tỉ lệ trên
  * `MaterialUnit` sửa được bất cứ lúc nào — join sang nó lúc đọc là viết lại quá khứ, xem CLAUDE.md),
@@ -16,12 +20,11 @@ import { MaterialBatch } from 'src/material-batch/material-batch.entity';
  * cấp ở đầu phiếu; vật tư đổi/gỡ nhà cung cấp sau đó không viết lại dòng cũ). `baseQuantity` = `quantity × conversionRate` là lượng sẽ cộng vào tồn
  * (tồn luôn tính theo đơn vị cơ sở). `amount` = `quantity × unitPrice` do server tính.
  *
- * Ghi tường minh trong transaction của `ImportFormService` (tạo phiếu / PATCH thay dòng), không qua
- * cascade. PATCH gửi `items` = xoá cứng toàn bộ dòng cũ rồi ghi dòng mới, cùng transaction với
- * phần đầu phiếu.
+ * Ghi tường minh trong transaction của `ImportFormService` (thêm/gỡ dòng, khoá đầu phiếu), không qua
+ * cascade. Không có UNIQUE (phiếu, vật tư, đơn vị) — cùng vật tư/đơn vị lặp lại 1 dòng mỗi đơn vị.
  */
 @Entity('import_form_item_tbl')
-@Unique('UQ_import_form_item', ['importForm', 'material', 'unit'])
+@Index('IDX_import_form_item_form_line', ['importForm', 'lineNo'])
 export class ImportFormItem extends Base {
   @ManyToOne(() => ImportForm, (form) => form.items, {
     nullable: false,
@@ -30,10 +33,21 @@ export class ImportFormItem extends Base {
   @JoinColumn({ name: 'import_form_id_column' })
   importForm: ImportForm;
 
-  /** Thứ tự dòng theo đúng mảng `items` client gửi (1, 2, ...) — để đọc ra đúng thứ tự đã nhập. */
+  /** Thứ tự thêm vào phiếu (1, 2, ...), tăng dần, không đánh lại khi gỡ dòng. */
   @AutoMap()
   @Column({ name: 'line_no_column', type: 'int' })
   lineNo: number;
+
+  /** Mã đơn vị hàng, duy nhất toàn hệ thống. NULL chỉ ở dòng cũ ghi trước khi có mã. */
+  @AutoMap()
+  @Column({
+    name: 'code_column',
+    type: 'varchar',
+    length: ITEM_CODE_MAX_LENGTH,
+    nullable: true,
+    unique: true,
+  })
+  code?: string | null;
 
   @ManyToOne(() => Material, { nullable: false })
   @JoinColumn({ name: 'material_id_column' })

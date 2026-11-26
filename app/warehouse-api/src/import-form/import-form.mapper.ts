@@ -3,6 +3,7 @@ import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core'
 import { Injectable } from '@nestjs/common';
 import {
   CreateImportFormRequestDto,
+  ImportFormItemGroupResponseDto,
   ImportFormItemResponseDto,
   ImportFormResponseDto,
   UpdateImportFormRequestDto,
@@ -11,6 +12,41 @@ import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { versionedMapper } from 'src/app/versioned.mapper';
+import { roundToScale } from 'src/shared/utils/decimal.transformer';
+import { roundMoney } from 'src/shared/utils/decimal.util';
+
+/**
+ * Gộp dòng (1 dòng = 1 đơn vị hàng) theo (vật tư, đơn vị, đơn giá) cho bảng phiếu — giữ thứ tự lần
+ * xuất hiện đầu tiên. `items` phải đã xếp theo `lineNo`.
+ */
+export const groupImportFormItems = (items: ImportFormItem[]): ImportFormItemGroupResponseDto[] => {
+  const groups = new Map<string, ImportFormItemGroupResponseDto>();
+  for (const item of items) {
+    const key = `${item.material?.id}|${item.unit?.id}|${item.unitPrice}`;
+    let group = groups.get(key);
+    if (!group) {
+      group = {
+        materialSlug: item.material?.slug,
+        materialCode: item.materialCode,
+        materialName: item.materialName,
+        unitSlug: item.unit?.slug,
+        unitCode: item.unitCode,
+        unitName: item.unitName,
+        unitPrice: item.unitPrice,
+        quantity: 0,
+        baseQuantity: 0,
+        amount: 0,
+        codes: [],
+      };
+      groups.set(key, group);
+    }
+    group.quantity = roundToScale(group.quantity + item.quantity);
+    group.baseQuantity = roundToScale(group.baseQuantity + item.baseQuantity);
+    group.amount = roundMoney(group.amount + item.amount);
+    if (item.code) group.codes.push(item.code);
+  }
+  return [...groups.values()];
+};
 
 /**
  * Dùng chung cho cả 2 map Create/Update -> Entity. Automapper KHÔNG kế thừa map của DTO cha, nên
@@ -18,8 +54,8 @@ import { versionedMapper } from 'src/app/versioned.mapper';
  * là PATCH âm thầm bỏ qua field đó. Mọi `mapFrom` dùng `?.` ⇒ field vắng mặt ra `undefined` và bị
  * `pickDefined` lọc ở service.
  *
- * `items` cố tình KHÔNG map: service resolve vật tư/đơn vị (kèm nhà cung cấp của vật tư) rồi tự dựng
- * snapshot + dòng phiếu. `total` không có trong body — service tính từ `items`.
+ * Body không có dòng: dòng thêm/gỡ qua `POST`/`DELETE .../items`. `total` không có trong body —
+ * service tính từ các dòng.
  */
 const normalizeImportForm = <T extends Partial<CreateImportFormRequestDto>>() =>
   [
@@ -93,6 +129,10 @@ export class ImportFormProfile extends AutomapperProfile {
               ? mapper.mapArray(s.items, ImportFormItem, ImportFormItemResponseDto)
               : undefined,
           ),
+        ),
+        forMember(
+          (d) => d.groups,
+          mapFrom((s) => (s.items ? groupImportFormItems(s.items) : undefined)),
         ),
         versionedMapper(),
       );

@@ -18,6 +18,15 @@ export enum MaterialBatchSortBy {
 }
 
 export class GetAllMaterialBatchRequestDto extends BaseQueryDto {
+  @ApiPropertyOptional({
+    description: 'Filter by the item code of the batch (exact match, e.g. a scanned label)',
+    example: 'IT-WH-001-261126-000001',
+  })
+  @IsOptional()
+  @Transform(trim)
+  @IsString()
+  code?: string;
+
   @ApiPropertyOptional({ description: 'Filter by the slug of the material (exact match)' })
   @IsOptional()
   @Transform(trim)
@@ -81,6 +90,13 @@ export class MaterialBatchMaterialResponseDto {
 }
 
 export class MaterialBatchResponseDto extends BaseResponseDto {
+  @AutoMap()
+  @ApiPropertyOptional({
+    description: 'Item code copied from the import form line (null for legacy batches)',
+    example: 'IT-WH-001-261126-000001',
+  })
+  code?: string | null;
+
   @AutoMap()
   @ApiProperty({ example: '2026-10-12' })
   entryDate: string;

@@ -2,7 +2,7 @@ import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
 import {
   ChangeImportFormStatusRequestDto,
-  CreateImportFormItemDto,
+  AddImportFormItemRequestDto,
   CreateImportFormRequestDto,
   GetAllImportFormRequestDto,
   GetImportFormAvailableMaterialRequestDto,
@@ -18,7 +18,6 @@ describe('CreateImportFormRequestDto', () => {
   const valid = {
     invoiceCode: 'HD-1',
     date: '2026-10-12',
-    items: [{ materialSlug: 'mat-1', unitSlug: 'unit-1', quantity: 10, unitPrice: 1500.5 }],
   };
 
   it('accepts a minimal valid body (purchaseOrder/file/note optional)', () => {
@@ -42,7 +41,6 @@ describe('CreateImportFormRequestDto', () => {
   it.each([
     ['invoiceCode', 'IMPORT_FORM_INVOICE_CODE_IS_REQUIRED'],
     ['date', 'IMPORT_FORM_DATE_INVALID'],
-    ['items', 'IMPORT_FORM_ITEMS_IS_REQUIRED'],
   ])('requires %s', (field, message) => {
     const body: Record<string, unknown> = { ...valid };
     delete body[field];
@@ -58,38 +56,17 @@ describe('CreateImportFormRequestDto', () => {
     },
   );
 
-  it('rejects an empty items array', () => {
-    expect(messagesOf(CreateImportFormRequestDto, { ...valid, items: [] }, 'items')).toContain(
-      'IMPORT_FORM_ITEMS_IS_REQUIRED',
-    );
-  });
-
-  it('rejects more than 200 items', () => {
-    const items = Array.from({ length: 201 }, (_, i) => ({
-      ...valid.items[0],
-      unitSlug: `u-${i}`,
-    }));
-    expect(messagesOf(CreateImportFormRequestDto, { ...valid, items }, 'items')).toContain(
-      'IMPORT_FORM_ITEMS_TOO_MANY',
-    );
-  });
-
-  // `@ValidateNested` + `@Type`: lỗi của dòng nằm trong `children`, không phải `constraints` của `items`.
-  it('validates each item and turns it into a CreateImportFormItemDto', () => {
+  // Phiếu tạo rỗng — dòng thêm qua `POST .../items`, `items` gửi kèm bị `whitelist` cắt.
+  it('strips items from the body', () => {
     const dto = plainToInstance(CreateImportFormRequestDto, {
       ...valid,
-      items: [{ ...valid.items[0], quantity: 0 }],
+      items: [{ materialSlug: 'mat-1', quantity: 1, unitPrice: 1 }],
     });
-    const [error] = validateSync(dto, { whitelist: true });
-
-    expect(dto.items[0]).toBeInstanceOf(CreateImportFormItemDto);
-    expect(error.property).toBe('items');
-    expect(Object.values(error.children?.[0].children?.[0].constraints ?? {})).toContain(
-      'IMPORT_FORM_ITEM_QUANTITY_INVALID',
-    );
+    expect(validateSync(dto, { whitelist: true })).toEqual([]);
+    expect(dto).not.toHaveProperty('items');
   });
 
-  // `total` do server tính từ `items` — client gửi kèm bị `whitelist` cắt.
+  // `total` do server tính từ các dòng — client gửi kèm bị `whitelist` cắt.
   it('strips total from the body', () => {
     const dto = plainToInstance(CreateImportFormRequestDto, { ...valid, total: 1 });
     validateSync(dto, { whitelist: true });
@@ -121,32 +98,52 @@ describe('CreateImportFormRequestDto', () => {
   });
 });
 
-describe('CreateImportFormItemDto', () => {
+describe('AddImportFormItemRequestDto', () => {
   const valid = { materialSlug: 'mat-1', unitSlug: 'unit-1', quantity: 10, unitPrice: 1500.5 };
 
-  it('accepts a valid item (note optional)', () => {
-    expect(messagesOf(CreateImportFormItemDto, valid)).toEqual([]);
+  it('accepts a valid manual entry (note optional)', () => {
+    expect(messagesOf(AddImportFormItemRequestDto, valid)).toEqual([]);
   });
 
-  it.each([
-    ['materialSlug', 'IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED'],
-    ['unitSlug', 'IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED'],
-    ['quantity', 'IMPORT_FORM_ITEM_QUANTITY_INVALID'],
-    ['unitPrice', 'IMPORT_FORM_ITEM_UNIT_PRICE_INVALID'],
-  ])('requires %s', (field, message) => {
-    const body: Record<string, unknown> = { ...valid };
-    delete body[field];
-    expect(messagesOf(CreateImportFormItemDto, body, field)).toContain(message);
+  // Quét: chỉ barcode + đơn giá, đơn vị mặc định = đơn vị cơ sở, quantity mặc định 1.
+  it('accepts a scan (barcode only) and defaults quantity to 1', () => {
+    const body = { barcode: '2000100000019', unitPrice: 0 };
+    const dto = plainToInstance(AddImportFormItemRequestDto, body);
+
+    expect(messagesOf(AddImportFormItemRequestDto, body)).toEqual([]);
+    expect(dto.quantity).toBe(1);
+  });
+
+  it('requires unitPrice', () => {
+    expect(
+      messagesOf(AddImportFormItemRequestDto, { materialSlug: 'mat-1' }, 'unitPrice'),
+    ).toContain('IMPORT_FORM_ITEM_UNIT_PRICE_INVALID');
   });
 
   it.each([
     ['0', 0],
     ['negative', -1],
-    ['more than 6 decimals', 0.0000001],
+    ['not an integer', 1.5],
+    ['above 500', 501],
     ['a string', '10'],
   ])('rejects quantity %s', (_label, quantity) => {
-    expect(messagesOf(CreateImportFormItemDto, { ...valid, quantity }, 'quantity')).toContain(
+    expect(messagesOf(AddImportFormItemRequestDto, { ...valid, quantity }, 'quantity')).toContain(
       'IMPORT_FORM_ITEM_QUANTITY_INVALID',
+    );
+  });
+
+  it.each(['123', 'abc12345', '123456789012345'])('rejects barcode %s', (barcode) => {
+    expect(messagesOf(AddImportFormItemRequestDto, { barcode, unitPrice: 1 }, 'barcode')).toContain(
+      'IMPORT_FORM_ITEM_BARCODE_INVALID',
+    );
+  });
+
+  it.each([
+    ['materialSlug', 'IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED'],
+    ['unitSlug', 'IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED'],
+  ])('rejects an empty %s', (field, message) => {
+    expect(messagesOf(AddImportFormItemRequestDto, { ...valid, [field]: '  ' }, field)).toContain(
+      message,
     );
   });
 
@@ -154,15 +151,15 @@ describe('CreateImportFormItemDto', () => {
     ['negative', -1],
     ['more than 2 decimals', 1.234],
   ])('rejects unitPrice %s', (_label, unitPrice) => {
-    expect(messagesOf(CreateImportFormItemDto, { ...valid, unitPrice }, 'unitPrice')).toContain(
+    expect(messagesOf(AddImportFormItemRequestDto, { ...valid, unitPrice }, 'unitPrice')).toContain(
       'IMPORT_FORM_ITEM_UNIT_PRICE_INVALID',
     );
   });
 
   it('accepts unitPrice = 0', () => {
-    expect(messagesOf(CreateImportFormItemDto, { ...valid, unitPrice: 0 }, 'unitPrice')).toEqual(
-      [],
-    );
+    expect(
+      messagesOf(AddImportFormItemRequestDto, { ...valid, unitPrice: 0 }, 'unitPrice'),
+    ).toEqual([]);
   });
 });
 
@@ -177,11 +174,11 @@ describe('UpdateImportFormRequestDto — PATCH partial', () => {
     );
   });
 
-  // Gửi `items` là thay toàn bộ dòng ⇒ không được thay bằng mảng rỗng.
-  it('rejects items: [] when items is sent', () => {
-    expect(messagesOf(UpdateImportFormRequestDto, { version: 1, items: [] }, 'items')).toContain(
-      'IMPORT_FORM_ITEMS_IS_REQUIRED',
-    );
+  // Dòng không sửa qua PATCH — `items` gửi kèm bị `whitelist` cắt.
+  it('strips items from the body', () => {
+    const dto = plainToInstance(UpdateImportFormRequestDto, { version: 1, items: [] });
+    validateSync(dto, { whitelist: true });
+    expect(dto).not.toHaveProperty('items');
   });
 });
 
@@ -238,20 +235,22 @@ describe('GetAllImportFormRequestDto.status', () => {
   });
 });
 
-describe('CreateImportFormItemDto.expiryDate', () => {
+describe('AddImportFormItemRequestDto.expiryDate', () => {
   const line = { materialSlug: 'mat-1', unitSlug: 'unit-1', quantity: 1, unitPrice: 1 };
 
   it('is optional', () => {
-    expect(messagesOf(CreateImportFormItemDto, line)).toEqual([]);
+    expect(messagesOf(AddImportFormItemRequestDto, line)).toEqual([]);
   });
 
   it('accepts YYYY-MM-DD', () => {
-    expect(messagesOf(CreateImportFormItemDto, { ...line, expiryDate: '2027-02-28' })).toEqual([]);
+    expect(messagesOf(AddImportFormItemRequestDto, { ...line, expiryDate: '2027-02-28' })).toEqual(
+      [],
+    );
   });
 
   it.each(['2027-02-30', '28/02/2027', '2027-02-28T00:00:00Z'])('rejects %s', (expiryDate) => {
-    expect(messagesOf(CreateImportFormItemDto, { ...line, expiryDate }, 'expiryDate')).toContain(
-      'IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID',
-    );
+    expect(
+      messagesOf(AddImportFormItemRequestDto, { ...line, expiryDate }, 'expiryDate'),
+    ).toContain('IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID');
   });
 });
