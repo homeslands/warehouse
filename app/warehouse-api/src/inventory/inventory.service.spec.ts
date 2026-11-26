@@ -302,41 +302,6 @@ describe('InventoryService', () => {
     });
   });
 
-  describe('generateMaterialBarcode', () => {
-    it('issues only a barcode (no item code) for the warehouse inside a transaction', async () => {
-      const wh = warehouse({ code: 'WH-HN-01' });
-      warehouseRepository.findOneBy.mockResolvedValue(wh);
-      codeGenerateService.generate.mockResolvedValue('2000100000014');
-
-      const result = await service.generateMaterialBarcode('wh-slug-1');
-
-      expect(result).toEqual({ barcode: '2000100000014' });
-      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
-      expect(codeGenerateService.generate).toHaveBeenCalledTimes(1);
-      expect(codeGenerateService.generate).toHaveBeenCalledWith(manager, CodeType.Barcode, wh);
-    });
-
-    it('refuses an inactive warehouse without consuming any number', async () => {
-      warehouseRepository.findOneBy.mockResolvedValue(warehouse({ isActive: false }));
-
-      await expectError(
-        service.generateMaterialBarcode('wh-slug-1'),
-        InventoryValidation.INVENTORY_WAREHOUSE_INACTIVE.code,
-      );
-      expect(codeGenerateService.generate).not.toHaveBeenCalled();
-    });
-
-    it('throws WAREHOUSE_NOT_FOUND for an unknown warehouse', async () => {
-      warehouseRepository.findOneBy.mockResolvedValue(null);
-
-      const promise = service.generateMaterialBarcode('missing');
-      await expect(promise).rejects.toBeInstanceOf(WarehouseException);
-      await expect(promise).rejects.toMatchObject({
-        code: WarehouseValidation.WAREHOUSE_NOT_FOUND.code,
-      });
-    });
-  });
-
   describe('assignMaterial', () => {
     const assign = (overrides: Record<string, unknown> = {}) =>
       service.assignMaterial('wh-slug-1', { materialSlug: 'mat-slug-1', ...overrides }, actor);

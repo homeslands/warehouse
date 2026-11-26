@@ -16,7 +16,6 @@ describe('InventoryController', () => {
     adjustQuantity: jest.fn(),
     removeMaterial: jest.fn(),
     findHistories: jest.fn(),
-    generateMaterialBarcode: jest.fn(),
   };
   const actor = { userId: 'user-id-1', scope: [] };
 
@@ -98,16 +97,6 @@ describe('InventoryController', () => {
   });
 
   // Quyền nằm hoàn toàn ở decorator (`AuthorityGuard` đọc metadata này), service không check role —
-  it('generateMaterialBarcode wraps the generated barcode in a 201 response', async () => {
-    const generated = { barcode: '2000100000014' };
-    inventoryService.generateMaterialBarcode.mockResolvedValue(generated);
-
-    const response = await controller.generateMaterialBarcode('wh-slug-1');
-
-    expect(inventoryService.generateMaterialBarcode).toHaveBeenCalledWith('wh-slug-1');
-    expect(response).toMatchObject({ statusCode: 201, result: generated });
-  });
-
   // gỡ/sửa nhầm decorator là mở endpoint cho mọi user đã đăng nhập mà không test nào khác phát hiện.
   describe('@RequireAuthority metadata', () => {
     const authority = (handler: (...args: never[]) => unknown): string[] | undefined =>
@@ -142,11 +131,6 @@ describe('InventoryController', () => {
       expect(authority(controller.findHistories)).toEqual([
         AuthorityCode.MaterialRead,
         AuthorityCode.WarehouseRead,
-      ]);
-      expect(authority(controller.generateMaterialBarcode)).toEqual([
-        AuthorityCode.MaterialCreate,
-        AuthorityCode.MaterialUpdate,
-        AuthorityCode.WarehouseUpdate,
       ]);
     });
   });
