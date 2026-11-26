@@ -5,6 +5,7 @@ import {
   IsNotEmpty,
   IsOptional,
   IsString,
+  Matches,
   Max,
   Min,
   validateSync,
@@ -102,6 +103,12 @@ export class EnvironmentVariables {
   @IsString()
   @IsNotEmpty()
   ALLOWED_ORIGINS: string;
+
+  // Tiền tố EAN-13 của mã vạch tự sinh (`CodeGenerateService`). Không khai thì dùng `20`. Đúng 2
+  // chữ số — sai format thì fail lúc boot thay vì sinh mã vạch hỏng.
+  @IsOptional()
+  @Matches(/^\d{2}$/, { message: 'BARCODE_PREFIX must be exactly 2 digits' })
+  BARCODE_PREFIX?: string;
 }
 
 export function validate(config: Record<string, unknown>) {

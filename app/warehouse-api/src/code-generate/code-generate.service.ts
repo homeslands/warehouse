@@ -1,10 +1,12 @@
 import { Injectable } from '@nestjs/common';
+import { ConfigService } from '@nestjs/config';
 import { EntityManager } from 'typeorm';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { CodeSequence } from './code-sequence.entity';
 import { CodeRule } from './code-rule.entity';
 import {
   BARCODE_PERIOD,
+  BARCODE_PREFIX_ENV,
   BARCODE_SEQUENCE_MAX,
   BARCODE_SEQUENCE_WIDTH,
   BARCODE_WAREHOUSE_NO_MAX,
@@ -12,6 +14,7 @@ import {
   CODE_SEQUENCE_WIDTH,
   CODE_TIMEZONE,
   CodeType,
+  DEFAULT_BARCODE_PREFIX,
 } from './code-generate.constants';
 import { CodeGenerateException } from './code-generate.exception';
 import { CodeGenerateValidation } from './code-generate.validation';
@@ -23,6 +26,10 @@ const periodFormatter = new Intl.DateTimeFormat('en-GB', {
   month: '2-digit',
   day: '2-digit',
 });
+
+/** Số kho 3 chữ số, dùng chung cho mã kho `WH-001` và mã vạch. */
+const padWarehouseNo = (warehouseNo: number): string =>
+  String(warehouseNo).padStart(BARCODE_WAREHOUSE_NO_WIDTH, '0');
 
 /** EAN-13 `{prefix:2}{warehouseNo:3}{seq:7}{check}`. */
 const toBarcode = (prefix: string, warehouseNo: string, seq: number): string => {
@@ -40,9 +47,11 @@ export const toCodePeriod = (date: Date): string => {
 
 /**
  * Sinh mã `{PREFIX}-{warehouseCode}-{yymmdd}-{seq}` không trùng, không tái sử dụng. Riêng
- * `CodeType.Barcode` sinh EAN-13 `{prefix}{số kho}{seq:7}{check}` — xem `BARCODE_*` và
- * `barcodeWarehouseNo`.
- * Tiền tố đọc từ `code_rule_tbl` (`CodeRule`) trong cùng transaction.
+ * `CodeType.Barcode` sinh EAN-13 `{prefix}{số kho}{seq:7}{check}` — xem `BARCODE_*` (số kho =
+ * `Warehouse.warehouseNo`). Mã kho (`CodeType.Warehouse`) KHÔNG đi qua đây mà qua
+ * `generateWarehouseCode`.
+ * Tiền tố mã chữ đọc từ `code_rule_tbl` (`CodeRule`) trong cùng transaction; tiền tố mã vạch đọc từ
+ * env `BARCODE_PREFIX` (mặc định `20`) một lần lúc khởi tạo service.
  *
  * Chống trùng khi nhiều request/thiết bị sinh mã cùng lúc bằng `SELECT ... FOR UPDATE` trên dòng
  * bộ đếm (type, kho, ngày): request sau chờ tới khi transaction của request trước commit/rollback.
@@ -55,6 +64,14 @@ export const toCodePeriod = (date: Date): string => {
  */
 @Injectable()
 export class CodeGenerateService {
+  /** Đã kiểm 2 chữ số ở `env.validation.ts` lúc boot. */
+  private readonly barcodePrefix: string;
+
+  constructor(configService: ConfigService) {
+    this.barcodePrefix =
+      configService.get<string>(BARCODE_PREFIX_ENV)?.trim() || DEFAULT_BARCODE_PREFIX;
+  }
+
   async generate(
     manager: EntityManager,
     type: CodeType,
@@ -75,11 +92,9 @@ export class CodeGenerateService {
   ): Promise<string[]> {
     this.assertCanGenerate(manager, type, warehouse, count);
     const isBarcode = type === CodeType.Barcode;
+    const prefix = isBarcode ? this.barcodePrefix : await this.rulePrefix(manager, type);
 
-    const rule = await manager.findOne(CodeRule, { where: { type } });
-    if (!rule) throw new CodeGenerateException(CodeGenerateValidation.CODE_RULE_NOT_FOUND);
-
-    const warehouseNo = isBarcode ? await this.barcodeWarehouseNo(manager, warehouse) : null;
+    const warehouseNo = isBarcode ? padWarehouseNo(warehouse.warehouseNo) : null;
     const period = isBarcode ? BARCODE_PERIOD : toCodePeriod(now);
     const where = { type, warehouseId: warehouse.id, period };
 
@@ -105,8 +120,8 @@ export class CodeGenerateService {
 
     return Array.from({ length: count }, (_, i) =>
       isBarcode
-        ? toBarcode(rule.prefix, warehouseNo, start + i)
-        : `${rule.prefix}-${warehouse.code}-${period}-${String(start + i).padStart(CODE_SEQUENCE_WIDTH, '0')}`,
+        ? toBarcode(prefix, warehouseNo, start + i)
+        : `${prefix}-${warehouse.code}-${period}-${String(start + i).padStart(CODE_SEQUENCE_WIDTH, '0')}`,
     );
   }
 
@@ -116,8 +131,9 @@ export class CodeGenerateService {
     warehouse: Warehouse,
     count: number,
   ): void {
-    if (!manager.queryRunner?.isTransactionActive)
-      throw new CodeGenerateException(CodeGenerateValidation.CODE_GENERATE_TRANSACTION_REQUIRED);
+    this.assertInTransaction(manager);
+    if (type === CodeType.Warehouse)
+      throw new CodeGenerateException(CodeGenerateValidation.CODE_GENERATE_TYPE_NOT_SUPPORTED);
     if (!Number.isInteger(count) || count < 1)
       throw new CodeGenerateException(CodeGenerateValidation.CODE_GENERATE_COUNT_INVALID);
     // Mã vạch không in `warehouse.code` (chỉ số kho) nên không cần nó.
@@ -125,27 +141,47 @@ export class CodeGenerateService {
       throw new CodeGenerateException(CodeGenerateValidation.CODE_GENERATE_WAREHOUSE_CODE_MISSING);
   }
 
+  private async rulePrefix(manager: EntityManager, type: CodeType): Promise<string> {
+    const rule = await manager.findOne(CodeRule, { where: { type } });
+    if (!rule) throw new CodeGenerateException(CodeGenerateValidation.CODE_RULE_NOT_FOUND);
+    return rule.prefix;
+  }
+
+  private assertInTransaction(manager: EntityManager): void {
+    if (!manager.queryRunner?.isTransactionActive)
+      throw new CodeGenerateException(CodeGenerateValidation.CODE_GENERATE_TRANSACTION_REQUIRED);
+  }
+
   /**
-   * Số kho 3 chữ số trong mã vạch = thứ tự tạo của kho: đếm mọi kho (kể cả xoá mềm) tạo trước hoặc
-   * cùng lúc với kho này, hoà thì so `id`. Không lưu ở đâu cả — không thêm cột vào `Warehouse`.
+   * Cấp số kho + mã kho `{PREFIX}-{warehouseNo:3}` (vd `WH-001`) cho kho SẮP tạo — gọi trong
+   * transaction tạo kho, ngay trước `save`. `warehouseNo` = MAX + 1 tính cả kho xoá mềm (kho chỉ xoá
+   * mềm ⇒ số đã cấp không bao giờ cấp lại, mã vạch đã in không đổi nghĩa); quá 999 ⇒
+   * `CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED` (mã vạch chỉ có 3 chữ số cho kho).
    *
-   * Ổn định (mã vạch đã in không bao giờ đổi nghĩa) vì: kho chỉ xoá mềm và vẫn được đếm
-   * (`withDeleted`); kho mới luôn có `createdAt` lớn nhất nên xếp cuối, không đẩy số của kho cũ.
-   * Xoá cứng 1 kho cũ sẽ làm lệch số của mọi kho sau nó — nhưng kho đã sinh mã thì có dòng
-   * `code_sequence_tbl` trỏ tới (FK RESTRICT) nên DB chặn. Đọc 2 alias trên cùng bảng ⇒ so sánh
-   * `createdAt` ở độ chính xác của DB (micro giây), không qua `Date` của JS (mili giây).
+   * Chống 2 request tạo kho cùng lúc lấy cùng MAX: khoá `FOR UPDATE` dòng quy tắc `WAREHOUSE` của
+   * `code_rule_tbl` (luôn tồn tại, không phải gap lock) ⇒ các lần tạo kho chạy nối tiếp tới khi
+   * transaction trước commit. UNIQUE trên `warehouse_no_column` là lưới an toàn cuối.
    */
-  private async barcodeWarehouseNo(manager: EntityManager, warehouse: Warehouse): Promise<string> {
-    const position = await manager
-      .createQueryBuilder(Warehouse, 'other')
+  async generateWarehouseCode(
+    manager: EntityManager,
+  ): Promise<{ warehouseNo: number; code: string }> {
+    this.assertInTransaction(manager);
+
+    const rule = await manager.findOne(CodeRule, {
+      where: { type: CodeType.Warehouse },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!rule) throw new CodeGenerateException(CodeGenerateValidation.CODE_RULE_NOT_FOUND);
+
+    const { max } = await manager
+      .createQueryBuilder(Warehouse, 'warehouse')
       .withDeleted()
-      .innerJoin(Warehouse, 'self', 'self.id = :id', { id: warehouse.id })
-      .where(
-        '(other.createdAt < self.createdAt OR (other.createdAt = self.createdAt AND other.id <= self.id))',
-      )
-      .getCount();
-    if (position > BARCODE_WAREHOUSE_NO_MAX)
+      .select('MAX(warehouse.warehouseNo)', 'max')
+      .getRawOne<{ max: number | string | null }>();
+    const warehouseNo = Number(max ?? 0) + 1;
+    if (warehouseNo > BARCODE_WAREHOUSE_NO_MAX)
       throw new CodeGenerateException(CodeGenerateValidation.CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED);
-    return String(position).padStart(BARCODE_WAREHOUSE_NO_WIDTH, '0');
+
+    return { warehouseNo, code: `${rule.prefix}-${padWarehouseNo(warehouseNo)}` };
   }
 }

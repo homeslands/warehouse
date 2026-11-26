@@ -14,17 +14,23 @@ bước kiểm tra kho. Khi thao tác trên một phiếu, service luôn tìm ph
 
 | Method | Path | Quyền (authority / role) | Mô tả |
 |---|---|---|---|
-| POST | /api/v1/warehouses/:warehouseSlug/import-forms | `IMPORT_FORM_CREATE` | Tạo phiếu `DRAFT` kèm các dòng vật tư |
+| POST | /api/v1/warehouses/:warehouseSlug/import-forms | `IMPORT_FORM_CREATE` | Tạo phiếu `DRAFT` **rỗng** (chưa có dòng) |
 | POST | /api/v1/warehouses/:warehouseSlug/import-forms/upload-file | Một trong `IMPORT_FORM_CREATE` / `IMPORT_FORM_UPDATE_DRAFT` / `IMPORT_FORM_UPDATE_DRAFT_OWN` (service kiểm tra) | Upload file đính kèm lên S3 và nhận link |
 | GET | /api/v1/warehouses/:warehouseSlug/import-forms | `IMPORT_FORM_READ` | Danh sách phiếu có phân trang (không kèm `items`) |
 | GET | /api/v1/warehouses/:warehouseSlug/import-forms/available-materials | `IMPORT_FORM_CREATE` | Vật tư được phép ghi vào phiếu nhập của kho, kèm đơn vị và NCC |
 | GET | /api/v1/warehouses/:warehouseSlug/import-forms/:slug | `IMPORT_FORM_READ` | Chi tiết phiếu kèm `items` |
-| PATCH | /api/v1/warehouses/:warehouseSlug/import-forms/:slug | `IMPORT_FORM_UPDATE_DRAFT`, hoặc `IMPORT_FORM_UPDATE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | Sửa một phần phiếu `DRAFT` |
+| PATCH | /api/v1/warehouses/:warehouseSlug/import-forms/:slug | `IMPORT_FORM_UPDATE_DRAFT`, hoặc `IMPORT_FORM_UPDATE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | Sửa một phần **đầu phiếu** `DRAFT` (không sửa dòng) |
+| POST | /api/v1/warehouses/:warehouseSlug/import-forms/:slug/items | Như PATCH (service kiểm tra) | Quét barcode / chọn vật tư: thêm `quantity` dòng, mỗi dòng 1 đơn vị hàng với 1 mã riêng |
+| DELETE | /api/v1/warehouses/:warehouseSlug/import-forms/:slug/items/:itemSlug | Như PATCH (service kiểm tra) | Gỡ 1 dòng (1 đơn vị hàng) khỏi phiếu `DRAFT` |
 | POST | /api/v1/warehouses/:warehouseSlug/import-forms/:slug/confirm | `IMPORT_FORM_CONFIRM` | `DRAFT → CONFIRMED`: cộng tồn và sinh lô |
 | POST | /api/v1/warehouses/:warehouseSlug/import-forms/:slug/cancel | `IMPORT_FORM_CONFIRM` | `DRAFT → CANCELLED` |
 | DELETE | /api/v1/warehouses/:warehouseSlug/import-forms/:slug | `IMPORT_FORM_DELETE_DRAFT`, hoặc `IMPORT_FORM_DELETE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | Xoá mềm phiếu `DRAFT` |
 
-Tổng: **9 endpoint**.
+Tổng: **11 endpoint**.
+
+**Luồng nhập (từ WR-5):** `POST /import-forms` (phiếu nháp rỗng) → mỗi lần quét/nhập tay gọi
+`POST /:slug/items` (server sinh mã đơn vị hàng `CodeType.Item`, ví dụ `IT-WH-001-261126-000001`, 1 mã / 1 đơn vị) →
+`POST /:slug/confirm` (cộng tồn, mỗi dòng thành 1 lô mang đúng mã của dòng).
 
 Quyền mặc định lúc seed (`src/migrations/1783728000012-seed-warehouse-form-authorities.ts:49-98`) chỉ để
 tham khảo. Lúc chạy, nguồn chuẩn là `permission_tbl`, admin có thể bật/tắt quyền.
@@ -54,10 +60,10 @@ DRAFT --confirm--> CONFIRMED   (cộng tồn kho + sinh lô)
 
 | Từ | Sang | Endpoint | Ai làm | Tác động |
 |---|---|---|---|---|
-| (mới) | `DRAFT` | `POST /import-forms` | Có `IMPORT_FORM_CREATE`. User được ghi vào `requester` và `requesterName` | Không đụng tồn |
-| `DRAFT` | `DRAFT` | `PATCH /:slug` | `UPDATE_DRAFT` (mọi phiếu) hoặc `UPDATE_DRAFT_OWN` (chỉ phiếu mình lập) | Không đụng tồn |
+| (mới) | `DRAFT` | `POST /import-forms` | Có `IMPORT_FORM_CREATE`. User được ghi vào `requester` và `requesterName` | Không đụng tồn, `total = 0`, chưa có dòng |
+| `DRAFT` | `DRAFT` | `PATCH /:slug`, `POST /:slug/items`, `DELETE /:slug/items/:itemSlug` | `UPDATE_DRAFT` (mọi phiếu) hoặc `UPDATE_DRAFT_OWN` (chỉ phiếu mình lập) | Không đụng tồn. Thêm/gỡ dòng luôn tăng `version` |
 | `DRAFT` | (xoá mềm) | `DELETE /:slug` | `DELETE_DRAFT` hoặc `DELETE_DRAFT_OWN` (phiếu mình lập) | Không đụng tồn |
-| `DRAFT` | `CONFIRMED` | `POST /:slug/confirm` | Có `IMPORT_FORM_CONFIRM`. Người này được ghi vào `approver` và `approverName` | Cộng `baseQuantity` của từng dòng vào tồn kho (`InventoryService.receive`, lịch sử `IMPORT`). Mỗi dòng sinh 1 lô (`MaterialBatch`): ngày nhập = `date` của phiếu, hạn dùng = `expiryDate` của dòng. Tất cả chạy trong 1 transaction (`service.ts:379-416`) |
+| `DRAFT` | `CONFIRMED` | `POST /:slug/confirm` | Có `IMPORT_FORM_CONFIRM`. Người này được ghi vào `approver` và `approverName` | Phiếu phải có ít nhất 1 dòng (101317). Cộng `baseQuantity` của từng dòng vào tồn kho (`InventoryService.receive`, lịch sử `IMPORT`). Mỗi dòng sinh 1 lô (`MaterialBatch`): `code` = mã của dòng, ngày nhập = `date` của phiếu, hạn dùng = `expiryDate` của dòng. Tất cả chạy trong 1 transaction (`service.ts:379-416`) |
 | `DRAFT` | `CANCELLED` | `POST /:slug/cancel` | Có `IMPORT_FORM_CONFIRM` (không kiểm người lập). Người này được ghi vào `approver` | Không đụng tồn |
 
 - Chỉ phiếu `DRAFT` mới sửa, xoá, xác nhận hoặc huỷ được. Phiếu ở trạng thái khác trả `IMPORT_FORM_NOT_DRAFT` (409)
@@ -77,55 +83,27 @@ DRAFT --confirm--> CONFIRMED   (cộng tồn kho + sinh lô)
 |---|---|---|---|---|
 | warehouseSlug | string (slug) | có | | Kho phải tồn tại và `isActive` (`service.ts:138-140`) |
 
-- **Body** (`CreateImportFormRequestDto`, `dto.ts:106-163`; `whitelist: true` bỏ các field lạ, ví dụ `status`, `total`, `requester`, `warehouse`):
+- **Body** (`CreateImportFormRequestDto`; `whitelist: true` bỏ các field lạ, ví dụ `code`, `items`, `status`, `total`, `requester`, `warehouse`):
 
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
-| code | string | có | Được trim. `BUSINESS_CODE_REGEX` = `^[a-zA-Z0-9]([a-zA-Z0-9-]{0,30}[a-zA-Z0-9])$` (2–32 ký tự, chữ/số/`-`, đầu và cuối là chữ/số) | Server chuyển thành IN HOA (`mapper.ts:28-31`). Unique trên mọi phiếu nhập, **kể cả phiếu đã xoá mềm** |
 | purchaseOrder | string | không | ≤ 64 ký tự | Số PO |
 | invoiceCode | string | có | Không rỗng, ≤ 64 ký tự | Số hoá đơn |
 | date | string (`YYYY-MM-DD`) | có | ISO 8601 strict + regex `^\d{4}-\d{2}-\d{2}$` | Ngày nhập, không có múi giờ |
 | file | string | không | ≤ 1024 ký tự | Link nhận từ `POST .../upload-file`. Server chỉ lưu nguyên chuỗi, không kiểm tra |
 | note | string | không | Không có validator kiểu (xem Ghi chú cho FE) | |
-| items | `CreateImportFormItemDto[]` | có | 1–200 phần tử (`IMPORT_FORM_ITEMS_MAX`) | Thứ tự trong mảng = `lineNo` 1..n |
 
-`items[]` (`CreateImportFormItemDto`, `dto.ts:42-98`):
+`code` của phiếu do server sinh (`CodeType.ImportForm`). Phiếu tạo ra **chưa có dòng**, `total = 0`; hàng thêm qua
+`POST /:slug/items`.
 
-| Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
-|---|---|---|---|---|
-| materialSlug | string (slug) | có | Không rỗng | Vật tư phải tồn tại, chưa xoá mềm, và **đã được gán vào kho** (có dòng tồn kho) |
-| unitSlug | string (slug) | có | Không rỗng | Phải là một đơn vị gắn với vật tư (đơn vị cơ sở hoặc đơn vị quy đổi) |
-| quantity | number | có | > 0, tối đa 6 chữ số thập phân, không dùng dạng mũ (`1e-7`). Trong service: `quantity` và `quantity × conversionRate` phải < 1e12 | Số lượng theo `unitSlug` |
-| unitPrice | number | có | ≥ 0, tối đa 2 chữ số thập phân | Đơn giá của 1 đơn vị `unitSlug`. `quantity × unitPrice` phải < 1e16 |
-| note | string | không | Phải là string | |
-| supplierSlug | string (slug) | không | Phải là string | Có gửi: dùng đúng NCC đó. Nếu NCC chưa gắn với vật tư, server **tự gắn** trong cùng transaction. Slug không tồn tại thì báo `SUPPLIER_NOT_FOUND`. Không gửi: nếu vật tư có đúng 1 NCC thì dùng NCC đó, có 0 hoặc nhiều NCC thì để `null` (`service.ts:583-594`) |
-| expiryDate | string (`YYYY-MM-DD`) | không | ISO strict + regex. Không được trước `date` của phiếu (`service.ts:597-600`) | Được chép sang lô khi confirm |
-
-Server tự tính, client không gửi: `conversionRate` (chụp tại thời điểm ghi), `baseQuantity = round6(quantity × conversionRate)`,
-`amount = round2(quantity × unitPrice)`, `total = Σ amount`, mã/tên vật tư, mã/tên đơn vị và thông tin NCC
-(`service.ts:454-551`). Không được có 2 dòng trùng cặp `(materialSlug, unitSlug)`.
-
-- **Response 201:** `result` = `ImportFormResponseDto` có kèm `items`. Xem [Dạng response](#dạng-response).
-- **Lỗi riêng** (thứ tự kiểm tra theo `service.ts:132-172`):
+- **Response 201:** `result` = `ImportFormResponseDto` với `items: []`, `groups: []`.
+- **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
 |---|---|---|
-| 422 | 101302 / 101303 | `code` thiếu / sai format |
 | 422 | 101306, 101307, 101308, 101310, 101312 | Sai `purchaseOrder` / thiếu `invoiceCode` / sai `invoiceCode` / sai `date` / sai `file` |
-| 422 | 101317 / 101318 | `items` thiếu, không phải mảng, rỗng / quá 200 dòng |
-| 422 | 101319–101323, 101330, 101333 | Field trong `items[i]` không hợp lệ (xem bảng mã lỗi) |
 | 404 | 100501 `WAREHOUSE_NOT_FOUND` | Không có kho |
 | 422 | 101316 | Kho đang tắt (`isActive = false`) |
-| 422 | 101304 / 101305 | `code` đã được dùng / đang bị giữ bởi một phiếu đã xoá mềm |
-| 422 | 101324 | Trùng `(materialSlug, unitSlug)` |
-| 404 | 101325 | Không tìm thấy vật tư (hoặc vật tư đã xoá mềm) |
-| 422 | 101328 | Vật tư chưa được gán vào kho |
-| 422 | 101326 | Đơn vị không gắn với vật tư |
-| 422 | 101327 | Tỉ lệ quy đổi trong DB ≤ 0 hoặc không hợp lệ |
-| 422 | 101333 | `expiryDate` trước `date` |
-| 404 | 101201 `SUPPLIER_NOT_FOUND` | Có `supplierSlug` chưa gắn với vật tư và không tồn tại trong DB (`service.ts:571-573`) |
-| 422 | 101321 | `quantity` hoặc `baseQuantity` ≥ 1e12, hoặc `baseQuantity` làm tròn ra ≤ 0 |
-| 422 | 101311 | `amount` của một dòng, hoặc `total`, ≥ 1e16 |
 | 404 | 100405 `USER_NOT_FOUND` | User trong JWT không còn tồn tại |
 
 ## POST /api/v1/warehouses/:warehouseSlug/import-forms/upload-file
@@ -218,7 +196,7 @@ Server tự tính, client không gửi: `conversionRate` (chụp tại thời đ
   - có `IMPORT_FORM_UPDATE_DRAFT`: được sửa mọi phiếu nháp trong kho;
   - chỉ có `IMPORT_FORM_UPDATE_DRAFT_OWN`: chỉ được sửa phiếu có `requester` là mình, phiếu khác trả 403 với code `101315`;
   - không có cả hai: 403 không có `code`.
-- **Body** (`UpdateImportFormRequestDto`, `dto.ts:170-180`): mọi field của body POST đều **tuỳ chọn** (`PartialType`)
+- **Body** (`UpdateImportFormRequestDto`): mọi field của body POST đều **tuỳ chọn** (`PartialType`)
   với cùng ràng buộc như POST, cộng thêm:
 
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
@@ -227,12 +205,12 @@ Server tự tính, client không gửi: `conversionRate` (chụp tại thời đ
 
   Ngữ nghĩa partial (`service.ts:279-295`, `src/shared/utils/obj.util.ts:13-17`):
   - Field vắng mặt hoặc `null`: giữ nguyên giá trị cũ. Gửi `null` **không xoá** được `purchaseOrder`/`file`/`note`.
-  - Có gửi `items` (khác `null`): **thay toàn bộ** các dòng. Server xoá cứng dòng cũ, ghi dòng mới, tính lại `total`.
-    Mảng vẫn phải có 1–200 dòng. Slug của các dòng đổi mới.
-  - Không gửi `items` nhưng đổi `date`: server kiểm tra lại `expiryDate` của các dòng cũ so với `date` mới (`service.ts:289-291`).
-  - Đổi `code` sang mã khác: kiểm tra unique như khi tạo.
-- **Response 200:** `ImportFormResponseDto` kèm `items`.
-- **Lỗi riêng** (thứ tự: tìm phiếu và kiểm tra version → `DRAFT` → quyền → code → items):
+  - **Không sửa dòng qua PATCH** — `items` gửi lên bị `whitelist` bỏ. Dùng `POST`/`DELETE .../items`.
+  - Đổi `date`: server kiểm tra lại `expiryDate` của các dòng đã có so với `date` mới.
+  - Ghi trên bản đầu phiếu đã khoá (`pessimistic_write`) và so lại `version` trên bản đó: thêm/gỡ dòng chen giữa
+    (luôn tăng `version`) ⇒ 409 `100800`, không ghi đè `total` mới.
+- **Response 200:** `ImportFormResponseDto` kèm `items`, `groups`.
+- **Lỗi riêng** (thứ tự: tìm phiếu và kiểm tra version → `DRAFT` → quyền → hạn dùng → khoá + version):
 
 | HTTP | code | Khi nào |
 |---|---|---|
@@ -241,8 +219,63 @@ Server tự tính, client không gửi: `conversionRate` (chụp tại thời đ
 | 409 | 100800 `DATA_VERSION_CONFLICT` | `version` khác version hiện tại trong DB (`src/app/optimistic-lock.filter.ts`) |
 | 409 | 101314 | Phiếu không còn `DRAFT` |
 | 403 | — / 101315 | Không có quyền / chỉ có quyền `_OWN` nhưng không phải người lập |
-| 422 | 101304 / 101305 | `code` mới đã bị dùng |
-| … | | Các lỗi validate và lỗi dòng giống POST (101317–101333, 101201, 101311) |
+| 422 | 101333 | `date` mới sau `expiryDate` của một dòng đã có |
+| … | | Các lỗi validate đầu phiếu giống POST |
+
+## POST /api/v1/warehouses/:warehouseSlug/import-forms/:slug/items
+
+Thêm hàng vào phiếu nháp — 1 lần quét barcode, hoặc nhập tay vật tư + số lượng.
+
+- **Quyền:** như PATCH — `IMPORT_FORM_UPDATE_DRAFT`, hoặc `IMPORT_FORM_UPDATE_DRAFT_OWN` với phiếu mình lập (service kiểm tra).
+- **Body** (`AddImportFormItemRequestDto`), **không có `version`** — các lần quét liên tiếp không cần mang version mới nhất:
+
+| Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
+|---|---|---|---|---|
+| barcode | string | 1 trong 2 | 8–14 chữ số | Quét: tra `material.barcode`. Không thấy ⇒ 404 101325 (**không** tự tạo vật tư) |
+| materialSlug | string (slug) | 1 trong 2 | Không rỗng | Nhập tay. Gửi cả 2 hoặc không gửi cái nào ⇒ 101319 |
+| unitSlug | string (slug) | không | Không rỗng | Đơn vị gắn với vật tư. Không gửi ⇒ đơn vị cơ sở (vật tư cũ chưa có đơn vị cơ sở ⇒ 101320) |
+| quantity | integer | không (mặc định 1) | 1–500 | Số đơn vị. **N đơn vị ⇒ N dòng, N mã.** |
+| unitPrice | number | có | ≥ 0, tối đa 2 chữ số thập phân | Đơn giá 1 đơn vị `unitSlug` |
+| note | string | không | | Chép vào mọi dòng được thêm |
+| supplierSlug | string (slug) | không | | Như trước: có gửi thì dùng NCC đó (chưa gắn ⇒ server tự gắn, cùng transaction; không tồn tại ⇒ 101201); không gửi ⇒ NCC duy nhất của vật tư, hoặc `null` |
+| expiryDate | string (`YYYY-MM-DD`) | không | Không trước `date` của phiếu | Chép sang lô khi confirm |
+
+Mỗi dòng: `quantity = 1`, `conversionRate` chụp lúc ghi, `baseQuantity = conversionRate`, `amount = unitPrice`,
+`lineNo` nối tiếp dòng lớn nhất hiện có, `code` = mã `CodeType.Item` `{prefix}-{mã kho}-{yymmdd}-{seq:6}` (tiền tố mặc định
+`IT`, bộ đếm theo kho + ngày giờ Việt Nam, dùng chung bộ đếm `ITEM` với mã vật tư tự sinh). Mã duy nhất toàn hệ thống, không
+bao giờ cấp lại (kể cả khi dòng bị gỡ hoặc phiếu bị huỷ/xoá).
+
+Transaction: khoá đầu phiếu (`FOR UPDATE`) → kiểm lại `DRAFT` → trần 1000 dòng/phiếu → `total` mới → gắn NCC →
+sinh N mã → ghi N dòng → ghi `total` và **tăng `version`** (kể cả khi `unitPrice = 0`). Người đang giữ `version` cũ
+(PATCH/confirm/cancel) sẽ nhận 409 `100800` — không xác nhận nhầm phiếu đã có thêm hàng sau lần đọc.
+
+- **Response 201:** `result` = `{ codes: string[], form: ImportFormResponseDto }` — `codes` là các mã vừa sinh (theo thứ tự
+  `lineNo`), `form` là phiếu sau khi thêm (kèm `items` và `groups`).
+- **Lỗi riêng:**
+
+| HTTP | code | Khi nào |
+|---|---|---|
+| 422 | 101319 | Gửi cả `barcode` lẫn `materialSlug`, hoặc không gửi cái nào |
+| 422 | 101335 | `barcode` không phải 8–14 chữ số |
+| 422 | 101320, 101321, 101322, 101323, 101330, 101333 | Field không hợp lệ (xem bảng mã lỗi) |
+| 404 | 101301 | Không có phiếu |
+| 409 | 101314 | Phiếu không còn `DRAFT` (kiểm tra cả trước và sau khi khoá) |
+| 403 | — / 101315 | Không có quyền / chỉ có `_OWN` nhưng không phải người lập |
+| 404 | 101325 | Không có vật tư với `barcode` / `materialSlug` đó |
+| 422 | 101328 | Vật tư chưa được gán vào kho của phiếu |
+| 422 | 101326 / 101327 | Đơn vị không gắn với vật tư / tỉ lệ quy đổi trong DB không hợp lệ |
+| 404 | 101201 | `supplierSlug` không tồn tại |
+| 422 | 101318 | Phiếu sẽ vượt 1000 dòng |
+| 422 | 101311 | `total` mới ≥ 1e16 |
+
+## DELETE /api/v1/warehouses/:warehouseSlug/import-forms/:slug/items/:itemSlug
+
+- **Quyền:** như PATCH.
+- **Body:** không có, không cần `version`.
+- **Tác động:** trong transaction khoá đầu phiếu, xoá cứng dòng `itemSlug` của phiếu, trừ `amount` khỏi `total`, tăng `version`.
+  Mã của dòng **không** được cấp lại. `lineNo` các dòng còn lại không đánh lại.
+- **Response 200:** `ImportFormResponseDto` kèm `items`, `groups`.
+- **Lỗi riêng:** 404 101301, 409 101314, 403 — / 101315, 404 101336 (dòng không thuộc phiếu hoặc đã bị gỡ).
 
 ## POST /api/v1/warehouses/:warehouseSlug/import-forms/:slug/confirm
 
@@ -255,13 +288,14 @@ Server tự tính, client không gửi: `conversionRate` (chụp tại thời đ
 
 - **Response 200:** `ImportFormResponseDto` với `status = 'CONFIRMED'`, có `approverSlug`/`approverName` và `items`.
 - **Tác động:** Cộng tồn (gộp theo vật tư, lịch sử `IMPORT`, note `Import form <code>`). Mỗi dòng sinh 1 lô:
-  `quantity = remainingQuantity = baseQuantity`, `entryDate = date`, `expiryDate` lấy từ dòng
+  `code` = mã của dòng, `quantity = remainingQuantity = baseQuantity`, `entryDate = date`, `expiryDate` lấy từ dòng
   (`src/material-batch/material-batch.service.ts:135-161`). Tất cả nằm trong cùng 1 transaction.
 - **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
 |---|---|---|
 | 422 | 101334 | `version` không hợp lệ |
+| 422 | 101317 | Phiếu chưa có dòng nào |
 | 404 | 101301 | Không có phiếu (kể cả khi phiếu biến mất lúc lấy khoá) |
 | 409 | 100800 | Sai `version`, kể cả khi kiểm tra lại trên bản đã khoá |
 | 409 | 101314 | Phiếu không còn `DRAFT` (kiểm tra cả trước và sau khi khoá) |
@@ -309,20 +343,25 @@ Server tự tính, client không gửi: `conversionRate` (chụp tại thời đ
 | note | string \| null | |
 | status | `'DRAFT' \| 'CONFIRMED' \| 'CANCELLED'` | |
 | warehouseSlug | string | |
-| items | `ImportFormItemResponseDto[]` | **Chỉ có ở POST, GET chi tiết, PATCH, confirm, cancel.** Không có trong list |
+| items | `ImportFormItemResponseDto[]` | **Chỉ có ở POST, GET chi tiết, PATCH, thêm/gỡ dòng, confirm, cancel.** Không có trong list. 1 dòng = 1 đơn vị hàng |
+| groups | `ImportFormItemGroupResponseDto[]` | Có cùng lúc với `items`: `items` gộp theo (vật tư, đơn vị, đơn giá), theo thứ tự xuất hiện đầu tiên |
+
+`ImportFormItemGroupResponseDto`: `materialSlug`, `materialCode`, `materialName`, `unitSlug`, `unitCode`, `unitName`, `unitPrice`,
+`quantity` (Σ, = số đơn vị), `baseQuantity` (Σ), `amount` (Σ), `codes` (mã các dòng, bỏ qua `null`).
 
 `ImportFormItemResponseDto` (`dto.ts:334-410`):
 
 | Field | Kiểu | Ghi chú |
 |---|---|---|
 | slug, createdAt, updatedAt | string | |
-| lineNo | number | 1-based, theo thứ tự client gửi |
+| lineNo | number | 1-based, theo thứ tự thêm vào phiếu (có thể có khoảng trống sau khi gỡ dòng) |
+| code | string \| null | Mã đơn vị hàng, ví dụ `IT-WH-001-261126-000001`. `null` ở dòng ghi trước WR-5 |
 | materialSlug | string | |
 | materialCode, materialName | string | Chụp lúc ghi dòng |
 | unitSlug | string | |
 | unitCode, unitName | string | Chụp lúc ghi dòng |
 | supplierSlug, supplierCode, supplierName, supplierTaxCode, supplierAddress | string \| null | NCC chụp lúc ghi dòng, không có FK. Vật tư đổi NCC sau đó không làm thay đổi dòng này |
-| quantity | number | Theo đơn vị của dòng, tối đa 6 chữ số thập phân |
+| quantity | number | Theo đơn vị của dòng. Dòng mới luôn = 1; dòng cũ (trước WR-5) có thể là số lẻ |
 | conversionRate | number | Chụp lúc ghi dòng |
 | baseQuantity | number | `quantity × conversionRate`, theo đơn vị cơ sở. Đây là lượng cộng vào tồn |
 | unitPrice | number | 2 chữ số thập phân |
@@ -338,9 +377,13 @@ Ví dụ rút gọn (`GET /:slug`):
   "invoiceCode": "HD-0001234", "purchaseOrder": null, "date": "2026-10-12", "total": 1575000,
   "requesterSlug": "u1", "requesterName": "Nguyễn Văn A", "approverSlug": null, "approverName": null,
   "warehouseSlug": "kho-a", "file": null, "note": null,
-  "items": [{ "lineNo": 1, "materialSlug": "m1", "unitSlug": "u-kg", "quantity": 10.5,
-              "conversionRate": 1, "baseQuantity": 10.5, "unitPrice": 150000, "amount": 1575000,
-              "supplierSlug": null, "expiryDate": "2027-10-12" }]
+  "items": [{ "lineNo": 1, "code": "IT-WH-001-261012-000001", "materialSlug": "m1", "unitSlug": "u-bao",
+              "quantity": 1, "conversionRate": 50, "baseQuantity": 50, "unitPrice": 787500, "amount": 787500,
+              "supplierSlug": null, "expiryDate": "2027-10-12" },
+            { "lineNo": 2, "code": "IT-WH-001-261012-000002", "...": "..." }],
+  "groups": [{ "materialSlug": "m1", "unitSlug": "u-bao", "unitPrice": 787500, "quantity": 2,
+               "baseQuantity": 100, "amount": 1575000,
+               "codes": ["IT-WH-001-261012-000001", "IT-WH-001-261012-000002"] }]
 }
 ```
 
@@ -366,13 +409,12 @@ Nguồn: `src/import-form/import-form.validation.ts:82-202`. HTTP mặc định 
 | IMPORT_FORM_NOT_OWNER | 101315 | 403 | You can only change import forms you requested |
 | IMPORT_FORM_WAREHOUSE_INACTIVE | 101316 | 422 | Cannot create an import form for an inactive warehouse |
 | IMPORT_FORM_ITEMS_IS_REQUIRED | 101317 | 422 | Import form must have at least 1 item |
-| IMPORT_FORM_ITEMS_TOO_MANY | 101318 | 422 | Import form can have at most 200 items |
-| IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED | 101319 | 422 | Item material slug is required |
+| IMPORT_FORM_ITEMS_TOO_MANY | 101318 | 422 | Import form can have at most 1000 items |
+| IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED | 101319 | 422 | Exactly one of barcode or materialSlug is required |
 | IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED | 101320 | 422 | Item unit slug is required |
-| IMPORT_FORM_ITEM_QUANTITY_INVALID | 101321 | 422 | Item quantity must be a positive number with at most 6 decimal places |
+| IMPORT_FORM_ITEM_QUANTITY_INVALID | 101321 | 422 | Item quantity must be an integer from 1 to 500 |
 | IMPORT_FORM_ITEM_UNIT_PRICE_INVALID | 101322 | 422 | Item unit price must be a non-negative number with at most 2 decimal places |
 | IMPORT_FORM_ITEM_NOTE_INVALID | 101323 | 422 | Item note must be a string |
-| IMPORT_FORM_ITEM_DUPLICATED | 101324 | 422 | The same material and unit appear more than once in the form |
 | IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND | 101325 | 404 | Item material not found |
 | IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL | 101326 | 422 | Item unit is not attached to the material |
 | IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID | 101327 | 422 | Conversion rate of the item unit is invalid |
@@ -383,8 +425,11 @@ Nguồn: `src/import-form/import-form.validation.ts:82-202`. HTTP mặc định 
 | IMPORT_FORM_CODE_SEARCH_INVALID | 101332 | 400 | code may only contain letters, digits, "_" and "-" |
 | IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID | 101333 | 422 | Item expiry date must be a valid date in YYYY-MM-DD format, not before the form date |
 | IMPORT_FORM_VERSION_INVALID | 101334 | 422 | version is required and must be an integer >= 1 (from the most recent GET) |
+| IMPORT_FORM_ITEM_BARCODE_INVALID | 101335 | 422 | Item barcode must be 8-14 digits |
+| IMPORT_FORM_ITEM_NOT_FOUND | 101336 | 404 | Import form item not found |
 
-Mã 101309 đã bỏ (`validation.ts:103`).
+Mã 101302–101305 (mã phiếu nhập tay), 101309 và 101324 (`IMPORT_FORM_ITEM_DUPLICATED` — từ WR-5 cùng vật tư/đơn vị lặp lại
+1 dòng mỗi đơn vị) đã bỏ, không cấp lại.
 
 Mã từ module khác mà các route này có thể trả: `DATA_VERSION_CONFLICT` 100800 (409), `WAREHOUSE_NOT_FOUND` 100501 (404),
 `WAREHOUSE_ACCESS_DENIED` 100523 (403, từ guard), `USER_NOT_FOUND` 100405 (404), `SUPPLIER_NOT_FOUND` 101201 (404),
@@ -397,8 +442,10 @@ Mã từ module khác mà các route này có thể trả: `DATA_VERSION_CONFLIC
    `DRAFT`. Sau mỗi thao tác ghi, luôn dùng `version` trong response, đừng tự cộng thêm 1. DELETE không cần `version`.
 2. **Không có idempotency key.** Gửi lại confirm hoặc cancel sau khi request trước đã thành công sẽ nhận 409 (`100800`
    hoặc `101314`), không ghi gì thêm. Khi bị timeout hoặc mất mạng, hãy GET lại phiếu để biết trạng thái thật thay vì gửi lại ngay.
-3. **Item lồng nhau:** không có API riêng cho từng dòng. PATCH có `items` nghĩa là gửi **toàn bộ** danh sách dòng mới
-   (slug dòng cũ mất). Không gửi `items` hoặc gửi `null` thì giữ nguyên các dòng cũ. Trong body không có `slug`/`id` của dòng.
+3. **Dòng phiếu (từ WR-5):** tạo phiếu rỗng, rồi mỗi lần quét gọi `POST /:slug/items` với `{ barcode, unitPrice }` (mặc định
+   1 đơn vị, đơn vị cơ sở); nhập tay thì gửi `{ materialSlug, unitSlug, quantity, unitPrice }`. Hiển thị bảng phiếu bằng
+   `groups`, in tem bằng `codes` trong response. Gỡ 1 đơn vị bằng `DELETE /:slug/items/:itemSlug`. PATCH không còn nhận `items`.
+   Thêm/gỡ dòng làm `version` tăng — lấy `form.version` trong response trước khi confirm.
 4. **List không có `items`.** Muốn hiển thị dòng thì gọi `GET /:slug`. Lưu ý: list phiếu **xuất** thì lại có `items`.
 5. `total`, `amount`, `baseQuantity`, `conversionRate`, `status`, `requester*`, `approver*` đều do server tính hoặc gán.
    Gửi lên sẽ bị bỏ qua (`whitelist`). FE có thể tính trước để hiển thị, nhưng con số chuẩn là trong response.

@@ -6,12 +6,14 @@ import { Mapper } from '@automapper/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import { CodeRule } from './code-rule.entity';
 import { CodeRuleResponseDto, UpdateCodeRuleRequestDto } from './code-rule.dto';
-import { BARCODE_PREFIX_REGEX, CODE_PREFIX_REGEX, CodeType } from './code-generate.constants';
+import { CODE_RULE_TYPES, CodeRuleType } from './code-generate.constants';
 import { CodeGenerateException } from './code-generate.exception';
 import { CodeGenerateValidation } from './code-generate.validation';
 import { pickDefined } from 'src/shared/utils/obj.util';
 
-const CODE_TYPES = new Set<string>(Object.values(CodeType));
+// Không có `BARCODE`: tiền tố mã vạch lấy từ env `BARCODE_PREFIX` ⇒ `/code-rules/BARCODE` trả
+// `CODE_RULE_TYPE_INVALID`.
+const CODE_TYPES = new Set<string>(CODE_RULE_TYPES);
 
 @Injectable()
 export class CodeRuleService {
@@ -35,8 +37,6 @@ export class CodeRuleService {
     const rule = await this.findEntity(type);
 
     const data = pickDefined(this.mapper.map(dto, UpdateCodeRuleRequestDto, CodeRule));
-    if (data.prefix !== undefined) this.assertPrefix(rule.type, data.prefix);
-
     Object.assign(rule, data);
     const updated = await this.codeRuleRepository.save(rule);
     this.logger.log(`Code rule updated: ${updated.type} -> ${updated.prefix}`, context);
@@ -47,15 +47,8 @@ export class CodeRuleService {
     const normalized = type?.trim().toUpperCase();
     if (!CODE_TYPES.has(normalized))
       throw new CodeGenerateException(CodeGenerateValidation.CODE_RULE_TYPE_INVALID);
-    const rule = await this.codeRuleRepository.findOneBy({ type: normalized as CodeType });
+    const rule = await this.codeRuleRepository.findOneBy({ type: normalized as CodeRuleType });
     if (!rule) throw new CodeGenerateException(CodeGenerateValidation.CODE_RULE_NOT_FOUND);
     return rule;
-  }
-
-  /** Mã vạch EAN-13 chỉ chứa số ⇒ tiền tố `BARCODE` phải là 2 chữ số; loại khác 2 ký tự chữ HOA/số. */
-  private assertPrefix(type: CodeType, prefix: string): void {
-    const regex = type === CodeType.Barcode ? BARCODE_PREFIX_REGEX : CODE_PREFIX_REGEX;
-    if (!regex.test(prefix))
-      throw new CodeGenerateException(CodeGenerateValidation.CODE_RULE_PREFIX_INVALID);
   }
 }

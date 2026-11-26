@@ -282,10 +282,16 @@ describe('MaterialBatchService', () => {
   });
 
   describe('createFromImportItems', () => {
-    it('creates 1 full batch per line with the form date and the line expiry', async () => {
+    it('creates 1 full batch per line with the line code, the form date and the line expiry', async () => {
       const form = { id: 'f-1', date: '2026-10-12', warehouse: { id: 'wh-1' } } as ImportForm;
       const items = [
-        { id: 'i1', material: { id: 'mat-1' }, baseQuantity: 100, expiryDate: '2027-01-01' },
+        {
+          id: 'i1',
+          code: 'IT-WH-001-261012-000001',
+          material: { id: 'mat-1' },
+          baseQuantity: 100,
+          expiryDate: '2027-01-01',
+        },
         { id: 'i2', material: { id: 'mat-2' }, baseQuantity: 0.5 },
       ] as unknown as ImportFormItem[];
 
@@ -296,6 +302,7 @@ describe('MaterialBatchService', () => {
           material: { id: 'mat-1' },
           warehouse: { id: 'wh-1' },
           importFormItem: { id: 'i1' },
+          code: 'IT-WH-001-261012-000001',
           entryDate: '2026-10-12',
           expiryDate: '2027-01-01',
           quantity: 100,
@@ -303,7 +310,13 @@ describe('MaterialBatchService', () => {
           reservedQuantity: 0,
           status: MaterialBatchStatus.InStock,
         },
-        expect.objectContaining({ importFormItem: { id: 'i2' }, expiryDate: null, quantity: 0.5 }),
+        // Dòng cũ chưa có mã ⇒ lô không có mã.
+        expect.objectContaining({
+          importFormItem: { id: 'i2' },
+          code: null,
+          expiryDate: null,
+          quantity: 0.5,
+        }),
       ]);
     });
 
@@ -314,11 +327,12 @@ describe('MaterialBatchService', () => {
   });
 
   describe('findAll / findOne', () => {
-    it('filters by material, status and expiryBefore, and maps the response', async () => {
+    it('filters by material, code, status and expiryBefore, and maps the response', async () => {
       warehouseRepository.findOneBy.mockResolvedValue({ id: 'wh-1', slug: 'wh-slug' });
       batchRepository.findAndCount.mockResolvedValue([
         [
           batch({
+            code: 'IT-WH-001-261012-000001',
             material: {
               slug: 'mat-slug',
               code: 'M-1',
@@ -337,6 +351,7 @@ describe('MaterialBatchService', () => {
         page: 1,
         size: 10,
         materialSlug: 'mat-slug',
+        code: 'IT-WH-001-261012-000001',
         status: MaterialBatchStatus.InStock,
         expiryBefore: '2027-01-01',
       });
@@ -346,6 +361,7 @@ describe('MaterialBatchService', () => {
           where: {
             warehouse: { id: 'wh-1' },
             material: { slug: 'mat-slug' },
+            code: 'IT-WH-001-261012-000001',
             status: MaterialBatchStatus.InStock,
             expiryDate: LessThan('2027-01-01'),
           },
@@ -353,6 +369,7 @@ describe('MaterialBatchService', () => {
       );
       expect(result.items[0]).toMatchObject({
         slug: 'b-1-slug',
+        code: 'IT-WH-001-261012-000001',
         remainingQuantity: 10,
         status: MaterialBatchStatus.InStock,
         materialSlug: 'mat-slug',

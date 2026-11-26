@@ -94,6 +94,7 @@ export class MaterialBatchService {
 
     const where: FindOptionsWhere<MaterialBatch> = { warehouse: { id: warehouse.id } };
     if (query.materialSlug) where.material = { slug: query.materialSlug };
+    if (query.code) where.code = query.code;
     if (query.status !== undefined) where.status = query.status;
     // `LessThan` loại luôn lô `expiryDate IS NULL` (so sánh với NULL không bao giờ đúng).
     if (query.expiryBefore) where.expiryDate = LessThan(query.expiryBefore);
@@ -129,8 +130,9 @@ export class MaterialBatchService {
   }
 
   /**
-   * Xác nhận phiếu nhập: mỗi dòng (đã lưu, có `id`) sinh 1 lô còn nguyên — ngày nhập = ngày phiếu,
-   * hạn dùng = `expiryDate` của dòng, số lượng = `baseQuantity`.
+   * Xác nhận phiếu nhập: mỗi dòng (đã lưu, có `id`) sinh 1 lô còn nguyên — mã = `code` của dòng (1
+   * dòng = 1 đơn vị hàng), ngày nhập = ngày phiếu, hạn dùng = `expiryDate` của dòng, số lượng =
+   * `baseQuantity`.
    */
   async createFromImportItems(
     manager: EntityManager,
@@ -144,6 +146,7 @@ export class MaterialBatchService {
         material: { id: item.material.id } as Material,
         warehouse: { id: form.warehouse.id } as Warehouse,
         importFormItem: { id: item.id } as ImportFormItem,
+        code: item.code ?? null,
         entryDate: form.date,
         expiryDate: item.expiryDate ?? null,
         quantity: item.baseQuantity,
