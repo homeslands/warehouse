@@ -11,6 +11,7 @@ export const CODE_RULE_NOT_FOUND = 'CODE_RULE_NOT_FOUND';
 export const CODE_RULE_PREFIX_INVALID = 'CODE_RULE_PREFIX_INVALID';
 export const CODE_RULE_TYPE_INVALID = 'CODE_RULE_TYPE_INVALID';
 export const CODE_RULE_DESCRIPTION_INVALID = 'CODE_RULE_DESCRIPTION_INVALID';
+export const CODE_GENERATE_TYPE_NOT_SUPPORTED = 'CODE_GENERATE_TYPE_NOT_SUPPORTED';
 
 export type TCodeGenerateErrorCodeKey =
   | typeof CODE_GENERATE_TRANSACTION_REQUIRED
@@ -21,7 +22,8 @@ export type TCodeGenerateErrorCodeKey =
   | typeof CODE_RULE_NOT_FOUND
   | typeof CODE_RULE_PREFIX_INVALID
   | typeof CODE_RULE_TYPE_INVALID
-  | typeof CODE_RULE_DESCRIPTION_INVALID;
+  | typeof CODE_RULE_DESCRIPTION_INVALID
+  | typeof CODE_GENERATE_TYPE_NOT_SUPPORTED;
 
 export type TCodeGenerateErrorCode = Record<TCodeGenerateErrorCodeKey, TErrorCodeValue>;
 
@@ -51,7 +53,7 @@ export const CodeGenerateValidation: TCodeGenerateErrorCode = {
   CODE_RULE_NOT_FOUND: createErrorCode(101606, 'Code rule not found', HttpStatus.NOT_FOUND),
   CODE_RULE_PREFIX_INVALID: createErrorCode(
     101607,
-    'prefix must be 2 uppercase letters/digits (BARCODE: exactly 2 digits)',
+    'prefix must be 2 uppercase letters/digits',
     HttpStatus.BAD_REQUEST,
   ),
   CODE_RULE_TYPE_INVALID: createErrorCode(101608, 'Unknown code type', HttpStatus.BAD_REQUEST),
@@ -59,5 +61,10 @@ export const CodeGenerateValidation: TCodeGenerateErrorCode = {
     101609,
     'description must be a string of at most 255 characters',
     HttpStatus.BAD_REQUEST,
+  ),
+  CODE_GENERATE_TYPE_NOT_SUPPORTED: createErrorCode(
+    101610,
+    'This code type is not generated per warehouse',
+    HttpStatus.INTERNAL_SERVER_ERROR,
   ),
 };

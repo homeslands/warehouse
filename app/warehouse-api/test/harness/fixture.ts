@@ -273,12 +273,22 @@ export async function seedFixture(
       users.set(actor.alias, user);
     }
 
+    // `warehouse_no_column` UNIQUE NOT NULL: nối tiếp số lớn nhất đang có (kể cả kho xoá mềm) để không
+    // va với kho thật của DB dev. Kho fixture bị xoá cứng lúc dọn nên số được dùng lại ở lần chạy sau.
+    const { max } = await manager
+      .createQueryBuilder(Warehouse, 'warehouse')
+      .withDeleted()
+      .select('MAX(warehouse.warehouseNo)', 'max')
+      .getRawOne<{ max: number | string | null }>();
+    let warehouseNo = Number(max ?? 0);
     for (const spec of WAREHOUSES) {
+      warehouseNo += 1;
       const warehouse = await manager.save(
         manager.create(Warehouse, {
           id: spec.id,
           slug: spec.slug,
           code: spec.code,
+          warehouseNo,
           name: `E2E Warehouse ${spec.alias}`,
           address: `E2E address ${spec.alias}`,
           isActive: true,

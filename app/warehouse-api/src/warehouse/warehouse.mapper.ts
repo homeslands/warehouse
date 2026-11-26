@@ -23,12 +23,6 @@ const normalizeWarehouse = <T extends Partial<CreateWarehouseRequestDto>>() =>
       (d) => d.name,
       mapFrom((s) => s.name?.trim()),
     ),
-    // `code` là khoá nghiệp vụ unique -> upper-case ngay tại đây để `wh-hn-01` và `WH-HN-01` va nhau
-    // ở tầng check trùng, thay vì lọt xuống DB thành 2 bản ghi khác nhau.
-    forMember<T, Warehouse>(
-      (d) => d.code,
-      mapFrom((s) => s.code?.trim().toUpperCase()),
-    ),
     forMember<T, Warehouse>(
       (d) => d.address,
       mapFrom((s) => s.address?.trim()),

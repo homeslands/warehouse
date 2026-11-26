@@ -53,7 +53,8 @@ Nguồn: `warehouse.dto.ts:142-174`, map ở `warehouse.mapper.ts:60-69`.
 | `createdAt` | `string` | Định dạng xem [conventions.md](conventions.md) |
 | `updatedAt` | `string` | |
 | `name` | `string` | |
-| `code` | `string` | Luôn viết HOA (mapper `toUpperCase()`, `warehouse.mapper.ts:28-31`) |
+| `code` | `string` | Server tự sinh lúc tạo: `{WAREHOUSE prefix}-{warehouseNo:3}`, vd `WH-001`. Kho tạo trước 2026-11-26 giữ mã cũ nhập tay (vd `WH-HN-01`). Không sửa được |
+| `warehouseNo` | `number` | Số kho 1-999, server cấp lúc tạo (lớn nhất hiện có + 1, tính cả kho đã xoá), không bao giờ đổi. Là 3 chữ số kho trong mã vạch EAN-13 của vật tư |
 | `address` | `string` | |
 | `phonenumber` | `string?` | Không có field nếu DB `NULL` (chưa xác minh: automapper có thể trả `null` thay vì bỏ field) |
 | `description` | `string?` | Như trên |
@@ -90,27 +91,27 @@ Nguồn: `warehouse.dto.ts:176-180`, map ở `warehouse.mapper.ts:71-80`.
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
 | `name` | `string` | Có | Trim, không rỗng | Không trùng tên kho **chưa xoá** |
-| `code` | `string` | Có | Trim, regex `^[a-zA-Z0-9]([a-zA-Z0-9-]{0,30}[a-zA-Z0-9])$`: 2-32 ký tự chữ/số/gạch ngang, không bắt đầu hay kết thúc bằng `-` (`warehouse.constants.ts:9`) | Lưu dạng viết HOA. Không trùng với **mọi** kho, kể cả kho đã xoá |
 | `address` | `string` | Có | Trim, không rỗng | |
 | `phonenumber` | `string` | Không | Trim, regex `^0\d{8,10}$` (`warehouse.constants.ts:3`) | Gửi `""` sẽ lỗi `WAREHOUSE_PHONENUMBER_INVALID` |
 | `description` | `string` | Không | Không trim, không kiểm tra kiểu | |
 | `isActive` | `boolean` | Không | `true`/`false` hoặc chuỗi `"true"`/`"false"` | Mặc định `true` |
 
-- **Response 201:** `result` là `WarehouseResponseDto`. Kho mới chưa có `manager`.
+- Không có `code`/`warehouseNo` trong body: server tự sinh (gửi lên bị `whitelist` bỏ, không báo lỗi). Tiền tố lấy từ quy tắc `WAREHOUSE` ([code-rule.md](code-rule.md), mặc định `WH`).
+- **Response 201:** `result` là `WarehouseResponseDto` kèm `code`/`warehouseNo` vừa sinh. Kho mới chưa có `manager`.
 - **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
 |---|---|---|
 | 400 | 100502 `WAREHOUSE_NAME_IS_REQUIRED` | Thiếu hoặc rỗng `name` |
-| 400 | 100504 `WAREHOUSE_CODE_IS_REQUIRED` / 100505 `WAREHOUSE_CODE_INVALID` | Thiếu, rỗng hoặc sai format `code`. Khi `code` rỗng, cả hai ràng buộc cùng fail; mã nào được trả phụ thuộc thứ tự lỗi của class-validator (chưa xác minh) |
 | 400 | 100508 `WAREHOUSE_ADDRESS_IS_REQUIRED` | Thiếu hoặc rỗng `address` |
 | 400 | 100509 `WAREHOUSE_PHONENUMBER_INVALID` | `phonenumber` sai format |
 | 400 | 100510 `WAREHOUSE_IS_ACTIVE_INVALID` | `isActive` không phải boolean |
-| 422 | 100506 `WAREHOUSE_CODE_DOES_EXIST` | `code` trùng kho đang tồn tại (so sau khi viết HOA) (`warehouse.service.ts:369-380`) |
-| 422 | 100507 `WAREHOUSE_CODE_RESERVED_BY_DELETED_WAREHOUSE` | `code` trùng kho đã xoá mềm |
+| 422 | 100506 `WAREHOUSE_CODE_DOES_EXIST` | Mã vừa sinh trùng mã nhập tay của một kho cũ đang tồn tại (vd kho cũ tên mã `WH-005`). Đổi tiền tố `WAREHOUSE` hoặc mã kho cũ rồi thử lại |
+| 422 | 100507 `WAREHOUSE_CODE_RESERVED_BY_DELETED_WAREHOUSE` | Như trên nhưng kho cũ đã xoá mềm |
+| 422 | 101604 `CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED` | Đã cấp hết số kho 999 |
 | 422 | 100503 `WAREHOUSE_NAME_DOES_EXIST` | `name` trùng kho chưa xoá (`warehouse.service.ts:382-385`). Có phân biệt hoa/thường hay không tuỳ collation MySQL (chưa xác minh) |
 
-Thứ tự kiểm tra trong service: `code` trước, rồi `name` (`warehouse.service.ts:85-86`).
+Thứ tự kiểm tra trong service: `name` trước, rồi sinh `warehouseNo`/`code` và kiểm tra trùng `code` trong cùng transaction với lúc ghi.
 
 ## GET /api/v1/warehouses
 
@@ -155,14 +156,15 @@ Thứ tự kiểm tra trong service: `code` trước, rồi `name` (`warehouse.s
   - Field không gửi thì giữ nguyên.
   - Field gửi `null` cũng bị bỏ qua, giá trị cũ được giữ (`pickDefined`, `src/shared/utils/obj.util.ts`). Hệ quả: **không xoá được** `phonenumber` hay `description` về rỗng bằng `null`. Gửi `description: ""` thì được. Gửi `phonenumber: ""` sẽ lỗi `WAREHOUSE_PHONENUMBER_INVALID`.
   - `isActive` không gửi thì giữ nguyên (không bị reset về `true`).
+  - `code`/`warehouseNo` không sửa được (gửi lên bị `whitelist` bỏ).
 - **Response 200:** `result` là `WarehouseResponseDto` sau khi sửa.
 - **Lỗi riêng:** như `POST` (trừ lỗi "thiếu field"), cộng thêm:
 
 | HTTP | code | Khi nào |
 |---|---|---|
 | 404 | 100501 `WAREHOUSE_NOT_FOUND` | Không có kho |
-| 400 | 100502 / 100504 / 100508 | Gửi `name`/`code`/`address` là chuỗi rỗng (sau trim) |
-| 422 | 100506 / 100507 / 100503 | `code`/`name` mới trùng. Chỉ kiểm tra khi giá trị thật sự đổi (`warehouse.service.ts:196-200`) |
+| 400 | 100502 / 100508 | Gửi `name`/`address` là chuỗi rỗng (sau trim) |
+| 422 | 100503 | `name` mới trùng. Chỉ kiểm tra khi giá trị thật sự đổi |
 
 Không có optimistic lock (`version`) trên kho.
 
@@ -286,8 +288,8 @@ Nguồn: `src/warehouse/warehouse.validation.ts:56-144` (`WarehouseValidation`, 
 | `WAREHOUSE_NOT_FOUND` | 100501 | 404 | Warehouse not found |
 | `WAREHOUSE_NAME_IS_REQUIRED` | 100502 | 400 | Warehouse name is required |
 | `WAREHOUSE_NAME_DOES_EXIST` | 100503 | 422 | Warehouse name does exist |
-| `WAREHOUSE_CODE_IS_REQUIRED` | 100504 | 400 | Warehouse code is required |
-| `WAREHOUSE_CODE_INVALID` | 100505 | 400 | Warehouse code must be 2-32 characters of letters, digits or hyphen (e.g. WH-HN-01) |
+| `WAREHOUSE_CODE_IS_REQUIRED` | 100504 | 400 | Không còn trả (mã kho tự sinh từ 2026-11-26) |
+| `WAREHOUSE_CODE_INVALID` | 100505 | 400 | Không còn trả (mã kho tự sinh từ 2026-11-26) |
 | `WAREHOUSE_CODE_DOES_EXIST` | 100506 | 422 | Warehouse code does exist |
 | `WAREHOUSE_CODE_RESERVED_BY_DELETED_WAREHOUSE` | 100507 | 422 | Warehouse code is still held by a deleted warehouse |
 | `WAREHOUSE_ADDRESS_IS_REQUIRED` | 100508 | 400 | Warehouse address is required |

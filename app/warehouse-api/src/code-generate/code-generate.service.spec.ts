@@ -1,4 +1,5 @@
 import { EntityManager } from 'typeorm';
+import { ConfigService } from '@nestjs/config';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { CodeGenerateService, toCodePeriod } from './code-generate.service';
 import { CodeType, DEFAULT_CODE_TYPE_PREFIX } from './code-generate.constants';
@@ -8,31 +9,33 @@ import { CodeGenerateValidation } from './code-generate.validation';
 import { isValidEan13 } from './ean13.util';
 
 describe('CodeGenerateService', () => {
-  const service = new CodeGenerateService();
-  const warehouse = { id: 'wh-1', code: 'WH-HN-01' } as Warehouse;
+  /** `BARCODE_PREFIX` của env; `undefined` = không khai. */
+  const makeService = (barcodePrefix?: string) =>
+    new CodeGenerateService({ get: jest.fn(() => barcodePrefix) } as unknown as ConfigService);
+  const service = makeService();
+  const warehouse = { id: 'wh-1', code: 'WH-HN-01', warehouseNo: 1 } as Warehouse;
   // 2026-11-22 09:00 giờ Việt Nam.
   const now = new Date('2026-11-22T02:00:00Z');
 
   /**
    * `findOne` phục vụ 2 entity: `CodeRule` (tiền tố, mặc định lấy `DEFAULT_CODE_TYPE_PREFIX`, ghi đè
    * qua `prefixes`; `null` = chưa seed) và `CodeSequence` (dòng bộ đếm bị khoá) — tách ra
-   * `findRule`/`findSequence` để assert riêng từng lần gọi. `positionQuery.getCount` = thứ tự tạo
-   * của kho (số kho trong mã vạch), mặc định `1`.
+   * `findRule`/`findSequence` để assert riêng từng lần gọi. `maxQuery.getRawOne` = MAX số kho hiện
+   * có (cho `generateWarehouseCode`), mặc định `null` (chưa có kho nào).
    */
   const makeManager = (
     lastValue: number | null,
     isTransactionActive = true,
     prefixes: Partial<Record<CodeType, string | null>> = {},
-    warehousePosition = 1,
+    maxWarehouseNo: number | string | null = null,
   ) => {
-    const positionQuery = {
+    const maxQuery = {
       withDeleted: jest.fn().mockReturnThis(),
-      innerJoin: jest.fn().mockReturnThis(),
-      where: jest.fn().mockReturnThis(),
-      getCount: jest.fn().mockResolvedValue(warehousePosition),
+      select: jest.fn().mockReturnThis(),
+      getRawOne: jest.fn().mockResolvedValue({ max: maxWarehouseNo }),
     };
     const findRule = jest.fn(async ({ where: { type } }: { where: { type: CodeType } }) => {
-      const prefix = type in prefixes ? prefixes[type] : DEFAULT_CODE_TYPE_PREFIX[type];
+      const prefix = type in prefixes ? prefixes[type] : DEFAULT_CODE_TYPE_PREFIX[type as never];
       return prefix === null ? null : ({ type, prefix } as CodeRule);
     });
     const findSequence = jest
@@ -46,8 +49,8 @@ describe('CodeGenerateService', () => {
       ),
       findRule,
       findSequence,
-      createQueryBuilder: jest.fn(() => positionQuery),
-      positionQuery,
+      createQueryBuilder: jest.fn(() => maxQuery),
+      maxQuery,
       update: jest.fn().mockResolvedValue(undefined),
     };
     return manager as typeof manager & EntityManager;
@@ -170,11 +173,22 @@ describe('CodeGenerateService', () => {
       expect(manager.update).toHaveBeenCalledWith(CodeSequence, where, { lastValue: 42 });
     });
 
-    it('uses the prefix of the BARCODE rule', async () => {
-      const manager = makeManager(0, true, { [CodeType.Barcode]: '21' });
-      const barcode = await service.generate(manager, CodeType.Barcode, warehouse, now);
+    it('uses the BARCODE_PREFIX env, without reading code_rule_tbl', async () => {
+      const manager = makeManager(0);
+      const barcode = await makeService('21').generate(manager, CodeType.Barcode, warehouse, now);
       expect(barcode.startsWith('21001')).toBe(true);
       expect(isValidEan13(barcode)).toBe(true);
+      expect(manager.findRule).not.toHaveBeenCalled();
+    });
+
+    it.each([undefined, '', '  '])('falls back to 20 when BARCODE_PREFIX is %p', async (env) => {
+      const barcode = await makeService(env).generate(
+        makeManager(0),
+        CodeType.Barcode,
+        warehouse,
+        now,
+      );
+      expect(barcode.startsWith('20001')).toBe(true);
     });
 
     it('issues consecutive valid barcodes in one call', async () => {
@@ -196,58 +210,107 @@ describe('CodeGenerateService', () => {
       const barcode = await service.generate(
         makeManager(0),
         CodeType.Barcode,
-        { id: 'wh-1' } as Warehouse,
+        { id: 'wh-1', warehouseNo: 1 } as Warehouse,
         now,
       );
       expect(barcode).toBe('2000100000014');
     });
   });
 
-  describe('generate — barcode warehouse number (creation order)', () => {
-    it('uses the creation position of the warehouse, zero-padded to 3 digits', async () => {
-      const manager = makeManager(0, true, {}, 42);
+  describe('generate — barcode warehouse number', () => {
+    it('prints the stored warehouseNo, zero-padded to 3 digits, without querying', async () => {
+      const manager = makeManager(0);
 
-      const barcode = await service.generate(manager, CodeType.Barcode, warehouse, now);
+      const barcode = await service.generate(
+        manager,
+        CodeType.Barcode,
+        { ...warehouse, warehouseNo: 42 } as Warehouse,
+        now,
+      );
 
       expect(barcode.slice(0, 5)).toBe('20042');
       expect(isValidEan13(barcode)).toBe(true);
+      expect(manager.createQueryBuilder).not.toHaveBeenCalled();
     });
 
-    it('counts soft-deleted warehouses and compares createdAt in SQL against the warehouse row itself', async () => {
+    it('refuses CodeType.Warehouse through generate (it has no per-warehouse counter)', async () => {
       const manager = makeManager(0);
-
-      await service.generate(manager, CodeType.Barcode, warehouse, now);
-
-      expect(manager.createQueryBuilder).toHaveBeenCalledWith(Warehouse, 'other');
-      expect(manager.positionQuery.withDeleted).toHaveBeenCalled();
-      expect(manager.positionQuery.innerJoin).toHaveBeenCalledWith(
-        Warehouse,
-        'self',
-        'self.id = :id',
-        {
-          id: 'wh-1',
-        },
+      await expectError(
+        service.generate(manager, CodeType.Warehouse, warehouse, now),
+        CodeGenerateValidation.CODE_GENERATE_TYPE_NOT_SUPPORTED.code,
       );
-      expect(manager.positionQuery.where).toHaveBeenCalledWith(
-        expect.stringContaining('other.createdAt < self.createdAt'),
+      expect(manager.query).not.toHaveBeenCalled();
+    });
+  });
+
+  describe('generateWarehouseCode', () => {
+    it('issues MAX + 1 as {prefix}-{warehouseNo:3}', async () => {
+      const manager = makeManager(null, true, {}, 41);
+
+      await expect(service.generateWarehouseCode(manager)).resolves.toEqual({
+        warehouseNo: 42,
+        code: 'WH-042',
+      });
+    });
+
+    it('starts at 001 when there is no warehouse yet', async () => {
+      await expect(service.generateWarehouseCode(makeManager(null))).resolves.toEqual({
+        warehouseNo: 1,
+        code: 'WH-001',
+      });
+    });
+
+    // MySQL trả MAX(SMALLINT) dạng string ở một số driver ⇒ phải ép số, không thì '41' + 1 = '411'.
+    it('handles MAX returned as a string', async () => {
+      await expect(
+        service.generateWarehouseCode(makeManager(null, true, {}, '41')),
+      ).resolves.toMatchObject({ warehouseNo: 42 });
+    });
+
+    it('locks the WAREHOUSE rule row FOR UPDATE before reading MAX, counting soft-deleted rows', async () => {
+      const manager = makeManager(null);
+
+      await service.generateWarehouseCode(manager);
+
+      expect(manager.findRule).toHaveBeenCalledWith({
+        where: { type: CodeType.Warehouse },
+        lock: { mode: 'pessimistic_write' },
+      });
+      expect(manager.createQueryBuilder).toHaveBeenCalledWith(Warehouse, 'warehouse');
+      expect(manager.maxQuery.withDeleted).toHaveBeenCalled();
+      expect(manager.findRule.mock.invocationCallOrder[0]).toBeLessThan(
+        manager.maxQuery.getRawOne.mock.invocationCallOrder[0],
       );
     });
 
-    it('fails past 999 warehouses', async () => {
-      const manager = makeManager(0, true, {}, 1000);
+    it('uses the prefix of the WAREHOUSE rule', async () => {
+      const manager = makeManager(null, true, { [CodeType.Warehouse]: 'KH' }, 2);
+      await expect(service.generateWarehouseCode(manager)).resolves.toMatchObject({
+        code: 'KH-003',
+      });
+    });
+
+    it('fails past 999 warehouses (barcodes only have 3 digits for it)', async () => {
       await expectError(
-        service.generate(manager, CodeType.Barcode, warehouse, now),
+        service.generateWarehouseCode(makeManager(null, true, {}, 999)),
         CodeGenerateValidation.CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED.code,
       );
-      expect(manager.update).not.toHaveBeenCalled();
     });
 
-    it('is never computed for text codes (forms, items)', async () => {
-      const manager = makeManager(0);
-      await service.generate(manager, CodeType.ImportForm, warehouse, now);
-      await service.generate(manager, CodeType.ExportForm, warehouse, now);
-      await service.generate(manager, CodeType.Item, warehouse, now);
-      expect(manager.createQueryBuilder).not.toHaveBeenCalled();
+    it('fails when the WAREHOUSE rule is not seeded', async () => {
+      await expectError(
+        service.generateWarehouseCode(makeManager(null, true, { [CodeType.Warehouse]: null })),
+        CodeGenerateValidation.CODE_RULE_NOT_FOUND.code,
+      );
+    });
+
+    it('refuses to run outside a transaction (the lock would not hold)', async () => {
+      const manager = makeManager(null, false);
+      await expectError(
+        service.generateWarehouseCode(manager),
+        CodeGenerateValidation.CODE_GENERATE_TRANSACTION_REQUIRED.code,
+      );
+      expect(manager.findRule).not.toHaveBeenCalled();
     });
   });
 

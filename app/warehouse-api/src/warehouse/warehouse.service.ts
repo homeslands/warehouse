@@ -28,6 +28,8 @@ import { pickDefined } from 'src/shared/utils/obj.util';
 import { UserResponseDto } from 'src/user/user.dto';
 import { BaseQueryDto } from 'src/app/base.dto';
 import { toPaginatedResponse } from 'src/shared/utils/pagination.util';
+import { TransactionManagerService } from 'src/db/transaction-manager.service';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
 
 /**
  * `manager`/`store` cố tình KHÔNG `eager` trên entity (xem `warehouse.entity.ts`), nên mọi read path
@@ -46,6 +48,8 @@ export class WarehouseService {
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly userService: UserService,
+    private readonly transactionManager: TransactionManagerService,
+    private readonly codeGenerateService: CodeGenerateService,
   ) {}
 
   /**
@@ -78,15 +82,24 @@ export class WarehouseService {
     return { id, slug: warehouse.slug, code, name, isManager };
   }
 
+  /**
+   * `warehouseNo` + `code` (`WH-001`) do server sinh trong cùng transaction với `save` —
+   * `generateWarehouseCode` khoá dòng quy tắc `WAREHOUSE` nên 2 lần tạo kho đồng thời không lấy trùng
+   * số. Vẫn check `code` trùng: kho cũ nhập tay có thể đã giữ đúng mã vừa sinh (vd `WH-002`).
+   */
   async createWarehouse(dto: CreateWarehouseRequestDto): Promise<WarehouseResponseDto> {
     const context = `${WarehouseService.name}.${this.createWarehouse.name}`;
     const data = this.mapper.map(dto, CreateWarehouseRequestDto, Warehouse);
 
-    await this.assertCodeIsFree(data.code);
     await this.assertNameIsFree(data.name);
 
-    const created = await this.warehouseRepository.save(this.warehouseRepository.create(data));
-    this.logger.log(`Warehouse created: ${created.id}`, context);
+    const created = await this.transactionManager.execute(async (manager) => {
+      const { warehouseNo, code } = await this.codeGenerateService.generateWarehouseCode(manager);
+      const repository = manager.getRepository(Warehouse);
+      await this.assertCodeIsFree(code, repository);
+      return repository.save(repository.create({ ...data, warehouseNo, code }));
+    });
+    this.logger.log(`Warehouse created: ${created.id} (${created.code})`, context);
     return this.mapper.map(created, Warehouse, WarehouseResponseDto);
   }
 
@@ -192,10 +205,9 @@ export class WarehouseService {
 
     // PATCH partial: `pickDefined` bỏ mọi field client không gửi ⇒ field vắng mặt giữ nguyên giá
     // trị cũ. Check trùng chỉ chạy khi field CÓ mặt VÀ đổi giá trị — thiếu rào `undefined` thì
-    // `assertCodeIsFree(undefined)` sẽ tra nhầm sang bản ghi khác.
+    // `assertNameIsFree(undefined)` sẽ tra nhầm sang bản ghi khác. `code`/`warehouseNo` không nằm
+    // trong DTO nên không đổi được qua đây.
     const data = pickDefined(this.mapper.map(dto, UpdateWarehouseRequestDto, Warehouse));
-    if (data.code !== undefined && data.code !== warehouse.code)
-      await this.assertCodeIsFree(data.code);
     if (data.name !== undefined && data.name !== warehouse.name)
       await this.assertNameIsFree(data.name);
 
@@ -365,9 +377,10 @@ export class WarehouseService {
   /**
    * `code` check UNIQUE index DB nhưng index đó KHÔNG bỏ qua bản ghi xoá mềm — nên phải tra kèm
    * `withDeleted` và phân biệt 2 tình huống, thay vì để MySQL ném `ER_DUP_ENTRY` thành lỗi 500.
+   * Chạy trong transaction tạo kho ⇒ nhận repository của `manager`.
    */
-  private async assertCodeIsFree(code: string): Promise<void> {
-    const existed = await this.warehouseRepository.findOne({
+  private async assertCodeIsFree(code: string, repository: Repository<Warehouse>): Promise<void> {
+    const existed = await repository.findOne({
       where: { code },
       withDeleted: true,
     });

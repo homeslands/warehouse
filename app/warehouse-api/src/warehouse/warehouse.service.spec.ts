@@ -15,6 +15,8 @@ import { WarehouseException } from './warehouse.exception';
 import { WarehouseValidation } from './warehouse.validation';
 import { UserService } from 'src/user/user.service';
 import { RoleEnum } from 'src/role/role.enum';
+import { TransactionManagerService } from 'src/db/transaction-manager.service';
+import { CodeGenerateService } from 'src/code-generate/code-generate.service';
 
 const baseWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
   ({
@@ -22,6 +24,7 @@ const baseWarehouse = (overrides: Partial<Warehouse> = {}): Warehouse =>
     slug: 'wh-slug-1',
     name: 'Kho Hà Nội 1',
     code: 'WH-HN-01',
+    warehouseNo: 1,
     address: 'Số 1, Cầu Giấy, Hà Nội',
     isActive: true,
     manager: null,
@@ -50,7 +53,6 @@ const managerSummary = {
 
 const createDto = () => ({
   name: 'Kho Hà Nội 1',
-  code: 'WH-HN-01',
   address: 'Số 1, Cầu Giấy, Hà Nội',
 });
 
@@ -81,6 +83,12 @@ describe('WarehouseService', () => {
     findAndCount: jest.fn(),
   };
   const userService = { findBySlug: jest.fn(), findAll: jest.fn() };
+  /** Repository trong transaction tạo kho dùng chung mock với repository inject ở ngoài. */
+  const manager = { getRepository: jest.fn(() => warehouseRepository) };
+  const transactionManager = { execute: jest.fn((onSave) => onSave(manager)) };
+  const codeGenerateService = {
+    generateWarehouseCode: jest.fn().mockResolvedValue({ warehouseNo: 7, code: 'WH-007' }),
+  };
 
   beforeEach(async () => {
     jest.clearAllMocks();
@@ -97,6 +105,8 @@ describe('WarehouseService', () => {
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
         { provide: UserService, useValue: userService },
+        { provide: TransactionManagerService, useValue: transactionManager },
+        { provide: CodeGenerateService, useValue: codeGenerateService },
       ],
     }).compile();
     await module.init();
@@ -109,37 +119,58 @@ describe('WarehouseService', () => {
   });
 
   describe('createWarehouse', () => {
-    it('creates a warehouse when code and name are free', async () => {
+    const freeCodeAndName = () => {
       warehouseRepository.findOne.mockResolvedValue(null);
       warehouseRepository.findOneBy.mockResolvedValue(null);
       warehouseRepository.create.mockImplementation((data) => data);
       warehouseRepository.save.mockImplementation((data) => ({ ...data, id: 'warehouse-id-1' }));
+    };
+
+    it('saves the generated warehouseNo + code inside one transaction', async () => {
+      freeCodeAndName();
 
       const result = await service.createWarehouse(createDto());
 
-      expect(result).toMatchObject({ name: 'Kho Hà Nội 1', code: 'WH-HN-01' });
-      expect(warehouseRepository.save).toHaveBeenCalled();
-    });
-
-    it('normalizes code to upper case and trims text before saving', async () => {
-      warehouseRepository.findOne.mockResolvedValue(null);
-      warehouseRepository.findOneBy.mockResolvedValue(null);
-      warehouseRepository.create.mockImplementation((data) => data);
-      warehouseRepository.save.mockImplementation((data) => data);
-
-      await service.createWarehouse({
-        name: '  Kho Hà Nội 1  ',
-        code: ' wh-hn-01 ',
-        address: '  Số 1  ',
-      });
-
+      expect(result).toMatchObject({ name: 'Kho Hà Nội 1', code: 'WH-007', warehouseNo: 7 });
+      expect(transactionManager.execute).toHaveBeenCalledTimes(1);
+      expect(codeGenerateService.generateWarehouseCode).toHaveBeenCalledWith(manager);
       expect(warehouseRepository.save).toHaveBeenCalledWith(
-        expect.objectContaining({ code: 'WH-HN-01', name: 'Kho Hà Nội 1', address: 'Số 1' }),
+        expect.objectContaining({ code: 'WH-007', warehouseNo: 7 }),
+      );
+      // Sinh mã (khoá quy tắc) trước khi ghi.
+      expect(codeGenerateService.generateWarehouseCode.mock.invocationCallOrder[0]).toBeLessThan(
+        warehouseRepository.save.mock.invocationCallOrder[0],
       );
     });
 
-    it('throws when the code is taken by a live warehouse', async () => {
-      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+    it('ignores a client-sent code/warehouseNo (server-generated only)', async () => {
+      freeCodeAndName();
+
+      await service.createWarehouse({
+        ...createDto(),
+        code: 'MY-CODE',
+        warehouseNo: 99,
+      } as never);
+
+      expect(warehouseRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'WH-007', warehouseNo: 7 }),
+      );
+    });
+
+    it('trims text before saving', async () => {
+      freeCodeAndName();
+
+      await service.createWarehouse({ name: '  Kho Hà Nội 1  ', address: '  Số 1  ' });
+
+      expect(warehouseRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ name: 'Kho Hà Nội 1', address: 'Số 1' }),
+      );
+    });
+
+    // Kho cũ nhập tay có thể đã giữ đúng mã vừa sinh ⇒ báo lỗi nghiệp vụ thay vì ER_DUP_ENTRY (500).
+    it('throws when the generated code is taken by a live warehouse', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(null);
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse({ code: 'WH-007' }));
 
       await expectWarehouseError(
         service.createWarehouse(createDto()),
@@ -148,7 +179,8 @@ describe('WarehouseService', () => {
       expect(warehouseRepository.save).not.toHaveBeenCalled();
     });
 
-    it('throws a distinct error when the code is held by a soft-deleted warehouse', async () => {
+    it('throws a distinct error when the generated code is held by a soft-deleted warehouse', async () => {
+      warehouseRepository.findOneBy.mockResolvedValue(null);
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse({ deletedAt: new Date() }));
 
       await expectWarehouseError(
@@ -157,21 +189,18 @@ describe('WarehouseService', () => {
       );
     });
 
-    it('looks up the code including soft-deleted rows', async () => {
-      warehouseRepository.findOne.mockResolvedValue(null);
-      warehouseRepository.findOneBy.mockResolvedValue(null);
-      warehouseRepository.create.mockImplementation((data) => data);
-      warehouseRepository.save.mockImplementation((data) => data);
+    it('looks up the generated code including soft-deleted rows', async () => {
+      freeCodeAndName();
 
       await service.createWarehouse(createDto());
 
       expect(warehouseRepository.findOne).toHaveBeenCalledWith({
-        where: { code: 'WH-HN-01' },
+        where: { code: 'WH-007' },
         withDeleted: true,
       });
     });
 
-    it('throws when the name already exists', async () => {
+    it('throws when the name already exists, without generating a code', async () => {
       warehouseRepository.findOne.mockResolvedValue(null);
       warehouseRepository.findOneBy.mockResolvedValue(baseWarehouse());
 
@@ -179,6 +208,7 @@ describe('WarehouseService', () => {
         service.createWarehouse(createDto()),
         WarehouseValidation.WAREHOUSE_NAME_DOES_EXIST.code,
       );
+      expect(codeGenerateService.generateWarehouseCode).not.toHaveBeenCalled();
     });
   });
 
@@ -445,7 +475,7 @@ describe('WarehouseService', () => {
       });
     });
 
-    it('skips the uniqueness re-check when code and name are unchanged', async () => {
+    it('skips the uniqueness re-check when the name is unchanged', async () => {
       warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
       warehouseRepository.save.mockImplementation((data) => data);
 
@@ -455,14 +485,18 @@ describe('WarehouseService', () => {
       expect(warehouseRepository.findOneBy).not.toHaveBeenCalled();
     });
 
-    it('re-checks uniqueness when the code changes', async () => {
-      warehouseRepository.findOne
-        .mockResolvedValueOnce(baseWarehouse())
-        .mockResolvedValueOnce(baseWarehouse({ id: 'other', code: 'WH-HN-02' }));
+    it('never changes code or warehouseNo, even if sent', async () => {
+      warehouseRepository.findOne.mockResolvedValue(baseWarehouse());
+      warehouseRepository.save.mockImplementation((data) => data);
 
-      await expectWarehouseError(
-        service.updateWarehouse('wh-slug-1', { ...updateDto, code: 'WH-HN-02' }),
-        WarehouseValidation.WAREHOUSE_CODE_DOES_EXIST.code,
+      await service.updateWarehouse('wh-slug-1', {
+        ...updateDto,
+        code: 'WH-HN-02',
+        warehouseNo: 99,
+      } as never);
+
+      expect(warehouseRepository.save).toHaveBeenCalledWith(
+        expect.objectContaining({ code: 'WH-HN-01', warehouseNo: 1 }),
       );
     });
 
