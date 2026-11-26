@@ -21,7 +21,7 @@ import { CodeGenerateModule } from 'src/code-generate/code-generate.module';
     TypeOrmModule.forFeature([Inventory, InventoryHistory, Warehouse, Supplier]),
     MaterialModule,
     DbModule,
-    // Sinh mã vật tư khi tạo (`POST .../materials`) + cấp mã vạch (`POST .../materials/barcode`).
+    // Sinh mã vật tư khi tạo (`POST .../materials`).
     CodeGenerateModule,
   ],
   controllers: [InventoryController],

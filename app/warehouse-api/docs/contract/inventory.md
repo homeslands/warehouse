@@ -181,7 +181,7 @@ Nguồn: `inventory.dto.ts`, map ở `inventory.mapper.ts`.
 - **Quyền:** `MATERIAL_CREATE` **và** `MATERIAL_UPDATE` **và** `WAREHOUSE_UPDATE`, giống `POST /materials` (`inventory.controller.ts`).
 - **Path params:** `warehouseSlug` (`string`).
 - **Body:** không có.
-- **Hành vi** (`InventoryService.generateMaterialBarcode`): dùng khi sản phẩm **không có mã vạch** của nhà sản xuất. Server cấp một EAN-13 dạng `{prefix:2}{số kho:3}{seq:7}{check}`, tiền tố theo quy tắc `BARCODE` (mặc định `20`), ví dụ `2000100000014`. Số kho là thứ tự tạo của kho (kho tạo đầu tiên là `001`, tính cả kho đã xoá), server tự tính, không có field nào ở API kho. Bộ đếm mã vạch chạy theo kho và không reset theo ngày.
+- **Hành vi** (`BarcodeService.generateMaterialBarcode`, module `code-generate`): dùng khi sản phẩm **không có mã vạch** của nhà sản xuất. Server cấp một EAN-13 dạng `{prefix:2}{số kho:3}{seq:7}{check}`, tiền tố theo quy tắc `BARCODE` (mặc định `20`), ví dụ `2000100000014`. Số kho là thứ tự tạo của kho (kho tạo đầu tiên là `001`, tính cả kho đã xoá), server tự tính, không có field nào ở API kho. Bộ đếm mã vạch chạy theo kho và không reset theo ngày.
 
   Endpoint **chỉ cấp số, không tạo vật tư** và **không cấp mã vật tư** (mã vật tư tự sinh khi tạo vật tư). FE gửi lại giá trị ở `material.barcode` của `POST /warehouses/:warehouseSlug/materials`. Số đã cấp mà không dùng thì bỏ trống, không bao giờ được cấp lại. Tiền tố sửa ở [code-rule.md](code-rule.md).
 - **Response 201:** `result` là `{ barcode: string }`.
