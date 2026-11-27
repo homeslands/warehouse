@@ -15,6 +15,15 @@ export class Warehouse extends Base {
   @Column({ name: 'code_column', unique: true })
   code: string;
 
+  /**
+   * Số kho 1-999, cấp tự động lúc tạo (MAX + 1, tính cả kho xoá mềm) và không bao giờ đổi — là phần
+   * số của `code` (`WH-001`) và 3 chữ số kho trong mã vạch EAN-13 của vật tư. Kho có trước migration
+   * `1783728000052` được backfill theo thứ tự tạo (đúng số mã vạch đã in trước đó).
+   */
+  @AutoMap()
+  @Column({ name: 'warehouse_no_column', type: 'smallint', unsigned: true, unique: true })
+  warehouseNo: number;
+
   @AutoMap()
   @Column({ name: 'address_column' })
   address: string;

@@ -19,7 +19,7 @@ export class Material extends Base {
 
   /**
    * Mã vạch quét được trên sản phẩm (EAN-8/UPC/EAN-13/GTIN-14 của nhà sản xuất), hoặc EAN-13 hệ
-   * thống tự sinh (`POST /warehouses/:slug/materials/barcode`, `CodeType.Barcode`) khi sản phẩm không
+   * thống tự sinh (`POST /warehouses/:slug/barcode`, `CodeType.Barcode`) khi sản phẩm không
    * có mã vạch. NULL = chưa có. UNIQUE tính cả vật tư xoá mềm (xem `assertBarcodeIsFree`).
    */
   @AutoMap()

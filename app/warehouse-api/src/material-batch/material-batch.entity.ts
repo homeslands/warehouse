@@ -6,9 +6,10 @@ import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { ImportFormItem } from 'src/import-form/import-form-item.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 import { MaterialBatchStatus } from './material-batch.constants';
+import { ITEM_CODE_MAX_LENGTH } from 'src/import-form/import-form.constants';
 
 /**
- * 1 lô hàng = 1 dòng phiếu nhập đã xác nhận (`ImportFormService.decide` → `createFromImportItems`).
+ * 1 lô hàng = 1 dòng phiếu nhập đã xác nhận = 1 đơn vị hàng có mã `code` (chép từ dòng) (`ImportFormService.decide` → `createFromImportItems`).
  * KHÔNG có API tạo/sửa/xoá: lô chỉ sinh ra khi xác nhận phiếu nhập; phiếu xuất gửi duyệt giữ chỗ
  * (`reservedQuantity`), xác nhận thì trừ `remainingQuantity` (`MaterialBatchService`).
  *
@@ -33,6 +34,20 @@ export class MaterialBatch extends Base {
   @ManyToOne(() => ImportFormItem, (item) => item.batches, { nullable: false })
   @JoinColumn({ name: 'import_form_item_id_column' })
   importFormItem: ImportFormItem;
+
+  /**
+   * Mã đơn vị hàng, chép từ `ImportFormItem.code` lúc xác nhận phiếu (mã sinh khi thêm dòng vào phiếu
+   * nháp). NULL ở lô sinh từ dòng cũ chưa có mã.
+   */
+  @AutoMap()
+  @Column({
+    name: 'code_column',
+    type: 'varchar',
+    length: ITEM_CODE_MAX_LENGTH,
+    nullable: true,
+    unique: true,
+  })
+  code?: string | null;
 
   /** Ngày nhập (`YYYY-MM-DD`) = `date` của phiếu nhập. */
   @AutoMap()

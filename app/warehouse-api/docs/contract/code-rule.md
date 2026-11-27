@@ -1,9 +1,9 @@
 # Quy tắc sinh mã (Code rule)
 
-> Nguồn: `src/code-generate/code-rule.controller.ts`, `src/code-generate/code-rule.dto.ts`, `src/code-generate/code-rule.service.ts`, `src/code-generate/code-generate.service.ts`, `src/code-generate/code-generate.constants.ts`, `src/code-generate/code-generate.validation.ts` (đường dẫn tương đối từ `app/warehouse-api`).
+> Nguồn: `src/code-generate/code-rule.controller.ts`, `src/code-generate/barcode.controller.ts`, `src/code-generate/barcode.service.ts`, `src/code-generate/code-rule.dto.ts`, `src/code-generate/code-rule.service.ts`, `src/code-generate/code-generate.service.ts`, `src/code-generate/code-generate.constants.ts`, `src/code-generate/code-generate.validation.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
 
-Mỗi loại mã tự sinh (`CodeType`) có một quy tắc giữ **tiền tố** in lên mã. Có đủ 6 loại, seed sẵn ở migration `1783728000049`. API chỉ đọc và sửa quy tắc, không tạo hay xoá.
+Mỗi loại mã tự sinh (`CodeType`) có một quy tắc giữ **tiền tố** in lên mã. Có 6 loại, seed sẵn ở migration `1783728000049` (`WAREHOUSE` ở `1783728000052`). Mã vạch `BARCODE` **không** có quy tắc ở đây: tiền tố lấy từ biến môi trường `BARCODE_PREFIX` (xem dưới). API chỉ đọc và sửa quy tắc, không tạo hay xoá.
 
 | `type` | Tiền tố mặc định | Định dạng mã | Dùng ở |
 |---|---|---|---|
@@ -12,14 +12,16 @@ Mỗi loại mã tự sinh (`CodeType`) có một quy tắc giữ **tiền tố*
 | `EXPORT_FORM` | `EX` | như trên | Mã phiếu xuất |
 | `BALANCE_FORM` | `BL` | như trên | Chưa dùng |
 | `SHELF` | `SH` | như trên | Chưa dùng |
-| `BARCODE` | `20` | EAN-13 `{prefix:2}{số kho:3}{seq:7}{check}` | `POST /warehouses/:warehouseSlug/materials/barcode` |
+| `WAREHOUSE` | `WH` | `{prefix}-{warehouseNo:3}`, vd `WH-001` | `POST /warehouses` (mã kho) |
 
 - Bộ đếm `seq` của mã chữ reset theo (loại, kho, ngày giờ Việt Nam). Bộ đếm mã vạch chạy theo (kho) và **không reset**.
 - Chữ số kiểm tra EAN-13 theo chuẩn GS1 (mod 10, trọng số 1/3).
 - Mã vạch **chỉ dùng cho vật tư** (`material.barcode`). Phiếu nhập/xuất chỉ có mã chữ (`code`).
-- Số kho trong mã vạch (`001`…`999`) là thứ tự tạo của kho, tính cả kho đã xoá mềm, nên không đổi theo thời gian. Server tự tính khi sinh mã vạch; kho không có field nào cho mã vạch.
+- Số kho trong mã vạch (`001`…`999`) là `warehouse.warehouseNo`: server cấp lúc tạo kho (lớn nhất hiện có + 1, tính cả kho đã xoá mềm) và không bao giờ đổi. Kho có trước 2026-11-26 được đánh số theo thứ tự tạo, đúng với số đã in trên mã vạch trước đó.
+- Mã kho `WAREHOUSE` không có bộ đếm riêng: phần số chính là `warehouseNo`. Đổi tiền tố chỉ ảnh hưởng kho tạo sau đó.
 - Đổi tiền tố **không** làm cấp trùng: mã cũ giữ tiền tố cũ, bộ đếm vẫn chạy tiếp theo `type`. Mã mới sinh ra từ request kế tiếp dùng tiền tố mới.
-- Tiền tố `20`–`29` là dải GS1 dành cho mã lưu hành nội bộ. Nên giữ `BARCODE` trong dải này để không trùng mã vạch thật của nhà sản xuất.
+- **Mã vạch EAN-13** `{prefix:2}{số kho:3}{seq:7}{check}` (dùng ở `POST /warehouses/:warehouseSlug/barcode`): tiền tố là env `BARCODE_PREFIX` của server, đúng 2 chữ số, mặc định `20`; sai format thì server không khởi động. Đổi tiền tố phải sửa env và restart, không có API. `GET`/`PATCH /code-rules/BARCODE` trả `101608 CODE_RULE_TYPE_INVALID` (từ 2026-11-26).
+- Tiền tố `20`–`29` là dải GS1 dành cho mã lưu hành nội bộ. Nên giữ `BARCODE_PREFIX` trong dải này để không trùng mã vạch thật của nhà sản xuất.
 
 ## Tóm tắt endpoint
 
@@ -28,6 +30,7 @@ Mỗi loại mã tự sinh (`CodeType`) có một quy tắc giữ **tiền tố*
 | GET | /api/v1/code-rules | `CODE_RULE_READ` | Danh sách quy tắc |
 | GET | /api/v1/code-rules/:type | `CODE_RULE_READ` | Một quy tắc |
 | PATCH | /api/v1/code-rules/:type | `CODE_RULE_UPDATE` | Sửa tiền tố / mô tả |
+| POST | /api/v1/warehouses/:warehouseSlug/barcode | `MATERIAL_CREATE` + `MATERIAL_UPDATE` + `WAREHOUSE_UPDATE` | Cấp mã vạch EAN-13 cho vật tư mới của kho |
 
 Quyền seed sẵn (migration `1783728000051`): `CODE_RULE_READ` cho `ADMIN`, `MANAGER`; `CODE_RULE_UPDATE` cho `ADMIN`.
 
@@ -37,7 +40,7 @@ Quyền seed sẵn (migration `1783728000051`): `CODE_RULE_READ` cho `ADMIN`, `M
 
 | Field | Kiểu | Ghi chú |
 |---|---|---|
-| `type` | `'ITEM' \| 'IMPORT_FORM' \| 'EXPORT_FORM' \| 'BALANCE_FORM' \| 'SHELF' \| 'BARCODE'` | Định danh của quy tắc, dùng trên path |
+| `type` | `'ITEM' \| 'IMPORT_FORM' \| 'EXPORT_FORM' \| 'BALANCE_FORM' \| 'SHELF' \| 'WAREHOUSE'` | Định danh của quy tắc, dùng trên path |
 | `prefix` | `string` | 2 ký tự |
 | `description` | `string \| null` | |
 | `updatedAt` | `string` | |
@@ -69,7 +72,7 @@ Quy tắc không có `slug`/`createdAt`: `type` là định danh.
 
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
-| `prefix` | `string` | Không | Trim, chuyển IN HOA, đúng 2 ký tự `A-Z 0-9`. Riêng `BARCODE`: đúng 2 chữ số | |
+| `prefix` | `string` | Không | Trim, chuyển IN HOA, đúng 2 ký tự `A-Z 0-9` | |
 | `description` | `string` | Không | Trim, tối đa 255 ký tự | |
 
 - **Response 200:** `result` là `CodeRuleResponseDto` sau khi sửa.
@@ -77,10 +80,29 @@ Quy tắc không có `slug`/`createdAt`: `type` là định danh.
 
 | HTTP | code | Khi nào |
 |---|---|---|
-| 400 | 101607 `CODE_RULE_PREFIX_INVALID` | `prefix` sai định dạng, hoặc `BARCODE` có chữ cái |
+| 400 | 101607 `CODE_RULE_PREFIX_INVALID` | `prefix` sai định dạng |
 | 400 | 101609 `CODE_RULE_DESCRIPTION_INVALID` | `description` không phải chuỗi hoặc dài hơn 255 |
 | 400 | 101608 `CODE_RULE_TYPE_INVALID` | `type` không hợp lệ |
 | 404 | 101606 `CODE_RULE_NOT_FOUND` | Chưa seed |
+
+## POST /api/v1/warehouses/:warehouseSlug/barcode
+
+- **Quyền:** `MATERIAL_CREATE` **và** `MATERIAL_UPDATE` **và** `WAREHOUSE_UPDATE`, giống `POST /warehouses/:warehouseSlug/materials` (`barcode.controller.ts`).
+- **Path params:** `warehouseSlug` (`string`).
+- **Body:** không có.
+- **Hành vi** (`BarcodeService.generateMaterialBarcode`, module `code-generate`): dùng khi sản phẩm **không có mã vạch** của nhà sản xuất. Server cấp một EAN-13 dạng `{prefix:2}{số kho:3}{seq:7}{check}`, tiền tố theo quy tắc `BARCODE` (mặc định `20`), ví dụ `2000100000014`. Số kho là thứ tự tạo của kho (kho tạo đầu tiên là `001`, tính cả kho đã xoá), server tự tính, không có field nào ở API kho. Bộ đếm mã vạch chạy theo kho và không reset theo ngày.
+
+  Endpoint **chỉ cấp số, không tạo vật tư** và **không cấp mã vật tư** (mã vật tư tự sinh khi tạo vật tư). FE gửi lại giá trị ở `material.barcode` của `POST /warehouses/:warehouseSlug/materials`. Số đã cấp mà không dùng thì bỏ trống, không bao giờ được cấp lại. Tiền tố: env `BARCODE_PREFIX` (xem đầu file).
+- **Response 201:** `result` là `{ barcode: string }`.
+- **Lỗi riêng:**
+
+| HTTP | code | Khi nào |
+|---|---|---|
+| 404 | 100501 `WAREHOUSE_NOT_FOUND` | Không có kho |
+| 422 | 100804 `INVENTORY_WAREHOUSE_INACTIVE` | Kho ngừng hoạt động |
+| 422 | 101604 `CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED` | Kho là kho thứ 1000 trở đi (mã vạch chỉ chứa được 999 kho) |
+| 422 | 101605 `CODE_GENERATE_BARCODE_EXHAUSTED` | Kho đã dùng hết 9 999 999 mã vạch |
+| 404 | 101606 `CODE_RULE_NOT_FOUND` | Chưa seed quy tắc `BARCODE` (chưa chạy migration) |
 
 ## Mã lỗi của module
 
@@ -94,6 +116,6 @@ Nguồn: `src/code-generate/code-generate.validation.ts` (`CodeGenerateValidatio
 | `CODE_GENERATE_WAREHOUSE_NO_EXHAUSTED` | 101604 | 422 | Barcodes support at most 999 warehouses |
 | `CODE_GENERATE_BARCODE_EXHAUSTED` | 101605 | 422 | Barcode sequence of this warehouse is exhausted (max 9999999) |
 | `CODE_RULE_NOT_FOUND` | 101606 | 404 | Code rule not found |
-| `CODE_RULE_PREFIX_INVALID` | 101607 | 400 | prefix must be 2 uppercase letters/digits (BARCODE: exactly 2 digits) |
+| `CODE_RULE_PREFIX_INVALID` | 101607 | 400 | prefix must be 2 uppercase letters/digits |
 | `CODE_RULE_TYPE_INVALID` | 101608 | 400 | Unknown code type |
 | `CODE_RULE_DESCRIPTION_INVALID` | 101609 | 400 | description must be a string of at most 255 characters |

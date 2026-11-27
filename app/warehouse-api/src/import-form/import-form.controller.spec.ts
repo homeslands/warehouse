@@ -90,11 +90,14 @@ describe('ImportFormController', () => {
 
     // Full-or-_OWN là OR, decorator chỉ biểu diễn AND ⇒ check nằm ở service. Gắn decorator vào đây
     // sẽ chặn mất người chỉ có quyền `_OWN`.
-    it.each(['updateImportForm', 'deleteImportForm', 'uploadFile'] as const)(
-      '%s has no guard-level authority (checked in the service)',
-      (handler) => {
-        expect(authorityOf(handler)).toBeUndefined();
-      },
-    );
+    it.each([
+      'updateImportForm',
+      'deleteImportForm',
+      'uploadFile',
+      'addItems',
+      'removeItem',
+    ] as const)('%s has no guard-level authority (checked in the service)', (handler) => {
+      expect(authorityOf(handler)).toBeUndefined();
+    });
   });
 });

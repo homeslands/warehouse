@@ -174,7 +174,7 @@ Tổng cộng 19 endpoint. Loại vật tư dùng chung bộ quyền `MATERIAL_*
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
 | code | string | có | `BUSINESS_CODE_REGEX` (2-32 ký tự, như loại vật tư) | Server trim rồi chuyển sang IN HOA. Unique tính cả bản ghi đã xoá mềm |
-| barcode | string | không | 8-14 chữ số (`^\d{8,14}$`: EAN-8/UPC/EAN-13/GTIN-14), không kiểm chữ số kiểm tra | Mã vạch in trên sản phẩm. Sản phẩm không có mã vạch: lấy EAN-13 từ `POST /warehouses/:warehouseSlug/materials/barcode` (xem [inventory.md](inventory.md)). Unique tính cả bản ghi đã xoá mềm: trùng → 100734, bị vật tư đã xoá giữ → 100735. PATCH gửi `barcode` cũng kiểm tra như vậy |
+| barcode | string | không | 8-14 chữ số (`^\d{8,14}$`: EAN-8/UPC/EAN-13/GTIN-14), không kiểm chữ số kiểm tra | Mã vạch in trên sản phẩm. Sản phẩm không có mã vạch: lấy EAN-13 từ `POST /warehouses/:warehouseSlug/barcode` (xem [code-rule.md](code-rule.md)). Unique tính cả bản ghi đã xoá mềm: trùng → 100734, bị vật tư đã xoá giữ → 100735. PATCH gửi `barcode` cũng kiểm tra như vậy |
 | name | string | có | khác rỗng | **Không** unique |
 | typeSlug | string (slug) | có | khác rỗng | Slug của loại vật tư |
 | baseUnitSlug | string (slug) | có | khác rỗng, không được `null` | Slug của unit làm đơn vị cơ sở |
@@ -418,6 +418,7 @@ Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc t
 | Field | Kiểu | Ghi chú |
 |---|---|---|
 | slug, createdAt, updatedAt | string | Xem conventions.md |
+| code | string \| null | Mã đơn vị hàng chép từ dòng phiếu nhập (ví dụ `IT-WH-001-261126-000001`), 1 lô = 1 đơn vị hàng. `null` ở lô sinh trước WR-5 |
 | entryDate | string (`YYYY-MM-DD`) | Ngày nhập, bằng ngày của phiếu nhập |
 | expiryDate | string (`YYYY-MM-DD`) \| null | `null` nghĩa là không có hạn dùng |
 | quantity | number | Lượng nhập ban đầu, tính theo đơn vị cơ sở |
@@ -440,6 +441,7 @@ Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc t
 |---|---|---|---|---|
 | page, size | number | không | xem conventions.md | |
 | materialSlug | string | không | — | So khớp chính xác |
+| code | string | không | — | Mã đơn vị hàng, so khớp chính xác (tra theo tem đã quét) |
 | status | `0 \| 1` | không | Giá trị khác trả `MATERIAL_BATCH_STATUS_INVALID` | |
 | expiryBefore | string (`YYYY-MM-DD`) | không | ISO-8601 strict và đúng mẫu `^\d{4}-\d{2}-\d{2}$` | Lấy lô có `expiryDate` **trước hẳn** ngày này. Lô không có hạn dùng bị loại |
 | sortBy | `'createdAt' \| 'expiryDate' \| 'entryDate'` | không | mặc định `createdAt` | |

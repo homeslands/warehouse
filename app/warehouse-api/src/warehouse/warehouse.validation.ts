@@ -61,6 +61,8 @@ export const WarehouseValidation: TWarehouseErrorCode = {
     HttpStatus.BAD_REQUEST,
   ),
   WAREHOUSE_NAME_DOES_EXIST: createErrorCode(100503, 'Warehouse name does exist'),
+  // `WAREHOUSE_CODE_IS_REQUIRED`/`_INVALID` không còn dùng từ khi mã kho tự sinh (migration
+  // `1783728000052`) — giữ key để mã 100504/100505 không bị cấp lại cho lỗi khác.
   WAREHOUSE_CODE_IS_REQUIRED: createErrorCode(
     100504,
     'Warehouse code is required',

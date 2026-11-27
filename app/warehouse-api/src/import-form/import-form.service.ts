@@ -1,9 +1,9 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
 import {
   EntityManager,
+  Equal,
   FindOptionsRelations,
   FindOptionsWhere,
-  In,
   Like,
   OptimisticLockVersionMismatchError,
   Repository,
@@ -13,8 +13,9 @@ import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
 import {
+  AddImportFormItemRequestDto,
+  AddImportFormItemResponseDto,
   ChangeImportFormStatusRequestDto,
-  CreateImportFormItemDto,
   CreateImportFormRequestDto,
   GetAllImportFormRequestDto,
   GetImportFormAvailableMaterialRequestDto,
@@ -25,7 +26,11 @@ import {
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
 import { ImportFormItem } from './import-form-item.entity';
-import { IMPORT_FORM_UPLOAD_FOLDER, ImportFormStatus } from './import-form.constants';
+import {
+  IMPORT_FORM_ITEMS_MAX,
+  IMPORT_FORM_UPLOAD_FOLDER,
+  ImportFormStatus,
+} from './import-form.constants';
 import { ImportFormException } from './import-form.exception';
 import { ImportFormValidation } from './import-form.validation';
 import { pickDefined } from 'src/shared/utils/obj.util';
@@ -144,11 +149,6 @@ export class ImportFormService {
       throw new ImportFormException(ImportFormValidation.IMPORT_FORM_WAREHOUSE_INACTIVE);
 
     const data = this.mapper.map(dto, CreateImportFormRequestDto, ImportForm);
-    const { items, total, supplierLinks } = await this.buildItems(
-      dto.items,
-      warehouse.id,
-      data.date,
-    );
     const requester = await this.findUser(currentUser.userId);
 
     const form = this.importFormRepository.create({
@@ -159,17 +159,14 @@ export class ImportFormService {
       approverName: null,
       status: ImportFormStatus.Draft,
       warehouse,
-      total,
+      total: 0,
     });
-    // Đầu phiếu + dòng vật tư trong 1 transaction: ghi dòng nào lỗi (FK, UNIQUE, mất kết nối...)
-    // thì rollback cả phiếu — không để lại phiếu không có dòng hoặc thiếu dòng. Gắn nhà cung cấp
-    // mới vào vật tư cũng nằm trong transaction này: phiếu lỗi thì không để lại cặp gắn dở.
+    // Phiếu nháp rỗng — hàng thêm sau qua `addItems`. Transaction vì bộ đếm mã cần `FOR UPDATE`.
     const created = await this.transactionManagerService.execute(async (manager) => {
-      await insertMaterialSuppliers(manager, supplierLinks);
       // Sinh mã ngay trước khi lưu: `FOR UPDATE` trên bộ đếm giữ tới khi transaction kết thúc.
       form.code = await this.codeGenerateService.generate(manager, CodeType.ImportForm, warehouse);
       const saved = await manager.save(form);
-      saved.items = await this.saveItems(manager, saved, items);
+      saved.items = [];
       return saved;
     });
     this.logger.log(`Import form created: ${created.id}`, context);
@@ -216,7 +213,7 @@ export class ImportFormService {
 
   /**
    * Vật tư ghi được vào phiếu nhập của kho = vật tư đã gán vào kho (có dòng `inventory_tbl`), kèm
-   * các đơn vị đã gắn để client chọn `unitSlug`. Cùng nguồn với rào trong `buildItems`.
+   * các đơn vị đã gắn để client chọn `unitSlug`. Cùng nguồn với rào trong `buildLines`.
    */
   async findAvailableMaterials(
     warehouseSlug: string,
@@ -286,46 +283,113 @@ export class ImportFormService {
       AuthorityCode.ImportFormUpdateDraftOwn,
     );
 
-    // PATCH partial: xem `pickDefined` — field không gửi giữ nguyên giá trị cũ.
+    // PATCH partial: xem `pickDefined` — field không gửi giữ nguyên giá trị cũ. Dòng không sửa ở đây.
     const data = pickDefined(this.mapper.map(dto, UpdateImportFormRequestDto, ImportForm));
-    // Gửi `items` = thay toàn bộ dòng. Dựng + kiểm tra dòng mới TRƯỚC khi mở transaction để lỗi
-    // nghiệp vụ không chạm DB; không gửi thì giữ nguyên dòng cũ.
+    // Đổi ngày phiếu: hạn dùng của dòng đã có vẫn không được trước ngày nhập mới.
     const formDate = data.date ?? form.date;
-    const replacement =
-      dto.items !== undefined && dto.items !== null
-        ? await this.buildItems(dto.items, form.warehouse.id, formDate)
-        : undefined;
-    // Đổi ngày phiếu mà giữ dòng cũ: hạn dùng của dòng cũ vẫn không được trước ngày nhập mới.
-    if (!replacement)
-      (form.items ?? []).forEach((item) => this.assertExpiry(item.expiryDate, formDate));
+    (form.items ?? []).forEach((item) => this.assertExpiry(item.expiryDate, formDate));
 
-    Object.assign(form, data);
-    if (replacement) form.total = replacement.total;
-    const oldItems = form.items ?? [];
-
-    // Đầu phiếu + thay dòng trong 1 transaction: lỗi ở bất kỳ bước nào thì rollback, phiếu và
-    // dòng cũ còn nguyên như trước request.
-    const updated = await this.transactionManagerService.execute(async (manager) => {
-      // Tách `items` khỏi lần save đầu phiếu: dòng được ghi tường minh bên dưới, không để cascade
-      // tự so sánh/ghi lại.
-      form.items = undefined;
-      const saved = await manager.save(form);
-      if (!replacement) {
-        saved.items = oldItems;
-        return saved;
-      }
-      // Xoá cứng dòng cũ TRƯỚC khi ghi dòng mới — ngược lại UNIQUE (phiếu, vật tư, đơn vị) va
-      // ngay với dòng cũ cùng cặp vật tư/đơn vị.
-      if (oldItems.length)
-        await manager.delete(
-          ImportFormItem,
-          oldItems.map((item) => item.id),
-        );
-      await insertMaterialSuppliers(manager, replacement.supplierLinks);
-      saved.items = await this.saveItems(manager, saved, replacement.items);
-      return saved;
+    await this.transactionManagerService.execute(async (manager) => {
+      // Ghi lên bản ĐÃ KHOÁ (không phải `form` đọc trước đó): `total` có thể vừa đổi bởi
+      // `addItems`/`removeItem` — chúng luôn tăng `version` nên version khớp ⇒ dòng chưa đổi.
+      const locked = await this.lockDraft(manager, form.id);
+      if (locked.version !== form.version)
+        throw new OptimisticLockVersionMismatchError(ImportForm.name, form.version, locked.version);
+      Object.assign(locked, data);
+      await manager.save(locked);
     });
-    return this.mapper.map(updated, ImportForm, ImportFormResponseDto);
+    return this.findOne(warehouseSlug, slug);
+  }
+
+  /**
+   * Thêm hàng vào phiếu nháp (quét barcode hoặc chọn tay): `quantity` đơn vị ⇒ `quantity` dòng, mỗi
+   * dòng 1 mã `CodeType.Item` (`{prefix}-{mã kho}-{yymmdd}-{seq}`). Quyền như sửa phiếu nháp.
+   *
+   * Không nhận `version`: các lần quét liên tiếp không phải mang version mới nhất. Chống ghi chồng
+   * bằng `FOR UPDATE` đầu phiếu (cùng khoá với xác nhận/huỷ ⇒ không thêm dòng vào phiếu đang được
+   * xác nhận). Lưu lại đầu phiếu ⇒ `version` tăng, nên ai giữ version cũ (xác nhận/PATCH) bị 409 —
+   * không xác nhận nhầm phiếu đã có thêm hàng sau lần đọc.
+   */
+  async addItems(
+    warehouseSlug: string,
+    slug: string,
+    dto: AddImportFormItemRequestDto,
+    currentUser: CurrentUserDto,
+  ): Promise<AddImportFormItemResponseDto> {
+    const context = `${ImportFormService.name}.${this.addItems.name}`;
+    const form = await this.findForm(warehouseSlug, slug);
+    this.assertIsDraft(form);
+    this.assertCanModify(
+      form,
+      currentUser,
+      AuthorityCode.ImportFormUpdateDraft,
+      AuthorityCode.ImportFormUpdateDraftOwn,
+    );
+    // Dựng + kiểm tra TRƯỚC khi mở transaction để lỗi nghiệp vụ không chạm DB.
+    const { lines, supplierLinks } = await this.buildLines(dto, form.warehouse.id, form.date);
+
+    const codes = await this.transactionManagerService.execute(async (manager) => {
+      const locked = await this.lockDraft(manager, form.id);
+      const count = await manager.count(ImportFormItem, {
+        where: { importForm: Equal(locked.id) },
+      });
+      if (count + lines.length > IMPORT_FORM_ITEMS_MAX)
+        throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEMS_TOO_MANY);
+      const total = lines.reduce((sum, line) => roundMoney(sum + line.amount), locked.total);
+      if (total >= MONEY_MAX)
+        throw new ImportFormException(ImportFormValidation.IMPORT_FORM_TOTAL_INVALID);
+
+      await insertMaterialSuppliers(manager, supplierLinks);
+      const lastLineNo = await this.lastLineNo(manager, locked.id);
+      // Sinh mã ngay trước khi lưu: `FOR UPDATE` trên bộ đếm giữ tới khi transaction kết thúc.
+      const generated = await this.codeGenerateService.generateMany(
+        manager,
+        CodeType.Item,
+        form.warehouse,
+        lines.length,
+      );
+      lines.forEach((line, index) => {
+        line.importForm = locked;
+        line.lineNo = lastLineNo + index + 1;
+        line.code = generated[index];
+      });
+      await manager.save(lines);
+      await this.saveTotal(manager, locked, total);
+      return generated;
+    });
+    this.logger.log(`Added ${codes.length} item(s) to import form ${form.id}`, context);
+    return { codes, form: await this.findOne(warehouseSlug, slug) };
+  }
+
+  /** Gỡ 1 dòng (1 đơn vị hàng) khỏi phiếu nháp. Mã của dòng đã cấp không cấp lại. */
+  async removeItem(
+    warehouseSlug: string,
+    slug: string,
+    itemSlug: string,
+    currentUser: CurrentUserDto,
+  ): Promise<ImportFormResponseDto> {
+    const context = `${ImportFormService.name}.${this.removeItem.name}`;
+    const form = await this.findForm(warehouseSlug, slug);
+    this.assertIsDraft(form);
+    this.assertCanModify(
+      form,
+      currentUser,
+      AuthorityCode.ImportFormUpdateDraft,
+      AuthorityCode.ImportFormUpdateDraftOwn,
+    );
+
+    await this.transactionManagerService.execute(async (manager) => {
+      const locked = await this.lockDraft(manager, form.id);
+      // Tra lại dưới khoá: dòng đọc ở `findForm` có thể đã bị request khác gỡ.
+      const item = await manager.findOne(ImportFormItem, {
+        where: { slug: itemSlug, importForm: Equal(locked.id) },
+      });
+      if (!item) throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_NOT_FOUND);
+      await manager.delete(ImportFormItem, item.id);
+      await this.saveTotal(manager, locked, Math.max(0, roundMoney(locked.total - item.amount)));
+    });
+    this.logger.log(`Removed item ${itemSlug} from import form ${form.id}`, context);
+    return this.findOne(warehouseSlug, slug);
   }
 
   async deleteImportForm(
@@ -382,8 +446,10 @@ export class ImportFormService {
     const form = await this.findForm(warehouseSlug, slug, dto.version);
     this.assertIsDraft(form);
 
-    const approver = await this.findUser(currentUser.userId);
     const items = form.items ?? [];
+    if (status === ImportFormStatus.Confirmed && !items.length)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEMS_IS_REQUIRED);
+    const approver = await this.findUser(currentUser.userId);
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
       // Khoá đầu phiếu rồi kiểm lại trạng thái + version trên bản ĐÃ KHOÁ: optimistic check ở
@@ -418,7 +484,8 @@ export class ImportFormService {
           currentUser,
           `Import form ${form.code}`,
         );
-        // 1 dòng ⇒ 1 lô (ngày nhập = ngày phiếu, hạn dùng = hạn của dòng), cùng transaction cộng tồn.
+        // 1 dòng ⇒ 1 lô mang mã của dòng (ngày nhập = ngày phiếu, hạn dùng = hạn của dòng), cùng
+        // transaction cộng tồn.
         await this.materialBatchService.createFromImportItems(manager, form, items);
       }
       return saved;
@@ -442,96 +509,96 @@ export class ImportFormService {
     return form;
   }
 
-  /** Ghi dòng phiếu (đã dựng sẵn bởi `buildItems`) dưới `form`, trong transaction của caller. */
-  private saveItems(
-    manager: EntityManager,
-    form: ImportForm,
-    items: ImportFormItem[],
-  ): Promise<ImportFormItem[]> {
-    items.forEach((item) => (item.importForm = form));
-    return manager.save(items);
+  /**
+   * Khoá đầu phiếu (`FOR UPDATE`, không kèm relations — MySQL khoá luôn dòng bảng JOIN) và kiểm lại
+   * `DRAFT` trên bản đã khoá.
+   */
+  private async lockDraft(manager: EntityManager, id: string): Promise<ImportForm> {
+    const locked = await manager.findOne(ImportForm, {
+      where: { id },
+      lock: { mode: 'pessimistic_write' },
+    });
+    if (!locked) throw new ImportFormException(ImportFormValidation.IMPORT_FORM_NOT_FOUND);
+    this.assertIsDraft(locked);
+    return locked;
   }
 
   /**
-   * Dựng dòng phiếu từ body: resolve vật tư (1 query cho cả mảng), kiểm đơn vị thuộc vật tư, snapshot
-   * tỉ lệ quy đổi + mã/tên + nhà cung cấp của vật tư, tính `baseQuantity`/`amount`, và `total` = Σ `amount`.
-   * Vật tư phải đã gán vào kho của phiếu (có dòng `inventory_tbl`) — nếu không, xác nhận phiếu sẽ
-   * không có dòng tồn để cộng; chặn ngay lúc ghi thay vì để phiếu nháp không bao giờ xác nhận được.
-   * `supplierLinks`: các cặp (vật tư, nhà cung cấp) mà dòng chỉ ra nhưng chưa gắn — caller ghi trong
-   * transaction của phiếu.
+   * Ghi `total` mới và LUÔN tăng `version` (kể cả khi `total` không đổi — dòng đơn giá 0): xác
+   * nhận/PATCH so version trên bản khoá để biết dòng phiếu chưa đổi kể từ lần đọc. `save()` chỉ tăng
+   * `@VersionColumn` khi có cột đổi nên không dùng được ở đây.
    */
-  private async buildItems(
-    dtos: CreateImportFormItemDto[],
+  private async saveTotal(manager: EntityManager, locked: ImportForm, total: number) {
+    await manager.update(ImportForm, { id: locked.id }, { total, version: locked.version + 1 });
+  }
+
+  /** `lineNo` lớn nhất của phiếu (0 khi chưa có dòng) — gọi dưới khoá đầu phiếu. */
+  private async lastLineNo(manager: EntityManager, formId: string): Promise<number> {
+    const { max } = await manager
+      .createQueryBuilder(ImportFormItem, 'item')
+      .select('MAX(item.lineNo)', 'max')
+      .where('item.importForm = :formId', { formId })
+      .getRawOne<{ max: number | string | null }>();
+    return Number(max ?? 0);
+  }
+
+  /**
+   * Dựng `quantity` dòng (mỗi dòng 1 đơn vị, chưa có mã/`lineNo`) từ body: vật tư tra theo `barcode`
+   * hoặc `materialSlug` (đúng 1 trong 2), đơn vị phải gắn với vật tư (không gửi ⇒ đơn vị cơ sở),
+   * snapshot tỉ lệ quy đổi + mã/tên + nhà cung cấp, `baseQuantity` = tỉ lệ, `amount` = đơn giá.
+   * Vật tư phải đã gán vào kho của phiếu (có dòng `inventory_tbl`) — nếu không, xác nhận phiếu sẽ
+   * không có dòng tồn để cộng. `supplierLinks`: cặp (vật tư, nhà cung cấp) chưa gắn — caller ghi
+   * trong transaction.
+   */
+  private async buildLines(
+    dto: AddImportFormItemRequestDto,
     warehouseId: string,
     formDate: string,
-  ): Promise<{ items: ImportFormItem[]; total: number; supplierLinks: MaterialSupplierLink[] }> {
-    const seen = new Set<string>();
-    for (const dto of dtos) {
-      const key = `${dto.materialSlug}|${dto.unitSlug}`;
-      if (seen.has(key))
-        throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_DUPLICATED);
-      seen.add(key);
-    }
+  ): Promise<{ lines: ImportFormItem[]; supplierLinks: MaterialSupplierLink[] }> {
+    if (!dto.barcode === !dto.materialSlug)
+      throw new ImportFormException(
+        ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED,
+      );
 
-    const slugs = [...new Set(dtos.map((dto) => dto.materialSlug))];
-    const materials = await this.materialRepository.find({
-      where: { slug: In(slugs) },
-      relations: { unitsCanHave: { unit: true }, suppliers: true },
+    const material = await this.materialRepository.findOne({
+      where: dto.barcode ? { barcode: dto.barcode } : { slug: dto.materialSlug },
+      relations: { baseUnit: true, unitsCanHave: { unit: true }, suppliers: true },
     });
-    const materialBySlug = new Map(materials.map((material) => [material.slug, material]));
-    const assigned = materials.length
-      ? await this.inventoryRepository.find({
-          where: {
-            warehouse: { id: warehouseId },
-            material: { id: In(materials.map((material) => material.id)) },
-          },
-          relations: { material: true },
-        })
-      : [];
-    const assignedMaterialIds = new Set(assigned.map((row) => row.material.id));
-    const unattachedSupplierBySlug = await this.findUnattachedSuppliers(dtos, materialBySlug);
-    const supplierLinks = new Map<string, MaterialSupplierLink>();
+    if (!material)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND);
+    const assigned = await this.inventoryRepository.count({
+      where: { warehouse: { id: warehouseId }, material: { id: material.id } },
+    });
+    if (!assigned)
+      throw new ImportFormException(
+        ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE,
+      );
 
-    let total = 0;
-    const items = dtos.map((dto, index) => {
-      const material = materialBySlug.get(dto.materialSlug);
-      if (!material)
-        throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND);
-      if (!assignedMaterialIds.has(material.id))
-        throw new ImportFormException(
-          ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_NOT_IN_WAREHOUSE,
-        );
-      const row = material.unitsCanHave?.find((mu) => mu.unit?.slug === dto.unitSlug);
-      if (!row)
-        throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL);
+    const unitSlug = dto.unitSlug ?? material.baseUnit?.slug;
+    if (!unitSlug)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED);
+    const row = material.unitsCanHave?.find((mu) => mu.unit?.slug === unitSlug);
+    if (!row)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL);
 
-      // Rào dữ liệu bẩn như `MaterialService.convert`: bảng join ghi thẳng dưới DB được.
-      const conversionRate = Number(row.conversionRate);
-      if (!Number.isFinite(conversionRate) || conversionRate <= 0)
-        throw new ImportFormException(
-          ImportFormValidation.IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID,
-        );
+    // Rào dữ liệu bẩn như `MaterialService.convert`: bảng join ghi thẳng dưới DB được.
+    const conversionRate = Number(row.conversionRate);
+    if (!Number.isFinite(conversionRate) || conversionRate <= 0 || conversionRate >= QUANTITY_MAX)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID);
 
-      this.assertExpiry(dto.expiryDate, formDate);
+    this.assertExpiry(dto.expiryDate, formDate);
+    const amount = roundMoney(dto.unitPrice);
+    if (amount >= MONEY_MAX)
+      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_TOTAL_INVALID);
 
-      const supplier = this.pickSupplier(material, dto.supplierSlug, unattachedSupplierBySlug);
-      if (supplier && !material.suppliers?.some(({ id }) => id === supplier.id))
-        supplierLinks.set(`${material.id}|${supplier.id}`, {
-          materialId: material.id,
-          supplierId: supplier.id,
-        });
+    const supplier = await this.pickSupplier(material, dto.supplierSlug);
+    const supplierLinks =
+      supplier && !material.suppliers?.some(({ id }) => id === supplier.id)
+        ? [{ materialId: material.id, supplierId: supplier.id }]
+        : [];
 
-      const baseQuantity = roundToScale(dto.quantity * conversionRate);
-      if (dto.quantity >= QUANTITY_MAX || baseQuantity >= QUANTITY_MAX || baseQuantity <= 0)
-        throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_QUANTITY_INVALID);
-      const amount = roundMoney(dto.quantity * dto.unitPrice);
-      if (amount >= MONEY_MAX)
-        throw new ImportFormException(ImportFormValidation.IMPORT_FORM_TOTAL_INVALID);
-      total = roundMoney(total + amount);
-
-      const item = new ImportFormItem();
-      Object.assign(item, {
-        lineNo: index + 1,
+    const lines = Array.from({ length: dto.quantity ?? 1 }, () =>
+      Object.assign(new ImportFormItem(), {
         material,
         materialCode: material.code,
         materialName: material.name,
@@ -543,63 +610,36 @@ export class ImportFormService {
         unit: row.unit,
         unitCode: row.unit.code,
         unitName: row.unit.name,
-        quantity: dto.quantity,
+        quantity: 1,
         conversionRate,
-        baseQuantity,
+        baseQuantity: roundToScale(conversionRate),
         unitPrice: dto.unitPrice,
         amount,
         note: dto.note ?? null,
         expiryDate: dto.expiryDate ?? null,
-      });
-      return item;
-    });
-    if (total >= MONEY_MAX)
-      throw new ImportFormException(ImportFormValidation.IMPORT_FORM_TOTAL_INVALID);
-
-    return { items, total, supplierLinks: [...supplierLinks.values()] };
-  }
-
-  /**
-   * Nhà cung cấp mà dòng chỉ ra nhưng CHƯA gắn với vật tư của dòng đó — tra 1 query cho cả mảng,
-   * trả map theo slug. Slug không tồn tại (hoặc đã xoá mềm) ⇒ `SUPPLIER_NOT_FOUND` (lỗi của module
-   * supplier, cố ý không bọc lại), ném trước khi mở transaction.
-   */
-  private async findUnattachedSuppliers(
-    dtos: CreateImportFormItemDto[],
-    materialBySlug: Map<string, Material>,
-  ): Promise<Map<string, Supplier>> {
-    const slugs = new Set<string>();
-    for (const { materialSlug, supplierSlug } of dtos) {
-      const material = materialBySlug.get(materialSlug);
-      // Vật tư không tồn tại: để vòng dựng dòng ném `IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND` như cũ.
-      if (!material || !supplierSlug) continue;
-      if (!material.suppliers?.some(({ slug }) => slug === supplierSlug)) slugs.add(supplierSlug);
-    }
-    if (!slugs.size) return new Map();
-
-    const suppliers = await this.supplierRepository.find({ where: { slug: In([...slugs]) } });
-    if (suppliers.length !== slugs.size)
-      throw new SupplierException(SupplierValidation.SUPPLIER_NOT_FOUND);
-    return new Map(suppliers.map((supplier) => [supplier.slug, supplier]));
+      }),
+    );
+    return { lines, supplierLinks };
   }
 
   /**
    * Nhà cung cấp snapshot vào dòng phiếu. Vật tư - nhà cung cấp là n - n nên dòng phải chỉ ra
-   * nhà cung cấp nào: gửi `supplierSlug` thì lấy nhà cung cấp đó — chưa gắn với vật tư thì lấy từ
-   * `unattached` (caller tự gắn); không gửi thì lấy nhà cung cấp DUY NHẤT của vật tư, còn 0 hoặc
+   * nhà cung cấp nào: gửi `supplierSlug` thì lấy nhà cung cấp đó — chưa gắn với vật tư thì tra bảng
+   * nhà cung cấp (caller tự gắn; không tồn tại/đã xoá mềm ⇒ `SUPPLIER_NOT_FOUND`, lỗi của module
+   * supplier, cố ý không bọc lại); không gửi thì lấy nhà cung cấp DUY NHẤT của vật tư, còn 0 hoặc
    * nhiều nhà cung cấp thì để trống (không tự đoán).
    */
-  private pickSupplier(
+  private async pickSupplier(
     material: Material,
     supplierSlug: string | undefined,
-    unattached: Map<string, Supplier>,
-  ): Supplier | null {
+  ): Promise<Supplier | null> {
     const suppliers = material.suppliers ?? [];
-    if (supplierSlug)
-      return (
-        suppliers.find(({ slug }) => slug === supplierSlug) ?? unattached.get(supplierSlug) ?? null
-      );
-    return suppliers.length === 1 ? suppliers[0] : null;
+    if (!supplierSlug) return suppliers.length === 1 ? suppliers[0] : null;
+    const attached = suppliers.find(({ slug }) => slug === supplierSlug);
+    if (attached) return attached;
+    const supplier = await this.supplierRepository.findOne({ where: { slug: supplierSlug } });
+    if (!supplier) throw new SupplierException(SupplierValidation.SUPPLIER_NOT_FOUND);
+    return supplier;
   }
 
   /** Hạn dùng (nếu có) không được trước ngày nhập — so chuỗi `YYYY-MM-DD` đúng thứ tự ngày. */

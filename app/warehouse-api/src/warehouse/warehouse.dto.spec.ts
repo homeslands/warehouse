@@ -1,6 +1,7 @@
 import { plainToInstance } from 'class-transformer';
 import { validateSync } from 'class-validator';
-import { UpdateWarehouseRequestDto } from './warehouse.dto';
+import { ValidationPipe } from '@nestjs/common';
+import { CreateWarehouseRequestDto, UpdateWarehouseRequestDto } from './warehouse.dto';
 
 describe('UpdateWarehouseRequestDto — PATCH partial', () => {
   const errorsFor = (payload: object) =>
@@ -26,5 +27,30 @@ describe('UpdateWarehouseRequestDto — PATCH partial', () => {
   // không gửi `isActive` sẽ bật lại kho đã ngừng hoạt động.
   it('không tự gán isActive = true khi body không gửi field đó', () => {
     expect(plainToInstance(UpdateWarehouseRequestDto, {}).isActive).toBeUndefined();
+  });
+});
+
+// `code`/`warehouseNo` do server sinh: không có trong DTO ⇒ `ValidationPipe({ whitelist: true })` lột
+// bỏ nếu client gửi, không phải lỗi 400.
+describe('CreateWarehouseRequestDto — code tự sinh', () => {
+  const pipe = new ValidationPipe({ transform: true, whitelist: true });
+  const transform = (metatype: new () => object, payload: object) =>
+    pipe.transform(payload, { type: 'body', metatype });
+
+  it('lột bỏ code/warehouseNo client gửi lên ở POST', async () => {
+    const dto = await transform(CreateWarehouseRequestDto, {
+      name: 'Kho',
+      address: 'Số 1',
+      code: 'MY-CODE',
+      warehouseNo: 5,
+    });
+    expect(dto).not.toHaveProperty('code');
+    expect(dto).not.toHaveProperty('warehouseNo');
+  });
+
+  it('lột bỏ code/warehouseNo client gửi lên ở PATCH', async () => {
+    const dto = await transform(UpdateWarehouseRequestDto, { code: 'MY-CODE', warehouseNo: 5 });
+    expect(dto).not.toHaveProperty('code');
+    expect(dto).not.toHaveProperty('warehouseNo');
   });
 });

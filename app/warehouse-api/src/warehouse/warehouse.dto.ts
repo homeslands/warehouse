@@ -3,7 +3,7 @@ import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional, OmitType, PartialType } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
-import { WAREHOUSE_CODE_REGEX, WAREHOUSE_PHONENUMBER_REGEX } from './warehouse.constants';
+import { WAREHOUSE_PHONENUMBER_REGEX } from './warehouse.constants';
 import { GetAllUserRequestDto } from 'src/user/user.dto';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
@@ -21,12 +21,8 @@ export class CreateWarehouseRequestDto {
   @IsNotEmpty({ message: 'WAREHOUSE_NAME_IS_REQUIRED' })
   name: string;
 
-  @AutoMap()
-  @ApiProperty({ description: 'The business code of warehouse', example: 'WH-HN-01' })
-  @Transform(trim)
-  @Matches(WAREHOUSE_CODE_REGEX, { message: 'WAREHOUSE_CODE_INVALID' })
-  @IsNotEmpty({ message: 'WAREHOUSE_CODE_IS_REQUIRED' })
-  code: string;
+  // Không có `code`: server tự sinh `{WAREHOUSE prefix}-{warehouseNo:3}` lúc tạo, không sửa được qua
+  // PATCH (`whitelist` lột field này nếu client gửi) — xem `WarehouseService.createWarehouse`.
 
   @AutoMap()
   @ApiProperty({ description: 'The address of warehouse', example: '1 Cau Giay Street, Hanoi' })
@@ -145,8 +141,16 @@ export class WarehouseResponseDto extends BaseResponseDto {
   name: string;
 
   @AutoMap()
-  @ApiProperty()
+  @ApiProperty({ description: 'Auto-generated warehouse code', example: 'WH-001' })
   code: string;
+
+  @AutoMap()
+  @ApiProperty({
+    description:
+      'Warehouse number (1-999), auto-assigned and immutable — the 3 warehouse digits of generated barcodes',
+    example: 1,
+  })
+  warehouseNo: number;
 
   @AutoMap()
   @ApiProperty()

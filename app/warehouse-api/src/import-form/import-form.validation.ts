@@ -22,7 +22,6 @@ export const IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED = 'IMPORT_FORM_ITEM_UNIT_SLU
 export const IMPORT_FORM_ITEM_QUANTITY_INVALID = 'IMPORT_FORM_ITEM_QUANTITY_INVALID';
 export const IMPORT_FORM_ITEM_UNIT_PRICE_INVALID = 'IMPORT_FORM_ITEM_UNIT_PRICE_INVALID';
 export const IMPORT_FORM_ITEM_NOTE_INVALID = 'IMPORT_FORM_ITEM_NOTE_INVALID';
-export const IMPORT_FORM_ITEM_DUPLICATED = 'IMPORT_FORM_ITEM_DUPLICATED';
 export const IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND = 'IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND';
 export const IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL = 'IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL';
 export const IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID = 'IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID';
@@ -36,6 +35,8 @@ export const IMPORT_FORM_ITEM_SUPPLIER_NOT_OF_MATERIAL =
 
 export const IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID = 'IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID';
 export const IMPORT_FORM_VERSION_INVALID = 'IMPORT_FORM_VERSION_INVALID';
+export const IMPORT_FORM_ITEM_BARCODE_INVALID = 'IMPORT_FORM_ITEM_BARCODE_INVALID';
+export const IMPORT_FORM_ITEM_NOT_FOUND = 'IMPORT_FORM_ITEM_NOT_FOUND';
 
 export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_NOT_FOUND
@@ -56,7 +57,6 @@ export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_ITEM_QUANTITY_INVALID
   | typeof IMPORT_FORM_ITEM_UNIT_PRICE_INVALID
   | typeof IMPORT_FORM_ITEM_NOTE_INVALID
-  | typeof IMPORT_FORM_ITEM_DUPLICATED
   | typeof IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND
   | typeof IMPORT_FORM_ITEM_UNIT_NOT_OF_MATERIAL
   | typeof IMPORT_FORM_ITEM_CONVERSION_RATE_INVALID
@@ -66,7 +66,9 @@ export type TImportFormErrorCodeKey =
   | typeof IMPORT_FORM_DATE_RANGE_INVALID
   | typeof IMPORT_FORM_CODE_SEARCH_INVALID
   | typeof IMPORT_FORM_ITEM_EXPIRY_DATE_INVALID
-  | typeof IMPORT_FORM_VERSION_INVALID;
+  | typeof IMPORT_FORM_VERSION_INVALID
+  | typeof IMPORT_FORM_ITEM_BARCODE_INVALID
+  | typeof IMPORT_FORM_ITEM_NOT_FOUND;
 
 export type TImportFormErrorCode = Record<TImportFormErrorCodeKey, TErrorCodeValue>;
 
@@ -116,26 +118,26 @@ export const ImportFormValidation: TImportFormErrorCode = {
     101316,
     'Cannot create an import form for an inactive warehouse',
   ),
+  // Xác nhận phiếu chưa có dòng nào.
   IMPORT_FORM_ITEMS_IS_REQUIRED: createErrorCode(101317, 'Import form must have at least 1 item'),
-  IMPORT_FORM_ITEMS_TOO_MANY: createErrorCode(101318, 'Import form can have at most 200 items'),
+  IMPORT_FORM_ITEMS_TOO_MANY: createErrorCode(101318, 'Import form can have at most 1000 items'),
   IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED: createErrorCode(
     101319,
-    'Item material slug is required',
+    'Exactly one of barcode or materialSlug is required',
   ),
+  // `unitSlug` rỗng, hoặc không gửi mà vật tư chưa có đơn vị cơ sở (vật tư cũ).
   IMPORT_FORM_ITEM_UNIT_SLUG_IS_REQUIRED: createErrorCode(101320, 'Item unit slug is required'),
   IMPORT_FORM_ITEM_QUANTITY_INVALID: createErrorCode(
     101321,
-    'Item quantity must be a positive number with at most 6 decimal places',
+    'Item quantity must be an integer from 1 to 500',
   ),
   IMPORT_FORM_ITEM_UNIT_PRICE_INVALID: createErrorCode(
     101322,
     'Item unit price must be a non-negative number with at most 2 decimal places',
   ),
   IMPORT_FORM_ITEM_NOTE_INVALID: createErrorCode(101323, 'Item note must be a string'),
-  IMPORT_FORM_ITEM_DUPLICATED: createErrorCode(
-    101324,
-    'The same material and unit appear more than once in the form',
-  ),
+  // 101324 (`IMPORT_FORM_ITEM_DUPLICATED`) đã bỏ khi 1 dòng = 1 đơn vị hàng (vật tư/đơn vị lặp lại
+  // là bình thường) — giữ trống, không cấp lại.
   IMPORT_FORM_ITEM_MATERIAL_NOT_FOUND: createErrorCode(
     101325,
     'Item material not found',
@@ -181,5 +183,11 @@ export const ImportFormValidation: TImportFormErrorCode = {
   IMPORT_FORM_VERSION_INVALID: createErrorCode(
     101334,
     'version is required and must be an integer >= 1 (from the most recent GET)',
+  ),
+  IMPORT_FORM_ITEM_BARCODE_INVALID: createErrorCode(101335, 'Item barcode must be 8-14 digits'),
+  IMPORT_FORM_ITEM_NOT_FOUND: createErrorCode(
+    101336,
+    'Import form item not found',
+    HttpStatus.NOT_FOUND,
   ),
 };
