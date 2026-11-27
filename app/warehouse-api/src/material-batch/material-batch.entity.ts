@@ -5,13 +5,13 @@ import { Material } from 'src/material/material.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { ImportFormItem } from 'src/import-form/import-form-item.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
-import { MaterialBatchStatus } from './material-batch.constants';
+import { MATERIAL_BATCH_STATUS_MAX_LENGTH, MaterialBatchStatus } from './material-batch.constants';
 import { ITEM_CODE_MAX_LENGTH } from 'src/import-form/import-form.constants';
 
 /**
  * 1 lô hàng = 1 dòng phiếu nhập đã xác nhận = 1 đơn vị hàng có mã `code` (chép từ dòng) (`ImportFormService.decide` → `createFromImportItems`).
- * KHÔNG có API tạo/sửa/xoá: lô chỉ sinh ra khi xác nhận phiếu nhập; phiếu xuất gửi duyệt giữ chỗ
- * (`reservedQuantity`), xác nhận thì trừ `remainingQuantity` (`MaterialBatchService`).
+ * KHÔNG có API tạo/sửa/xoá: lô chỉ sinh ra khi xác nhận phiếu nhập; hàng vào phiếu xuất nháp thì giữ
+ * chỗ (`reservedQuantity`), xác nhận thì trừ `remainingQuantity` (`MaterialBatchService`).
  *
  * Kế thừa `Base` chứ không `VersionedBase`: như `Inventory`, chống ghi đè đồng thời bằng
  * pessimistic lock trong transaction, client không gửi `version`.
@@ -96,7 +96,13 @@ export class MaterialBatch extends Base {
   })
   reservedQuantity: number;
 
+  /** Vòng đời lô (`MaterialBatchStatus`), luôn khớp số lượng — xem `statusOfBatch`. */
   @AutoMap()
-  @Column({ name: 'status_column', type: 'tinyint', default: MaterialBatchStatus.InStock })
+  @Column({
+    name: 'status_column',
+    type: 'varchar',
+    length: MATERIAL_BATCH_STATUS_MAX_LENGTH,
+    default: MaterialBatchStatus.InStock,
+  })
   status: MaterialBatchStatus;
 }

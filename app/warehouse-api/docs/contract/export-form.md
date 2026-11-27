@@ -14,15 +14,15 @@ Khi thao tác trên một phiếu, service tìm phiếu theo cả `slug` phiếu
 
 | Method | Path | Quyền (authority / role) | Mô tả |
 |---|---|---|---|
-| POST | /api/v1/warehouses/:warehouseSlug/export-forms | `EXPORT_FORM_CREATE` | Tạo phiếu `DRAFT` kèm các dòng vật tư |
+| POST | /api/v1/warehouses/:warehouseSlug/export-forms | `EXPORT_FORM_CREATE` | Tạo phiếu `DRAFT` kèm các dòng vật tư, giữ chỗ trên lô và tồn kho |
 | POST | /api/v1/warehouses/:warehouseSlug/export-forms/upload-file | Một trong `EXPORT_FORM_CREATE` / `EXPORT_FORM_UPDATE_DRAFT` / `EXPORT_FORM_UPDATE_DRAFT_OWN` (service kiểm tra) | Upload file đính kèm lên S3 và nhận link |
 | GET | /api/v1/warehouses/:warehouseSlug/export-forms | `EXPORT_FORM_READ` | Danh sách phiếu có phân trang (**có kèm `items`**) |
 | GET | /api/v1/warehouses/:warehouseSlug/export-forms/:slug | `EXPORT_FORM_READ` | Chi tiết phiếu kèm `items` |
 | PATCH | /api/v1/warehouses/:warehouseSlug/export-forms/:slug | `EXPORT_FORM_UPDATE_DRAFT`, hoặc `EXPORT_FORM_UPDATE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | Sửa một phần phiếu `DRAFT` |
-| POST | /api/v1/warehouses/:warehouseSlug/export-forms/:slug/submit | `EXPORT_FORM_UPDATE_DRAFT`, hoặc `EXPORT_FORM_UPDATE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | `DRAFT → PENDING`: giữ chỗ trên lô và tồn kho |
+| POST | /api/v1/warehouses/:warehouseSlug/export-forms/:slug/submit | `EXPORT_FORM_UPDATE_DRAFT`, hoặc `EXPORT_FORM_UPDATE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | `DRAFT → PENDING`: chỉ đổi trạng thái (đã giữ chỗ từ lúc nháp) |
 | POST | /api/v1/warehouses/:warehouseSlug/export-forms/:slug/confirm | `EXPORT_FORM_CONFIRM`; phiếu `DISPOSAL` cần thêm `EXPORT_FORM_APPROVE_DISPOSAL` | `PENDING → CONFIRMED`: trừ phần đã giữ chỗ |
 | POST | /api/v1/warehouses/:warehouseSlug/export-forms/:slug/cancel | `EXPORT_FORM_CONFIRM` | `DRAFT`/`PENDING → CANCELLED`, trả lại phần đã giữ chỗ |
-| DELETE | /api/v1/warehouses/:warehouseSlug/export-forms/:slug | `EXPORT_FORM_DELETE_DRAFT`, hoặc `EXPORT_FORM_DELETE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | Xoá mềm phiếu `DRAFT` |
+| DELETE | /api/v1/warehouses/:warehouseSlug/export-forms/:slug | `EXPORT_FORM_DELETE_DRAFT`, hoặc `EXPORT_FORM_DELETE_DRAFT_OWN` với phiếu mình lập (service kiểm tra) | Xoá mềm phiếu `DRAFT`, trả lại phần đã giữ chỗ |
 
 Tổng: **9 endpoint**. Module này **không có** route kiểu `available-materials` như phiếu nhập. Để chọn vật tư hoặc lô,
 FE dùng API của module inventory / material-batch.
@@ -57,12 +57,12 @@ DRAFT --submit--> PENDING --confirm--> CONFIRMED
 
 | Từ | Sang | Endpoint | Ai làm | Lô (`MaterialBatch`) | Tồn kho (lịch sử) |
 |---|---|---|---|---|---|
-| (mới) | `DRAFT` | `POST /export-forms` | Có `EXPORT_FORM_CREATE`. User được ghi vào `requester` | Không đụng | Không đụng |
-| `DRAFT` | `DRAFT` | `PATCH /:slug` | `UPDATE_DRAFT` hoặc `UPDATE_DRAFT_OWN` (phiếu mình lập) | Không đụng | Không đụng |
-| `DRAFT` | (xoá mềm) | `DELETE /:slug` | `DELETE_DRAFT` hoặc `DELETE_DRAFT_OWN` (phiếu mình lập) | Không đụng | Không đụng |
-| `DRAFT` | `PENDING` | `POST /:slug/submit` | `UPDATE_DRAFT` hoặc `UPDATE_DRAFT_OWN` (phiếu mình lập). **Không** ghi `approver` | Giữ chỗ: `reservedQuantity += q` (lô chỉ định, hoặc chọn theo FEFO). Dòng có thể bị **tách** theo lô | `reservedQuantity += q` (lịch sử `RESERVE`) |
-| `PENDING` | `CONFIRMED` | `POST /:slug/confirm` | Có `EXPORT_FORM_CONFIRM`. Phiếu `DISPOSAL` cần thêm `EXPORT_FORM_APPROVE_DISPOSAL`. Ghi `approver` | Trên đúng lô đã giữ: `remaining -= q`, `reserved -= q`. Lô hết hàng chuyển trạng thái hết hàng | `quantity -= q`, `reserved -= q` (lịch sử `EXPORT`) |
-| `DRAFT` | `CANCELLED` | `POST /:slug/cancel` | Có `EXPORT_FORM_CONFIRM`. Ghi `approver` | Không đụng | Không đụng |
+| (mới) | `DRAFT` | `POST /export-forms` | Có `EXPORT_FORM_CREATE`. User được ghi vào `requester` | Giữ chỗ: `reservedQuantity += q` (lô chỉ định, hoặc chọn theo FEFO). Dòng có thể bị **tách** theo lô. Lô hết phần trống ⇒ `RESERVED` | `reservedQuantity += q` (lịch sử `RESERVE`) |
+| `DRAFT` | `DRAFT` | `PATCH /:slug` | `UPDATE_DRAFT` hoặc `UPDATE_DRAFT_OWN` (phiếu mình lập) | Có gửi `items`: trả chỗ của dòng cũ rồi giữ chỗ cho dòng mới (như POST). Không gửi: không đụng | `RELEASE` rồi `RESERVE` khi có gửi `items` |
+| `DRAFT` | (xoá mềm) | `DELETE /:slug` | `DELETE_DRAFT` hoặc `DELETE_DRAFT_OWN` (phiếu mình lập) | Trả lại chỗ: `reserved -= q` | `reserved -= q` (lịch sử `RELEASE`) |
+| `DRAFT` | `PENDING` | `POST /:slug/submit` | `UPDATE_DRAFT` hoặc `UPDATE_DRAFT_OWN` (phiếu mình lập). **Không** ghi `approver` | Không đụng (đã giữ lúc nháp) | Không đụng |
+| `PENDING` | `CONFIRMED` | `POST /:slug/confirm` | Có `EXPORT_FORM_CONFIRM`. Phiếu `DISPOSAL` cần thêm `EXPORT_FORM_APPROVE_DISPOSAL`. Ghi `approver` | Trên đúng lô đã giữ: `remaining -= q`, `reserved -= q`. Lô xuất hết ⇒ `DISPOSED` (`DISPOSAL`), `IN_TRANSIT` (`TRANSFER`), còn lại `ISSUED` | `quantity -= q`, `reserved -= q` (lịch sử `EXPORT`) |
+| `DRAFT` | `CANCELLED` | `POST /:slug/cancel` | Có `EXPORT_FORM_CONFIRM`. Ghi `approver` | Trả lại chỗ: `reserved -= q` | `reserved -= q` (lịch sử `RELEASE`) |
 | `PENDING` | `CANCELLED` | `POST /:slug/cancel` | Có `EXPORT_FORM_CONFIRM` (huỷ phiếu `DISPOSAL` **không** cần `APPROVE_DISPOSAL`). Ghi `approver` | Trả lại chỗ: `reserved -= q` | `reserved -= q` (lịch sử `RELEASE`) |
 
 Nguồn: `service.ts:282-325` (submit), `332-367` (confirm), `373-407` (cancel). Mỗi bước chạy trong **1 transaction**:
@@ -70,16 +70,17 @@ lỗi ở bất kỳ đâu thì rollback toàn bộ, phiếu giữ nguyên trạ
 
 - Chỉ `DRAFT` sửa, xoá và submit được. Phiếu `PENDING` đã bị "niêm phong mềm": không sửa, không xoá, không submit lại,
   chỉ confirm hoặc cancel được. `CONFIRMED`/`CANCELLED` là bất biến.
-- **Giữ chỗ không tự hết hạn.** Phiếu `PENDING` giữ chỗ cho tới khi được confirm hoặc cancel (plan 2: "No auto-expiry").
+- **Giữ chỗ không tự hết hạn.** Phiếu `DRAFT`/`PENDING` giữ chỗ cho tới khi được confirm, cancel hoặc (nháp) xoá/thay dòng.
+- Phiếu nháp có trước migration `1783728000055` không giữ chỗ — migration từ chối chạy khi còn phiếu nháp có dòng.
 
-### Giữ chỗ (reserve) khi submit: chi tiết FE cần biết
+### Giữ chỗ (reserve) khi tạo / PATCH dòng phiếu nháp: chi tiết FE cần biết
 
 Nguồn: `src/material-batch/material-batch.service.ts:173-222` (reserve), `273-330` (khoá và ghi), `58-69` (FEFO);
 `src/inventory/inventory.service.ts:312-331`.
 
-1. Server khoá đầu phiếu (`pessimistic_write`), rồi kiểm tra lại `status = DRAFT` và `version` trên bản đã khoá (`service.ts:413-428`).
+1. PATCH: server khoá đầu phiếu (`pessimistic_write`), kiểm tra lại `status = DRAFT` và `version` trên bản đã khoá, rồi trả chỗ của các dòng cũ trước khi giữ cho dòng mới. POST: giữ chỗ ngay sau khi lưu dòng, cùng transaction.
 2. Với mỗi vật tư, server khoá mọi lô **còn hàng** của vật tư đó trong kho. Lượng còn trống của một lô là `remainingQuantity - reservedQuantity`.
-   - Các dòng **có chỉ định lô** (`batchSlug`) được xử lý **trước**. Lô phải còn hàng và còn trống ≥ `baseQuantity`
+   - Các dòng **có chỉ định lô** (`batchSlug`) được xử lý **trước**. Lô phải còn hàng (`IN_STOCK`/`RESERVED`) và còn trống ≥ `baseQuantity`
      của dòng, nếu không trả `MATERIAL_BATCH_INSUFFICIENT` (409).
    - Các dòng **không chỉ định lô** chọn lô theo FEFO: lô có hạn dùng sớm nhất trước, lô không có hạn dùng xếp cuối;
      cùng hạn thì xét `entryDate`, rồi `createdAt`, rồi `id`. Server lấy lần lượt từ các lô cho đến khi đủ. Không đủ thì trả 409 `MATERIAL_BATCH_INSUFFICIENT`.
@@ -90,7 +91,7 @@ Nguồn: `src/material-batch/material-batch.service.ts:173-222` (reserve), `273-
    Ở các dòng không phải dòng cuối: `quantity = round6(baseQuantity_phần / conversionRate)`, `amount = round2(quantity × unitPrice)`.
    Dòng **cuối** nhận phần còn lại, để tổng `quantity`/`amount` của dòng gốc giữ nguyên tuyệt đối. Sau đó server đánh lại `lineNo` từ 1..n.
    `totalAmount` của phiếu không đổi.
-5. Server đổi `status = PENDING` và lưu. `version` tăng.
+5. Lỗi ở bất kỳ bước nào ⇒ rollback cả phiếu (POST không tạo ra phiếu; PATCH giữ nguyên dòng và phần giữ chỗ cũ).
 
 Khi confirm, server **không chọn lại lô và không tách dòng**. Nó trừ đúng các lô đã gán trên từng dòng (`consumeReserved`).
 Nếu dữ liệu giữ chỗ trên lô không khớp với phiếu thì trả 409 `MATERIAL_BATCH_RESERVED_INVALID`.
@@ -123,9 +124,9 @@ Nếu dữ liệu giữ chỗ trên lô không khớp với phiếu thì trả 4
 | quantity | number | có | > 0, ≤ 6 chữ số thập phân, không dùng dạng mũ. `quantity` và `baseQuantity` phải < 1e12 | |
 | unitPrice | number | có | ≥ 0, ≤ 2 chữ số thập phân. `amount` phải < 1e16 | |
 | note | string | không | Phải là string | |
-| batchSlug | string (slug) | không | Có gửi thì phải là chuỗi không rỗng | Lô phải thuộc kho này, của đúng vật tư này, và đang **còn hàng** (`service.ts:654-668`). Không gửi thì lô được chọn theo FEFO **lúc submit** |
+| batchSlug | string (slug) | không | Có gửi thì phải là chuỗi không rỗng | Lô phải thuộc kho này, của đúng vật tư này, và đang **còn hàng** (`service.ts:654-668`). Không gửi thì lô được chọn theo FEFO **ngay lúc tạo/PATCH** |
 
-Khi tạo hoặc PATCH, server **không** kiểm tra đủ tồn hay đủ lô; việc này làm lúc submit (`service.ts:553-558`).
+Khi tạo hoặc PATCH dòng, server giữ chỗ ngay: thiếu lô ⇒ 409 `101502`, thiếu tồn ⇒ 409 `100817` (xem bảng giữ chỗ ở trên).
 Không được có 2 dòng trùng bộ `(materialSlug, unitSlug, batchSlug)`. Một dòng có `batchSlug` và một dòng không có được coi là khác nhau.
 Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`, `totalAmount = Σ amount`, mã/tên vật tư và đơn vị.
 
@@ -156,6 +157,10 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 | 422 | 101432 | Lô đã hết hàng |
 | 422 | 101422 | `quantity`/`baseQuantity` vượt giới hạn hoặc `baseQuantity` ≤ 0 |
 | 422 | 101412 | `amount` hoặc `totalAmount` ≥ 1e16 |
+| 409 | 101502 `MATERIAL_BATCH_INSUFFICIENT` | Giữ chỗ: lô chỉ định không đủ chỗ trống, hoặc FEFO không gom đủ lượng |
+| 409 | 100817 `INVENTORY_AVAILABLE_INSUFFICIENT` | Giữ chỗ: `quantity - reservedQuantity` của tồn kho không đủ |
+| 404 | 100801 `INVENTORY_NOT_FOUND` | Vật tư đã bị gỡ khỏi kho |
+| 409 | 101505 / 422 100812 | Bất biến giữ chỗ của lô / tồn kho bị vi phạm (dữ liệu hỏng) |
 | 404 | 100405 | User trong JWT không còn tồn tại |
 
 ## POST /api/v1/warehouses/:warehouseSlug/export-forms/upload-file
@@ -213,15 +218,15 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
   - Có gửi `items` (khác `null`): thay **toàn bộ** các dòng và tính lại `totalAmount` (`service.ts:230-253`).
 - **Response 200:** `ExportFormResponseDto` kèm `items`.
 - **Lỗi riêng:** 422 101439 (`version` không hợp lệ), 404 101401, 409 100800 (sai version), 409 101415 (không còn `DRAFT`,
-  bao gồm cả `PENDING`), 403 / 403 101416, 422 101404/101405, 422 101440 (phiếu sau sửa có `type = DISPOSAL` nhưng không có `file`), và các lỗi validate hoặc lỗi dòng giống POST.
+  bao gồm cả `PENDING`, kiểm tra cả trên bản đã khoá), 403 / 403 101416, 422 101404/101405, 422 101440 (phiếu sau sửa có `type = DISPOSAL` nhưng không có `file`), và các lỗi validate, lỗi dòng hoặc lỗi giữ chỗ giống POST.
 
 ## POST /api/v1/warehouses/:warehouseSlug/export-forms/:slug/submit
 
 - **Quyền:** Route không gắn `@RequireAuthority`. Service yêu cầu `EXPORT_FORM_UPDATE_DRAFT`, hoặc `EXPORT_FORM_UPDATE_DRAFT_OWN`
   với phiếu mình lập (`service.ts:291-296`).
 - **Body** (`ChangeExportFormStatusRequestDto`, `dto.ts:171-180`): `{ version: number }` (int ≥ 1, bắt buộc).
-- **Response 200:** `ExportFormResponseDto` với `status = 'PENDING'`. `items` là danh sách **sau khi tách**: mọi dòng đều đã có
-  `batchSlug`, `lineNo` được đánh lại. `approverSlug`/`approverName` vẫn là `null`.
+- **Response 200:** `ExportFormResponseDto` với `status = 'PENDING'`. `items` giữ nguyên như lúc nháp (đã tách theo lô, mọi dòng
+  có `batchSlug`). `approverSlug`/`approverName` vẫn là `null`.
 - **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
@@ -232,11 +237,6 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 | 409 | 101415 | Phiếu không còn `DRAFT` (kiểm tra cả lúc đọc và trên bản đã khoá) |
 | 403 | — / 101416 | Không có quyền / chỉ có `_OWN` nhưng không phải người lập |
 | 404 | 101426 | Vật tư của một dòng đã bị xoá mềm (`service.ts:447-453`) |
-| 409 | 101502 `MATERIAL_BATCH_INSUFFICIENT` | Lô chỉ định không còn hàng hoặc không đủ chỗ trống, hoặc FEFO không gom đủ lượng |
-| 409 | 100817 `INVENTORY_AVAILABLE_INSUFFICIENT` | `quantity - reservedQuantity` của tồn kho không đủ |
-| 404 | 100801 `INVENTORY_NOT_FOUND` | Vật tư đã bị gỡ khỏi kho |
-| 409 | 101505 `MATERIAL_BATCH_RESERVED_INVALID` | Bất biến `0 ≤ reserved ≤ remaining` của lô bị vi phạm (dữ liệu hỏng) |
-| 422 | 100812 `INVENTORY_QUANTITY_BELOW_RESERVED` | Bất biến tồn kho bị vi phạm (dữ liệu hỏng) |
 | 422 | 101440 `EXPORT_FORM_FILE_IS_REQUIRED` | Phiếu `DISPOSAL` chưa có chứng từ đính kèm (`file`) |
 
 ## POST /api/v1/warehouses/:warehouseSlug/export-forms/:slug/confirm
@@ -266,7 +266,7 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 - **Quyền:** `EXPORT_FORM_CONFIRM` (guard). Không cần `APPROVE_DISPOSAL`, kể cả với phiếu `DISPOSAL`.
 - **Body:** `{ version: number }`.
 - **Response 200:** `ExportFormResponseDto` với `status = 'CANCELLED'`, có `approverSlug`/`approverName` (là người huỷ).
-  Huỷ phiếu `PENDING` trả lại phần đã giữ chỗ trên lô và tồn kho. Các dòng đã tách **không** được gộp lại, vẫn giữ `batchSlug`.
+  Huỷ phiếu `DRAFT` hoặc `PENDING` đều trả lại phần đã giữ chỗ trên lô và tồn kho. Các dòng đã tách **không** được gộp lại, vẫn giữ `batchSlug`.
 - **Lỗi riêng:** 422 101439, 404 101401, 409 100800, 409 101438 `EXPORT_FORM_CANNOT_BE_CANCELLED` (phiếu đã `CONFIRMED`/`CANCELLED`,
   hoặc trạng thái đổi trước khi lấy được khoá), 404 101426, 409 101505, 422 100812, 404 100801, 404 100405.
 
@@ -306,10 +306,10 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 | Field | Kiểu | Ghi chú |
 |---|---|---|
 | slug, createdAt, updatedAt | string | |
-| lineNo | number | 1-based. Có thể bị đánh lại sau submit |
+| lineNo | number | 1-based. Có thể bị đánh lại khi giữ chỗ tách dòng (POST/PATCH dòng) |
 | materialSlug, materialCode, materialName | string | Mã và tên được chụp lúc ghi dòng |
 | unitSlug, unitCode, unitName | string | |
-| batchSlug | string \| null | `null` = dòng nháp chưa chỉ định lô. Sau submit luôn có giá trị |
+| batchSlug | string \| null | Sau POST/PATCH dòng luôn có giá trị (lô đang giữ chỗ). Có thể `null` ở phiếu huỷ từ lúc nháp trước migration `1783728000055` (nháp cũ không giữ chỗ) |
 | batchExpiryDate | string (`YYYY-MM-DD`) \| null | Hạn dùng của lô, đọc trực tiếp từ lô (không phải giá trị chụp) |
 | quantity | number | Theo đơn vị của dòng |
 | conversionRate | number | Chụp lúc ghi dòng |
@@ -318,7 +318,7 @@ Server tự tính: `conversionRate` (chụp lúc ghi), `baseQuantity`, `amount`,
 | amount | number | |
 | note | string \| null | |
 
-Ví dụ sau submit, khi 1 dòng 15 kg (không chỉ định lô) bị tách ra 2 lô:
+Ví dụ sau POST, khi 1 dòng 15 kg (không chỉ định lô) bị tách ra 2 lô:
 
 ```json
 {
@@ -390,7 +390,7 @@ Mã từ module khác mà các route này có thể trả: `DATA_VERSION_CONFLIC
 ## Ghi chú cho FE
 
 1. **Luồng mới bắt buộc có submit.** Thứ tự là `DRAFT` → submit → `PENDING` → confirm. Gọi confirm trên phiếu `DRAFT` sẽ nhận
-   409 `101437`. Lỗi thiếu lô hoặc thiếu tồn (101502 / 100817) xuất hiện **ở bước submit**, không phải ở confirm.
+   409 `101437`. Lỗi thiếu lô hoặc thiếu tồn (101502 / 100817) xuất hiện **lúc tạo hoặc PATCH dòng phiếu nháp**, không phải ở submit/confirm.
 2. **Trạng thái `PENDING`:** phiếu không sửa và không xoá được (PATCH/DELETE trả 409 `101415`). Muốn sửa thì cancel rồi tạo phiếu mới.
    Hiện không có endpoint đưa phiếu từ `PENDING` về lại `DRAFT`.
 3. **Optimistic lock `version`:** PATCH, submit, confirm và cancel bắt buộc gửi `version` mới nhất. Sau mỗi thao tác, lấy `version`
@@ -398,12 +398,11 @@ Mã từ module khác mà các route này có thể trả: `DATA_VERSION_CONFLIC
    phiếu đã thay đổi.
 4. **Không có idempotency key.** Gửi lại submit/confirm/cancel sau khi request trước đã thành công sẽ nhận 409 (sai version hoặc
    sai trạng thái), không giữ chỗ hay trừ tồn hai lần. Khi bị timeout, hãy GET lại phiếu trước khi thử lại.
-5. **Item lồng nhau và tách dòng:** sau submit, số dòng có thể tăng, `lineNo` bị đánh lại, và các dòng mới có `slug` mới.
-   FE không được giữ `slug` hay `lineNo` của dòng từ lúc nháp để đối chiếu sau submit. Tổng `quantity`/`amount` của dòng gốc
+5. **Item lồng nhau và tách dòng:** sau POST/PATCH dòng, số dòng có thể nhiều hơn số dòng gửi lên, `lineNo` bị đánh lại, và các
+   dòng tách thêm có `slug` mới. FE dựng lại danh sách dòng từ response, không đối chiếu theo thứ tự trong body. Tổng `quantity`/`amount` của dòng gốc
    và `totalAmount` được giữ nguyên chính xác.
-6. **`batchSlug`:** nếu gửi, lô phải đang còn hàng ngay lúc tạo hoặc PATCH, nếu không trả 422 `101432`. Nếu đến lúc submit lô đã hết
-   hoặc không đủ chỗ trống, lỗi trả về là 409 `101502` (không phải 101432). Chỗ trống của lô = `remaining - reserved`, tức đã trừ
-   phần các phiếu `PENDING` khác đang giữ.
+6. **`batchSlug`:** nếu gửi, lô phải đang còn hàng (`IN_STOCK`/`RESERVED`), nếu không trả 422 `101432`. Lô còn hàng nhưng không đủ
+   chỗ trống trả 409 `101502`. Chỗ trống của lô = `remaining - reserved`, tức đã trừ phần các phiếu `DRAFT`/`PENDING` khác đang giữ.
 7. **Xuất huỷ (`DISPOSAL`):** người confirm cần thêm `EXPORT_FORM_APPROVE_DISPOSAL`. SUPERVISOR mặc định tạo được nhưng không tự duyệt được.
    Cancel thì không cần quyền này. Nên ẩn hoặc vô hiệu nút "Xác nhận" theo `type` và quyền của user.
 8. **Ai submit:** người có quyền sửa nháp (bản đầy đủ hoặc `_OWN`), không phải người có quyền confirm. MANAGER mặc định không có

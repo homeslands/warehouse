@@ -65,7 +65,7 @@ function IsRequiredWhenDisposal(validationOptions?: ValidationOptions) {
 
 /**
  * 1 dòng vật tư trong body. Tỉ lệ quy đổi, mã/tên, `baseQuantity`, `amount` do server tính/chép.
- * `batchSlug` không gửi ⇒ xác nhận phiếu tự chọn lô theo FEFO (hạn dùng sớm nhất trước).
+ * `batchSlug` không gửi ⇒ giữ chỗ lúc ghi dòng nháp tự chọn lô theo FEFO (hạn dùng sớm nhất trước).
  */
 export class CreateExportFormItemDto {
   @ApiProperty({ description: 'Slug of the material', example: 'x7fk2p9qab' })
@@ -100,8 +100,8 @@ export class CreateExportFormItemDto {
   @ApiPropertyOptional({
     description:
       'Slug of the material batch to take from (must be in this warehouse, of this material, in ' +
-      'stock). Omitted: on confirm, the batches with the earliest expiry date are used (FEFO) and ' +
-      'the line is split per batch if needed',
+      'stock). The line is reserved as soon as it is saved on the draft. Omitted: the batches with ' +
+      'the earliest expiry date are reserved (FEFO) and the line is split per batch if needed',
     example: 'b7fk2p9qab',
   })
   @IsOptional()
@@ -272,7 +272,9 @@ export class GetAllExportFormRequestDto extends BaseQueryDto {
 
 export class ExportFormItemResponseDto extends BaseResponseDto {
   @AutoMap()
-  @ApiProperty({ description: 'Line number (1-based). Confirm may split a line per batch' })
+  @ApiProperty({
+    description: 'Line number (1-based). Reserving a draft line may split it per batch',
+  })
   lineNo: number;
 
   @ApiProperty()

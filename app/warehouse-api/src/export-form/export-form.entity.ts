@@ -8,9 +8,9 @@ import { ExportFormStatus, ExportFormType } from './export-form.constants';
 import { ExportFormItem } from './export-form-item.entity';
 
 /**
- * Phiếu xuất kho: đầu phiếu + các dòng vật tư (`items`). Gửi duyệt (`DRAFT` → `PENDING`) giữ chỗ
- * trên lô (chỉ định hoặc FEFO, tách dòng theo lô) và trên tồn kho; xác nhận trừ đúng phần đã giữ;
- * huỷ phiếu `PENDING` trả lại phần giữ. Phiếu nháp không đụng tồn/lô.
+ * Phiếu xuất kho: đầu phiếu + các dòng vật tư (`items`). Hàng vào phiếu nháp (tạo / PATCH dòng) giữ
+ * chỗ trên lô (chỉ định hoặc FEFO, tách dòng theo lô) và trên tồn kho; xác nhận trừ đúng phần đã giữ;
+ * xoá / huỷ phiếu (nháp hoặc `PENDING`) trả lại phần giữ.
  *
  * `requesterName`/`approverName` là snapshot lúc ghi phiếu như phiếu nhập — FK vẫn giữ để tra ngược.
  */

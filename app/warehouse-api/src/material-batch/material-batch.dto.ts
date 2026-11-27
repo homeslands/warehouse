@@ -1,5 +1,5 @@
 import { IsEnum, IsISO8601, IsOptional, IsString, Matches } from 'class-validator';
-import { Transform, Type } from 'class-transformer';
+import { Transform } from 'class-transformer';
 import { ApiProperty, ApiPropertyOptional } from '@nestjs/swagger';
 import { AutoMap } from '@automapper/classes';
 import { BaseQueryDto, BaseResponseDto } from 'src/app/base.dto';
@@ -33,12 +33,9 @@ export class GetAllMaterialBatchRequestDto extends BaseQueryDto {
   @IsString()
   materialSlug?: string;
 
-  @ApiPropertyOptional({
-    enum: MaterialBatchStatus,
-    description: '0 = out of stock, 1 = in stock',
-  })
+  @ApiPropertyOptional({ enum: MaterialBatchStatus, description: 'Filter by batch status' })
   @IsOptional()
-  @Type(() => Number)
+  @Transform(trim)
   @IsEnum(MaterialBatchStatus, { message: 'MATERIAL_BATCH_STATUS_INVALID' })
   status?: MaterialBatchStatus;
 
@@ -115,7 +112,7 @@ export class MaterialBatchResponseDto extends BaseResponseDto {
 
   @AutoMap()
   @ApiProperty({
-    description: 'Quantity held by PENDING export forms, in the material base unit',
+    description: 'Quantity held by DRAFT/PENDING export forms, in the material base unit',
   })
   reservedQuantity: number;
 
@@ -125,7 +122,7 @@ export class MaterialBatchResponseDto extends BaseResponseDto {
   availableQuantity: number;
 
   @AutoMap()
-  @ApiProperty({ enum: MaterialBatchStatus, description: '0 = out of stock, 1 = in stock' })
+  @ApiProperty({ enum: MaterialBatchStatus, description: 'Lifecycle status of the batch' })
   status: MaterialBatchStatus;
 
   @ApiProperty()
