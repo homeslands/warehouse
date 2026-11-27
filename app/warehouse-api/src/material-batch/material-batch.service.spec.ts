@@ -4,11 +4,16 @@ import { getMapperToken } from '@automapper/nestjs';
 import { createMapper } from '@automapper/core';
 import { classes } from '@automapper/classes';
 import { WINSTON_MODULE_NEST_PROVIDER } from 'nest-winston';
-import { Equal, LessThan } from 'typeorm';
+import { Equal, In, LessThan } from 'typeorm';
 import { MaterialBatchService, compareFefo } from './material-batch.service';
 import { MaterialBatchProfile } from './material-batch.mapper';
 import { MaterialBatch } from './material-batch.entity';
-import { MaterialBatchStatus } from './material-batch.constants';
+import {
+  MATERIAL_BATCH_ON_HAND_STATUSES,
+  MaterialBatchStatus,
+  statusOfBatch,
+} from './material-batch.constants';
+import { ExportFormType } from 'src/export-form/export-form.constants';
 import { MaterialBatchValidation } from './material-batch.validation';
 import { MaterialBatchException } from './material-batch.exception';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
@@ -91,7 +96,7 @@ describe('MaterialBatchService', () => {
     const reserve = (lines: Parameters<MaterialBatchService['reserve']>[2]) =>
       service.reserve(manager as never, 'wh-1', lines);
 
-    it('locks in-stock batches of the material by FK column (no join) with FOR UPDATE', async () => {
+    it('locks on-hand (in-stock + reserved) batches by FK column (no join) with FOR UPDATE', async () => {
       txBatchRepository.find.mockResolvedValue([batch()]);
 
       await reserve([{ key: 'l1', materialId: 'mat-1', baseQuantity: 1 }]);
@@ -100,7 +105,7 @@ describe('MaterialBatchService', () => {
         where: {
           warehouse: Equal('wh-1'),
           material: Equal('mat-1'),
-          status: MaterialBatchStatus.InStock,
+          status: In(MATERIAL_BATCH_ON_HAND_STATUSES),
         },
         lock: { mode: 'pessimistic_write' },
       });
@@ -119,7 +124,7 @@ describe('MaterialBatchService', () => {
       ]);
       expect(txBatchRepository.update).toHaveBeenCalledWith(
         { id: 'early' },
-        { remainingQuantity: 4, reservedQuantity: 4, status: MaterialBatchStatus.InStock },
+        { remainingQuantity: 4, reservedQuantity: 4, status: MaterialBatchStatus.Reserved },
       );
       expect(txBatchRepository.update).toHaveBeenCalledWith(
         { id: 'late' },
@@ -231,14 +236,19 @@ describe('MaterialBatchService', () => {
         batch({ id: 'b-2', remainingQuantity: 10, reservedQuantity: 3 }),
       ]);
 
-      await service.consumeReserved(manager as never, 'wh-1', [
-        { key: 'l1', materialId: 'mat-1', baseQuantity: 4, batchId: 'b-1' },
-        { key: 'l2', materialId: 'mat-1', baseQuantity: 2, batchId: 'b-2' },
-      ]);
+      await service.consumeReserved(
+        manager as never,
+        'wh-1',
+        [
+          { key: 'l1', materialId: 'mat-1', baseQuantity: 4, batchId: 'b-1' },
+          { key: 'l2', materialId: 'mat-1', baseQuantity: 2, batchId: 'b-2' },
+        ],
+        ExportFormType.Sale,
+      );
 
       expect(txBatchRepository.update).toHaveBeenCalledWith(
         { id: 'b-1' },
-        { remainingQuantity: 0, reservedQuantity: 0, status: MaterialBatchStatus.OutOfStock },
+        { remainingQuantity: 0, reservedQuantity: 0, status: MaterialBatchStatus.Issued },
       );
       expect(txBatchRepository.update).toHaveBeenCalledWith(
         { id: 'b-2' },
@@ -246,9 +256,41 @@ describe('MaterialBatchService', () => {
       );
     });
 
-    it('cancel gives the held quantity back without touching remaining', async () => {
+    it.each([
+      [ExportFormType.Disposal, MaterialBatchStatus.Disposed],
+      [ExportFormType.Transfer, MaterialBatchStatus.InTransit],
+      [ExportFormType.Production, MaterialBatchStatus.Issued],
+    ])('a batch emptied by a %s form ends as %s', async (type, status) => {
       txBatchRepository.find.mockResolvedValue([
-        batch({ id: 'b-1', remainingQuantity: 10, reservedQuantity: 6 }),
+        batch({
+          id: 'b-1',
+          remainingQuantity: 4,
+          reservedQuantity: 4,
+          status: MaterialBatchStatus.Reserved,
+        }),
+      ]);
+
+      await service.consumeReserved(
+        manager as never,
+        'wh-1',
+        [{ key: 'l1', materialId: 'mat-1', baseQuantity: 4, batchId: 'b-1' }],
+        type,
+      );
+
+      expect(txBatchRepository.update).toHaveBeenCalledWith(
+        { id: 'b-1' },
+        { remainingQuantity: 0, reservedQuantity: 0, status },
+      );
+    });
+
+    it('release gives the held quantity back without touching remaining (RESERVED -> IN_STOCK)', async () => {
+      txBatchRepository.find.mockResolvedValue([
+        batch({
+          id: 'b-1',
+          remainingQuantity: 6,
+          reservedQuantity: 6,
+          status: MaterialBatchStatus.Reserved,
+        }),
       ]);
 
       await service.release(manager as never, 'wh-1', [
@@ -257,7 +299,7 @@ describe('MaterialBatchService', () => {
 
       expect(txBatchRepository.update).toHaveBeenCalledWith(
         { id: 'b-1' },
-        { remainingQuantity: 10, reservedQuantity: 0, status: MaterialBatchStatus.InStock },
+        { remainingQuantity: 6, reservedQuantity: 0, status: MaterialBatchStatus.InStock },
       );
     });
 
@@ -268,9 +310,12 @@ describe('MaterialBatchService', () => {
       const code = MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID.code;
 
       await expect(
-        service.consumeReserved(manager as never, 'wh-1', [
-          { key: 'l1', materialId: 'mat-1', baseQuantity: 1, batchId: 'gone' },
-        ]),
+        service.consumeReserved(
+          manager as never,
+          'wh-1',
+          [{ key: 'l1', materialId: 'mat-1', baseQuantity: 1, batchId: 'gone' }],
+          ExportFormType.Sale,
+        ),
       ).rejects.toMatchObject({ code });
       await expect(
         service.release(manager as never, 'wh-1', [
@@ -404,5 +449,23 @@ describe('MaterialBatchService', () => {
         code: MaterialBatchValidation.MATERIAL_BATCH_NOT_FOUND.code,
       });
     });
+  });
+});
+
+describe('statusOfBatch', () => {
+  it('is IN_STOCK while part of the remaining is still free', () => {
+    expect(statusOfBatch(10, 0)).toBe(MaterialBatchStatus.InStock);
+    expect(statusOfBatch(10, 9.5)).toBe(MaterialBatchStatus.InStock);
+  });
+
+  it('is RESERVED once the whole remaining is held', () => {
+    expect(statusOfBatch(10, 10)).toBe(MaterialBatchStatus.Reserved);
+  });
+
+  it('an emptied batch follows the export reason, ISSUED by default', () => {
+    expect(statusOfBatch(0, 0)).toBe(MaterialBatchStatus.Issued);
+    expect(statusOfBatch(0, 0, ExportFormType.Sale)).toBe(MaterialBatchStatus.Issued);
+    expect(statusOfBatch(0, 0, ExportFormType.Disposal)).toBe(MaterialBatchStatus.Disposed);
+    expect(statusOfBatch(0, 0, ExportFormType.Transfer)).toBe(MaterialBatchStatus.InTransit);
   });
 });

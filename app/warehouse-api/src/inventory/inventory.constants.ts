@@ -5,7 +5,7 @@
  * - `ADJUST`: cộng/trừ `quantity` qua `PATCH .../quantity` (cửa TẠM khi chưa có phiếu).
  * - `IMPORT`: cộng `quantity` khi xác nhận phiếu nhập (`POST .../import-forms/:slug/confirm`).
  * - `EXPORT`: trừ `quantity` khi xác nhận phiếu xuất (`POST .../export-forms/:slug/confirm`).
- * - `RESERVE` / `RELEASE`: tăng / giảm `reservedQuantity` — giữ chỗ / trả chỗ khi duyệt/huỷ phiếu xuất.
+ * - `RESERVE` / `RELEASE`: tăng / giảm `reservedQuantity` — giữ chỗ khi hàng vào phiếu xuất nháp / trả chỗ khi sửa dòng, xoá hoặc huỷ phiếu.
  * - `REMOVE`: gỡ vật tư khỏi kho (xoá mềm dòng tồn, lúc đó tồn và giữ chỗ đều bằng 0).
  */
 export enum InventoryHistoryAction {

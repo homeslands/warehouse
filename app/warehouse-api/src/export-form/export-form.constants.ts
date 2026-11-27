@@ -1,13 +1,10 @@
 import { IMPORT_FORM_UPLOAD_MAX_SIZE } from 'src/import-form/import-form.constants';
 
 /**
- * Vòng đời phiếu xuất kho: `DRAFT` → `CONFIRMED` | `CANCELLED`, 1 chiều, giống phiếu nhập.
- * - Chỉ `DRAFT` sửa/xoá được; `CONFIRMED`/`CANCELLED` bất biến (chặn ở service, không authority nào mở).
- * - Phiếu nháp KHÔNG giữ chỗ tồn/lô: chỉ lúc xác nhận mới kiểm và trừ, dưới khoá.
- */
-/**
  * `DRAFT` --submit--> `PENDING` --confirm--> `CONFIRMED`; huỷ được từ `DRAFT` hoặc `PENDING`.
- * Chỉ `PENDING` giữ chỗ tồn/lô (`reservedQuantity`); nháp không giữ gì nên sửa/xoá thoải mái.
+ * - Chỉ `DRAFT` sửa/xoá được; `CONFIRMED`/`CANCELLED` bất biến (chặn ở service, không authority nào mở).
+ * - Giữ chỗ tồn/lô (`reservedQuantity`, lô ⇒ `RESERVED`) ngay khi hàng vào phiếu NHÁP (tạo/PATCH
+ *   dòng); xoá/huỷ nháp hoặc huỷ `PENDING` trả lại, xác nhận thì trừ đúng phần đã giữ.
  */
 export enum ExportFormStatus {
   Draft = 'DRAFT',

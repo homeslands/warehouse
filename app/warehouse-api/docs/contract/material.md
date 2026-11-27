@@ -423,9 +423,9 @@ Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc t
 | expiryDate | string (`YYYY-MM-DD`) \| null | `null` nghĩa là không có hạn dùng |
 | quantity | number | Lượng nhập ban đầu, tính theo đơn vị cơ sở |
 | remainingQuantity | number | Lượng còn lại, tính theo đơn vị cơ sở |
-| reservedQuantity | number | Lượng đang được phiếu xuất `PENDING` giữ chỗ |
+| reservedQuantity | number | Lượng đang được phiếu xuất `DRAFT`/`PENDING` giữ chỗ |
 | availableQuantity | number | `remainingQuantity - reservedQuantity`, làm tròn 6 chữ số thập phân |
-| status | `0 \| 1` | `0` = hết hàng, `1` = còn hàng (`material-batch.constants.ts:5-8`). Luôn khớp với `remainingQuantity > 0` |
+| status | `'PENDING' \| 'IN_STOCK' \| 'RESERVED' \| 'IN_TRANSIT' \| 'ISSUED' \| 'DISPOSED' \| 'RETURNED' \| 'MISSING' \| 'VOID'` | Vòng đời lô (`MaterialBatchStatus`, migration `1783728000055`), suy ra từ số lượng: còn phần trống ⇒ `IN_STOCK`; phần còn lại đã bị giữ hết ⇒ `RESERVED`; xuất hết ⇒ `DISPOSED` (phiếu `DISPOSAL`), `IN_TRANSIT` (phiếu `TRANSFER`), còn lại `ISSUED`. `PENDING`/`VOID`/`RETURNED`/`MISSING` đã khai nhưng chưa luồng nào sinh ra |
 | materialSlug, materialCode, materialName | string | |
 | material | object | `{ slug, code, name, type: MaterialTypeResponseDto \| null, baseUnit: UnitResponseDto \| null }` (`material-batch.dto.ts:62-81`). `baseUnit` là đơn vị của mọi số lượng trong lô |
 | warehouseSlug | string | |
@@ -442,7 +442,7 @@ Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc t
 | page, size | number | không | xem conventions.md | |
 | materialSlug | string | không | — | So khớp chính xác |
 | code | string | không | — | Mã đơn vị hàng, so khớp chính xác (tra theo tem đã quét) |
-| status | `0 \| 1` | không | Giá trị khác trả `MATERIAL_BATCH_STATUS_INVALID` | |
+| status | `'PENDING' \| 'IN_STOCK' \| 'RESERVED' \| 'IN_TRANSIT' \| 'ISSUED' \| 'DISPOSED' \| 'RETURNED' \| 'MISSING' \| 'VOID'` | không | Giá trị khác trả `MATERIAL_BATCH_STATUS_INVALID` | |
 | expiryBefore | string (`YYYY-MM-DD`) | không | ISO-8601 strict và đúng mẫu `^\d{4}-\d{2}-\d{2}$` | Lấy lô có `expiryDate` **trước hẳn** ngày này. Lô không có hạn dùng bị loại |
 | sortBy | `'createdAt' \| 'expiryDate' \| 'entryDate'` | không | mặc định `createdAt` | |
 | sort | `'ASC' \| 'DESC'` | không | mặc định `DESC` | Thêm `id ASC` để thứ tự ổn định |
@@ -453,7 +453,7 @@ Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc t
 
 | HTTP | code | Khi nào |
 |---|---|---|
-| 400 | 101503 `MATERIAL_BATCH_STATUS_INVALID` | `status` khác 0/1 |
+| 400 | 101503 `MATERIAL_BATCH_STATUS_INVALID` | `status` không thuộc `MaterialBatchStatus` |
 | 400 | 101504 `MATERIAL_BATCH_EXPIRY_BEFORE_INVALID` | `expiryBefore` sai định dạng |
 | 404/403 | 100501 / 100523 | Xem phần warehouse scope ở trên |
 

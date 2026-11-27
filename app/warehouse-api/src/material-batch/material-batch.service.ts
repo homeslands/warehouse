@@ -1,5 +1,5 @@
 import { Inject, Injectable, Logger } from '@nestjs/common';
-import { EntityManager, Equal, FindOptionsWhere, LessThan, Repository } from 'typeorm';
+import { EntityManager, Equal, FindOptionsWhere, In, LessThan, Repository } from 'typeorm';
 import { InjectRepository } from '@nestjs/typeorm';
 import { InjectMapper } from '@automapper/nestjs';
 import { Mapper } from '@automapper/core';
@@ -10,7 +10,8 @@ import {
   MaterialBatchSortBy,
 } from './material-batch.dto';
 import { MaterialBatch } from './material-batch.entity';
-import { MaterialBatchStatus, statusOfRemaining } from './material-batch.constants';
+import { MATERIAL_BATCH_ON_HAND_STATUSES, statusOfBatch } from './material-batch.constants';
+import { ExportFormType } from 'src/export-form/export-form.constants';
 import { MaterialBatchException } from './material-batch.exception';
 import { MaterialBatchValidation } from './material-batch.validation';
 import { ImportForm } from 'src/import-form/import-form.entity';
@@ -71,9 +72,9 @@ export const compareFefo = (a: MaterialBatch, b: MaterialBatch): number => {
 /**
  * Lô hàng chỉ ĐỌC qua API. Ghi duy nhất qua các cửa sau, đều chạy trong transaction của caller:
  * - `createFromImportItems` — xác nhận phiếu nhập: 1 dòng phiếu ⇒ 1 lô.
- * - `reserve` — gửi duyệt phiếu xuất (`PENDING`): giữ chỗ trên lô (chỉ định hoặc FEFO).
+ * - `reserve` — hàng vào phiếu xuất nháp (tạo / PATCH dòng): giữ chỗ trên lô (chỉ định hoặc FEFO).
  * - `consumeReserved` — xác nhận phiếu xuất: trừ đúng phần đã giữ.
- * - `release` — huỷ phiếu `PENDING`: trả lại phần đã giữ.
+ * - `release` — PATCH dòng / xoá / huỷ phiếu nháp hoặc `PENDING`: trả lại phần đã giữ.
  */
 @Injectable()
 export class MaterialBatchService {
@@ -152,7 +153,7 @@ export class MaterialBatchService {
         quantity: item.baseQuantity,
         remainingQuantity: item.baseQuantity,
         reservedQuantity: 0,
-        status: statusOfRemaining(item.baseQuantity),
+        status: statusOfBatch(item.baseQuantity, 0),
       }),
     );
     const saved = await batches.save(created);
@@ -164,7 +165,7 @@ export class MaterialBatchService {
   }
 
   /**
-   * Gửi duyệt phiếu xuất (`DRAFT` → `PENDING`): GIỮ CHỖ trên lô, trong transaction của caller. Trả
+   * Hàng vào phiếu xuất nháp (tạo / PATCH dòng): GIỮ CHỖ trên lô, trong transaction của caller. Trả
    * map `key` → các lô đã giữ (theo thứ tự lấy) để caller tách dòng. Chỉ lấy phần còn trống
    * `remainingQuantity - reservedQuantity`; thiếu ⇒ `MATERIAL_BATCH_INSUFFICIENT`.
    *
@@ -222,20 +223,25 @@ export class MaterialBatchService {
 
   /**
    * Xác nhận phiếu `PENDING`: trừ `remainingQuantity` VÀ `reservedQuantity` của đúng lô đã giữ lúc
-   * gửi duyệt. Mỗi dòng phải có `batchId` (gửi duyệt đã tách dòng theo lô).
+   * vào phiếu nháp. Mỗi dòng phải có `batchId` (giữ chỗ đã tách dòng theo lô). Lô xuất hết chuyển
+   * sang trạng thái theo `exportType` (`ISSUED` / `DISPOSED` / `IN_TRANSIT`).
    */
   async consumeReserved(
     manager: EntityManager,
     warehouseId: string,
     lines: BatchConsumeLine[],
+    exportType: ExportFormType,
   ): Promise<void> {
-    await this.applyToReserved(manager, warehouseId, lines, (quantity) => ({
-      remainingDelta: -quantity,
-      reservedDelta: -quantity,
-    }));
+    await this.applyToReserved(
+      manager,
+      warehouseId,
+      lines,
+      (quantity) => ({ remainingDelta: -quantity, reservedDelta: -quantity }),
+      exportType,
+    );
   }
 
-  /** Huỷ phiếu `PENDING`: trả lại phần đã giữ trên từng lô (`reservedQuantity` giảm). */
+  /** Trả lại phần đã giữ trên từng lô (`reservedQuantity` giảm, lô hết giữ chỗ ⇒ `IN_STOCK`). */
   async release(
     manager: EntityManager,
     warehouseId: string,
@@ -251,27 +257,37 @@ export class MaterialBatchService {
     warehouseId: string,
     lines: BatchConsumeLine[],
     toChange: (quantity: number) => BatchChange,
+    exportType?: ExportFormType,
   ): Promise<void> {
-    await this.forEachMaterial(manager, warehouseId, lines, async (group, ordered, write) => {
-      for (const line of group) {
-        const batch = ordered.find(({ id }) => id === line.batchId);
-        if (!batch)
-          throw new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID);
-        write(batch, toChange(roundToScale(line.baseQuantity)));
-      }
-    });
+    await this.forEachMaterial(
+      manager,
+      warehouseId,
+      lines,
+      async (group, ordered, write) => {
+        for (const line of group) {
+          const batch = ordered.find(({ id }) => id === line.batchId);
+          if (!batch)
+            throw new MaterialBatchException(
+              MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID,
+            );
+          write(batch, toChange(roundToScale(line.baseQuantity)));
+        }
+      },
+      exportType,
+    );
   }
 
   /**
    * Khung chung của mọi thay đổi lô từ phiếu xuất, trong transaction của caller:
    *
-   * - Khoá (`FOR UPDATE`) mọi lô còn hàng của từng vật tư trong kho, vật tư xử lý theo thứ tự `id`
-   *   cố định — CẢ 3 luồng (giữ chỗ / xác nhận / huỷ) khoá cùng 1 kiểu nên không deadlock lẫn nhau.
-   *   Lô đang được giữ chỗ luôn còn hàng (`remaining >= reserved > 0`) nên nằm trong tập đã khoá.
+   * - Khoá (`FOR UPDATE`) mọi lô còn hàng (`IN_STOCK`/`RESERVED`) của từng vật tư trong kho, vật tư
+   *   xử lý theo thứ tự `id` cố định — CẢ 3 luồng (giữ chỗ / xác nhận / trả lại) khoá cùng 1 kiểu nên
+   *   không deadlock lẫn nhau. Lô đang được giữ chỗ luôn còn hàng nên nằm trong tập đã khoá.
    *   Lọc bằng `Equal(id)` trên quan hệ để TypeORM so thẳng cột FK — `{ material: { id } }` sinh
    *   LEFT JOIN và MySQL khoá luôn dòng vật tư/kho.
    * - `handle` gom thay đổi qua `write`; cuối cùng kiểm bất biến
-   *   `0 <= reserved <= remaining` rồi ghi các lô có đổi, `status` theo `remaining`.
+   *   `0 <= reserved <= remaining` rồi ghi các lô có đổi, `status` theo `statusOfBatch` (lô xuất
+   *   hết lấy trạng thái theo `exportType`).
    */
   private async forEachMaterial(
     manager: EntityManager,
@@ -282,6 +298,7 @@ export class MaterialBatchService {
       ordered: MaterialBatch[],
       write: (batch: MaterialBatch, change: BatchChange) => void,
     ) => Promise<void>,
+    exportType?: ExportFormType,
   ): Promise<void> {
     const byMaterial = new Map<string, BatchConsumeLine[]>();
     for (const line of lines) {
@@ -296,7 +313,7 @@ export class MaterialBatchService {
         where: {
           warehouse: Equal(warehouseId),
           material: Equal(materialId),
-          status: MaterialBatchStatus.InStock,
+          status: In(MATERIAL_BATCH_ON_HAND_STATUSES),
         },
         lock: { mode: 'pessimistic_write' },
       });
@@ -318,7 +335,7 @@ export class MaterialBatchService {
         if (remaining === batch.remainingQuantity && reserved === batch.reservedQuantity) continue;
         if (reserved < 0 || remaining < reserved)
           throw new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID);
-        const status = statusOfRemaining(remaining);
+        const status = statusOfBatch(remaining, reserved, exportType);
         await repository.update(
           { id: batch.id },
           { remainingQuantity: remaining, reservedQuantity: reserved, status },

@@ -36,7 +36,7 @@ import { Material } from 'src/material/material.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { MaterialBatch } from 'src/material-batch/material-batch.entity';
-import { MaterialBatchStatus } from 'src/material-batch/material-batch.constants';
+import { MATERIAL_BATCH_ON_HAND_STATUSES } from 'src/material-batch/material-batch.constants';
 import {
   BatchAllocation,
   BatchConsumeLine,
@@ -159,12 +159,19 @@ export class ExportFormService {
       warehouse,
       totalAmount: total,
     });
-    // Đầu phiếu + dòng trong 1 transaction: lỗi ở dòng nào thì rollback cả phiếu.
+    // Đầu phiếu + dòng + giữ chỗ trong 1 transaction: thiếu lô/tồn ở dòng nào thì rollback cả phiếu.
     const created = await this.transactionManagerService.execute(async (manager) => {
       // Sinh mã ngay trước khi lưu: `FOR UPDATE` trên bộ đếm giữ tới khi transaction kết thúc.
       form.code = await this.codeGenerateService.generate(manager, CodeType.ExportForm, warehouse);
       const saved = await manager.save(form);
-      saved.items = await this.saveItems(manager, saved, items);
+      const savedItems = await this.saveItems(manager, saved, items);
+      saved.items = await this.reserveItems(
+        manager,
+        saved,
+        savedItems,
+        currentUser,
+        `Export form ${saved.code} drafted`,
+      );
       return saved;
     });
     this.logger.log(`Export form created: ${created.id}`, context);
@@ -245,6 +252,17 @@ export class ExportFormService {
     const oldItems = form.items ?? [];
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
+      await this.lockForm(manager, form, [ExportFormStatus.Draft], 'EXPORT_FORM_NOT_DRAFT');
+      // Thay dòng: trả chỗ của dòng cũ TRƯỚC rồi mới giữ cho dòng mới — dòng mới được lấy lại đúng
+      // phần mà dòng cũ vừa nhả (cùng lô, cùng tồn).
+      if (replacement)
+        await this.releaseItems(
+          manager,
+          form,
+          this.assertItemsHaveMaterial(form),
+          currentUser,
+          `Export form ${form.code} lines replaced`,
+        );
       form.items = undefined;
       const saved = await manager.save(form);
       if (!replacement) {
@@ -256,7 +274,14 @@ export class ExportFormService {
           ExportFormItem,
           oldItems.map((item) => item.id),
         );
-      saved.items = await this.saveItems(manager, saved, replacement.items);
+      const savedItems = await this.saveItems(manager, saved, replacement.items);
+      saved.items = await this.reserveItems(
+        manager,
+        saved,
+        savedItems,
+        currentUser,
+        `Export form ${saved.code} lines replaced`,
+      );
       return saved;
     });
     return this.mapper.map(updated, ExportForm, ExportFormResponseDto);
@@ -277,15 +302,25 @@ export class ExportFormService {
       AuthorityCode.ExportFormDeleteDraftOwn,
     );
 
-    await this.exportFormRepository.softRemove(form);
+    const items = this.assertItemsHaveMaterial(form);
+    await this.transactionManagerService.execute(async (manager) => {
+      await this.lockForm(manager, form, [ExportFormStatus.Draft], 'EXPORT_FORM_NOT_DRAFT');
+      await this.releaseItems(
+        manager,
+        form,
+        items,
+        currentUser,
+        `Export form ${form.code} deleted`,
+      );
+      await manager.softRemove(form);
+    });
     this.logger.log(`Export form deleted: ${form.id}`, context);
     return 1;
   }
 
   /**
-   * `DRAFT` → `PENDING`, 1 transaction: khoá phiếu → giữ chỗ trên lô (chỉ định / FEFO trên phần còn
-   * trống) → tách dòng theo lô → giữ chỗ tồn kho → đổi trạng thái. Thiếu lô/tồn ⇒ rollback hết, phiếu
-   * vẫn là nháp. Quyền như sửa nháp (bản đầy đủ HOẶC `_OWN`) — gửi duyệt là việc của người lập.
+   * `DRAFT` → `PENDING`: khoá phiếu rồi đổi trạng thái. Lô/tồn đã giữ chỗ từ lúc hàng vào phiếu nháp
+   * nên không đụng lại. Quyền như sửa nháp (bản đầy đủ HOẶC `_OWN`) — gửi duyệt là việc của người lập.
    */
   async submitExportForm(
     warehouseSlug: string,
@@ -307,26 +342,10 @@ export class ExportFormService {
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
       await this.lockForm(manager, form, [ExportFormStatus.Draft], 'EXPORT_FORM_NOT_DRAFT');
-
-      const allocations = await this.materialBatchService.reserve(
-        manager,
-        form.warehouse.id,
-        this.toBatchLines(items),
-      );
-      // Giữ chỗ tồn TRƯỚC khi tách dòng: tách dòng sửa `baseQuantity` của dòng gốc tại chỗ.
-      await this.inventoryService.reserve(
-        manager,
-        form.warehouse.id,
-        this.toInventoryLines(items),
-        currentUser,
-        `Export form ${form.code} submitted`,
-      );
-      const split = await this.splitItemsByBatch(manager, form, items, allocations);
-
       form.items = undefined;
       form.status = ExportFormStatus.Pending;
       const saved = await manager.save(form);
-      saved.items = split;
+      saved.items = items;
       return saved;
     });
     this.logger.log(`Export form ${form.id} -> ${ExportFormStatus.Pending}`, context);
@@ -335,8 +354,8 @@ export class ExportFormService {
 
   /**
    * `PENDING` → `CONFIRMED`, 1 transaction: trừ đúng các lô đã giữ chỗ (cả `remaining` lẫn
-   * `reserved`) → trừ tồn kho kèm phần giữ chỗ (lịch sử `EXPORT`). Không chọn lại lô, không tách
-   * dòng — việc đó xong lúc gửi duyệt.
+   * `reserved`; lô hết hàng ⇒ `ISSUED`/`DISPOSED`/`IN_TRANSIT` theo `type`) → trừ tồn kho kèm phần
+   * giữ chỗ (lịch sử `EXPORT`). Không chọn lại lô, không tách dòng — việc đó xong lúc vào phiếu nháp.
    */
   async confirmExportForm(
     warehouseSlug: string,
@@ -361,6 +380,7 @@ export class ExportFormService {
         manager,
         form.warehouse.id,
         this.toBatchLines(items),
+        form.type,
       );
       await this.inventoryService.issue(
         manager,
@@ -377,8 +397,8 @@ export class ExportFormService {
   }
 
   /**
-   * `DRAFT`/`PENDING` → `CANCELLED`. Nháp không giữ gì nên chỉ đổi trạng thái; `PENDING` trả lại
-   * phần đã giữ trên lô và tồn kho (lịch sử `RELEASE`) trong cùng transaction.
+   * `DRAFT`/`PENDING` → `CANCELLED`: trả lại phần đã giữ trên lô và tồn kho (lịch sử `RELEASE`)
+   * trong cùng transaction — cả nháp lẫn `PENDING` đều đang giữ chỗ.
    */
   async cancelExportForm(
     warehouseSlug: string,
@@ -395,21 +415,13 @@ export class ExportFormService {
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
       await this.lockForm(manager, form, [form.status], 'EXPORT_FORM_CANNOT_BE_CANCELLED');
-      if (form.status === ExportFormStatus.Pending) {
-        const items = this.assertItemsHaveMaterial(form);
-        await this.materialBatchService.release(
-          manager,
-          form.warehouse.id,
-          this.toBatchLines(items),
-        );
-        await this.inventoryService.release(
-          manager,
-          form.warehouse.id,
-          this.toInventoryLines(items),
-          currentUser,
-          `Export form ${form.code} cancelled`,
-        );
-      }
+      await this.releaseItems(
+        manager,
+        form,
+        this.assertItemsHaveMaterial(form),
+        currentUser,
+        `Export form ${form.code} cancelled`,
+      );
       return this.saveDecision(manager, form, ExportFormStatus.Cancelled, approver);
     });
     this.logger.log(`Export form ${form.id} -> ${ExportFormStatus.Cancelled}`, context);
@@ -460,6 +472,53 @@ export class ExportFormService {
       if (!item.material)
         throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_MATERIAL_NOT_FOUND);
     return items;
+  }
+
+  /**
+   * Giữ chỗ cho dòng ĐÃ LƯU (có `id`): giữ trên lô (chỉ định / FEFO trên phần còn trống, lô ⇒
+   * `RESERVED` khi hết phần trống) → giữ tồn kho (lịch sử `RESERVE`) → tách dòng theo lô. Thiếu
+   * lô/tồn ⇒ throw, caller rollback cả transaction.
+   */
+  private async reserveItems(
+    manager: EntityManager,
+    form: ExportForm,
+    items: ExportFormItem[],
+    currentUser: CurrentUserDto,
+    note: string,
+  ): Promise<ExportFormItem[]> {
+    const allocations = await this.materialBatchService.reserve(
+      manager,
+      form.warehouse.id,
+      this.toBatchLines(items),
+    );
+    // Giữ chỗ tồn TRƯỚC khi tách dòng: tách dòng sửa `baseQuantity` của dòng gốc tại chỗ.
+    await this.inventoryService.reserve(
+      manager,
+      form.warehouse.id,
+      this.toInventoryLines(items),
+      currentUser,
+      note,
+    );
+    return this.splitItemsByBatch(manager, form, items, allocations);
+  }
+
+  /** Trả lại phần dòng phiếu đang giữ trên lô và tồn kho (lịch sử `RELEASE`). */
+  private async releaseItems(
+    manager: EntityManager,
+    form: ExportForm,
+    items: ExportFormItem[],
+    currentUser: CurrentUserDto,
+    note: string,
+  ): Promise<void> {
+    if (!items.length) return;
+    await this.materialBatchService.release(manager, form.warehouse.id, this.toBatchLines(items));
+    await this.inventoryService.release(
+      manager,
+      form.warehouse.id,
+      this.toInventoryLines(items),
+      currentUser,
+      note,
+    );
   }
 
   private toBatchLines(items: ExportFormItem[]): BatchConsumeLine[] {
@@ -563,8 +622,8 @@ export class ExportFormService {
   /**
    * Dựng dòng phiếu từ body: resolve vật tư (1 query), kiểm đơn vị thuộc vật tư, vật tư đã gán vào
    * kho, lô chỉ định (nếu có) thuộc kho + vật tư và còn hàng; snapshot tỉ lệ + mã/tên; tính
-   * `baseQuantity`/`amount` và `total`. KHÔNG kiểm đủ tồn/lô ở đây — phiếu nháp không giữ chỗ, việc
-   * đó làm dưới khoá lúc gửi duyệt (`submitExportForm`).
+   * `baseQuantity`/`amount` và `total`. KHÔNG kiểm đủ tồn/lô ở đây — việc đó làm dưới khoá lúc giữ
+   * chỗ (`reserveItems`) trong transaction ghi dòng.
    */
   private async buildItems(
     dtos: CreateExportFormItemDto[],
@@ -660,7 +719,11 @@ export class ExportFormService {
     return { items, total };
   }
 
-  /** Lô của kho khác coi như không tồn tại (không lộ dữ liệu kho khác). */
+  /**
+   * Lô của kho khác coi như không tồn tại (không lộ dữ liệu kho khác). Lô `RESERVED` vẫn chọn được:
+   * PATCH dòng nhả chỗ của chính phiếu này trước khi giữ lại; đủ phần trống hay không do `reserve`
+   * quyết dưới khoá.
+   */
   private pickBatch(
     slug: string,
     batchBySlug: Map<string, MaterialBatch>,
@@ -672,7 +735,7 @@ export class ExportFormService {
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_BATCH_NOT_FOUND);
     if (batch.material?.id !== material.id)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_BATCH_NOT_OF_MATERIAL);
-    if (batch.status !== MaterialBatchStatus.InStock)
+    if (!MATERIAL_BATCH_ON_HAND_STATUSES.includes(batch.status))
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_BATCH_OUT_OF_STOCK);
     return batch;
   }
