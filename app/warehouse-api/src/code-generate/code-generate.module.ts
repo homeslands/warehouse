@@ -14,7 +14,7 @@ import { DbModule } from 'src/db/db.module';
 /**
  * Sinh mã nghiệp vụ tự động cho mọi `CodeType`. Module khác import và gọi
  * `CodeGenerateService.generate(manager, ...)` bên trong transaction của chính nó. Controller:
- * `/code-rules` (quản lý tiền tố) và `POST /warehouses/:slug/materials/barcode` (cấp mã vạch).
+ * `/code-rules` (quản lý tiền tố) và `POST /warehouses/:slug/barcode` (cấp mã vạch).
  * `Warehouse` chỉ cần Repository (tra kho theo slug), `DbModule` cho `TransactionManagerService`.
  */
 @Module({

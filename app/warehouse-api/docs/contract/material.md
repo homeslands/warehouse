@@ -174,7 +174,7 @@ Tổng cộng 19 endpoint. Loại vật tư dùng chung bộ quyền `MATERIAL_*
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
 |---|---|---|---|---|
 | code | string | có | `BUSINESS_CODE_REGEX` (2-32 ký tự, như loại vật tư) | Server trim rồi chuyển sang IN HOA. Unique tính cả bản ghi đã xoá mềm |
-| barcode | string | không | 8-14 chữ số (`^\d{8,14}$`: EAN-8/UPC/EAN-13/GTIN-14), không kiểm chữ số kiểm tra | Mã vạch in trên sản phẩm. Sản phẩm không có mã vạch: lấy EAN-13 từ `POST /warehouses/:warehouseSlug/materials/barcode` (xem [inventory.md](inventory.md)). Unique tính cả bản ghi đã xoá mềm: trùng → 100734, bị vật tư đã xoá giữ → 100735. PATCH gửi `barcode` cũng kiểm tra như vậy |
+| barcode | string | không | 8-14 chữ số (`^\d{8,14}$`: EAN-8/UPC/EAN-13/GTIN-14), không kiểm chữ số kiểm tra | Mã vạch in trên sản phẩm. Sản phẩm không có mã vạch: lấy EAN-13 từ `POST /warehouses/:warehouseSlug/barcode` (xem [code-rule.md](code-rule.md)). Unique tính cả bản ghi đã xoá mềm: trùng → 100734, bị vật tư đã xoá giữ → 100735. PATCH gửi `barcode` cũng kiểm tra như vậy |
 | name | string | có | khác rỗng | **Không** unique |
 | typeSlug | string (slug) | có | khác rỗng | Slug của loại vật tư |
 | baseUnitSlug | string (slug) | có | khác rỗng, không được `null` | Slug của unit làm đơn vị cơ sở |
