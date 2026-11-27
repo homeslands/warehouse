@@ -45,7 +45,7 @@ export class CreateMaterialRequestDto {
   @ApiPropertyOptional({
     description:
       'Barcode printed on the product (8-14 digits). Products without one: get a generated ' +
-      'EAN-13 from POST /warehouses/{warehouseSlug}/materials/barcode',
+      'EAN-13 from POST /warehouses/{warehouseSlug}/barcode',
     example: '2000100000017',
   })
   @IsOptional()

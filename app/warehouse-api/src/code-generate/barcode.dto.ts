@@ -1,7 +1,7 @@
 import { ApiProperty } from '@nestjs/swagger';
 
 /**
- * `POST /warehouses/:slug/materials/barcode` — mã vạch EAN-13 cấp sẵn cho vật tư MỚI (không có mã
+ * `POST /warehouses/:slug/barcode` — mã vạch EAN-13 cấp sẵn cho vật tư MỚI (không có mã
  * vạch của nhà sản xuất) sắp tạo + gán vào kho này. Client gửi lại ở `material.barcode` của
  * `POST /warehouses/:slug/materials`; mã vật tư thì để trống cho server tự sinh lúc tạo.
  */

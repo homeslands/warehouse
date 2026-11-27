@@ -8,12 +8,11 @@ import { ApiResponseWithType } from 'src/app/app.decorator';
 import { AppResponseDto } from 'src/app/app.dto';
 
 /**
- * Cấp mã vạch cho vật tư mới của kho. Giữ nguyên URL cũ (`/warehouses/:slug/materials/barcode`,
- * trước nằm ở `InventoryController`) — route tĩnh `barcode` không đụng route `:materialSlug` nào
- * của `InventoryController` vì bên đó không có `POST :materialSlug`.
+ * Cấp mã vạch cho vật tư mới của kho: `POST /warehouses/:slug/barcode` (trước là
+ * `/warehouses/:slug/materials/barcode`, tag `Inventory`).
  */
-@ApiTags('Inventory')
-@Controller('warehouses/:warehouseSlug/materials')
+@ApiTags('Code Rule')
+@Controller('warehouses/:warehouseSlug')
 @ApiBearerAuth()
 @ApiParam({ name: 'warehouseSlug', required: true, example: 'x7fk2p9qab' })
 export class BarcodeController {
