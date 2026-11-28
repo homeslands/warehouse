@@ -25,6 +25,7 @@ import {
   IMPORT_FORM_REFERENCE_MAX_LENGTH,
   ImportFormStatus,
 } from './import-form.constants';
+import { ItemStatus } from 'src/item/item.constants';
 
 const trim = ({ value }: { value: unknown }) => (typeof value === 'string' ? value.trim() : value);
 const upper = ({ value }: { value: unknown }) =>
@@ -428,6 +429,13 @@ export class ImportFormItemResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiPropertyOptional({ example: '2027-10-12', description: 'null = no expiry date' })
   expiryDate?: string | null;
+
+  @AutoMap()
+  @ApiProperty({
+    enum: ItemStatus,
+    description: 'PENDING on a draft, IN_STOCK (or later) once confirmed, VOID once cancelled',
+  })
+  status: ItemStatus;
 }
 
 export class ImportFormResponseDto extends VersionedResponseDto {

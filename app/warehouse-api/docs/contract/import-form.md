@@ -61,10 +61,10 @@ DRAFT --confirm--> CONFIRMED   (cộng tồn kho + sinh lô)
 | Từ | Sang | Endpoint | Ai làm | Tác động |
 |---|---|---|---|---|
 | (mới) | `DRAFT` | `POST /import-forms` | Có `IMPORT_FORM_CREATE`. User được ghi vào `requester` và `requesterName` | Không đụng tồn, `total = 0`, chưa có dòng |
-| `DRAFT` | `DRAFT` | `PATCH /:slug`, `POST /:slug/items`, `DELETE /:slug/items/:itemSlug` | `UPDATE_DRAFT` (mọi phiếu) hoặc `UPDATE_DRAFT_OWN` (chỉ phiếu mình lập) | Không đụng tồn. Thêm/gỡ dòng luôn tăng `version` |
-| `DRAFT` | (xoá mềm) | `DELETE /:slug` | `DELETE_DRAFT` hoặc `DELETE_DRAFT_OWN` (phiếu mình lập) | Không đụng tồn |
-| `DRAFT` | `CONFIRMED` | `POST /:slug/confirm` | Có `IMPORT_FORM_CONFIRM`. Người này được ghi vào `approver` và `approverName` | Phiếu phải có ít nhất 1 dòng (101317). Cộng `baseQuantity` của từng dòng vào tồn kho (`InventoryService.receive`, lịch sử `IMPORT`). Mỗi dòng sinh 1 lô (`MaterialBatch`): `code` = mã của dòng, ngày nhập = `date` của phiếu, hạn dùng = `expiryDate` của dòng. Tất cả chạy trong 1 transaction (`service.ts:379-416`) |
-| `DRAFT` | `CANCELLED` | `POST /:slug/cancel` | Có `IMPORT_FORM_CONFIRM` (không kiểm người lập). Người này được ghi vào `approver` | Không đụng tồn |
+| `DRAFT` | `DRAFT` | `PATCH /:slug`, `POST /:slug/items`, `DELETE /:slug/items/:itemSlug` | `UPDATE_DRAFT` (mọi phiếu) hoặc `UPDATE_DRAFT_OWN` (chỉ phiếu mình lập) | Không đụng tồn. Thêm hàng tạo item `PENDING` (`GET .../items` thấy ngay), gỡ dòng xoá hẳn item. Thêm/gỡ dòng luôn tăng `version`. PATCH đổi `date` thì `entryDate` của item đổi theo |
+| `DRAFT` | (xoá mềm) | `DELETE /:slug` | `DELETE_DRAFT` hoặc `DELETE_DRAFT_OWN` (phiếu mình lập) | Không đụng tồn. Item `PENDING` của phiếu bị xoá hẳn |
+| `DRAFT` | `CONFIRMED` | `POST /:slug/confirm` | Có `IMPORT_FORM_CONFIRM`. Người này được ghi vào `approver` và `approverName` | Phiếu phải có ít nhất 1 dòng (101317). Cộng `baseQuantity` của từng dòng vào tồn kho (`InventoryService.receive`, lịch sử `IMPORT`). Item `PENDING` của phiếu chuyển `IN_STOCK`, `entryDate` = `date` của phiếu. Tất cả chạy trong 1 transaction (`service.ts:379-416`) |
+| `DRAFT` | `CANCELLED` | `POST /:slug/cancel` | Có `IMPORT_FORM_CONFIRM` (không kiểm người lập). Người này được ghi vào `approver` | Không đụng tồn. Item `PENDING` của phiếu chuyển `VOID` |
 
 - Chỉ phiếu `DRAFT` mới sửa, xoá, xác nhận hoặc huỷ được. Phiếu ở trạng thái khác trả `IMPORT_FORM_NOT_DRAFT` (409)
   (`service.ts:602-605`). Phiếu `CONFIRMED`/`CANCELLED` là bất biến, không có authority nào mở được.
@@ -287,9 +287,8 @@ sinh N mã → ghi N dòng → ghi `total` và **tăng `version`** (kể cả kh
 | version | number (int ≥ 1) | có | | Version hiện tại của phiếu |
 
 - **Response 200:** `ImportFormResponseDto` với `status = 'CONFIRMED'`, có `approverSlug`/`approverName` và `items`.
-- **Tác động:** Cộng tồn (gộp theo vật tư, lịch sử `IMPORT`, note `Import form <code>`). Mỗi dòng sinh 1 lô:
-  `code` = mã của dòng, `quantity = remainingQuantity = baseQuantity`, `entryDate = date`, `expiryDate` lấy từ dòng
-  (`src/material-batch/material-batch.service.ts:135-161`). Tất cả nằm trong cùng 1 transaction.
+- **Tác động:** Cộng tồn (gộp theo vật tư, lịch sử `IMPORT`, note `Import form <code>`). Item `PENDING` của phiếu
+  chuyển `IN_STOCK`, `entryDate = date` (`ItemService.receiveImportForm`). Tất cả nằm trong cùng 1 transaction.
 - **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
@@ -343,7 +342,7 @@ sinh N mã → ghi N dòng → ghi `total` và **tăng `version`** (kể cả kh
 | note | string \| null | |
 | status | `'DRAFT' \| 'CONFIRMED' \| 'CANCELLED'` | |
 | warehouseSlug | string | |
-| items | `ImportFormItemResponseDto[]` | **Chỉ có ở POST, GET chi tiết, PATCH, thêm/gỡ dòng, confirm, cancel.** Không có trong list. 1 dòng = 1 đơn vị hàng |
+| items | `ImportFormItemResponseDto[]` | **Chỉ có ở POST, GET chi tiết, PATCH, thêm/gỡ dòng, confirm, cancel.** Không có trong list. 1 dòng = 1 đơn vị hàng = 1 item (`slug` của dòng chính là slug item ở `GET .../items/:slug`) |
 | groups | `ImportFormItemGroupResponseDto[]` | Có cùng lúc với `items`: `items` gộp theo (vật tư, đơn vị, đơn giá), theo thứ tự xuất hiện đầu tiên |
 
 `ImportFormItemGroupResponseDto`: `materialSlug`, `materialCode`, `materialName`, `unitSlug`, `unitCode`, `unitName`, `unitPrice`,
@@ -368,6 +367,7 @@ sinh N mã → ghi N dòng → ghi `total` và **tăng `version`** (kể cả kh
 | amount | number | `quantity × unitPrice`, làm tròn 2 chữ số |
 | note | string \| null | |
 | expiryDate | string (`YYYY-MM-DD`) \| null | |
+| status | `ItemStatus` | `PENDING` khi phiếu còn nháp, `IN_STOCK` (hoặc trạng thái sau đó do phiếu xuất) khi đã xác nhận, `VOID` khi đã huỷ |
 
 Ví dụ rút gọn (`GET /:slug`):
 

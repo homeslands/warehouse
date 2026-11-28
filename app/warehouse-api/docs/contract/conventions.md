@@ -213,7 +213,7 @@ Trạng thái sử dụng ở `main` (grep trong `src/`, bỏ `*.spec.ts`):
 
 - `@HasRole(...)`: **không endpoint nào dùng**. Phân quyền endpoint hiện chỉ dựa vào `@RequireAuthority`.
 - `@Feature(...)`: **không endpoint nào dùng**.
-- `@WarehouseScope('warehouseSlug')`: gắn ở cấp class của `import-form`, `export-form`, `material-batch`. Xem file module tương ứng.
+- `@WarehouseScope('warehouseSlug')`: gắn ở cấp class của `import-form`, `export-form`, `item`. Xem file module tương ứng.
 - Endpoint không public mà không có `@RequireAuthority`: mọi user đã đăng nhập đều gọi được, vd `GET /auth/me`, `GET /authorities`, `GET /authority-groups`.
 
 ### 7.1 Phạm vi kho (warehouse scope)
@@ -305,7 +305,7 @@ CORS: `origin` = danh sách trên, `credentials: true`. Không cấu hình `meth
 | 101201–101299 | supplier | `src/supplier/supplier.validation.ts` | 23 |
 | 101301–101399 | import-form | `src/import-form/import-form.validation.ts` | 33 |
 | 101401–101499 | export-form | `src/export-form/export-form.validation.ts` | 39 |
-| 101501–101599 | material-batch | `src/material-batch/material-batch.validation.ts` | 5 |
+| 101501–101599 | item | `src/item/item.validation.ts` | 5 |
 | 109000–109099 | db | `src/db/db.validation.ts` | 1 |
 | 121000–122000 | file | `src/file/file.validation.ts` | 13 |
 | 155501–156000 | notification | `src/notification/notification.validation.ts` | 4 |

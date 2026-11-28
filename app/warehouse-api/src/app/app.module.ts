@@ -45,7 +45,7 @@ import { InventoryModule } from 'src/inventory/inventory.module';
 import { StoreModule } from 'src/store/store.module';
 import { SupplierModule } from 'src/supplier/supplier.module';
 import { ImportFormModule } from 'src/import-form/import-form.module';
-import { MaterialBatchModule } from 'src/material-batch/material-batch.module';
+import { ItemModule } from 'src/item/item.module';
 import { ExportFormModule } from 'src/export-form/export-form.module';
 import { CodeGenerateModule } from 'src/code-generate/code-generate.module';
 import { TaxProfileModule } from 'src/tax-profile/tax-profile.module';
@@ -96,7 +96,7 @@ import { NotificationModule } from 'src/notification/notification.module';
     StoreModule,
     SupplierModule,
     ImportFormModule,
-    MaterialBatchModule,
+    ItemModule,
     ExportFormModule,
     CodeGenerateModule,
     TaxProfileModule,

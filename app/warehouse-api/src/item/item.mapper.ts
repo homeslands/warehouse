@@ -1,8 +1,9 @@
 import { AutomapperProfile, InjectMapper } from '@automapper/nestjs';
 import { createMap, extend, forMember, mapFrom, Mapper } from '@automapper/core';
 import { Injectable } from '@nestjs/common';
-import { MaterialBatchResponseDto } from './material-batch.dto';
-import { MaterialBatch } from './material-batch.entity';
+import { ItemResponseDto } from './item.dto';
+import { Item } from './item.entity';
+import { ITEM_ON_HAND_STATUSES } from './item.constants';
 import { baseMapper } from 'src/app/base.mapper';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { MaterialType } from 'src/material-type/material-type.entity';
@@ -11,7 +12,7 @@ import { Unit } from 'src/unit/unit.entity';
 import { UnitResponseDto } from 'src/unit/unit.dto';
 
 @Injectable()
-export class MaterialBatchProfile extends AutomapperProfile {
+export class ItemProfile extends AutomapperProfile {
   constructor(@InjectMapper() mapper: Mapper) {
     super(mapper);
   }
@@ -20,24 +21,25 @@ export class MaterialBatchProfile extends AutomapperProfile {
     return (mapper: Mapper) => {
       createMap(
         mapper,
-        MaterialBatch,
-        MaterialBatchResponseDto,
+        Item,
+        ItemResponseDto,
         extend(baseMapper(mapper)),
+        // `PENDING`/`VOID`/đã xuất: `remaining` vẫn có số nhưng không phiếu xuất nào lấy được.
         forMember(
           (d) => d.availableQuantity,
-          mapFrom((s) => roundToScale(s.remainingQuantity - (s.reservedQuantity ?? 0))),
+          mapFrom((s) =>
+            ITEM_ON_HAND_STATUSES.includes(s.status)
+              ? roundToScale(s.remainingQuantity - (s.reservedQuantity ?? 0))
+              : 0,
+          ),
+        ),
+        forMember(
+          (d) => d.unitSlug,
+          mapFrom((s) => s.unit?.slug),
         ),
         forMember(
           (d) => d.materialSlug,
           mapFrom((s) => s.material?.slug),
-        ),
-        forMember(
-          (d) => d.materialCode,
-          mapFrom((s) => s.material?.code),
-        ),
-        forMember(
-          (d) => d.materialName,
-          mapFrom((s) => s.material?.name),
         ),
         // `type`/`baseUnit` map qua profile của module MaterialType/Unit (cùng mapper global).
         forMember(
@@ -64,11 +66,11 @@ export class MaterialBatchProfile extends AutomapperProfile {
         ),
         forMember(
           (d) => d.importFormSlug,
-          mapFrom((s) => s.importFormItem?.importForm?.slug ?? null),
+          mapFrom((s) => s.importForm?.slug),
         ),
         forMember(
           (d) => d.importFormCode,
-          mapFrom((s) => s.importFormItem?.importForm?.code ?? null),
+          mapFrom((s) => s.importForm?.code),
         ),
       );
     };

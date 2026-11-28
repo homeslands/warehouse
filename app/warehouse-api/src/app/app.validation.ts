@@ -19,10 +19,7 @@ import { StoreValidation, TStoreErrorCode } from 'src/store/store.validation';
 import { SupplierValidation, TSupplierErrorCode } from 'src/supplier/supplier.validation';
 import { ImportFormValidation, TImportFormErrorCode } from 'src/import-form/import-form.validation';
 import { ExportFormValidation, TExportFormErrorCode } from 'src/export-form/export-form.validation';
-import {
-  MaterialBatchValidation,
-  TMaterialBatchErrorCode,
-} from 'src/material-batch/material-batch.validation';
+import { ItemValidation, TItemErrorCode } from 'src/item/item.validation';
 import {
   CodeGenerateValidation,
   TCodeGenerateErrorCode,
@@ -56,7 +53,7 @@ export const AppValidation: TAuthErrorCode &
   TSupplierErrorCode &
   TImportFormErrorCode &
   TExportFormErrorCode &
-  TMaterialBatchErrorCode &
+  TItemErrorCode &
   TCodeGenerateErrorCode &
   TTaxProfileErrorCode &
   TDbErrorCode &
@@ -78,7 +75,7 @@ export const AppValidation: TAuthErrorCode &
   ...SupplierValidation,
   ...ImportFormValidation,
   ...ExportFormValidation,
-  ...MaterialBatchValidation,
+  ...ItemValidation,
   ...CodeGenerateValidation,
   ...TaxProfileValidation,
   ...DbValidation,

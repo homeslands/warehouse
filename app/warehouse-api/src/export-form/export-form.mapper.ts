@@ -67,16 +67,16 @@ export class ExportFormProfile extends AutomapperProfile {
           mapFrom((s) => s.unit?.slug),
         ),
         forMember(
-          (d) => d.batchSlug,
-          mapFrom((s) => s.batch?.slug ?? null),
+          (d) => d.itemSlug,
+          mapFrom((s) => s.item?.slug ?? null),
         ),
         forMember(
-          (d) => d.batchCode,
-          mapFrom((s) => s.batch?.code ?? null),
+          (d) => d.itemCode,
+          mapFrom((s) => s.item?.code ?? null),
         ),
         forMember(
-          (d) => d.batchExpiryDate,
-          mapFrom((s) => s.batch?.expiryDate ?? null),
+          (d) => d.itemExpiryDate,
+          mapFrom((s) => s.item?.expiryDate ?? null),
         ),
       );
 

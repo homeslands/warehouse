@@ -144,7 +144,7 @@ export const ExportFormValidation: TExportFormErrorCode = {
   EXPORT_FORM_ITEM_NOTE_INVALID: createErrorCode(101424, 'Item note must be a string'),
   EXPORT_FORM_ITEM_DUPLICATED: createErrorCode(
     101425,
-    'The same material, unit and batch appear more than once in the form',
+    'The same material, unit and item appear more than once in the form',
   ),
   EXPORT_FORM_ITEM_MATERIAL_NOT_FOUND: createErrorCode(
     101426,
@@ -165,15 +165,15 @@ export const ExportFormValidation: TExportFormErrorCode = {
   ),
   EXPORT_FORM_ITEM_BATCH_NOT_FOUND: createErrorCode(
     101430,
-    'Item batch not found in this warehouse',
+    'Item not found in this warehouse',
     HttpStatus.NOT_FOUND,
   ),
   EXPORT_FORM_ITEM_BATCH_NOT_OF_MATERIAL: createErrorCode(
     101431,
-    'Item batch does not belong to the item material',
+    'Item does not belong to the line material',
   ),
-  EXPORT_FORM_ITEM_BATCH_OUT_OF_STOCK: createErrorCode(101432, 'Item batch is out of stock'),
-  EXPORT_FORM_ITEM_BATCH_SLUG_INVALID: createErrorCode(101433, 'Item batch slug must be a string'),
+  EXPORT_FORM_ITEM_BATCH_OUT_OF_STOCK: createErrorCode(101432, 'Item is out of stock'),
+  EXPORT_FORM_ITEM_BATCH_SLUG_INVALID: createErrorCode(101433, 'itemSlug must be a string'),
   EXPORT_FORM_FILE_TYPE_NOT_ALLOWED: createErrorCode(
     101434,
     'File type is not allowed (pdf, jpg, png, webp, xls, xlsx, doc, docx only)',

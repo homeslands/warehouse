@@ -1,5 +1,5 @@
 import { Inventory } from 'src/inventory/inventory.entity';
-import { OptimisticLockVersionMismatchError } from 'typeorm';
+import { Equal, OptimisticLockVersionMismatchError } from 'typeorm';
 import { InventoryValidation } from 'src/inventory/inventory.validation';
 import { InventoryException } from 'src/inventory/inventory.exception';
 import { ForbiddenException } from '@nestjs/common';
@@ -30,7 +30,8 @@ import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { Material } from 'src/material/material.entity';
 import { Supplier } from 'src/supplier/supplier.entity';
 import { SupplierValidation } from 'src/supplier/supplier.validation';
-import { ImportFormItem } from './import-form-item.entity';
+import { Item } from 'src/item/item.entity';
+import { ItemStatus } from 'src/item/item.constants';
 import { CodeGenerateService } from 'src/code-generate/code-generate.service';
 import { CodeType } from 'src/code-generate/code-generate.constants';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
@@ -39,7 +40,7 @@ import { WarehouseValidation } from 'src/warehouse/warehouse.validation';
 import { S3Service } from 'src/file/s3/s3.service';
 import { FileValidation } from 'src/file/file.validation';
 import { insertMaterialSuppliers } from 'src/material/material-supplier.util';
-import { MaterialBatchService } from 'src/material-batch/material-batch.service';
+import { ItemService } from 'src/item/item.service';
 
 // Bảng join `material_supplier_tbl` ghi qua `material-supplier.util.ts` (có spec riêng).
 jest.mock('src/material/material-supplier.util');
@@ -67,10 +68,11 @@ describe('ImportFormService', () => {
     findOne: jest.fn(),
     count: jest.fn(),
     update: jest.fn(),
+    softRemove: jest.fn(),
     createQueryBuilder: jest.fn(() => lineNoQuery),
   };
   const inventoryService = { receive: jest.fn() };
-  const materialBatchService = { createFromImportItems: jest.fn() };
+  const itemService = { receiveImportForm: jest.fn(), voidImportForm: jest.fn() };
   const transactionManager = { execute: jest.fn() };
   const codeGenerateService = { generate: jest.fn(), generateMany: jest.fn() };
   const generatedCode = 'IM-WH-01-261012-000001';
@@ -169,7 +171,7 @@ describe('ImportFormService', () => {
         { provide: CodeGenerateService, useValue: codeGenerateService },
         { provide: InventoryService, useValue: inventoryService },
         { provide: S3Service, useValue: s3Service },
-        { provide: MaterialBatchService, useValue: materialBatchService },
+        { provide: ItemService, useValue: itemService },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
       ],
@@ -244,7 +246,7 @@ describe('ImportFormService', () => {
   describe('addItems', () => {
     const full = () => actor([AuthorityCode.ImportFormUpdateDraft]);
     const scan: AddImportFormItemRequestDto = { barcode: '2000100000019', unitPrice: 10 };
-    const savedLines = (): ImportFormItem[] => manager.save.mock.calls[0][0];
+    const savedLines = (): Item[] => manager.save.mock.calls[0][0];
 
     beforeEach(() => {
       importFormRepository.findOne.mockResolvedValue(draft({ total: 0, items: [] }));
@@ -280,9 +282,15 @@ describe('ImportFormService', () => {
           supplierSlug: 'sup-slug',
           expiryDate: null,
           note: null,
+          importForm: expect.objectContaining({ id: 'form-1' }),
+          warehouse,
+          entryDate: '2026-10-12',
+          remainingQuantity: 1,
+          reservedQuantity: 0,
+          status: ItemStatus.Pending,
         }),
       ]);
-      expect(savedLines()[0]).toBeInstanceOf(ImportFormItem);
+      expect(savedLines()[0]).toBeInstanceOf(Item);
       expect(result.codes).toEqual(['IT-WH-001-261012-000001']);
     });
 
@@ -371,7 +379,7 @@ describe('ImportFormService', () => {
           baseQuantity: unit === bag ? 50 : 1,
           unitPrice: 10,
           amount: 10,
-        }) as unknown as ImportFormItem;
+        }) as unknown as Item;
       importFormRepository.findOne
         .mockResolvedValueOnce(draft({ items: [] }))
         .mockResolvedValueOnce(
@@ -582,10 +590,10 @@ describe('ImportFormService', () => {
 
       await service.removeItem('wh-slug', 'form-slug', 'item-slug', full());
 
-      expect(manager.findOne).toHaveBeenNthCalledWith(2, ImportFormItem, {
+      expect(manager.findOne).toHaveBeenNthCalledWith(2, Item, {
         where: { slug: 'item-slug', importForm: expect.anything() },
       });
-      expect(manager.delete).toHaveBeenCalledWith(ImportFormItem, 'item-1');
+      expect(manager.delete).toHaveBeenCalledWith(Item, 'item-1');
       expect(manager.update).toHaveBeenCalledWith(
         ImportForm,
         { id: 'form-1' },
@@ -969,8 +977,29 @@ describe('ImportFormService', () => {
       expect(manager.save).not.toHaveBeenCalled();
     });
 
+    // Ngày nhập của item = ngày phiếu ⇒ item nháp đi theo; PATCH không đổi ngày thì không đụng item.
+    it('moves the entry date of the PENDING items with the form date', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft());
+
+      await service.updateImportForm(
+        'wh-slug',
+        'form-slug',
+        { version: 1, date: '2026-10-11' },
+        full(),
+      );
+      expect(manager.update).toHaveBeenCalledWith(
+        Item,
+        { importForm: Equal('form-1'), status: ItemStatus.Pending },
+        { entryDate: '2026-10-11' },
+      );
+
+      manager.update.mockClear();
+      await service.updateImportForm('wh-slug', 'form-slug', { version: 1, note: 'x' }, full());
+      expect(manager.update).not.toHaveBeenCalled();
+    });
+
     it('rejects moving the form date after an existing line expiry', async () => {
-      const items = [{ id: 'i1', expiryDate: '2026-10-20' }] as ImportFormItem[];
+      const items = [{ id: 'i1', expiryDate: '2026-10-20' }] as Item[];
       importFormRepository.findOne.mockResolvedValue(draft({ items }));
 
       await expectError(
@@ -1131,9 +1160,10 @@ describe('ImportFormService', () => {
   });
 
   describe('deleteImportForm', () => {
-    it('soft-deletes a DRAFT form', async () => {
-      const form = draft();
-      importFormRepository.findOne.mockResolvedValue(form);
+    it('hard-deletes the PENDING items then soft-deletes the DRAFT form, under the form lock', async () => {
+      importFormRepository.findOne.mockResolvedValue(draft());
+      const locked = draft();
+      manager.findOne.mockResolvedValue(locked);
 
       await expect(
         service.deleteImportForm(
@@ -1142,7 +1172,18 @@ describe('ImportFormService', () => {
           actor([AuthorityCode.ImportFormDeleteDraft]),
         ),
       ).resolves.toBe(1);
-      expect(importFormRepository.softRemove).toHaveBeenCalledWith(form);
+      expect(manager.findOne).toHaveBeenCalledWith(
+        ImportForm,
+        expect.objectContaining({ lock: { mode: 'pessimistic_write' } }),
+      );
+      expect(manager.delete).toHaveBeenCalledWith(Item, {
+        importForm: Equal('form-1'),
+        status: ItemStatus.Pending,
+      });
+      expect(manager.softRemove).toHaveBeenCalledWith(locked);
+      expect(manager.delete.mock.invocationCallOrder[0]).toBeLessThan(
+        manager.softRemove.mock.invocationCallOrder[0],
+      );
     });
 
     it('rejects a CONFIRMED form', async () => {
@@ -1156,7 +1197,7 @@ describe('ImportFormService', () => {
         ),
         ImportFormValidation.IMPORT_FORM_NOT_DRAFT.code,
       );
-      expect(importFormRepository.softRemove).not.toHaveBeenCalled();
+      expect(manager.softRemove).not.toHaveBeenCalled();
     });
 
     // Quyền sửa không kéo theo quyền xoá: check đúng cặp code DELETE.
@@ -1190,7 +1231,7 @@ describe('ImportFormService', () => {
     const lines = [
       { id: 'i1', material: cement, unit: bag, baseQuantity: 100 },
       { id: 'i2', material: cement, unit: kg, baseQuantity: 0.5 },
-    ] as unknown as ImportFormItem[];
+    ] as unknown as Item[];
 
     beforeEach(() => {
       userRepository.findOneBy.mockResolvedValue(approver);
@@ -1267,25 +1308,27 @@ describe('ImportFormService', () => {
       );
     });
 
-    it('confirm creates 1 batch per line after adding the stock, in the same transaction', async () => {
+    it('confirm moves the PENDING items to IN_STOCK after adding the stock, in the same transaction', async () => {
       const form = draft({ items: lines });
       importFormRepository.findOne.mockResolvedValue(form);
 
       await service.confirmImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2'));
 
-      expect(materialBatchService.createFromImportItems).toHaveBeenCalledWith(manager, form, lines);
+      expect(itemService.receiveImportForm).toHaveBeenCalledWith(manager, form);
+      expect(itemService.voidImportForm).not.toHaveBeenCalled();
       expect(inventoryService.receive.mock.invocationCallOrder[0]).toBeLessThan(
-        materialBatchService.createFromImportItems.mock.invocationCallOrder[0],
+        itemService.receiveImportForm.mock.invocationCallOrder[0],
       );
     });
 
-    it('cancel does not touch the stock nor create batches', async () => {
+    it('cancel voids the PENDING items and does not touch the stock', async () => {
       importFormRepository.findOne.mockResolvedValue(draft({ items: lines }));
 
       await service.cancelImportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2'));
 
       expect(inventoryService.receive).not.toHaveBeenCalled();
-      expect(materialBatchService.createFromImportItems).not.toHaveBeenCalled();
+      expect(itemService.receiveImportForm).not.toHaveBeenCalled();
+      expect(itemService.voidImportForm).toHaveBeenCalledWith(manager, 'form-1');
     });
 
     it('propagates an inventory error (material not in warehouse) so the transaction rolls back', async () => {

@@ -3,7 +3,7 @@ import { AutoMap } from '@automapper/classes';
 import { Base } from 'src/app/base.entity';
 import { Material } from 'src/material/material.entity';
 import { Unit } from 'src/unit/unit.entity';
-import { MaterialBatch } from 'src/material-batch/material-batch.entity';
+import { Item } from 'src/item/item.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 import { ExportForm } from './export-form.entity';
 
@@ -11,15 +11,15 @@ const decimal = (name: string, scale: number) =>
   Column({ name, type: 'decimal', precision: 18, scale, transformer: decimalToNumber });
 
 /**
- * 1 dòng vật tư của phiếu xuất. Giống `ImportFormItem` (snapshot mã/tên vật tư + đơn vị + tỉ lệ
+ * 1 dòng vật tư của phiếu xuất. Giống `Item` của phiếu nhập (snapshot mã/tên vật tư + đơn vị + tỉ lệ
  * quy đổi; `baseQuantity` = `quantity × conversionRate` là lượng trừ khỏi tồn), không có nhà cung
- * cấp, thêm `batch`:
- * - Client chỉ định lô (`batchSlug`) ⇒ xác nhận trừ đúng lô đó.
- * - Không chỉ định ⇒ `batch` NULL lúc nháp; xác nhận trừ theo FEFO và GÁN `batch` cho dòng. Cần
- *   nhiều lô thì dòng được TÁCH thành nhiều dòng, mỗi dòng 1 lô (tổng số lượng/thành tiền giữ nguyên).
+ * cấp, thêm `item` (đơn vị hàng bị giữ chỗ / trừ):
+ * - Client chỉ định item (`itemSlug`) ⇒ giữ chỗ và xác nhận trừ đúng item đó.
+ * - Không chỉ định ⇒ giữ chỗ theo FEFO và GÁN `item` cho dòng. Cần nhiều item thì dòng được
+ *   TÁCH thành nhiều dòng, mỗi dòng 1 item (tổng số lượng/thành tiền giữ nguyên).
  *
  * Vì tách dòng nên KHÔNG có UNIQUE (phiếu, vật tư, đơn vị) như phiếu nhập; service tự chặn trùng
- * (vật tư, đơn vị, lô) trong body.
+ * (vật tư, đơn vị, item) trong body.
  */
 @Entity('export_form_item_tbl')
 export class ExportFormItem extends Base {
@@ -55,10 +55,10 @@ export class ExportFormItem extends Base {
   @Column({ name: 'unit_name_column' })
   unitName: string;
 
-  /** Lô bị trừ. NULL = phiếu nháp chưa chỉ định lô (xác nhận sẽ gán theo FEFO). */
-  @ManyToOne(() => MaterialBatch, { nullable: true })
-  @JoinColumn({ name: 'batch_id_column' })
-  batch?: MaterialBatch | null;
+  /** Item bị giữ chỗ / trừ. NULL chỉ ở dòng nháp chưa giữ chỗ (dữ liệu cũ). */
+  @ManyToOne(() => Item, { nullable: true })
+  @JoinColumn({ name: 'item_id_column' })
+  item?: Item | null;
 
   @AutoMap()
   @decimal('quantity_column', 6)

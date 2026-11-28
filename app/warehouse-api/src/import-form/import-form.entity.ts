@@ -5,11 +5,12 @@ import { User } from 'src/user/user.entity';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { decimalToNumber } from 'src/shared/utils/decimal.transformer';
 import { ImportFormStatus } from './import-form.constants';
-import { ImportFormItem } from './import-form-item.entity';
+import { Item } from 'src/item/item.entity';
 
 /**
- * Phiếu nhập kho: phần đầu phiếu + các dòng vật tư (`items`). Xác nhận phiếu cộng `baseQuantity` của
- * từng dòng vào tồn của kho (`InventoryService.receive`); phiếu nháp/huỷ không đụng tồn.
+ * Phiếu nhập kho: phần đầu phiếu + các đơn vị hàng (`items`, entity `Item` — 1 item = 1 dòng). Xác
+ * nhận phiếu cộng `baseQuantity` của từng item vào tồn của kho (`InventoryService.receive`) và chuyển
+ * item `PENDING` ⇒ `IN_STOCK`; huỷ ⇒ `VOID`; phiếu nháp không đụng tồn.
  *
  * Các cột `requesterName`/`approverName` là **snapshot** lúc ghi phiếu, không phải dữ liệu join: user
  * sửa tên bất cứ lúc nào, đọc qua FK là viết lại chứng từ cũ. FK vẫn giữ để tra ngược "phiếu nào
@@ -79,12 +80,11 @@ export class ImportForm extends VersionedBase {
   warehouse: Warehouse;
 
   /**
-   * Dòng vật tư. Service ghi tường minh trong cùng transaction với đầu phiếu (không dùng cascade
-   * insert/update); chỉ cascade xoá mềm/khôi phục để `softRemove(phiếu)` kéo theo dòng.
-   * `total` = Σ `items.amount`, do service tính lại mỗi lần `items` đổi — client không gửi `total`.
+   * Đơn vị hàng của phiếu (FK `item_tbl.import_form_id_column`). Service ghi/xoá tường minh trong
+   * transaction khoá đầu phiếu, không cascade: xoá phiếu nháp xoá cứng item `PENDING` trước rồi mới
+   * xoá mềm phiếu. `total` = Σ `items.amount`, do service tính lại mỗi lần thêm/gỡ — client
+   * không gửi `total`.
    */
-  @OneToMany(() => ImportFormItem, (item) => item.importForm, {
-    cascade: ['soft-remove', 'recover'],
-  })
-  items?: ImportFormItem[];
+  @OneToMany(() => Item, (item) => item.importForm)
+  items?: Item[];
 }

@@ -25,7 +25,8 @@ import {
   ImportFormSortBy,
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
-import { ImportFormItem } from './import-form-item.entity';
+import { Item } from 'src/item/item.entity';
+import { ItemStatus } from 'src/item/item.constants';
 import {
   IMPORT_FORM_ITEMS_MAX,
   IMPORT_FORM_UPLOAD_FOLDER,
@@ -61,7 +62,7 @@ import { UserValidation } from 'src/user/user.validation';
 import { Warehouse } from 'src/warehouse/warehouse.entity';
 import { findWarehouse } from 'src/warehouse/warehouse.util';
 import { S3Service } from 'src/file/s3/s3.service';
-import { MaterialBatchService } from 'src/material-batch/material-batch.service';
+import { ItemService } from 'src/item/item.service';
 import { FileException } from 'src/file/file.exception';
 import { isAllowedUploadType } from 'src/file/file.util';
 import { FileValidation } from 'src/file/file.validation';
@@ -112,7 +113,7 @@ export class ImportFormService {
     private readonly codeGenerateService: CodeGenerateService,
     private readonly inventoryService: InventoryService,
     private readonly s3Service: S3Service,
-    private readonly materialBatchService: MaterialBatchService,
+    private readonly itemService: ItemService,
   ) {}
 
   /**
@@ -297,13 +298,21 @@ export class ImportFormService {
         throw new OptimisticLockVersionMismatchError(ImportForm.name, form.version, locked.version);
       Object.assign(locked, data);
       await manager.save(locked);
+      // Ngày nhập của item = ngày phiếu — item nháp đi theo ngày mới.
+      if (data.date !== undefined)
+        await manager.update(
+          Item,
+          { importForm: Equal(locked.id), status: ItemStatus.Pending },
+          { entryDate: data.date },
+        );
     });
     return this.findOne(warehouseSlug, slug);
   }
 
   /**
-   * Thêm hàng vào phiếu nháp (quét barcode hoặc chọn tay): `quantity` đơn vị ⇒ `quantity` dòng, mỗi
-   * dòng 1 mã `CodeType.Item` (`{prefix}-{mã kho}-{yymmdd}-{seq}`). Quyền như sửa phiếu nháp.
+   * Thêm hàng vào phiếu nháp (quét barcode hoặc chọn tay): `quantity` đơn vị ⇒ `quantity` item
+   * `PENDING` (mỗi item `quantity` = 1, 1 mã `CodeType.Item` `{prefix}-{mã kho}-{yymmdd}-{seq}`).
+   * Chưa cộng tồn — xác nhận phiếu mới nhập kho. Quyền như sửa phiếu nháp.
    *
    * Không nhận `version`: các lần quét liên tiếp không phải mang version mới nhất. Chống ghi chồng
    * bằng `FOR UPDATE` đầu phiếu (cùng khoá với xác nhận/huỷ ⇒ không thêm dòng vào phiếu đang được
@@ -330,7 +339,7 @@ export class ImportFormService {
 
     const codes = await this.transactionManagerService.execute(async (manager) => {
       const locked = await this.lockDraft(manager, form.id);
-      const count = await manager.count(ImportFormItem, {
+      const count = await manager.count(Item, {
         where: { importForm: Equal(locked.id) },
       });
       if (count + lines.length > IMPORT_FORM_ITEMS_MAX)
@@ -350,6 +359,8 @@ export class ImportFormService {
       );
       lines.forEach((line, index) => {
         line.importForm = locked;
+        line.warehouse = form.warehouse;
+        line.entryDate = locked.date;
         line.lineNo = lastLineNo + index + 1;
         line.code = generated[index];
       });
@@ -361,7 +372,7 @@ export class ImportFormService {
     return { codes, form: await this.findOne(warehouseSlug, slug) };
   }
 
-  /** Gỡ 1 dòng (1 đơn vị hàng) khỏi phiếu nháp. Mã của dòng đã cấp không cấp lại. */
+  /** Gỡ 1 item (1 đơn vị hàng) khỏi phiếu nháp — xoá cứng item `PENDING`. Mã đã cấp không cấp lại. */
   async removeItem(
     warehouseSlug: string,
     slug: string,
@@ -381,11 +392,11 @@ export class ImportFormService {
     await this.transactionManagerService.execute(async (manager) => {
       const locked = await this.lockDraft(manager, form.id);
       // Tra lại dưới khoá: dòng đọc ở `findForm` có thể đã bị request khác gỡ.
-      const item = await manager.findOne(ImportFormItem, {
+      const item = await manager.findOne(Item, {
         where: { slug: itemSlug, importForm: Equal(locked.id) },
       });
       if (!item) throw new ImportFormException(ImportFormValidation.IMPORT_FORM_ITEM_NOT_FOUND);
-      await manager.delete(ImportFormItem, item.id);
+      await manager.delete(Item, item.id);
       await this.saveTotal(manager, locked, Math.max(0, roundMoney(locked.total - item.amount)));
     });
     this.logger.log(`Removed item ${itemSlug} from import form ${form.id}`, context);
@@ -407,7 +418,13 @@ export class ImportFormService {
       AuthorityCode.ImportFormDeleteDraftOwn,
     );
 
-    await this.importFormRepository.softRemove(form);
+    // Item nháp chưa từng vào tồn ⇒ xoá cứng; đầu phiếu xoá mềm như cũ. Khoá đầu phiếu để không
+    // xoá chen với thêm hàng / xác nhận đang chạy.
+    await this.transactionManagerService.execute(async (manager) => {
+      const locked = await this.lockDraft(manager, form.id);
+      await manager.delete(Item, { importForm: Equal(locked.id), status: ItemStatus.Pending });
+      await manager.softRemove(locked);
+    });
     this.logger.log(`Import form deleted: ${form.id}`, context);
     return 1;
   }
@@ -432,8 +449,8 @@ export class ImportFormService {
 
   /**
    * `DRAFT` → `CONFIRMED`/`CANCELLED`, người quyết định được ghi làm `approver`. Xác nhận = cộng
-   * `baseQuantity` của mọi dòng vào tồn của kho, cùng transaction với đổi trạng thái; huỷ không đụng
-   * tồn (phiếu nháp chưa cộng gì).
+   * `baseQuantity` của mọi item vào tồn của kho + item `PENDING` ⇒ `IN_STOCK`, cùng transaction với
+   * đổi trạng thái; huỷ ⇒ item `VOID`, không đụng tồn (phiếu nháp chưa cộng gì).
    */
   private async decide(
     warehouseSlug: string,
@@ -484,9 +501,10 @@ export class ImportFormService {
           currentUser,
           `Import form ${form.code}`,
         );
-        // 1 dòng ⇒ 1 lô mang mã của dòng (ngày nhập = ngày phiếu, hạn dùng = hạn của dòng), cùng
-        // transaction cộng tồn.
-        await this.materialBatchService.createFromImportItems(manager, form, items);
+        // Item `PENDING` ⇒ `IN_STOCK`, cùng transaction cộng tồn.
+        await this.itemService.receiveImportForm(manager, form);
+      } else {
+        await this.itemService.voidImportForm(manager, form.id);
       }
       return saved;
     });
@@ -535,7 +553,7 @@ export class ImportFormService {
   /** `lineNo` lớn nhất của phiếu (0 khi chưa có dòng) — gọi dưới khoá đầu phiếu. */
   private async lastLineNo(manager: EntityManager, formId: string): Promise<number> {
     const { max } = await manager
-      .createQueryBuilder(ImportFormItem, 'item')
+      .createQueryBuilder(Item, 'item')
       .select('MAX(item.lineNo)', 'max')
       .where('item.importForm = :formId', { formId })
       .getRawOne<{ max: number | string | null }>();
@@ -543,7 +561,7 @@ export class ImportFormService {
   }
 
   /**
-   * Dựng `quantity` dòng (mỗi dòng 1 đơn vị, chưa có mã/`lineNo`) từ body: vật tư tra theo `barcode`
+   * Dựng `quantity` item `PENDING` (mỗi item 1 đơn vị, chưa có mã/`lineNo`/kho/ngày nhập) từ body: vật tư tra theo `barcode`
    * hoặc `materialSlug` (đúng 1 trong 2), đơn vị phải gắn với vật tư (không gửi ⇒ đơn vị cơ sở),
    * snapshot tỉ lệ quy đổi + mã/tên + nhà cung cấp, `baseQuantity` = tỉ lệ, `amount` = đơn giá.
    * Vật tư phải đã gán vào kho của phiếu (có dòng `inventory_tbl`) — nếu không, xác nhận phiếu sẽ
@@ -554,7 +572,7 @@ export class ImportFormService {
     dto: AddImportFormItemRequestDto,
     warehouseId: string,
     formDate: string,
-  ): Promise<{ lines: ImportFormItem[]; supplierLinks: MaterialSupplierLink[] }> {
+  ): Promise<{ lines: Item[]; supplierLinks: MaterialSupplierLink[] }> {
     if (!dto.barcode === !dto.materialSlug)
       throw new ImportFormException(
         ImportFormValidation.IMPORT_FORM_ITEM_MATERIAL_SLUG_IS_REQUIRED,
@@ -598,7 +616,7 @@ export class ImportFormService {
         : [];
 
     const lines = Array.from({ length: dto.quantity ?? 1 }, () =>
-      Object.assign(new ImportFormItem(), {
+      Object.assign(new Item(), {
         material,
         materialCode: material.code,
         materialName: material.name,
@@ -613,6 +631,10 @@ export class ImportFormService {
         quantity: 1,
         conversionRate,
         baseQuantity: roundToScale(conversionRate),
+        // Chưa vào tồn: `PENDING` nằm ngoài tập FEFO, `remaining` chỉ có nghĩa từ lúc `IN_STOCK`.
+        remainingQuantity: roundToScale(conversionRate),
+        reservedQuantity: 0,
+        status: ItemStatus.Pending,
         unitPrice: dto.unitPrice,
         amount,
         note: dto.note ?? null,
