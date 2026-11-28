@@ -210,8 +210,8 @@ export class ExportFormController {
   @ApiOperation({
     summary: 'Submit a DRAFT export form for confirmation (DRAFT -> PENDING)',
     description:
-      'Reserves the quantity on the material batches (the chosen batch, or earliest expiry first ' +
-      'when none is chosen — a line may be split per batch) and on the warehouse stock, in one ' +
+      'Reserves the quantity on the items (the chosen item, or earliest expiry first ' +
+      'when none is chosen — a line may be split per item) and on the warehouse stock, in one ' +
       'transaction. Fails if remaining - reserved is not enough. A PENDING form can no longer be ' +
       'edited or deleted, only confirmed or cancelled. Requires EXPORT_FORM_UPDATE_DRAFT, or ' +
       'EXPORT_FORM_UPDATE_DRAFT_OWN for own forms',
@@ -252,7 +252,7 @@ export class ExportFormController {
   @ApiOperation({
     summary: 'Confirm a PENDING export form (PENDING -> CONFIRMED)',
     description:
-      'Takes the reserved quantity out of the batches reserved at submit and out of the warehouse ' +
+      'Takes the reserved quantity out of the items reserved at submit and out of the warehouse ' +
       'stock, in one transaction. A DISPOSAL form also requires EXPORT_FORM_APPROVE_DISPOSAL',
   })
   @ApiResponseWithType({
@@ -291,7 +291,7 @@ export class ExportFormController {
   @ApiOperation({
     summary: 'Cancel a DRAFT or PENDING export form (-> CANCELLED)',
     description:
-      'Cancelling a PENDING form gives its reserved quantity back to the batches and stock',
+      'Cancelling a PENDING form gives its reserved quantity back to the items and stock',
   })
   @ApiResponseWithType({
     status: HttpStatus.OK,

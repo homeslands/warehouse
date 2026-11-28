@@ -65,7 +65,7 @@ function IsRequiredWhenDisposal(validationOptions?: ValidationOptions) {
 
 /**
  * 1 dòng vật tư trong body. Tỉ lệ quy đổi, mã/tên, `baseQuantity`, `amount` do server tính/chép.
- * `batchSlug` không gửi ⇒ giữ chỗ lúc ghi dòng nháp tự chọn lô theo FEFO (hạn dùng sớm nhất trước).
+ * `itemSlug` không gửi ⇒ giữ chỗ lúc ghi dòng nháp tự chọn lô theo FEFO (hạn dùng sớm nhất trước).
  */
 export class CreateExportFormItemDto {
   @ApiProperty({ description: 'Slug of the material', example: 'x7fk2p9qab' })
@@ -99,16 +99,16 @@ export class CreateExportFormItemDto {
 
   @ApiPropertyOptional({
     description:
-      'Slug of the material batch to take from (must be in this warehouse, of this material, in ' +
-      'stock). The line is reserved as soon as it is saved on the draft. Omitted: the batches with ' +
-      'the earliest expiry date are reserved (FEFO) and the line is split per batch if needed',
+      'Slug of the item to take from (must be in this warehouse, of this material, in ' +
+      'stock). The line is reserved as soon as it is saved on the draft. Omitted: the items with ' +
+      'the earliest expiry date are reserved (FEFO) and the line is split per item if needed',
     example: 'b7fk2p9qab',
   })
   @IsOptional()
   @Transform(trim)
   @IsString({ message: 'EXPORT_FORM_ITEM_BATCH_SLUG_INVALID' })
   @IsNotEmpty({ message: 'EXPORT_FORM_ITEM_BATCH_SLUG_INVALID' })
-  batchSlug?: string;
+  itemSlug?: string;
 }
 
 /**
@@ -273,7 +273,7 @@ export class GetAllExportFormRequestDto extends BaseQueryDto {
 export class ExportFormItemResponseDto extends BaseResponseDto {
   @AutoMap()
   @ApiProperty({
-    description: 'Line number (1-based). Reserving a draft line may split it per batch',
+    description: 'Line number (1-based). Reserving a draft line may split it per item',
   })
   lineNo: number;
 
@@ -300,15 +300,15 @@ export class ExportFormItemResponseDto extends BaseResponseDto {
   unitName: string;
 
   @ApiPropertyOptional({
-    description: 'Slug of the batch taken from. null on a draft line without a chosen batch',
+    description: 'Slug of the item taken from. null on a draft line without a chosen item',
   })
-  batchSlug?: string | null;
+  itemSlug?: string | null;
 
-  @ApiPropertyOptional({ description: 'Item code of the batch (null if no batch / legacy batch)' })
-  batchCode?: string | null;
+  @ApiPropertyOptional({ description: 'Code of the item (null if no item / legacy item)' })
+  itemCode?: string | null;
 
-  @ApiPropertyOptional({ description: 'Expiry date of the batch (null if none / no batch)' })
-  batchExpiryDate?: string | null;
+  @ApiPropertyOptional({ description: 'Expiry date of the item (null if none / no item)' })
+  itemExpiryDate?: string | null;
 
   @AutoMap()
   @ApiProperty({ description: 'Quantity in the given unit' })

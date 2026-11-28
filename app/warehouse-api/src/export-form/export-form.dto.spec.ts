@@ -25,7 +25,7 @@ describe('CreateExportFormRequestDto', () => {
     items: [{ materialSlug: 'mat-1', unitSlug: 'unit-1', quantity: 10, unitPrice: 1500.5 }],
   };
 
-  it('accepts a minimal valid body (invoiceCode/file/note/batchSlug optional)', () => {
+  it('accepts a minimal valid body (invoiceCode/file/note/itemSlug optional)', () => {
     expect(messagesOf(CreateExportFormRequestDto, valid)).toEqual([]);
   });
 
@@ -64,8 +64,8 @@ describe('CreateExportFormRequestDto', () => {
     expect(dto).not.toHaveProperty('totalAmount');
   });
 
-  it('rejects an empty batchSlug', () => {
-    const items = [{ ...valid.items[0], batchSlug: '  ' }];
+  it('rejects an empty itemSlug', () => {
+    const items = [{ ...valid.items[0], itemSlug: '  ' }];
     expect(messagesOf(CreateExportFormRequestDto, { ...valid, items }, 'items')).toContain(
       'EXPORT_FORM_ITEM_BATCH_SLUG_INVALID',
     );

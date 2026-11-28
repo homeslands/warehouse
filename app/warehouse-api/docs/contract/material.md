@@ -1,6 +1,6 @@
 # Vật tư (Material, Material Type, Material Batch)
 
-> Nguồn: `src/material-type/material-type.{controller,dto,validation,service,mapper}.ts`, `src/material/material.{controller,dto,validation,service,mapper,entity}.ts`, `src/material/material-unit.entity.ts`, `src/material-batch/material-batch.{controller,dto,validation,constants,service,mapper}.ts`, `src/shared/utils/{code.util,query.util,decimal.validator,decimal.transformer}.ts` (đường dẫn tương đối từ `app/warehouse-api`).
+> Nguồn: `src/material-type/material-type.{controller,dto,validation,service,mapper}.ts`, `src/material/material.{controller,dto,validation,service,mapper,entity}.ts`, `src/material/material-unit.entity.ts`, `src/item/item.{controller,dto,validation,constants,service,mapper,entity}.ts`, `src/shared/utils/{code.util,query.util,decimal.validator,decimal.transformer}.ts` (đường dẫn tương đối từ `app/warehouse-api`).
 > Base URL: `/api/v1` (quy ước chung: [conventions.md](conventions.md)).
 > Đối chiếu code tại `origin/main` 5555273. Chỗ nào lệch với `docs/plans/material.md` hay `docs/specs/material.md` thì **code là chuẩn**; các điểm lệch ghi ở [Ghi chú cho FE](#ghi-chú-cho-fe).
 
@@ -25,8 +25,8 @@
 | PATCH | /api/v1/materials/:slug/conversion-units/:unitSlug | `MATERIAL_UPDATE` + `UNIT_UPDATE` | Sửa tỉ lệ quy đổi |
 | DELETE | /api/v1/materials/:slug/conversion-units/:unitSlug | `MATERIAL_UPDATE` + `UNIT_UPDATE` | Gỡ đơn vị quy đổi (xoá cứng) |
 | POST | /api/v1/materials/:slug/convert | `MATERIAL_READ` + `UNIT_READ` | Quy đổi số lượng, không ghi dữ liệu |
-| GET | /api/v1/warehouses/:warehouseSlug/material-batches | `MATERIAL_READ` + `WAREHOUSE_READ`, warehouse scope | Danh sách lô của kho |
-| GET | /api/v1/warehouses/:warehouseSlug/material-batches/:slug | `MATERIAL_READ` + `WAREHOUSE_READ`, warehouse scope | Chi tiết lô |
+| GET | /api/v1/warehouses/:warehouseSlug/items | `MATERIAL_READ` + `WAREHOUSE_READ`, warehouse scope | Danh sách item (đơn vị hàng) của kho |
+| GET | /api/v1/warehouses/:warehouseSlug/items/:slug | `MATERIAL_READ` + `WAREHOUSE_READ`, warehouse scope | Chi tiết item |
 
 Tổng cộng 19 endpoint. Loại vật tư dùng chung bộ quyền `MATERIAL_*`, không có authority riêng (`src/authority/authority.constants.ts:91-97`). Nhiều authority trên một route nghĩa là role phải có **đủ tất cả** (`src/authority/authority.decorator.ts:10-14`).
 
@@ -400,41 +400,48 @@ Quy đổi số lượng giữa 2 đơn vị của cùng một vật tư. Endpoi
 
 ---
 
-## Lô hàng (Material Batch), chỉ đọc
+## Item (đơn vị hàng), chỉ đọc
 
-Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc trừ khi xử lý phiếu xuất. Không có API tạo, sửa hay xoá lô (`material-batch.controller.ts:19-22`).
+1 item = 1 đơn vị hàng (`quantity` = 1 theo đơn vị đã chọn) = 1 dòng của phiếu nhập sinh ra nó. Item được tạo ngay khi thêm hàng vào phiếu nhập nháp (`PENDING`), chuyển `IN_STOCK` khi xác nhận phiếu, `VOID` khi huỷ phiếu; gỡ khỏi nháp hoặc xoá nháp thì item bị xoá hẳn. Sau đó item được giữ chỗ hoặc trừ khi xử lý phiếu xuất. Không có API tạo, sửa hay xoá item (`item.controller.ts:19-22`). Thay cho "lô" (`/material-batches`) từ migration `1783728000056`.
 
-**Warehouse scope** (`@WarehouseScope('warehouseSlug')`, `material-batch.controller.ts:27`; guard ở `src/warehouse/guard/warehouse-scope.guard.ts`): user phải là manager hoặc member của kho. `SUPER_ADMIN` và `ADMIN` được bỏ qua bước kiểm tra này. Guard có thể trả:
+**Warehouse scope** (`@WarehouseScope('warehouseSlug')`, `item.controller.ts:27`; guard ở `src/warehouse/guard/warehouse-scope.guard.ts`): user phải là manager hoặc member của kho. `SUPER_ADMIN` và `ADMIN` được bỏ qua bước kiểm tra này. Guard có thể trả:
 
 | HTTP | code | Khi nào |
 |---|---|---|
-| 404 | 100501 `WAREHOUSE_NOT_FOUND` | Kho không tồn tại. Áp dụng cả với ADMIN/SUPER_ADMIN, vì service tự tra kho (`material-batch.service.ts:93`, `125`) |
+| 404 | 100501 `WAREHOUSE_NOT_FOUND` | Kho không tồn tại. Áp dụng cả với ADMIN/SUPER_ADMIN, vì service tự tra kho (`item.service.ts`) |
 | 403 | 100523 `WAREHOUSE_ACCESS_DENIED` | User không thuộc kho |
 
-### MaterialBatchResponseDto
+### ItemResponseDto
 
-`material-batch.dto.ts:83-135`, map ở `material-batch.mapper.ts:21-73`.
+`item.dto.ts`, map ở `item.mapper.ts`.
 
 | Field | Kiểu | Ghi chú |
 |---|---|---|
 | slug, createdAt, updatedAt | string | Xem conventions.md |
-| code | string \| null | Mã đơn vị hàng chép từ dòng phiếu nhập (ví dụ `IT-WH-001-261126-000001`), 1 lô = 1 đơn vị hàng. `null` ở lô sinh trước WR-5 |
-| entryDate | string (`YYYY-MM-DD`) | Ngày nhập, bằng ngày của phiếu nhập |
+| code | string \| null | Mã đơn vị hàng (ví dụ `IT-WH-001-261126-000001`). `null` ở item sinh trước WR-5 |
+| lineNo | number | Số thứ tự trong phiếu nhập |
+| entryDate | string (`YYYY-MM-DD`) | Ngày nhập, bằng ngày của phiếu nhập (item nháp đổi theo khi PATCH ngày phiếu) |
 | expiryDate | string (`YYYY-MM-DD`) \| null | `null` nghĩa là không có hạn dùng |
-| quantity | number | Lượng nhập ban đầu, tính theo đơn vị cơ sở |
+| quantity | number | Số lượng theo `unit*` — luôn 1, trừ item chép từ dòng phiếu cũ |
+| unitSlug, unitCode, unitName | string | Đơn vị đã chọn lúc thêm vào phiếu (mã/tên là giá trị chụp) |
+| conversionRate | number | Số đơn vị cơ sở trong 1 đơn vị đã chọn, giá trị chụp |
+| baseQuantity | number | `quantity × conversionRate` — lượng nhập, tính theo đơn vị cơ sở |
 | remainingQuantity | number | Lượng còn lại, tính theo đơn vị cơ sở |
 | reservedQuantity | number | Lượng đang được phiếu xuất `DRAFT`/`PENDING` giữ chỗ |
-| availableQuantity | number | `remainingQuantity - reservedQuantity`, làm tròn 6 chữ số thập phân |
-| status | `'PENDING' \| 'IN_STOCK' \| 'RESERVED' \| 'IN_TRANSIT' \| 'ISSUED' \| 'DISPOSED' \| 'RETURNED' \| 'MISSING' \| 'VOID'` | Vòng đời lô (`MaterialBatchStatus`, migration `1783728000055`), suy ra từ số lượng: còn phần trống ⇒ `IN_STOCK`; phần còn lại đã bị giữ hết ⇒ `RESERVED`; xuất hết ⇒ `DISPOSED` (phiếu `DISPOSAL`), `IN_TRANSIT` (phiếu `TRANSFER`), còn lại `ISSUED`. `PENDING`/`VOID`/`RETURNED`/`MISSING` đã khai nhưng chưa luồng nào sinh ra |
-| materialSlug, materialCode, materialName | string | |
-| material | object | `{ slug, code, name, type: MaterialTypeResponseDto \| null, baseUnit: UnitResponseDto \| null }` (`material-batch.dto.ts:62-81`). `baseUnit` là đơn vị của mọi số lượng trong lô |
+| availableQuantity | number | `remainingQuantity - reservedQuantity`, làm tròn 6 chữ số thập phân; `0` nếu `status` không phải `IN_STOCK`/`RESERVED` |
+| status | `'PENDING' \| 'IN_STOCK' \| 'RESERVED' \| 'IN_TRANSIT' \| 'ISSUED' \| 'DISPOSED' \| 'RETURNED' \| 'MISSING' \| 'VOID'` | Vòng đời item (`ItemStatus`): `PENDING` khi phiếu nhập còn nháp, `VOID` khi phiếu bị huỷ. Từ lúc nhập kho thì suy ra từ số lượng: còn phần trống ⇒ `IN_STOCK`; phần còn lại đã bị giữ hết ⇒ `RESERVED`; xuất hết ⇒ `DISPOSED` (phiếu `DISPOSAL`), `IN_TRANSIT` (phiếu `TRANSFER`), còn lại `ISSUED`. `RETURNED`/`MISSING` đã khai nhưng chưa luồng nào sinh ra |
+| unitPrice, amount | number | Đơn giá và thành tiền (`quantity × unitPrice`) trên phiếu nhập |
+| supplierSlug, supplierCode, supplierName | string \| null | Nhà cung cấp chụp lúc thêm vào phiếu |
+| note | string \| null | |
+| materialSlug, materialCode, materialName | string | Mã/tên là giá trị chụp |
+| material | object | `{ slug, code, name, type: MaterialTypeResponseDto \| null, baseUnit: UnitResponseDto \| null }`. `baseUnit` là đơn vị của `baseQuantity`/`remainingQuantity`/`reservedQuantity` |
 | warehouseSlug | string | |
-| importFormSlug | string \| null | Slug phiếu nhập đã tạo ra lô |
-| importFormCode | string \| null | Mã phiếu nhập |
+| importFormSlug | string | Slug phiếu nhập đã tạo ra item |
+| importFormCode | string | Mã phiếu nhập |
 
-## GET /api/v1/warehouses/:warehouseSlug/material-batches
+## GET /api/v1/warehouses/:warehouseSlug/items
 
-- **Quyền:** `MATERIAL_READ` + `WAREHOUSE_READ`, cộng warehouse scope (`material-batch.controller.ts:32`).
+- **Quyền:** `MATERIAL_READ` + `WAREHOUSE_READ`, cộng warehouse scope (`item.controller.ts:32`).
 - **Query** (`GetAllMaterialBatchRequestDto`, `material-batch.dto.ts:20-59`):
 
 | Tên | Kiểu | Bắt buộc | Ràng buộc | Ghi chú |
@@ -442,30 +449,30 @@ Lô được tạo khi xác nhận phiếu nhập, được giữ chỗ hoặc t
 | page, size | number | không | xem conventions.md | |
 | materialSlug | string | không | — | So khớp chính xác |
 | code | string | không | — | Mã đơn vị hàng, so khớp chính xác (tra theo tem đã quét) |
-| status | `'PENDING' \| 'IN_STOCK' \| 'RESERVED' \| 'IN_TRANSIT' \| 'ISSUED' \| 'DISPOSED' \| 'RETURNED' \| 'MISSING' \| 'VOID'` | không | Giá trị khác trả `MATERIAL_BATCH_STATUS_INVALID` | |
-| expiryBefore | string (`YYYY-MM-DD`) | không | ISO-8601 strict và đúng mẫu `^\d{4}-\d{2}-\d{2}$` | Lấy lô có `expiryDate` **trước hẳn** ngày này. Lô không có hạn dùng bị loại |
+| status | `'PENDING' \| 'IN_STOCK' \| 'RESERVED' \| 'IN_TRANSIT' \| 'ISSUED' \| 'DISPOSED' \| 'RETURNED' \| 'MISSING' \| 'VOID'` | không | Giá trị khác trả `ITEM_STATUS_INVALID` | |
+| expiryBefore | string (`YYYY-MM-DD`) | không | ISO-8601 strict và đúng mẫu `^\d{4}-\d{2}-\d{2}$` | Lấy item có `expiryDate` **trước hẳn** ngày này. Item không có hạn dùng bị loại |
 | sortBy | `'createdAt' \| 'expiryDate' \| 'entryDate'` | không | mặc định `createdAt` | |
 | sort | `'ASC' \| 'DESC'` | không | mặc định `DESC` | Thêm `id ASC` để thứ tự ổn định |
-| startDate, endDate | — | không | Vẫn được validate | **Server không dùng** (`material-batch.service.ts:88-117`) |
+| startDate, endDate | — | không | Vẫn được validate | **Server không dùng** (`item.service.ts:88-117`) |
 
-- **Response 200:** trang phân trang của [MaterialBatchResponseDto](#materialbatchresponsedto).
+- **Response 200:** trang phân trang của [ItemResponseDto](#itemresponsedto).
 - **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
 |---|---|---|
-| 400 | 101503 `MATERIAL_BATCH_STATUS_INVALID` | `status` không thuộc `MaterialBatchStatus` |
-| 400 | 101504 `MATERIAL_BATCH_EXPIRY_BEFORE_INVALID` | `expiryBefore` sai định dạng |
+| 400 | 101503 `ITEM_STATUS_INVALID` | `status` không thuộc `ItemStatus` |
+| 400 | 101504 `ITEM_EXPIRY_BEFORE_INVALID` | `expiryBefore` sai định dạng |
 | 404/403 | 100501 / 100523 | Xem phần warehouse scope ở trên |
 
-## GET /api/v1/warehouses/:warehouseSlug/material-batches/:slug
+## GET /api/v1/warehouses/:warehouseSlug/items/:slug
 
-- **Quyền:** như trên (`material-batch.controller.ts:55`).
-- **Response 200:** [MaterialBatchResponseDto](#materialbatchresponsedto).
+- **Quyền:** như trên (`item.controller.ts:55`).
+- **Response 200:** [ItemResponseDto](#itemresponsedto).
 - **Lỗi riêng:**
 
 | HTTP | code | Khi nào |
 |---|---|---|
-| 404 | 101501 `MATERIAL_BATCH_NOT_FOUND` | Không có lô với slug này **trong kho này**, kể cả khi lô thuộc kho khác (`material-batch.service.ts:119-129`) |
+| 404 | 101501 `ITEM_NOT_FOUND` | Không có item với slug này **trong kho này**, kể cả khi item thuộc kho khác (`item.service.ts:119-129`) |
 | 404/403 | 100501 / 100523 | Xem phần warehouse scope |
 
 ---
@@ -528,13 +535,13 @@ Các mã 100711, 100713, 100719, 100727, 100728, 100730 không được dùng. T
 
 | Key | code | HTTP | message |
 |---|---|---|---|
-| MATERIAL_BATCH_NOT_FOUND | 101501 | 404 | Material batch not found |
-| MATERIAL_BATCH_INSUFFICIENT | 101502 | 409 | Not enough available quantity (remaining - reserved) in the material batches |
-| MATERIAL_BATCH_STATUS_INVALID | 101503 | 400 | Status must be 0 (out of stock) or 1 (in stock) |
-| MATERIAL_BATCH_EXPIRY_BEFORE_INVALID | 101504 | 400 | expiryBefore must be a valid date in YYYY-MM-DD format |
-| MATERIAL_BATCH_RESERVED_INVALID | 101505 | 409 | The reserved quantity of the material batch does not match the export form |
+| ITEM_NOT_FOUND | 101501 | 404 | Item not found |
+| ITEM_INSUFFICIENT | 101502 | 409 | Not enough available quantity (remaining - reserved) in the items |
+| ITEM_STATUS_INVALID | 101503 | 400 | Status must be one of the item lifecycle statuses |
+| ITEM_EXPIRY_BEFORE_INVALID | 101504 | 400 | expiryBefore must be a valid date in YYYY-MM-DD format |
+| ITEM_RESERVED_INVALID | 101505 | 409 | The reserved quantity of the item does not match the export form |
 
-`101502` và `101505` không phát sinh từ route lô. Chúng được ném trong luồng phiếu xuất (`material-batch.service.ts:173-328`); xem contract của export-form.
+`101502` và `101505` không phát sinh từ route item. Chúng được ném trong luồng phiếu xuất (`item.service.ts:173-328`); xem contract của export-form.
 
 ## Ghi chú cho FE
 
@@ -546,7 +553,7 @@ Các mã 100711, 100713, 100719, 100727, 100728, 100730 không được dùng. T
 - **Đổi đơn vị cơ sở** chỉ được làm khi vật tư chưa có tồn và chưa gắn đơn vị quy đổi. Đây là thao tác để sửa khai báo sai, không dùng để chuyển đổi nghiệp vụ.
 - **Nhà cung cấp:** `PUT /materials/:slug/suppliers` thay toàn bộ danh sách. Muốn thêm hoặc gỡ từng phần cho nhiều vật tư thì dùng `PUT|DELETE /suppliers/:slug/materials` ([supplier.md](supplier.md)).
 - **Thứ tự `suppliers`** trong GET (danh sách và chi tiết) không được sắp xếp tường minh (relation TypeORM). Chỉ response của PUT suppliers là sắp theo `code` (chưa xác minh thứ tự thực tế của GET).
-- **Query không có tác dụng:** `GET .../conversion-units`, `.../available` và `GET .../material-batches` nhận `startDate`/`endDate` (vẫn trả 422 nếu sai định dạng) nhưng không áp dụng. Hai route conversion-units cũng bỏ qua `sort`.
-- **Sắp lô theo `expiryDate`:** lô có `expiryDate = null` nằm ở đâu phụ thuộc cách MySQL sắp NULL (mặc định là đầu danh sách khi ASC). Chưa xác minh bằng chạy thật.
+- **Query không có tác dụng:** `GET .../conversion-units`, `.../available` và `GET .../items` nhận `startDate`/`endDate` (vẫn trả 422 nếu sai định dạng) nhưng không áp dụng. Hai route conversion-units cũng bỏ qua `sort`.
+- **Sắp item theo `expiryDate`:** item có `expiryDate = null` nằm ở đâu phụ thuộc cách MySQL sắp NULL (mặc định là đầu danh sách khi ASC). Chưa xác minh bằng chạy thật.
 - **Lệch so với docs cũ:** `docs/plans/material.md` và `docs/specs/material.md` ghi phân quyền bằng `@HasRole` (ADMIN/MANAGER/SUPERVISOR), `VersionedBase`, và ngưỡng tồn kiểu `int`. Code hiện tại dùng authority `MATERIAL_*`, kế thừa `Base` (không có `version`), và ngưỡng là `DECIMAL(18,6)`. Các route `/warehouses/:warehouseSlug/materials` trong spec thuộc module inventory, không nằm trong file này.
 - Nếu một request sai nhiều rule cùng lúc, server chỉ trả mã lỗi đầu tiên (xem conventions.md).

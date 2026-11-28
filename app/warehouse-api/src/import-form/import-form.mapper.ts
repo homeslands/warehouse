@@ -9,17 +9,17 @@ import {
   UpdateImportFormRequestDto,
 } from './import-form.dto';
 import { ImportForm } from './import-form.entity';
-import { ImportFormItem } from './import-form-item.entity';
+import { Item } from 'src/item/item.entity';
 import { baseMapper } from 'src/app/base.mapper';
 import { versionedMapper } from 'src/app/versioned.mapper';
 import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { roundMoney } from 'src/shared/utils/decimal.util';
 
 /**
- * Gộp dòng (1 dòng = 1 đơn vị hàng) theo (vật tư, đơn vị, đơn giá) cho bảng phiếu — giữ thứ tự lần
+ * Gộp item (1 item = 1 dòng = 1 đơn vị hàng) theo (vật tư, đơn vị, đơn giá) cho bảng phiếu — giữ thứ tự lần
  * xuất hiện đầu tiên. `items` phải đã xếp theo `lineNo`.
  */
-export const groupImportFormItems = (items: ImportFormItem[]): ImportFormItemGroupResponseDto[] => {
+export const groupImportFormItems = (items: Item[]): ImportFormItemGroupResponseDto[] => {
   const groups = new Map<string, ImportFormItemGroupResponseDto>();
   for (const item of items) {
     const key = `${item.material?.id}|${item.unit?.id}|${item.unitPrice}`;
@@ -91,7 +91,7 @@ export class ImportFormProfile extends AutomapperProfile {
     return (mapper: Mapper) => {
       createMap(
         mapper,
-        ImportFormItem,
+        Item,
         ImportFormItemResponseDto,
         extend(baseMapper(mapper)),
         forMember(
@@ -125,9 +125,7 @@ export class ImportFormProfile extends AutomapperProfile {
         forMember(
           (d) => d.items,
           mapFrom((s) =>
-            s.items
-              ? mapper.mapArray(s.items, ImportFormItem, ImportFormItemResponseDto)
-              : undefined,
+            s.items ? mapper.mapArray(s.items, Item, ImportFormItemResponseDto) : undefined,
           ),
         ),
         forMember(

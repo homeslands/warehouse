@@ -8,8 +8,8 @@ import {
   Query,
   ValidationPipe,
 } from '@nestjs/common';
-import { GetAllMaterialBatchRequestDto, MaterialBatchResponseDto } from './material-batch.dto';
-import { MaterialBatchService } from './material-batch.service';
+import { GetAllItemRequestDto, ItemResponseDto } from './item.dto';
+import { ItemService } from './item.service';
 import { RequireAuthority } from 'src/authority/authority.decorator';
 import { AuthorityCode } from 'src/authority/authority.constants';
 import { WarehouseScope } from 'src/warehouse/decorator/warehouse-scope.decorator';
@@ -17,57 +17,57 @@ import { ApiPaginatedResponse, ApiResponseWithType } from 'src/app/app.decorator
 import { AppPaginatedResponseDto, AppResponseDto } from 'src/app/app.dto';
 
 /**
- * Lô hàng của kho — CHỈ ĐỌC. Lô sinh ra khi xác nhận phiếu nhập và giảm khi xác nhận phiếu xuất,
- * không có route tạo/sửa/xoá. Quyền đọc dùng chung với tồn kho (`MATERIAL_READ` + `WAREHOUSE_READ`).
+ * Item (đơn vị hàng) của kho — CHỈ ĐỌC. Item sinh ra khi thêm vào phiếu nhập, giảm khi
+ * xác nhận phiếu xuất, không có route tạo/sửa/xoá. Quyền đọc dùng chung với tồn kho (`MATERIAL_READ` + `WAREHOUSE_READ`).
  */
-@ApiTags('Material Batch')
-@Controller('warehouses/:warehouseSlug/material-batches')
+@ApiTags('Item')
+@Controller('warehouses/:warehouseSlug/items')
 @ApiBearerAuth()
 @ApiParam({ name: 'warehouseSlug', required: true, example: 'x7fk2p9qab' })
 @WarehouseScope('warehouseSlug')
-export class MaterialBatchController {
-  constructor(private readonly materialBatchService: MaterialBatchService) {}
+export class ItemController {
+  constructor(private readonly itemService: ItemService) {}
 
   @Get()
   @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
   @ApiOperation({
     summary:
-      'Get the material batches of this warehouse (paginated, filter by materialSlug / status / ' +
+      'Get the items (units of goods) of this warehouse (paginated, filter by materialSlug / status / ' +
       'expiryBefore; sortBy = createdAt | expiryDate | entryDate)',
   })
-  @ApiPaginatedResponse(MaterialBatchResponseDto, 'Retrieved')
+  @ApiPaginatedResponse(ItemResponseDto, 'Retrieved')
   async findAll(
     @Param('warehouseSlug') warehouseSlug: string,
     @Query(new ValidationPipe({ transform: true, whitelist: true }))
-    query: GetAllMaterialBatchRequestDto,
+    query: GetAllItemRequestDto,
   ) {
-    const result = await this.materialBatchService.findAll(warehouseSlug, query);
+    const result = await this.itemService.findAll(warehouseSlug, query);
     return {
-      message: 'Material batches have been retrieved successfully',
+      message: 'Items have been retrieved successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<AppPaginatedResponseDto<MaterialBatchResponseDto>>;
+    } as AppResponseDto<AppPaginatedResponseDto<ItemResponseDto>>;
   }
 
   @Get(':slug')
   @RequireAuthority(AuthorityCode.MaterialRead, AuthorityCode.WarehouseRead)
   @HttpCode(HttpStatus.OK)
-  @ApiOperation({ summary: 'Get a material batch by slug' })
+  @ApiOperation({ summary: 'Get an item by slug' })
   @ApiResponseWithType({
     status: HttpStatus.OK,
     description: 'Retrieved',
-    type: MaterialBatchResponseDto,
+    type: ItemResponseDto,
   })
   @ApiParam({ name: 'slug', required: true, example: 'x7fk2p9qab' })
   async findOne(@Param('warehouseSlug') warehouseSlug: string, @Param('slug') slug: string) {
-    const result = await this.materialBatchService.findOne(warehouseSlug, slug);
+    const result = await this.itemService.findOne(warehouseSlug, slug);
     return {
-      message: 'Material batch has been retrieved successfully',
+      message: 'Item has been retrieved successfully',
       statusCode: HttpStatus.OK,
       timestamp: new Date().toISOString(),
       result,
-    } as AppResponseDto<MaterialBatchResponseDto>;
+    } as AppResponseDto<ItemResponseDto>;
   }
 }

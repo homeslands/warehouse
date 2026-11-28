@@ -35,13 +35,9 @@ import { roundToScale } from 'src/shared/utils/decimal.transformer';
 import { Material } from 'src/material/material.entity';
 import { Inventory } from 'src/inventory/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
-import { MaterialBatch } from 'src/material-batch/material-batch.entity';
-import { MATERIAL_BATCH_ON_HAND_STATUSES } from 'src/material-batch/material-batch.constants';
-import {
-  BatchAllocation,
-  BatchConsumeLine,
-  MaterialBatchService,
-} from 'src/material-batch/material-batch.service';
+import { Item } from 'src/item/item.entity';
+import { ITEM_ON_HAND_STATUSES } from 'src/item/item.constants';
+import { ItemAllocation, ItemConsumeLine, ItemService } from 'src/item/item.service';
 import { CodeGenerateService } from 'src/code-generate/code-generate.service';
 import { CodeType } from 'src/code-generate/code-generate.constants';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
@@ -80,7 +76,7 @@ const EXPORT_FORM_RELATIONS: FindOptionsRelations<ExportForm> = {
 /** Phiếu kèm dòng vật tư — dùng cho cả list và chi tiết. */
 const EXPORT_FORM_DETAIL_RELATIONS: FindOptionsRelations<ExportForm> = {
   ...EXPORT_FORM_RELATIONS,
-  items: { material: true, unit: true, batch: true },
+  items: { material: true, unit: true, item: true },
 };
 
 /**
@@ -94,13 +90,13 @@ export class ExportFormService {
     @InjectRepository(User) private readonly userRepository: Repository<User>,
     @InjectRepository(Material) private readonly materialRepository: Repository<Material>,
     @InjectRepository(Inventory) private readonly inventoryRepository: Repository<Inventory>,
-    @InjectRepository(MaterialBatch) private readonly batchRepository: Repository<MaterialBatch>,
+    @InjectRepository(Item) private readonly itemRepository: Repository<Item>,
     @InjectMapper() private readonly mapper: Mapper,
     @Inject(WINSTON_MODULE_NEST_PROVIDER) private readonly logger: Logger,
     private readonly transactionManagerService: TransactionManagerService,
     private readonly codeGenerateService: CodeGenerateService,
     private readonly inventoryService: InventoryService,
-    private readonly materialBatchService: MaterialBatchService,
+    private readonly itemService: ItemService,
     private readonly s3Service: S3Service,
   ) {}
 
@@ -376,10 +372,10 @@ export class ExportFormService {
 
     const updated = await this.transactionManagerService.execute(async (manager) => {
       await this.lockForm(manager, form, [ExportFormStatus.Pending], 'EXPORT_FORM_NOT_PENDING');
-      await this.materialBatchService.consumeReserved(
+      await this.itemService.consumeReserved(
         manager,
         form.warehouse.id,
-        this.toBatchLines(items),
+        this.toItemLines(items),
         form.type,
       );
       await this.inventoryService.issue(
@@ -486,10 +482,10 @@ export class ExportFormService {
     currentUser: CurrentUserDto,
     note: string,
   ): Promise<ExportFormItem[]> {
-    const allocations = await this.materialBatchService.reserve(
+    const allocations = await this.itemService.reserve(
       manager,
       form.warehouse.id,
-      this.toBatchLines(items),
+      this.toItemLines(items),
     );
     // Giữ chỗ tồn TRƯỚC khi tách dòng: tách dòng sửa `baseQuantity` của dòng gốc tại chỗ.
     await this.inventoryService.reserve(
@@ -499,7 +495,7 @@ export class ExportFormService {
       currentUser,
       note,
     );
-    return this.splitItemsByBatch(manager, form, items, allocations);
+    return this.splitLinesByItem(manager, form, items, allocations);
   }
 
   /** Trả lại phần dòng phiếu đang giữ trên lô và tồn kho (lịch sử `RELEASE`). */
@@ -511,7 +507,7 @@ export class ExportFormService {
     note: string,
   ): Promise<void> {
     if (!items.length) return;
-    await this.materialBatchService.release(manager, form.warehouse.id, this.toBatchLines(items));
+    await this.itemService.release(manager, form.warehouse.id, this.toItemLines(items));
     await this.inventoryService.release(
       manager,
       form.warehouse.id,
@@ -521,12 +517,12 @@ export class ExportFormService {
     );
   }
 
-  private toBatchLines(items: ExportFormItem[]): BatchConsumeLine[] {
+  private toItemLines(items: ExportFormItem[]): ItemConsumeLine[] {
     return items.map((item) => ({
       key: item.id,
       materialId: item.material.id,
       baseQuantity: item.baseQuantity,
-      batchId: item.batch?.id ?? null,
+      itemId: item.item?.id ?? null,
     }));
   }
 
@@ -541,17 +537,17 @@ export class ExportFormService {
    * phần dư để tổng số lượng và tổng tiền của dòng gốc giữ nguyên tuyệt đối (không lệch do làm
    * tròn). Cuối cùng đánh lại `lineNo` 1..n theo thứ tự cũ.
    */
-  private async splitItemsByBatch(
+  private async splitLinesByItem(
     manager: EntityManager,
     form: ExportForm,
     items: ExportFormItem[],
-    allocations: Map<string, BatchAllocation[]>,
+    allocations: Map<string, ItemAllocation[]>,
   ): Promise<ExportFormItem[]> {
     const result: ExportFormItem[] = [];
     for (const item of [...items].sort((a, b) => a.lineNo - b.lineNo)) {
       const parts = allocations.get(item.id) ?? [];
       if (parts.length <= 1) {
-        item.batch = parts[0]?.batch ?? item.batch ?? null;
+        item.item = parts[0]?.item ?? item.item ?? null;
         result.push(item);
         continue;
       }
@@ -585,7 +581,7 @@ export class ExportFormService {
           quantity,
           baseQuantity: part.baseQuantity,
           amount,
-          batch: part.batch,
+          item: part.item,
         });
         result.push(piece);
       });
@@ -631,7 +627,7 @@ export class ExportFormService {
   ): Promise<{ items: ExportFormItem[]; total: number }> {
     const seen = new Set<string>();
     for (const dto of dtos) {
-      const key = `${dto.materialSlug}|${dto.unitSlug}|${dto.batchSlug ?? ''}`;
+      const key = `${dto.materialSlug}|${dto.unitSlug}|${dto.itemSlug ?? ''}`;
       if (seen.has(key))
         throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_DUPLICATED);
       seen.add(key);
@@ -654,14 +650,14 @@ export class ExportFormService {
       : [];
     const assignedMaterialIds = new Set(assigned.map((row) => row.material.id));
 
-    const batchSlugs = [...new Set(dtos.flatMap((dto) => (dto.batchSlug ? [dto.batchSlug] : [])))];
-    const batches = batchSlugs.length
-      ? await this.batchRepository.find({
-          where: { slug: In(batchSlugs) },
+    const itemSlugs = [...new Set(dtos.flatMap((dto) => (dto.itemSlug ? [dto.itemSlug] : [])))];
+    const stockItems = itemSlugs.length
+      ? await this.itemRepository.find({
+          where: { slug: In(itemSlugs) },
           relations: { material: true, warehouse: true },
         })
       : [];
-    const batchBySlug = new Map(batches.map((batch) => [batch.slug, batch]));
+    const itemBySlug = new Map(stockItems.map((stockItem) => [stockItem.slug, stockItem]));
 
     let total = 0;
     const items = dtos.map((dto, index) => {
@@ -682,8 +678,8 @@ export class ExportFormService {
           ExportFormValidation.EXPORT_FORM_ITEM_CONVERSION_RATE_INVALID,
         );
 
-      const batch = dto.batchSlug
-        ? this.pickBatch(dto.batchSlug, batchBySlug, material, warehouseId)
+      const stockItem = dto.itemSlug
+        ? this.pickItem(dto.itemSlug, itemBySlug, material, warehouseId)
         : null;
 
       const baseQuantity = roundToScale(dto.quantity * conversionRate);
@@ -703,7 +699,7 @@ export class ExportFormService {
         unit: row.unit,
         unitCode: row.unit.code,
         unitName: row.unit.name,
-        batch,
+        item: stockItem,
         quantity: dto.quantity,
         conversionRate,
         baseQuantity,
@@ -724,20 +720,20 @@ export class ExportFormService {
    * PATCH dòng nhả chỗ của chính phiếu này trước khi giữ lại; đủ phần trống hay không do `reserve`
    * quyết dưới khoá.
    */
-  private pickBatch(
+  private pickItem(
     slug: string,
-    batchBySlug: Map<string, MaterialBatch>,
+    itemBySlug: Map<string, Item>,
     material: Material,
     warehouseId: string,
-  ): MaterialBatch {
-    const batch = batchBySlug.get(slug);
-    if (!batch || batch.warehouse?.id !== warehouseId)
+  ): Item {
+    const stockItem = itemBySlug.get(slug);
+    if (!stockItem || stockItem.warehouse?.id !== warehouseId)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_BATCH_NOT_FOUND);
-    if (batch.material?.id !== material.id)
+    if (stockItem.material?.id !== material.id)
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_BATCH_NOT_OF_MATERIAL);
-    if (!MATERIAL_BATCH_ON_HAND_STATUSES.includes(batch.status))
+    if (!ITEM_ON_HAND_STATUSES.includes(stockItem.status))
       throw new ExportFormException(ExportFormValidation.EXPORT_FORM_ITEM_BATCH_OUT_OF_STOCK);
-    return batch;
+    return stockItem;
   }
 
   private assertIsDraft(form: ExportForm): void {

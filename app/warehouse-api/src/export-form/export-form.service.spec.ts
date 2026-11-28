@@ -24,11 +24,11 @@ import { Inventory } from 'src/inventory/inventory.entity';
 import { InventoryService } from 'src/inventory/inventory.service';
 import { InventoryException } from 'src/inventory/inventory.exception';
 import { InventoryValidation } from 'src/inventory/inventory.validation';
-import { MaterialBatch } from 'src/material-batch/material-batch.entity';
-import { MaterialBatchStatus } from 'src/material-batch/material-batch.constants';
-import { MaterialBatchService } from 'src/material-batch/material-batch.service';
-import { MaterialBatchException } from 'src/material-batch/material-batch.exception';
-import { MaterialBatchValidation } from 'src/material-batch/material-batch.validation';
+import { Item } from 'src/item/item.entity';
+import { ItemStatus } from 'src/item/item.constants';
+import { ItemService } from 'src/item/item.service';
+import { ItemException } from 'src/item/item.exception';
+import { ItemValidation } from 'src/item/item.validation';
 import { CodeGenerateService } from 'src/code-generate/code-generate.service';
 import { CodeType } from 'src/code-generate/code-generate.constants';
 import { TransactionManagerService } from 'src/db/transaction-manager.service';
@@ -47,12 +47,12 @@ describe('ExportFormService', () => {
   const userRepository = { findOneBy: jest.fn() };
   const materialRepository = { find: jest.fn() };
   const inventoryRepository = { find: jest.fn() };
-  const batchRepository = { find: jest.fn() };
+  const itemRepository = { find: jest.fn() };
   const allAssigned = async ({ where }: { where: { material: { id: { value: string[] } } } }) =>
     where.material.id.value.map((id) => ({ material: { id } }));
   const manager = { save: jest.fn(), delete: jest.fn(), findOne: jest.fn(), softRemove: jest.fn() };
   const inventoryService = { issue: jest.fn(), reserve: jest.fn(), release: jest.fn() };
-  const materialBatchService = {
+  const itemService = {
     reserve: jest.fn(),
     consumeReserved: jest.fn(),
     release: jest.fn(),
@@ -80,16 +80,16 @@ describe('ExportFormService', () => {
   const requester = { id: 'u1', slug: 'u1-slug', firstName: 'An', lastName: 'Nguyen' } as User;
   const approver = { id: 'u2', slug: 'u2-slug', firstName: 'Binh', lastName: 'Tran' } as User;
 
-  const stockBatch = (overrides: Partial<MaterialBatch> = {}) =>
+  const stockBatch = (overrides: Partial<Item> = {}) =>
     ({
       id: 'batch-1',
       slug: 'batch-slug',
       expiryDate: '2027-01-01',
-      status: MaterialBatchStatus.InStock,
+      status: ItemStatus.InStock,
       material: cement,
       warehouse,
       ...overrides,
-    }) as MaterialBatch;
+    }) as Item;
 
   const createDto: CreateExportFormRequestDto = {
     type: ExportFormType.Sale,
@@ -139,8 +139,8 @@ describe('ExportFormService', () => {
     transactionManager.execute.mockImplementation(async (onSave) => onSave(manager));
     codeGenerateService.generate.mockResolvedValue(generatedCode);
     inventoryRepository.find.mockImplementation(allAssigned);
-    batchRepository.find.mockResolvedValue([]);
-    materialBatchService.reserve.mockResolvedValue(new Map());
+    itemRepository.find.mockResolvedValue([]);
+    itemService.reserve.mockResolvedValue(new Map());
     // Bản đã khoá (`lockForm`) mặc định khớp phiếu nháp version 1.
     manager.findOne.mockImplementation(async () => draft());
 
@@ -153,11 +153,11 @@ describe('ExportFormService', () => {
         { provide: getRepositoryToken(User), useValue: userRepository },
         { provide: getRepositoryToken(Material), useValue: materialRepository },
         { provide: getRepositoryToken(Inventory), useValue: inventoryRepository },
-        { provide: getRepositoryToken(MaterialBatch), useValue: batchRepository },
+        { provide: getRepositoryToken(Item), useValue: itemRepository },
         { provide: TransactionManagerService, useValue: transactionManager },
         { provide: CodeGenerateService, useValue: codeGenerateService },
         { provide: InventoryService, useValue: inventoryService },
-        { provide: MaterialBatchService, useValue: materialBatchService },
+        { provide: ItemService, useValue: itemService },
         { provide: S3Service, useValue: s3Service },
         { provide: getMapperToken(), useValue: createMapper({ strategyInitializer: classes() }) },
         { provide: WINSTON_MODULE_NEST_PROVIDER, useValue: { log: jest.fn() } },
@@ -204,7 +204,7 @@ describe('ExportFormService', () => {
           conversionRate: 50,
           baseQuantity: 100,
           amount: 800,
-          batch: null,
+          item: null,
         }),
         expect.objectContaining({ lineNo: 2, unit: kg, baseQuantity: 0.5, amount: 5 }),
       ]);
@@ -212,8 +212,8 @@ describe('ExportFormService', () => {
     });
 
     describe('reserves at draft time', () => {
-      const b1 = { id: 'b1', slug: 'b1-slug' } as MaterialBatch;
-      const b2 = { id: 'b2', slug: 'b2-slug' } as MaterialBatch;
+      const b1 = { id: 'b1', slug: 'b1-slug' } as Item;
+      const b2 = { id: 'b2', slug: 'b2-slug' } as Item;
 
       /** Lần lưu dòng đầu tiên cấp `id` (key của `reserve`); phần tách thêm sau đó không có `id`. */
       beforeEach(() => {
@@ -228,25 +228,25 @@ describe('ExportFormService', () => {
       });
 
       it('reserves batches + stock and splits a multi-batch line', async () => {
-        materialBatchService.reserve.mockResolvedValue(
+        itemService.reserve.mockResolvedValue(
           new Map([
             [
               'i1',
               [
-                { batch: b1, baseQuantity: 60 },
-                { batch: b2, baseQuantity: 40 },
+                { item: b1, baseQuantity: 60 },
+                { item: b2, baseQuantity: 40 },
               ],
             ],
-            ['i2', [{ batch: b2, baseQuantity: 0.5 }]],
+            ['i2', [{ item: b2, baseQuantity: 0.5 }]],
           ]),
         );
         const u1 = actor();
 
         const result = await service.createExportForm('wh-slug', createDto, u1);
 
-        expect(materialBatchService.reserve).toHaveBeenCalledWith(manager, 'wh-1', [
-          { key: 'i1', materialId: 'mat-1', baseQuantity: 100, batchId: null },
-          { key: 'i2', materialId: 'mat-1', baseQuantity: 0.5, batchId: null },
+        expect(itemService.reserve).toHaveBeenCalledWith(manager, 'wh-1', [
+          { key: 'i1', materialId: 'mat-1', baseQuantity: 100, itemId: null },
+          { key: 'i2', materialId: 'mat-1', baseQuantity: 0.5, itemId: null },
         ]);
         // Tồn giữ chỗ theo lượng GỐC của dòng (trước khi tách).
         expect(inventoryService.reserve).toHaveBeenCalledWith(
@@ -262,23 +262,23 @@ describe('ExportFormService', () => {
 
         const split: ExportFormItem[] = manager.save.mock.calls[2][0];
         expect(
-          split.map(({ id, lineNo, batch, quantity, baseQuantity, amount }) => ({
+          split.map(({ id, lineNo, item, quantity, baseQuantity, amount }) => ({
             id,
             lineNo,
-            batch: batch?.id,
+            item: item?.id,
             quantity,
             baseQuantity,
             amount,
           })),
         ).toEqual([
-          { id: 'i1', lineNo: 1, batch: 'b1', quantity: 1.2, baseQuantity: 60, amount: 480 },
-          { id: undefined, lineNo: 2, batch: 'b2', quantity: 0.8, baseQuantity: 40, amount: 320 },
-          { id: 'i2', lineNo: 3, batch: 'b2', quantity: 0.5, baseQuantity: 0.5, amount: 5 },
+          { id: 'i1', lineNo: 1, item: 'b1', quantity: 1.2, baseQuantity: 60, amount: 480 },
+          { id: undefined, lineNo: 2, item: 'b2', quantity: 0.8, baseQuantity: 40, amount: 320 },
+          { id: 'i2', lineNo: 3, item: 'b2', quantity: 0.5, baseQuantity: 0.5, amount: 5 },
         ]);
         expect(split[1]).toBeInstanceOf(ExportFormItem);
         expect(split[1]).toMatchObject({ unit: bag, unitPrice: 400, conversionRate: 50 });
         expect(result).toMatchObject({ status: ExportFormStatus.Draft, totalAmount: 805 });
-        expect(result.items?.map((item) => item.batchSlug)).toEqual([
+        expect(result.items?.map((item) => item.itemSlug)).toEqual([
           'b1-slug',
           'b2-slug',
           'b2-slug',
@@ -286,13 +286,13 @@ describe('ExportFormService', () => {
       });
 
       it('the last split piece absorbs rounding so quantity and amount add up exactly', async () => {
-        materialBatchService.reserve.mockResolvedValue(
+        itemService.reserve.mockResolvedValue(
           new Map([
             [
               'i1',
               [
-                { batch: b1, baseQuantity: 16.666667 },
-                { batch: b2, baseQuantity: 33.333333 },
+                { item: b1, baseQuantity: 16.666667 },
+                { item: b2, baseQuantity: 33.333333 },
               ],
             ],
           ]),
@@ -312,13 +312,11 @@ describe('ExportFormService', () => {
       });
 
       it('propagates a batch shortage so the whole draft rolls back', async () => {
-        materialBatchService.reserve.mockRejectedValue(
-          new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT),
-        );
+        itemService.reserve.mockRejectedValue(new ItemException(ItemValidation.ITEM_INSUFFICIENT));
 
         await expectError(
           service.createExportForm('wh-slug', createDto, actor()),
-          MaterialBatchValidation.MATERIAL_BATCH_INSUFFICIENT.code,
+          ItemValidation.ITEM_INSUFFICIENT.code,
         );
         expect(inventoryService.reserve).not.toHaveBeenCalled();
       });
@@ -352,7 +350,7 @@ describe('ExportFormService', () => {
     });
 
     it('allows the same material/unit twice when the batches differ', async () => {
-      batchRepository.find.mockResolvedValue([
+      itemRepository.find.mockResolvedValue([
         stockBatch({ id: 'b1', slug: 'b1' }),
         stockBatch({ id: 'b2', slug: 'b2' }),
       ]);
@@ -360,15 +358,15 @@ describe('ExportFormService', () => {
       const dto = {
         ...createDto,
         items: [
-          { ...line, batchSlug: 'b1' },
-          { ...line, batchSlug: 'b2' },
+          { ...line, itemSlug: 'b1' },
+          { ...line, itemSlug: 'b2' },
         ],
       };
 
       await service.createExportForm('wh-slug', dto, actor());
 
       const items = manager.save.mock.calls[1][0];
-      expect(items.map((item: ExportFormItem) => item.batch?.id)).toEqual(['b1', 'b2']);
+      expect(items.map((item: ExportFormItem) => item.item?.id)).toEqual(['b1', 'b2']);
     });
 
     it('rejects a material not assigned to the warehouse', async () => {
@@ -393,13 +391,13 @@ describe('ExportFormService', () => {
       ],
       [
         'already issued',
-        [stockBatch({ status: MaterialBatchStatus.Issued })],
+        [stockBatch({ status: ItemStatus.Issued })],
         ExportFormValidation.EXPORT_FORM_ITEM_BATCH_OUT_OF_STOCK,
       ],
-    ])('rejects a chosen batch that is %s', async (_, batches, error) => {
+    ])('rejects a chosen batch that is %s', async (_, stockItems, error) => {
       // Lô `RESERVED` vẫn chọn được — đủ phần trống hay không do `reserve` quyết dưới khoá.
-      batchRepository.find.mockResolvedValue(batches);
-      const dto = { ...createDto, items: [{ ...createDto.items[0], batchSlug: 'batch-slug' }] };
+      itemRepository.find.mockResolvedValue(stockItems);
+      const dto = { ...createDto, items: [{ ...createDto.items[0], itemSlug: 'batch-slug' }] };
 
       await expectError(service.createExportForm('wh-slug', dto, actor()), error.code);
       expect(manager.save).not.toHaveBeenCalled();
@@ -452,13 +450,13 @@ describe('ExportFormService', () => {
         expect.objectContaining({ receiver: 'Xuong B', purchaseOrder: 'PO-1', code: 'PX-0001' }),
       );
       expect(manager.delete).not.toHaveBeenCalled();
-      expect(materialBatchService.release).not.toHaveBeenCalled();
-      expect(materialBatchService.reserve).not.toHaveBeenCalled();
+      expect(itemService.release).not.toHaveBeenCalled();
+      expect(itemService.reserve).not.toHaveBeenCalled();
       expect(result.items).toHaveLength(1);
     });
 
     it('replaces every line: releases the old reservation, then reserves the new lines', async () => {
-      const old = { id: 'old-1', material: cement, baseQuantity: 5, batch: stockBatch() };
+      const old = { id: 'old-1', material: cement, baseQuantity: 5, item: stockBatch() };
       exportFormRepository.findOne.mockResolvedValue(
         draft({ items: [old] as unknown as ExportFormItem[] }),
       );
@@ -476,8 +474,8 @@ describe('ExportFormService', () => {
         where: { id: 'form-1' },
         lock: { mode: 'pessimistic_write' },
       });
-      expect(materialBatchService.release).toHaveBeenCalledWith(manager, 'wh-1', [
-        { key: 'old-1', materialId: 'mat-1', baseQuantity: 5, batchId: 'batch-1' },
+      expect(itemService.release).toHaveBeenCalledWith(manager, 'wh-1', [
+        { key: 'old-1', materialId: 'mat-1', baseQuantity: 5, itemId: 'batch-1' },
       ]);
       expect(inventoryService.release).toHaveBeenCalledWith(
         manager,
@@ -487,11 +485,11 @@ describe('ExportFormService', () => {
         'Export form PX-0001 lines replaced',
       );
       expect(manager.delete).toHaveBeenCalledWith(ExportFormItem, ['old-1']);
-      expect(materialBatchService.reserve).toHaveBeenCalledWith(manager, 'wh-1', [
-        expect.objectContaining({ materialId: 'mat-1', baseQuantity: 100, batchId: null }),
+      expect(itemService.reserve).toHaveBeenCalledWith(manager, 'wh-1', [
+        expect.objectContaining({ materialId: 'mat-1', baseQuantity: 100, itemId: null }),
       ]);
-      expect(materialBatchService.release.mock.invocationCallOrder[0]).toBeLessThan(
-        materialBatchService.reserve.mock.invocationCallOrder[0],
+      expect(itemService.release.mock.invocationCallOrder[0]).toBeLessThan(
+        itemService.reserve.mock.invocationCallOrder[0],
       );
       expect(manager.save.mock.calls[0][0]).toMatchObject({ totalAmount: 800 });
     });
@@ -509,7 +507,7 @@ describe('ExportFormService', () => {
           actor([AuthorityCode.ExportFormUpdateDraft]),
         ),
       ).rejects.toBeInstanceOf(OptimisticLockVersionMismatchError);
-      expect(materialBatchService.reserve).not.toHaveBeenCalled();
+      expect(itemService.reserve).not.toHaveBeenCalled();
       expect(manager.save).not.toHaveBeenCalled();
     });
 
@@ -591,7 +589,7 @@ describe('ExportFormService', () => {
         unit: bag,
         unitCode: 'BAO',
         unitName: 'Bao',
-        batch: stockBatch(),
+        item: stockBatch(),
         quantity: 2,
         conversionRate: 50,
         baseQuantity: 100,
@@ -607,7 +605,7 @@ describe('ExportFormService', () => {
       expect(exportFormRepository.findAndCount).toHaveBeenCalledWith(
         expect.objectContaining({
           relations: expect.objectContaining({
-            items: { material: true, unit: true, batch: true },
+            items: { material: true, unit: true, item: true },
           }),
           order: expect.objectContaining({ items: { lineNo: 'ASC' } }),
         }),
@@ -617,7 +615,7 @@ describe('ExportFormService', () => {
           lineNo: 1,
           materialSlug: 'cement',
           unitSlug: 'bag',
-          batchSlug: 'batch-slug',
+          itemSlug: 'batch-slug',
           quantity: 2,
           amount: 800,
         }),
@@ -627,14 +625,14 @@ describe('ExportFormService', () => {
 
   describe('deleteExportForm', () => {
     it('gives the reservation back and soft removes a DRAFT the user may delete', async () => {
-      const line = { id: 'i1', material: cement, baseQuantity: 5, batch: stockBatch() };
+      const line = { id: 'i1', material: cement, baseQuantity: 5, item: stockBatch() };
       const form = draft({ items: [line] as unknown as ExportFormItem[] });
       exportFormRepository.findOne.mockResolvedValue(form);
       const u = actor([AuthorityCode.ExportFormDeleteDraft]);
 
       await expect(service.deleteExportForm('wh-slug', 'form-slug', u)).resolves.toBe(1);
-      expect(materialBatchService.release).toHaveBeenCalledWith(manager, 'wh-1', [
-        { key: 'i1', materialId: 'mat-1', baseQuantity: 5, batchId: 'batch-1' },
+      expect(itemService.release).toHaveBeenCalledWith(manager, 'wh-1', [
+        { key: 'i1', materialId: 'mat-1', baseQuantity: 5, itemId: 'batch-1' },
       ]);
       expect(inventoryService.release).toHaveBeenCalledWith(
         manager,
@@ -655,8 +653,8 @@ describe('ExportFormService', () => {
   });
 
   describe('submit / confirm / cancel', () => {
-    const b1 = { id: 'b1', slug: 'b1-slug', expiryDate: '2026-11-01' } as MaterialBatch;
-    const b2 = { id: 'b2', slug: 'b2-slug', expiryDate: '2027-01-01' } as MaterialBatch;
+    const b1 = { id: 'b1', slug: 'b1-slug', expiryDate: '2026-11-01' } as Item;
+    const b2 = { id: 'b2', slug: 'b2-slug', expiryDate: '2027-01-01' } as Item;
     const lineA = () =>
       ({
         id: 'i1',
@@ -672,7 +670,7 @@ describe('ExportFormService', () => {
         baseQuantity: 150,
         unitPrice: 100.01,
         amount: 300.03,
-        batch: null,
+        item: null,
       }) as unknown as ExportFormItem;
     const lineB = () =>
       ({
@@ -685,7 +683,7 @@ describe('ExportFormService', () => {
         baseQuantity: 5,
         unitPrice: 2,
         amount: 10,
-        batch: b2,
+        item: b2,
       }) as unknown as ExportFormItem;
 
     const pending = (overrides: Partial<ExportForm> = {}) =>
@@ -699,7 +697,7 @@ describe('ExportFormService', () => {
 
     describe('submit (DRAFT -> PENDING)', () => {
       it('only flips the status: the draft already holds its batches and stock', async () => {
-        const a = { ...lineA(), batch: b1 } as ExportFormItem;
+        const a = { ...lineA(), item: b1 } as ExportFormItem;
         const b = lineB();
         exportFormRepository.findOne.mockResolvedValue(draft({ items: [a, b] }));
 
@@ -710,11 +708,11 @@ describe('ExportFormService', () => {
           owner(),
         );
 
-        expect(materialBatchService.reserve).not.toHaveBeenCalled();
+        expect(itemService.reserve).not.toHaveBeenCalled();
         expect(inventoryService.reserve).not.toHaveBeenCalled();
         expect(manager.save.mock.calls.some(([arg]) => Array.isArray(arg))).toBe(false);
         expect(result).toMatchObject({ status: ExportFormStatus.Pending, approverSlug: null });
-        expect(result.items?.map((item) => item.batchSlug)).toEqual(['b1-slug', 'b2-slug']);
+        expect(result.items?.map((item) => item.itemSlug)).toEqual(['b1-slug', 'b2-slug']);
       });
 
       it('needs the update-draft authority (or _OWN on own form)', async () => {
@@ -790,19 +788,19 @@ describe('ExportFormService', () => {
       beforeEach(() => manager.findOne.mockImplementation(async () => pending()));
 
       it('takes the reserved batches and reserved stock, without re-picking or splitting', async () => {
-        const a = { ...lineA(), batch: b1 } as ExportFormItem;
+        const a = { ...lineA(), item: b1 } as ExportFormItem;
         const b = lineB();
         exportFormRepository.findOne.mockResolvedValue(pending({ items: [a, b] }));
         const u2 = actor([], 'u2');
 
         const result = await service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, u2);
 
-        expect(materialBatchService.consumeReserved).toHaveBeenCalledWith(
+        expect(itemService.consumeReserved).toHaveBeenCalledWith(
           manager,
           'wh-1',
           [
-            { key: 'i1', materialId: 'mat-1', baseQuantity: 150, batchId: 'b1' },
-            { key: 'i2', materialId: 'mat-1', baseQuantity: 5, batchId: 'b2' },
+            { key: 'i1', materialId: 'mat-1', baseQuantity: 150, itemId: 'b1' },
+            { key: 'i2', materialId: 'mat-1', baseQuantity: 5, itemId: 'b2' },
           ],
           ExportFormType.Sale,
         );
@@ -817,7 +815,7 @@ describe('ExportFormService', () => {
           'Export form PX-0001',
           { fromReserved: true },
         );
-        expect(materialBatchService.reserve).not.toHaveBeenCalled();
+        expect(itemService.reserve).not.toHaveBeenCalled();
         expect(manager.save.mock.calls.some(([arg]) => Array.isArray(arg))).toBe(false);
         expect(result).toMatchObject({
           status: ExportFormStatus.Confirmed,
@@ -879,8 +877,8 @@ describe('ExportFormService', () => {
             actor([AuthorityCode.ExportFormConfirm, AuthorityCode.ExportFormApproveDisposal], 'u2'),
           ),
         ).resolves.toMatchObject({ status: ExportFormStatus.Confirmed });
-        // Lô xuất hết của phiếu huỷ ⇒ `DISPOSED` (`MaterialBatchService` quyết theo `type`).
-        expect(materialBatchService.consumeReserved).toHaveBeenCalledWith(
+        // Lô xuất hết của phiếu huỷ ⇒ `DISPOSED` (`ItemService` quyết theo `type`).
+        expect(itemService.consumeReserved).toHaveBeenCalledWith(
           manager,
           'wh-1',
           [],
@@ -914,13 +912,13 @@ describe('ExportFormService', () => {
 
       it('propagates a reserved-batch mismatch so the transaction rolls back', async () => {
         exportFormRepository.findOne.mockResolvedValue(pending({ items: [lineB()] }));
-        materialBatchService.consumeReserved.mockRejectedValue(
-          new MaterialBatchException(MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID),
+        itemService.consumeReserved.mockRejectedValue(
+          new ItemException(ItemValidation.ITEM_RESERVED_INVALID),
         );
 
         await expectError(
           service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
-          MaterialBatchValidation.MATERIAL_BATCH_RESERVED_INVALID.code,
+          ItemValidation.ITEM_RESERVED_INVALID.code,
         );
         expect(inventoryService.issue).not.toHaveBeenCalled();
         expect(manager.save).not.toHaveBeenCalled();
@@ -934,7 +932,7 @@ describe('ExportFormService', () => {
           service.confirmExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
           ExportFormValidation.EXPORT_FORM_NOT_PENDING.code,
         );
-        expect(materialBatchService.consumeReserved).not.toHaveBeenCalled();
+        expect(itemService.consumeReserved).not.toHaveBeenCalled();
       });
     });
 
@@ -945,8 +943,8 @@ describe('ExportFormService', () => {
 
         const result = await service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, u2);
 
-        expect(materialBatchService.release).toHaveBeenCalledWith(manager, 'wh-1', [
-          { key: 'i2', materialId: 'mat-1', baseQuantity: 5, batchId: 'b2' },
+        expect(itemService.release).toHaveBeenCalledWith(manager, 'wh-1', [
+          { key: 'i2', materialId: 'mat-1', baseQuantity: 5, itemId: 'b2' },
         ]);
         expect(inventoryService.release).toHaveBeenCalledWith(
           manager,
@@ -965,8 +963,8 @@ describe('ExportFormService', () => {
 
         const result = await service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, u2);
 
-        expect(materialBatchService.release).toHaveBeenCalledWith(manager, 'wh-1', [
-          { key: 'i2', materialId: 'mat-1', baseQuantity: 5, batchId: 'b2' },
+        expect(itemService.release).toHaveBeenCalledWith(manager, 'wh-1', [
+          { key: 'i2', materialId: 'mat-1', baseQuantity: 5, itemId: 'b2' },
         ]);
         expect(inventoryService.release).toHaveBeenCalledWith(
           manager,
@@ -1008,7 +1006,7 @@ describe('ExportFormService', () => {
           service.cancelExportForm('wh-slug', 'form-slug', { version: 1 }, actor([], 'u2')),
           ExportFormValidation.EXPORT_FORM_CANNOT_BE_CANCELLED.code,
         );
-        expect(materialBatchService.release).not.toHaveBeenCalled();
+        expect(itemService.release).not.toHaveBeenCalled();
       });
     });
   });
